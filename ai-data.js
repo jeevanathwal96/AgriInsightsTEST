@@ -189,7 +189,8 @@
         budgets:    bud.data || [],
         recurring:  (rec.data || []).map(r => ({
           id: r.id, name: r.name, type: r.type, amt: Number(r.amount),
-          freq: r.frequency, cat: catToCode(r.category_id),
+          freq: r.frequency, category: catToCode(r.category_id),
+          months: r.months || undefined,
           accountId: r.account_id, nextDate: r.next_date, active: r.active
         }))
       };
@@ -248,11 +249,28 @@
       await ensureCats();
       const { data, error } = await client().from('recurring').insert({
         farm_id: farm.active(), name: r.name, type: r.type, amount: Number(r.amt),
-        frequency: r.freq, category_id: catToId(r.cat),
-        account_id: r.accountId || null, next_date: r.nextDate || null
+        frequency: r.freq, category_id: catToId(r.category || r.cat),
+        account_id: r.accountId || null, next_date: r.nextDate || null,
+        months: r.months || null
       }).select().single();
       if (error) throw error;
       return data;
+    },
+    async update(id, r) {
+      await ensureCats();
+      const { data, error } = await client().from('recurring').update({
+        name: r.name, type: r.type, amount: Number(r.amt),
+        frequency: r.freq, category_id: catToId(r.category || r.cat),
+        account_id: r.accountId || null, next_date: r.nextDate || null,
+        months: r.months || null
+      }).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async remove(id) {
+      const { error } = await client().from('recurring').delete().eq('id', id);
+      if (error) throw error;
+      return true;
     }
   };
 

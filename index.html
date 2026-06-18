@@ -10356,6 +10356,7 @@ function saveSale() {
         if (ST.saleFreq === 'Monthly') { rrec.freq = 'monthly'; }
         else { rrec.freq = 'specific'; var rpd = parseDate(dateStr); rrec.months = [rpd ? rpd.m : new Date().getMonth()]; }
         ST.recurring.push(rrec);
+        try { if (window.AI && AI.farm && AI.farm.active()) { AI.recurring.add(rrec).then(function(s){ if(s && s.id) rrec.id = s.id; }).catch(function(e){ console.error('Backend recurring save failed:', e); }); } } catch(e){}
         dataChanged('recurring');
         toast('Added to your recurring items \u2014 the Money Flow forecast knows about it now.', 'info');
       }
@@ -10572,6 +10573,7 @@ function saveExpense() {
         if (ST.expFreq === 'Monthly') { erec.freq = 'monthly'; }
         else { erec.freq = 'specific'; var epd = parseDate(dateStr); erec.months = [epd ? epd.m : new Date().getMonth()]; }
         ST.recurring.push(erec);
+        try { if (window.AI && AI.farm && AI.farm.active()) { AI.recurring.add(erec).then(function(s){ if(s && s.id) erec.id = s.id; }).catch(function(e){ console.error('Backend recurring save failed:', e); }); } } catch(e){}
         dataChanged('recurring');
         toast('Added to your recurring items \u2014 the Money Flow forecast knows about it now.', 'info');
       }
