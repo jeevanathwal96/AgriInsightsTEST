@@ -99,9 +99,19 @@
     }).then(function () {
       return AI.load.financeCore(AI.farm.active());
     }).then(function (core) {
-      // Replace the app's working transactions with the farm's real data.
-      // (Budgets / recurring get wired in a later step.)
+      // Replace the app's working data with the farm's real data.
       if (window.ST) { ST.txns = core.txns || []; ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; ST.firstRun = false; }
+      // Load the asset register before first render (dashboard net-worth uses it).
+      return AI.load.assets(AI.farm.active()).then(function (assets) {
+        try {
+          if (window.ST_ASSETS && assets) {
+            assets.forEach(function (a, i) { a.id = i + 1; });
+            ST_ASSETS.assets = assets;
+            ST_ASSETS.nextId = assets.length + 1;
+          }
+        } catch (e) { console.error('Asset hydrate failed:', e); }
+      }).catch(function (e) { console.error('Asset load failed:', e); });
+    }).then(function () {
       // Signed-in users skip the app's first-run onboarding wizard.
       try {
         var ov = document.getElementById('ob-overlay');

@@ -12001,10 +12001,13 @@ function saveAsset() {
   var editIdx = parseInt($('ast-edit-idx')&&$('ast-edit-idx').value);
   if(editIdx >= 0 && editIdx < ST_ASSETS.assets.length) {
     entry.id = ST_ASSETS.assets[editIdx].id;
+    entry._aiId = ST_ASSETS.assets[editIdx]._aiId;
     ST_ASSETS.assets[editIdx] = entry;
+    try { if (window.AI && AI.farm && AI.farm.active() && entry._aiId) { AI.asset.update(entry._aiId, entry).catch(function(e){ console.error('Backend asset update failed:', e); }); } } catch(e){}
     toast(name+' updated','success');
   } else {
     ST_ASSETS.assets.push(entry);
+    try { if (window.AI && AI.farm && AI.farm.active()) { AI.asset.add(entry).then(function(row){ if(row) entry._aiId = row.id; }).catch(function(e){ console.error('Backend asset add failed:', e); }); } } catch(e){}
     toast(name+' added to register','success');
   }
   closeAddAsset();
@@ -12013,7 +12016,9 @@ function saveAsset() {
 function deleteAsset(idx) {
   if(idx<0||idx>=ST_ASSETS.assets.length) return;
   var name = ST_ASSETS.assets[idx].name;
+  var _aid = ST_ASSETS.assets[idx]._aiId;
   ST_ASSETS.assets.splice(idx,1);
+  try { if (window.AI && AI.farm && AI.farm.active() && _aid) { AI.asset.remove(_aid).catch(function(e){ console.error('Backend asset delete failed:', e); }); } } catch(e){}
   renderAssets();
   toast(name+' removed','info');
 }
@@ -18786,9 +18791,19 @@ function applyBudgetPattern(side) {
   var fy     = getCurrentFY();
   var months = getFYMonths(fy);
   var target = side === 'in' ? ST.budgets.monthlyIncome : ST.budgets.monthlyExpenses;
-  months.forEach(function(m, i) {
-    target[m] = Math.round(annual * rates[i]);
-  });
+  // Normalise the pattern (some tables don't sum to exactly 1.0) so the full
+  // annual amount is distributed, then hand the rounding remainder to the
+  // largest month so the 12 months total EXACTLY what the farmer entered.
+  var rateSum = 0; for (var ri = 0; ri < months.length; ri++) rateSum += (rates[ri] || 0);
+  if (!rateSum) rateSum = 1;
+  var annualR = Math.round(annual);
+  var vals = months.map(function(m, i){ return Math.round(annual * (rates[i] || 0) / rateSum); });
+  var diff = annualR - vals.reduce(function(s, v){ return s + v; }, 0);
+  if (diff !== 0) {
+    var big = 0; for (var bi = 1; bi < vals.length; bi++) { if (vals[bi] > vals[big]) big = bi; }
+    vals[big] += diff;
+  }
+  months.forEach(function(m, i) { target[m] = vals[i]; });
   dataChanged('budget');
 }
 

@@ -205,6 +205,12 @@
           accountId: r.account_id, nextDate: r.next_date, active: r.active
         }))
       };
+    },
+    async assets(farmId) {
+      farmId = farmId || farm.active();
+      const { data, error } = await client().from('assets').select('*').eq('farm_id', farmId).order('created_at');
+      if (error) throw error;
+      return (data || []).map(assetToApp);
     }
   };
 
@@ -304,8 +310,60 @@
     }
   };
 
+  // ---- ASSETS --------------------------------------------------------------
+  function assetToDb(a) {
+    return {
+      name: a.name, category: a.cat || null, subtype: a.subtype || null,
+      purchase_date: a.date || null, price: Number(a.price) || 0,
+      depr_type: a.deprType || null,
+      life_years: (a.life != null && a.life !== '') ? parseInt(a.life, 10) : null,
+      notes: a.notes || null,
+      financed: !!a.financed, lender: a.lender || null,
+      outstanding: (a.outstanding != null && a.outstanding !== '') ? Number(a.outstanding) : null,
+      instalment: (a.instalment != null && a.instalment !== '') ? Number(a.instalment) : null,
+      rate: (a.rate != null && a.rate !== '') ? Number(a.rate) : null,
+      insured_value: (a.insuredValue != null && a.insuredValue !== '') ? Number(a.insuredValue) : null,
+      insurer: a.insurer || null, renewal_date: a.renewalDate || null,
+      docs: a.docs || null
+    };
+  }
+  function assetToApp(r) {
+    var a = {
+      _aiId: r.id, name: r.name, cat: r.category, subtype: r.subtype || '',
+      date: r.purchase_date || '', price: Number(r.price) || 0,
+      deprType: r.depr_type || 'none', life: (r.life_years != null ? r.life_years : 0),
+      notes: r.notes || '', docs: r.docs || []
+    };
+    a.financed = !!r.financed;
+    if (r.financed) { a.lender = r.lender || ''; a.outstanding = Number(r.outstanding) || 0; a.instalment = Number(r.instalment) || 0; a.rate = Number(r.rate) || 0; }
+    if (r.insured_value != null) a.insuredValue = Number(r.insured_value);
+    if (r.insurer) a.insurer = r.insurer;
+    if (r.renewal_date) a.renewalDate = r.renewal_date;
+    return a;
+  }
+  const asset = {
+    async add(a) {
+      const { data, error } = await client().from('assets')
+        .insert(Object.assign({ farm_id: farm.active() }, assetToDb(a))).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async update(id, a) {
+      if (!id) return;
+      const { error } = await client().from('assets').update(assetToDb(a)).eq('id', id);
+      if (error) throw error;
+      return true;
+    },
+    async remove(id) {
+      if (!id) return;
+      const { error } = await client().from('assets').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    }
+  };
+
   // ---- EXPORT --------------------------------------------------------------
-  global.AI = { init: client, auth, farm, load, txn, account, budget, recurring,
+  global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
 })(window);
