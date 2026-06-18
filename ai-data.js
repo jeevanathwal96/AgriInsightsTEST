@@ -36,7 +36,10 @@
   // ---- 1. CONFIG (fill these in) -------------------------------------------
   const SUPABASE_URL      = 'https://wiyfuxbftbitnbuzencv.supabase.co';
   const SUPABASE_ANON_KEY = 'sb_publishable_-nl0FU9CplFIPpJ_UBXEJg_awromv5n'; // publishable (public) key
-  const APP_URL           = 'https://jeevanathwal96.github.io/AgriInsights/'; // magic-link return
+  // Magic-link return: derived from wherever the app is served (live OR test),
+  // so the same file works on both without editing.
+  const APP_URL = window.location.origin +
+                  window.location.pathname.replace(/[^/]*$/, '');
 
   const ACTIVE_FARM_KEY = 'ai_active_farm';
 
