@@ -119,6 +119,7 @@
   }
   const catToId   = code => (code == null ? null : (catMaps.code2id[code] || null));
   const catToCode = id   => (id   == null ? null : (catMaps.id2code[id]   || null));
+  async function ensureCats() { if (!catMaps.list.length) await loadCats(farm.active()); }
 
   // ---- 5. SHAPE MAPPING (app txn <-> db row) -------------------------------
   function appToDb(t, farmId) {
@@ -184,6 +185,7 @@
   const txn = {
     async add(t) {
       const farmId = farm.active();
+      await ensureCats();
       const { data, error } = await client()
         .from('transactions').insert(appToDb(t, farmId)).select().single();
       if (error) throw error;
@@ -191,6 +193,7 @@
     },
     async update(id, t) {
       const farmId = farm.active();
+      await ensureCats();
       const { data, error } = await client()
         .from('transactions').update(appToDb(t, farmId)).eq('id', id).select().single();
       if (error) throw error;
@@ -216,6 +219,7 @@
   };
   const budget = {
     async upsert(b) {
+      await ensureCats();
       const { data, error } = await client().from('budgets').upsert({
         farm_id: farm.active(), category_id: catToId(b.cat),
         period_year: b.year, period_month: b.month || null, amount: Number(b.amount)
@@ -226,6 +230,7 @@
   };
   const recurring = {
     async add(r) {
+      await ensureCats();
       const { data, error } = await client().from('recurring').insert({
         farm_id: farm.active(), name: r.name, type: r.type, amount: Number(r.amt),
         frequency: r.freq, category_id: catToId(r.cat),
