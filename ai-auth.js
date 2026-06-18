@@ -101,7 +101,12 @@
     }).then(function (core) {
       // Replace the app's working transactions with the farm's real data.
       // (Budgets / recurring get wired in a later step.)
-      if (window.ST) { ST.txns = core.txns || []; }
+      if (window.ST) { ST.txns = core.txns || []; ST.firstRun = false; }
+      // Signed-in users skip the app's first-run onboarding wizard.
+      try {
+        var ov = document.getElementById('ob-overlay');
+        if (ov) ov.style.display = 'none';
+      } catch (e) {}
       try {
         if (typeof nav === 'function') nav('dashboard');
         else if (typeof updateDashboardFigures === 'function') updateDashboardFigures();
