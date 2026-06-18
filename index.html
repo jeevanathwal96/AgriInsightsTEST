@@ -10339,6 +10339,13 @@ function saveSale() {
       return d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
     })() : 'Today';
     ST.txns.unshift({date:dateStr, desc:desc, cat:cat, type:'income', amt:amt, method:method, source:'Income form', qty:sqty||undefined, unit:(sqty&&sunit)?sunit:undefined});
+    // Backend write-through (fire-and-forget; local save above is unchanged)
+    try {
+      if (window.AI && AI.farm && AI.farm.active()) {
+        AI.txn.add({ date: (date && date !== 'Today' ? date : new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'income', desc: desc, method: method, qty: sqty||undefined, unit: (sqty&&sunit)?sunit:undefined, source: 'Income form' })
+          .catch(function(e){ console.error('Backend save failed:', e); });
+      }
+    } catch(e){}
     if (ST.saleFreq === 'Monthly' || ST.saleFreq === 'Yearly') {
       ST.recurring = ST.recurring || [];
       var rdup = ST.recurring.some(function(r){ return r.type === 'income' && r.name === desc && r.amt === Math.round(amt); });
@@ -10539,7 +10546,7 @@ function saveExpense() {
       // Backend write-through (fire-and-forget; local save above is unchanged)
       try {
         if (window.AI && AI.farm && AI.farm.active()) {
-          AI.txn.add({ date: (date || new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'expense', desc: desc, method: method })
+          AI.txn.add({ date: (date || new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'expense', desc: desc, method: method, qty: qty||undefined, unit: (qty&&unit)?unit:undefined, ent: entB||undefined, source: 'Expense form' })
             .catch(function(e){ console.error('Backend save failed:', e); });
         }
       } catch(e){}

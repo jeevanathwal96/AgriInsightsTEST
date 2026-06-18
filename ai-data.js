@@ -133,7 +133,11 @@
       description:    t.desc || null,
       payment_method: t.method || null,             // 'Cash' | 'Card' | 'EFT'
       reference:      t.ref || null,
-      note:           t.note || null
+      note:           t.note || null,
+      quantity:       (t.qty != null && t.qty !== '') ? Number(t.qty) : null,
+      unit:           t.unit || null,
+      enterprise:     t.ent || null,
+      source:         t.source || null
     };
   }
   function dbToApp(r) {
@@ -149,7 +153,11 @@
       note:     r.note || '',
       accountId: r.account_id || null,
       recur:    r.recurring_id || null,
-      batch:    r.import_batch_id || null
+      batch:    r.import_batch_id || null,
+      qty:      (r.quantity != null) ? Number(r.quantity) : undefined,
+      unit:     r.unit || undefined,
+      ent:      r.enterprise || undefined,
+      source:   r.source || undefined
     };
   }
 
