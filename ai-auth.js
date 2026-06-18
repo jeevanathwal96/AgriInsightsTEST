@@ -101,8 +101,12 @@
     }).then(function (core) {
       // Replace the app's working data with the farm's real data.
       if (window.ST) { ST.txns = core.txns || []; ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; ST.firstRun = false; }
-      // Load the asset register before first render (dashboard net-worth uses it).
-      return AI.load.assets(AI.farm.active()).then(function (assets) {
+      // Load the asset register + loans before first render (net-worth uses them).
+      return Promise.all([
+        AI.load.assets(AI.farm.active()),
+        AI.load.loans(AI.farm.active())
+      ]).then(function (res) {
+        var assets = res[0], loanData = res[1];
         try {
           if (window.ST_ASSETS && assets) {
             assets.forEach(function (a, i) { a.id = i + 1; });
@@ -110,7 +114,14 @@
             ST_ASSETS.nextId = assets.length + 1;
           }
         } catch (e) { console.error('Asset hydrate failed:', e); }
-      }).catch(function (e) { console.error('Asset load failed:', e); });
+        try {
+          if (window.ST_LOANS && loanData) {
+            ST_LOANS.loans = loanData.loans || [];
+            ST_LOANS.overdrafts = loanData.overdrafts || [];
+            ST_LOANS.coopAccounts = loanData.coopAccounts || [];
+          }
+        } catch (e) { console.error('Loan hydrate failed:', e); }
+      }).catch(function (e) { console.error('Asset/loan load failed:', e); });
     }).then(function () {
       // Signed-in users skip the app's first-run onboarding wizard.
       try {

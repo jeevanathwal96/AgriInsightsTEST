@@ -10707,6 +10707,7 @@ function lnConfirmBox(variant){
 }
 
 function renderLoans(){
+  try { if (window.AI && AI.farm && AI.farm.active() && window.ST_LOANS) { AI.loans.saveAll(ST_LOANS).catch(function(e){ console.error('Backend loans save failed:', e); }); } } catch(e){}
   var body=$('loans-body'); if(!body) return;
   var tab=ST_LOANS.activeTab||'glance';
   var h='<div class="ln-tabs" id="ln-tabstrip">'+
@@ -11179,6 +11180,7 @@ function lnSaveOverdraft(){
 }
 function lnRemoveOverdraft(id){
   ST_LOANS.overdrafts=(ST_LOANS.overdrafts||[]).filter(function(o){return o.id!==id;});
+  try { if (window.AI && AI.farm && AI.farm.active()) { AI.loans.remove('overdrafts', id).catch(function(e){ console.error('Backend overdraft delete failed:', e); }); } } catch(e){}
   if(LN_OD_UI&&LN_OD_UI[id]) delete LN_OD_UI[id];
   LN_OD_EDIT_ID=null; saveState(); toast('Overdraft removed','success'); ST_LOANS.activeTab='myloans'; renderLoans();
 }
@@ -11307,6 +11309,7 @@ function lnSaveCoopAcct(){
 }
 function lnRemoveCoopAcct(id){
   ST_LOANS.coopAccounts=(ST_LOANS.coopAccounts||[]).filter(function(o){return o.id!==id;});
+  try { if (window.AI && AI.farm && AI.farm.active()) { AI.loans.remove('coop_accounts', id).catch(function(e){ console.error('Backend co-op delete failed:', e); }); } } catch(e){}
   if(LN_OD_UI&&LN_OD_UI[id]) delete LN_OD_UI[id];
   LN_CO_EDIT_ID=null; LN_ADD_KIND='loan'; saveState(); toast('Co-op account removed','success'); ST_LOANS.activeTab='myloans'; renderLoans();
 }
