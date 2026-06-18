@@ -119,6 +119,7 @@
             ST_LOANS.loans = loanData.loans || [];
             ST_LOANS.overdrafts = loanData.overdrafts || [];
             ST_LOANS.coopAccounts = loanData.coopAccounts || [];
+            ST_LOANS.archived = loanData.archived || [];
           }
         } catch (e) { console.error('Loan hydrate failed:', e); }
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });

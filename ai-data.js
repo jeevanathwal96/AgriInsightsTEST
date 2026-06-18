@@ -220,11 +220,11 @@
         client().from('coop_accounts').select('*').eq('farm_id', farmId).order('created_at')
       ]);
       for (const r of [l, o, c]) if (r.error) throw r.error;
-      return {
-        loans:        (l.data || []).map(loanFromDb),
-        overdrafts:   (o.data || []).map(odFromDb),
-        coopAccounts: (c.data || []).map(coopFromDb)
-      };
+      const out = { loans: [], overdrafts: [], coopAccounts: [], archived: [] };
+      (l.data || []).forEach(function (r) { var m = loanFromDb(r); if (r.archived) { m._kind = 'loan'; m.archived = true; out.archived.push(m); } else out.loans.push(m); });
+      (o.data || []).forEach(function (r) { var m = odFromDb(r); if (r.archived) { m._kind = 'overdraft'; m.archived = true; out.archived.push(m); } else out.overdrafts.push(m); });
+      (c.data || []).forEach(function (r) { var m = coopFromDb(r); if (r.archived) { m._kind = 'coop'; m.archived = true; out.archived.push(m); } else out.coopAccounts.push(m); });
+      return out;
     }
   };
 
@@ -383,7 +383,7 @@
     return { local_id: l.id, icon: l.icon || null, name: l.name || null, lender: l.lender || null,
       type: l.type || null, borrowed: Number(l.borrowed) || 0, balance: Number(l.balance) || 0,
       rate: Number(l.rate) || 0, payment: Number(l.payment) || 0, next_label: l.next || null,
-      funds_for: l.fundsFor || null };
+      funds_for: l.fundsFor || null, archived: !!l.archived };
   }
   function loanFromDb(r) {
     return { id: r.local_id, icon: r.icon || '\uD83C\uDFE6', name: r.name || '', lender: r.lender || '',
@@ -395,7 +395,7 @@
     return { local_id: o.id, icon: o.icon || null, name: o.name || null, lender: o.lender || null,
       credit_limit: Number(o.limit) || 0, used: Number(o.used) || 0, rate_mode: o.rateMode || 'prime',
       prime: Number(o.prime) || 0, margin: Number(o.margin) || 0, flat_rate: Number(o.flatRate) || 0,
-      funds_for: o.fundsFor || null };
+      funds_for: o.fundsFor || null, archived: !!o.archived };
   }
   function odFromDb(r) {
     return { id: r.local_id, icon: r.icon || '\uD83C\uDFE6', name: r.name || '', lender: r.lender || '',
@@ -407,7 +407,7 @@
     return { local_id: o.id, icon: o.icon || null, name: o.name || null, coop: o.coop || null,
       lender: o.lender || null, credit_limit: Number(o.limit) || 0, used: Number(o.used) || 0,
       rate_mode: o.rateMode || 'prime', prime: Number(o.prime) || 0, margin: Number(o.margin) || 0,
-      flat_rate: Number(o.flatRate) || 0, funds_for: o.fundsFor || null };
+      flat_rate: Number(o.flatRate) || 0, funds_for: o.fundsFor || null, archived: !!o.archived };
   }
   function coopFromDb(r) {
     return { id: r.local_id, icon: r.icon || '\uD83C\uDF3E', name: r.name || '', coop: r.coop || '',
@@ -421,11 +421,20 @@
     async saveAll(st) {
       if (!st) return;
       const fid = farm.active(); if (!fid) return;
-      const snap = JSON.stringify({ l: st.loans, o: st.overdrafts, c: st.coopAccounts });
+      const snap = JSON.stringify({ l: st.loans, o: st.overdrafts, c: st.coopAccounts, a: st.archived });
       if (snap === _loanSnap) return;
-      const lRows = (st.loans || []).map(function (l) { return Object.assign({ farm_id: fid }, loanToDb(l)); });
-      const oRows = (st.overdrafts || []).map(function (o) { return Object.assign({ farm_id: fid }, odToDb(o)); });
-      const cRows = (st.coopAccounts || []).map(function (o) { return Object.assign({ farm_id: fid }, coopToDb(o)); });
+      const lList = (st.loans || []).slice();
+      const oList = (st.overdrafts || []).slice();
+      const cList = (st.coopAccounts || []).slice();
+      (st.archived || []).forEach(function (it) {
+        var k = it._kind || 'loan';
+        if (k === 'overdraft') oList.push(it);
+        else if (k === 'coop') cList.push(it);
+        else lList.push(it);
+      });
+      const lRows = lList.map(function (l) { return Object.assign({ farm_id: fid }, loanToDb(l)); });
+      const oRows = oList.map(function (o) { return Object.assign({ farm_id: fid }, odToDb(o)); });
+      const cRows = cList.map(function (o) { return Object.assign({ farm_id: fid }, coopToDb(o)); });
       if (lRows.length) { const e = (await client().from('loans').upsert(lRows, { onConflict: 'farm_id,local_id' })).error; if (e) throw e; }
       if (oRows.length) { const e = (await client().from('overdrafts').upsert(oRows, { onConflict: 'farm_id,local_id' })).error; if (e) throw e; }
       if (cRows.length) { const e = (await client().from('coop_accounts').upsert(cRows, { onConflict: 'farm_id,local_id' })).error; if (e) throw e; }

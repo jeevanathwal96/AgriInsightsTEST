@@ -10635,7 +10635,7 @@ var ST_LOANS = {
   coopAccounts: [
     {id:'oc1', icon:'\uD83C\uDF3E', name:'OVK input account', coop:'OVK', lender:'OVK', limit:600000, used:248600, rateMode:'prime', prime:10.25, margin:2, flatRate:12.25}
   ],
-  activeTab:'glance', nextId:1, nextOdId:2, nextCoId:2, confirmed:{month:null, paid:{}}
+  activeTab:'glance', nextId:1, nextOdId:2, nextCoId:2, confirmed:{month:null, paid:{}}, archived:[]
 };
 var LN_ASSETS_FALLBACK = 13300000;
 function LN_assetsTotal(){ try{ var t=0; (ST_ASSETS.assets||[]).forEach(function(a){ t+=a.price||0; }); return t||LN_ASSETS_FALLBACK; }catch(e){ return LN_ASSETS_FALLBACK; } }
@@ -10821,7 +10821,7 @@ function lnMyLoansHTML(){
       '<div class="ln-prog"><div class="h"><span>'+LN_Rk(l.borrowed-l.balance)+' paid off</span><span>'+LN_Rk(l.balance)+' still to go</span></div><div class="ln-tk"><div class="ln-fl" style="width:'+pp+'%"></div></div></div>'+
       '<div class="ln-costline">'+payoff+'</div>'+
       '<span class="ln-viewsch" onclick="lnOpenPlan(\''+l.id+'\')">See payment plan \u203A</span>'+
-      '<span class="ln-viewsch" style="margin-left:16px" onclick="lnOpenInterest(\''+l.id+'\')">Interest breakdown \u203A</span>'+lnFFRow('loan',l.id,l)+'</div>';
+      '<span class="ln-viewsch" style="margin-left:16px" onclick="lnOpenInterest(\''+l.id+'\')">Interest breakdown \u203A</span>'+lnArchControls(l)+lnFFRow('loan',l.id,l)+'</div>';
   });
   h+=lnConfirmBox('alt');
   h+='<button class="ln-addbtn" onclick="lnTab(\'add\')">\uFF0B Add a loan</button>';
@@ -10830,6 +10830,74 @@ function lnMyLoansHTML(){
   h+='<div style="height:26px"></div>';
   h+=lnCoopAcctsHTML();
   h+=lnCoopSettleHTML();
+  h+=lnArchivedHTML();
+  return h;
+}
+
+function lnArchControls(l){
+  var done = (l.balance||0) <= 0;
+  var h = '<span class="ln-viewsch" style="margin-left:16px;color:var(--rd)" onclick="lnDeleteFacility(\'loan\',\''+l.id+'\')">Remove</span>';
+  if(done){
+    h += '<div style="display:flex;align-items:center;gap:7px;background:#E1F0E8;border-radius:9px;padding:9px 11px;margin-top:11px"><span style="font-size:16px">\uD83C\uDFC1</span><span style="font-size:12.5px;color:#0F6E56;font-weight:600">Paid off in full \u2014 nothing left to pay.</span></div>';
+    h += '<div style="display:flex;gap:9px;margin-top:10px"><button onclick="lnArchive(\'loan\',\''+l.id+'\')" style="flex:1;border:0.5px solid var(--gm);background:#fff;color:var(--gd);border-radius:9px;padding:9px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer">Archive it</button><button onclick="lnDeleteFacility(\'loan\',\''+l.id+'\')" style="flex:1;border:0.5px solid var(--rp);background:#fff;color:var(--rd);border-radius:9px;padding:9px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer">Delete</button></div>';
+    h += '<div style="font-size:11px;color:var(--t3);margin-top:7px">Archive keeps it for your records &amp; SARS; delete removes it for good.</div>';
+  }
+  return h;
+}
+function lnArchive(kind, id){
+  var arr = kind==='overdraft'?ST_LOANS.overdrafts : (kind==='coop'?ST_LOANS.coopAccounts : ST_LOANS.loans);
+  if(!arr) return;
+  var i=-1; for(var k=0;k<arr.length;k++){ if(arr[k].id===id){ i=k; break; } }
+  if(i<0) return;
+  var item=arr[i]; item._kind=kind; item.archived=true;
+  if(!ST_LOANS.archived) ST_LOANS.archived=[];
+  ST_LOANS.archived.push(item); arr.splice(i,1);
+  if(typeof saveState==='function') saveState();
+  if(typeof toast==='function') toast('Moved to archived','success');
+  renderLoans();
+  if(typeof dataChanged==='function') dataChanged('loan');
+}
+function lnRestore(id){
+  if(!ST_LOANS.archived) return;
+  var i=-1; for(var k=0;k<ST_LOANS.archived.length;k++){ if(ST_LOANS.archived[k].id===id){ i=k; break; } }
+  if(i<0) return;
+  var item=ST_LOANS.archived[i]; var kind=item._kind||'loan'; item.archived=false; delete item._kind;
+  var arr = kind==='overdraft'?ST_LOANS.overdrafts : (kind==='coop'?ST_LOANS.coopAccounts : ST_LOANS.loans);
+  if(!arr){ arr=ST_LOANS.loans; }
+  arr.push(item); ST_LOANS.archived.splice(i,1);
+  if(typeof saveState==='function') saveState();
+  if(typeof toast==='function') toast('Restored','success');
+  renderLoans();
+  if(typeof dataChanged==='function') dataChanged('loan');
+}
+function lnDeleteFacility(kind, id){
+  if(!window.confirm('Delete this for good? This cannot be undone.')) return;
+  ['loans','overdrafts','coopAccounts','archived'].forEach(function(key){
+    if(ST_LOANS[key]) ST_LOANS[key]=ST_LOANS[key].filter(function(x){ return x.id!==id; });
+  });
+  var table = kind==='overdraft'?'overdrafts' : (kind==='coop'?'coop_accounts' : 'loans');
+  try { if(window.AI && AI.farm && AI.farm.active()){ AI.loans.remove(table, id).catch(function(e){ console.error('Backend facility delete failed:', e); }); } } catch(e){}
+  if(typeof saveState==='function') saveState();
+  if(typeof toast==='function') toast('Deleted','info');
+  renderLoans();
+  if(typeof dataChanged==='function') dataChanged('loan');
+}
+function lnArchivedHTML(){
+  var arr = ST_LOANS.archived||[];
+  if(!arr.length) return '';
+  var h='<div style="height:26px"></div>';
+  h+='<div class="od-sec-h">Archived &amp; closed <span class="od-sec-ct">'+arr.length+'</span></div>';
+  arr.forEach(function(it){
+    var kind=it._kind||'loan';
+    var sub = kind==='loan' ? ((it.balance||0)<=0?'Paid off':'Loan') : (kind==='overdraft'?'Overdraft \u00b7 closed':'Co-op account \u00b7 closed');
+    var lender = esc(it.lender||it.coop||'');
+    h+='<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border:0.5px solid var(--br);border-radius:12px;margin-bottom:8px">';
+    h+='<div style="font-size:16px;opacity:.55">'+(it.icon||'\uD83C\uDFE6')+'</div>';
+    h+='<div style="min-width:0;flex:1"><div style="font-size:13.5px;color:var(--t1);font-weight:600">'+esc(it.name||'')+'</div><div style="font-size:11px;color:var(--t3)">'+sub+(lender?' \u00b7 '+lender:'')+'</div></div>';
+    h+='<button onclick="lnRestore(\''+it.id+'\')" style="border:0.5px solid var(--br);background:#fff;color:var(--t2);border-radius:8px;padding:6px 10px;font-size:11.5px;font-family:inherit;cursor:pointer">Restore</button>';
+    h+='<button onclick="lnDeleteFacility(\''+kind+'\',\''+it.id+'\')" style="border:0.5px solid var(--rp);background:#fff;color:var(--rd);border-radius:8px;padding:6px 10px;font-size:11.5px;font-family:inherit;cursor:pointer">Delete</button>';
+    h+='</div>';
+  });
   return h;
 }
 
@@ -11151,6 +11219,7 @@ function lnAddOdHTML(){
   h+='<div class="ln-hint">An overdraft has no fixed monthly payment \u2014 you repay it when income comes in. It won\u2019t affect your other loans\u2019 payoff dates.</div>';
   h+=lnFFFormRow('od', o?o.id:null);
   h+='<button class="ln-addbtn" onclick="lnSaveOverdraft()">'+(o?'Save changes':'Save overdraft')+'</button>';
+  if(o) h+='<button class="ln-addbtn" style="background:#fff;color:var(--gd);border:1px solid var(--gm);margin-top:8px" onclick="lnArchive(\'overdraft\',\''+o.id+'\')">Archive (close account)</button>';
   if(o) h+='<button class="ln-addbtn" style="background:#fff;color:var(--rd);border:1px solid var(--rp);margin-top:8px" onclick="lnRemoveOverdraft(\''+o.id+'\')">Remove this overdraft</button>';
   if(o) h+='<div onclick="lnTab(\'myloans\')" style="text-align:center;font-size:12px;color:var(--t3);margin-top:13px;cursor:pointer">\u2190 Back to my loans and overdrafts</div>';
   h+='</div>';
@@ -11284,6 +11353,7 @@ function lnAddCoHTML(){
   h+='<div class="ln-hint">The co-op\u2019s mark-up over prime \u2014 the extra they charge. Current SA prime is about 10.25%. You can switch to a flat rate later on the account card.</div>';
   h+=lnFFFormRow('coop', o?o.id:null);
   h+='<button class="ln-addbtn" onclick="lnSaveCoopAcct()">'+(o?'Save changes':'Save co-op account')+'</button>';
+  if(o) h+='<button class="ln-addbtn" style="background:#fff;color:var(--gd);border:1px solid var(--gm);margin-top:8px" onclick="lnArchive(\'coop\',\''+o.id+'\')">Archive (close account)</button>';
   if(o) h+='<button class="ln-addbtn" style="background:#fff;color:var(--rd);border:1px solid var(--rp);margin-top:8px" onclick="lnRemoveCoopAcct(\''+o.id+'\')">Remove this account</button>';
   if(o) h+='<div onclick="lnTab(\'myloans\')" style="text-align:center;font-size:12px;color:var(--t3);margin-top:13px;cursor:pointer">\u2190 Back to my loans and overdrafts</div>';
   h+='</div>';
