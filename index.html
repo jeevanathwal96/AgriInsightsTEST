@@ -10536,6 +10536,13 @@ function saveExpense() {
       var method = (meth === 'cash') ? 'Cash' : 'Bank';
       var entB=($('ae-ent')&&$('ae-ent').value)||'';
       ST.txns.unshift({date:dateStr, desc:desc, cat:cat, type:'expense', amt:amt, method:method, source:'Expense form', qty:qty||undefined, unit:(qty&&unit)?unit:undefined, ent:entB||undefined});
+      // Backend write-through (fire-and-forget; local save above is unchanged)
+      try {
+        if (window.AI && AI.farm && AI.farm.active()) {
+          AI.txn.add({ date: (date || new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'expense', desc: desc, method: method })
+            .catch(function(e){ console.error('Backend save failed:', e); });
+        }
+      } catch(e){}
     }
 
     if (ST.expFreq === 'Monthly' || ST.expFreq === 'Yearly') {
