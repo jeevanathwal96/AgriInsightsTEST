@@ -10339,10 +10339,12 @@ function saveSale() {
       return d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
     })() : 'Today';
     ST.txns.unshift({date:dateStr, desc:desc, cat:cat, type:'income', amt:amt, method:method, source:'Income form', qty:sqty||undefined, unit:(sqty&&sunit)?sunit:undefined});
-    // Backend write-through (fire-and-forget; local save above is unchanged)
+    var _aiInc = ST.txns[0];
+    // Backend write-through; back-patch DB id onto the local row for edit/delete
     try {
       if (window.AI && AI.farm && AI.farm.active()) {
         AI.txn.add({ date: (date && date !== 'Today' ? date : new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'income', desc: desc, method: method, qty: sqty||undefined, unit: (sqty&&sunit)?sunit:undefined, source: 'Income form' })
+          .then(function(s){ if(s && s.id && _aiInc) _aiInc.id = s.id; })
           .catch(function(e){ console.error('Backend save failed:', e); });
       }
     } catch(e){}
@@ -10537,16 +10539,26 @@ function saveExpense() {
       }
       var entC=($('ae-ent')&&$('ae-ent').value)||'';
       ST.txns.unshift({date:dateStr, desc:desc, cat:cat, type:'expense', amt:amt, method:coNm + ' account', source:'Expense form', qty:qty||undefined, unit:(qty&&unit)?unit:undefined, ent:entC||undefined});
+      var _aiCoop = ST.txns[0];
+      try {
+        if (window.AI && AI.farm && AI.farm.active()) {
+          AI.txn.add({ date: (date || new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'expense', desc: desc, method: (coNm + ' account'), qty: qty||undefined, unit: (qty&&unit)?unit:undefined, ent: entC||undefined, source: 'Expense form' })
+            .then(function(s){ if(s && s.id && _aiCoop) _aiCoop.id = s.id; })
+            .catch(function(e){ console.error('Backend save failed:', e); });
+        }
+      } catch(e){}
       saveState();
       try { renderLoans && renderLoans(); } catch(e){}
     } else {
       var method = (meth === 'cash') ? 'Cash' : 'Bank';
       var entB=($('ae-ent')&&$('ae-ent').value)||'';
       ST.txns.unshift({date:dateStr, desc:desc, cat:cat, type:'expense', amt:amt, method:method, source:'Expense form', qty:qty||undefined, unit:(qty&&unit)?unit:undefined, ent:entB||undefined});
-      // Backend write-through (fire-and-forget; local save above is unchanged)
+      var _aiExp = ST.txns[0];
+      // Backend write-through; back-patch DB id onto the local row for edit/delete
       try {
         if (window.AI && AI.farm && AI.farm.active()) {
           AI.txn.add({ date: (date || new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'expense', desc: desc, method: method, qty: qty||undefined, unit: (qty&&unit)?unit:undefined, ent: entB||undefined, source: 'Expense form' })
+            .then(function(s){ if(s && s.id && _aiExp) _aiExp.id = s.id; })
             .catch(function(e){ console.error('Backend save failed:', e); });
         }
       } catch(e){}
@@ -19497,6 +19509,7 @@ function txdSaveEdit(){
     t.method = TXD_DRAFT.method;
   }
   TXD_EDIT = false; TXD_DRAFT = null;
+  try { if (window.AI && AI.farm && AI.farm.active() && t.id) { AI.txn.update(t.id, t).catch(function(e){ console.error('Backend update failed:', e); }); } } catch(e){}
   dataChanged('transaction');
   if(typeof saveState==='function') saveState();
   renderTxnDetail();
@@ -19507,6 +19520,7 @@ function txdDelete(){
   var t = ST.txns[TXD_IDX]; if(!t) return;
   if(!confirm('Delete this transaction permanently? This cannot be undone.')) return;
   ST.txns.splice(TXD_IDX, 1);
+  try { if (window.AI && AI.farm && AI.farm.active() && t.id) { AI.txn.remove(t.id).catch(function(e){ console.error('Backend delete failed:', e); }); } } catch(e){}
   hideTxnDetail();
   dataChanged('transaction');
   if(typeof saveState==='function') saveState();

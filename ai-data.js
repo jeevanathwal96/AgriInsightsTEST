@@ -102,6 +102,13 @@
   };
 
   // ---- 4. CATEGORY CACHE + MAPPING -----------------------------------------
+  function norm(s){ return (s == null ? '' : String(s)).toLowerCase().replace(/[^a-z0-9]/g,''); }
+  function toISO(d){
+    if(!d) return null;
+    var s = String(d);
+    if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+    var dt = new Date(s); return isNaN(dt.getTime()) ? null : dt.toISOString().slice(0,10);
+  }
   async function loadCats(farmId) {
     // system rows (farm_id null) + this farm's custom rows; RLS handles visibility
     const { data, error } = await client()
@@ -111,13 +118,13 @@
     if (error) throw error;
     catMaps = { code2id: {}, id2code: {}, list: data || [] };
     (data || []).forEach(c => {
-      catMaps.code2id[c.code] = c.id;
-      catMaps.code2id[c.label] = c.id;       // tolerate label too
+      catMaps.code2id[norm(c.code)] = c.id;
+      catMaps.code2id[norm(c.label)] = c.id;   // match ignoring case/spaces/&
       catMaps.id2code[c.id] = c.code;
     });
     return data || [];
   }
-  const catToId   = code => (code == null ? null : (catMaps.code2id[code] || null));
+  const catToId   = code => (code == null ? null : (catMaps.code2id[norm(code)] || null));
   const catToCode = id   => (id   == null ? null : (catMaps.id2code[id]   || null));
   async function ensureCats() { if (!catMaps.list.length) await loadCats(farm.active()); }
 
@@ -127,7 +134,7 @@
       farm_id:        farmId,
       account_id:     t.accountId || null,
       category_id:    catToId(t.cat),
-      txn_date:       t.date,
+      txn_date:       toISO(t.date) || new Date().toISOString().slice(0,10),
       type:           t.type,                       // 'income' | 'expense'
       amount:         Number(t.amt),
       description:    t.desc || null,
