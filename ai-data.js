@@ -65,6 +65,11 @@
       if (error) throw error;
       return true; // user must click the link in their email
     },
+    async signIn(email, password) {            // password sign-in — handy for testing (no email)
+      const { data, error } = await client().auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      return data.user;
+    },
     async signOut() { await client().auth.signOut(); },
     async currentUser() {
       const { data } = await client().auth.getUser();
