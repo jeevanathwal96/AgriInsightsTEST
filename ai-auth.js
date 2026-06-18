@@ -101,7 +101,7 @@
     }).then(function (core) {
       // Replace the app's working transactions with the farm's real data.
       // (Budgets / recurring get wired in a later step.)
-      if (window.ST) { ST.txns = core.txns || []; ST.recurring = core.recurring || []; ST.firstRun = false; }
+      if (window.ST) { ST.txns = core.txns || []; ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; ST.firstRun = false; }
       // Signed-in users skip the app's first-run onboarding wizard.
       try {
         var ov = document.getElementById('ob-overlay');

@@ -9335,6 +9335,10 @@ function setExpPeriod(p) {
 // that via its switch statement.
 // ============================================================
 function dataChanged(event) {
+  // Backend sync: all budget edits funnel through dataChanged('budget')
+  if (event === 'budget') {
+    try { if (window.AI && AI.farm && AI.farm.active()) { AI.budget.save(ST.budgets).catch(function(e){ console.error('Backend budget save failed:', e); }); } } catch (e) {}
+  }
   // Identify the currently visible page
   var pg     = document.querySelector('.pg.on');
   var pageId = pg ? pg.id.replace('pg-', '') : '';

@@ -174,19 +174,30 @@
       if (!farmId) throw new Error('No active farm');
       await loadCats(farmId);
 
-      const [acc, txn, bud, rec] = await Promise.all([
+      const [acc, txn, bud, rec, fst] = await Promise.all([
         client().from('accounts').select('*').eq('farm_id', farmId).order('name'),
         client().from('transactions').select('*').eq('farm_id', farmId).order('txn_date', { ascending: false }),
-        client().from('budgets').select('*').eq('farm_id', farmId),
-        client().from('recurring').select('*').eq('farm_id', farmId).order('name')
+        client().from('budget_months').select('*').eq('farm_id', farmId),
+        client().from('recurring').select('*').eq('farm_id', farmId).order('name'),
+        client().from('farms').select('budget_income_pattern,budget_expense_pattern,budget_current_month').eq('id', farmId).single()
       ]);
       for (const r of [acc, txn, bud, rec]) if (r.error) throw r.error;
+
+      var bObj = { monthlyIncome: {}, monthlyExpenses: {},
+        incomePattern: (fst.data && fst.data.budget_income_pattern) || 'harvest',
+        expensePattern: (fst.data && fst.data.budget_expense_pattern) || 'planting',
+        currentMonth: (fst.data && fst.data.budget_current_month) || null };
+      (bud.data || []).forEach(function (r) {
+        var lbl = ymToLabel(r.period_year, r.period_month);
+        if (r.side === 'income') bObj.monthlyIncome[lbl] = Number(r.amount);
+        else bObj.monthlyExpenses[lbl] = Number(r.amount);
+      });
 
       return {
         accounts:   acc.data || [],
         categories: catMaps.list,
         txns:       (txn.data || []).map(dbToApp),
-        budgets:    bud.data || [],
+        budgets:    bObj,
         recurring:  (rec.data || []).map(r => ({
           id: r.id, name: r.name, type: r.type, amt: Number(r.amount),
           freq: r.frequency, category: catToCode(r.category_id),
@@ -233,15 +244,34 @@
       return data;
     }
   };
+  var MON_ABBR = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function labelToYM(label){ var p = String(label||'').trim().split(/\s+/); var m = MON_ABBR.indexOf(p[0]); return { month: m>0?m:null, year: parseInt(p[1],10) || null }; }
+  function ymToLabel(y,m){ return MON_ABBR[m] + ' ' + y; }
   const budget = {
-    async upsert(b) {
-      await ensureCats();
-      const { data, error } = await client().from('budgets').upsert({
-        farm_id: farm.active(), category_id: catToId(b.cat),
-        period_year: b.year, period_month: b.month || null, amount: Number(b.amount)
-      }, { onConflict: 'farm_id,category_id,period_year,period_month' }).select().single();
-      if (error) throw error;
-      return data;
+    // Persist the whole budget object: per-month income/expense targets + settings
+    async save(b) {
+      if (!b) return;
+      var fid = farm.active();
+      var rows = [];
+      Object.keys(b.monthlyIncome || {}).forEach(function (lbl) {
+        var ym = labelToYM(lbl);
+        if (ym.month && ym.year) rows.push({ farm_id: fid, period_year: ym.year, period_month: ym.month, side: 'income', amount: Number(b.monthlyIncome[lbl]) || 0 });
+      });
+      Object.keys(b.monthlyExpenses || {}).forEach(function (lbl) {
+        var ym = labelToYM(lbl);
+        if (ym.month && ym.year) rows.push({ farm_id: fid, period_year: ym.year, period_month: ym.month, side: 'expense', amount: Number(b.monthlyExpenses[lbl]) || 0 });
+      });
+      if (rows.length) {
+        var r1 = await client().from('budget_months').upsert(rows, { onConflict: 'farm_id,period_year,period_month,side' });
+        if (r1.error) throw r1.error;
+      }
+      var r2 = await client().from('farms').update({
+        budget_income_pattern: b.incomePattern || null,
+        budget_expense_pattern: b.expensePattern || null,
+        budget_current_month: b.currentMonth || null
+      }).eq('id', fid);
+      if (r2.error) throw r2.error;
+      return true;
     }
   };
   const recurring = {
