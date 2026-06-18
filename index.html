@@ -10677,30 +10677,35 @@ function LN_payoff(l){
 }
 
 var LN_MONTH_FULL={Jan:'January',Feb:'February',Mar:'March',Apr:'April',May:'May',Jun:'June',Jul:'July',Aug:'August',Sep:'September',Oct:'October',Nov:'November',Dec:'December'};
-function LN_currentMonthLabel(){ return (typeof currentPeriodLabel==='function')?currentPeriodLabel():''; }
+function LN_currentMonthLabel(){ var l=(typeof currentPeriodLabel==='function')?currentPeriodLabel():''; if(l) return l; var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+' '+d.getFullYear(); }
 function LN_confirmMonthName(){ var p=(LN_currentMonthLabel()||'').split(' ')[0]; return LN_MONTH_FULL[p]||p; }
 // Per-loan confirmation for the current month, so loans paid at different times track
 // independently and a loan is never deducted twice. Auto-resets when the month rolls over.
 function LN_confirmedPaid(){ var c=ST_LOANS.confirmed; return (c && c.month===LN_currentMonthLabel() && c.paid) ? c.paid : {}; }
 function LN_isConfirmed(id){ return Object.prototype.hasOwnProperty.call(LN_confirmedPaid(), id); }
 function LN_confirmedCount(){ return Object.keys(LN_confirmedPaid()).length; }
-function LN_unconfirmedCount(){ return ST_LOANS.loans.length - LN_confirmedCount(); }
+function LN_unconfirmedCount(){ var p=LN_confirmedPaid(); var n=0; (ST_LOANS.loans||[]).forEach(function(l){ if(!Object.prototype.hasOwnProperty.call(p,l.id)) n++; }); return n; }
 // The confirm box: a CTA until anything is confirmed, then a progress chip while some
 // payments are still outstanding, then a calm done-chip once all are in. Always tappable.
 function lnConfirmBox(variant){
   var isSummary = variant!=='alt';
   var idAttr = isSummary ? ' id="ln-confirmbtn"' : '';
-  var total = ST_LOANS.loans.length, done = LN_confirmedCount(), left = total - done;
-  if(total>0 && done>=total){
-    return '<div class="ln-doneconf"'+idAttr+' role="button" tabindex="0" onclick="lnOpenConfirm()">'+
-      '<span class="ic">\u2713</span>'+
+  var paid = LN_confirmedPaid();
+  var A = (ST_LOANS.loans||[]).length, P = 0;
+  (ST_LOANS.loans||[]).forEach(function(l){ if(Object.prototype.hasOwnProperty.call(paid,l.id)) P++; });
+  var left = A - P;
+  if(A===0){
+    return '<div class="ln-doneconf"'+idAttr+'><span class="ic">\u2713</span>'+
+      '<div class="tx"><div class="t">No active loans</div><div class="s">Nothing to confirm this month.</div></div></div>';
+  }
+  if(P>=A){
+    return '<div class="ln-doneconf"'+idAttr+' role="button" tabindex="0" onclick="lnOpenConfirm()"><span class="ic">\u2713</span>'+
       '<div class="tx"><div class="t">All payments confirmed for '+LN_confirmMonthName()+'</div><div class="s">We\u2019ll nudge you again next month.</div></div>'+
       '<span class="up">Update</span></div>';
   }
-  if(done>0){
-    return '<div class="ln-progconf"'+idAttr+' role="button" tabindex="0" onclick="lnOpenConfirm()">'+
-      '<span class="ic">'+done+'/'+total+'</span>'+
-      '<div class="tx"><div class="t">'+done+' of '+total+' paid this month</div><div class="s">'+left+(left===1?' loan':' loans')+' still to go \u2014 tap to confirm</div></div>'+
+  if(P>0){
+    return '<div class="ln-progconf"'+idAttr+' role="button" tabindex="0" onclick="lnOpenConfirm()"><span class="ic">'+P+'/'+A+'</span>'+
+      '<div class="tx"><div class="t">'+P+' of '+A+' paid this month</div><div class="s">'+left+(left===1?' loan':' loans')+' still to go \u2014 tap to confirm</div></div>'+
       '<span class="up">Confirm</span></div>';
   }
   return '<button class="ln-confirm-btn'+(isSummary?'':' alt')+'"'+idAttr+' onclick="lnOpenConfirm()"><span>\uD83D\uDDD3\uFE0F</span> Confirm this month\u2019s payments</button>';
@@ -10721,7 +10726,7 @@ function renderLoans(){
   h+='<div id="ln-modal" class="ln-modal-back" style="display:none" onclick="lnModalBackdrop(event)"></div>';
   body.innerHTML=h;
 }
-function lnTab(t){ if(t==='add'){ LN_ADD_KIND='loan'; LN_OD_EDIT_ID=null; LN_CO_EDIT_ID=null; LN_FORM_FF=null; } ST_LOANS.activeTab=t; renderLoans(); }
+function lnTab(t){ if(t==='add'){ LN_ADD_KIND='loan'; LN_OD_EDIT_ID=null; LN_CO_EDIT_ID=null; LN_FORM_FF=null; LN_LOAN_EDIT_ID=null; } ST_LOANS.activeTab=t; renderLoans(); }
 
 function lnGlanceHTML(){
   var owed=LN_totalOwed(), eq=LN_equityPct(), pay=LN_monthlyPay(), intMo=LN_monthlyInterest(), capMo=pay-intMo, intYr=LN_annualInterest();
@@ -10742,7 +10747,7 @@ function lnGlanceHTML(){
      '<div class="ln-hbarleg"><span>'+eq+'% yours</span><span>'+(Math.round((100-eq)*10)/10)+'% owed</span></div></div>';
   /* 2. Loans at a glance */
   h+='<div class="ln-card"><p class="ln-ct">Your loans at a glance</p>';
-  ST_LOANS.loans.forEach(function(l,i){ var w=maxBal?Math.round(l.balance/maxBal*100):0;
+  ST_LOANS.loans.forEach(function(l,i){ var w=LN_paidPct(l);
     h+='<div class="ln-oba'+(i===ST_LOANS.loans.length-1?' last':'')+'"><div class="ln-obh"><span>'+l.icon+' '+esc(l.name)+' <small>\u00b7 '+esc(l.lender)+'</small></span><span class="v">'+LN_Rk(l.balance)+'</span></div><div class="ln-tk"><div class="ln-fl" style="width:'+w+'%"></div></div></div>';
   });
   h+='</div>';
@@ -10836,7 +10841,7 @@ function lnMyLoansHTML(){
 
 function lnArchControls(l){
   var done = (l.balance||0) <= 0;
-  var h = '<span class="ln-viewsch" style="margin-left:16px;color:var(--rd)" onclick="lnDeleteFacility(\'loan\',\''+l.id+'\')">Remove</span>';
+  var h = '<span class="ln-viewsch" style="margin-left:16px" onclick="lnEditLoan(\''+l.id+'\')">Edit</span><span class="ln-viewsch" style="margin-left:16px;color:var(--rd)" onclick="lnDeleteFacility(\'loan\',\''+l.id+'\')">Remove</span>';
   if(done){
     h += '<div style="display:flex;align-items:center;gap:7px;background:#E1F0E8;border-radius:9px;padding:9px 11px;margin-top:11px"><span style="font-size:16px">\uD83C\uDFC1</span><span style="font-size:12.5px;color:#0F6E56;font-weight:600">Paid off in full \u2014 nothing left to pay.</span></div>';
     h += '<div style="display:flex;gap:9px;margin-top:10px"><button onclick="lnArchive(\'loan\',\''+l.id+'\')" style="flex:1;border:0.5px solid var(--gm);background:#fff;color:var(--gd);border-radius:9px;padding:9px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer">Archive it</button><button onclick="lnDeleteFacility(\'loan\',\''+l.id+'\')" style="flex:1;border:0.5px solid var(--rp);background:#fff;color:var(--rd);border-radius:9px;padding:9px;font-size:12.5px;font-weight:700;font-family:inherit;cursor:pointer">Delete</button></div>';
@@ -11189,7 +11194,7 @@ function lnOverdraftsHTML(){
 /* ===== Add / edit / remove an overdraft ===== */
 var LN_OD_EDIT_ID=null, LN_OD_FORM_MODE='prime';
 function lnAddOdNew(){ lnAddOpen('overdraft'); }
-function lnAddOdEdit(id){ var o=LN_od(id); LN_OD_EDIT_ID=id; LN_OD_FORM_MODE=(o&&o.rateMode==='flat')?'flat':'prime'; LN_ADD_KIND='overdraft'; ST_LOANS.activeTab='add'; renderLoans(); }
+function lnAddOdEdit(id){ var o=LN_od(id); LN_OD_EDIT_ID=id; LN_LOAN_EDIT_ID=null; LN_OD_FORM_MODE=(o&&o.rateMode==='flat')?'flat':'prime'; LN_ADD_KIND='overdraft'; ST_LOANS.activeTab='add'; renderLoans(); }
 function lnOdFormMode(m){ LN_OD_FORM_MODE=m; var w=$('odf-rate-wrap'); if(w) w.innerHTML=lnOdFormRateWrap(LN_OD_EDIT_ID?LN_od(LN_OD_EDIT_ID):null); }
 function lnOdFormRateWrap(o){
   var toggle='<div class="ln-frow"><label>How is the rate set?</label><div class="od-re-toggle">'+
@@ -11337,8 +11342,8 @@ function lnCoopAcctsHTML(){
   h+='<button class="ln-addbtn" style="background:#fff;color:var(--gm);border:1.5px solid #BBE0CC;margin-top:2px" onclick="lnAddCoNew()">\uff0b Add a co-op account</button></div>';
   return h;
 }
-function lnAddCoNew(){ LN_CO_EDIT_ID=null; LN_ADD_KIND='coop'; LN_OD_EDIT_ID=null; ST_LOANS.activeTab='add'; renderLoans(); }
-function lnAddCoEdit(id){ LN_CO_EDIT_ID=id; LN_ADD_KIND='coop'; LN_OD_EDIT_ID=null; ST_LOANS.activeTab='add'; renderLoans(); }
+function lnAddCoNew(){ LN_CO_EDIT_ID=null; LN_ADD_KIND='coop'; LN_OD_EDIT_ID=null; LN_LOAN_EDIT_ID=null; ST_LOANS.activeTab='add'; renderLoans(); }
+function lnAddCoEdit(id){ LN_CO_EDIT_ID=id; LN_ADD_KIND='coop'; LN_OD_EDIT_ID=null; LN_LOAN_EDIT_ID=null; ST_LOANS.activeTab='add'; renderLoans(); }
 function lnAddCoHTML(){
   var o = LN_CO_EDIT_ID ? LN_coAcct(LN_CO_EDIT_ID) : null;
   var coops=['OVK','BKB','Senwes','NWK','VKB','Afgri','GWK','Agri EC','Other'];
@@ -11384,9 +11389,10 @@ function lnRemoveCoopAcct(id){
   LN_CO_EDIT_ID=null; LN_ADD_KIND='loan'; saveState(); toast('Co-op account removed','success'); ST_LOANS.activeTab='myloans'; renderLoans();
 }
 var LN_ADD_KIND='loan';
-function lnAddOpen(kind){ LN_ADD_KIND=kind; LN_OD_EDIT_ID=null; LN_CO_EDIT_ID=null; LN_FORM_FF=null; if(kind==='overdraft') LN_OD_FORM_MODE='prime'; ST_LOANS.activeTab='add'; renderLoans(); }
-function lnAddKind(k){ LN_ADD_KIND=k; LN_OD_EDIT_ID=null; LN_CO_EDIT_ID=null; renderLoans(); }
+function lnAddOpen(kind){ LN_ADD_KIND=kind; LN_OD_EDIT_ID=null; LN_CO_EDIT_ID=null; LN_FORM_FF=null; LN_LOAN_EDIT_ID=null; if(kind==='overdraft') LN_OD_FORM_MODE='prime'; ST_LOANS.activeTab='add'; renderLoans(); }
+function lnAddKind(k){ LN_ADD_KIND=k; LN_OD_EDIT_ID=null; LN_CO_EDIT_ID=null; LN_LOAN_EDIT_ID=null; renderLoans(); }
 function lnAddWrapHTML(){
+  if(typeof LN_LOAN_EDIT_ID!=='undefined' && LN_LOAN_EDIT_ID) return lnAddHTML();
   if(LN_CO_EDIT_ID||LN_ADD_KIND==='coop') return lnAddCoHTML();
   if(LN_OD_EDIT_ID) return lnAddOdHTML();
   var css='<style>.ln-kindtog{display:flex;gap:6px;background:var(--bg);border:1px solid var(--br);border-radius:12px;padding:4px;margin-bottom:14px}.ln-kindbtn{flex:1;border:none;background:transparent;border-radius:9px;padding:12px;font-size:13.5px;font-weight:800;color:var(--t3);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px}.ln-kindbtn.on{background:var(--gd);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)}</style>';
@@ -11398,30 +11404,43 @@ function lnAddWrapHTML(){
 function lnAddHTML(){
   var lenders=['Land Bank','ABSA','BKB','OVK','Senwes','Other'];
   var types=['Season loan','Machine loan','Vehicle loan','Home loan','Shop / co-op account'];
-  var h='<div class="ln-card" id="ln-addform"><p class="ln-ct">Add a loan</p><p class="ln-cw">Just the basics. We work out the interest, the part that comes off the loan, and what it costs you.</p>';
-  h+='<div class="ln-frow"><label>What do you call it?</label><input id="ln-f-name" class="ln-inp" placeholder="e.g. New tractor loan"></div>';
-  h+='<div class="ln-two"><div class="ln-frow"><label>Who\u2019s it with?</label><select id="ln-f-lender" class="ln-inp">'+lenders.map(function(x){return '<option>'+x+'</option>';}).join('')+'</select></div>'+
-     '<div class="ln-frow"><label>What kind?</label><select id="ln-f-type" class="ln-inp">'+types.map(function(x){return '<option>'+x+'</option>';}).join('')+'</select></div></div>';
-  h+='<div class="ln-two"><div class="ln-frow"><label>How much did you borrow?</label><input id="ln-f-borrowed" class="ln-inp" inputmode="numeric" placeholder="R 0"></div>'+
-     '<div class="ln-frow"><label>How much do you still owe?</label><input id="ln-f-balance" class="ln-inp" inputmode="numeric" placeholder="R 0"></div></div>';
-  h+='<div class="ln-two"><div class="ln-frow"><label>Interest rate (% a year)</label><input id="ln-f-rate" class="ln-inp" inputmode="decimal" placeholder="e.g. 12.5"></div>'+
-     '<div class="ln-frow"><label>What do you pay a month?</label><input id="ln-f-pay" class="ln-inp" inputmode="numeric" placeholder="R 0"></div></div>';
+  var L = (typeof LN_LOAN_EDIT_ID!=='undefined' && LN_LOAN_EDIT_ID) ? lnLoan(LN_LOAN_EDIT_ID) : null;
+  function av(v){ return (v!=null && v!=='') ? ' value="'+String(v).replace(/"/g,'&quot;')+'"' : ''; }
+  function opts(list,sel){ return list.map(function(x){return '<option'+(x===sel?' selected':'')+'>'+x+'</option>';}).join(''); }
+  var h='<div class="ln-card" id="ln-addform"><p class="ln-ct">'+(L?'Edit loan':'Add a loan')+'</p><p class="ln-cw">Just the basics. We work out the interest, the part that comes off the loan, and what it costs you.</p>';
+  h+='<div class="ln-frow"><label>What do you call it?</label><input id="ln-f-name" class="ln-inp" placeholder="e.g. New tractor loan"'+(L?av(L.name):'')+'></div>';
+  h+='<div class="ln-two"><div class="ln-frow"><label>Who\u2019s it with?</label><select id="ln-f-lender" class="ln-inp">'+opts(lenders, L?L.lender:null)+'</select></div>'+
+     '<div class="ln-frow"><label>What kind?</label><select id="ln-f-type" class="ln-inp">'+opts(types, L?L.type:null)+'</select></div></div>';
+  h+='<div class="ln-two"><div class="ln-frow"><label>How much did you borrow?</label><input id="ln-f-borrowed" class="ln-inp" inputmode="numeric" placeholder="R 0"'+(L?av(L.borrowed):'')+'></div>'+
+     '<div class="ln-frow"><label>How much do you still owe?</label><input id="ln-f-balance" class="ln-inp" inputmode="numeric" placeholder="R 0"'+(L?av(L.balance):'')+'></div></div>';
+  h+='<div class="ln-two"><div class="ln-frow"><label>Interest rate (% a year)</label><input id="ln-f-rate" class="ln-inp" inputmode="decimal" placeholder="e.g. 12.5"'+(L?av(L.rate):'')+'></div>'+
+     '<div class="ln-frow"><label>What do you pay a month?</label><input id="ln-f-pay" class="ln-inp" inputmode="numeric" placeholder="R 0"'+(L?av(L.payment):'')+'></div></div>';
   h+='<div class="ln-hint">You already list your loan payments under monthly expenses \u2014 once this is set up we count only the interest as a cost, so nothing is counted twice.</div>';
   h+=lnFFFormRow('loan',null);
-  h+='<button class="ln-addbtn" onclick="lnSaveLoan()">Save loan</button></div>';
+  h+='<button class="ln-addbtn" onclick="lnSaveLoan()">'+(L?'Save changes':'Save loan')+'</button>'+(L?'<button class="ln-addbtn" style="background:#fff;color:var(--rd);border:1px solid var(--rp);margin-top:8px" onclick="lnDeleteFacility(\'loan\',\''+L.id+'\')">Remove this loan</button>':'')+'</div>';
   return h;
 }
 function lnNum(id){ var e=$(id); if(!e) return 0; return parseFloat((e.value||'').replace(/[^0-9.]/g,''))||0; }
+var LN_LOAN_EDIT_ID=null;
+function lnEditLoan(id){ LN_LOAN_EDIT_ID=id; LN_ADD_KIND='loan'; LN_OD_EDIT_ID=null; LN_CO_EDIT_ID=null; LN_FORM_FF=null; ST_LOANS.activeTab='add'; renderLoans(); }
 function lnSaveLoan(){
   var name=($('ln-f-name')&&$('ln-f-name').value||'').trim()||'New loan';
-  var loan={ id:'ln'+(ST_LOANS.nextId++), icon:'\uD83C\uDFE6', name:name,
+  var editing = (typeof LN_LOAN_EDIT_ID!=='undefined' && LN_LOAN_EDIT_ID) ? lnLoan(LN_LOAN_EDIT_ID) : null;
+  var loan={ id: editing?editing.id:('ln'+(ST_LOANS.nextId++)), icon: editing?editing.icon:'\uD83C\uDFE6', name:name,
     lender:($('ln-f-lender')&&$('ln-f-lender').value)||'Other',
-    type:($('ln-f-type')&&$('ln-f-type').value)||'Loan', assetId:null,
-    borrowed:lnNum('ln-f-borrowed'), balance:lnNum('ln-f-balance'), rate:lnNum('ln-f-rate'), payment:lnNum('ln-f-pay'), next:'next month' };
+    type:($('ln-f-type')&&$('ln-f-type').value)||'Loan', assetId: editing?editing.assetId:null,
+    borrowed:lnNum('ln-f-borrowed'), balance:lnNum('ln-f-balance'), rate:lnNum('ln-f-rate'), payment:lnNum('ln-f-pay'), next: editing?editing.next:'next month' };
   if(!loan.borrowed) loan.borrowed=loan.balance;
   if(LN_FORM_FF && LN_FORM_FF.items && LN_FORM_FF.items.length) loan.fundsFor=LN_FORM_FF;
+  else if(editing && editing.fundsFor) loan.fundsFor=editing.fundsFor;
   LN_FORM_FF=null;
-  ST_LOANS.loans.push(loan);
+  if(editing){
+    for(var i=0;i<ST_LOANS.loans.length;i++){ if(ST_LOANS.loans[i].id===editing.id){ ST_LOANS.loans[i]=loan; break; } }
+    LN_LOAN_EDIT_ID=null;
+    if(typeof toast==='function') toast('Loan updated','success');
+  } else {
+    ST_LOANS.loans.push(loan);
+  }
   if(typeof saveState==='function') saveState();
   ST_LOANS.activeTab='myloans';
   renderLoans();
@@ -11593,7 +11612,7 @@ function lnOpenConfirm(){
 }
 function lnCloseConfirm(){ var m=$('ln-modal'); if(m) m.style.display='none'; }
 function lnRowPaid(l){ var s=LN_CONF.st[l.id]; if(s==='no') return 0; if(s==='paid') return l.payment; return LN_CONF.amt[l.id]||0; }
-function lnRowOff(l){ var s=LN_CONF.st[l.id]; if(s==='no') return 0; if(s==='paid') return LN_capM(l); return (LN_CONF.amt[l.id]||0)-LN_intM(l); }
+function lnRowOff(l){ var s=LN_CONF.st[l.id]; if(s==='no') return 0; var paid=(s==='paid')?(l.payment||0):(LN_CONF.amt[l.id]||0); if(paid>=(l.balance||0)) return (l.balance||0); return (s==='paid')?LN_capM(l):(paid-LN_intM(l)); }
 function lnSetSt(id,s){ LN_CONF.st[id]=s; if(s==='diff'&&!LN_CONF.amt[id]){ var l=lnLoan(id); LN_CONF.amt[id]=l?l.payment:0; } lnRenderConfirm(); }
 function lnOnAmt(id,v){ LN_CONF.amt[id]=parseInt((v||'').replace(/[^0-9]/g,''),10)||0; lnConfLive(); }
 function lnModalBackdrop(e){ if(e&&e.target&&e.target.id==='ln-modal') lnCloseConfirm(); }
