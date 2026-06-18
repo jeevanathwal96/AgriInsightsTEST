@@ -10647,7 +10647,7 @@ function LN_monthlyInterest(){ var t=0; ST_LOANS.loans.forEach(function(l){ t+=L
 function LN_annualInterest(){ return LN_monthlyInterest()*12; }
 function LN_equityPct(){ var a=LN_assetsTotal(); if(!a) return 0; return Math.round((a-LN_totalOwed())/a*1000)/10; }
 function LN_R(n){ n=Math.round(n); return (n<0?'\u2212R':'R')+_grpInt(n); }
-function LN_Rk(n){ n=Math.round(n); var v=Math.abs(n); if(v>=1e6) return 'R'+(n/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'m'; if(v>=1e3) return 'R'+Math.round(n/1e3)+'k'; return LN_R(n); }
+function LN_Rk(n){ n=Math.round(n); var v=Math.abs(n); if(v>=1e6) return 'R'+(n/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'m'; if(v>=1e4) return 'R'+Math.round(n/1e3)+'k'; return LN_R(n); }
 function LN_paidPct(l){ if(!l.borrowed) return 0; return Math.max(0,Math.min(100,Math.round((l.borrowed-l.balance)/l.borrowed*100))); }
 function LN_assetName(id){ try{ var a=(ST_ASSETS.assets||[]).filter(function(x){return x.id===id;})[0]; return a?a.name:''; }catch(e){ return ''; } }
 function LN_loanForAsset(id){ try{ if(typeof ST_LOANS==='undefined'||id==null) return null; var m=ST_LOANS.loans.filter(function(l){return l.assetId===id;}); return m.length?m[0]:null; }catch(e){ return null; } }
