@@ -550,21 +550,36 @@
     months:(r.months!=null)?Number(r.months):0, notes:r.notes||'', camp:r.camp||'', campId:r.camp_id||'', track:!!r.track };
     if(r.planned) h.planned=true; if(r.breed) h.breed=r.breed; return h; }
   function classRows(h,fid){ return (h.classes||[]).map(function(c){ return { farm_id:fid, herd_local_id:String(h.id), class_key:c.k, count:(c.n!=null)?parseInt(c.n,10):0, class_value:(c.v!=null)?Number(c.v):0 }; }); }
+  // 3a-ii — moves / treatments / animals (set-sync, append-only) + health (per-row)
+  function moveToDb(m,fid){ return { farm_id:fid, local_id:String(m.id), herd_local_id:(m.herd!=null)?String(m.herd):null, reason:m.reason||null, qty:(m.qty!=null)?parseInt(m.qty,10):null, move_date:m.date||null, note:m.note||null, money:(m.money!=null)?Number(m.money):null, cls:m.cls||null, to_cls:m.toCls||null }; }
+  function moveFromDb(r){ var m={ id:r.local_id, herd:_numIf(r.herd_local_id), reason:r.reason||'', qty:Number(r.qty)||0, date:r.move_date||'', note:r.note||'', money:Number(r.money)||0 }; if(r.cls) m.cls=r.cls; if(r.to_cls) m.toCls=r.to_cls; return m; }
+  function treatToDb(t,fid){ return { farm_id:fid, local_id:String(t.id), herd_local_id:(t.herd!=null)?String(t.herd):null, kind:t.kind||null, product:t.product||null, reg:t.reg||null, act:t.act||null, abx:(t.abx!=null)?!!t.abx:null, target:t.target||null, head:(t.head!=null)?parseInt(t.head,10):null, tags:t.tags||[], dose:t.dose||null, route:t.route||null, reason:t.reason||null, batch:t.batch||null, expiry:t.expiry||null, rx:t.rx||null, treat_date:t.date||null, by_who:t.by||null, cost:(t.cost!=null)?Number(t.cost):null, meat:(t.meat!=null)?parseInt(t.meat,10):null, milk:(t.milk!=null)?parseInt(t.milk,10):null }; }
+  function treatFromDb(r){ var t={ id:r.local_id, herd:_numIf(r.herd_local_id), kind:r.kind||'', product:r.product||'', reg:r.reg||'', act:r.act||'', target:r.target||'', head:Number(r.head)||0, tags:r.tags||[], dose:r.dose||'', route:r.route||'', reason:r.reason||'', batch:r.batch||'', expiry:r.expiry||'', date:r.treat_date||'', by:r.by_who||'', cost:Number(r.cost)||0, meat:Number(r.meat)||0, milk:Number(r.milk)||0 }; if(r.abx) t.abx=true; if(r.rx) t.rx=r.rx; return t; }
+  function animalToDb(a,fid){ return { farm_id:fid, local_id:String(a.id), herd_local_id:(a.herd!=null)?String(a.herd):null, tag:a.tag||null, name:a.name||null, sex:a.sex||null, breed:a.breed||null, cls:a.cls||null }; }
+  function animalFromDb(r){ var a={ id:r.local_id, herd:_numIf(r.herd_local_id), tag:r.tag||'', sex:r.sex||'' }; if(r.name) a.name=r.name; if(r.breed) a.breed=r.breed; if(r.cls) a.cls=r.cls; return a; }
+  function healthToDb(h,fid){ return { farm_id:fid, local_id:h.id?String(h.id):null, health_date:h.date||null, type:h.type||null, event:h.event||null, count:(h.count!=null)?parseInt(h.count,10):null, descr:h.desc||null, cost:(h.cost!=null)?Number(h.cost):null, supplier:h.supplier||null }; }
+  function healthFromDb(r){ return { date:r.health_date||'', type:r.type||'', event:r.event||'', count:Number(r.count)||0, desc:r.descr||'', cost:Number(r.cost)||0, supplier:r.supplier||'' }; }
 
   load.livestock = async function(farmId){
     farmId = farmId || farm.active();
-    const [cp,hd,hc,bm] = await Promise.all([
+    const [cp,hd,hc,bm,mv,tr,an,he] = await Promise.all([
       client().from('livestock_camps').select('*').eq('farm_id',farmId).order('created_at'),
       client().from('herds').select('*').eq('farm_id',farmId).order('created_at'),
       client().from('herd_classes').select('*').eq('farm_id',farmId),
-      client().from('livestock_benchmarks').select('*').eq('farm_id',farmId)
+      client().from('livestock_benchmarks').select('*').eq('farm_id',farmId),
+      client().from('livestock_moves').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
+      client().from('livestock_treatments').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
+      client().from('animals').select('*').eq('farm_id',farmId).order('created_at'),
+      client().from('livestock_health').select('*').eq('farm_id',farmId).order('created_at',{ascending:false})
     ]);
-    for(const r of [cp,hd,hc,bm]) if(r.error) throw r.error;
+    for(const r of [cp,hd,hc,bm,mv,tr,an,he]) if(r.error) throw r.error;
     var byHerd={};
     (hc.data||[]).forEach(function(r){ (byHerd[r.herd_local_id]=byHerd[r.herd_local_id]||[]).push({k:r.class_key,n:Number(r.count)||0,v:Number(r.class_value)||0}); });
     var herds=(hd.data||[]).map(function(r){ var h=herdFromDb(r); var cs=byHerd[r.local_id]; if(cs&&cs.length) h.classes=cs; return h; });
     var benchmarks={}; (bm.data||[]).forEach(function(r){ benchmarks[r.bench_key]=Number(r.bench_value); });
-    return { camps:(cp.data||[]).map(campFromDb), herds:herds, benchmarks:benchmarks };
+    return { camps:(cp.data||[]).map(campFromDb), herds:herds, benchmarks:benchmarks,
+             moves:(mv.data||[]).map(moveFromDb), treatments:(tr.data||[]).map(treatFromDb),
+             animals:(an.data||[]).map(animalFromDb), health:(he.data||[]).map(healthFromDb) };
   };
 
   var _lsSnap=null;
@@ -572,9 +587,10 @@
     async saveAll(stls){
       if(!stls) return;
       const fid=farm.active(); if(!fid) return;
-      const snap=JSON.stringify({c:stls.camps,h:stls.herd,b:stls.benchmarks});
+      const snap=JSON.stringify({c:stls.camps,h:stls.herd,b:stls.benchmarks,m:stls.moves,t:stls.treatments,a:stls.animals});
       if(snap===_lsSnap) return;
       const camps=(stls.camps||[]), herds=(stls.herd||[]), bench=(stls.benchmarks||{});
+      const moves=(stls.moves||[]), treats=(stls.treatments||[]), animals=(stls.animals||[]);
       if(camps.length){ const e=(await client().from('livestock_camps').upsert(camps.map(function(c){return campToDb(c,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       if(herds.length){ const e=(await client().from('herds').upsert(herds.map(function(h){return herdToDb(h,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       var allClasses=[]; herds.forEach(function(h){ allClasses=allClasses.concat(classRows(h,fid)); });
@@ -588,9 +604,15 @@
       var bq=client().from('livestock_benchmarks').delete().eq('farm_id',fid);
       if(bkeys.length) bq=bq.not('bench_key','in',_inList(bkeys));
       { const e=(await bq).error; if(e) throw e; }
+      // append-only logs: upsert by local_id, no prune (no delete UI except animals→removeAnimal)
+      if(moves.length){ const e=(await client().from('livestock_moves').upsert(moves.map(function(m){return moveToDb(m,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      if(treats.length){ const e=(await client().from('livestock_treatments').upsert(treats.map(function(t){return treatToDb(t,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      if(animals.length){ const e=(await client().from('animals').upsert(animals.map(function(a){return animalToDb(a,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       _lsSnap=snap;
       return true;
     },
+    async addHealth(h){ const fid=farm.active(); if(!fid||!h) return; const e=(await client().from('livestock_health').insert(healthToDb(h,fid))).error; if(e) throw e; return true; },
+    async removeAnimal(localId){ const fid=farm.active(); if(!fid||localId==null) return; const e=(await client().from('animals').delete().eq('farm_id',fid).eq('local_id',String(localId))).error; if(e) throw e; _lsSnap=null; return true; },
     async removeHerd(localId){ const fid=farm.active(); if(!fid||localId==null) return; const e=(await client().from('herds').delete().eq('farm_id',fid).eq('local_id',String(localId))).error; if(e) throw e; _lsSnap=null; return true; },
     async removeCamp(localId){ const fid=farm.active(); if(!fid||localId==null) return; const e=(await client().from('livestock_camps').delete().eq('farm_id',fid).eq('local_id',String(localId))).error; if(e) throw e; _lsSnap=null; return true; }
   };

@@ -9430,6 +9430,10 @@ function dataChanged(event) {
       if (pageId === 'cashflow')  { safeCall(window.updateCfPage); safeCall(window.renderCfForecast); }
       if (pageId === 'budgets')   { safeCall(window.renderBudgetsPage); }
       break;
+    case 'livestock':
+      // ST_LS records changed (move / treatment / tag add or delete) — flush to backend
+      try { if(window.AI && AI.farm && AI.farm.active() && window.ST_LS){ AI.livestock.saveAll(ST_LS).catch(function(e){ console.error('Backend livestock save failed:', e); }); } } catch(e){}
+      break;
   }
 
   if (typeof langSync === 'function') langSync();
@@ -14089,7 +14093,8 @@ function lsConfirmPlannedBuy(id){
   }
   // post the purchase as a single expense transaction
   if(buyTotal>0 && typeof ST!=='undefined' && ST.txns){
-    ST.txns.unshift({date:disp,desc:'Buy: start '+lsHerdName(h),cat:'Livestock Purchases',type:'expense',amt:buyTotal,method:'Bank Debit',source:'Plan'});
+    ST.txns.unshift({date:disp,desc:'Buy: start '+lsHerdName(h),cat:'Livestock Purchases',type:'expense',amt:buyTotal,method:'Bank Debit',source:'Plan',ent:'ls:'+id});
+    var _lsTS=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(iso),amt:buyTotal,cat:'Livestock Purchases',type:'expense',desc:'Buy: start '+lsHerdName(h),method:'Bank Debit',ent:'ls:'+id,source:'Plan'}).then(function(s){if(s&&s.id&&_lsTS)_lsTS.id=s.id;}).catch(function(er){console.error('Backend save failed:',er);}); } }catch(er){}
   }
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
@@ -14311,6 +14316,7 @@ function lsTagSave(){
 function lsTagDelete(animId){
   if(typeof confirm==='function' && !confirm('Remove this tag? The animal stays in the herd count \u2014 only the individual record goes.')) return;
   ST_LS.animals=(ST_LS.animals||[]).filter(function(x){return x.id!==animId;});
+  try { if(window.AI && AI.farm && AI.farm.active()){ AI.livestock.removeAnimal(animId).catch(function(e){ console.error('Backend animal delete failed:', e); }); } } catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
   toast('Tag removed.','info');
@@ -16655,12 +16661,13 @@ function lsRecordMove(opts){
   var uid='m'+Date.now().toString(36)+Math.floor(Math.random()*1e3);
   ST_LS.moves=ST_LS.moves||[];
   ST_LS.moves.unshift({id:uid,herd:h.id,reason:reason,cls:cls||undefined,toCls:opts.toCls||undefined,qty:qty,date:date,note:opts.note||'',money:money});
-  if(reason==='sold' && money>0){ ST.txns=ST.txns||[]; var label=(lsHerdName(h)||'Livestock')+(cls?' ('+lsClassMeta(h.type,cls).label.toLowerCase()+')':'')+' \u00d7 '+qty; ST.txns.unshift({date:lsDispFromISO(date),desc:label,cat:'Livestock Sales',type:'income',amt:money,method:'Bank Deposit',source:'Livestock movement'}); }
-  if(reason==='bought' && money>0){ ST.txns=ST.txns||[]; var blabel=(lsHerdName(h)||'Livestock')+(cls?' ('+lsClassMeta(h.type,cls).label.toLowerCase()+')':'')+' \u00d7 '+qty+' (purchase)'; ST.txns.unshift({date:lsDispFromISO(date),desc:blabel,cat:'Livestock Purchases',type:'expense',amt:money,method:'Bank Debit',source:'Livestock movement'}); }
+  if(reason==='sold' && money>0){ ST.txns=ST.txns||[]; var label=(lsHerdName(h)||'Livestock')+(cls?' ('+lsClassMeta(h.type,cls).label.toLowerCase()+')':'')+' \u00d7 '+qty; ST.txns.unshift({date:lsDispFromISO(date),desc:label,cat:'Livestock Sales',type:'income',amt:money,method:'Bank Deposit',source:'Livestock movement',ent:'ls:'+h.id}); var _lsTI=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(date),amt:money,cat:'Livestock Sales',type:'income',desc:label,method:'Bank Deposit',ent:'ls:'+h.id,source:'Livestock movement'}).then(function(s){if(s&&s.id&&_lsTI)_lsTI.id=s.id;}).catch(function(e){console.error('Backend save failed:',e);}); } }catch(e){} }
+  if(reason==='bought' && money>0){ ST.txns=ST.txns||[]; var blabel=(lsHerdName(h)||'Livestock')+(cls?' ('+lsClassMeta(h.type,cls).label.toLowerCase()+')':'')+' \u00d7 '+qty+' (purchase)'; ST.txns.unshift({date:lsDispFromISO(date),desc:blabel,cat:'Livestock Purchases',type:'expense',amt:money,method:'Bank Debit',source:'Livestock movement',ent:'ls:'+h.id}); var _lsTB=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(date),amt:money,cat:'Livestock Purchases',type:'expense',desc:blabel,method:'Bank Debit',ent:'ls:'+h.id,source:'Livestock movement'}).then(function(s){if(s&&s.id&&_lsTB)_lsTB.id=s.id;}).catch(function(e){console.error('Backend save failed:',e);}); } }catch(e){} }
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
   return h;
 }
+function _lsTxnISO(d){ return (d && /^\d{4}-\d{2}-\d{2}/.test(String(d))) ? String(d).slice(0,10) : new Date().toISOString().slice(0,10); }
 function lsDispFromISO(iso){ try{ var d=new Date(iso+'T00:00:00'); return d.toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return iso; } }
 function lsFyStartISO(){ var sm=ST.fyStartMonth||3, t=new Date(); var startY=(t.getMonth()+1)>=sm ? t.getFullYear() : t.getFullYear()-1; return startY+'-'+String(sm).padStart(2,'0')+'-01'; }
 function _lsMoveISO(m){ if(/^\d{4}-\d{2}-\d{2}/.test(m.date||'')) return m.date.slice(0,10); var d=new Date(m.date); return isNaN(d)?'':d.toISOString().slice(0,10); }
@@ -17312,7 +17319,8 @@ function lsTrFormSave(){
   var toExp = ($('ls-tr-toexp')||{}).checked;
   if(toExp && cost>0 && typeof ST!=='undefined'){
     ST.txns=ST.txns||[];
-    ST.txns.unshift({ date:date, desc:product+' \u2014 '+lsHerdName(h), cat:'Veterinary', type:'expense', amt:cost, method:'', _ls:rec.id });
+    ST.txns.unshift({ date:date, desc:product+' \u2014 '+lsHerdName(h), cat:'Veterinary', type:'expense', amt:cost, method:'', _ls:rec.id, ent:'ls:'+h.id });
+    var _lsTV=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(date),amt:cost,cat:'Veterinary',type:'expense',desc:product+' \u2014 '+lsHerdName(h),method:'',ent:'ls:'+h.id,source:'Livestock treatment'}).then(function(s){if(s&&s.id&&_lsTV)_lsTV.id=s.id;}).catch(function(e){console.error('Backend save failed:',e);}); } }catch(e){}
   }
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
@@ -17457,8 +17465,10 @@ function saveHealthEvent() {
   var supp=($('he-supplier')&&$('he-supplier').value.trim())||'';
   if(!desc){toast('Please enter a description','error');return;}
   ST_LS.health.unshift({date:date||'Today',type:type,event:event,count:count,desc:desc,cost:cost,supplier:supp});
+  try { if(window.AI && AI.farm && AI.farm.active()){ AI.livestock.addHealth(ST_LS.health[0]).catch(function(e){ console.error('Backend health save failed:', e); }); } } catch(e){}
   if(cost>0){
     ST.txns.unshift({date:date||'Today',desc:desc+' ('+type+')',cat:'Veterinary & Animal Health',type:'expense',amt:cost,method:'Cash'});
+    var _lsTH=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(date),amt:cost,cat:'Veterinary & Animal Health',type:'expense',desc:desc+' ('+type+')',method:'Cash',source:'Health log'}).then(function(s){if(s&&s.id&&_lsTH)_lsTH.id=s.id;}).catch(function(e){console.error('Backend save failed:',e);}); } }catch(e){}
     dataChanged('transaction');
     toast('Event saved & R'+_grpInt(cost)+' added to expenses','success');
   } else { toast('Health event saved','success'); }
@@ -19945,19 +19955,25 @@ function markEventDone(idx){
   var iso=evtMonthISO(e.month);
   var disp=evtDispDate(e.month);
   var uid=Date.now();
+  var _ent = h ? ('ls:'+h.id) : undefined;
   if(e.type==='sell'){
     if(h){ h.qty=Math.max(0,(h.qty||0)-(e.qty||0)); ST_LS.moves=ST_LS.moves||[]; ST_LS.moves.unshift({id:'m'+uid,herd:h.id,reason:'sold',qty:e.qty||0,date:iso,note:e.notes||e.desc,money:amount}); }
-    ST.txns.unshift({date:disp,desc:e.desc,cat:'Livestock Sales',type:'income',amt:amount,method:'Bank Debit',source:'Plan'});
+    ST.txns.unshift({date:disp,desc:e.desc,cat:'Livestock Sales',type:'income',amt:amount,method:'Bank Debit',source:'Plan',ent:_ent});
+    var _lsPa=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(iso),amt:amount,cat:'Livestock Sales',type:'income',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}).then(function(s){if(s&&s.id&&_lsPa)_lsPa.id=s.id;}).catch(function(er){console.error('Backend save failed:',er);}); } }catch(er){}
   } else if(e.type==='buy'){
     if(h){ h.qty=(h.qty||0)+(e.qty||0); if(h.planned) h.planned=false; ST_LS.moves=ST_LS.moves||[]; ST_LS.moves.unshift({id:'m'+uid,herd:h.id,reason:'bought',qty:e.qty||0,date:iso,note:e.notes||e.desc,money:amount}); }
-    ST.txns.unshift({date:disp,desc:e.desc,cat:'Livestock Sales',type:'expense',amt:amount,method:'Bank Debit',source:'Plan'});
+    ST.txns.unshift({date:disp,desc:e.desc,cat:'Livestock Purchases',type:'expense',amt:amount,method:'Bank Debit',source:'Plan',ent:_ent});
+    var _lsPb=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(iso),amt:amount,cat:'Livestock Purchases',type:'expense',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}).then(function(s){if(s&&s.id&&_lsPb)_lsPb.id=s.id;}).catch(function(er){console.error('Backend save failed:',er);}); } }catch(er){}
   } else if(e.type==='cost'){
     if(h){ ST_LS.treatments=ST_LS.treatments||[]; ST_LS.treatments.unshift({id:'t'+uid,herd:h.id,kind:'event',product:e.desc,reg:'',target:'whole',head:0,tags:[],dose:'',date:iso,by:'',cost:amount,meat:0,milk:0}); }
-    ST.txns.unshift({date:disp,desc:e.desc,cat:'Veterinary & Animal Health',type:'expense',amt:amount,method:'Bank Debit',source:'Plan'});
+    ST.txns.unshift({date:disp,desc:e.desc,cat:'Veterinary & Animal Health',type:'expense',amt:amount,method:'Bank Debit',source:'Plan',ent:_ent});
+    var _lsPc=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(iso),amt:amount,cat:'Veterinary & Animal Health',type:'expense',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}).then(function(s){if(s&&s.id&&_lsPc)_lsPc.id=s.id;}).catch(function(er){console.error('Backend save failed:',er);}); } }catch(er){}
   } else {
-    ST.txns.unshift({date:disp,desc:e.desc,cat:'Livestock Sales',type:'income',amt:amount,method:'Bank Debit',source:'Plan'});
+    ST.txns.unshift({date:disp,desc:e.desc,cat:'Livestock Sales',type:'income',amt:amount,method:'Bank Debit',source:'Plan',ent:_ent});
+    var _lsPe=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(iso),amt:amount,cat:'Livestock Sales',type:'income',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}).then(function(s){if(s&&s.id&&_lsPe)_lsPe.id=s.id;}).catch(function(er){console.error('Backend save failed:',er);}); } }catch(er){}
   }
   e.done=true;
+  try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(er){}
   dataChanged('transaction');
   dataChanged('plan');
   if(typeof renderEventList==='function') renderEventList();

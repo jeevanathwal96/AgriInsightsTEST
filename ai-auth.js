@@ -132,7 +132,10 @@
             ST_LS.camps = live.camps || [];
             ST_LS.herd = live.herds || [];
             ST_LS.benchmarks = live.benchmarks || {};
-            // moves / treatments / animals / health persist in increment 3a-ii
+            ST_LS.moves = live.moves || [];
+            ST_LS.treatments = live.treatments || [];
+            ST_LS.animals = live.animals || [];
+            ST_LS.health = live.health || [];
           }
         } catch (e) { console.error('Livestock hydrate failed:', e); }
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });
