@@ -7440,6 +7440,9 @@ function cropRenderAddForm(){
     '<button class="crop-formbtn" onclick="cropSaveLand()">Plant this land</button>'+
     '<div class="crop-infonote">Answering \u201cGMO\u201d and \u201cIrrigated\u201d here is what switches on the matching Compliance items \u2014 ask once, use everywhere.</div>';
   var sel=$('crop-f-land'); if(sel) sel.onchange=function(){ var w=$('crop-f-newland-wrap'); if(w) w.style.display=(this.value==='new'?'block':'none'); };
+  // Initialise the new-land name field visibility for the current selection. With no
+  // lands yet, "new" is the only/default option, so the name box must show immediately.
+  if(sel){ var w0=$('crop-f-newland-wrap'); if(w0) w0.style.display=(sel.value==='new'?'block':'none'); }
   cropPriceTouched=false;
   var cs=$('crop-f-crop'); if(cs) cs.onchange=function(){ if(!cropPriceTouched){ var ip=$('crop-f-price'); if(ip) ip.value=''; } cropRenderPriceChip(); };
   cropRenderPriceChip();
