@@ -7180,7 +7180,7 @@ function cropRenderInputs(){
     var safeCls = cropInputActive(i)?'st-wd':'st-ok';
     var batch = (i.kind==='fertiliser'||i.kind==='seed') ? (i.batch||'\u2014') : (i.batch?esc(i.batch):'<span class="miss">missing</span>');
     return '<tr><td>'+cropDispDate(i.date)+'</td><td>'+esc(l?l.name:'?')+'</td>'+
-      '<td>'+esc(i.product)+'<br><span style="color:var(--t4);font-size:10px">Act 36/1947 \u00b7 '+esc(i.reg||'\u2014')+'</span></td>'+
+      '<td>'+esc(i.product)+'<br><span style="color:var(--t4);font-size:10px">Act 36/1947 \u00b7 '+esc(i.reg||'\u2014')+(i.targetFor?' \u00b7 for '+esc(i.targetFor):'')+'</span></td>'+
       '<td><span class="crop-tagp '+meta[1]+'">'+meta[0]+'</span></td><td>'+esc(i.rate||'')+'</td><td>'+batch+'</td>'+
       '<td>'+esc(i.by||'')+(i.operatorCert?'<br><span style="color:var(--t4);font-size:10px">'+esc(i.operatorCert)+' cert</span>':'')+'</td>'+
       '<td>'+(i.phi?i.phi+' d':'None')+'</td><td class="'+safeCls+'">'+safe+'</td></tr>';
@@ -7417,7 +7417,7 @@ function cropModalShell(title, bodyHtml, footerHtml){
     '<div style="padding:16px 20px">'+bodyHtml+'</div>'+
     '<div style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--br2)">'+footerHtml+'</div>';
 }
-function cropCloseModal(){ var ov=$('crop-comply-overlay'); if(ov) ov.style.display='none'; if(typeof cropRenderCompliance==='function') cropRenderCompliance(); }
+function cropCloseModal(){ var ov=$('crop-comply-overlay'); if(ov) ov.style.display='none'; var t=ST_CROP.activeTab; if(t==='inputs' && typeof cropRenderInputs==='function') cropRenderInputs(); else if(typeof cropRenderCompliance==='function') cropRenderCompliance(); }
 
 function cropRenderAddForm(){
   var el=$('crop-view-add'); if(!el) return;
@@ -7529,14 +7529,58 @@ function cropQuickHarvest(){
 function cropLogInput(){
   var planted=ST_CROP.lands.filter(cropPlanted);
   if(!planted.length){ toast('Plant a land first','info'); return; }
-  var l=planted[0];
-  var product=prompt('Product applied to '+l.name+'?'); if(!product) return;
-  var kind=(prompt('Type? seed / fertiliser / herbicide / fungicide / insecticide','herbicide')||'herbicide').toLowerCase();
-  if(['seed','fertiliser','herbicide','fungicide','insecticide'].indexOf(kind)<0) kind='herbicide';
-  var phi=parseInt(prompt('Pre-harvest interval in days? (0 if none)','0'),10)||0;
-  var cost=parseFloat(prompt('Cost per hectare (R)?','0'))||0;
-  ST_CROP.inputs.unshift({id:cropNextId(ST_CROP.inputs,'ci'), land:l.id, date:LS_TODAY.toISOString().slice(0,10), product:product, reg:'', kind:kind, rate:'', batch:'', by:FARM.owner||'', operatorCert:'', phi:phi, costPerHa:cost});
-  ST_CROP.filter='all'; dataChanged('crop'); toast('Application logged','success');
+  var landOpts=planted.map(function(l){return '<option value="'+l.id+'">'+esc(l.name)+' ('+(l.area||0)+' ha)</option>';}).join('');
+  var kinds=[['herbicide','Herbicide'],['fungicide','Fungicide'],['insecticide','Insecticide'],['fertiliser','Fertiliser'],['seed','Seed']];
+  var kindOpts=kinds.map(function(k){return '<option value="'+k[0]+'">'+k[1]+'</option>';}).join('');
+  var today=LS_TODAY.toISOString().slice(0,10);
+  function lbl(t,opt){ return '<label style="display:block;font-size:10.5px;font-weight:800;color:var(--gm);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">'+t+(opt?' <span style="color:var(--t4);font-weight:600;text-transform:none;letter-spacing:0">optional</span>':'')+'</label>'; }
+  var inpCss='width:100%;height:38px;border:1px solid var(--br);border-radius:9px;background:#fff;padding:0 11px;font-size:13.5px;font-family:inherit;box-sizing:border-box';
+  var body=''+
+    '<div style="margin-bottom:12px">'+lbl('Which land?')+'<select id="ci-land" style="'+inpCss+'">'+landOpts+'</select></div>'+
+    '<div style="margin-bottom:12px">'+lbl('What did you apply?')+'<input id="ci-product" placeholder="e.g. Karate Zeon" style="'+inpCss+'"></div>'+
+    '<div style="display:flex;gap:10px;margin-bottom:12px"><div style="flex:1">'+lbl('Registration no.',true)+'<input id="ci-reg" placeholder="L7723 (on the label)" style="'+inpCss+'"></div>'+
+      '<div style="flex:1">'+lbl('Type')+'<select id="ci-kind" style="'+inpCss+'">'+kindOpts+'</select></div></div>'+
+    '<div style="display:flex;gap:10px;margin-bottom:12px"><div style="flex:1">'+lbl('Rate used',true)+'<input id="ci-rate" placeholder="200 ml/ha" style="'+inpCss+'"></div>'+
+      '<div style="flex:1">'+lbl('Batch no.',true)+'<input id="ci-batch" placeholder="on the container" style="'+inpCss+'"></div></div>'+
+    '<div style="display:flex;gap:10px;margin-bottom:12px"><div style="flex:1">'+lbl('Applied by',true)+'<input id="ci-by" placeholder="who applied it" style="'+inpCss+'"></div>'+
+      '<div style="flex:1">'+lbl('Spray licence',true)+'<input id="ci-cert" placeholder="e.g. P2" style="'+inpCss+'"></div></div>'+
+    '<div style="margin-bottom:12px">'+lbl('What for?',true)+'<input id="ci-for" placeholder="e.g. stalk borer, ryegrass, leaf rust" style="'+inpCss+'"></div>'+
+    '<div style="display:flex;gap:10px;margin-bottom:12px"><div style="flex:1">'+lbl('Days to wait (PHI)',true)+'<input id="ci-phi" type="number" placeholder="0" style="'+inpCss+'"></div>'+
+      '<div style="flex:1">'+lbl('Cost per hectare',true)+'<input id="ci-cost" type="number" inputmode="decimal" placeholder="R 0" style="'+inpCss+'"></div></div>'+
+    '<div style="margin-bottom:4px">'+lbl('Date applied')+'<input id="ci-date" type="date" value="'+today+'" style="'+inpCss+'"></div>'+
+    '<div style="background:#eef4ec;border:1px solid #cfe3d4;border-radius:9px;padding:9px 11px;font-size:10.8px;color:#3a5a45;line-height:1.5;margin-top:12px">The wait time sets the <b>safe-to-harvest date</b> automatically \u2014 and this one entry becomes your SARS cost line and your Act 36 spray record.</div>';
+  var footer='<button class="crop-formbtn" style="flex:1" onclick="cropInputFormSave()">Save application</button>'+
+    '<button onclick="cropCloseModal()" style="width:110px;border:1px solid var(--br);border-radius:10px;background:#fff;color:var(--t3);font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer">Cancel</button>';
+  cropModalShell('Log an application', body, footer);
+}
+function cropInputFormSave(){
+  var l=cropLandById(parseInt(($('ci-land')||{}).value,10)); if(!l){ toast('Pick a land','error'); return; }
+  var product=(($('ci-product')||{}).value||'').trim(); if(!product){ toast('What did you apply?','error'); return; }
+  var kind=(($('ci-kind')||{}).value||'herbicide');
+  var phi=parseInt(($('ci-phi')||{}).value,10)||0;
+  var cost=parseFloat(($('ci-cost')||{}).value)||0;
+  var date=(($('ci-date')||{}).value)||LS_TODAY.toISOString().slice(0,10);
+  var forVal=(($('ci-for')||{}).value||'').trim();
+  ST_CROP.inputs.unshift({ id:cropNextId(ST_CROP.inputs,'ci'), land:l.id, date:date, product:product,
+    reg:(($('ci-reg')||{}).value||'').trim(), kind:kind, rate:(($('ci-rate')||{}).value||'').trim(),
+    batch:(($('ci-batch')||{}).value||'').trim(), by:(($('ci-by')||{}).value||'').trim()||(FARM.owner||''),
+    operatorCert:(($('ci-cert')||{}).value||'').trim(), targetFor:forVal,
+    phi:phi, costPerHa:cost });
+  // Sync the cost to Money Flow as a real SARS expense line (mirrors orchard/livestock)
+  var total = cost * (l.area||0);
+  if(total>0){
+    var catMap={seed:'Seeds & Planting',fertiliser:'Fertiliser',herbicide:'Crop Protection',fungicide:'Crop Protection',insecticide:'Crop Protection'};
+    var cat=catMap[kind]||'Crop Protection';
+    var desc=product+' \u2014 '+(l.name||'land')+(forVal?(' ('+forVal+')'):'');
+    var entTag = l.crop ? ('crop:'+l.crop) : undefined;
+    ST.txns=ST.txns||[];
+    ST.txns.unshift({ date:cropDispDate(date), desc:desc, cat:cat, type:'expense', amt:total, method:'Bank Debit', source:'Crop input', ent:entTag });
+    var _ciTx=ST.txns[0];
+    try{ if(window.AI && AI.farm && AI.farm.active()){ AI.txn.add({date:_lsTxnISO(date),amt:total,cat:cat,type:'expense',desc:desc,method:'Bank Debit',ent:entTag,source:'Crop input'}).then(function(s){ if(s&&s.id&&_ciTx) _ciTx.id=s.id; }).catch(function(e){ console.error('Backend txn save failed:',e); }); } }catch(e){}
+  }
+  ST_CROP.filter='all'; dataChanged('crop');
+  cropCloseModal();
+  toast(total>0?('Application logged \u2014 R'+_grpInt(Math.round(total))+' to expenses'):'Application logged','success');
 }
 var CROP_LAND_IDX = -1;
 var CROP_LAND_EDIT = false;
