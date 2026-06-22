@@ -3800,6 +3800,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div><label>Payment Method</label><select id="ai-method"><option>Bank Deposit</option><option>Cash</option><option>EFT</option></select></div>
           <div><label>Reference / Notes (optional)</label><input id="ai-ref" placeholder="Invoice number or notes"/></div>
         </div>
+        <div style="margin-bottom:12px"><label>For which enterprise? (optional)</label><select id="ai-ent"><option value="">Whole farm</option></select><div style="font-size:11px;color:var(--t4);margin-top:4px">Leave on &ldquo;Whole farm&rdquo; for general income. <span style="color:var(--gm);cursor:pointer;font-weight:700" onclick="nav('livestock')">Other animals not listed? Add them in Livestock first.</span></div></div>
         <div class="form-step">5. Attach document (optional)</div>
         <div id="ai-upload" class="upload-zone" onclick="document.getElementById('ai-file').click()" ondragover="dzOver(event,'ai-upload')" ondragleave="dzLeave('ai-upload')" ondrop="dzDrop(event,'ai-file','ai-upload','ai-preview')">
           <input type="file" id="ai-file" accept="image/*,.pdf" style="display:none" onchange="dzSelect(this,'ai-upload','ai-preview')"/>
@@ -3992,7 +3993,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <div class="form-step">2. Expense details</div>
         <div class="fg2"><div><label>Description</label><input id="ae-desc" placeholder="e.g. Urea Fertiliser (2 ton)" oninput="updateExpSummary()"/></div><div><label>Date Paid</label><input id="ae-date" type="date" oninput="updateExpSummary()"/></div></div>
         <div style="margin-bottom:12px"><label>Supplier / Payee (optional)</label><input id="ae-supplier" placeholder="Supplier name"/></div>
-        <div style="margin-bottom:12px"><label>For which block or herd? (optional)</label><select id="ae-ent"><option value="">Whole farm</option></select><div style="font-size:11px;color:var(--t4);margin-top:4px">Leave on &ldquo;Whole farm&rdquo; for shared costs like diesel. Tag a block or herd and it sharpens that one&rsquo;s real costs.</div></div>
+        <div style="margin-bottom:12px"><label>For which enterprise? (optional)</label><select id="ae-ent"><option value="">Whole farm</option></select><div style="font-size:11px;color:var(--t4);margin-top:4px">Leave on &ldquo;Whole farm&rdquo; for shared costs like diesel. <span style="color:var(--gm);cursor:pointer;font-weight:700" onclick="nav('livestock')">Other animals not listed? Add them in Livestock first.</span></div></div>
         <div class="fg3">
           <div><label>Amount (R)</label><input id="ae-amount" type="number" placeholder="0" oninput="updateExpSummary();if(typeof aeCoopImpact==='function')aeCoopImpact()"/></div>
           <div><label>Quantity (optional)</label><input id="ae-qty" type="number" placeholder="Qty"/></div>
@@ -7914,10 +7915,10 @@ function wkEnterpriseLabour(name){
   return Math.round(ann);
 }
 function _pfTaggedLabourTotal(){
-  var names={}, t=0;
-  try{ ((typeof ST_CROP!=='undefined'&&ST_CROP&&ST_CROP.lands)||[]).forEach(function(l){ if(l.crop && l.stage!=='planned' && l.stage!=='fallow') names['c|'+l.crop]=l.crop; }); }catch(e){}
-  try{ ((typeof ST_LS!=='undefined'&&ST_LS&&ST_LS.herd)||[]).forEach(function(h){ if(!h.planned && (h.qty||0)>0){ var nm=h.name||h.type; if(nm) names['h|'+nm]=nm; } }); }catch(e){}
-  for(var k in names){ if(names.hasOwnProperty(k)) t+=wkEnterpriseLabour(names[k]); }
+  var t=0;
+  try{ if(typeof _pfCropEnts==='function')    _pfCropEnts().forEach(function(e){ t+=wkEnterpriseLabour('crop:'+e.crop); }); }catch(e){}
+  try{ if(typeof _pfLiveEnts==='function')    _pfLiveEnts().forEach(function(e){ t+=wkEnterpriseLabour('ls:'+e.id); }); }catch(e){}
+  try{ if(typeof _pfOrchardEnts==='function') _pfOrchardEnts().forEach(function(e){ t+=wkEnterpriseLabour('or:'+e.id); }); }catch(e){}
   return Math.round(t);
 }
 function _pfCropEnts(){
@@ -7930,13 +7931,13 @@ function _pfCropEnts(){
     if(!by[l.crop]){ by[l.crop]={crop:l.crop,area:0,tons:0,income:0,cost:0,price:price}; order.push(l.crop); }
     var e=by[l.crop]; e.area+=area; e.tons+=area*yld; e.income+=area*yld*price; e.cost+=area*(l.inputPerHa||0);
   });
-  return order.map(function(c){ var e=by[c]; e.labour=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour(c):0; e.cost+=e.labour; e.gm=e.income-e.cost; e.gmHa=e.area?Math.round(e.gm/e.area):0; e.cop=e.tons?Math.round(e.cost/e.tons):0; e.icon=_pfCropIcon(c); e.finance=(typeof LN_cropFinance==='function')?LN_cropFinance(c):0; return e; });
+  return order.map(function(c){ var e=by[c]; e.labour=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('crop:'+c):0; e.cost+=e.labour; e.gm=e.income-e.cost; e.gmHa=e.area?Math.round(e.gm/e.area):0; e.cop=e.tons?Math.round(e.cost/e.tons):0; e.icon=_pfCropIcon(c); e.finance=(typeof LN_cropFinance==='function')?LN_cropFinance(c):0; return e; });
 }
 function _pfLiveEnts(){
   if(typeof entOn==="function" && !entOn("livestock")) return [];
   return (ST_LS&&ST_LS.herd||[]).filter(function(h){ return !h.planned && (h.qty||0)>0; }).map(function(h){
     var costHead=(h.buy||0)+((h.feed||0)+(h.vet||0))*(h.months||0);
-    var marginHead=(h.sell||0)-costHead, lab=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour(h.name||h.type||'Herd'):0, gmProd=marginHead*(h.qty||0), gm=gmProd-lab, lsu=(h.qty||0)*_pfLsu(h.type||h.name||'');
+    var marginHead=(h.sell||0)-costHead, lab=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('ls:'+h.id):0, gmProd=marginHead*(h.qty||0), gm=gmProd-lab, lsu=(h.qty||0)*_pfLsu(h.type||h.name||'');
     return {id:h.id, name:h.name||h.type||'Herd', type:h.type||'', qty:h.qty||0, feed:h.feed||0, vet:h.vet||0, costHead:costHead, sellHead:h.sell||0, marginHead:marginHead, gm:gm, gmProd:gmProd, labour:lab, lsu:lsu, gmLsu:lsu?Math.round(gm/lsu):0, feed:h.feed||0, vet:h.vet||0, buy:h.buy||0, months:h.months||0, icon:_pfLiveIcon(h.type||h.name||''), finance:(typeof LN_liveFinance==='function')?LN_liveFinance(h.id):0};
   });
 }
@@ -8513,6 +8514,7 @@ function pfWhatIfHerd(){
 }
 
 function renderProfit(){
+  try{ wkMigrateActivity(); }catch(e){}
   applyProfitLabel();
   var el=$('profit-body'); if(!el) return;
   var crops=_pfCropEnts(), live=_pfLiveEnts();
@@ -10069,7 +10071,7 @@ function nav(id) {
     var spv=$('set-province'); if(spv && ST.province) spv.value = ST.province;
     if (typeof syncSettingsHeader==='function') syncSettingsHeader();
   }
-  if (id === 'add-income')  { var d=$('ai-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; }
+  if (id === 'add-income')  { var d=$('ai-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; var ie=$('ai-ent'); if(ie) ie.innerHTML=entOptions(''); }
   if (id === 'add-expense') { var d=$('ae-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; }
   if (typeof langSync === 'function') langSync();
   }, 60);
@@ -10342,12 +10344,13 @@ function saveSale() {
       var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       return d.getDate()+' '+months[d.getMonth()]+' '+d.getFullYear();
     })() : 'Today';
-    ST.txns.unshift({date:dateStr, desc:desc, cat:cat, type:'income', amt:amt, method:method, source:'Income form', qty:sqty||undefined, unit:(sqty&&sunit)?sunit:undefined});
+    var _aiEnt = ($('ai-ent') && $('ai-ent').value) || '';
+    ST.txns.unshift({date:dateStr, desc:desc, cat:cat, type:'income', amt:amt, method:method, source:'Income form', qty:sqty||undefined, unit:(sqty&&sunit)?sunit:undefined, ent:_aiEnt||undefined});
     var _aiInc = ST.txns[0];
     // Backend write-through; back-patch DB id onto the local row for edit/delete
     try {
       if (window.AI && AI.farm && AI.farm.active()) {
-        AI.txn.add({ date: (date && date !== 'Today' ? date : new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'income', desc: desc, method: method, qty: sqty||undefined, unit: (sqty&&sunit)?sunit:undefined, source: 'Income form' })
+        AI.txn.add({ date: (date && date !== 'Today' ? date : new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'income', desc: desc, method: method, qty: sqty||undefined, unit: (sqty&&sunit)?sunit:undefined, ent: _aiEnt||undefined, source: 'Income form' })
           .then(function(s){ if(s && s.id && _aiInc) _aiInc.id = s.id; })
           .catch(function(e){ console.error('Backend save failed:', e); });
       }
@@ -10385,14 +10388,52 @@ function fmtDate(s) {
 // ============================================================
 
 // ============================================================
+// ===== Unified enterprise picker — one tag across income, expense & editor =====
+// No master list: the source is always the live operational records, so adds and
+// renames flow through automatically. Tag format on a txn (field: ent):
+//   '' = whole farm | 'crop:<type>' | 'ls:<herdId>' | 'or:<blockId>'
+function entList(){
+  var out=[];
+  try{ var _seenCrop={}; ((typeof ST_CROP!=='undefined'&&ST_CROP&&ST_CROP.lands)||[]).forEach(function(l){
+    if(!l || !l.crop || l.stage==='fallow' || l.stage==='planned') return;
+    if(_seenCrop[l.crop]) return; _seenCrop[l.crop]=1;
+    out.push({code:'crop:'+l.crop, label:l.crop, kind:'crop', icon:(typeof _pfCropIcon==='function'?_pfCropIcon(l.crop):'\uD83C\uDF31')});
+  }); }catch(e){}
+  try{ ((typeof ST_LS!=='undefined'&&ST_LS&&ST_LS.herd)||[]).forEach(function(h){
+    if(h && !h.planned && (h.qty||0)>0) out.push({code:'ls:'+h.id, label:(h.name||h.type||'Herd'), kind:'herd', icon:(typeof _pfLiveIcon==='function'?_pfLiveIcon(h.type||h.name):'\uD83D\uDC04')});
+  }); }catch(e){}
+  try{ ((typeof ST_FRUIT!=='undefined'&&ST_FRUIT&&ST_FRUIT.blocks)||[]).forEach(function(b){
+    if(b && !b.plan && !b.removed) out.push({code:'or:'+b.id, label:(b.name||'Block'), kind:'orchard', icon:(b.icon||'\uD83C\uDF4A')});
+  }); }catch(e){}
+  return out;
+}
+function entResolve(code){
+  if(!code) return null;                 // whole farm
+  var list=entList();
+  for(var i=0;i<list.length;i++){ if(list[i].code===code) return list[i]; }
+  return {code:code, label:'(removed)', kind:'', icon:''};   // record since deleted
+}
+function entOptions(sel){
+  var list=entList();
+  function grp(kind,label){
+    var items=list.filter(function(e){return e.kind===kind;});
+    if(!items.length) return '';
+    return '<optgroup label="'+label+'">'+items.map(function(e){
+      return '<option value="'+e.code+'"'+(e.code===sel?' selected':'')+'>'+esc(e.label)+'</option>';
+    }).join('')+'</optgroup>';
+  }
+  return '<option value=""'+(!sel?' selected':'')+'>Whole farm</option>'+
+         grp('crop','Crops')+grp('herd','Herds')+grp('orchard','Orchards');
+}
+// Hint shown under the picker — directs farmers to Livestock for unlisted animals.
+function entHintHTML(){
+  return '<div style="font-size:11px;color:var(--t4);margin-top:4px;line-height:1.45">'+
+         'Leave on \u201cWhole farm\u201d for shared costs like diesel. '+
+         '<span style="color:var(--gm);cursor:pointer;font-weight:700" onclick="nav(\'livestock\')">Other animals not listed? Add them in Livestock first.</span></div>';
+}
 function aeFillEnt(){
   var sel=$('ae-ent'); if(!sel) return;
-  var h='<option value="">Whole farm</option>';
-  var blocks=(typeof ST_FRUIT!=='undefined'&&ST_FRUIT.blocks||[]).filter(function(b){return !b.plan&&!b.removed;});
-  if(blocks.length){ h+='<optgroup label="Orchards & veg">'+blocks.map(function(b){return '<option value="or:'+b.id+'">'+esc(b.name)+'</option>';}).join('')+'</optgroup>'; }
-  var herds=(typeof ST_LS!=='undefined'&&ST_LS.herd||[]).filter(function(x){return !x.planned&&(x.qty||0)>0;});
-  if(herds.length){ h+='<optgroup label="Herds">'+herds.map(function(x){return '<option value="ls:'+x.id+'">'+esc(x.name||x.type)+'</option>';}).join('')+'</optgroup>'; }
-  sel.innerHTML=h; sel.value='';
+  sel.innerHTML=entOptions(''); sel.value='';
 }
 function openAddExpense() { nav('add-expense'); setTimeout(function(){ var d=$('ae-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; if(typeof setExpFreq==='function') setExpFreq('One-off'); aeFillEnt(); },80); }
 
@@ -12126,7 +12167,7 @@ function wkColor(i){ var c=['#2D6A4F','#40916C','#C8962C','#7C3AED','#E0930E','#
 function wkHourly(w){ if(!w||!w.amt) return 0; if(w.basis==='day'){ return (w.hoursDay? w.amt/w.hoursDay : 0); } var hw=(w.hoursWeek||ST_WORK.hoursWeek||45); var hm=hw*52/12; return hm? w.amt/hm : 0; }
 function wkList(){ return (ST_WORK.workers||[]); }
 
-function renderWorkers(){ try{ wkSyncLabourBudget(); }catch(e){} renderWkOverview(); renderWkRegister(); renderWkPayroll(); renderWkCompliance(); wkTab(ST_WORK.activeTab||'ov'); }
+function renderWorkers(){ try{ wkMigrateActivity(); }catch(e){} try{ wkSyncLabourBudget(); }catch(e){} renderWkOverview(); renderWkRegister(); renderWkPayroll(); renderWkCompliance(); wkTab(ST_WORK.activeTab||'ov'); }
 
 function wkTab(t){
   ['ov','wk','pr','cp','detail'].forEach(function(x){ var pn=$('wkp-'+x); if(pn) pn.classList.toggle('on', x===t); });
@@ -12332,7 +12373,7 @@ function wkPostSeasonal(){
   if(sg<=0){ if(typeof toast==='function') toast('Enter days worked first.','info'); return; }
   var cost=Math.round((sg+su)*100)/100;   // gross + employer UIF (1%)
   var runId='pr'+Date.now();
-  if(typeof ST!=='undefined' && ST.txns){ for(var _k in buckets){ if(!buckets.hasOwnProperty(_k)) continue; var _b=buckets[_k]; var _c=Math.round((_b.gross+_b.uif)*100)/100; ST.txns.unshift({ date:wkTodayStr(), desc:'Seasonal wages \u2014 '+label+(_k?(' \u00b7 '+_k):''), cat:'Labour & Wages', type:'expense', amt:_c, method:'Bank', source:'Payroll', enterprise:_k, payRunId:runId }); } }
+  if(typeof ST!=='undefined' && ST.txns){ for(var _k in buckets){ if(!buckets.hasOwnProperty(_k)) continue; var _b=buckets[_k]; var _c=Math.round((_b.gross+_b.uif)*100)/100; ST.txns.unshift({ date:wkTodayStr(), desc:'Seasonal wages \u2014 '+label+(_k?(' \u00b7 '+wkActLabel(_k)):''), cat:'Labour & Wages', type:'expense', amt:_c, method:'Bank', source:'Payroll', ent:_k||undefined, payRunId:runId }); } }
   ST_WORK.payRuns.unshift({ id:runId, label:label, kind:'Seasonal \u00b7 '+totDays+' days', seasonal:true, net:Math.round(sg-su), gross:Math.round(sg), uif:Math.round(su*2), date:wkTodayStr() });
   try { if(typeof dataChanged==='function') dataChanged('transaction'); } catch(e){}
   if(typeof saveState==='function') saveState();
@@ -12378,7 +12419,7 @@ function wkSeasonalSlipHtml(id,label){
   var gross=days*(w.amt||0); var uif=(typeof wkSeasUif==='function')?wkSeasUif(gross,days,w):0; var net=gross-uif;
   var farm=(typeof ST!=='undefined'&&ST.farmName)?ST.farmName:'Your farm';
   var ded=uif>0?('<div class="wk-srow"><span>UIF (1%)</span><span class="neg">\u2212'+wkMoney(uif)+'</span></div>'):'<div class="wk-srow"><span>UIF</span><span style="color:var(--t4)">\u2014 under 24 hrs/mo, exempt</span></div>';
-  var foot='Worked on: '+(w.activity?wkE(w.activity):'General farm')+(w.uifNo?(' \u00b7 UIF no. '+wkE(w.uifNo)):'');
+  var foot='Worked on: '+wkE(wkActLabel(w.activity))+(w.uifNo?(' \u00b7 UIF no. '+wkE(w.uifNo)):'');
   return '<div class="wk-slip"><div class="sh"><div class="t">'+wkE(farm)+'</div><div class="s">Payslip \u00b7 '+wkE(w.name)+' \u00b7 '+wkE(label)+'</div></div><div class="sb">'
     + '<div class="wk-srow head"><span>What they earned</span><span></span></div>'
     + '<div class="wk-srow"><span>'+days+' day'+(days===1?'':'s')+' \u00d7 '+wkMoney(w.amt||0)+'</span><span>'+wkMoney(gross)+'</span></div>'
@@ -12898,11 +12939,41 @@ function wkEnterprises(){ var out=[],seen={};
   try{ ((typeof ST_LS!=='undefined'&&ST_LS&&ST_LS.herd)||[]).forEach(function(h){ var nm=h.name||h.type; if(nm&&!seen['h|'+nm]){ seen['h|'+nm]=1; out.push(nm); } }); }catch(e){}
   return out;
 }
-function wkActOptions(sel){ var o='<option value="">General farm</option>'; wkEnterprises().forEach(function(e){ o+='<option'+(e===sel?' selected':'')+'>'+wkE(e)+'</option>'; }); return o; }
-function wkActChip(w){ var a=(w&&w.activity)||''; return '<div class="pr-actchip '+(a?'ent':'gen')+'" onclick="wkSeasActEdit(\''+w.id+'\')">'+(a?wkE(a):'General farm')+'</div>'; }
+function wkActOptions(sel){ return (typeof entOptions==='function')?entOptions(sel||''):'<option value="">Whole farm</option>'; }
+function wkActLabel(code){ if(!code) return 'General farm'; var r=(typeof entResolve==='function')?entResolve(code):null; return r?r.label:code; }
+// One-time migration: legacy enterprise tags were stored as plain names (crop
+// type / herd name / orchard block name). Convert any bare name (no ':') to the
+// matching code so payroll + profit reconcile. Idempotent: coded values skipped.
+var _wkActMigrated=false;
+function wkMigrateActivity(){
+  if(_wkActMigrated) return;
+  try{
+    function nameToCode(nm){
+      if(!nm || String(nm).indexOf(':')>=0) return nm;
+      var s=String(nm).toLowerCase();
+      var ct=((typeof ST_CROP!=='undefined'&&ST_CROP&&ST_CROP.lands)||[]);
+      for(var i=0;i<ct.length;i++){ if(ct[i].crop && String(ct[i].crop).toLowerCase()===s) return 'crop:'+ct[i].crop; }
+      var hd=((typeof ST_LS!=='undefined'&&ST_LS&&ST_LS.herd)||[]);
+      for(var j=0;j<hd.length;j++){ var hn=hd[j].name||hd[j].type; if(hn && String(hn).toLowerCase()===s) return 'ls:'+hd[j].id; }
+      var ob=((typeof ST_FRUIT!=='undefined'&&ST_FRUIT&&ST_FRUIT.blocks)||[]);
+      for(var m=0;m<ob.length;m++){ if(ob[m].name && String(ob[m].name).toLowerCase()===s) return 'or:'+ob[m].id; }
+      return nm;
+    }
+    var changed=false;
+    ((typeof ST_WORK!=='undefined'&&ST_WORK&&ST_WORK.workers)||[]).forEach(function(w){
+      if(w && w.activity){ var c=nameToCode(w.activity); if(c!==w.activity){ w.activity=c; changed=true; } }
+    });
+    if(typeof ST!=='undefined' && ST.txns){ ST.txns.forEach(function(t){
+      if(t && t.ent && String(t.ent).indexOf(':')<0){ var c=nameToCode(t.ent); if(c!==t.ent){ t.ent=c; changed=true; } }
+    }); }
+    _wkActMigrated=true;
+    if(changed && typeof saveState==='function') saveState();
+  }catch(e){ console.error('Activity migration failed:', e); }
+}
+function wkActChip(w){ var a=(w&&w.activity)||''; return '<div class="pr-actchip '+(a?'ent':'gen')+'" onclick="wkSeasActEdit(\''+w.id+'\')">'+wkE(wkActLabel(a))+'</div>'; }
 var prActEdit=null;
 function wkSeasActEdit(wid){ prActEdit=wid; ST_WORK.payRepTab='reg'; wkPRRender(); }
-function wkSeasActSave(wid){ var v=($('pr-act-sel')||{}).value||''; var w=wkFind(wid); if(w) w.activity=v; prActEdit=null; if(typeof saveState==='function') saveState(); if(typeof toast==='function') toast('Tagged to '+(v||'General farm')+'.','success'); ST_WORK.payRepTab='reg'; wkPRRender(); }
+function wkSeasActSave(wid){ var v=($('pr-act-sel')||{}).value||''; var w=wkFind(wid); if(w) w.activity=v; prActEdit=null; if(typeof saveState==='function') saveState(); if(typeof toast==='function') toast('Tagged to '+wkActLabel(v)+'.','success'); ST_WORK.payRepTab='reg'; wkPRRender(); }
 function wkSeasActBox(){ if(!prActEdit) return ''; var w=wkFind(prActEdit); if(!w) return ''; return '<div class="pr-payebox"><div style="font-size:11.5px;font-weight:800;margin-bottom:7px">Works on \u2014 '+wkE(w.name)+'</div><select id="pr-act-sel" onchange="wkSeasActSave(\''+w.id+'\')" style="width:100%;padding:9px 10px;border:1.5px solid var(--br2);border-radius:9px;font-family:inherit;font-weight:700;background:#fff">'+wkActOptions(w.activity||'')+'</select><div style="font-size:10px;color:var(--t4);margin-top:7px;line-height:1.5">Sends this worker\u2019s pay to that part of your farm. General = whole farm.</div></div>'; }
 function wkSeasUif(gross,days,w){ return (days*(w.hoursDay||8)>24) ? Math.round(Math.min(gross,17712)*0.01*100)/100 : 0; }
 
@@ -13168,7 +13239,7 @@ function renderWkDetail(id){
     +'<div class="wk-dbox"><div class="l">Minimum wage</div><div class="v" style="color:'+(ok?'var(--gm)':'var(--rd)')+'">'+(ok?'&#10003; above':'&#9888; below')+'</div></div>'
     +'<div class="wk-dbox"><div class="l">UIF</div><div class="v">'+(w.uif?'&#10003; sorted':'not registered')+'</div></div>'
     +'<div class="wk-dbox"><div class="l">Contract</div><div class="v">'+(w.contract==='missing'?'<span style="color:var(--rd)">to do</span>':'&#10003; on file')+'</div></div>'
-    +'<div class="wk-dbox"><div class="l">Works on</div><div class="v">'+(w.activity?wkE(w.activity):'General farm')+'</div></div>'
+    +'<div class="wk-dbox"><div class="l">Works on</div><div class="v">'+wkE(wkActLabel(w.activity))+'</div></div>'
     +'</div>'
     + (w.onFarm?'<div style="font-size:11px;color:var(--t3);margin-top:11px;line-height:1.5">&#127968; Lives on the farm &mdash; housing &amp; ESTA tenure rules apply.</div>':'')
     +'</div>'
@@ -19572,6 +19643,7 @@ function txdCaptureEdit(){
   if(c)  TXD_DRAFT.cat=c.value;
   if(dt) TXD_DRAFT.date=dt.value;
   if(m)  TXD_DRAFT.method=m.value;
+  var en=$('txde-ent'); if(en) TXD_DRAFT.ent=en.value;
 }
 
 function renderTxnEdit(t){
@@ -19603,6 +19675,7 @@ function renderTxnEdit(t){
       '<div style="'+FLD+'"><div style="'+LB+'">Category</div><select id="txde-cat" style="'+IN+'">'+cats.map(function(c){return '<option'+(c===t.cat?' selected':'')+'>'+txdEsc(c)+'</option>';}).join('')+'</select></div>' +
       '<div style="'+FLD+'"><div style="'+LB+'">Date</div><input id="txde-date" type="text" style="'+IN+'" value="'+txdEsc(t.date||'')+'" placeholder="e.g. 12 May 2024"></div>' +
       '<div style="'+FLD+'"><div style="'+LB+'">'+(inc?'Received via':'Paid with')+'</div><select id="txde-method" style="'+IN+'">'+methods.map(function(m){return '<option'+(m===t.method?' selected':'')+'>'+txdEsc(m)+'</option>';}).join('')+'</select></div>' +
+      '<div style="'+FLD+'"><div style="'+LB+'">For which enterprise?</div><select id="txde-ent" style="'+IN+'">'+entOptions(dr.ent||'')+'</select>'+entHintHTML()+'</div>' +
     '</div>' +
     '<div style="display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--br2)">' +
       '<button onclick="txdSaveEdit()" style="flex:2;padding:10px;border-radius:9px;font-weight:700;font-size:13px;border:none;background:var(--gd);color:#fff;cursor:pointer">Save changes</button>' +
@@ -19620,6 +19693,7 @@ function txdSaveEdit(){
     t.cat    = TXD_DRAFT.cat;
     t.date   = (TXD_DRAFT.date||'').trim();
     t.method = TXD_DRAFT.method;
+    t.ent    = TXD_DRAFT.ent || undefined;
   }
   TXD_EDIT = false; TXD_DRAFT = null;
   try { if (window.AI && AI.farm && AI.farm.active() && t.id) { AI.txn.update(t.id, t).catch(function(e){ console.error('Backend update failed:', e); }); } } catch(e){}
@@ -28223,10 +28297,19 @@ function impIsDuplicate(date, amt, desc){
 function impUndoBatch(id){
   var b=(ST.importBatches||[]).find(function(x){return x.id===id;}); if(!b) return;
   var before=(ST.txns||[]).length;
+  var _removedTx=(ST.txns||[]).filter(function(t){ return t.batch===id; });
   ST.txns=(ST.txns||[]).filter(function(t){ return t.batch!==id; });
   // also drop any co-op settlement rows from the same batch
   if(ST.coopSettlements) ST.coopSettlements=ST.coopSettlements.filter(function(s){ return s.batch!==id; });
   ST.importBatches=(ST.importBatches||[]).filter(function(x){ return x.id!==id; });
+  // Backend write-through: delete persisted txns (those with a DB id) + settlement rows.
+  // Bank-import txns have no id yet (not persisted) so they're skipped harmlessly.
+  try {
+    if (window.AI && AI.farm && AI.farm.active()) {
+      _removedTx.forEach(function(t){ if(t && t.id){ AI.txn.remove(t.id).catch(function(e){ console.error('Backend txn delete failed:', e); }); } });
+      AI.coopSettlement.removeByBatch(id).catch(function(e){ console.error('Backend settlement delete failed:', e); });
+    }
+  } catch(e){}
   var removed=before-(ST.txns||[]).length;
   try{ saveState&&saveState(); }catch(e){}
   try{ renderAll&&renderAll(); }catch(e){}
@@ -28653,6 +28736,23 @@ function coopCommitImport(){
     var _bid=impRegisterBatch({source:srcName+' settlement', kind:'coop', span:impSpan(_cdates)}, _coopAdded);
     _coopSettleAdded.forEach(function(s){ s.batch=_bid; });
   }
+  // Backend write-through: persist imported income txns + settlement rows,
+  // back-patch DB ids so edit/delete/undo work and they survive reload.
+  // (The co-op account paydown persists via renderLoans() -> AI.loans.saveAll.)
+  try {
+    if (window.AI && AI.farm && AI.farm.active()) {
+      if (_coopAdded.length) {
+        AI.txn.addMany(_coopAdded).then(function(saved){
+          (saved||[]).forEach(function(s, i){ if(s && s.id && _coopAdded[i]) _coopAdded[i].id = s.id; });
+        }).catch(function(e){ console.error('Backend co-op txn save failed:', e); });
+      }
+      if (_coopSettleAdded.length) {
+        AI.coopSettlement.addMany(_coopSettleAdded).then(function(saved){
+          (saved||[]).forEach(function(s, i){ if(s && s.id && _coopSettleAdded[i]) _coopSettleAdded[i].id = s.id; });
+        }).catch(function(e){ console.error('Backend settlement save failed:', e); });
+      }
+    }
+  } catch(e){}
   try { saveState && saveState(); } catch(e){}
   closeCoopImport();
   var msg = 'Imported ' + sel.length + ' deliveries from ' + srcName;
@@ -29558,8 +29658,8 @@ function _pfOrchardEnts(){
   if(typeof orEnsurePricing==='function') orEnsurePricing();
   if(typeof entOn==="function" && !entOn("orchards")) return [];
   return ST_FRUIT.blocks.filter(function(b){return !b.plan && !b.removed && (b.tons||0)>0;}).map(function(b){
-    var area=b.ha||0; var ops=(typeof orOpsCost==='function')?orOpsCost(b):0; var mb=orBlockTotal(b); var gm=mb-ops;
-    return {id:b.id, name:b.name, kind:OR_CATS[b.cat]?OR_CATS[b.cat].nm:'Orchard', icon:b.icon, area:area, gmHa:area?Math.round(gm/area):0, gm:gm, moneyBack:mb, ops:ops};
+    var area=b.ha||0; var ops=(typeof orOpsCost==='function')?orOpsCost(b):0; var mb=orBlockTotal(b); var lab=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('or:'+b.id):0; var gm=mb-ops-lab;
+    return {id:b.id, name:b.name, kind:OR_CATS[b.cat]?OR_CATS[b.cat].nm:'Orchard', icon:b.icon, area:area, gmHa:area?Math.round(gm/area):0, gm:gm, moneyBack:mb, ops:ops, labour:lab};
   });
 }
 var OR_PFCOL={citrus:'#E07B2A',fruit:'#40916C',berry:'#7C3AED',veg:'#0E7490'};
