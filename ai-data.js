@@ -238,6 +238,16 @@
       if (error) throw error;
       return dbToApp(data);
     },
+    async addMany(list) {                       // bulk insert (imports) — one round-trip
+      if (!list || !list.length) return [];
+      const farmId = farm.active();
+      await ensureCats();
+      const rows = list.map(function (t) { return appToDb(t, farmId); });
+      const { data, error } = await client()
+        .from('transactions').insert(rows).select();
+      if (error) throw error;
+      return (data || []).map(dbToApp);          // PostgREST preserves insert order
+    },
     async update(id, t) {
       const farmId = farm.active();
       await ensureCats();
@@ -451,8 +461,143 @@
     }
   };
 
+  // ---- CO-OP SETTLEMENTS ---------------------------------------------------
+  // Sidecar to transactions: stores what the co-op kept per delivery so the
+  // "What your co-op kept" card survives reload. The income txn + any account
+  // paydown are persisted separately (txn.addMany / loans.saveAll via renderLoans).
+  function isoToDisp(s){
+    if(!s) return '';
+    var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if(!m) return String(s);
+    return parseInt(m[3],10) + ' ' + MON_ABBR[parseInt(m[2],10)] + ' ' + m[1];
+  }
+  function csToDb(s, farmId){
+    return {
+      farm_id:     farmId,
+      settle_date: toISO(s.date),
+      coop:        s.coop || null,
+      commodity:   s.commodity || null,
+      tons:        (s.tons   != null) ? Number(s.tons)   : null,
+      gross:       (s.gross  != null) ? Number(s.gross)  : null,
+      net:         (s.net    != null) ? Number(s.net)    : null,
+      ded:         (s.ded    != null) ? Number(s.ded)    : null,
+      ded_items:   s.dedItems || null,
+      paid:        (s.paid   != null) ? Number(s.paid)   : null,
+      to_bank:     (s.toBank != null) ? Number(s.toBank) : null,
+      batch:       s.batch || null
+    };
+  }
+  function csFromDb(r){
+    return {
+      id:        r.id,
+      date:      isoToDisp(r.settle_date),
+      coop:      r.coop || '',
+      commodity: r.commodity || 'Delivery',
+      tons:      Number(r.tons)  || 0,
+      gross:     Number(r.gross) || 0,
+      net:       Number(r.net)   || 0,
+      ded:       Number(r.ded)   || 0,
+      dedItems:  r.ded_items || {},
+      paid:      Number(r.paid)    || 0,
+      toBank:    Number(r.to_bank) || 0,
+      batch:     r.batch || undefined
+    };
+  }
+  load.coopSettlements = async function(farmId){
+    farmId = farmId || farm.active();
+    const { data, error } = await client()
+      .from('coop_settlements').select('*').eq('farm_id', farmId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(csFromDb);
+  };
+  const coopSettlement = {
+    async addMany(list){
+      if(!list || !list.length) return [];
+      const farmId = farm.active();
+      const rows = list.map(function(s){ return csToDb(s, farmId); });
+      const { data, error } = await client()
+        .from('coop_settlements').insert(rows).select();
+      if (error) throw error;
+      return (data || []).map(csFromDb);
+    },
+    async removeByBatch(batch){
+      const fid = farm.active(); if(!fid || !batch) return;
+      const { error } = await client()
+        .from('coop_settlements').delete().eq('farm_id', fid).eq('batch', batch);
+      if (error) throw error;
+      return true;
+    }
+  };
+
+  // ---- LIVESTOCK (camps, herds, herd_classes, benchmarks) — 3a-i ----------
+  // ST_LS is the source of truth; DB is mirrored to it. Herd ids stay as
+  // local_id text so 'ls:<id>' enterprise tags keep resolving. Classes and
+  // benchmarks live in their own queryable tables (D1/D3). Camps/herds use
+  // upsert + explicit remove (a flaky load must never delete farm data);
+  // classes/benchmarks are pruned to mirror edits-in-place.
+  function _numIf(s){ var n=parseInt(s,10); return (String(n)===String(s))?n:s; }
+  function _inList(keep){ return '('+keep.map(function(k){return '"'+String(k).replace(/"/g,'')+'"';}).join(',')+')'; }
+  function campToDb(c,fid){ return { farm_id:fid, local_id:String(c.id), name:c.name||null, ha:(c.ha!=null&&c.ha!=='')?Number(c.ha):null, since:c.since||null, notes:c.notes||null }; }
+  function campFromDb(r){ return { id:r.local_id, name:r.name||'', ha:(r.ha!=null)?Number(r.ha):0, since:r.since||'', notes:r.notes||'' }; }
+  function herdToDb(h,fid){ return { farm_id:fid, local_id:String(h.id), type:h.type||null, name:h.name||null, breed:h.breed||null,
+    camp:h.camp||null, camp_id:h.campId||null, track:!!h.track, planned:!!h.planned, qty:(h.qty!=null)?parseInt(h.qty,10):0,
+    buy:(h.buy!=null&&h.buy!=='')?Number(h.buy):null, feed:(h.feed!=null&&h.feed!=='')?Number(h.feed):null,
+    vet:(h.vet!=null&&h.vet!=='')?Number(h.vet):null, sell:(h.sell!=null&&h.sell!=='')?Number(h.sell):null,
+    months:(h.months!=null&&h.months!=='')?parseInt(h.months,10):null, notes:h.notes||null }; }
+  function herdFromDb(r){ var h={ id:_numIf(r.local_id), type:r.type||'', name:r.name||'', qty:Number(r.qty)||0,
+    buy:Number(r.buy)||0, feed:Number(r.feed)||0, vet:Number(r.vet)||0, sell:Number(r.sell)||0,
+    months:(r.months!=null)?Number(r.months):0, notes:r.notes||'', camp:r.camp||'', campId:r.camp_id||'', track:!!r.track };
+    if(r.planned) h.planned=true; if(r.breed) h.breed=r.breed; return h; }
+  function classRows(h,fid){ return (h.classes||[]).map(function(c){ return { farm_id:fid, herd_local_id:String(h.id), class_key:c.k, count:(c.n!=null)?parseInt(c.n,10):0, class_value:(c.v!=null)?Number(c.v):0 }; }); }
+
+  load.livestock = async function(farmId){
+    farmId = farmId || farm.active();
+    const [cp,hd,hc,bm] = await Promise.all([
+      client().from('livestock_camps').select('*').eq('farm_id',farmId).order('created_at'),
+      client().from('herds').select('*').eq('farm_id',farmId).order('created_at'),
+      client().from('herd_classes').select('*').eq('farm_id',farmId),
+      client().from('livestock_benchmarks').select('*').eq('farm_id',farmId)
+    ]);
+    for(const r of [cp,hd,hc,bm]) if(r.error) throw r.error;
+    var byHerd={};
+    (hc.data||[]).forEach(function(r){ (byHerd[r.herd_local_id]=byHerd[r.herd_local_id]||[]).push({k:r.class_key,n:Number(r.count)||0,v:Number(r.class_value)||0}); });
+    var herds=(hd.data||[]).map(function(r){ var h=herdFromDb(r); var cs=byHerd[r.local_id]; if(cs&&cs.length) h.classes=cs; return h; });
+    var benchmarks={}; (bm.data||[]).forEach(function(r){ benchmarks[r.bench_key]=Number(r.bench_value); });
+    return { camps:(cp.data||[]).map(campFromDb), herds:herds, benchmarks:benchmarks };
+  };
+
+  var _lsSnap=null;
+  const livestock = {
+    async saveAll(stls){
+      if(!stls) return;
+      const fid=farm.active(); if(!fid) return;
+      const snap=JSON.stringify({c:stls.camps,h:stls.herd,b:stls.benchmarks});
+      if(snap===_lsSnap) return;
+      const camps=(stls.camps||[]), herds=(stls.herd||[]), bench=(stls.benchmarks||{});
+      if(camps.length){ const e=(await client().from('livestock_camps').upsert(camps.map(function(c){return campToDb(c,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      if(herds.length){ const e=(await client().from('herds').upsert(herds.map(function(h){return herdToDb(h,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      var allClasses=[]; herds.forEach(function(h){ allClasses=allClasses.concat(classRows(h,fid)); });
+      if(allClasses.length){ const e=(await client().from('herd_classes').upsert(allClasses,{onConflict:'farm_id,herd_local_id,class_key'})).error; if(e) throw e; }
+      for(const h of herds){ var keys=(h.classes||[]).map(function(c){return c.k;});
+        var q=client().from('herd_classes').delete().eq('farm_id',fid).eq('herd_local_id',String(h.id));
+        if(keys.length) q=q.not('class_key','in',_inList(keys));
+        const e=(await q).error; if(e) throw e; }
+      var bkeys=Object.keys(bench);
+      if(bkeys.length){ const e=(await client().from('livestock_benchmarks').upsert(bkeys.map(function(k){return {farm_id:fid,bench_key:k,bench_value:Number(bench[k])};}),{onConflict:'farm_id,bench_key'})).error; if(e) throw e; }
+      var bq=client().from('livestock_benchmarks').delete().eq('farm_id',fid);
+      if(bkeys.length) bq=bq.not('bench_key','in',_inList(bkeys));
+      { const e=(await bq).error; if(e) throw e; }
+      _lsSnap=snap;
+      return true;
+    },
+    async removeHerd(localId){ const fid=farm.active(); if(!fid||localId==null) return; const e=(await client().from('herds').delete().eq('farm_id',fid).eq('local_id',String(localId))).error; if(e) throw e; _lsSnap=null; return true; },
+    async removeCamp(localId){ const fid=farm.active(); if(!fid||localId==null) return; const e=(await client().from('livestock_camps').delete().eq('farm_id',fid).eq('local_id',String(localId))).error; if(e) throw e; _lsSnap=null; return true; }
+  };
+
   // ---- EXPORT --------------------------------------------------------------
   global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
+                coopSettlement: coopSettlement, livestock: livestock,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
 })(window);

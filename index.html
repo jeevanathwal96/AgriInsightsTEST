@@ -13865,7 +13865,9 @@ function _poultryModel(type){ var v=POULTRY_BENCH.variants[type]; return v?v.mod
 function _broilerBench(type){ var v=POULTRY_BENCH.variants[type]||{}; var b={}; for(var k in POULTRY_BENCH.broiler) b[k]=POULTRY_BENCH.broiler[k]; for(var k2 in v){ if(k2!=='model') b[k2]=v[k2]; } return b; }
 function _layerBench(type){ var v=POULTRY_BENCH.variants[type]||{}; var b={}; for(var k in POULTRY_BENCH.layer) b[k]=POULTRY_BENCH.layer[k]; for(var k2 in v){ if(k2!=='model') b[k2]=v[k2]; } return b; }
 
+function lsNextHerdId(){ var m=0; (ST_LS.herd||[]).forEach(function(h){ var n=parseInt(h.id,10); if(!isNaN(n)&&n>m) m=n; }); return m+1; }
 function lsTab(tab) {
+  try { if(window.AI && AI.farm && AI.farm.active() && window.ST_LS){ AI.livestock.saveAll(ST_LS).catch(function(e){ console.error('Backend livestock save failed:', e); }); } } catch(e){}
   var views  = ['camps','insights','register','health','plan','add'];
   var labels = {overview:'Overview of your herd',camps:'Camps \u2014 what\u2019s grazing where',insights:'Herd makeup & productivity',register:'Stock reconciliation & SARS values',health:'Treatments & health \u2014 cost and compliance in one place',plan:'Plan the season ahead \u2014 keep, sell &amp; cash',add:'Add livestock to your herd'};
   views.forEach(function(v){
@@ -16360,7 +16362,7 @@ function lsMoveSave(){
   if(typeof renderHerdCards==='function') renderHerdCards();
   if(typeof renderStockRegister==='function') renderStockRegister();
 }
-function lsBenchSet(key,val){ ST_LS.benchmarks=ST_LS.benchmarks||{}; var v=parseFloat(val); if(isNaN(v)||val===''){ delete ST_LS.benchmarks[key]; } else { ST_LS.benchmarks[key]=v; } try{ saveState&&saveState(); }catch(e){} if($('ls-insights-body')) renderHerdInsights(); }
+function lsBenchSet(key,val){ ST_LS.benchmarks=ST_LS.benchmarks||{}; var v=parseFloat(val); if(isNaN(v)||val===''){ delete ST_LS.benchmarks[key]; } else { ST_LS.benchmarks[key]=v; } try{ saveState&&saveState(); }catch(e){} try { if(window.AI && AI.farm && AI.farm.active() && window.ST_LS){ AI.livestock.saveAll(ST_LS).catch(function(e){ console.error('Backend livestock save failed:', e); }); } } catch(e){} if($('ls-insights-body')) renderHerdInsights(); }
 
 function _lsBaseAgg(act){
   // aggregate sire + breeding-female + young-female counts by base species
@@ -17541,7 +17543,7 @@ var form = document.querySelector('#ls-view-add');
   } else {
 
     if(!buy){toast('Please enter buy price','error');return;}
-    ST_LS.herd.push({id:ST_LS.herd.length+1,type:type,qty:qty,buy:buy,feed:feed,vet:vet,sell:sell,months:months,notes:notes,campId:campId,camp:campNm,breed:breed||undefined});
+    ST_LS.herd.push({id:lsNextHerdId(),type:type,qty:qty,buy:buy,feed:feed,vet:vet,sell:sell,months:months,notes:notes,campId:campId,camp:campNm,breed:breed||undefined});
     if(buy>0) ST.txns.unshift({date:(new Date()).toISOString().slice(0,10),desc:qty+' '+type+' (purchase)',cat:'Livestock Purchases',type:'expense',amt:qty*buy,method:'Bank Debit',source:'Livestock'});
     if(buy>0) dataChanged('transaction');
     toast(qty+' '+type+' added to your herd!','success');

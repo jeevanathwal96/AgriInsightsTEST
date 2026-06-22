@@ -101,12 +101,14 @@
     }).then(function (core) {
       // Replace the app's working data with the farm's real data.
       if (window.ST) { ST.txns = core.txns || []; ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; ST.firstRun = false; }
-      // Load the asset register + loans before first render (net-worth uses them).
+      // Load the asset register + loans + co-op settlements + livestock before first render.
       return Promise.all([
         AI.load.assets(AI.farm.active()),
-        AI.load.loans(AI.farm.active())
+        AI.load.loans(AI.farm.active()),
+        AI.load.coopSettlements(AI.farm.active()),
+        AI.load.livestock(AI.farm.active())
       ]).then(function (res) {
-        var assets = res[0], loanData = res[1];
+        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3];
         try {
           if (window.ST_ASSETS && assets) {
             assets.forEach(function (a, i) { a.id = i + 1; });
@@ -122,6 +124,17 @@
             ST_LOANS.archived = loanData.archived || [];
           }
         } catch (e) { console.error('Loan hydrate failed:', e); }
+        try {
+          if (window.ST) ST.coopSettlements = coopSettle || [];
+        } catch (e) { console.error('Co-op settlement hydrate failed:', e); }
+        try {
+          if (window.ST_LS && live) {
+            ST_LS.camps = live.camps || [];
+            ST_LS.herd = live.herds || [];
+            ST_LS.benchmarks = live.benchmarks || {};
+            // moves / treatments / animals / health persist in increment 3a-ii
+          }
+        } catch (e) { console.error('Livestock hydrate failed:', e); }
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });
     }).then(function () {
       // Signed-in users skip the app's first-run onboarding wizard.
