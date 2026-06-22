@@ -106,9 +106,10 @@
         AI.load.assets(AI.farm.active()),
         AI.load.loans(AI.farm.active()),
         AI.load.coopSettlements(AI.farm.active()),
-        AI.load.livestock(AI.farm.active())
+        AI.load.livestock(AI.farm.active()),
+        AI.load.crops(AI.farm.active())
       ]).then(function (res) {
-        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3];
+        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3], cropData = res[4];
         try {
           if (window.ST_ASSETS && assets) {
             assets.forEach(function (a, i) { a.id = i + 1; });
@@ -138,6 +139,17 @@
             ST_LS.health = live.health || [];
           }
         } catch (e) { console.error('Livestock hydrate failed:', e); }
+        try {
+          if (window.ST_CROP && cropData) {
+            ST_CROP.lands = cropData.lands || [];
+            ST_CROP.events = cropData.events || [];
+            ST_CROP.inputs = cropData.inputs || [];
+            if (cropData.season) ST_CROP.season = cropData.season;
+            // Only replace compliance when the farm has a saved blob; otherwise keep
+            // the default structure (tracked/cadence keys the UI expects).
+            if (cropData.compliance && Object.keys(cropData.compliance).length) ST_CROP.compliance = cropData.compliance;
+          }
+        } catch (e) { console.error('Crop hydrate failed:', e); }
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });
     }).then(function () {
       // Signed-in users skip the app's first-run onboarding wizard.

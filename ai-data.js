@@ -617,9 +617,63 @@
     async removeCamp(localId){ const fid=farm.active(); if(!fid||localId==null) return; const e=(await client().from('livestock_camps').delete().eq('farm_id',fid).eq('local_id',String(localId))).error; if(e) throw e; _lsSnap=null; return true; }
   };
 
+  // ---- CROPS (lands, events, inputs) — 3b-i --------------------------------
+  // ST_CROP is source of truth; DB mirrors it. Land ids stay as local_id text
+  // so 'crop:<type>' tags + crop profit (keyed off land.crop/yields) keep working.
+  // Lands edit-in-place (upsert); events/inputs append-only (upsert, no prune —
+  // no delete UI). Config (prices/compliance/season) is 3b-ii.
+  function landToDb(l,fid){ return { farm_id:fid, local_id:String(l.id), name:l.name||null, area:(l.area!=null&&l.area!=='')?Number(l.area):null, crop:l.crop||null, cultivar:l.cultivar||null, gmo:!!l.gmo, irrigated:!!l.irrigated, planted:l.planted||null, harvest:l.harvest||null, stage:l.stage||null, target_yield:(l.targetYield!=null&&l.targetYield!=='')?Number(l.targetYield):null, actual_yield:(l.actualYield!=null&&l.actualYield!=='')?Number(l.actualYield):null, input_per_ha:(l.inputPerHa!=null&&l.inputPerHa!=='')?Number(l.inputPerHa):null, prev_crop:l.prevCrop||null, price:(l.price!=null&&l.price!=='')?Number(l.price):null }; }
+  function landFromDb(r){ var l={ id:_numIf(r.local_id), name:r.name||'', area:Number(r.area)||0, crop:r.crop||'', cultivar:r.cultivar||'', gmo:!!r.gmo, irrigated:!!r.irrigated, planted:r.planted||'', harvest:r.harvest||'', stage:r.stage||'', targetYield:Number(r.target_yield)||0, actualYield:(r.actual_yield!=null)?Number(r.actual_yield):null, inputPerHa:Number(r.input_per_ha)||0, prevCrop:r.prev_crop||'' }; if(r.price) l.price=Number(r.price); return l; }
+  function cevToDb(e,fid){ return { farm_id:fid, local_id:String(e.id), land_local_id:(e.land!=null)?String(e.land):null, kind:e.kind||null, event_date:e.date||null, note:e.note||null, tons:(e.tons!=null)?Number(e.tons):null, yield_val:(e.yield!=null)?Number(e.yield):null, cert:e.cert||null }; }
+  function cevFromDb(r){ var e={ id:r.local_id, land:_numIf(r.land_local_id), kind:r.kind||'', date:r.event_date||'', note:r.note||'' }; if(r.tons!=null) e.tons=Number(r.tons); if(r.yield_val!=null) e.yield=Number(r.yield_val); if(r.cert) e.cert=r.cert; return e; }
+  function cinToDb(i,fid){ return { farm_id:fid, local_id:String(i.id), land_local_id:(i.land!=null)?String(i.land):null, input_date:i.date||null, product:i.product||null, reg:i.reg||null, kind:i.kind||null, rate:i.rate||null, batch:i.batch||null, by_who:i.by||null, operator_cert:i.operatorCert||null, phi:(i.phi!=null)?parseInt(i.phi,10):null, cost_per_ha:(i.costPerHa!=null)?Number(i.costPerHa):null }; }
+  function cinFromDb(r){ return { id:r.local_id, land:_numIf(r.land_local_id), date:r.input_date||'', product:r.product||'', reg:r.reg||'', kind:r.kind||'', rate:r.rate||'', batch:r.batch||'', by:r.by_who||'', operatorCert:r.operator_cert||'', phi:Number(r.phi)||0, costPerHa:Number(r.cost_per_ha)||0 }; }
+
+  load.crops = async function(farmId){
+    farmId = farmId || farm.active();
+    const [ld,ev,ip,cfg] = await Promise.all([
+      client().from('crop_lands').select('*').eq('farm_id',farmId).order('created_at'),
+      client().from('crop_events').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
+      client().from('crop_inputs').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
+      client().from('farms').select('crop_season,crop_compliance').eq('id',farmId).single()
+    ]);
+    for(const r of [ld,ev,ip]) if(r.error) throw r.error;
+    return { lands:(ld.data||[]).map(landFromDb), events:(ev.data||[]).map(cevFromDb), inputs:(ip.data||[]).map(cinFromDb),
+             season:(cfg.data && cfg.data.crop_season) || null,
+             compliance:(cfg.data && cfg.data.crop_compliance) || null };
+  };
+
+  var _cropSnap=null;
+  var _cropCfgSnap=null;
+  const crop = {
+    async saveAll(stc){
+      if(!stc) return;
+      const fid=farm.active(); if(!fid) return;
+      const snap=JSON.stringify({l:stc.lands,e:stc.events,i:stc.inputs});
+      if(snap===_cropSnap) return;
+      const lands=(stc.lands||[]), events=(stc.events||[]), inputs=(stc.inputs||[]);
+      if(lands.length){ const e=(await client().from('crop_lands').upsert(lands.map(function(l){return landToDb(l,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      if(events.length){ const e=(await client().from('crop_events').upsert(events.map(function(x){return cevToDb(x,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      if(inputs.length){ const e=(await client().from('crop_inputs').upsert(inputs.map(function(x){return cinToDb(x,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      _cropSnap=snap;
+      return true;
+    },
+    // 3b-ii: season + compliance blob live on the farm row
+    async saveConfig(stc){
+      if(!stc) return;
+      const fid=farm.active(); if(!fid) return;
+      const snap=JSON.stringify({s:stc.season,c:stc.compliance});
+      if(snap===_cropCfgSnap) return;
+      const e=(await client().from('farms').update({ crop_season:stc.season||null, crop_compliance:stc.compliance||null }).eq('id',fid)).error;
+      if(e) throw e;
+      _cropCfgSnap=snap;
+      return true;
+    }
+  };
+
   // ---- EXPORT --------------------------------------------------------------
   global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
-                coopSettlement: coopSettlement, livestock: livestock,
+                coopSettlement: coopSettlement, livestock: livestock, crop: crop,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
 })(window);

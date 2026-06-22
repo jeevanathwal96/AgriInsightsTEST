@@ -4911,13 +4911,13 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="lssec" style="margin-top:26px">Each herd &mdash; make-up &amp; movements</div>
     <div id="ls-reg-herds" style="margin-bottom:8px"></div>
     <div id="ls-reg-classwrap" style="margin-bottom:8px"></div>
-    <div class="lssec">Recent movements &mdash; all herds</div>
+    <div class="lssec" style="margin-top:26px">Recent movements &mdash; all herds</div>
     <div id="ls-reg-moves" style="background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:4px 16px"></div>
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn-sec" onclick="lsMoveOpen()">+ Record movement</button>
       <button class="btn-sec" style="color:var(--rd);border-color:#f3cdc6" onclick="lsMoveOpen(null,'stolen')">&#128680; Report loss / theft</button>
     </div>
-    <div class="lssec">SARS year-end valuation</div>
+    <div class="lssec" style="margin-top:26px">SARS year-end valuation</div>
     <div class="card" style="padding:16px" id="ls-reg-sars"></div>
     <div class="ls-rpt-divider"></div>
     <div class="ls-rpt-label">Report</div>
@@ -7074,6 +7074,7 @@ function cropViewDoc(idx){
    =================================================================== */
 function renderCrop(){
   if(!$('pg-crop')) return;
+  try { if(window.AI && AI.farm && AI.farm.active() && window.ST_CROP){ AI.crop.saveAll(ST_CROP).catch(function(e){ console.error('Backend crop save failed:', e); }); AI.crop.saveConfig(ST_CROP).catch(function(e){ console.error('Backend crop config save failed:', e); }); } } catch(e){}
   cropSetTab(ST_CROP.activeTab || 'overview');
 }
 function cropSetTab(tab){
@@ -9410,6 +9411,7 @@ function dataChanged(event) {
       break;
 
     case 'crop':
+      try { if(window.AI && AI.farm && AI.farm.active() && window.ST_CROP){ AI.crop.saveAll(ST_CROP).catch(function(e){ console.error('Backend crop save failed:', e); }); AI.crop.saveConfig(ST_CROP).catch(function(e){ console.error('Backend crop config save failed:', e); }); } } catch(e){}
       safeCall(window.recomputePlan);
       if (pageId === 'crop')     { safeCall(window.renderCrop); }
       if (pageId === 'planning') { safeCall(window.recomputePlan); safeCall(function(){ setPlanTab(ST_PLAN.activeTab||'crops'); }); }
@@ -14349,12 +14351,12 @@ function _lsGroupBlock(h){
 function _lsGroupRecMenu(hid){
   var id='lsrec-'+hid;
   var items=[
-    ['sold','\U0001F4B0','Sold','posts income to Money Flow'],
-    ['born','\U0001F423','Born','lands in the youngest class'],
+    ['sold','\uD83D\uDCB0','Sold','posts income to Money Flow'],
+    ['born','\uD83D\uDC23','Born','lands in the youngest class'],
     ['bought','\u2795','Bought',''],
     ['promote','\u2B06\uFE0F','Promoted','e.g. calves \u2192 heifers'],
-    ['died','\U0001F4C9','Died / home use',''],
-    ['stolen','\U0001F6A8','Stolen / missing','with SAPS reference']
+    ['died','\uD83D\uDCC9','Died / home use',''],
+    ['stolen','\uD83D\uDEA8','Stolen / missing','with SAPS reference']
   ];
   var menu=items.map(function(it){
     return '<div class="ls-rec-item'+(it[0]==='stolen'||it[0]==='died'?' lost':'')+'" onclick="lsRecPick('+hid+',\''+it[0]+'\')"><span class="ic">'+it[1]+'</span><div>'+it[2]+(it[3]?'<small>'+it[3]+'</small>':'')+'</div></div>';
