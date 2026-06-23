@@ -110,9 +110,10 @@
         AI.load.crops(AI.farm.active()),
         AI.load.orchard(AI.farm.active()),
         AI.load.plan(AI.farm.active()),
-        AI.load.workers(AI.farm.active())
+        AI.load.workers(AI.farm.active()),
+        AI.load.profile(AI.farm.active())
       ]).then(function (res) {
-        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3], cropData = res[4], orData = res[5], planData = res[6], wkrData = res[7];
+        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3], cropData = res[4], orData = res[5], planData = res[6], wkrData = res[7], prof = res[8];
         try {
           if (window.ST_ASSETS && assets) {
             assets.forEach(function (a, i) { a.id = i + 1; });
@@ -215,6 +216,22 @@
             }
           }
         } catch (e) { console.error('Workers hydrate failed:', e); }
+        try {
+          if (window.ST && prof) {
+            if (prof.farmName!=null) ST.farmName=prof.farmName;
+            if (prof.ownerName!=null) ST.ownerName=prof.ownerName;
+            if (prof.province!=null) ST.province=prof.province;
+            if (prof.farmHa!=null) ST.farmHa=prof.farmHa;
+            if (prof.farmType!=null) ST.farmType=prof.farmType;
+            if (prof.fyStartMonth!=null) ST.fyStartMonth=prof.fyStartMonth;
+            if (prof.vatRegistered!=null) ST.vatRegistered=prof.vatRegistered;
+            if (prof.taxNumber!=null) ST.taxNumber=prof.taxNumber;
+            if (prof.vatNumber!=null) ST.vatNumber=prof.vatNumber;
+            try { if (typeof FARM!=='undefined' && FARM) { if(prof.farmName!=null)FARM.name=prof.farmName; if(prof.ownerName!=null)FARM.owner=prof.ownerName; if(prof.farmHa!=null)FARM.ha=prof.farmHa; if(prof.vatRegistered!=null)FARM.vat=prof.vatRegistered; if(prof.taxNumber!=null)FARM.taxNo=prof.taxNumber; if(prof.vatNumber!=null)FARM.vatNo=prof.vatNumber; } } catch(e){}
+            try { var _fn=document.getElementById('farm-name'); if(_fn && ST.farmName) _fn.textContent=ST.farmName; } catch(e){}
+            try { if (prof.lang!=null) { var _ll=prof.lang; if (_ll!==ST.lang && typeof applyLang==='function') applyLang(_ll); else ST.lang=_ll; } } catch(e){}
+          }
+        } catch (e) { console.error('Profile hydrate failed:', e); }
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });
     }).then(function () {
       // Signed-in users skip the app's first-run onboarding wizard.

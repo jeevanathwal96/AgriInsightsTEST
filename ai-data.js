@@ -1007,9 +1007,54 @@
   };
 
 
+  // ---- SETTINGS / FARM PROFILE ---------------------------------------------
+  // All on the farms row (name/owner/province/ha/type/fy/lang already existed;
+  // vat_registered/tax_number/vat_number added by settings_profile_schema.sql).
+  function profileFromDb(r){ if(!r) return null; var p={};
+    if(r.name!=null) p.farmName=r.name;
+    if(r.owner_name!=null) p.ownerName=r.owner_name;
+    if(r.province!=null) p.province=r.province;
+    if(r.farm_ha!=null) p.farmHa=Number(r.farm_ha);
+    if(r.farm_type!=null) p.farmType=r.farm_type;
+    if(r.fy_start_month!=null) p.fyStartMonth=parseInt(r.fy_start_month,10);
+    if(r.lang!=null) p.lang=r.lang;
+    if(r.vat_registered!=null) p.vatRegistered=!!r.vat_registered;
+    if(r.tax_number!=null) p.taxNumber=r.tax_number;
+    if(r.vat_number!=null) p.vatNumber=r.vat_number;
+    return p; }
+  load.profile = async function(farmId){
+    farmId=farmId||farm.active();
+    const r=await client().from('farms').select('name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number').eq('id',farmId).single();
+    if(r.error) throw r.error;
+    return profileFromDb(r.data);
+  };
+  var _profSnap=null;
+  const profile = {
+    // Update only the fields actually provided — never null out an existing value.
+    async save(st){
+      if(!st) return; const fid=farm.active(); if(!fid) return;
+      var row={};
+      if(st.farmName) row.name=st.farmName;
+      if(st.ownerName) row.owner_name=st.ownerName;
+      if(st.province) row.province=st.province;
+      if(st.farmHa!=null && st.farmHa!=='') row.farm_ha=Number(st.farmHa);
+      if(st.farmType) row.farm_type=st.farmType;
+      if(st.fyStartMonth!=null) row.fy_start_month=parseInt(st.fyStartMonth,10);
+      if(st.lang) row.lang=st.lang;
+      if(st.vatRegistered!=null) row.vat_registered=!!st.vatRegistered;
+      if(st.taxNumber) row.tax_number=st.taxNumber;
+      if(st.vatNumber) row.vat_number=st.vatNumber;
+      if(!Object.keys(row).length) return;
+      var snap=JSON.stringify(row); if(snap===_profSnap) return;
+      const e=(await client().from('farms').update(row).eq('id',fid)).error; if(e) throw e;
+      _profSnap=snap; return true;
+    }
+  };
+
+
   // ---- EXPORT --------------------------------------------------------------
   global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
-                coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave,
+                coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave, profile: profile,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
 })(window);
