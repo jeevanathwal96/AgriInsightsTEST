@@ -12228,9 +12228,21 @@ function wkE(x){ return (typeof escHtml==='function') ? escHtml(String(x==null?'
 function wkMoney(n){ return (typeof fmt==='function') ? fmt(Math.round(n||0)) : ('R'+Math.round(n||0)); }
 function wkInitials(n){ n=(n||'').trim(); if(!n) return '+'; var p=n.split(/\s+/); return ((p[0][0]||'')+(p[1]?p[1][0]:'')).toUpperCase(); }
 function wkColor(i){ var c=['#2D6A4F','#40916C','#C8962C','#7C3AED','#E0930E','#0E7490']; return c[i%c.length]; }
-function wkHourly(w){ if(!w||!w.amt) return 0; if(w.basis==='day'){ return (w.hoursDay? w.amt/w.hoursDay : 0); } var hw=(w.hoursWeek||ST_WORK.hoursWeek||45); var hm=hw*52/12; return hm? w.amt/hm : 0; }
+function wkHourly(w){ if(!w||!w.amt) return 0; if(w.basis==='day'){ return (w.hoursDay? w.amt/w.hoursDay : 0); } var hw=(w.hoursWeek||ST_WORK.hoursWeek||STATUTORY.hoursWeek.value); var hm=hw*52/12; return hm? w.amt/hm : 0; }
 function wkList(){ return (ST_WORK.workers||[]); }
 
+var _wkSaving=false, _wkAgain=false;
+function wkSync(){
+  // Immediate, coalesced backend save. Fires on the microtask queue (soonest
+  // after the current render burst), so 'add worker -> refresh' persists. If more
+  // edits land while a save is in flight, one more save runs after it completes.
+  if(!(window.AI && AI.farm && AI.farm.active() && window.ST_WORK)) return;
+  if(_wkSaving){ _wkAgain=true; return; }
+  _wkSaving=true;
+  Promise.resolve().then(function(){ return AI.workers.saveAll(ST_WORK); })
+    .catch(function(e){ console.error('Backend workers save failed:', e); })
+    .then(function(){ _wkSaving=false; if(_wkAgain){ _wkAgain=false; wkSync(); } });
+}
 function renderWorkers(){ try{ wkMigrateActivity(); }catch(e){} try{ wkSyncLabourBudget(); }catch(e){} renderWkOverview(); renderWkRegister(); renderWkPayroll(); renderWkCompliance(); wkTab(ST_WORK.activeTab||'ov'); }
 
 function wkTab(t){
@@ -12241,7 +12253,7 @@ function wkTab(t){
   ST_WORK.activeTab = (t==='detail'?'wk':t);
 }
 
-function renderWkOverview(){
+function renderWkOverview(){ wkSync();
   var box=$('wkp-ov'); if(!box) return;
   var ws=wkList();
   var perm = ws.filter(function(w){ return w.basis==='month'; });
@@ -12249,7 +12261,7 @@ function renderWkOverview(){
   var permTotal = perm.reduce(function(a,w){ return a+(w.amt||0); },0);
   var seasEst = seas.reduce(function(a,w){ return a+((w.amt||0)*8); },0); // ~8 days, demo estimate
   var heads = perm.length + seas.reduce(function(a,w){ return a+(w.count||1); },0);
-  var rate = ST_WORK.nmwRate||30.23;
+  var rate = ST_WORK.nmwRate||STATUTORY.nmwRate.value;
   var below = ws.filter(function(w){ return wkHourly(w) > 0 && wkHourly(w) < rate - 0.005; });
   var owe = ws.reduce(function(a,w){ return a+((w.adv&&w.adv.owing)||0); },0);
   var hold = ws.reduce(function(a,w){ return a+((w.fund&&w.fund.on&&w.fund.where==='hold')?(w.fund.balance||0):0); },0);
@@ -12286,7 +12298,7 @@ function renderWkOverview(){
     + '<div class="wk-banner am"><span class="bi">&#128276;</span><div><b>Workmen&rsquo;s-comp return (COIDA) is your once-a-year filing.</b> We total the wages so the figure&rsquo;s ready &mdash; see the Compliance tab.</div></div>';
 }
 
-function renderWkRegister(){
+function renderWkRegister(){ wkSync();
   var box=$('wkp-wk'); if(!box) return;
   var ws=wkList();
   var permN=ws.filter(function(w){return w.type==='Permanent';}).length;
@@ -12312,11 +12324,11 @@ function renderWkRegister(){
 }
 
 // ---- Payroll ----
-function wkUIF(gross){ return Math.round(Math.min(gross||0,17712)*0.01*100)/100; }   // 1%, capped at the UIF ceiling
+function wkUIF(gross){ return Math.round(Math.min(gross||0,STATUTORY.uifCeiling.value)*STATUTORY.uifRate.value*100)/100; }   // 1%, capped at the UIF ceiling
 function wkTodayStr(){ var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date(); var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return d.getDate()+' '+mo[d.getMonth()]+' '+d.getFullYear(); }
 function wkMonthLabel(){ var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date(); var mo=['January','February','March','April','May','June','July','August','September','October','November','December']; return mo[d.getMonth()]+' '+d.getFullYear(); }
 function wkPayRows(){
-  var rate=ST_WORK.nmwRate||30.23;
+  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
   var label=(typeof wkMonthLabel==='function')?wkMonthLabel():'';
   var bonusMap=(ST_WORK.bonus&&ST_WORK.bonus[label])||{};
   var extraMap=(ST_WORK.extra&&ST_WORK.extra[label])||{};
@@ -12341,7 +12353,7 @@ function wkSetExtra(wid, field, val){
   renderWkPayroll();
 }
 function wkToggleExtras(){ ST_WORK._extrasOpen=!ST_WORK._extrasOpen; renderWkPayroll(); }
-function renderWkPayroll(){
+function renderWkPayroll(){ wkSync();
   var box=$('wkp-pr'); if(!box) return;
   var rows=wkPayRows(), label=wkMonthLabel();
   var _bonus=(ST_WORK.bonus&&ST_WORK.bonus[label])||{}; var _extra=(ST_WORK.extra&&ST_WORK.extra[label])||{};
@@ -12404,6 +12416,8 @@ function wkPostPayRun(){
   var runId='pr'+Date.now();
   if(typeof ST!=='undefined' && ST.txns){
     ST.txns.unshift({ date:wkTodayStr(), desc:'Wages \u2014 '+label, cat:'Labour & Wages', type:'expense', amt:cost, method:'Bank', source:'Payroll', payRunId:runId });
+    var _wkPRTx=ST.txns[0];
+    try{ if(window.AI && AI.farm && AI.farm.active()){ AI.txn.add({date:wkTodayStr(),amt:cost,cat:'Labour & Wages',type:'expense',desc:'Wages \u2014 '+label,method:'Bank',source:'Payroll',ent:'payrun:'+runId}).then(function(s){ if(s&&s.id&&_wkPRTx) _wkPRTx.id=s.id; }).catch(function(e){ console.error('Backend wage txn failed:', e); }); } }catch(e){}
   }
   ST_WORK.payRuns.unshift({ id:runId, label:label, kind:rows.length+' permanent', net:Math.round(totNet), gross:Math.round(totGross), uif:Math.round(totUIF*2), date:wkTodayStr(), applied:applied });
   try { if(typeof dataChanged==='function') dataChanged('transaction'); } catch(e){}
@@ -12416,7 +12430,10 @@ function wkUndoPayRun(runId){
   if(idx<0) return;
   var run=runs[idx];
   if(typeof confirm==='function' && !confirm('Undo the pay run for '+(run.label||'')+'? This removes the Labour & Wages entry it posted.')) return;
-  if(typeof ST!=='undefined' && ST.txns){ ST.txns=ST.txns.filter(function(t){ return t.payRunId!==runId; }); }
+  if(typeof ST!=='undefined' && ST.txns){
+    try{ if(window.AI && AI.farm && AI.farm.active()){ ST.txns.filter(function(t){return t.payRunId===runId && t.id;}).forEach(function(t){ AI.txn.remove(t.id).catch(function(e){ console.error('Backend wage txn delete failed:', e); }); }); if(AI.workers&&AI.workers.removePayRun) AI.workers.removePayRun(runId).catch(function(e){ console.error('Backend pay-run delete failed:', e); }); } }catch(e){}
+    ST.txns=ST.txns.filter(function(t){ return t.payRunId!==runId; });
+  }
   (run.applied||[]).forEach(function(a){
     var w=wkFind(a.wid); if(!w) return;
     if(a.advRepay){ w.adv=w.adv||{owing:0,perPay:a.advRepay}; w.adv.owing=(w.adv.owing||0)+a.advRepay; }
@@ -12437,7 +12454,7 @@ function wkPostSeasonal(){
   if(sg<=0){ if(typeof toast==='function') toast('Enter days worked first.','info'); return; }
   var cost=Math.round((sg+su)*100)/100;   // gross + employer UIF (1%)
   var runId='pr'+Date.now();
-  if(typeof ST!=='undefined' && ST.txns){ for(var _k in buckets){ if(!buckets.hasOwnProperty(_k)) continue; var _b=buckets[_k]; var _c=Math.round((_b.gross+_b.uif)*100)/100; ST.txns.unshift({ date:wkTodayStr(), desc:'Seasonal wages \u2014 '+label+(_k?(' \u00b7 '+wkActLabel(_k)):''), cat:'Labour & Wages', type:'expense', amt:_c, method:'Bank', source:'Payroll', ent:_k||undefined, payRunId:runId }); } }
+  if(typeof ST!=='undefined' && ST.txns){ for(var _k in buckets){ if(!buckets.hasOwnProperty(_k)) continue; var _b=buckets[_k]; var _c=Math.round((_b.gross+_b.uif)*100)/100; var _sd='Seasonal wages \u2014 '+label+(_k?(' \u00b7 '+wkActLabel(_k)):''); ST.txns.unshift({ date:wkTodayStr(), desc:_sd, cat:'Labour & Wages', type:'expense', amt:_c, method:'Bank', source:'Payroll', ent:_k||undefined, payRunId:runId }); var _wkSTx=ST.txns[0]; (function(_e,_amt,_desc,_ent){ try{ if(window.AI && AI.farm && AI.farm.active()){ AI.txn.add({date:wkTodayStr(),amt:_amt,cat:'Labour & Wages',type:'expense',desc:_desc,method:'Bank',source:'Payroll',ent:_ent}).then(function(s){ if(s&&s.id&&_e) _e.id=s.id; }).catch(function(er){ console.error('Backend seasonal wage txn failed:', er); }); } }catch(er){} })(_wkSTx,_c,_sd,(_k||('payrun:'+runId))); } }
   ST_WORK.payRuns.unshift({ id:runId, label:label, kind:'Seasonal \u00b7 '+totDays+' days', seasonal:true, net:Math.round(sg-su), gross:Math.round(sg), uif:Math.round(su*2), date:wkTodayStr() });
   try { if(typeof dataChanged==='function') dataChanged('transaction'); } catch(e){}
   if(typeof saveState==='function') saveState();
@@ -12528,7 +12545,7 @@ function wkCoidaDue(){ var cs=wkComplianceState(); if(!cs.coidaFiled) return nul
 function wkCoidaDueStr(){ var d=wkCoidaDue(); if(!d) return ''; return d.toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'}); }
 function wkComplianceBanner(){ var cs=wkComplianceState(); if(!cs.coidaFiled) return ''; var due=wkCoidaDue(); if(!due) return ''; var today=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date(); var days=Math.round((due-today)/86400000); if(days>42) return ''; var overdue=days<0; var weeks=Math.max(1,Math.round(days/7)); var when=overdue?'is overdue (was due '+wkCoidaDueStr()+')':('due in '+(days<=10?(days+' day'+(days===1?'':'s')):(weeks+' week'+(weeks===1?'':'s')))+' (by '+wkCoidaDueStr()+')'); var bg=overdue?'var(--rp)':'var(--ap)',bd=overdue?'#f3c6c0':'#f5e3a8',col=overdue?'var(--rd)':'#854F0B'; return '<div style="display:flex;align-items:center;gap:10px;background:'+bg+';border:1px solid '+bd+';border-radius:12px;padding:11px 13px;font-size:12px;color:'+col+';font-weight:700;margin-bottom:12px"><span style="font-size:16px">\u23f0</span><div>COIDA Return of Earnings '+when+'</div></div>'; }
 function computeWkCompliance(){
-  var ws=wkList(), rate=ST_WORK.nmwRate||30.23;
+  var ws=wkList(), rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
   var below=ws.filter(function(w){ return wkHourly(w)>0 && wkHourly(w)<rate-0.005; });
   var noUif=ws.filter(function(w){ return !w.uif && !(w.uifNo&&w.uifNo.length) && !w.uifExempt; });
   var noContract=ws.filter(function(w){ return w.contract==='missing'; });
@@ -12571,7 +12588,7 @@ function computeWkCompliance(){
     desc: onFarm.length ? (onFarm.length+' worker'+(onFarm.length>1?'s live':' lives')+' on the farm. Tenure rights and the 10% housing-deduction cap are looked after.') : 'No one lives on the farm, so the housing/tenure rules don\u2019t apply.' });
   return items;
 }
-function renderWkCompliance(){
+function renderWkCompliance(){ wkSync();
   var box=$('wkp-cp'); if(!box) return;
   var cs=wkComplianceState(), items=computeWkCompliance();
   var tracked=items.filter(function(it){ return !cs.untracked[it.key]; });
@@ -12598,7 +12615,7 @@ function wkShowTrack(){ var e=$('wk-cp-track'); if(e) e.classList.toggle('on'); 
 function wkTrackToggle(key){ var cs=wkComplianceState(); cs.untracked[key]=!cs.untracked[key]; if(typeof saveState==='function') saveState(); renderWkCompliance(); var e=$('wk-cp-track'); if(e) e.classList.add('on'); }
 function wkCoidaToggle(){ var cs=wkComplianceState(); cs.coidaFiled=!cs.coidaFiled; if(typeof saveState==='function') saveState(); renderWkOverview(); renderWkCompliance(); }
 function wkLabourFile(){
-  var ws=wkList(), rate=ST_WORK.nmwRate||30.23;
+  var ws=wkList(), rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
   var farm=(typeof ST!=='undefined'&&ST.farmName)?ST.farmName:'Your farm';
   var cs=wkComplianceState(), items=computeWkCompliance();
   var rows=ws.map(function(w){
@@ -12647,7 +12664,7 @@ function wkAddDoc(item,name,worker){ var cs=wkComplianceState(); cs.docs.unshift
 function wkAttachSave(key){ var nm=(($('wk-attach-name-'+key)||{}).value||'').trim(); if(!nm){ if(typeof toast==='function') toast('Name the document first.','error'); return; } wkAddDoc(key,nm,''); if(typeof toast==='function') toast('Document recorded.','success'); wkCompOpen(key); }
 
 function wkCompNmw(){
-  var rate=ST_WORK.nmwRate||30.23;
+  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
   var rows=wkList().map(function(w){ var hr=wkHourly(w), ok=hr>=rate-0.005; var pay=(w.basis==='day')?('R'+_grpInt(w.amt||0)+'/day'):(wkMoney(w.amt)+'/mo');
     return '<div class="wk-wrow"><div><div class="nm">'+wkE(w.name)+'</div><div class="s">'+pay+'</div></div><div class="right"><b>R'+hr.toFixed(2)+'/hr</b>'+(ok?'<span class="wk-tag2 g">\u2713</span>':'<span class="wk-tag2 r">low</span><button class="wk-mini pri" onclick="wkOpenDetail(\''+w.id+'\')">Fix</button>')+'</div></div>'; }).join('');
   return '<div class="wk-card"><div style="font-size:15px;font-weight:800">Paying at least the minimum</div><div style="font-size:10.5px;color:var(--t4);margin-bottom:10px">National Minimum Wage Act</div>'
@@ -12815,7 +12832,7 @@ function wkContractBuilder(id){
   var farm=(typeof ST!=='undefined'&&ST.farmName)?ST.farmName:'the farm';
   var title=(w.role||'Farm worker').split('\u00b7')[0].trim();
   var basis=w.basis||'month';
-  var hours=w.hoursWeek||45;
+  var hours=w.hoursWeek||STATUTORY.hoursWeek.value;
   var brk=(tpl&&tpl.brk)||ch.brk||'1 hour';
   var days=(tpl&&tpl.days)||ch.days||'Mon\u2013Fri, 07:00\u201316:00';
   var payday=(tpl&&tpl.payday)||'25th';
@@ -12900,7 +12917,7 @@ function wkContractBuilder(id){
 
 function cbNmw(){
   var amt=parseFloat(cbVal('cb-amt'))||0, basis=cbSegVal('cb-basis')||'month', hours=parseFloat(cbVal('cb-hours'))||45;
-  var hr=wkHourly({basis:basis, amt:amt, hoursWeek:hours}); var rate=ST_WORK.nmwRate||30.23; var ok=hr>=rate-0.005;
+  var hr=wkHourly({basis:basis, amt:amt, hoursWeek:hours}); var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value; var ok=hr>=rate-0.005;
   var el=$('cb-nmwl'); if(!el) return;
   el.className='cb-nmw '+(ok?'ok':'bad');
   el.innerHTML='<span>'+(ok?'\u2713':'\u26a0')+'</span><span>That\u2019s <b>R'+hr.toFixed(2)+'/hour</b> \u2014 '+(ok?'meets':'<b>below</b>')+' the farm-worker minimum (R'+rate.toFixed(2)+').</span>';
@@ -12928,7 +12945,7 @@ function cbReadConfig(id){
 function cbDoc(cfg){
   var farm=(typeof ST!=='undefined'&&ST.farmName)?ST.farmName:'the farm';
   var owner=(typeof ST!=='undefined'&&ST.ownerName)?ST.ownerName:'the employer';
-  var rate=ST_WORK.nmwRate||30.23;
+  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
   var hr=wkHourly({basis:cfg.basis,amt:cfg.amt,hoursWeek:cfg.hours});
   var pay=(cfg.basis==='day')?('R'+_grpInt(cfg.amt||0)+' per day'):('R'+_grpInt(cfg.amt||0)+' per month');
   var n=0; function cl(t,b){ n++; return '<h2>'+n+'. '+t+'</h2><p>'+b+'</p>'; }
@@ -12987,7 +13004,7 @@ function cbGenerate(id, commit){
 
 // ---- Payroll report ----
 var prPayeEdit=null;
-function wkPayState(){ var c=ST_WORK; if(!c.paye)c.paye={}; if(!c.seasonal)c.seasonal={}; if(typeof c.taxThreshold!=='number')c.taxThreshold=95750; return c; }
+function wkPayState(){ var c=ST_WORK; if(!c.paye)c.paye={}; if(!c.seasonal)c.seasonal={}; if(typeof c.taxThreshold!=='number')c.taxThreshold=STATUTORY.taxThreshold.value; return c; }
 function wkPayeFor(label,wid){ return (((ST_WORK.paye||{})[label])||{})[wid]||0; }
 function wkSetPaye(label,wid,amt){ wkPayState(); ST_WORK.paye[label]=ST_WORK.paye[label]||{}; ST_WORK.paye[label][wid]=amt; }
 function wkSeasDaysFor(label,wid){ return (((ST_WORK.seasonal||{})[label])||{})[wid]||0; }
@@ -13039,7 +13056,7 @@ var prActEdit=null;
 function wkSeasActEdit(wid){ prActEdit=wid; ST_WORK.payRepTab='reg'; wkPRRender(); }
 function wkSeasActSave(wid){ var v=($('pr-act-sel')||{}).value||''; var w=wkFind(wid); if(w) w.activity=v; prActEdit=null; if(typeof saveState==='function') saveState(); if(typeof toast==='function') toast('Tagged to '+wkActLabel(v)+'.','success'); ST_WORK.payRepTab='reg'; wkPRRender(); }
 function wkSeasActBox(){ if(!prActEdit) return ''; var w=wkFind(prActEdit); if(!w) return ''; return '<div class="pr-payebox"><div style="font-size:11.5px;font-weight:800;margin-bottom:7px">Works on \u2014 '+wkE(w.name)+'</div><select id="pr-act-sel" onchange="wkSeasActSave(\''+w.id+'\')" style="width:100%;padding:9px 10px;border:1.5px solid var(--br2);border-radius:9px;font-family:inherit;font-weight:700;background:#fff">'+wkActOptions(w.activity||'')+'</select><div style="font-size:10px;color:var(--t4);margin-top:7px;line-height:1.5">Sends this worker\u2019s pay to that part of your farm. General = whole farm.</div></div>'; }
-function wkSeasUif(gross,days,w){ return (days*(w.hoursDay||8)>24) ? Math.round(Math.min(gross,17712)*0.01*100)/100 : 0; }
+function wkSeasUif(gross,days,w){ return (days*(w.hoursDay||STATUTORY.hoursDay.value)>24) ? Math.round(Math.min(gross,STATUTORY.uifCeiling.value)*STATUTORY.uifRate.value*100)/100 : 0; }
 
 function wkOpenModal(o){ o=o||{};
   var t=$('stmt-preview-title'); if(t) t.textContent=o.title||'';
@@ -13055,7 +13072,7 @@ function wkPayReport(){ ST_WORK.payRepTab=ST_WORK.payRepTab||'sum'; prPayeEdit=n
   wkPRRender();
 }
 function wkPRTab(t){ ST_WORK.payRepTab=t; prPayeEdit=null; wkPRRender(); }
-function wkPRRender(){
+function wkPRRender(){ wkSync();
   var box=$('stmt-preview-body'); if(!box) return; wkPayState();
   var t=ST_WORK.payRepTab||'sum';
   var fns={ sum:wkPRSummary, reg:wkPRRegister, stat:wkPRStatutory, ty:wkPRTaxYear };
@@ -13124,7 +13141,7 @@ function wkPRMonthTotals(){
 function wkPRSummary(){
   var t=wkPRMonthTotals(); var single=t.single;
   var cost=t.gross+t.uif+t.seasGross+t.seasUif;
-  var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*0.01):0;
+  var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*STATUTORY.sdlRate.value):0;
   var sarsTot=t.paye+(t.uif+t.seasUif)*2+sdl;
   function kpi(l,v,sub){ return '<div class="pr-kpi"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+sub+'</div></div>'; }
   var take=t.net+ (t.seasGross-t.seasUif);
@@ -13205,17 +13222,17 @@ function wkPRStatutory(){
   var coidaCard='<div class="wk-card"><div class="pr-h3">Workmen\u2019s comp earnings <span class="pr-pill tech">COIDA \u00b7 W.As.8</span></div><div class="pr-sub">Total wages for the once-a-year return</div><div class="pr-flow"><div class="r"><span>Earnings this tax year ('+wkE(ty.label)+')</span><span>'+wkMoney(coida)+'</span></div><div class="r tot"><span>Return of Earnings figure</span><span>'+wkMoney(coida)+'</span></div></div><div style="font-size:10px;color:var(--t4);margin-top:9px">Capped per worker at the COIDA ceiling on export.</div></div>';
   if(!single){
     var rows=wkPayRows();
-    var blocks=labels.map(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*0.01):0; var uif2=(uif+su)*2; var tot=paye+uif2+sdl;
+    var blocks=labels.map(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var tot=paye+uif2+sdl;
       return '<div class="wk-card" style="padding:12px 15px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:12.5px;font-weight:800">EMP201 \u00b7 '+wkE(L)+'</div><span class="pr-pill tech">file separately</span></div><div class="pr-flow"><div class="r"><span>PAYE</span><span>'+wkMoney(paye)+'</span></div><div class="r"><span>UIF (1% + 1%)</span><span>'+wkMoney(uif2)+'</span></div>'+(wkSdlApplies()?('<div class="r"><span>SDL</span><span>'+wkMoney(sdl)+'</span></div>'):'')+'<div class="r tot"><span>Total</span><span>'+wkMoney(tot)+'</span></div></div></div>'; }).join('');
     return '<div class="wk-card pr-sars" style="padding:13px 15px"><div class="pr-h3">One EMP201 per month</div><div class="pr-sub">'+labels.length+' monthly returns \u2014 they don\u2019t combine. UI-19 works the same way.</div></div>'
       + blocks + coidaCard;
   }
-  var t=wkPRMonthTotals(); var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*0.01):0;
+  var t=wkPRMonthTotals(); var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*STATUTORY.sdlRate.value):0;
   var uif2=(t.uif+t.seasUif)*2; var sarsTot=t.paye+uif2+sdl;
   var u19=wkList().map(function(w){
     var rem=(w.basis==='day')? (wkSeasDaysFor(t.label,w.id)*(w.amt||0)) : (w.amt||0);
     if(w.basis==='day' && rem<=0) return '';
-    var c=Math.round(Math.min(rem,17712)*0.02*100)/100;
+    var c=Math.round(Math.min(rem,STATUTORY.uifCeiling.value)*0.02*100)/100;
     var no=(w.uifNo&&w.uifNo.length)?('UIF no. '+wkE(w.uifNo)):'<span style="color:var(--rd)">UIF number missing</span>';
     return '<div class="pr-stat-row"><div><div class="nm">'+wkE(w.name)+'</div><div class="s">'+no+'</div></div><div class="right">'+wkMoney(rem)+' \u00b7 <b>'+wkMoney(c)+'</b></div></div>';
   }).join('');
@@ -13254,7 +13271,7 @@ function renderWkDetail(id){
   for(var i=0;i<ws.length;i++){ if(ws[i].id===id){ w=ws[i]; idx=i; break; } }
   if(!w){ box.innerHTML=''; return; }
   w.ledger = w.ledger || [];
-  var rate=ST_WORK.nmwRate||30.23; var ok=wkHourly(w)>=rate-0.005;
+  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value; var ok=wkHourly(w)>=rate-0.005;
   var wage = (w.basis==='day') ? ('R'+_grpInt(w.amt||0)+'/day') : (wkMoney(w.amt)+'/mo');
 
   var boxes='';
@@ -13430,7 +13447,7 @@ function wkNmw(){
   var amt=parseFloat(($('awf-amt')||{}).value)||0;
   var hrs=parseFloat(($('awf-hours')||{}).value)||0;
   var basis=wkSegVal('awf-basis')||'month';
-  var rate=ST_WORK.nmwRate||30.23;
+  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
   if(!amt){ line.className='wk-nmw neutral'; line.innerHTML='<span class="e">&#8987;</span><span>Enter a wage and we&rsquo;ll check it against the minimum.</span>'; return; }
   var h = basis==='month' ? (hrs? amt/(hrs*52/12):0) : (hrs? amt/hrs:0);
   var hr=h.toFixed(2);
@@ -13463,7 +13480,7 @@ function wkSaveWorker(){
   if(!amt){ if(typeof toast==='function') toast('Please enter what you pay them.','error'); return; }
   var basis=wkSegVal('awf-basis')||'month';
   var hrs=parseFloat(($('awf-hours')||{}).value)||45;
-  var rate=ST_WORK.nmwRate||30.23;
+  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
   var h = basis==='month' ? amt/(hrs*52/12) : amt/hrs;
   if(h < rate-0.005){ if(typeof toast==='function') toast('That\u2019s below the R'+rate.toFixed(2)+' minimum wage \u2014 bump it up first.','error'); return; }
   var contractSel=wkSegVal('awf-contract');
@@ -13794,9 +13811,39 @@ function animalBase(type){ for(var i=0;i<SA_ANIMALS.length;i++){ if(SA_ANIMALS[i
 function animalMarketKey(type){ var b=animalBase(type); return b==='Cattle'?'Beef Cattle A2/A3':b==='Sheep'?'Lambs A2/A3':b==='Goats'?'Goats Class A':null; }
 function animalOptions(selected){ var html='',cur=null; SA_ANIMALS.forEach(function(a){ if(a.g!==cur){ if(cur!==null) html+='</optgroup>'; html+='<optgroup label="'+a.g+'">'; cur=a.g; } html+='<option value="'+a.t+'"'+(a.t===selected?' selected':'')+'>'+a.i+' '+a.t+'</option>'; }); if(cur!==null) html+='</optgroup>'; return html; }
 
+/* ============================================================================
+ * STATUTORY \u2014 single source of truth for SA payroll figures (Workers module).
+ * ANNUAL REVIEW: check every value each February (Budget ~25 Feb) and lock
+ * before its 1 March effective date. Each entry carries asOf + source.
+ * Verified Jun 2026 against the Feb-2026 NMW gazette (54075), SARS Budget 2026,
+ * and the Unemployment Insurance Contributions Act.
+ * NOTE: PAYE brackets / rebates are NOT here and are not auto-applied \u2014 those
+ * are tax FORMULAS reserved for specialist review. These are published constants.
+ * ========================================================================== */
+var STATUTORY = {
+  nmwRate:      { value: 30.23, effectiveFrom:'2026-03-01', asOf:'2026-06', source:'DEL gazette 54075 (3 Feb 2026); farm workers paid at NMW' },
+  hoursWeek:    { value: 45,    effectiveFrom:'',           asOf:'2026-06', source:'BCEA ordinary-hours standard' },
+  hoursDay:     { value: 8,     effectiveFrom:'',           asOf:'2026-06', source:'BCEA ordinary-hours standard (5-day week)' },
+  uifCeiling:   { value: 17712, effectiveFrom:'2021-06-01', asOf:'2026-06', source:'UIC Act monthly remuneration ceiling; unchanged 2026' },
+  uifRate:      { value: 0.01,  effectiveFrom:'',           asOf:'2026-06', source:'UIC Act \u2014 1% employee + 1% employer' },
+  sdlRate:      { value: 0.01,  effectiveFrom:'',           asOf:'2026-06', source:'SDL Act \u2014 1% of payroll (employer)' },
+  taxThreshold: { value: 99000, effectiveFrom:'2026-03-01', asOf:'2026-06', source:'SARS Budget 2026 under-65 threshold (was R95,750)', note:'Advisory PAYE flag only \u2014 not used in any tax calculation' },
+  // Reference-only: stable values still set inline. Centralise here only if one ever moves.
+  _ref: {
+    sdlThreshold:   { value: 500000, source:'SDL registration threshold (annual payroll); inline in wkSdlApplies + 2 UI sites' },
+    uifExemptHours: { value: 24,     source:'UIF exempt under 24 h/month; inline in wkSeasUif' },
+    housingCapPct:  { value: 0.10,   source:'Max 10% accommodation deduction; inline' },
+    sundayMult:     { value: 1.5,    source:'BCEA s16 Sunday premium' },
+    holidayMult:    { value: 2,      source:'BCEA s18 public-holiday premium' },
+    leaveAnnual:    { value: 21,     source:'BCEA s20 annual leave (consecutive days)' },
+    leaveSick:      { value: 30,     source:'BCEA s22 sick leave (per 36-month cycle)' },
+    leaveFamily:    { value: 3,      source:'BCEA s27 family responsibility leave' }
+  }
+};
+
 var ST_WORK = {
-  nmwRate: 30.23,   // farm-worker national minimum wage, R per ordinary hour (from 1 Mar 2026) — look up & update each March
-  hoursWeek: 45,    // ordinary hours per week used for the NMW check
+  nmwRate: STATUTORY.nmwRate.value,   // farm-worker national minimum wage, R per ordinary hour (from 1 Mar 2026) — look up & update each March
+  hoursWeek: STATUTORY.hoursWeek.value,    // ordinary hours per week used for the NMW check
   activeTab: 'ov',
   workers: [
     { id:'w1', name:'Petrus Mokoena', role:'Foreman \u00b7 runs the whole operation', type:'Permanent', start:'2019-03-12', onFarm:false, idNo:'', basis:'month', amt:8400, hoursWeek:45, hoursDay:8, uif:true, leave:{annual:14,sick:22}, uifNo:'1234567/8', contract:'on-file',
@@ -27993,12 +28040,12 @@ function wkPRExportRegister(){
 }
 function wkPRExportUif(){
   var labels=wkPRLabels(); var data=[];
-  labels.forEach(function(L){ wkList().forEach(function(w){ var rem=(w.basis==='day')?(wkSeasDaysFor(L,w.id)*(w.amt||0)):(w.amt||0); if(w.basis==='day'&&rem<=0) return; var c=Math.round(Math.min(rem,17712)*0.02*100)/100; data.push([L, w.name, w.uifNo||'', rem.toFixed(2), c.toFixed(2)]); }); });
+  labels.forEach(function(L){ wkList().forEach(function(w){ var rem=(w.basis==='day')?(wkSeasDaysFor(L,w.id)*(w.amt||0)):(w.amt||0); if(w.basis==='day'&&rem<=0) return; var c=Math.round(Math.min(rem,STATUTORY.uifCeiling.value)*0.02*100)/100; data.push([L, w.name, w.uifNo||'', rem.toFixed(2), c.toFixed(2)]); }); });
   wkDownload('UI19_'+wkPRTag(), toCSV(['Month','Employee','UIF number','Remuneration (R)','UIF contribution 2% (R)'], data));
 }
 function wkPRExportEmp201(){
   var labels=wkPRLabels(); var rows=wkPayRows(); var data=[];
-  labels.forEach(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*0.01):0; var uif2=(uif+su)*2; var tot=paye+uif2+sdl; data.push([L, paye.toFixed(2), sdl.toFixed(2), uif2.toFixed(2), tot.toFixed(2)]); });
+  labels.forEach(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var tot=paye+uif2+sdl; data.push([L, paye.toFixed(2), sdl.toFixed(2), uif2.toFixed(2), tot.toFixed(2)]); });
   wkDownload('EMP201_'+wkPRTag(), toCSV(['Month','PAYE (R)','SDL (R)','UIF 1%+1% (R)','Total payable (R)'], data));
 }
 function wkPRPrint(){
@@ -28017,13 +28064,13 @@ function wkPRPrint(){
   }
   var empSec;
   if(single){
-    var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*0.01):0; var uif2=(t.uif+t.seasUif)*2; var tot=t.paye+uif2+sdl;
+    var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*STATUTORY.sdlRate.value):0; var uif2=(t.uif+t.seasUif)*2; var tot=t.paye+uif2+sdl;
     empSec='<div class="kv"><span>PAYE</span><span>R'+t.paye.toFixed(2)+'</span></div><div class="kv"><span>SDL</span><span>R'+sdl.toFixed(2)+'</span></div><div class="kv"><span>UIF (1% + 1%)</span><span>R'+uif2.toFixed(2)+'</span></div><div class="kv"><span><b>Total payable to SARS</b></span><span><b>R'+tot.toFixed(2)+'</b></span></div>';
   } else {
-    var er=labels.map(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*0.01):0; var uif2=(uif+su)*2; var tot=paye+uif2+sdl; return '<tr><td>'+wkE(L)+'</td><td>'+paye.toFixed(2)+'</td><td>'+sdl.toFixed(2)+'</td><td>'+uif2.toFixed(2)+'</td><td>'+tot.toFixed(2)+'</td></tr>'; }).join('');
+    var er=labels.map(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var tot=paye+uif2+sdl; return '<tr><td>'+wkE(L)+'</td><td>'+paye.toFixed(2)+'</td><td>'+sdl.toFixed(2)+'</td><td>'+uif2.toFixed(2)+'</td><td>'+tot.toFixed(2)+'</td></tr>'; }).join('');
     empSec='<table><thead><tr><th>Month</th><th>PAYE</th><th>SDL</th><th>UIF 1%+1%</th><th>Total</th></tr></thead><tbody>'+er+'</tbody></table><p style="font-size:11px;color:#6B7280">Each month is filed as a separate EMP201.</p>';
   }
-  var u19=wkList().map(function(w){ var rem=(w.basis==='day')?(wkSeasDaysFor(focus,w.id)*(w.amt||0)):(w.amt||0); if(w.basis==='day'&&rem<=0) return ''; var c=Math.round(Math.min(rem,17712)*0.02*100)/100; return '<tr><td>'+wkE(w.name)+'</td><td>'+wkE(w.uifNo||'\u2014')+'</td><td>'+rem.toFixed(2)+'</td><td>'+c.toFixed(2)+'</td></tr>'; }).join('');
+  var u19=wkList().map(function(w){ var rem=(w.basis==='day')?(wkSeasDaysFor(focus,w.id)*(w.amt||0)):(w.amt||0); if(w.basis==='day'&&rem<=0) return ''; var c=Math.round(Math.min(rem,STATUTORY.uifCeiling.value)*0.02*100)/100; return '<tr><td>'+wkE(w.name)+'</td><td>'+wkE(w.uifNo||'\u2014')+'</td><td>'+rem.toFixed(2)+'</td><td>'+c.toFixed(2)+'</td></tr>'; }).join('');
   var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Payroll report \u2014 '+wkE(farm)+'</title>'
     +'<style>body{font-family:Arial,Helvetica,sans-serif;color:#1A1F1C;max-width:760px;margin:24px auto;padding:0 18px;line-height:1.5}h1{font-size:20px;margin:0 0 2px}.sub{color:#6B7280;font-size:13px;margin-bottom:18px}h2{font-size:14px;border-bottom:2px solid #1B4332;padding-bottom:5px;margin:22px 0 10px;color:#1B4332}table{width:100%;border-collapse:collapse;font-size:12px}th,td{text-align:right;padding:6px 7px;border-bottom:1px solid #E9ECEF}th:first-child,td:first-child{text-align:left}th{font-size:9.5px;text-transform:uppercase;color:#6B7280}.kv{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid #E9ECEF}.foot{font-size:11px;color:#9CA3AF;margin-top:22px;border-top:1px solid #E9ECEF;padding-top:10px}@media print{.noprint{display:none}}</style></head><body>'
     +'<h1>'+wkE(farm)+' \u2014 Payroll report</h1><div class="sub">'+wkE(periodLbl)+'</div>'
@@ -30749,7 +30796,7 @@ function orExportPackout(){
     var permTotal=perm.reduce(function(a,w){return a+(w.amt||0);},0);
     var seasEst=seas.reduce(function(a,w){return a+((w.amt||0)*8);},0);
     var heads=perm.length+seas.reduce(function(a,w){return a+(w.count||1);},0);
-    var rate=(typeof ST_WORK!=='undefined'&&ST_WORK.nmwRate)||30.23;
+    var rate=(typeof ST_WORK!=='undefined'&&ST_WORK.nmwRate)||STATUTORY.nmwRate.value;
     var below=ws.filter(function(w){return wkHourly(w)>0 && wkHourly(w)<rate-0.005;});
     var owe=ws.reduce(function(a,w){return a+((w.adv&&w.adv.owing)||0);},0);
     var contractsOk=ws.filter(function(w){return w.contract!=='missing';}).length;
