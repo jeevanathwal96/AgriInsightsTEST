@@ -5363,7 +5363,16 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <!-- Header -->
   <div class="page-hdr">
     <div><div class="page-title">My Plan</div><div class="page-sub">Crops, orchards, livestock and your year ahead.</div></div>
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="planPrev()" aria-label="Previous year" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--br);background:#fff;color:var(--gd);font-size:16px;cursor:pointer">&#9664;</button>
+        <div style="text-align:center;min-width:120px">
+          <div style="font-size:9.5px;font-weight:700;letter-spacing:.07em;color:var(--t4)">FINANCIAL YEAR</div>
+          <div id="plan-period" style="font-size:15px;font-weight:800;color:var(--t1)">May 2024 – Apr 2025</div>
+          <div id="plan-year-tag" style="font-size:10px;font-weight:800;display:inline-block;margin-top:2px;padding:1px 9px;border-radius:20px"></div>
+        </div>
+        <button onclick="planNext()" aria-label="Next year" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--br);background:#fff;color:var(--gd);font-size:16px;cursor:pointer">&#9654;</button>
+      </div>
       <button class="btn-pri" id="plan-add-crop-btn"  onclick="openAddPlan()">+ Add a crop</button>
       <button class="btn-pri plan-add-event-btn" id="plan-add-event-btn" onclick="openAddEvent()" style="display:none;background:#7C2D5A">+ Add livestock event</button>
       <button class="btn-pri" id="plan-add-orch-btn" onclick="nav('orchards');setTimeout(function(){if(typeof orSetTab==='function')orSetTab('add');},120)" style="display:none;background:#C8962C">+ Add a block</button>
@@ -17656,9 +17665,13 @@ var ST_PLAN = {
 function planPrev() { planYear--; updatePlanPeriod(); }
 function planNext() { planYear++; updatePlanPeriod(); }
 function updatePlanPeriod() {
+  ST_PLAN.months=planMonthsFor(planYear);
   var el=$('plan-period');     if(el) el.textContent='May '+planYear+' \u2013 Apr '+(planYear+1);
   var el2=$('plan-sum-period');if(el2) el2.textContent='May '+planYear+' \u2013 Apr '+(planYear+1);
+  planRefreshYearTag();
   recomputePlan();
+  if(typeof renderCalGrid==='function') renderCalGrid();
+  if(typeof renderLiveCalGrid==='function') renderLiveCalGrid();
   renderPlanGrid();
 }
 function planMonthsFor(py){
@@ -17669,20 +17682,116 @@ function planShiftLabel(label,dy){
   var p=String(label||'').split(' '); if(p.length<2) return label;
   var y=parseInt(p[1],10); if(isNaN(y)) return label; return p[0]+' '+(y+dy);
 }
+// ── Multi-year planning ── the month label carries the year, so a line's financial
+// year is derived from it (no separate stored field). planActiveCrops() returns the
+// crops to show for the viewed year (planYear): real lines for that year, plus annual
+// crops projected forward from earlier years (dashed, editable-to-pin).
+var PLAN_MON3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function planLabelFY(label){
+  var p=String(label||'').split(' '); if(p.length<2) return null;
+  var mi=PLAN_MON3.indexOf(p[0]); var y=parseInt(p[1],10);
+  if(isNaN(y)||mi<0) return null;
+  return (mi>=4)?y:(y-1); // May(4)..Dec -> y ; Jan..Apr -> previous FY
+}
+function cropFY(c){ return planLabelFY(c&&c.plant); }
+function planSeriesKey(c){ return c.linkId || ((c.crop||'')+'|'+(c.field||'')); }
+function planEscAttr(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function planActiveCrops(){
+  var fy=planYear, list=(ST_PLAN.crops||[]);
+  var real=list.filter(function(c){ return cropFY(c)===fy; });
+  var hasReal={}; real.forEach(function(c){ hasReal[planSeriesKey(c)]=true; });
+  var latest={};
+  list.forEach(function(c){
+    if(c.repeat!=='annual') return;
+    var cfy=cropFY(c); if(cfy===null||cfy>=fy) return;
+    var key=planSeriesKey(c); if(hasReal[key]) return;
+    if(!latest[key]||cfy>latest[key].fy) latest[key]={line:c,fy:cfy};
+  });
+  var proj=Object.keys(latest).map(function(key){
+    var src=latest[key].line, dy=fy-latest[key].fy, q={};
+    for(var k in src) q[k]=src[k];
+    q.plant=planShiftLabel(src.plant,dy); q.harvest=planShiftLabel(src.harvest,dy);
+    q.projected=true; return q;
+  });
+  return real.concat(proj);
+}
+function planPinProjectedCrop(arg){
+  var key=(arg&&arg.getAttribute)?arg.getAttribute('data-series'):arg, fy=planYear;
+  var src=null, sfy=-1;
+  (ST_PLAN.crops||[]).forEach(function(c){
+    if(c.repeat!=='annual'||planSeriesKey(c)!==key) return;
+    var cfy=cropFY(c); if(cfy===null||cfy>=fy) return;
+    if(cfy>sfy){ sfy=cfy; src=c; }
+  });
+  if(!src){ toast('Could not find the crop to plan.','error'); return; }
+  var dy=fy-sfy, pinned={}; for(var k in src) pinned[k]=src[k];
+  pinned.plant=planShiftLabel(src.plant,dy); pinned.harvest=planShiftLabel(src.harvest,dy);
+  delete pinned.projected;
+  ST_PLAN.crops.push(pinned); var idx=ST_PLAN.crops.length-1;
+  recomputePlan(); renderCalGrid(); if(typeof updatePlanSummary==='function') updatePlanSummary();
+  dataChanged('plan'); openEditCrop(idx);
+}
+function eventFY(e){ return planLabelFY(e&&e.month); }
+function planEventSeriesKey(e){ return (e.herdId!=null?e.herdId:'')+'|'+(e.desc||'')+'|'+(e.type||'')+'|'+(e.unit||''); }
+function planActiveEvents(){
+  var fy=planYear, list=(ST_PLAN.events||[]);
+  var real=list.filter(function(e){ return eventFY(e)===fy; });
+  var hasReal={}; real.forEach(function(e){ hasReal[planEventSeriesKey(e)]=true; });
+  var latest={};
+  list.forEach(function(e){
+    if(e.recur!=='annual') return;
+    var efy=eventFY(e); if(efy===null||efy>=fy) return;
+    var key=planEventSeriesKey(e); if(hasReal[key]) return;
+    if(!latest[key]||efy>latest[key].fy) latest[key]={line:e,fy:efy};
+  });
+  var proj=Object.keys(latest).map(function(key){
+    var src=latest[key].line, dy=fy-latest[key].fy, q={};
+    for(var k in src) q[k]=src[k];
+    q.month=planShiftLabel(src.month,dy); q.projected=true; return q;
+  });
+  return real.concat(proj);
+}
+function planPinProjectedEvent(key){
+  var fy=planYear, src=null, sfy=-1;
+  (ST_PLAN.events||[]).forEach(function(e){
+    if(e.recur!=='annual'||planEventSeriesKey(e)!==key) return;
+    var efy=eventFY(e); if(efy===null||efy>=fy) return;
+    if(efy>sfy){ sfy=efy; src=e; }
+  });
+  if(!src){ toast('Could not find the event to plan.','error'); return; }
+  var dy=fy-sfy, pinned={}; for(var k in src) pinned[k]=src[k];
+  pinned.month=planShiftLabel(src.month,dy); delete pinned.projected;
+  ST_PLAN.events.push(pinned); var idx=ST_PLAN.events.length-1;
+  recomputePlan(); if(typeof renderLiveCalGrid==='function') renderLiveCalGrid();
+  if(typeof updatePlanSummary==='function') updatePlanSummary();
+  dataChanged('plan'); openEditEvent(idx);
+}
+function planRefreshYearTag(){
+  var t=$('plan-year-tag'); if(!t) return;
+  var today=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
+  var cur=(today.getMonth()>=4)?today.getFullYear():today.getFullYear()-1;
+  if(planYear<cur){ t.textContent='Past'; t.style.background='#EFEFEF'; t.style.color='#6B7280'; }
+  else if(planYear===cur){ t.textContent='This year'; t.style.background='var(--gp)'; t.style.color='var(--gd)'; }
+  else { t.textContent='Planned'; t.style.background='#FFF8E6'; t.style.color='#8a6516'; }
+}
 function planSyncToCurrentYear(){
   if(typeof ST_PLAN==='undefined'||!ST_PLAN.months||!ST_PLAN.months.length) return;
   var today=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
   var target=(today.getMonth()>=4)?today.getFullYear():today.getFullYear()-1; // May–Apr financial year
-  var base=parseInt((ST_PLAN.months[0].label||'').split(' ')[1],10); if(isNaN(base)) base=target;
-  var dy=target-base;
-  ST_PLAN.months=planMonthsFor(target);
-  planYear=target; if(typeof ST!=='undefined') ST.planYear=target;
-  if(dy!==0){
-    (ST_PLAN.crops||[]).forEach(function(c){ c.plant=planShiftLabel(c.plant,dy); c.harvest=planShiftLabel(c.harvest,dy); });
-    (ST_PLAN.events||[]).forEach(function(e){ e.month=planShiftLabel(e.month,dy); });
+  // Demo data (not yet loaded from a real farm) is shifted onto the current year once,
+  // so the first-run plan looks live. Real saved plans are multi-year and are NOT shifted
+  // — each line keeps the year it was planned for.
+  if(!ST_PLAN.fromBackend){
+    var base=parseInt(((ST_PLAN.crops&&ST_PLAN.crops[0]&&ST_PLAN.crops[0].plant)||(ST_PLAN.months[0].label)||'').split(' ')[1],10);
+    var dy=(!isNaN(base))?(target-base):0;
+    if(dy!==0){
+      (ST_PLAN.crops||[]).forEach(function(c){ c.plant=planShiftLabel(c.plant,dy); c.harvest=planShiftLabel(c.harvest,dy); });
+      (ST_PLAN.events||[]).forEach(function(e){ e.month=planShiftLabel(e.month,dy); });
+    }
   }
+  planYear=target; if(typeof ST!=='undefined') ST.planYear=target;
+  ST_PLAN.months=planMonthsFor(target);
 }
-
 // ── View toggle ───────────────────────────────────────────────
 function setPlanView(v) {
 
@@ -17703,7 +17812,7 @@ function recomputePlan() {
   });
 
   // ── Step 2: Distribute crop cycle figures across months ───
-  ST_PLAN.crops.forEach(function(c){
+  planActiveCrops().forEach(function(c){
     if(typeof entOn==='function' && !entOn('crops')) return;
     if(c.inForecast===false) return; // scenario / what-if crop — excluded from forecast
     var plantIdx   = ST_PLAN.months.findIndex(function(m){return m.label===c.plant;});
@@ -17768,7 +17877,7 @@ function recomputePlan() {
   // ── Step 3.5: Distribute livestock events across months ───
   var monthIdxByLabel = {};
   ST_PLAN.months.forEach(function(m, i){ monthIdxByLabel[m.label] = i; });
-  (ST_PLAN.events || []).forEach(function(e) {
+  planActiveEvents().forEach(function(e) {
     if (typeof entOn==='function' && !entOn('livestock')) return;
     if (!e || !e.month) return;
     if (e.done) return; // realised: counted as an actual transaction, not planned (avoids double-count)
@@ -17966,15 +18075,20 @@ function planCropIcon(cropName){
 function renderCalGrid() {
   var el = $('plan-cal-grid'); if (!el) return;
 
-  if (!ST_PLAN.crops.length) {
+  var pp=$('plan-period'); if(pp) pp.textContent='May '+planYear+' \u2013 Apr '+(planYear+1);
+  if(typeof planRefreshYearTag==='function') planRefreshYearTag();
+  var __active = planActiveCrops();
+  var __cc = $('plan-tab-crops-count'); if(__cc) __cc.textContent = __active.length;
+  if (!__active.length) {
     el.innerHTML = '<div style="text-align:center;color:var(--t3);padding:40px;font-size:13px;background:#fff;border-radius:var(--rl);border:1px dashed var(--br)">' +
-      'No crop cycles added yet.<br><button onclick="openAddPlan()" style="margin-top:10px;background:var(--gd);color:#fff;border:none;border-radius:var(--rs);padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">+ Add Crop Cycle</button></div>';
+      'No crop cycles for this year yet.<br><button onclick="openAddPlan()" style="margin-top:10px;background:var(--gd);color:#fff;border:none;border-radius:var(--rs);padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">+ Add Crop Cycle</button></div>';
     return;
   }
 
   var allMonths = ST_PLAN.months.map(function(m){ return m.label; });
 
-  el.innerHTML = ST_PLAN.crops.map(function(c, idx) {
+  el.innerHTML = __active.map(function(c) {
+    var idx = c.projected ? -1 : ST_PLAN.crops.indexOf(c);
     var col = getCropColor(c.crop);
     var plantIdx   = allMonths.indexOf(c.plant);
     var harvestIdx = allMonths.indexOf(c.harvest);
@@ -18021,7 +18135,8 @@ var profitBg  = profitable ? 'var(--gb)' : 'var(--op)';
     var profitCol = profitable ? 'var(--gd)' : 'var(--or)';
 
     var excl = (c.inForecast===false);
-    return '<div data-linkid="'+(c.linkId||'')+'" style="background:'+(excl?'#FCFAFD':'#fff')+';border:1px '+(excl?'dashed #c4b5d4':'solid var(--br)')+';border-radius:var(--rl);padding:16px;box-shadow:var(--sh)">' +
+    var proj = (c.projected===true);
+    return '<div data-linkid="'+(c.linkId||'')+'" style="background:'+(proj?'#FCFEFB':(excl?'#FCFAFD':'#fff'))+';border:1px '+(proj?'dashed var(--gl)':(excl?'dashed #c4b5d4':'solid var(--br)'))+';border-radius:var(--rl);padding:16px;box-shadow:'+(proj?'none':'var(--sh)')+'">' +
 
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
         '<div style="display:flex;align-items:center;gap:9px">' +
@@ -18031,6 +18146,7 @@ var profitBg  = profitable ? 'var(--gb)' : 'var(--op)';
               c.crop +
               (c.field ? '<span style="font-size:11px;font-weight:700;color:var(--gd);background:var(--gb);border:1px solid var(--gp);padding:2px 8px;border-radius:99px">\ud83d\udccd ' + c.field + '</span>' : '') +
               (c.repeat === 'annual' ? '<span title="Repeats every year" style="font-size:11px;font-weight:700;color:var(--bl);background:var(--bp);border:1px solid #BFDBFE;padding:2px 8px;border-radius:99px">\ud83d\udd01 Annual</span>' : '') +
+              (proj ? '<span title="Projected from your annual plan \u2014 edit to pin it for this year" style="font-size:11px;font-weight:700;color:var(--gl);background:var(--gb);border:1px solid var(--gp);padding:2px 8px;border-radius:99px">\u21bb Projected</span>' : '') +
               (excl ? '<span title="Excluded from your forecast" style="font-size:11px;font-weight:700;color:var(--pu);background:var(--pp);border:1px solid #e9c9da;padding:2px 8px;border-radius:99px">\uD83D\uDD2E Scenario</span>' : '') +
             '</div>' +
             '<div style="font-size:12px;color:var(--t3);margin-top:3px">' + c.ha + 'ha &nbsp;·&nbsp; ' + c.yield + 't/ha &nbsp;·&nbsp; R' + _grpInt(c.price) + '/ton</div>' +
@@ -18041,9 +18157,11 @@ var profitBg  = profitable ? 'var(--gb)' : 'var(--op)';
           '<div style="background:' + profitBg + ';color:' + profitCol + ';font-size:13px;font-weight:800;padding:4px 12px;border-radius:20px">' +
             'Est. ' + (profitable ? 'profit' : 'loss') + ': R' + (Math.abs(net)/1000).toFixed(0) + 'k' +
           '</div>' +
-          '<button onclick="planToggleForecast(' + idx + ')" title="'+(excl?'Add this crop back into your forecast':'Exclude this crop from your forecast (keep it as a what-if)')+'" style="background:'+(excl?'var(--pp)':'#fff')+';border:1px solid '+(excl?'#e9c9da':'var(--br)')+';border-radius:6px;padding:5px 11px;font-size:12px;font-weight:700;color:'+(excl?'var(--pu)':'var(--t2)')+';cursor:pointer">'+(excl?'\uD83D\uDD2E Scenario':'\u2713 In forecast')+'</button>' +
-          '<button onclick="openEditCrop(' + idx + ')" style="background:var(--gb);border:1px solid var(--gp);border-radius:6px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--gd);cursor:pointer">Edit</button>' +
-          '<button onclick="deleteCrop(' + idx + ')" style="background:var(--rp);border:1px solid #FECACA;border-radius:6px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--rd);cursor:pointer">Remove</button>' +
+          (proj
+            ? '<button data-series="'+planEscAttr(planSeriesKey(c))+'" onclick="planPinProjectedCrop(this)" title="Add this crop to '+planYear+' as a real plan you can edit" style="background:var(--gd);color:#fff;border:none;border-radius:6px;padding:5px 13px;font-size:12px;font-weight:700;cursor:pointer">\u21bb Plan this year</button>'
+            : '<button onclick="planToggleForecast(' + idx + ')" title="'+(excl?'Add this crop back into your forecast':'Exclude this crop from your forecast (keep it as a what-if)')+'" style="background:'+(excl?'var(--pp)':'#fff')+';border:1px solid '+(excl?'#e9c9da':'var(--br)')+';border-radius:6px;padding:5px 11px;font-size:12px;font-weight:700;color:'+(excl?'var(--pu)':'var(--t2)')+';cursor:pointer">'+(excl?'\uD83D\uDD2E Scenario':'\u2713 In forecast')+'</button>' +
+              '<button onclick="openEditCrop(' + idx + ')" style="background:var(--gb);border:1px solid var(--gp);border-radius:6px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--gd);cursor:pointer">Edit</button>' +
+              '<button onclick="deleteCrop(' + idx + ')" style="background:var(--rp);border:1px solid #FECACA;border-radius:6px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--rd);cursor:pointer">Remove</button>') +
         '</div>' +
       '</div>' +
 
@@ -18276,7 +18394,14 @@ function orPlanRows(){
   if(typeof entOn==='function' && !entOn('orchards')) return [];
   if(typeof ST_FRUIT==='undefined'||!ST_FRUIT.blocks) return [];
   if(typeof orEnsurePricing==='function') orEnsurePricing();
-  return ST_FRUIT.blocks.filter(function(b){return !b.plan && !b.removed && (b.tons>0);}).map(function(b){
+  return ST_FRUIT.blocks.filter(function(b){
+    if(b.plan || b.removed || !(b.tons>0)) return false;
+    // Perennial orchards bear every year from establishment onward — show them in the
+    // viewed year and all later years, but not in years before the block existed.
+    var ey=(typeof b.estabYr==='number')?b.estabYr:((typeof b.plant==='number')?b.plant:null);
+    if(ey!=null && typeof planYear==='number' && planYear<ey) return false;
+    return true;
+  }).map(function(b){
     var w=orPlanDefaultWindow(b.cat);
     var ps=(b.planPickStart==null?w[0]:b.planPickStart);
     var pe=(b.planPickEnd==null?w[1]:b.planPickEnd); if(pe<ps) pe=ps;
@@ -18332,6 +18457,21 @@ function orPlanCard(r,months,cat){
 }
 
 // ── Add / Edit crop modal ─────────────────────────────────────
+// Rebuild the crop-cycle month dropdowns from ST_PLAN.months so their labels
+// always match the calendar grid (which reads ST_PLAN.months) and the current
+// financial year. Without this the options stay on the hardcoded 2024/25 labels
+// while the grid follows the FY, so any pick fails indexOf() and the boxes clamp
+// to May (plant) / Apr (harvest). Mirrors the event modal's dynamic month options.
+function fillPlanMonthDropdowns(){
+  if(typeof ST_PLAN==='undefined' || !ST_PLAN.months || !ST_PLAN.months.length) return;
+  var labels=ST_PLAN.months.map(function(m){ return m.label; });
+  ['ac-plant','ac-harvest'].forEach(function(id){
+    var sel=document.getElementById(id); if(!sel) return;
+    var prev=sel.value;
+    sel.innerHTML=labels.map(function(l){ return '<option>'+l+'</option>'; }).join('');
+    for(var i=0;i<sel.options.length;i++){ if(sel.options[i].text===prev){ sel.selectedIndex=i; break; } }
+  });
+}
 function openAddPlan() {
   setModalMode('add', -1);
   var bg=$('plan-modal-bg'); if(bg) bg.style.display='flex';
@@ -18359,6 +18499,8 @@ function setModalMode(mode, idx) {
   var cr=$('ac-crop'),fld=$('ac-field'),ha=$('ac-ha'),pl=$('ac-plant'),hv=$('ac-harvest');
   var yl=$('ac-yield'),pr=$('ac-price'),ic=$('ac-input-cost'),oc=$('ac-other-cost'),sum=$('ac-summary');
   var rep=$('ac-repeat');
+  // Rebuild plant/harvest month options from ST_PLAN.months (matches the grid + FY)
+  fillPlanMonthDropdowns();
   // Always rebuild the field-name datalist with currently-used field names
   refreshFieldSuggestions();
   if(c) {
@@ -19143,7 +19285,7 @@ function updatePlanCombinedBanner() {
 
 function renderLiveCalGrid() {
   var el = $('plan-live-grid'); if (!el) return;
-  var events = ST_PLAN.events || [];
+  var events = planActiveEvents();
 
   var _herdN = (typeof ST_LS!=='undefined' && ST_LS.herd) ? ST_LS.herd.length : 0;
   if (!events.length && !_herdN) {
@@ -19171,7 +19313,7 @@ function renderLiveCalGrid() {
   events.forEach(function(e, i) {
     var key = e.animal || 'Other livestock';
     if (!groups[key]) { groups[key] = {animal:key, icon:e.icon || '\ud83d\udc02', events:[], planned:false}; orderedKeys.push(key); }
-    groups[key].events.push({e:e, idx:i});
+    groups[key].events.push({e:e, idx:(e.projected?-1:ST_PLAN.events.indexOf(e))});
   });
 
   var allMonths = ST_PLAN.months.map(function(m){ return m.label; });
@@ -19270,7 +19412,8 @@ function renderLiveCalGrid() {
 
 function renderEventList() {
   var wrap = $('plan-live-list-wrap'); if (!wrap) return;
-  var events = ST_PLAN.events || [];
+  var __allev = ST_PLAN.events || [];
+  var events = __allev.filter(function(e){ return eventFY(e)===planYear; });
   if (!events.length) { wrap.innerHTML = ''; return; }
 
   // Sort by month index, then by type
@@ -19283,7 +19426,7 @@ function renderEventList() {
   });
 
   var rows = sorted.map(function(e) {
-    var origIdx = events.indexOf(e);
+    var origIdx = __allev.indexOf(e);
     var doneStyle = e.done ? ' style="opacity:.55"' : '';
     var amount = (e.qty || 0) * (e.price || 0);
     var isIncome = (e.type === 'sell' || e.type === 'income');
@@ -19400,19 +19543,16 @@ function getCropMarketPrice(cropName) {
 function onLiveCellClick(animal, monthLabel, hitIdxsStr, ev) {
   if (ev) ev.stopPropagation();
   var idxs = hitIdxsStr ? hitIdxsStr.split(',').filter(Boolean).map(Number) : [];
-
-  if (idxs.length === 0) {
-    // Empty cell — open Add Event modal pre-filled with this animal + month
-    openAddEventForCell(animal, monthLabel);
-    return;
+  // A projected (annual) event for a future year carries idx -1. Clicking it pins the
+  // series into this year as a real, editable line before opening the editor.
+  if (idxs.indexOf(-1) >= 0) {
+    var proj = planActiveEvents().filter(function(e){ return e.projected && e.animal===animal && e.month===monthLabel; });
+    if (proj.length) { planPinProjectedEvent(planEventSeriesKey(proj[0])); return; }
   }
-  if (idxs.length === 1) {
-    // Single event — open it for edit directly
-    openEditEvent(idxs[0]);
-    return;
-  }
-  // Multiple events — show small popover
-  showLiveCellPopover(animal, monthLabel, idxs, ev);
+  var real = idxs.filter(function(i){ return i >= 0; });
+  if (real.length === 0) { openAddEventForCell(animal, monthLabel); return; }
+  if (real.length === 1) { openEditEvent(real[0]); return; }
+  showLiveCellPopover(animal, monthLabel, real, ev);
 }
 
 function openAddEventForCell(animal, monthLabel) {
