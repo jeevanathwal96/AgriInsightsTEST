@@ -1031,23 +1031,29 @@
   var _profSnap=null;
   const profile = {
     // Update only the fields actually provided — never null out an existing value.
+    // Core columns (always present) save first and independently of the
+    // registration columns (vat_registered/tax_number/vat_number, added by
+    // settings_profile_schema.sql) so a missing migration can never block the
+    // whole save — the symptom that would otherwise be "nothing saved".
     async save(st){
       if(!st) return; const fid=farm.active(); if(!fid) return;
-      var row={};
-      if(st.farmName) row.name=st.farmName;
-      if(st.ownerName) row.owner_name=st.ownerName;
-      if(st.province) row.province=st.province;
-      if(st.farmHa!=null && st.farmHa!=='') row.farm_ha=Number(st.farmHa);
-      if(st.farmType) row.farm_type=st.farmType;
-      if(st.fyStartMonth!=null) row.fy_start_month=parseInt(st.fyStartMonth,10);
-      if(st.lang) row.lang=st.lang;
-      if(st.vatRegistered!=null) row.vat_registered=!!st.vatRegistered;
-      if(st.taxNumber) row.tax_number=st.taxNumber;
-      if(st.vatNumber) row.vat_number=st.vatNumber;
-      if(!Object.keys(row).length) return;
-      var snap=JSON.stringify(row); if(snap===_profSnap) return;
-      const e=(await client().from('farms').update(row).eq('id',fid)).error; if(e) throw e;
-      _profSnap=snap; return true;
+      var core={}, extra={};
+      if(st.farmName) core.name=st.farmName;
+      if(st.ownerName) core.owner_name=st.ownerName;
+      if(st.province) core.province=st.province;
+      if(st.farmHa!=null && st.farmHa!=='') core.farm_ha=Number(st.farmHa);
+      if(st.farmType) core.farm_type=st.farmType;
+      if(st.fyStartMonth!=null) core.fy_start_month=parseInt(st.fyStartMonth,10);
+      if(st.lang) core.lang=st.lang;
+      if(st.vatRegistered!=null) extra.vat_registered=!!st.vatRegistered;
+      if(st.taxNumber) extra.tax_number=st.taxNumber;
+      if(st.vatNumber) extra.vat_number=st.vatNumber;
+      var snap=JSON.stringify({c:core,e:extra}); if(snap===_profSnap) return;
+      if(Object.keys(core).length){ const e=(await client().from('farms').update(core).eq('id',fid)).error; if(e) throw e; }
+      var extraOk=true;
+      if(Object.keys(extra).length){ const e=(await client().from('farms').update(extra).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: VAT/tax fields not saved \u2014 run settings_profile_schema.sql in Supabase. (' + (e.message||e) + ')'); } }
+      if(extraOk) _profSnap=snap;
+      return true;
     }
   };
 
