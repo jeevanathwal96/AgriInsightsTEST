@@ -994,6 +994,15 @@
       { const e=(await client().from('pay_run_applied').delete().eq('farm_id',fid).eq('run_local_id',String(localId))).error; if(e) throw e; }
       { const e=(await client().from('pay_runs').delete().eq('farm_id',fid).eq('local_id',String(localId))).error; if(e) throw e; }
       _wkSnap=null; return true;
+    },
+    async removeWorker(localId){
+      const fid=farm.active(); if(!fid||localId==null) return;
+      const wl=String(localId);
+      { const e=(await client().from('worker_ledger').delete().eq('farm_id',fid).eq('worker_local_id',wl)).error; if(e) throw e; }
+      { const e=(await client().from('worker_leave_log').delete().eq('farm_id',fid).eq('worker_local_id',wl)).error; if(e) throw e; }
+      { const e=(await client().from('worker_docs').delete().eq('farm_id',fid).eq('worker_local_id',wl)).error; if(e) throw e; }
+      { const e=(await client().from('workers').delete().eq('farm_id',fid).eq('local_id',wl)).error; if(e) throw e; }
+      _wkSnap=null; return true;
     }
   };
 
