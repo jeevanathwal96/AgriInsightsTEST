@@ -229,6 +229,7 @@
             if (prof.vatNumber!=null) ST.vatNumber=prof.vatNumber;
             try { if (typeof FARM!=='undefined' && FARM) { if(prof.farmName!=null)FARM.name=prof.farmName; if(prof.ownerName!=null)FARM.owner=prof.ownerName; if(prof.farmHa!=null)FARM.ha=prof.farmHa; if(prof.vatRegistered!=null)FARM.vat=prof.vatRegistered; if(prof.taxNumber!=null)FARM.taxNo=prof.taxNumber; if(prof.vatNumber!=null)FARM.vatNo=prof.vatNumber; } } catch(e){}
             try { var _fn=document.getElementById('farm-name'); if(_fn && ST.farmName) _fn.textContent=ST.farmName; } catch(e){}
+            try { if (typeof updateTopbarGreeting==='function') updateTopbarGreeting(); } catch(e){}
             try { if (prof.lang!=null) { var _ll=prof.lang; if (_ll!==ST.lang && typeof applyLang==='function') applyLang(_ll); else ST.lang=_ll; } } catch(e){}
           }
         } catch (e) { console.error('Profile hydrate failed:', e); }
