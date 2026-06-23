@@ -3344,12 +3344,12 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <!-- TOPBAR -->
   <div class="topbar">
     <div style="display:flex;align-items:center;gap:14px">
-      <div class="welcome" id="topbar-greeting">Welcome back, Jaco 👋</div>
+      <div class="welcome" id="topbar-greeting">Welcome back 👋</div>
       <div class="farm-sel" id="farm-sel" onclick="toggleDrop('farm-drop')">
-        <span id="farm-name">Doringkloof Boerdery</span>
+        <span id="farm-name"></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         <div class="drop" id="farm-drop">
-          <div class="drop-item" onclick="closeDrop('farm-drop')">✓ &nbsp;Doringkloof Boerdery</div>
+          <div class="drop-item" onclick="closeDrop('farm-drop')"></div>
           <div class="drop-item" onclick="toast('Add farm coming soon','info');closeDrop('farm-drop')">+ Add another farm</div>
         </div>
       </div>
@@ -5701,8 +5701,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="set-id">
       <div class="ico">🌾</div>
       <div style="flex:1;min-width:0">
-        <div class="nm" id="set-id-name">Doringkloof Boerdery</div>
-        <div class="sb" id="set-id-sub">Jaco van der Merwe · Eastern Cape · 5 462 ha</div>
+        <div class="nm" id="set-id-name"></div>
+        <div class="sb" id="set-id-sub"></div>
       </div>
     </div>
 
@@ -5710,11 +5710,11 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="set-card">
       <div class="set-h"><span class="ic">🏡</span>Farm details</div>
       <div class="fg2" style="margin-bottom:12px">
-        <div><label>Farm name</label><input id="set-farm" value="Doringkloof Boerdery" oninput="syncSettingsHeader()"/></div>
-        <div><label>Owner / farmer name</label><input id="set-owner" value="Jaco van der Merwe" oninput="syncSettingsHeader()"/></div>
+        <div><label>Farm name</label><input id="set-farm" value="" oninput="syncSettingsHeader()"/></div>
+        <div><label>Owner / farmer name</label><input id="set-owner" value="" oninput="syncSettingsHeader()"/></div>
       </div>
       <div class="fg2">
-        <div><label>Farm size (hectares)</label><input id="set-ha" type="number" value="5462" oninput="syncSettingsHeader()"/></div>
+        <div><label>Farm size (hectares)</label><input id="set-ha" type="number" value="" oninput="syncSettingsHeader()"/></div>
         <div><label>Province</label>
           <select id="set-province" onchange="syncSettingsHeader()">
             <option selected>Eastern Cape</option><option>Western Cape</option><option>Northern Cape</option>
@@ -8691,6 +8691,7 @@ function bootAgriInsights() {
   attachAutosave();
   registerServiceWorker();
   try { applyFarmTypeVisibility(); } catch(e){}
+  try { syncTopbarFarm(); } catch(e){}
 }
 
 // ============================================================
@@ -9936,6 +9937,13 @@ function getFYMonths(fy) {
 // ============================================================
 
 // ============================================================
+function syncTopbarFarm(){
+  try{
+    var fn=document.getElementById('farm-name'); if(fn) fn.textContent = ST.farmName || 'Your farm';
+    var di=document.querySelector('#farm-drop .drop-item'); if(di) di.textContent = '\u2713  ' + (ST.farmName || 'Your farm');
+    if (typeof updateTopbarGreeting==='function') updateTopbarGreeting();
+  }catch(e){}
+}
 function updateTopbarGreeting() {
   var el = document.getElementById('topbar-greeting');
   if (!el) return;
