@@ -867,9 +867,140 @@
     }
   };
 
+  // ==========================================================================
+  // WORKERS / PAYROLL — Option A relational (8 tables). Persists the numbers
+  // the app produced / the farmer entered. NO tax math here (PAYE/UIF/SDL are
+  // computed in index.html). Maps app keys <-> db columns (e.g. sun->sunday,
+  // ph->holiday hours). Deferred this pass (logged): compliance sub-state
+  // (uifPayments[], coida, hours config, doc tracking) and contractTemplate.extra.
+  // ==========================================================================
+  function wkrToDb(w, fid){ return { farm_id:fid, local_id:String(w.id),
+    name:w.name||null, role:w.role||null, worker_type:w.type||null, start_date:w.start||null,
+    on_farm:!!w.onFarm, id_no:w.idNo||null, basis:w.basis||null,
+    amt:(w.amt!=null&&w.amt!=='')?Number(w.amt):null,
+    hours_week:(w.hoursWeek!=null&&w.hoursWeek!=='')?parseInt(w.hoursWeek,10):null,
+    hours_day:(w.hoursDay!=null&&w.hoursDay!=='')?parseInt(w.hoursDay,10):null,
+    uif:(w.uif!=null)?!!w.uif:null, uif_no:w.uifNo||null, uif_exempt:!!w.uifExempt,
+    contract_status:w.contract||null, activity:w.activity||null,
+    leave_annual:(w.leave&&w.leave.annual!=null)?Number(w.leave.annual):null,
+    leave_sick:(w.leave&&w.leave.sick!=null)?Number(w.leave.sick):null,
+    leave_family:(w.leave&&w.leave.family!=null)?Number(w.leave.family):null,
+    housing_deduction:(w.housing&&w.housing.deduction!=null)?Number(w.housing.deduction):null,
+    adv_owing:(w.adv&&w.adv.owing!=null)?Number(w.adv.owing):null,
+    adv_per_pay:(w.adv&&w.adv.perPay!=null)?Number(w.adv.perPay):null,
+    adv_reason:(w.adv&&w.adv.reason)||null,
+    adv_consent:(w.adv&&w.adv.consent!=null)?!!w.adv.consent:null,
+    fund_on:(w.fund&&w.fund.on!=null)?!!w.fund.on:null,
+    fund_where:(w.fund&&w.fund.where)||null, fund_scheme:(w.fund&&w.fund.scheme)||null,
+    fund_freq:(w.fund&&w.fund.freq)||null,
+    fund_per_pay:(w.fund&&w.fund.perPay!=null)?Number(w.fund.perPay):null,
+    fund_balance:(w.fund&&w.fund.balance!=null)?Number(w.fund.balance):null,
+    fund_consent:(w.fund&&w.fund.consent!=null)?!!w.fund.consent:null }; }
+  function wkrFromDb(r){ var w={ id:r.local_id, name:r.name||'', role:r.role||'', type:r.worker_type||'',
+    start:r.start_date||'', onFarm:!!r.on_farm, idNo:r.id_no||'', basis:r.basis||'month',
+    amt:Number(r.amt)||0, hoursWeek:(r.hours_week!=null)?Number(r.hours_week):45,
+    hoursDay:(r.hours_day!=null)?Number(r.hours_day):8, uif:(r.uif!=null)?!!r.uif:true,
+    uifNo:r.uif_no||'', uifExempt:!!r.uif_exempt, contract:r.contract_status||'missing', activity:r.activity||'' };
+    if(r.leave_annual!=null||r.leave_sick!=null||r.leave_family!=null){ w.leave={annual:Number(r.leave_annual)||0,sick:Number(r.leave_sick)||0,family:(r.leave_family!=null)?Number(r.leave_family):3}; }
+    if(r.housing_deduction!=null) w.housing={deduction:Number(r.housing_deduction)};
+    if(r.adv_owing!=null||r.adv_per_pay!=null||r.adv_reason||r.adv_consent!=null){ w.adv={owing:Number(r.adv_owing)||0,perPay:Number(r.adv_per_pay)||0,reason:r.adv_reason||'',consent:!!r.adv_consent}; } else { w.adv=null; }
+    if(r.fund_on!=null||r.fund_balance!=null||r.fund_per_pay!=null){ w.fund={on:!!r.fund_on,where:r.fund_where||'hold',scheme:r.fund_scheme||'',freq:r.fund_freq||'month',perPay:Number(r.fund_per_pay)||0,balance:Number(r.fund_balance)||0,consent:!!r.fund_consent}; } else { w.fund=null; }
+    return w; }
+  function wkSettToDb(stw, fid){ var ct=stw.contractTemplate||{}; return { farm_id:fid,
+    nmw_rate:(stw.nmwRate!=null)?Number(stw.nmwRate):null,
+    hours_week:(stw.hoursWeek!=null)?parseInt(stw.hoursWeek,10):null,
+    tax_threshold:(stw.taxThreshold!=null)?parseInt(stw.taxThreshold,10):null,
+    sdl_registered:!!(stw.compliance&&stw.compliance.sdlRegistered),
+    contract_brk:ct.brk||null, contract_days:ct.days||null, contract_payday:ct.payday||null,
+    contract_method:ct.method||null, contract_prob:ct.prob||null }; }   // contract_extra deferred (object map)
+  function wkSettApply(stw, r){ if(!r) return;
+    if(r.nmw_rate!=null) stw.nmwRate=Number(r.nmw_rate);
+    if(r.hours_week!=null) stw.hoursWeek=Number(r.hours_week);
+    if(r.tax_threshold!=null) stw.taxThreshold=Number(r.tax_threshold);
+    stw.compliance=stw.compliance||{}; stw.compliance.sdlRegistered=!!r.sdl_registered;
+    if(r.contract_brk||r.contract_days||r.contract_payday||r.contract_method||r.contract_prob){
+      stw.contractTemplate=Object.assign(stw.contractTemplate||{},{ brk:r.contract_brk||undefined, days:r.contract_days||undefined, payday:r.contract_payday||undefined, method:r.contract_method||undefined, prob:r.contract_prob||undefined }); } }
+  function wkLedgerRows(stw, fid){ var rows=[]; (stw.workers||[]).forEach(function(w){ (w.ledger||[]).forEach(function(e,i){ rows.push({ farm_id:fid, worker_local_id:String(w.id), entry_date:e.date||null, kind:e.kind||null, amt:(e.amt!=null)?Number(e.amt):null, note:e.note||null, sort_idx:i }); }); }); return rows; }
+  function wkLeaveRows(stw, fid){ var rows=[]; (stw.workers||[]).forEach(function(w){ (w.leaveLog||[]).forEach(function(e,i){ rows.push({ farm_id:fid, worker_local_id:String(w.id), leave_type:e.type||null, days:(e.days!=null)?Number(e.days):null, log_date:e.date||null, sort_idx:i }); }); }); return rows; }
+  function wkDocRows(stw, fid){ var rows=[]; (stw.workers||[]).forEach(function(w){ (w.docs||[]).forEach(function(d,i){ rows.push({ farm_id:fid, worker_local_id:String(w.id), doc_id:d.id||null, name:d.name||null, doc_type:d.type||null, mime:d.mime||null, size:(d.size!=null)?parseInt(d.size,10):null, added_date:d.date||null, url:d.url||null, sort_idx:i }); }); }); return rows; }   // metadata only; blob deferred to Storage
+  function wkPayrollRows(stw, fid){ var by={};
+    function ensure(L,wid){ var k=L+'\u0000'+wid; var r=by[k]; if(!r){ r=by[k]={ farm_id:fid, period_label:L, worker_local_id:String(wid), paye:0, bonus:0, sunday:0, holiday:0, seasonal_days:0 }; } return r; }
+    var P=stw.paye||{}; Object.keys(P).forEach(function(L){ var m=P[L]||{}; Object.keys(m).forEach(function(wid){ ensure(L,wid).paye=Number(m[wid])||0; }); });
+    var B=stw.bonus||{}; Object.keys(B).forEach(function(L){ var m=B[L]||{}; Object.keys(m).forEach(function(wid){ ensure(L,wid).bonus=Number(m[wid])||0; }); });
+    var E=stw.extra||{}; Object.keys(E).forEach(function(L){ var m=E[L]||{}; Object.keys(m).forEach(function(wid){ var e=m[wid]||{}; var r=ensure(L,wid); r.sunday=Number(e.sun)||0; r.holiday=Number(e.ph)||0; }); });
+    var S=stw.seasonal||{}; Object.keys(S).forEach(function(L){ var m=S[L]||{}; Object.keys(m).forEach(function(wid){ ensure(L,wid).seasonal_days=Number(m[wid])||0; }); });
+    return Object.keys(by).map(function(k){ return by[k]; }); }
+  function wkPayrollToMaps(rows){ var paye={},bonus={},extra={},seasonal={};
+    (rows||[]).forEach(function(r){ var L=r.period_label, wid=r.worker_local_id;
+      if(r.paye){ (paye[L]=paye[L]||{})[wid]=Number(r.paye); }
+      if(r.bonus){ (bonus[L]=bonus[L]||{})[wid]=Number(r.bonus); }
+      if(r.sunday||r.holiday){ var e=(extra[L]=extra[L]||{})[wid]=(extra[L][wid]||{}); if(r.sunday)e.sun=Number(r.sunday); if(r.holiday)e.ph=Number(r.holiday); }
+      if(r.seasonal_days){ (seasonal[L]=seasonal[L]||{})[wid]=Number(r.seasonal_days); } });
+    return { paye:paye, bonus:bonus, extra:extra, seasonal:seasonal }; }
+  function payRunToDb(r, fid){ return { farm_id:fid, local_id:String(r.id), label:r.label||null, kind:r.kind||null, net:(r.net!=null)?Number(r.net):null, gross:(r.gross!=null)?Number(r.gross):null, uif:(r.uif!=null)?Number(r.uif):null, run_date:r.date||null, seasonal:!!r.seasonal }; }
+  function payRunFromDb(r){ var o={ id:r.local_id, label:r.label||'', kind:r.kind||'', net:Number(r.net)||0, date:r.run_date||'' }; if(r.gross!=null)o.gross=Number(r.gross); if(r.uif!=null)o.uif=Number(r.uif); if(r.seasonal)o.seasonal=true; return o; }
+  function payAppliedRows(stw, fid){ var rows=[]; (stw.payRuns||[]).forEach(function(r){ (r.applied||[]).forEach(function(a){ rows.push({ farm_id:fid, run_local_id:String(r.id), worker_local_id:String(a.wid), adv_repaid:(a.advRepay!=null)?Number(a.advRepay):0, savings_in:(a.savings!=null)?Number(a.savings):0 }); }); }); return rows; }
+
+  load.workers = async function(farmId){
+    farmId = farmId || farm.active();
+    const [wk,st,lg,lv,dc,pe,pr,pa] = await Promise.all([
+      client().from('workers').select('*').eq('farm_id',farmId).order('created_at'),
+      client().from('worker_settings').select('*').eq('farm_id',farmId),
+      client().from('worker_ledger').select('*').eq('farm_id',farmId).order('sort_idx'),
+      client().from('worker_leave_log').select('*').eq('farm_id',farmId).order('sort_idx'),
+      client().from('worker_docs').select('*').eq('farm_id',farmId).order('sort_idx'),
+      client().from('payroll_entries').select('*').eq('farm_id',farmId),
+      client().from('pay_runs').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
+      client().from('pay_run_applied').select('*').eq('farm_id',farmId)
+    ]);
+    for(const r of [wk,st,lg,lv,dc,pe,pr,pa]) if(r&&r.error) throw r.error;
+    var workers=(wk.data||[]).map(wkrFromDb);
+    var byW={}; workers.forEach(function(w){ byW[String(w.id)]=w; });
+    (lg.data||[]).forEach(function(r){ var w=byW[r.worker_local_id]; if(w){ (w.ledger=w.ledger||[]).push({date:r.entry_date||'',kind:r.kind||'',amt:Number(r.amt)||0,note:r.note||''}); } });
+    (lv.data||[]).forEach(function(r){ var w=byW[r.worker_local_id]; if(w){ (w.leaveLog=w.leaveLog||[]).push({type:r.leave_type||'',days:Number(r.days)||0,date:r.log_date||''}); } });
+    (dc.data||[]).forEach(function(r){ var w=byW[r.worker_local_id]; if(w){ (w.docs=w.docs||[]).push({id:r.doc_id||('d'+r.id),name:r.name||'',type:r.doc_type||'',mime:r.mime||'',size:Number(r.size)||0,date:r.added_date||'',url:r.url||''}); } });
+    var payRuns=(pr.data||[]).map(payRunFromDb);
+    var byRun={}; (pa.data||[]).forEach(function(r){ (byRun[r.run_local_id]=byRun[r.run_local_id]||[]).push({wid:r.worker_local_id,advRepay:Number(r.adv_repaid)||0,savings:Number(r.savings_in)||0}); });
+    payRuns.forEach(function(r){ if(byRun[r.id]) r.applied=byRun[r.id]; });
+    return { workers:workers, settingsRow:(st.data&&st.data[0])||null, payroll:wkPayrollToMaps(pe.data||[]), payRuns:payRuns };
+  };
+
+  var _wkSnap=null;
+  const workersSave = {
+    apply: wkSettApply,
+    async saveAll(stw){
+      if(!stw) return;
+      const fid=farm.active(); if(!fid) return;
+      const snap=JSON.stringify({ w:stw.workers, s:[stw.nmwRate,stw.hoursWeek,stw.taxThreshold,(stw.compliance&&stw.compliance.sdlRegistered),stw.contractTemplate], p:stw.paye, b:stw.bonus, e:stw.extra, sd:stw.seasonal, r:stw.payRuns });
+      if(snap===_wkSnap) return;
+      { const e=(await client().from('worker_settings').upsert(wkSettToDb(stw,fid),{onConflict:'farm_id'})).error; if(e) throw e; }
+      var ws=(stw.workers||[]);
+      if(ws.length){ const e=(await client().from('workers').upsert(ws.map(function(w){return wkrToDb(w,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      { const e=(await client().from('worker_ledger').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      var lgR=wkLedgerRows(stw,fid); if(lgR.length){ const e=(await client().from('worker_ledger').insert(lgR)).error; if(e) throw e; }
+      { const e=(await client().from('worker_leave_log').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      var lvR=wkLeaveRows(stw,fid); if(lvR.length){ const e=(await client().from('worker_leave_log').insert(lvR)).error; if(e) throw e; }
+      { const e=(await client().from('worker_docs').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      var dcR=wkDocRows(stw,fid); if(dcR.length){ const e=(await client().from('worker_docs').insert(dcR)).error; if(e) throw e; }
+      var peR=wkPayrollRows(stw,fid); if(peR.length){ const e=(await client().from('payroll_entries').upsert(peR,{onConflict:'farm_id,period_label,worker_local_id'})).error; if(e) throw e; }
+      var prR=(stw.payRuns||[]).map(function(r){return payRunToDb(r,fid);}); if(prR.length){ const e=(await client().from('pay_runs').upsert(prR,{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      { const e=(await client().from('pay_run_applied').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      var paR=payAppliedRows(stw,fid); if(paR.length){ const e=(await client().from('pay_run_applied').insert(paR)).error; if(e) throw e; }
+      _wkSnap=snap;
+      return true;
+    },
+    async removePayRun(localId){
+      const fid=farm.active(); if(!fid||localId==null) return;
+      { const e=(await client().from('pay_run_applied').delete().eq('farm_id',fid).eq('run_local_id',String(localId))).error; if(e) throw e; }
+      { const e=(await client().from('pay_runs').delete().eq('farm_id',fid).eq('local_id',String(localId))).error; if(e) throw e; }
+      _wkSnap=null; return true;
+    }
+  };
+
+
   // ---- EXPORT --------------------------------------------------------------
   global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
-                coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan,
+                coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
 })(window);

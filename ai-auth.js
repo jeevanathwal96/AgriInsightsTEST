@@ -109,9 +109,10 @@
         AI.load.livestock(AI.farm.active()),
         AI.load.crops(AI.farm.active()),
         AI.load.orchard(AI.farm.active()),
-        AI.load.plan(AI.farm.active())
+        AI.load.plan(AI.farm.active()),
+        AI.load.workers(AI.farm.active())
       ]).then(function (res) {
-        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3], cropData = res[4], orData = res[5], planData = res[6];
+        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3], cropData = res[4], orData = res[5], planData = res[6], wkrData = res[7];
         try {
           if (window.ST_ASSETS && assets) {
             assets.forEach(function (a, i) { a.id = i + 1; });
@@ -200,6 +201,20 @@
             if (typeof recomputePlan === 'function') recomputePlan();
           }
         } catch (e) { console.error('Plan hydrate failed:', e); }
+        try {
+          if (window.ST_WORK && wkrData) {
+            // Signed-in farms use the backend register, not the demo workers.
+            ST_WORK.workers = wkrData.workers || [];
+            ST_WORK.paye = (wkrData.payroll && wkrData.payroll.paye) || {};
+            ST_WORK.bonus = (wkrData.payroll && wkrData.payroll.bonus) || {};
+            ST_WORK.extra = (wkrData.payroll && wkrData.payroll.extra) || {};
+            ST_WORK.seasonal = (wkrData.payroll && wkrData.payroll.seasonal) || {};
+            ST_WORK.payRuns = wkrData.payRuns || [];
+            if (wkrData.settingsRow && AI.workers && typeof AI.workers.apply === 'function') {
+              AI.workers.apply(ST_WORK, wkrData.settingsRow);
+            }
+          }
+        } catch (e) { console.error('Workers hydrate failed:', e); }
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });
     }).then(function () {
       // Signed-in users skip the app's first-run onboarding wizard.
