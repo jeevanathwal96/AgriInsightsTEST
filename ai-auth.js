@@ -107,9 +107,10 @@
         AI.load.loans(AI.farm.active()),
         AI.load.coopSettlements(AI.farm.active()),
         AI.load.livestock(AI.farm.active()),
-        AI.load.crops(AI.farm.active())
+        AI.load.crops(AI.farm.active()),
+        AI.load.orchard(AI.farm.active())
       ]).then(function (res) {
-        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3], cropData = res[4];
+        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3], cropData = res[4], orData = res[5];
         try {
           if (window.ST_ASSETS && assets) {
             assets.forEach(function (a, i) { a.id = i + 1; });
@@ -150,6 +151,29 @@
             if (cropData.compliance && Object.keys(cropData.compliance).length) ST_CROP.compliance = cropData.compliance;
           }
         } catch (e) { console.error('Crop hydrate failed:', e); }
+        try {
+          if (window.ST_FRUIT && orData) {
+            if (orData.blocks && orData.blocks.length) ST_FRUIT.blocks = orData.blocks;
+            if (orData.pricing && Object.keys(orData.pricing).length) ST_FRUIT.pricing = orData.pricing;
+            if (orData.sprayDiary && Object.keys(orData.sprayDiary).length) ST_FRUIT.sprayDiary = orData.sprayDiary;
+            if (orData.harvest && orData.harvest.length) ST_FRUIT.harvest = orData.harvest;
+            if (orData.market) ST_FRUIT.market = orData.market;
+            // Overlay saved compliance (status/expiry/log + docs/checks/readings) onto
+            // the app's default item definitions so wording stays app-controlled.
+            if (orData.comply) {
+              Object.keys(orData.comply).forEach(function (k) {
+                if (ST_FRUIT.comply && ST_FRUIT.comply[k]) {
+                  var o = orData.comply[k];
+                  Object.keys(o).forEach(function (f) { ST_FRUIT.comply[k][f] = o[f]; });
+                } else if (ST_FRUIT.comply) {
+                  ST_FRUIT.comply[k] = orData.comply[k];
+                }
+              });
+            }
+            // PHI (safe-to-pick) is derived — rebuild from the spray diary, never stored.
+            if (typeof orRebuildPhi === 'function') orRebuildPhi();
+          }
+        } catch (e) { console.error('Orchard hydrate failed:', e); }
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });
     }).then(function () {
       // Signed-in users skip the app's first-run onboarding wizard.

@@ -22925,6 +22925,8 @@ function syncQueue() {
 function queueOrSave(txn) {
   if(IS_ONLINE){
     ST.txns.unshift(txn);
+    var _qt=ST.txns[0];
+    try{ if(window.AI && AI.farm && AI.farm.active() && AI.txn){ AI.txn.add(txn).then(function(s){ if(s&&s.id&&_qt) _qt.id=s.id; }).catch(function(e){ console.error('Backend txn save failed:',e); }); } }catch(e){}
     dataChanged('transaction');
   } else {
     OFFLINE_QUEUE.push(txn);
@@ -28930,11 +28932,11 @@ var ST_FRUIT = {
   },
   sprayDiary: {
     citrus:[
-      {ic:'\uD83D\uDC1B',t:'Delegate (spinetoram) — for FCM',s:'Vlei block · 18 May · S. Mei · reg L9876',phi:{eu:20,uk:14,us:7,local:0}},
-      {ic:'\uD83C\uDF44',t:'Score (difenoconazole) — for CBS',s:'Rivierkant · 9 May · J. Plaatjies · reg L7654',phi:{eu:30,uk:21,us:14,local:7}}
+      {ic:'\uD83D\uDC1B',t:'Delegate (spinetoram) — for FCM',s:'Vlei block · 18 May · S. Mei · reg L9876',phi:{eu:20,uk:14,us:7,local:0},bid:'f1',product:'Delegate',forx:'FCM',dateISO:'2025-05-18'},
+      {ic:'\uD83C\uDF44',t:'Score (difenoconazole) — for CBS',s:'Rivierkant · 9 May · J. Plaatjies · reg L7654',phi:{eu:30,uk:21,us:14,local:7},bid:'f3',product:'Score',forx:'CBS',dateISO:'2025-05-09'}
     ],
-    fruit:[ {ic:'\uD83C\uDF4F',t:'Codling moth bait — for codling moth',s:'Bospad apple · 5 May · S. Mei · reg L3344',phi:{eu:14,uk:14,us:7,local:0}} ],
-    berry:[ {ic:'\uD83E\uDED0',t:'Switch (fungicide)',s:'Blueberry tunnels · 6 May · J. Plaatjies · reg L8123',phi:{eu:7,uk:7,us:3,local:0}} ]
+    fruit:[ {ic:'\uD83C\uDF4F',t:'Codling moth bait — for codling moth',s:'Bospad apple · 5 May · S. Mei · reg L3344',phi:{eu:14,uk:14,us:7,local:0},bid:'f6',product:'Codling moth bait',forx:'codling moth',dateISO:'2025-05-05'} ],
+    berry:[ {ic:'\uD83E\uDED0',t:'Switch (fungicide)',s:'Blueberry tunnels · 6 May · J. Plaatjies · reg L8123',phi:{eu:7,uk:7,us:3,local:0},bid:'f7',product:'Switch',forx:'',dateISO:'2025-05-06'} ]
   },
   phi: {
     citrus:[
@@ -28968,8 +28970,30 @@ function orR2(n){return (n<0?'\u2212':'')+_grp2(n);}
 function orFmtDM(d){return d.getDate()+' '+OR_MON[d.getMonth()];}
 function orAddDays(d,n){var x=new Date(d.getTime());x.setDate(x.getDate()+n);return x;}
 function orBlockById(id){var a=ST_FRUIT.blocks.filter(function(b){return b.id===id;});return a[0]||null;}
-function orSave(){ if(typeof debouncedSave==='function') debouncedSave(); else if(typeof saveState==='function') saveState(); }
+function orSave(){ if(typeof debouncedSave==='function') debouncedSave(); else if(typeof saveState==='function') saveState();
+  try{ if(window.AI && AI.farm && AI.farm.active() && AI.orchard){ AI.orchard.saveAll(ST_FRUIT).catch(function(e){console.error('Backend orchard save failed:',e);}); AI.orchard.saveConfig(ST_FRUIT).catch(function(e){console.error('Backend orchard config save failed:',e);}); } }catch(e){} }
 function orToast(m){ if(typeof toast==='function') toast(m,'success'); }
+/* PHI / safe-to-pick is DERIVED — rebuilt from the spray diary on load, never stored. */
+function orRebuildPhi(){
+  if(!window.ST_FRUIT) return;
+  ST_FRUIT.phi={};
+  var sd=ST_FRUIT.sprayDiary||{};
+  Object.keys(sd).forEach(function(cat){
+    var arr=(sd[cat]||[]).slice().filter(function(s){return s.dateISO&&s.bid;});
+    arr.sort(function(a,b){ return (a.dateISO||'')<(b.dateISO||'')?-1:1; }); // oldest first → latest spray per block wins
+    arr.forEach(function(s){
+      var b=(typeof orBlockById==='function')?orBlockById(s.bid):null;
+      var name=b?b.name:((s.s||'').split(' \u00b7 ')[0]||'Block');
+      var cultivar=(b&&b.cultivar)?b.cultivar.split(' \u00b7 ')[0]:'';
+      var dt=new Date(s.dateISO+'T00:00:00'); var ph=s.phi||{eu:0,uk:0,us:0,local:0};
+      var safe={eu:orFmtDM(orAddDays(dt,ph.eu||0)),uk:orFmtDM(orAddDays(dt,ph.uk||0)),us:orFmtDM(orAddDays(dt,ph.us||0)),local:orFmtDM(orAddDays(dt,ph.local||0))};
+      var last=(s.product||'Spray')+' \u00b7 '+orFmtDM(dt);
+      ST_FRUIT.phi[cat]=ST_FRUIT.phi[cat]||[];
+      var ex=ST_FRUIT.phi[cat].filter(function(r){return r.n.indexOf(name)===0;})[0];
+      if(ex){ ex.last=last; ex.d=safe; } else ST_FRUIT.phi[cat].unshift({n:name+(cultivar?' ('+cultivar+')':''),last:last,d:safe});
+    });
+  });
+}
 /* ===== single source of truth: money/ha is DERIVED from the farmer's inputs ===== */
 function orDefaultPricing(cat){
   if(cat==='veg')   return {price:3650,comm:7.5,pack:250,ship:400,levy:0,levyName:'',others:[{label:'Other costs',amt:0}],local:{price:0,comm:0,trans:0,other:0}};
@@ -29581,7 +29605,7 @@ function orSaveSpray(){
   var cost=parseFloat($('or-sp-cost').value)||0;
   var dt=new Date($('or-sp-date').value||new Date()); var cat=b.cat;
   ST_FRUIT.sprayDiary[cat]=ST_FRUIT.sprayDiary[cat]||[];
-  ST_FRUIT.sprayDiary[cat].unshift({ic:'\uD83E\uDDEA',t:prod+(forx?' — for '+forx:''),s:b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray'),phi:{eu:days,uk:days,us:Math.max(0,days-7),local:0}});
+  ST_FRUIT.sprayDiary[cat].unshift({id:'os'+Date.now().toString(36),ic:'\uD83E\uDDEA',t:prod+(forx?' — for '+forx:''),s:b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray'),phi:{eu:days,uk:days,us:Math.max(0,days-7),local:0},bid:b.id,product:prod,forx:forx,dateISO:dt.toISOString().slice(0,10)});
   ST_FRUIT.phi[cat]=ST_FRUIT.phi[cat]||[];
   var safe={eu:orFmtDM(orAddDays(dt,days)),uk:orFmtDM(orAddDays(dt,days)),us:orFmtDM(orAddDays(dt,Math.max(0,days-7))),local:orFmtDM(dt)};
   var ex=ST_FRUIT.phi[cat].filter(function(r){return r.n.indexOf(b.name)===0;})[0];
@@ -29610,7 +29634,7 @@ function orSavePick(){
   var dt=new Date($('or-pk-date').value||new Date()); var to=$('or-pk-to').value;
   var net=orNetPer(b);
   var money=(b.cat==='berry')?tons*1000*net:(b.cat==='veg'?tons*net:cartons*net);
-  ST_FRUIT.harvest.unshift({ic:b.icon,t:OR_CATS[b.cat].nm+' \u00b7 '+b.name+' — '+orFmtDM(dt),s:tons+' t'+(cartons?' \u00b7 '+cartons.toLocaleString('en-ZA')+' cartons':'')+(to?' \u00b7 '+to:''),r:money?orRm(money):'\u2014',bid:b.id,tn:tons});
+  ST_FRUIT.harvest.unshift({id:'oh'+Date.now().toString(36),ic:b.icon,t:OR_CATS[b.cat].nm+' \u00b7 '+b.name+' — '+orFmtDM(dt),s:tons+' t'+(cartons?' \u00b7 '+cartons.toLocaleString('en-ZA')+' cartons':'')+(to?' \u00b7 '+to:''),r:money?orRm(money):'\u2014',bid:b.id,tn:tons,cat:b.cat,tons:tons,cartons:cartons,to:to,money:money,dateISO:dt.toISOString().slice(0,10)});
   var dstr=orFmtDM(dt)+' '+dt.getFullYear();
   if(money>0 && typeof queueOrSave==='function'){
     queueOrSave({date:dstr,desc:b.name+' — '+(cartons?cartons.toLocaleString('en-ZA')+' cartons':tons+' t'),cat:'Fruit Sales',type:'income',amt:Math.round(money),method:'Bank Deposit'});
