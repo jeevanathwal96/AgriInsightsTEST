@@ -8877,7 +8877,7 @@ function parseDate(s) {
   return null;
 }
 
-function currentPeriodLabel() { return ST.budgets.currentMonth; }
+function currentPeriodLabel() { return ST.budgets.currentMonth || (function(){ var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); return MO[d.getMonth()]+' '+d.getFullYear(); })(); }
 
 function prevMonthLabel(monthLabel) {
   var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -9989,20 +9989,20 @@ var farmNameEl = document.getElementById('farm-name');
   var dropItem = document.querySelector('#farm-drop .drop-item');
   if (dropItem) dropItem.textContent = '\u2713  ' + ST.farmName;
 
-updateDashboardFigures();
-  renderIncBySource && renderIncBySource();
-  renderBudgetsPage && renderBudgetsPage();
+  if (typeof saveState === 'function') saveState();
+  try { if (window.AI && AI.farm && AI.farm.active()) { AI.profile.save(ST).catch(function(e){ console.error('Backend profile save failed:', e); }); } } catch(e){}
+
+  try { updateDashboardFigures(); } catch(e){ console.error('settings: dashboard refresh failed', e); }
+  try { renderIncBySource && renderIncBySource(); } catch(e){}
+  try { renderBudgetsPage && renderBudgetsPage(); } catch(e){}
   CHARTS_INITED = {};
+  try { if (lang !== ST.lang) applyLang(lang); } catch(e){}
 
-if (lang !== ST.lang) applyLang(lang);
-
-var msg = document.getElementById('settings-saved-msg');
+  var msg = document.getElementById('settings-saved-msg');
   if (msg) {
     msg.style.display = 'block';
     setTimeout(function(){ msg.style.display = 'none'; }, 3000);
   }
-  if (typeof saveState === 'function') saveState();
-  try { if (window.AI && AI.farm && AI.farm.active()) { AI.profile.save(ST).catch(function(e){ console.error('Backend profile save failed:', e); }); } } catch(e){}
   toast('Settings saved!', 'success');
 }
 
