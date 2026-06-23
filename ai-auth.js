@@ -108,9 +108,10 @@
         AI.load.coopSettlements(AI.farm.active()),
         AI.load.livestock(AI.farm.active()),
         AI.load.crops(AI.farm.active()),
-        AI.load.orchard(AI.farm.active())
+        AI.load.orchard(AI.farm.active()),
+        AI.load.plan(AI.farm.active())
       ]).then(function (res) {
-        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3], cropData = res[4], orData = res[5];
+        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3], cropData = res[4], orData = res[5], planData = res[6];
         try {
           if (window.ST_ASSETS && assets) {
             assets.forEach(function (a, i) { a.id = i + 1; });
@@ -183,6 +184,22 @@
             if (typeof orRebuildPhi === 'function') orRebuildPhi();
           }
         } catch (e) { console.error('Orchard hydrate failed:', e); }
+        try {
+          if (window.ST_PLAN) {
+            if (planData) {
+              // Saved plan: forecast crop lines (with link_id) + livestock events.
+              ST_PLAN.crops = planData.crops || [];
+              ST_PLAN.events = planData.events || [];
+            } else {
+              // Never-saved farm: drop the demo plan; seed crop lines from the real
+              // lands (events start empty). cropInitialPlanSync re-links to lands.
+              ST_PLAN.crops = [];
+              ST_PLAN.events = [];
+              if (typeof cropInitialPlanSync === 'function') cropInitialPlanSync(true);
+            }
+            if (typeof recomputePlan === 'function') recomputePlan();
+          }
+        } catch (e) { console.error('Plan hydrate failed:', e); }
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });
     }).then(function () {
       // Signed-in users skip the app's first-run onboarding wizard.

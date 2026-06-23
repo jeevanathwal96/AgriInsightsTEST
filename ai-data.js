@@ -622,25 +622,57 @@
   // so 'crop:<type>' tags + crop profit (keyed off land.crop/yields) keep working.
   // Lands edit-in-place (upsert); events/inputs append-only (upsert, no prune —
   // no delete UI). Config (prices/compliance/season) is 3b-ii.
-  function landToDb(l,fid){ return { farm_id:fid, local_id:String(l.id), name:l.name||null, area:(l.area!=null&&l.area!=='')?Number(l.area):null, crop:l.crop||null, cultivar:l.cultivar||null, gmo:!!l.gmo, irrigated:!!l.irrigated, planted:l.planted||null, harvest:l.harvest||null, stage:l.stage||null, target_yield:(l.targetYield!=null&&l.targetYield!=='')?Number(l.targetYield):null, actual_yield:(l.actualYield!=null&&l.actualYield!=='')?Number(l.actualYield):null, input_per_ha:(l.inputPerHa!=null&&l.inputPerHa!=='')?Number(l.inputPerHa):null, prev_crop:l.prevCrop||null, price:(l.price!=null&&l.price!=='')?Number(l.price):null }; }
-  function landFromDb(r){ var l={ id:_numIf(r.local_id), name:r.name||'', area:Number(r.area)||0, crop:r.crop||'', cultivar:r.cultivar||'', gmo:!!r.gmo, irrigated:!!r.irrigated, planted:r.planted||'', harvest:r.harvest||'', stage:r.stage||'', targetYield:Number(r.target_yield)||0, actualYield:(r.actual_yield!=null)?Number(r.actual_yield):null, inputPerHa:Number(r.input_per_ha)||0, prevCrop:r.prev_crop||'' }; if(r.price) l.price=Number(r.price); return l; }
+  function landToDb(l,fid){ return { farm_id:fid, local_id:String(l.id), name:l.name||null, area:(l.area!=null&&l.area!=='')?Number(l.area):null, crop:l.crop||null, cultivar:l.cultivar||null, gmo:!!l.gmo, irrigated:!!l.irrigated, planted:l.planted||null, harvest:l.harvest||null, stage:l.stage||null, target_yield:(l.targetYield!=null&&l.targetYield!=='')?Number(l.targetYield):null, actual_yield:(l.actualYield!=null&&l.actualYield!=='')?Number(l.actualYield):null, input_per_ha:(l.inputPerHa!=null&&l.inputPerHa!=='')?Number(l.inputPerHa):null, prev_crop:l.prevCrop||null, price:(l.price!=null&&l.price!=='')?Number(l.price):null, plan_link:l.planId||null }; }
+  function landFromDb(r){ var l={ id:_numIf(r.local_id), name:r.name||'', area:Number(r.area)||0, crop:r.crop||'', cultivar:r.cultivar||'', gmo:!!r.gmo, irrigated:!!r.irrigated, planted:r.planted||'', harvest:r.harvest||'', stage:r.stage||'', targetYield:Number(r.target_yield)||0, actualYield:(r.actual_yield!=null)?Number(r.actual_yield):null, inputPerHa:Number(r.input_per_ha)||0, prevCrop:r.prev_crop||'' }; if(r.price) l.price=Number(r.price); if(r.plan_link) l.planId=r.plan_link; return l; }
   function cevToDb(e,fid){ return { farm_id:fid, local_id:String(e.id), land_local_id:(e.land!=null)?String(e.land):null, kind:e.kind||null, event_date:e.date||null, note:e.note||null, tons:(e.tons!=null)?Number(e.tons):null, yield_val:(e.yield!=null)?Number(e.yield):null, cert:e.cert||null }; }
   function cevFromDb(r){ var e={ id:r.local_id, land:_numIf(r.land_local_id), kind:r.kind||'', date:r.event_date||'', note:r.note||'' }; if(r.tons!=null) e.tons=Number(r.tons); if(r.yield_val!=null) e.yield=Number(r.yield_val); if(r.cert) e.cert=r.cert; return e; }
   function cinToDb(i,fid){ return { farm_id:fid, local_id:String(i.id), land_local_id:(i.land!=null)?String(i.land):null, input_date:i.date||null, product:i.product||null, reg:i.reg||null, kind:i.kind||null, rate:i.rate||null, batch:i.batch||null, by_who:i.by||null, operator_cert:i.operatorCert||null, target_for:i.targetFor||null, phi:(i.phi!=null)?parseInt(i.phi,10):null, cost_per_ha:(i.costPerHa!=null)?Number(i.costPerHa):null }; }
   function cinFromDb(r){ return { id:r.local_id, land:_numIf(r.land_local_id), date:r.input_date||'', product:r.product||'', reg:r.reg||'', kind:r.kind||'', rate:r.rate||'', batch:r.batch||'', by:r.by_who||'', operatorCert:r.operator_cert||'', targetFor:r.target_for||'', phi:Number(r.phi)||0, costPerHa:Number(r.cost_per_ha)||0 }; }
 
+  // ---- crop compliance: relational (Option A) — settings row + areas + children
+  // ST_CROP.compliance is one farm-level record: flat scalar settings, tracked{}/
+  // cadence{} maps (per area) and logs{}/docs{} (per area) + waterReadings[].
+  // Doc files (url) and log photos are base64 blobs — deferred to Storage; metadata persists.
+  var CC_AREAS=['chem','water','gmo','invasive','seed','soil','ohs','diesel','export'];
+  // [appKey, dbCol, type]  type: t=text n=number i=int b=bool
+  var CC_SET=[['waterWUL','water_wul','t'],['waterAuthorised','water_authorised','n'],['waterUsed','water_used','n'],['waterMetered','water_metered','b'],['gmoStewardshipDoc','gmo_stewardship_doc','b'],['gmoRefugeLogged','gmo_refuge_logged','b'],['gmoRefugePct','gmo_refuge_pct','t'],['invasiveRegister','invasive_register','b'],['invasiveOutstanding','invasive_outstanding','t'],['invasiveLastAction','invasive_last_action','t'],['seedCertified','seed_certified','b'],['retainedSeed','retained_seed','b'],['seedNote','seed_note','t'],['soilPractice','soil_practice','t'],['soilTest','soil_test','t'],['operatorsTrained','operators_trained','i'],['operatorsTotal','operators_total','i'],['ppeIssued','ppe_issued','b'],['firstAidKit','first_aid_kit','b'],['workerTraining','worker_training','t'],['sdsRegister','sds_register','b'],['containerDisposal','container_disposal','b'],['dieselLitres','diesel_litres','n'],['dieselLogbook','diesel_logbook','b'],['exportReady','export_ready','b'],['exportScheme','export_scheme','t']];
+  function ccSettToDb(c,fid){ c=c||{}; var row={farm_id:fid}; CC_SET.forEach(function(f){ var v=c[f[0]]; if(v===undefined||v===null||v===''){ row[f[1]]=null; } else if(f[2]==='b'){ row[f[1]]=!!v; } else if(f[2]==='i'){ row[f[1]]=parseInt(v,10); } else if(f[2]==='n'){ row[f[1]]=Number(v); } else { row[f[1]]=String(v); } }); return row; }
+  function ccSettFromDb(r){ var c={}; CC_SET.forEach(function(f){ var v=r?r[f[1]]:null; if(v==null){ c[f[0]]=(f[2]==='b')?false:((f[2]==='n'||f[2]==='i')?0:''); } else { c[f[0]]=(f[2]==='b')?!!v:((f[2]==='n'||f[2]==='i')?Number(v):String(v)); } }); return c; }
+
   load.crops = async function(farmId){
     farmId = farmId || farm.active();
-    const [ld,ev,ip,cfg] = await Promise.all([
+    const [ld,ev,ip,cfg,cs,ca,cl,cd,cr] = await Promise.all([
       client().from('crop_lands').select('*').eq('farm_id',farmId).order('created_at'),
       client().from('crop_events').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
       client().from('crop_inputs').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
-      client().from('farms').select('crop_season,crop_compliance').eq('id',farmId).single()
+      client().from('farms').select('crop_season').eq('id',farmId).single(),
+      client().from('crop_compliance_settings').select('*').eq('farm_id',farmId),
+      client().from('crop_compliance_areas').select('*').eq('farm_id',farmId),
+      client().from('crop_compliance_logs').select('*').eq('farm_id',farmId).order('sort_idx'),
+      client().from('crop_compliance_docs').select('*').eq('farm_id',farmId).order('sort_idx'),
+      client().from('crop_compliance_readings').select('*').eq('farm_id',farmId).order('sort_idx')
     ]);
     for(const r of [ld,ev,ip]) if(r.error) throw r.error;
+    for(const r of [cs,ca,cl,cd,cr]) if(r&&r.error) throw r.error;
+    // compliance: reconstruct the farm-level record from its 5 tables. Authoritative
+    // only when the farm has saved before (settings row / any area rows); else null so
+    // ai-auth keeps the app's default structure (tracked/cadence keys the UI needs).
+    var settingsRow=(cs&&cs.data&&cs.data[0])||null;
+    var areaRows=(ca&&ca.data)||[];
+    var hasSaved=!!settingsRow || areaRows.length>0 ||
+      ((cl&&cl.data&&cl.data.length)||(cd&&cd.data&&cd.data.length)||(cr&&cr.data&&cr.data.length));
+    var compliance=null;
+    if(hasSaved){
+      var tracked={}, cadence={};
+      areaRows.forEach(function(r){ tracked[r.area_key]=(r.tracked!==false); if(r.cadence_months!=null) cadence[r.area_key]=Number(r.cadence_months); });
+      var logs={}; (cl.data||[]).forEach(function(r){ (logs[r.area_key]=logs[r.area_key]||[]).push({date:r.log_date||'',what:r.what||'',note:r.note||'',photos:[]}); });
+      var docs={}; (cd.data||[]).forEach(function(r){ (docs[r.area_key]=docs[r.area_key]||[]).push({name:r.name||'',kind:r.kind||'',expiry:r.expiry||'',added:r.added||'',url:''}); });
+      var waterReadings=(cr.data||[]).map(function(r){ return {date:r.reading_date||'',m3:(r.m3!=null?Number(r.m3):0)}; });
+      compliance={ settings:ccSettFromDb(settingsRow), tracked:tracked, cadence:cadence, logs:logs, docs:docs, waterReadings:waterReadings };
+    }
     return { lands:(ld.data||[]).map(landFromDb), events:(ev.data||[]).map(cevFromDb), inputs:(ip.data||[]).map(cinFromDb),
              season:(cfg.data && cfg.data.crop_season) || null,
-             compliance:(cfg.data && cfg.data.crop_compliance) || null };
+             compliance:compliance };
   };
 
   var _cropSnap=null;
@@ -658,14 +690,33 @@
       _cropSnap=snap;
       return true;
     },
-    // 3b-ii: season + compliance blob live on the farm row
+    // 3b-ii: season stays on the farm row; compliance is now relational (5 tables).
     async saveConfig(stc){
       if(!stc) return;
       const fid=farm.active(); if(!fid) return;
-      const snap=JSON.stringify({s:stc.season,c:stc.compliance});
+      const c=stc.compliance||{};
+      const snap=JSON.stringify({s:stc.season,c:c});
       if(snap===_cropCfgSnap) return;
-      const e=(await client().from('farms').update({ crop_season:stc.season||null, crop_compliance:stc.compliance||null }).eq('id',fid)).error;
-      if(e) throw e;
+      // season on the farm row
+      { const e=(await client().from('farms').update({ crop_season:stc.season||null }).eq('id',fid)).error; if(e) throw e; }
+      // settings: single row per farm
+      { const e=(await client().from('crop_compliance_settings').upsert(ccSettToDb(c,fid),{onConflict:'farm_id'})).error; if(e) throw e; }
+      // areas: write all known area keys (tracked + cadence). 'tracked unless false' mirrors the UI.
+      var trk=c.tracked||{}, cad=c.cadence||{};
+      var areaRows=CC_AREAS.map(function(k){ return { farm_id:fid, area_key:k, tracked:(trk[k]!==false), cadence_months:(cad[k]!=null?parseInt(cad[k],10):null) }; });
+      { const e=(await client().from('crop_compliance_areas').upsert(areaRows,{onConflict:'farm_id,area_key'})).error; if(e) throw e; }
+      // logs: replace-all (per area)
+      { const e=(await client().from('crop_compliance_logs').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      var logRows=[]; var L=c.logs||{}; Object.keys(L).forEach(function(area){ (L[area]||[]).forEach(function(g,i){ logRows.push({farm_id:fid,area_key:area,log_date:g.date||null,what:g.what||null,note:g.note||null,sort_idx:i}); }); });
+      if(logRows.length){ const e=(await client().from('crop_compliance_logs').insert(logRows)).error; if(e) throw e; }
+      // docs: replace-all (per area) — metadata only; file blobs deferred to Storage
+      { const e=(await client().from('crop_compliance_docs').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      var docRows=[]; var D=c.docs||{}; Object.keys(D).forEach(function(area){ (D[area]||[]).forEach(function(d,i){ docRows.push({farm_id:fid,area_key:area,name:d.name||null,kind:d.kind||null,expiry:d.expiry||null,added:d.added||null,sort_idx:i}); }); });
+      if(docRows.length){ const e=(await client().from('crop_compliance_docs').insert(docRows)).error; if(e) throw e; }
+      // water meter readings: replace-all
+      { const e=(await client().from('crop_compliance_readings').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      var rdRows=[]; (c.waterReadings||[]).forEach(function(rd,i){ rdRows.push({farm_id:fid,area_key:'water',reading_date:rd.date||null,m3:(rd.m3!=null?Number(rd.m3):null),sort_idx:i}); });
+      if(rdRows.length){ const e=(await client().from('crop_compliance_readings').insert(rdRows)).error; if(e) throw e; }
       _cropCfgSnap=snap;
       return true;
     }
@@ -778,9 +829,47 @@
     }
   };
 
+  // ---- PLANNING (forecast crop lines + livestock events) — relational -------
+  // ST_PLAN.crops[] : forecast lines (linked to a crop land via link_id, or manual).
+  // ST_PLAN.events[]: livestock events; herd_local_id is a soft ref to a herd, same
+  // pattern as livestock_moves/treatments. UI state (view/tab/months) is transient.
+  function planCropToDb(c,fid,i){ return { farm_id:fid, crop:c.crop||null, field:c.field||null, ha:(c.ha!=null&&c.ha!=='')?Number(c.ha):null, plant:c.plant||null, harvest:c.harvest||null, yield_val:(c.yield!=null&&c.yield!=='')?Number(c.yield):null, price:(c.price!=null&&c.price!=='')?Number(c.price):null, input_cost:(c.inputCost!=null&&c.inputCost!=='')?Number(c.inputCost):null, other_cost:(c.otherCost!=null&&c.otherCost!=='')?Number(c.otherCost):null, repeat:c.repeat||null, link_id:c.linkId||null, in_forecast:(c.inForecast===false)?false:true, sort_idx:i }; }
+  function planCropFromDb(r){ var c={ crop:r.crop||'', field:r.field||'', ha:Number(r.ha)||0, plant:r.plant||'', harvest:r.harvest||'', yield:Number(r.yield_val)||0, price:Number(r.price)||0, inputCost:Number(r.input_cost)||0, otherCost:Number(r.other_cost)||0, repeat:r.repeat||'none' }; if(r.link_id) c.linkId=r.link_id; if(r.in_forecast===false) c.inForecast=false; return c; }
+  function planEvtToDb(e,fid,i){ return { farm_id:fid, herd_local_id:(e.herdId!=null)?String(e.herdId):null, species:e.species||null, animal:e.animal||null, icon:e.icon||null, descr:e.desc||null, type:e.type||null, month:e.month||null, qty:(e.qty!=null&&e.qty!=='')?Number(e.qty):null, unit:e.unit||null, price:(e.price!=null&&e.price!=='')?Number(e.price):null, recur:e.recur||null, notes:e.notes||null, use_market:!!e.useMarket, done:!!e.done, sort_idx:i }; }
+  function planEvtFromDb(r){ return { herdId:_numIf(r.herd_local_id), species:r.species||'', animal:r.animal||'', icon:r.icon||'', desc:r.descr||'', type:r.type||'sell', month:r.month||'', qty:Number(r.qty)||0, unit:r.unit||'head', price:Number(r.price)||0, recur:r.recur||'annual', notes:r.notes||'', useMarket:!!r.use_market, done:!!r.done }; }
+  load.plan = async function(farmId){
+    farmId = farmId || farm.active();
+    const [pc,pe] = await Promise.all([
+      client().from('plan_crops').select('*').eq('farm_id',farmId).order('sort_idx'),
+      client().from('plan_events').select('*').eq('farm_id',farmId).order('sort_idx')
+    ]);
+    for(const r of [pc,pe]) if(r&&r.error) throw r.error;
+    var cropRows=(pc&&pc.data)||[], evtRows=(pe&&pe.data)||[];
+    // null when the farm has never saved a plan — caller drops the demo + seeds from lands.
+    if(!cropRows.length && !evtRows.length) return null;
+    return { crops:cropRows.map(planCropFromDb), events:evtRows.map(planEvtFromDb) };
+  };
+  var _planSnap=null;
+  const plan = {
+    // crops + events both replace-all (small per-farm sets; sort_idx preserves order)
+    async saveAll(stp){
+      if(!stp) return;
+      const fid=farm.active(); if(!fid) return;
+      const crops=(stp.crops||[]), events=(stp.events||[]);
+      const snap=JSON.stringify({c:crops,e:events});
+      if(snap===_planSnap) return;
+      { const e=(await client().from('plan_crops').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      if(crops.length){ const e=(await client().from('plan_crops').insert(crops.map(function(c,i){return planCropToDb(c,fid,i);}))).error; if(e) throw e; }
+      { const e=(await client().from('plan_events').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      if(events.length){ const e=(await client().from('plan_events').insert(events.map(function(ev,i){return planEvtToDb(ev,fid,i);}))).error; if(e) throw e; }
+      _planSnap=snap;
+      return true;
+    }
+  };
+
   // ---- EXPORT --------------------------------------------------------------
   global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
-                coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard,
+                coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
 })(window);

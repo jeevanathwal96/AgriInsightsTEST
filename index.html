@@ -9424,6 +9424,7 @@ function dataChanged(event) {
 
     case 'plan':
       // ST_PLAN.crops or ST_PLAN.events was modified
+      try { if(window.AI && AI.farm && AI.farm.active() && window.ST_PLAN){ AI.plan.saveAll(ST_PLAN).catch(function(e){ console.error('Backend plan save failed:', e); }); } } catch(e){}
       if (pageId === 'planning') {
         safeCall(window.recomputePlan);
         safeCall(window.renderCalGrid);
@@ -9459,6 +9460,7 @@ function dataChanged(event) {
 
     case 'crop':
       try { if(window.AI && AI.farm && AI.farm.active() && window.ST_CROP){ AI.crop.saveAll(ST_CROP).catch(function(e){ console.error('Backend crop save failed:', e); }); AI.crop.saveConfig(ST_CROP).catch(function(e){ console.error('Backend crop config save failed:', e); }); } } catch(e){}
+      try { if(window.AI && AI.farm && AI.farm.active() && window.ST_PLAN){ AI.plan.saveAll(ST_PLAN).catch(function(e){ console.error('Backend plan save (from crop) failed:', e); }); } } catch(e){}
       safeCall(window.recomputePlan);
       if (pageId === 'crop')     { safeCall(window.renderCrop); }
       if (pageId === 'planning') { safeCall(window.recomputePlan); safeCall(function(){ setPlanTab(ST_PLAN.activeTab||'crops'); }); }
