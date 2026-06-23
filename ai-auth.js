@@ -146,9 +146,18 @@
             ST_CROP.events = cropData.events || [];
             ST_CROP.inputs = cropData.inputs || [];
             if (cropData.season) ST_CROP.season = cropData.season;
-            // Only replace compliance when the farm has a saved blob; otherwise keep
-            // the default structure (tracked/cadence keys the UI expects).
-            if (cropData.compliance && Object.keys(cropData.compliance).length) ST_CROP.compliance = cropData.compliance;
+            // Overlay saved compliance onto the app's default structure so the UI's
+            // expected keys (tracked/cadence) always exist. Relational now, not a blob:
+            // load.crops returns it only when the farm has saved before, else keep defaults.
+            if (cropData.compliance) {
+              var cc = cropData.compliance, dst = ST_CROP.compliance;
+              if (cc.settings) Object.keys(cc.settings).forEach(function (k) { dst[k] = cc.settings[k]; });
+              if (cc.tracked) { if (!dst.tracked) dst.tracked = {}; Object.keys(cc.tracked).forEach(function (k) { dst.tracked[k] = cc.tracked[k]; }); }
+              if (cc.cadence) { if (!dst.cadence) dst.cadence = {}; Object.keys(cc.cadence).forEach(function (k) { dst.cadence[k] = cc.cadence[k]; }); }
+              if (cc.logs) dst.logs = cc.logs;
+              if (cc.docs) dst.docs = cc.docs;
+              if (cc.waterReadings) dst.waterReadings = cc.waterReadings;
+            }
           }
         } catch (e) { console.error('Crop hydrate failed:', e); }
         try {
