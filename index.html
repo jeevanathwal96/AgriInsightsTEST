@@ -25,14 +25,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="apple-mobile-web-app-title" content="AgriInsights"/>
 <meta name="format-detection" content="telephone=no"/>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="vendor/supabase.js"></script>
 <script src="ai-data.js?v=2"></script>
 <script src="ai-auth.js?v=2"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -6233,6 +6231,21 @@ function _saveOk(){
     SAVE_FAIL_SHOWN = false;
   }
 }
+
+// Backend sync failures are NOT device-save failures: the change is already
+// saved locally and will retry automatically. Surface them calmly (one quiet
+// toast), never with the red "this device" bar reserved for real storage loss.
+var SYNC_FAIL_SHOWN = false;
+function _syncFailed(e){
+  try { console.warn('Cloud sync deferred (saved locally, will retry):', e && (e.message || e)); } catch(_){}
+  if (SYNC_FAIL_SHOWN) return;
+  SYNC_FAIL_SHOWN = true;
+  var af = (typeof ST !== 'undefined' && ST.lang === 'af');
+  if (typeof toast === 'function') toast(af
+    ? 'Gestoor op hierdie toestel \u2014 sal sinkroniseer sodra jy weer aanlyn is.'
+    : 'Saved on this device \u2014 will sync when you\u2019re back online.', 'info');
+}
+function _syncOk(){ SYNC_FAIL_SHOWN = false; }
 
 function debouncedSave() {
   if (SAVE_TIMER) clearTimeout(SAVE_TIMER);
@@ -13440,7 +13453,7 @@ function wkUploadDoc(w, doc, wid){
     wkDocSync(wid);   // persists url to backend via wkSync -> AI.workers.saveAll, and re-renders
   }).catch(function(e){
     console.error('Doc upload failed:', e); doc.pending=true;
-    if(typeof _saveFailed==='function') _saveFailed(e);
+    if(typeof _syncFailed==='function') _syncFailed(e);   // saved locally as pending; flushDocUploads retries
   });
 }
 // Upload any docs captured while offline, once a connection returns.
@@ -23347,6 +23360,7 @@ function _renderSyncStatus() {
 // kick a drain. Retries otherwise come from the 20s timer or the next write.
 function updateOnlineStatus() {
   IS_ONLINE = navigator.onLine !== false;
+  if(IS_ONLINE && typeof _syncOk==='function') _syncOk();   // back online: allow a fresh notice if a new failure occurs
   _renderSyncStatus();
   if(IS_ONLINE && TXN_OUTBOX.length && !_txnFlushing) flushTxnOutbox();
   if(IS_ONLINE && typeof flushDocUploads==='function'){ try{ flushDocUploads(); }catch(e){} }
@@ -23412,8 +23426,8 @@ function flushTxnOutbox(){
   }).catch(function(e){
     console.error('Backend txn sync failed:', e);
     _txnFlushing = false;
-    if(typeof _saveFailed === 'function') _saveFailed(e);   // visible banner, no silent loss
-    _renderSyncStatus();   // render only — do NOT re-trigger; retry on timer/online/next write
+    if(typeof _syncFailed === 'function') _syncFailed(e);   // saved locally in outbox; retry on timer/online/next write
+    _renderSyncStatus();   // render only — do NOT re-trigger
   });
 }
 
