@@ -12440,7 +12440,7 @@ function wkUndoPayRun(runId){
   var run=runs[idx];
   if(typeof confirm==='function' && !confirm('Undo the pay run for '+(run.label||'')+'? This removes the Labour & Wages entry it posted.')) return;
   if(typeof ST!=='undefined' && ST.txns){
-    try{ if(window.AI && AI.farm && AI.farm.active()){ ST.txns.filter(function(t){return t.payRunId===runId && t.id;}).forEach(function(t){ AI.txn.remove(t.id).catch(function(e){ console.error('Backend wage txn delete failed:', e); }); }); if(AI.workers&&AI.workers.removePayRun) AI.workers.removePayRun(runId).catch(function(e){ console.error('Backend pay-run delete failed:', e); }); } }catch(e){}
+    try{ if(window.AI && AI.farm && AI.farm.active()){ ST.txns.filter(function(t){return t.payRunId===runId;}).forEach(function(t){ txnDeleteThrough(t); }); if(AI.workers&&AI.workers.removePayRun) AI.workers.removePayRun(runId).catch(function(e){ console.error('Backend pay-run delete failed:', e); }); } }catch(e){}
     ST.txns=ST.txns.filter(function(t){ return t.payRunId!==runId; });
   }
   (run.applied||[]).forEach(function(a){
@@ -20051,7 +20051,7 @@ function txdSaveEdit(){
     t.ent    = TXD_DRAFT.ent || undefined;
   }
   TXD_EDIT = false; TXD_DRAFT = null;
-  try { if (window.AI && AI.farm && AI.farm.active() && t.id) { AI.txn.update(t.id, t).catch(function(e){ console.error('Backend update failed:', e); }); } } catch(e){}
+  txnUpdateThrough(t);
   dataChanged('transaction');
   if(typeof saveState==='function') saveState();
   renderTxnDetail();
@@ -20062,7 +20062,7 @@ function txdDelete(){
   var t = ST.txns[TXD_IDX]; if(!t) return;
   if(!confirm('Delete this transaction permanently? This cannot be undone.')) return;
   ST.txns.splice(TXD_IDX, 1);
-  try { if (window.AI && AI.farm && AI.farm.active() && t.id) { AI.txn.remove(t.id).catch(function(e){ console.error('Backend delete failed:', e); }); } } catch(e){}
+  txnDeleteThrough(t);
   hideTxnDetail();
   dataChanged('transaction');
   if(typeof saveState==='function') saveState();
@@ -23203,8 +23203,25 @@ var _txnFlushing = false;
 
 function _loadOutbox(){
   try{ var r = localStorage.getItem(TXN_OUTBOX_KEY); var a = r ? JSON.parse(r) : [];
-       TXN_OUTBOX.length = 0; if(Array.isArray(a)) a.forEach(function(x){ TXN_OUTBOX.push(x); }); }
+       TXN_OUTBOX.length = 0;
+       if(Array.isArray(a)) a.forEach(function(x){
+         if(!x.oid) x.oid = newCuid();            // legacy v1 entries had no oid
+         if(!x.op)  x.op  = 'insert';             // legacy v1 entries were inserts
+         TXN_OUTBOX.push(x);
+       }); }
   catch(e){ TXN_OUTBOX.length = 0; }
+}
+// Normalised snapshot of a transaction row for the outbox (carries cuid for linkage).
+function _txnSnapshot(o){
+  return { date:o.date, amt:o.amt, cat:o.cat, type:o.type, desc:o.desc, method:o.method,
+           qty:o.qty, unit:o.unit, ent:o.ent, source:o.source, ref:o.ref, note:o.note,
+           accountId:o.accountId, cuid:o.cuid };
+}
+function _removeOutboxByOids(oids){
+  if(!oids || !oids.length) return;
+  var set={}; oids.forEach(function(o){ set[o]=1; });
+  for(var i=TXN_OUTBOX.length-1;i>=0;i--){ if(set[TXN_OUTBOX[i].oid]) TXN_OUTBOX.splice(i,1); }
+  _saveOutbox();
 }
 function _saveOutbox(){
   try{ localStorage.setItem(TXN_OUTBOX_KEY, JSON.stringify(TXN_OUTBOX)); }
@@ -23247,31 +23264,55 @@ function updateOnlineStatus() {
   if(IS_ONLINE && TXN_OUTBOX.length && !_txnFlushing) flushTxnOutbox();
 }
 
-// Drain the outbox to Supabase. Idempotent: re-sending an already-saved row is a
-// no-op server-side thanks to the client_uid unique index, so a partial failure
-// can be retried safely.
-function flushTxnOutbox(reconcileHint){
+// Drain the outbox to Supabase. Handles inserts (batched), then updates, then
+// deletes (both sequential). Every op is idempotent — inserts via the client_uid
+// unique index, updates/deletes are keyed by row id — so any partial failure can
+// be retried safely on the next pass.
+function flushTxnOutbox(){
   if(_txnFlushing || !_hasBackend() || !IS_ONLINE || !TXN_OUTBOX.length){ return; }
   _txnFlushing = true;
-  var batch = TXN_OUTBOX.slice();
-  var payloads = batch.map(function(x){ return x.payload; });
-  AI.txn.addMany(payloads).then(function(saved){
-    saved = saved || [];
-    var needRefetch = false;
-    // addMany preserves order; reconcile each saved row back onto its local row by cuid.
-    batch.forEach(function(item, i){
-      var r = saved[i];
-      var lo = _findTxnByCuid(item.cuid);
-      if(lo){ if(r && r.id) lo.id = r.id; }
-      else { needRefetch = true; }   // local row was wiped (e.g. by sign-in hydrate); re-pull
+  var batch   = TXN_OUTBOX.slice();
+  var inserts = batch.filter(function(e){ return (e.op||'insert')==='insert'; });
+  var updates = batch.filter(function(e){ return e.op==='update'; });
+  var deletes = batch.filter(function(e){ return e.op==='delete'; });
+  var needRefetch = false;
+
+  function doInserts(){
+    if(!inserts.length) return Promise.resolve();
+    return AI.txn.addMany(inserts.map(function(e){ return e.payload; })).then(function(saved){
+      saved = saved || [];
+      inserts.forEach(function(item, i){
+        var r = saved[i];
+        var lo = _findTxnByCuid(item.cuid);
+        if(lo){ if(r && r.id) lo.id = r.id; }
+        else { needRefetch = true; }   // local row was wiped (e.g. by sign-in hydrate); re-pull
+      });
+      _removeOutboxByOids(inserts.map(function(e){ return e.oid; }));
     });
-    // Remove the flushed items (anything queued mid-flight stays for the next pass).
-    var doneCuids = {}; batch.forEach(function(x){ doneCuids[x.cuid] = 1; });
-    for(var k = TXN_OUTBOX.length - 1; k >= 0; k--){ if(doneCuids[TXN_OUTBOX[k].cuid]) TXN_OUTBOX.splice(k,1); }
-    _saveOutbox();
+  }
+  function doUpdates(){
+    return updates.reduce(function(chain, e){
+      return chain.then(function(){
+        if(!e.id){ _removeOutboxByOids([e.oid]); return; }     // never synced; nothing to update
+        return AI.txn.update(e.id, e.payload).then(function(){ _removeOutboxByOids([e.oid]); });
+      });
+    }, Promise.resolve());
+  }
+  function doDeletes(){
+    return deletes.reduce(function(chain, e){
+      return chain.then(function(){
+        if(!e.id){ _removeOutboxByOids([e.oid]); return; }     // never synced; nothing to delete
+        return AI.txn.remove(e.id).then(function(){ _removeOutboxByOids([e.oid]); });
+      });
+    }, Promise.resolve());
+  }
+
+  doInserts().then(doUpdates).then(doDeletes).then(function(){
     if(typeof _saveOk === 'function') _saveOk();
     _txnFlushing = false;
     if(needRefetch && AI.load && AI.load.financeCore){
+      // Re-pull only AFTER deletes have been applied, so a row deleted this pass
+      // isn't resurrected by the refetch.
       AI.load.financeCore(AI.farm.active()).then(function(core){
         if(window.ST && core) ST.txns = core.txns || ST.txns;
         if(typeof dataChanged === 'function') dataChanged('transaction');
@@ -23287,17 +23328,65 @@ function flushTxnOutbox(reconcileHint){
   });
 }
 
-// Single chokepoint for persisting a transaction. localObj is the row already in
-// ST.txns (so we can stamp the server id onto it); payload is what goes to Supabase.
+// Single chokepoint for persisting a NEW transaction. localObj is the row already
+// in ST.txns (so the server id can be stamped onto it); payload is sent to Supabase.
 function txnWriteThrough(localObj, payload){
   if(!_hasBackend()) return;                 // demo / signed-out: local-only, nothing to queue
   if(!payload) payload = {};
   if(!payload.cuid) payload.cuid = (localObj && localObj.cuid) || newCuid();
   if(localObj && !localObj.cuid) localObj.cuid = payload.cuid;
-  TXN_OUTBOX.push({ cuid: payload.cuid, payload: payload, ts: Date.now() });
+  TXN_OUTBOX.push({ oid:newCuid(), op:'insert', cuid: payload.cuid, payload: payload, ts: Date.now() });
   _saveOutbox();
-  if(IS_ONLINE) flushTxnOutbox(localObj);
+  if(IS_ONLINE) flushTxnOutbox();
   else { _renderSyncStatus(); }
+}
+
+// Persist an EDIT to an existing transaction (localObj already mutated in ST.txns).
+function txnUpdateThrough(localObj){
+  if(!_hasBackend() || !localObj) return;
+  var cuid = localObj.cuid;
+  // If this row's insert is still queued (created offline, not yet synced), fold the
+  // edit into that pending insert instead of queuing a conflicting update.
+  if(cuid){
+    for(var i=0;i<TXN_OUTBOX.length;i++){
+      var e=TXN_OUTBOX[i];
+      if((e.op||'insert')==='insert' && e.cuid===cuid){
+        var np=_txnSnapshot(localObj); np.cuid=cuid;
+        if(e.payload && e.payload.source && !np.source) np.source=e.payload.source;
+        e.payload=np; _saveOutbox();
+        if(IS_ONLINE) flushTxnOutbox(); else _renderSyncStatus();
+        return;
+      }
+    }
+  }
+  if(!localObj.id) return;   // not synced and no pending insert -> nothing to persist
+  // Coalesce: drop any earlier pending update for the same row.
+  for(var j=TXN_OUTBOX.length-1;j>=0;j--){ if(TXN_OUTBOX[j].op==='update' && TXN_OUTBOX[j].id===localObj.id) TXN_OUTBOX.splice(j,1); }
+  TXN_OUTBOX.push({ oid:newCuid(), op:'update', id:localObj.id, cuid:cuid, payload:_txnSnapshot(localObj), ts:Date.now() });
+  _saveOutbox();
+  if(IS_ONLINE) flushTxnOutbox(); else _renderSyncStatus();
+}
+
+// Persist a DELETE (localObj should already be removed from ST.txns by the caller).
+function txnDeleteThrough(localObj){
+  if(!_hasBackend() || !localObj) return;
+  var cuid = localObj.cuid, hadPendingInsert=false;
+  if(cuid){
+    // Cancel a still-pending insert (never sent -> nothing to delete) + drop pending updates.
+    for(var i=TXN_OUTBOX.length-1;i>=0;i--){
+      var e=TXN_OUTBOX[i];
+      if((e.op||'insert')==='insert' && e.cuid===cuid){ TXN_OUTBOX.splice(i,1); hadPendingInsert=true; }
+      else if(e.op==='update' && e.cuid===cuid){ TXN_OUTBOX.splice(i,1); }
+    }
+  }
+  if(localObj.id){
+    for(var j=TXN_OUTBOX.length-1;j>=0;j--){ if(TXN_OUTBOX[j].op==='update' && TXN_OUTBOX[j].id===localObj.id) TXN_OUTBOX.splice(j,1); }
+    TXN_OUTBOX.push({ oid:newCuid(), op:'delete', id:localObj.id, cuid:cuid, ts:Date.now() });
+    _saveOutbox();
+    if(IS_ONLINE) flushTxnOutbox(); else _renderSyncStatus();
+    return;
+  }
+  if(hadPendingInsert){ _saveOutbox(); _renderSyncStatus(); }   // cancelled an unsynced row
 }
 
 // Back-compat: a couple of older call sites used syncQueue() directly.
@@ -28763,7 +28852,7 @@ function impUndoBatch(id){
   // Bank-import txns have no id yet (not persisted) so they're skipped harmlessly.
   try {
     if (window.AI && AI.farm && AI.farm.active()) {
-      _removedTx.forEach(function(t){ if(t && t.id){ AI.txn.remove(t.id).catch(function(e){ console.error('Backend txn delete failed:', e); }); } });
+      _removedTx.forEach(function(t){ if(t) txnDeleteThrough(t); });
       AI.coopSettlement.removeByBatch(id).catch(function(e){ console.error('Backend settlement delete failed:', e); });
     }
   } catch(e){}
