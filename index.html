@@ -28,8 +28,8 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="ai-data.js"></script>
-<script src="ai-auth.js"></script>
+<script src="ai-data.js?v=2"></script>
+<script src="ai-auth.js?v=2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -6178,7 +6178,11 @@ function saveState() {
       FARM: (typeof FARM !== 'undefined') ? FARM : null,
       RPT_STATE: (typeof RPT_STATE !== 'undefined') ? RPT_STATE : null
     };
-    localStorage.setItem(SAVE_KEY, JSON.stringify(snap));
+    // Live Chart.js instances live on ST.charts and are deeply circular — they
+    // must never be serialized (doing so throws and silently fails every save).
+    // loadState merges key-by-key in place, so omitting 'charts' here preserves
+    // the live ST.charts object on the next load.
+    localStorage.setItem(SAVE_KEY, JSON.stringify(snap, function(k, v){ return k === 'charts' ? undefined : v; }));
     LAST_SAVED_AT = snap.savedAt;
     var syncEl = document.querySelector('.sync span') || document.querySelector('[data-t="sync.last"]');
     if (syncEl) {
@@ -12165,7 +12169,7 @@ function astAddDocs(ev){
   var files = ev.target.files; if(!files) return;
   Array.prototype.forEach.call(files, function(file){
     var reader=new FileReader();
-    reader.onload=function(e){ AST_DRAFT_DOCS.push({name:file.name, kind:(file.type.indexOf('image')===0?'image':'doc'), data:e.target.result, url:'', pending:true}); astRenderDocThumbs(); };
+    reader.onload=function(e){ AST_DRAFT_DOCS.push({id:'ad'+Date.now().toString(36)+Math.random().toString(16).slice(2,8), name:file.name, kind:(file.type.indexOf('image')===0?'image':'doc'), data:e.target.result, url:'', pending:true}); astRenderDocThumbs(); };
     reader.readAsDataURL(file);
   });
   ev.target.value='';
@@ -12188,7 +12192,8 @@ function astRenderDocThumbs(){
 // re-persist the asset so its docs jsonb carries paths, not blobs.
 function _astPersistDocs(asset){ try{ if(window.AI && AI.farm && AI.farm.active() && asset._aiId){ AI.asset.update(asset._aiId, asset).catch(function(e){ console.error('Asset doc persist failed:', e); }); } }catch(e){} }
 function astUploadDocs(asset){
-  if(!(window.AI && AI.farm && AI.farm.active() && AI.storage) || !asset) return;
+  if(!asset || !(window.AI && AI.farm && AI.farm.active())) return;
+  if(!AI.storage){ (asset.docs||[]).forEach(function(d){ if(d.data && !d.url) d.pending=true; }); _warnNoStorage(); return; }
   if(typeof IS_ONLINE!=='undefined' && !IS_ONLINE){ (asset.docs||[]).forEach(function(d){ if(d.data && !d.url) d.pending=true; }); return; }
   var farmId=AI.farm.active(); var ups=[];
   (asset.docs||[]).forEach(function(d){
@@ -13418,8 +13423,15 @@ function wkDocAddSave(id){
 }
 // Upload a just-captured worker doc to private Storage; on success drop the local
 // base64 (frees device storage) and re-sync metadata (now carrying the path).
+var _noStoreWarned=false;
+function _warnNoStorage(){
+  if(_noStoreWarned) return; _noStoreWarned=true;
+  console.warn('AgriInsights: AI.storage is missing while signed in \u2014 attachment uploads are DISABLED. ai-data.js is likely stale/cached. Bump the ?v= cache-bust on the script tags and hard-reload.');
+  if(typeof toast==='function') toast('Attachments can\u2019t upload right now \u2014 the app needs a refresh.','error');
+}
 function wkUploadDoc(w, doc, wid){
-  if(!(window.AI && AI.farm && AI.farm.active() && AI.storage)) return;   // demo / signed-out: stays local only
+  if(!(window.AI && AI.farm && AI.farm.active())) return;   // demo / signed-out: stays local only
+  if(!AI.storage){ doc.pending=true; _warnNoStorage(); return; }   // signed in but helper missing (stale deploy)
   if(typeof IS_ONLINE!=='undefined' && !IS_ONLINE){ doc.pending=true; return; }   // offline: flushDocUploads later
   var farmId=AI.farm.active();
   var path=AI.storage.path(farmId,'workers',w.id,doc.name);
