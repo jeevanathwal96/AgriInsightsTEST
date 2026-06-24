@@ -382,7 +382,8 @@
       rate: (a.rate != null && a.rate !== '') ? Number(a.rate) : null,
       insured_value: (a.insuredValue != null && a.insuredValue !== '') ? Number(a.insuredValue) : null,
       insurer: a.insurer || null, renewal_date: a.renewalDate || null,
-      docs: a.docs || null
+      // Persist doc METADATA + Storage path only — never the base64 blob.
+      docs: (a.docs && a.docs.length) ? a.docs.map(function(d){ return { name:d.name||null, kind:d.kind||null, url:d.url||'' }; }) : null
     };
   }
   function assetToApp(r) {
@@ -1092,9 +1093,62 @@
   };
 
 
+  // ---- FILE STORAGE (private 'Attachments' bucket) -------------------------
+  // Files are namespaced {farm_id}/{module}/{sub}/{uuid}_{name}. The leading
+  // farm_id is what the Storage RLS policy checks via is_farm_member(), so file
+  // access inherits the same tenant isolation as every table.
+  const STORAGE_BUCKET = 'Attachments';
+  function _dataUrlToBlob(dataUrl){
+    var parts = String(dataUrl).split(',');
+    var meta = parts[0] || '', b64 = parts[1] || '';
+    var mime = (meta.match(/data:([^;]+)/) || [])[1] || 'application/octet-stream';
+    var bin = atob(b64), len = bin.length, arr = new Uint8Array(len);
+    for (var i = 0; i < len; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type: mime });
+  }
+  const storage = {
+    bucket: STORAGE_BUCKET,
+    path: function (farmId, module, sub, filename) {
+      var safe = String(filename || 'file').replace(/[^A-Za-z0-9._-]/g, '_');
+      if (safe.length > 80) safe = safe.slice(safe.length - 80);
+      var uid = null;
+      try { uid = (global.crypto && global.crypto.randomUUID) ? global.crypto.randomUUID() : null; } catch (e) { uid = null; }
+      if (!uid) uid = Date.now().toString(36) + Math.random().toString(16).slice(2, 10);
+      var arr = [farmId, module];
+      if (sub != null && sub !== '') arr.push(String(sub));
+      return arr.join('/') + '/' + uid + '_' + safe;
+    },
+    async upload(path, fileOrDataUrl, contentType) {
+      var body = fileOrDataUrl;
+      if (typeof fileOrDataUrl === 'string' && fileOrDataUrl.indexOf('data:') === 0) {
+        body = _dataUrlToBlob(fileOrDataUrl);
+        if (!contentType) contentType = body.type;
+      }
+      var opts = { upsert: true };
+      if (contentType) opts.contentType = contentType;
+      const { data, error } = await client().storage.from(STORAGE_BUCKET).upload(path, body, opts);
+      if (error) throw error;
+      return (data && data.path) || path;
+    },
+    async signedUrl(path, expiresIn) {
+      const { data, error } = await client().storage.from(STORAGE_BUCKET).createSignedUrl(path, expiresIn || 3600);
+      if (error) throw error;
+      return data.signedUrl;
+    },
+    async remove(paths) {
+      var list = Array.isArray(paths) ? paths : [paths];
+      list = list.filter(Boolean);
+      if (!list.length) return true;
+      const { error } = await client().storage.from(STORAGE_BUCKET).remove(list);
+      if (error) throw error;
+      return true;
+    }
+  };
+
   // ---- EXPORT --------------------------------------------------------------
   global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
                 coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave, profile: profile,
+                storage: storage,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
 })(window);

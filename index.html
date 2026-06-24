@@ -12165,7 +12165,7 @@ function astAddDocs(ev){
   var files = ev.target.files; if(!files) return;
   Array.prototype.forEach.call(files, function(file){
     var reader=new FileReader();
-    reader.onload=function(e){ AST_DRAFT_DOCS.push({name:file.name, kind:(file.type.indexOf('image')===0?'image':'doc'), data:e.target.result}); astRenderDocThumbs(); };
+    reader.onload=function(e){ AST_DRAFT_DOCS.push({name:file.name, kind:(file.type.indexOf('image')===0?'image':'doc'), data:e.target.result, url:'', pending:true}); astRenderDocThumbs(); };
     reader.readAsDataURL(file);
   });
   ev.target.value='';
@@ -12174,9 +12174,37 @@ function astRemoveDoc(i){ AST_DRAFT_DOCS.splice(i,1); astRenderDocThumbs(); }
 function astRenderDocThumbs(){
   var el=$('ast-doc-thumbs'); if(!el) return;
   el.innerHTML = AST_DRAFT_DOCS.map(function(d,i){
-    var inner = d.kind==='image' ? '<img src="'+d.data+'" style="width:100%;height:100%;object-fit:cover"/>' : '<div style="font-size:20px">&#x1F4C4;</div>';
+    var inner = d.kind==='image' ? '<img id="astthumb-'+i+'" src="'+(d.data||'')+'" style="width:100%;height:100%;object-fit:cover"/>' : '<div style="font-size:20px">&#x1F4C4;</div>';
     return '<div style="position:relative;width:50px;height:50px;border-radius:7px;border:1px solid var(--br);background:var(--br2);display:flex;align-items:center;justify-content:center;overflow:hidden" title="'+esc(d.name)+'">'+inner+'<span onclick="astRemoveDoc('+i+')" style="position:absolute;top:-6px;right:-6px;background:var(--rd);color:#fff;width:16px;height:16px;border-radius:50%;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer">&times;</span></div>';
   }).join('');
+  // Stored docs (path only, no inline base64): lazy-load a signed-URL thumbnail.
+  AST_DRAFT_DOCS.forEach(function(d,i){
+    if(d.kind==='image' && !d.data && d.url && window.AI && AI.storage){
+      AI.storage.signedUrl(d.url, 600).then(function(u){ var im=$('astthumb-'+i); if(im) im.src=u; }).catch(function(){});
+    }
+  });
+}
+// Upload an asset's freshly-added docs to private Storage; drop the base64 and
+// re-persist the asset so its docs jsonb carries paths, not blobs.
+function _astPersistDocs(asset){ try{ if(window.AI && AI.farm && AI.farm.active() && asset._aiId){ AI.asset.update(asset._aiId, asset).catch(function(e){ console.error('Asset doc persist failed:', e); }); } }catch(e){} }
+function astUploadDocs(asset){
+  if(!(window.AI && AI.farm && AI.farm.active() && AI.storage) || !asset) return;
+  if(typeof IS_ONLINE!=='undefined' && !IS_ONLINE){ (asset.docs||[]).forEach(function(d){ if(d.data && !d.url) d.pending=true; }); return; }
+  var farmId=AI.farm.active(); var ups=[];
+  (asset.docs||[]).forEach(function(d){
+    if(d.data && !d.url){
+      var path=AI.storage.path(farmId,'assets',asset.id,d.name);
+      ups.push(AI.storage.upload(path, d.data).then(function(stored){ d.url=stored; d.pending=false; try{ delete d.data; }catch(e){ d.data=undefined; } }).catch(function(e){ console.error('Asset doc upload failed:', e); d.pending=true; }));
+    }
+  });
+  if(!ups.length) return;
+  Promise.all(ups).then(function(){ if(typeof saveState==='function') saveState(); _astPersistDocs(asset); try{ astRenderDocThumbs(); }catch(e){} });
+}
+function flushAssetDocUploads(){
+  if(!(window.AI && AI.farm && AI.farm.active() && AI.storage)) return;
+  if(typeof IS_ONLINE!=='undefined' && !IS_ONLINE) return;
+  if(typeof ST_ASSETS==='undefined' || !ST_ASSETS.assets) return;
+  ST_ASSETS.assets.forEach(function(a){ if((a.docs||[]).some(function(d){return d.pending && d.data && !d.url;})) astUploadDocs(a); });
 }
 function saveAsset() {
   var name  = $('ast-name')  && $('ast-name').value.trim();
@@ -12210,10 +12238,11 @@ function saveAsset() {
     entry._aiId = ST_ASSETS.assets[editIdx]._aiId;
     ST_ASSETS.assets[editIdx] = entry;
     try { if (window.AI && AI.farm && AI.farm.active() && entry._aiId) { AI.asset.update(entry._aiId, entry).catch(function(e){ console.error('Backend asset update failed:', e); }); } } catch(e){}
+    astUploadDocs(entry);
     toast(name+' updated','success');
   } else {
     ST_ASSETS.assets.push(entry);
-    try { if (window.AI && AI.farm && AI.farm.active()) { AI.asset.add(entry).then(function(row){ if(row) entry._aiId = row.id; }).catch(function(e){ console.error('Backend asset add failed:', e); }); } } catch(e){}
+    try { if (window.AI && AI.farm && AI.farm.active()) { AI.asset.add(entry).then(function(row){ if(row){ entry._aiId = row.id; astUploadDocs(entry); } }).catch(function(e){ console.error('Backend asset add failed:', e); }); } } catch(e){}
     toast(name+' added to register','success');
   }
   closeAddAsset();
@@ -12223,6 +12252,7 @@ function deleteAsset(idx) {
   if(idx<0||idx>=ST_ASSETS.assets.length) return;
   var name = ST_ASSETS.assets[idx].name;
   var _aid = ST_ASSETS.assets[idx]._aiId;
+  try { var _adocs=ST_ASSETS.assets[idx].docs||[]; var _paths=_adocs.map(function(d){return d.url;}).filter(Boolean); if(_paths.length && window.AI && AI.storage) AI.storage.remove(_paths).catch(function(e){ console.error('Asset doc storage remove failed:', e); }); } catch(e){}
   ST_ASSETS.assets.splice(idx,1);
   try { if (window.AI && AI.farm && AI.farm.active() && _aid) { AI.asset.remove(_aid).catch(function(e){ console.error('Backend asset delete failed:', e); }); } } catch(e){}
   renderAssets();
@@ -13361,7 +13391,7 @@ function wkDocsCard(w){
   return '<div class="wk-card"><div class="wk-doc-h"><div class="t">Documents</div><div class="c">'+docs.length+' on file</div></div>'
     +'<div class="wk-doc-sub">Contract, ID copy, banking details \u2014 kept in one place, open any time</div>'
     + emptyC + (rows||'') + cmp + addRow + picker
-    +'<div class="wk-doc-note"><b>Kept on this device</b> with your farm data and in your backups \u2014 nothing leaves the phone. Big photos are shrunk to save space. Uploading a contract ticks the compliance check.</div></div>';
+    +'<div class="wk-doc-note"><b>Stored securely</b> in your farm\u2019s private cloud \u2014 only your farm can open these, and they\u2019re there on every device you sign in to. Big photos are shrunk to save space. Uploading a contract ticks the compliance check.</div></div>';
 }
 function wkDocAddOpen(id){ wkDocAddFor=id; renderWkDetail(id); }
 function wkDocAddCancel(id){ wkDocAddFor=null; renderWkDetail(id); }
@@ -13372,17 +13402,55 @@ function wkDocAddSave(id){
   var f=fi&&fi.files&&fi.files[0]; if(!f){ if(typeof toast==='function') toast('Pick a file first.','info'); return; }
   var finish=function(dataUrl, mime){
     var size=Math.round(String(dataUrl||'').length*0.75);
-    if(size>4500000 && typeof toast==='function') toast('That file is large \u2014 it may slow your backups.','info');
-    wkWorkerDocs(w).unshift({ id:'d'+Date.now(), name:(f.name||'document').replace(/[<>]/g,''), type:type, mime:mime, data:dataUrl, size:size, date:wkTodayStr() });
+    if(size>4500000 && typeof toast==='function') toast('That file is large \u2014 it may take a moment to upload.','info');
+    var doc={ id:'d'+Date.now(), name:(f.name||'document').replace(/[<>]/g,''), type:type, mime:mime, data:dataUrl, size:size, date:wkTodayStr(), url:'', pending:true };
+    wkWorkerDocs(w).unshift(doc);
     if(type==='contract') w.contract='on-file';
     wkDocAddFor=null;
     if(typeof toast==='function') toast('Added to '+((w.name||'').split(' ')[0])+'\u2019s file.','success');
     wkDocSync(id);
+    wkUploadDoc(w, doc, id);
   };
   var rd=new FileReader();
   rd.onload=function(){ var url=rd.result; if(f.type && f.type.indexOf('image')===0){ wkDownscaleImage(url, function(small){ finish(small||url,'image/jpeg'); }); } else { finish(url, f.type||'application/octet-stream'); } };
   rd.onerror=function(){ if(typeof toast==='function') toast('Could not read that file.','error'); };
   rd.readAsDataURL(f);
+}
+// Upload a just-captured worker doc to private Storage; on success drop the local
+// base64 (frees device storage) and re-sync metadata (now carrying the path).
+function wkUploadDoc(w, doc, wid){
+  if(!(window.AI && AI.farm && AI.farm.active() && AI.storage)) return;   // demo / signed-out: stays local only
+  if(typeof IS_ONLINE!=='undefined' && !IS_ONLINE){ doc.pending=true; return; }   // offline: flushDocUploads later
+  var farmId=AI.farm.active();
+  var path=AI.storage.path(farmId,'workers',w.id,doc.name);
+  AI.storage.upload(path, doc.data, doc.mime).then(function(stored){
+    doc.url=stored; doc.pending=false; try{ delete doc.data; }catch(e){ doc.data=undefined; }
+    wkDocSync(wid);   // persists url to backend via wkSync -> AI.workers.saveAll, and re-renders
+  }).catch(function(e){
+    console.error('Doc upload failed:', e); doc.pending=true;
+    if(typeof _saveFailed==='function') _saveFailed(e);
+  });
+}
+// Upload any docs captured while offline, once a connection returns.
+function flushDocUploads(){
+  if(!(window.AI && AI.farm && AI.farm.active() && AI.storage)) return;
+  if(typeof IS_ONLINE!=='undefined' && !IS_ONLINE) return;
+  if(typeof ST_WORK==='undefined' || !ST_WORK.workers) return;
+  var farmId=AI.farm.active(), kicked=false;
+  ST_WORK.workers.forEach(function(w){
+    (w.docs||[]).forEach(function(doc){
+      if(doc && doc.pending && doc.data && !doc.url){
+        kicked=true;
+        var path=AI.storage.path(farmId,'workers',w.id,doc.name);
+        AI.storage.upload(path, doc.data, doc.mime).then(function(stored){
+          doc.url=stored; doc.pending=false; try{ delete doc.data; }catch(e){ doc.data=undefined; }
+          if(typeof saveState==='function') saveState();
+          if(typeof wkSync==='function') wkSync();
+        }).catch(function(e){ console.error('Pending doc upload failed:', e); });
+      }
+    });
+  });
+  return kicked;
 }
 function wkDownscaleImage(dataUrl, cb){
   try{ var img=new Image();
@@ -13391,9 +13459,16 @@ function wkDownscaleImage(dataUrl, cb){
     img.onerror=function(){ cb(dataUrl); }; img.src=dataUrl;
   }catch(e){ cb(dataUrl); }
 }
-function wkDocView(id,docId){ var w=wkFind(id); if(!w) return; var d=(w.docs||[]).filter(function(x){return x.id===docId;})[0]; if(!d) return;
+function _wkOpenDocData(d){
   try{ var win=window.open('','_blank'); if(win&&win.document){ if((d.mime||'').indexOf('image')===0){ win.document.open(); win.document.write('<title>'+wkE(d.name)+'</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+d.data+'" style="max-width:100%;max-height:100vh"></body>'); win.document.close(); } else if((d.mime||'')==='text/html'){ win.document.open(); win.document.write(d.data); win.document.close(); } else { win.location=d.data; } } else if(typeof toast==='function'){ toast('Allow pop-ups to open the document.','info'); } }catch(e){ if(typeof toast==='function') toast('Could not open the document.','error'); } }
-function wkDocRemove(id,docId){ var w=wkFind(id); if(!w) return; if(typeof confirm==='function' && !confirm('Remove this document?')) return; w.docs=(w.docs||[]).filter(function(x){return x.id!==docId;}); if(!(w.docs||[]).some(function(x){return x.type==='contract';})) w.contract='missing'; if(typeof toast==='function') toast('Document removed.','info'); wkDocSync(id); }
+function wkDocView(id,docId){ var w=wkFind(id); if(!w) return; var d=(w.docs||[]).filter(function(x){return x.id===docId;})[0]; if(!d) return;
+  if(d.data){ _wkOpenDocData(d); return; }   // local copy (just-added / offline / generated)
+  if(!d.url || !(window.AI && AI.storage)){ if(typeof toast==='function') toast('Document is still uploading \u2014 try again in a moment.','info'); return; }
+  var win=null; try{ win=window.open('','_blank'); }catch(e){}
+  AI.storage.signedUrl(d.url, 300).then(function(u){
+    if(win){ try{ win.location=u; }catch(e){} } else { try{ window.location.href=u; }catch(e){} }
+  }).catch(function(e){ console.error('Signed URL failed:', e); try{ if(win) win.close(); }catch(_e){} if(typeof toast==='function') toast('Could not open the document.','error'); }); }
+function wkDocRemove(id,docId){ var w=wkFind(id); if(!w) return; if(typeof confirm==='function' && !confirm('Remove this document?')) return; var d=(w.docs||[]).filter(function(x){return x.id===docId;})[0]; if(d && d.url && window.AI && AI.storage){ AI.storage.remove(d.url).catch(function(e){ console.error('Storage remove failed:', e); }); } w.docs=(w.docs||[]).filter(function(x){return x.id!==docId;}); if(!(w.docs||[]).some(function(x){return x.type==='contract';})) w.contract='missing'; if(typeof toast==='function') toast('Document removed.','info'); wkDocSync(id); }
 function wkGiveAdvance(id){
   var w=wkFind(id); if(!w) return;
   var amt=parseFloat(($('wk-adv-amt')||{}).value)||0;
@@ -13592,7 +13667,7 @@ function wkSaveWorker(){
   if(_file){
     if(typeof toast==='function') toast(name+' added \u2014 saving their contract\u2026','success');
     nav('workers');
-    var _fin=function(url,mime){ var size=Math.round(String(url||'').length*0.75); wkWorkerDocs(w).unshift({ id:'d'+Date.now(), name:(_file.name||'Signed contract').replace(/[<>]/g,''), type:'contract', mime:mime, data:url, size:size, date:wkTodayStr() }); w.contract='on-file'; if(typeof saveState==='function') saveState(); if(typeof wkSync==='function') wkSync(); try{ renderWorkers(); }catch(e){} };
+    var _fin=function(url,mime){ var size=Math.round(String(url||'').length*0.75); var _cdoc={ id:'d'+Date.now(), name:(_file.name||'Signed contract').replace(/[<>]/g,''), type:'contract', mime:mime, data:url, size:size, date:wkTodayStr(), url:'', pending:true }; wkWorkerDocs(w).unshift(_cdoc); w.contract='on-file'; if(typeof saveState==='function') saveState(); if(typeof wkSync==='function') wkSync(); try{ renderWorkers(); }catch(e){} if(typeof wkUploadDoc==='function') wkUploadDoc(w, _cdoc, w.id); };
     var _rd=new FileReader(); _rd.onload=function(){ var u=_rd.result; if(_file.type && _file.type.indexOf('image')===0){ wkDownscaleImage(u,function(s){ _fin(s||u,'image/jpeg'); }); } else { _fin(u,_file.type||'application/octet-stream'); } }; _rd.onerror=function(){ if(typeof toast==='function') toast('Could not read that file \u2014 add it from their profile.','error'); }; _rd.readAsDataURL(_file);
     return;
   }
@@ -23262,6 +23337,8 @@ function updateOnlineStatus() {
   IS_ONLINE = navigator.onLine !== false;
   _renderSyncStatus();
   if(IS_ONLINE && TXN_OUTBOX.length && !_txnFlushing) flushTxnOutbox();
+  if(IS_ONLINE && typeof flushDocUploads==='function'){ try{ flushDocUploads(); }catch(e){} }
+  if(IS_ONLINE && typeof flushAssetDocUploads==='function'){ try{ flushAssetDocUploads(); }catch(e){} }
 }
 
 // Drain the outbox to Supabase. Handles inserts (batched), then updates, then
@@ -24447,8 +24524,8 @@ updateOnlineStatus();
   window.addEventListener('offline', updateOnlineStatus);
   // Initial drain once a backend session exists, then a gentle retry loop so a
   // transient failure or a late sign-in still gets flushed without user action.
-  setTimeout(function(){ try{ if(typeof flushTxnOutbox==='function') flushTxnOutbox(); }catch(e){} }, 1500);
-  setInterval(function(){ try{ if(IS_ONLINE && typeof TXN_OUTBOX!=='undefined' && TXN_OUTBOX.length) flushTxnOutbox(); }catch(e){} }, 20000);
+  setTimeout(function(){ try{ if(typeof flushTxnOutbox==='function') flushTxnOutbox(); }catch(e){} try{ if(typeof flushDocUploads==='function') flushDocUploads(); }catch(e){} try{ if(typeof flushAssetDocUploads==='function') flushAssetDocUploads(); }catch(e){} }, 1500);
+  setInterval(function(){ try{ if(IS_ONLINE && typeof TXN_OUTBOX!=='undefined' && TXN_OUTBOX.length) flushTxnOutbox(); }catch(e){} try{ if(IS_ONLINE && typeof flushDocUploads==='function') flushDocUploads(); }catch(e){} }, 20000);
 });
 
 // ============================================================
