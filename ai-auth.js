@@ -116,8 +116,11 @@
         var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3], cropData = res[4], orData = res[5], planData = res[6], wkrData = res[7], prof = res[8];
         try {
           if (window.ST_ASSETS && assets) {
+            var _pendAst = {};
+            try { (ST_ASSETS.assets || []).forEach(function (a2) { (a2.docs || []).forEach(function (d) { if (d && d.pending && d.data && !d.url && d.id) _pendAst[d.id] = { data: d.data }; }); }); } catch (e) {}
             assets.forEach(function (a, i) { a.id = i + 1; });
             ST_ASSETS.assets = assets;
+            try { if (Object.keys(_pendAst).length) ST_ASSETS.assets.forEach(function (a2) { (a2.docs || []).forEach(function (d) { if (d && d.id && _pendAst[d.id] && !d.url) { d.data = _pendAst[d.id].data; d.pending = true; } }); }); } catch (e) {}
             ST_ASSETS.nextId = assets.length + 1;
           }
         } catch (e) { console.error('Asset hydrate failed:', e); }
@@ -205,7 +208,12 @@
         try {
           if (window.ST_WORK && wkrData) {
             // Signed-in farms use the backend register, not the demo workers.
+            // Salvage docs captured locally but not yet uploaded, so a refresh
+            // before the upload finishes doesn't discard their file bytes.
+            var _pendWk = {};
+            try { (ST_WORK.workers || []).forEach(function (w) { (w.docs || []).forEach(function (d) { if (d && d.pending && d.data && !d.url && d.id) _pendWk[d.id] = { data: d.data, mime: d.mime }; }); }); } catch (e) {}
             ST_WORK.workers = wkrData.workers || [];
+            try { if (Object.keys(_pendWk).length) ST_WORK.workers.forEach(function (w) { (w.docs || []).forEach(function (d) { if (d && d.id && _pendWk[d.id] && !d.url) { d.data = _pendWk[d.id].data; if (!d.mime) d.mime = _pendWk[d.id].mime; d.pending = true; } }); }); } catch (e) {}
             ST_WORK.paye = (wkrData.payroll && wkrData.payroll.paye) || {};
             ST_WORK.bonus = (wkrData.payroll && wkrData.payroll.bonus) || {};
             ST_WORK.extra = (wkrData.payroll && wkrData.payroll.extra) || {};
