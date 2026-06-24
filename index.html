@@ -6197,7 +6197,7 @@ function saveState() {
 
 // Launch switch: set to true when going live to show the red could-not-save
 // banner + toast on storage failures. Off for the demo version.
-var SAVE_FAIL_UI = false;
+var SAVE_FAIL_UI = true;   // production: surface save failures instead of failing silently
 var SAVE_FAIL_SHOWN = false;
 function _saveFailed(e){
   if (!SAVE_FAIL_UI) return;
@@ -7590,7 +7590,7 @@ function cropInputFormSave(){
     ST.txns=ST.txns||[];
     ST.txns.unshift({ date:cropDispDate(date), desc:desc, cat:cat, type:'expense', amt:total, method:'Bank Debit', source:'Crop input', ent:entTag });
     var _ciTx=ST.txns[0];
-    try{ if(window.AI && AI.farm && AI.farm.active()){ AI.txn.add({date:_lsTxnISO(date),amt:total,cat:cat,type:'expense',desc:desc,method:'Bank Debit',ent:entTag,source:'Crop input'}).then(function(s){ if(s&&s.id&&_ciTx) _ciTx.id=s.id; }).catch(function(e){ console.error('Backend txn save failed:',e); }); } }catch(e){}
+    try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_ciTx, {date:_lsTxnISO(date),amt:total,cat:cat,type:'expense',desc:desc,method:'Bank Debit',ent:entTag,source:'Crop input'}); } }catch(e){}
   }
   ST_CROP.filter='all'; dataChanged('crop');
   cropCloseModal();
@@ -10429,9 +10429,7 @@ function saveSale() {
     // Backend write-through; back-patch DB id onto the local row for edit/delete
     try {
       if (window.AI && AI.farm && AI.farm.active()) {
-        AI.txn.add({ date: (date && date !== 'Today' ? date : new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'income', desc: desc, method: method, qty: sqty||undefined, unit: (sqty&&sunit)?sunit:undefined, ent: _aiEnt||undefined, source: 'Income form' })
-          .then(function(s){ if(s && s.id && _aiInc) _aiInc.id = s.id; })
-          .catch(function(e){ console.error('Backend save failed:', e); });
+        txnWriteThrough(_aiInc, { date: (date && date !== 'Today' ? date : new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'income', desc: desc, method: method, qty: sqty||undefined, unit: (sqty&&sunit)?sunit:undefined, ent: _aiEnt||undefined, source: 'Income form' });
       }
     } catch(e){}
     if (ST.saleFreq === 'Monthly' || ST.saleFreq === 'Yearly') {
@@ -10667,9 +10665,7 @@ function saveExpense() {
       var _aiCoop = ST.txns[0];
       try {
         if (window.AI && AI.farm && AI.farm.active()) {
-          AI.txn.add({ date: (date || new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'expense', desc: desc, method: (coNm + ' account'), qty: qty||undefined, unit: (qty&&unit)?unit:undefined, ent: entC||undefined, source: 'Expense form' })
-            .then(function(s){ if(s && s.id && _aiCoop) _aiCoop.id = s.id; })
-            .catch(function(e){ console.error('Backend save failed:', e); });
+          txnWriteThrough(_aiCoop, { date: (date || new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'expense', desc: desc, method: (coNm + ' account'), qty: qty||undefined, unit: (qty&&unit)?unit:undefined, ent: entC||undefined, source: 'Expense form' });
         }
       } catch(e){}
       saveState();
@@ -10682,9 +10678,7 @@ function saveExpense() {
       // Backend write-through; back-patch DB id onto the local row for edit/delete
       try {
         if (window.AI && AI.farm && AI.farm.active()) {
-          AI.txn.add({ date: (date || new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'expense', desc: desc, method: method, qty: qty||undefined, unit: (qty&&unit)?unit:undefined, ent: entB||undefined, source: 'Expense form' })
-            .then(function(s){ if(s && s.id && _aiExp) _aiExp.id = s.id; })
-            .catch(function(e){ console.error('Backend save failed:', e); });
+          txnWriteThrough(_aiExp, { date: (date || new Date().toISOString().slice(0,10)), amt: amt, cat: cat, type: 'expense', desc: desc, method: method, qty: qty||undefined, unit: (qty&&unit)?unit:undefined, ent: entB||undefined, source: 'Expense form' });
         }
       } catch(e){}
     }
@@ -12432,7 +12426,7 @@ function wkPostPayRun(){
   if(typeof ST!=='undefined' && ST.txns){
     ST.txns.unshift({ date:wkTodayStr(), desc:'Wages \u2014 '+label, cat:'Labour & Wages', type:'expense', amt:cost, method:'Bank', source:'Payroll', payRunId:runId });
     var _wkPRTx=ST.txns[0];
-    try{ if(window.AI && AI.farm && AI.farm.active()){ AI.txn.add({date:wkTodayStr(),amt:cost,cat:'Labour & Wages',type:'expense',desc:'Wages \u2014 '+label,method:'Bank',source:'Payroll',ent:'payrun:'+runId}).then(function(s){ if(s&&s.id&&_wkPRTx) _wkPRTx.id=s.id; }).catch(function(e){ console.error('Backend wage txn failed:', e); }); } }catch(e){}
+    try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_wkPRTx, {date:wkTodayStr(),amt:cost,cat:'Labour & Wages',type:'expense',desc:'Wages \u2014 '+label,method:'Bank',source:'Payroll',ent:'payrun:'+runId}); } }catch(e){}
   }
   ST_WORK.payRuns.unshift({ id:runId, label:label, kind:rows.length+' permanent', net:Math.round(totNet), gross:Math.round(totGross), uif:Math.round(totUIF*2), date:wkTodayStr(), applied:applied });
   try { if(typeof dataChanged==='function') dataChanged('transaction'); } catch(e){}
@@ -12469,7 +12463,7 @@ function wkPostSeasonal(){
   if(sg<=0){ if(typeof toast==='function') toast('Enter days worked first.','info'); return; }
   var cost=Math.round((sg+su)*100)/100;   // gross + employer UIF (1%)
   var runId='pr'+Date.now();
-  if(typeof ST!=='undefined' && ST.txns){ for(var _k in buckets){ if(!buckets.hasOwnProperty(_k)) continue; var _b=buckets[_k]; var _c=Math.round((_b.gross+_b.uif)*100)/100; var _sd='Seasonal wages \u2014 '+label+(_k?(' \u00b7 '+wkActLabel(_k)):''); ST.txns.unshift({ date:wkTodayStr(), desc:_sd, cat:'Labour & Wages', type:'expense', amt:_c, method:'Bank', source:'Payroll', ent:_k||undefined, payRunId:runId }); var _wkSTx=ST.txns[0]; (function(_e,_amt,_desc,_ent){ try{ if(window.AI && AI.farm && AI.farm.active()){ AI.txn.add({date:wkTodayStr(),amt:_amt,cat:'Labour & Wages',type:'expense',desc:_desc,method:'Bank',source:'Payroll',ent:_ent}).then(function(s){ if(s&&s.id&&_e) _e.id=s.id; }).catch(function(er){ console.error('Backend seasonal wage txn failed:', er); }); } }catch(er){} })(_wkSTx,_c,_sd,(_k||('payrun:'+runId))); } }
+  if(typeof ST!=='undefined' && ST.txns){ for(var _k in buckets){ if(!buckets.hasOwnProperty(_k)) continue; var _b=buckets[_k]; var _c=Math.round((_b.gross+_b.uif)*100)/100; var _sd='Seasonal wages \u2014 '+label+(_k?(' \u00b7 '+wkActLabel(_k)):''); ST.txns.unshift({ date:wkTodayStr(), desc:_sd, cat:'Labour & Wages', type:'expense', amt:_c, method:'Bank', source:'Payroll', ent:_k||undefined, payRunId:runId }); var _wkSTx=ST.txns[0]; (function(_e,_amt,_desc,_ent){ try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_e, {date:wkTodayStr(),amt:_amt,cat:'Labour & Wages',type:'expense',desc:_desc,method:'Bank',source:'Payroll',ent:_ent}); } }catch(er){} })(_wkSTx,_c,_sd,(_k||('payrun:'+runId))); } }
   ST_WORK.payRuns.unshift({ id:runId, label:label, kind:'Seasonal \u00b7 '+totDays+' days', seasonal:true, net:Math.round(sg-su), gross:Math.round(sg), uif:Math.round(su*2), date:wkTodayStr() });
   try { if(typeof dataChanged==='function') dataChanged('transaction'); } catch(e){}
   if(typeof saveState==='function') saveState();
@@ -13412,7 +13406,7 @@ function wkGiveAdvance(id){
   else { w.adv={ owing:amt, perPay:(off||amt), reason:reason, consent:true }; }
   wkLedgerAdd(w,'advance-given',amt,reason||'Advance');
   var _src=(typeof wkSegVal==='function'?wkSegVal('wk-adv-src'):'')||'Cash';
-  if(typeof ST!=='undefined' && ST.txns){ ST.txns.unshift({ date:wkTodayStr(), desc:'Staff advance \u2014 '+(w.name||'worker'), cat:'Staff advances', type:'expense', amt:Math.round(amt*100)/100, method:_src, source:'Workers', staffAdvance:true }); var _gat=ST.txns[0]; try{ if(window.AI && AI.farm && AI.farm.active()){ AI.txn.add({date:wkTodayStr(),amt:Math.round(amt*100)/100,cat:'Staff advances',type:'expense',desc:'Staff advance \u2014 '+(w.name||'worker'),method:_src,source:'Workers'}).then(function(s){ if(s&&s.id&&_gat)_gat.id=s.id; }).catch(function(e){ console.error('Backend advance txn failed:',e); }); } }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){} }
+  if(typeof ST!=='undefined' && ST.txns){ ST.txns.unshift({ date:wkTodayStr(), desc:'Staff advance \u2014 '+(w.name||'worker'), cat:'Staff advances', type:'expense', amt:Math.round(amt*100)/100, method:_src, source:'Workers', staffAdvance:true }); var _gat=ST.txns[0]; try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_gat, {date:wkTodayStr(),amt:Math.round(amt*100)/100,cat:'Staff advances',type:'expense',desc:'Staff advance \u2014 '+(w.name||'worker'),method:_src,source:'Workers'}); } }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){} }
   if(typeof toast==='function') toast(wkMoney(amt)+' advance \u2014 '+_src.toLowerCase()+' out in Money Flow.','success');
   wkRefreshAll(id);
 }
@@ -13436,7 +13430,7 @@ function wkSavingsOut(id){
   w.fund.balance=(w.fund.balance||0)-amt;
   wkLedgerAdd(w,'savings-out',amt,'Paid out to worker');
   var _src=(typeof wkSegVal==='function'?wkSegVal('wk-saveout-src'):'')||'Bank';
-  if(typeof ST!=='undefined' && ST.txns){ ST.txns.unshift({ date:wkTodayStr(), desc:'Savings paid out \u2014 '+(w.name||'worker'), cat:'Staff savings', type:'expense', amt:Math.round(amt*100)/100, method:_src, source:'Workers', staffAdvance:true }); var _sot=ST.txns[0]; try{ if(window.AI && AI.farm && AI.farm.active()){ AI.txn.add({date:wkTodayStr(),amt:Math.round(amt*100)/100,cat:'Staff savings',type:'expense',desc:'Savings paid out \u2014 '+(w.name||'worker'),method:_src,source:'Workers'}).then(function(s){ if(s&&s.id&&_sot)_sot.id=s.id; }).catch(function(e){ console.error('Backend savings txn failed:',e); }); } }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){} }
+  if(typeof ST!=='undefined' && ST.txns){ ST.txns.unshift({ date:wkTodayStr(), desc:'Savings paid out \u2014 '+(w.name||'worker'), cat:'Staff savings', type:'expense', amt:Math.round(amt*100)/100, method:_src, source:'Workers', staffAdvance:true }); var _sot=ST.txns[0]; try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_sot, {date:wkTodayStr(),amt:Math.round(amt*100)/100,cat:'Staff savings',type:'expense',desc:'Savings paid out \u2014 '+(w.name||'worker'),method:_src,source:'Workers'}); } }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){} }
   if(typeof toast==='function') toast(wkMoney(amt)+' paid out \u2014 '+_src.toLowerCase()+' out in Money Flow.','success');
   wkRefreshAll(id);
 }
@@ -13545,14 +13539,14 @@ function wkSettleRemove(id){
   if(hold>0){
     var src=(typeof wkSegVal==='function'?wkSegVal('wk-settle-src'):'')||'Bank';
     w.fund.balance=0; wkLedgerAdd(w,'savings-out',hold,'Paid out on removal');
-    if(typeof ST!=='undefined' && ST.txns){ ST.txns.unshift({ date:wkTodayStr(), desc:'Savings paid out \u2014 '+nm, cat:'Staff savings', type:'expense', amt:Math.round(hold*100)/100, method:src, source:'Workers', staffAdvance:true }); var _t=ST.txns[0]; try{ if(window.AI && AI.farm && AI.farm.active()){ AI.txn.add({date:wkTodayStr(),amt:Math.round(hold*100)/100,cat:'Staff savings',type:'expense',desc:'Savings paid out \u2014 '+nm,method:src,source:'Workers'}).then(function(s){ if(s&&s.id&&_t)_t.id=s.id; }).catch(function(e){ console.error('Backend settle savings txn failed:',e); }); } }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){} }
+    if(typeof ST!=='undefined' && ST.txns){ ST.txns.unshift({ date:wkTodayStr(), desc:'Savings paid out \u2014 '+nm, cat:'Staff savings', type:'expense', amt:Math.round(hold*100)/100, method:src, source:'Workers', staffAdvance:true }); var _t=ST.txns[0]; try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_t, {date:wkTodayStr(),amt:Math.round(hold*100)/100,cat:'Staff savings',type:'expense',desc:'Savings paid out \u2014 '+nm,method:src,source:'Workers'}); } }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){} }
   }
   if(owe>0){
     var advChoice=(typeof wkSegVal==='function'?wkSegVal('wk-settle-adv'):'')||'writeoff';
     if(advChoice==='repaid'){
       var src2=(typeof wkSegVal==='function'?wkSegVal('wk-settle-src'):'')||'Bank';
       wkLedgerAdd(w,'advance-repaid',owe,'Repaid on removal');
-      if(typeof ST!=='undefined' && ST.txns){ ST.txns.unshift({ date:wkTodayStr(), desc:'Advance repaid \u2014 '+nm, cat:'Staff advances', type:'income', amt:Math.round(owe*100)/100, method:src2, source:'Workers', staffAdvance:true }); var _t2=ST.txns[0]; try{ if(window.AI && AI.farm && AI.farm.active()){ AI.txn.add({date:wkTodayStr(),amt:Math.round(owe*100)/100,cat:'Staff advances',type:'income',desc:'Advance repaid \u2014 '+nm,method:src2,source:'Workers'}).then(function(s){ if(s&&s.id&&_t2)_t2.id=s.id; }).catch(function(e){ console.error('Backend settle advance txn failed:',e); }); } }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){} }
+      if(typeof ST!=='undefined' && ST.txns){ ST.txns.unshift({ date:wkTodayStr(), desc:'Advance repaid \u2014 '+nm, cat:'Staff advances', type:'income', amt:Math.round(owe*100)/100, method:src2, source:'Workers', staffAdvance:true }); var _t2=ST.txns[0]; try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_t2, {date:wkTodayStr(),amt:Math.round(owe*100)/100,cat:'Staff advances',type:'income',desc:'Advance repaid \u2014 '+nm,method:src2,source:'Workers'}); } }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){} }
     } else {
       wkLedgerAdd(w,'advance-written-off',owe,'Written off on removal');
     }
@@ -14312,7 +14306,7 @@ function lsConfirmPlannedBuy(id){
   // post the purchase as a single expense transaction
   if(buyTotal>0 && typeof ST!=='undefined' && ST.txns){
     ST.txns.unshift({date:disp,desc:'Buy: start '+lsHerdName(h),cat:'Livestock Purchases',type:'expense',amt:buyTotal,method:'Bank Debit',source:'Plan',ent:'ls:'+id});
-    var _lsTS=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(iso),amt:buyTotal,cat:'Livestock Purchases',type:'expense',desc:'Buy: start '+lsHerdName(h),method:'Bank Debit',ent:'ls:'+id,source:'Plan'}).then(function(s){if(s&&s.id&&_lsTS)_lsTS.id=s.id;}).catch(function(er){console.error('Backend save failed:',er);}); } }catch(er){}
+    var _lsTS=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsTS, {date:_lsTxnISO(iso),amt:buyTotal,cat:'Livestock Purchases',type:'expense',desc:'Buy: start '+lsHerdName(h),method:'Bank Debit',ent:'ls:'+id,source:'Plan'}); } }catch(er){}
   }
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
@@ -16879,8 +16873,8 @@ function lsRecordMove(opts){
   var uid='m'+Date.now().toString(36)+Math.floor(Math.random()*1e3);
   ST_LS.moves=ST_LS.moves||[];
   ST_LS.moves.unshift({id:uid,herd:h.id,reason:reason,cls:cls||undefined,toCls:opts.toCls||undefined,qty:qty,date:date,note:opts.note||'',money:money});
-  if(reason==='sold' && money>0){ ST.txns=ST.txns||[]; var label=(lsHerdName(h)||'Livestock')+(cls?' ('+lsClassMeta(h.type,cls).label.toLowerCase()+')':'')+' \u00d7 '+qty; ST.txns.unshift({date:lsDispFromISO(date),desc:label,cat:'Livestock Sales',type:'income',amt:money,method:'Bank Deposit',source:'Livestock movement',ent:'ls:'+h.id}); var _lsTI=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(date),amt:money,cat:'Livestock Sales',type:'income',desc:label,method:'Bank Deposit',ent:'ls:'+h.id,source:'Livestock movement'}).then(function(s){if(s&&s.id&&_lsTI)_lsTI.id=s.id;}).catch(function(e){console.error('Backend save failed:',e);}); } }catch(e){} }
-  if(reason==='bought' && money>0){ ST.txns=ST.txns||[]; var blabel=(lsHerdName(h)||'Livestock')+(cls?' ('+lsClassMeta(h.type,cls).label.toLowerCase()+')':'')+' \u00d7 '+qty+' (purchase)'; ST.txns.unshift({date:lsDispFromISO(date),desc:blabel,cat:'Livestock Purchases',type:'expense',amt:money,method:'Bank Debit',source:'Livestock movement',ent:'ls:'+h.id}); var _lsTB=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(date),amt:money,cat:'Livestock Purchases',type:'expense',desc:blabel,method:'Bank Debit',ent:'ls:'+h.id,source:'Livestock movement'}).then(function(s){if(s&&s.id&&_lsTB)_lsTB.id=s.id;}).catch(function(e){console.error('Backend save failed:',e);}); } }catch(e){} }
+  if(reason==='sold' && money>0){ ST.txns=ST.txns||[]; var label=(lsHerdName(h)||'Livestock')+(cls?' ('+lsClassMeta(h.type,cls).label.toLowerCase()+')':'')+' \u00d7 '+qty; ST.txns.unshift({date:lsDispFromISO(date),desc:label,cat:'Livestock Sales',type:'income',amt:money,method:'Bank Deposit',source:'Livestock movement',ent:'ls:'+h.id}); var _lsTI=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsTI, {date:_lsTxnISO(date),amt:money,cat:'Livestock Sales',type:'income',desc:label,method:'Bank Deposit',ent:'ls:'+h.id,source:'Livestock movement'}); } }catch(e){} }
+  if(reason==='bought' && money>0){ ST.txns=ST.txns||[]; var blabel=(lsHerdName(h)||'Livestock')+(cls?' ('+lsClassMeta(h.type,cls).label.toLowerCase()+')':'')+' \u00d7 '+qty+' (purchase)'; ST.txns.unshift({date:lsDispFromISO(date),desc:blabel,cat:'Livestock Purchases',type:'expense',amt:money,method:'Bank Debit',source:'Livestock movement',ent:'ls:'+h.id}); var _lsTB=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsTB, {date:_lsTxnISO(date),amt:money,cat:'Livestock Purchases',type:'expense',desc:blabel,method:'Bank Debit',ent:'ls:'+h.id,source:'Livestock movement'}); } }catch(e){} }
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
   return h;
@@ -17538,7 +17532,7 @@ function lsTrFormSave(){
   if(toExp && cost>0 && typeof ST!=='undefined'){
     ST.txns=ST.txns||[];
     ST.txns.unshift({ date:date, desc:product+' \u2014 '+lsHerdName(h), cat:'Veterinary', type:'expense', amt:cost, method:'', _ls:rec.id, ent:'ls:'+h.id });
-    var _lsTV=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(date),amt:cost,cat:'Veterinary',type:'expense',desc:product+' \u2014 '+lsHerdName(h),method:'',ent:'ls:'+h.id,source:'Livestock treatment'}).then(function(s){if(s&&s.id&&_lsTV)_lsTV.id=s.id;}).catch(function(e){console.error('Backend save failed:',e);}); } }catch(e){}
+    var _lsTV=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsTV, {date:_lsTxnISO(date),amt:cost,cat:'Veterinary',type:'expense',desc:product+' \u2014 '+lsHerdName(h),method:'',ent:'ls:'+h.id,source:'Livestock treatment'}); } }catch(e){}
   }
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
@@ -17686,7 +17680,7 @@ function saveHealthEvent() {
   try { if(window.AI && AI.farm && AI.farm.active()){ AI.livestock.addHealth(ST_LS.health[0]).catch(function(e){ console.error('Backend health save failed:', e); }); } } catch(e){}
   if(cost>0){
     ST.txns.unshift({date:date||'Today',desc:desc+' ('+type+')',cat:'Veterinary & Animal Health',type:'expense',amt:cost,method:'Cash'});
-    var _lsTH=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(date),amt:cost,cat:'Veterinary & Animal Health',type:'expense',desc:desc+' ('+type+')',method:'Cash',source:'Health log'}).then(function(s){if(s&&s.id&&_lsTH)_lsTH.id=s.id;}).catch(function(e){console.error('Backend save failed:',e);}); } }catch(e){}
+    var _lsTH=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsTH, {date:_lsTxnISO(date),amt:cost,cat:'Veterinary & Animal Health',type:'expense',desc:desc+' ('+type+')',method:'Cash',source:'Health log'}); } }catch(e){}
     dataChanged('transaction');
     toast('Event saved & R'+_grpInt(cost)+' added to expenses','success');
   } else { toast('Health event saved','success'); }
@@ -20308,18 +20302,18 @@ function markEventDone(idx){
   if(e.type==='sell'){
     if(h){ h.qty=Math.max(0,(h.qty||0)-(e.qty||0)); ST_LS.moves=ST_LS.moves||[]; ST_LS.moves.unshift({id:'m'+uid,herd:h.id,reason:'sold',qty:e.qty||0,date:iso,note:e.notes||e.desc,money:amount}); }
     ST.txns.unshift({date:disp,desc:e.desc,cat:'Livestock Sales',type:'income',amt:amount,method:'Bank Debit',source:'Plan',ent:_ent});
-    var _lsPa=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(iso),amt:amount,cat:'Livestock Sales',type:'income',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}).then(function(s){if(s&&s.id&&_lsPa)_lsPa.id=s.id;}).catch(function(er){console.error('Backend save failed:',er);}); } }catch(er){}
+    var _lsPa=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsPa, {date:_lsTxnISO(iso),amt:amount,cat:'Livestock Sales',type:'income',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}); } }catch(er){}
   } else if(e.type==='buy'){
     if(h){ h.qty=(h.qty||0)+(e.qty||0); if(h.planned) h.planned=false; ST_LS.moves=ST_LS.moves||[]; ST_LS.moves.unshift({id:'m'+uid,herd:h.id,reason:'bought',qty:e.qty||0,date:iso,note:e.notes||e.desc,money:amount}); }
     ST.txns.unshift({date:disp,desc:e.desc,cat:'Livestock Purchases',type:'expense',amt:amount,method:'Bank Debit',source:'Plan',ent:_ent});
-    var _lsPb=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(iso),amt:amount,cat:'Livestock Purchases',type:'expense',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}).then(function(s){if(s&&s.id&&_lsPb)_lsPb.id=s.id;}).catch(function(er){console.error('Backend save failed:',er);}); } }catch(er){}
+    var _lsPb=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsPb, {date:_lsTxnISO(iso),amt:amount,cat:'Livestock Purchases',type:'expense',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}); } }catch(er){}
   } else if(e.type==='cost'){
     if(h){ ST_LS.treatments=ST_LS.treatments||[]; ST_LS.treatments.unshift({id:'t'+uid,herd:h.id,kind:'event',product:e.desc,reg:'',target:'whole',head:0,tags:[],dose:'',date:iso,by:'',cost:amount,meat:0,milk:0}); }
     ST.txns.unshift({date:disp,desc:e.desc,cat:'Veterinary & Animal Health',type:'expense',amt:amount,method:'Bank Debit',source:'Plan',ent:_ent});
-    var _lsPc=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(iso),amt:amount,cat:'Veterinary & Animal Health',type:'expense',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}).then(function(s){if(s&&s.id&&_lsPc)_lsPc.id=s.id;}).catch(function(er){console.error('Backend save failed:',er);}); } }catch(er){}
+    var _lsPc=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsPc, {date:_lsTxnISO(iso),amt:amount,cat:'Veterinary & Animal Health',type:'expense',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}); } }catch(er){}
   } else {
     ST.txns.unshift({date:disp,desc:e.desc,cat:'Livestock Sales',type:'income',amt:amount,method:'Bank Debit',source:'Plan',ent:_ent});
-    var _lsPe=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ AI.txn.add({date:_lsTxnISO(iso),amt:amount,cat:'Livestock Sales',type:'income',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}).then(function(s){if(s&&s.id&&_lsPe)_lsPe.id=s.id;}).catch(function(er){console.error('Backend save failed:',er);}); } }catch(er){}
+    var _lsPe=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsPe, {date:_lsTxnISO(iso),amt:amount,cat:'Livestock Sales',type:'income',desc:e.desc,method:'Bank Debit',ent:_ent,source:'Plan'}); } }catch(er){}
   }
   e.done=true;
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(er){}
@@ -23193,45 +23187,134 @@ var heroH = $('hero-h-el') || document.querySelector('[data-t="hero.h"]');
 // ============================================================
 
 // ============================================================
-var OFFLINE_QUEUE = [];
+// Resilient transaction outbox.
+// Every transaction is written to the device first (optimistic) and recorded in
+// a persisted "outbox" BEFORE the network attempt (write-ahead). Offline writes
+// survive an app reload; on reconnect the outbox is flushed to Supabase. Each row
+// carries a client_uid so a retry can never create a duplicate (DB unique index).
+// This replaces the old in-memory OFFLINE_QUEUE that lost data on reload and never
+// actually pushed queued rows to the backend.
 var IS_ONLINE = navigator.onLine !== false;
+var TXN_OUTBOX_KEY = 'agri_txn_outbox_v1';
+var TXN_OUTBOX = [];
+// Back-compat alias: anything that still reads OFFLINE_QUEUE.length sees the outbox.
+var OFFLINE_QUEUE = TXN_OUTBOX;
+var _txnFlushing = false;
 
-function updateOnlineStatus() {
-  IS_ONLINE = navigator.onLine !== false;
+function _loadOutbox(){
+  try{ var r = localStorage.getItem(TXN_OUTBOX_KEY); var a = r ? JSON.parse(r) : [];
+       TXN_OUTBOX.length = 0; if(Array.isArray(a)) a.forEach(function(x){ TXN_OUTBOX.push(x); }); }
+  catch(e){ TXN_OUTBOX.length = 0; }
+}
+function _saveOutbox(){
+  try{ localStorage.setItem(TXN_OUTBOX_KEY, JSON.stringify(TXN_OUTBOX)); }
+  catch(e){ if(typeof _saveFailed === 'function') _saveFailed(e); }
+}
+function newCuid(){
+  try{ if(window.crypto && crypto.randomUUID) return crypto.randomUUID(); }catch(e){}
+  return 'cid-' + Date.now().toString(36) + '-' + Math.random().toString(16).slice(2,10);
+}
+function _findTxnByCuid(cuid){
+  if(!(typeof ST !== 'undefined' && ST.txns) || !cuid) return null;
+  for(var i=0;i<ST.txns.length;i++){ if(ST.txns[i] && ST.txns[i].cuid === cuid) return ST.txns[i]; }
+  return null;
+}
+function _hasBackend(){ return !!(window.AI && AI.farm && AI.farm.active() && AI.txn); }
+
+// Pure DOM render of sync state — NEVER triggers a flush (so a failed flush that
+// refreshes the UI can't kick off a retry storm against a down backend).
+function _renderSyncStatus() {
+  var pending = TXN_OUTBOX.length;
   var bar = $('offline-bar');
   if(bar) bar.style.display = IS_ONLINE ? 'none' : 'flex';
+  var badge = $('offline-queue-count');
+  if(badge) badge.textContent = pending ? (pending + (pending===1?' entry':' entries') + ' waiting to sync') : '';
   var sbOffline = document.querySelector('.offline');
   if(sbOffline){
     var dot = sbOffline.querySelector('.ot');
     if(dot) dot.style.color = IS_ONLINE ? 'var(--gd)' : 'var(--or)';
     var sub = sbOffline.querySelector('.os');
     if(sub) sub.textContent = IS_ONLINE
-      ? 'Online. All data is synced.' + (OFFLINE_QUEUE.length?' Syncing '+OFFLINE_QUEUE.length+' queued transactions...':'')
-      : 'Offline. ' + OFFLINE_QUEUE.length + ' transaction(s) queued to sync.';
+      ? (pending ? 'Online. Syncing ' + pending + ' saved entr' + (pending===1?'y':'ies') + '…' : 'Online. All data is synced.')
+      : 'Offline. ' + pending + ' entr' + (pending===1?'y':'ies') + ' saved here — will sync when connected.';
   }
-  if(IS_ONLINE && OFFLINE_QUEUE.length > 0) syncQueue();
+}
+// Called by the online/offline events and on boot: refresh state, then (only here)
+// kick a drain. Retries otherwise come from the 20s timer or the next write.
+function updateOnlineStatus() {
+  IS_ONLINE = navigator.onLine !== false;
+  _renderSyncStatus();
+  if(IS_ONLINE && TXN_OUTBOX.length && !_txnFlushing) flushTxnOutbox();
 }
 
-function syncQueue() {
-  if(!OFFLINE_QUEUE.length) return;
-  OFFLINE_QUEUE.forEach(function(t){ ST.txns.unshift(t); });
-  var count = OFFLINE_QUEUE.length;
-  OFFLINE_QUEUE = [];
-  dataChanged('transaction');
-  toast(count + ' queued transaction(s) synced ✓', 'success');
-  updateOnlineStatus();
+// Drain the outbox to Supabase. Idempotent: re-sending an already-saved row is a
+// no-op server-side thanks to the client_uid unique index, so a partial failure
+// can be retried safely.
+function flushTxnOutbox(reconcileHint){
+  if(_txnFlushing || !_hasBackend() || !IS_ONLINE || !TXN_OUTBOX.length){ return; }
+  _txnFlushing = true;
+  var batch = TXN_OUTBOX.slice();
+  var payloads = batch.map(function(x){ return x.payload; });
+  AI.txn.addMany(payloads).then(function(saved){
+    saved = saved || [];
+    var needRefetch = false;
+    // addMany preserves order; reconcile each saved row back onto its local row by cuid.
+    batch.forEach(function(item, i){
+      var r = saved[i];
+      var lo = _findTxnByCuid(item.cuid);
+      if(lo){ if(r && r.id) lo.id = r.id; }
+      else { needRefetch = true; }   // local row was wiped (e.g. by sign-in hydrate); re-pull
+    });
+    // Remove the flushed items (anything queued mid-flight stays for the next pass).
+    var doneCuids = {}; batch.forEach(function(x){ doneCuids[x.cuid] = 1; });
+    for(var k = TXN_OUTBOX.length - 1; k >= 0; k--){ if(doneCuids[TXN_OUTBOX[k].cuid]) TXN_OUTBOX.splice(k,1); }
+    _saveOutbox();
+    if(typeof _saveOk === 'function') _saveOk();
+    _txnFlushing = false;
+    if(needRefetch && AI.load && AI.load.financeCore){
+      AI.load.financeCore(AI.farm.active()).then(function(core){
+        if(window.ST && core) ST.txns = core.txns || ST.txns;
+        if(typeof dataChanged === 'function') dataChanged('transaction');
+      }).catch(function(){});
+    }
+    _renderSyncStatus();
+    if(IS_ONLINE && TXN_OUTBOX.length) flushTxnOutbox();   // keep draining anything added during the call
+  }).catch(function(e){
+    console.error('Backend txn sync failed:', e);
+    _txnFlushing = false;
+    if(typeof _saveFailed === 'function') _saveFailed(e);   // visible banner, no silent loss
+    _renderSyncStatus();   // render only — do NOT re-trigger; retry on timer/online/next write
+  });
 }
 
+// Single chokepoint for persisting a transaction. localObj is the row already in
+// ST.txns (so we can stamp the server id onto it); payload is what goes to Supabase.
+function txnWriteThrough(localObj, payload){
+  if(!_hasBackend()) return;                 // demo / signed-out: local-only, nothing to queue
+  if(!payload) payload = {};
+  if(!payload.cuid) payload.cuid = (localObj && localObj.cuid) || newCuid();
+  if(localObj && !localObj.cuid) localObj.cuid = payload.cuid;
+  TXN_OUTBOX.push({ cuid: payload.cuid, payload: payload, ts: Date.now() });
+  _saveOutbox();
+  if(IS_ONLINE) flushTxnOutbox(localObj);
+  else { _renderSyncStatus(); }
+}
+
+// Back-compat: a couple of older call sites used syncQueue() directly.
+function syncQueue(){ flushTxnOutbox(); }
+
+// Offline-aware helper used by flows that build a txn object themselves.
 function queueOrSave(txn) {
-  if(IS_ONLINE){
-    ST.txns.unshift(txn);
-    var _qt=ST.txns[0];
-    try{ if(window.AI && AI.farm && AI.farm.active() && AI.txn){ AI.txn.add(txn).then(function(s){ if(s&&s.id&&_qt) _qt.id=s.id; }).catch(function(e){ console.error('Backend txn save failed:',e); }); } }catch(e){}
-    dataChanged('transaction');
-  } else {
-    OFFLINE_QUEUE.push(txn);
-    toast('Saved offline — will sync when connected', 'info');
-  }
+  if(typeof ST !== 'undefined'){ ST.txns = ST.txns || []; ST.txns.unshift(txn); }
+  var local = (typeof ST !== 'undefined' && ST.txns) ? ST.txns[0] : txn;
+  var payload = {
+    date: txn.date, amt: txn.amt, cat: txn.cat, type: txn.type, desc: txn.desc,
+    method: txn.method, qty: txn.qty, unit: txn.unit, ent: txn.ent,
+    source: txn.source || 'Quick capture'
+  };
+  txnWriteThrough(local, payload);
+  if(typeof dataChanged === 'function') dataChanged('transaction');
+  if(!IS_ONLINE && typeof toast === 'function') toast('Saved on this device — will sync when connected', 'info');
 }
 
 function openSmsBackup() {
@@ -24269,9 +24352,14 @@ initDashChart();
   var _fn = ST.ownerName ? ST.ownerName.split(' ')[0] : 'Farmer';
   toast('Welcome back, ' + _fn + '! \uD83D\uDC4B', 'success');
 
+_loadOutbox();
 updateOnlineStatus();
   window.addEventListener('online',  updateOnlineStatus);
   window.addEventListener('offline', updateOnlineStatus);
+  // Initial drain once a backend session exists, then a gentle retry loop so a
+  // transient failure or a late sign-in still gets flushed without user action.
+  setTimeout(function(){ try{ if(typeof flushTxnOutbox==='function') flushTxnOutbox(); }catch(e){} }, 1500);
+  setInterval(function(){ try{ if(IS_ONLINE && typeof TXN_OUTBOX!=='undefined' && TXN_OUTBOX.length) flushTxnOutbox(); }catch(e){} }, 20000);
 });
 
 // ============================================================

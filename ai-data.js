@@ -144,7 +144,8 @@
       quantity:       (t.qty != null && t.qty !== '') ? Number(t.qty) : null,
       unit:           t.unit || null,
       enterprise:     t.ent || null,
-      source:         t.source || null
+      source:         t.source || null,
+      client_uid:     t.cuid || null          // idempotency key for offline-safe retries
     };
   }
   function dbToApp(r) {
@@ -164,7 +165,8 @@
       qty:      (r.quantity != null) ? Number(r.quantity) : undefined,
       unit:     r.unit || undefined,
       ent:      r.enterprise || undefined,
-      source:   r.source || undefined
+      source:   r.source || undefined,
+      cuid:     r.client_uid || undefined
     };
   }
 
@@ -229,20 +231,52 @@
   };
 
   // ---- 7. WRITE: TRANSACTIONS ----------------------------------------------
+  // client_uid is added by a migration; until it runs we fall back to a plain
+  // insert so the app keeps working (no dedupe protection until the SQL is run).
+  var _cuidUnsupported = false;
+  function _isMissingCuid(err){
+    if(!err) return false;
+    var m = ((err.message||'') + ' ' + (err.details||'') + ' ' + (err.hint||'')).toLowerCase();
+    var c = String(err.code||'');
+    return m.indexOf('client_uid') >= 0 || c === 'pgrst204' || c === '42703' || c === '42p10';
+  }
+  function _warnCuid(err){
+    if(_cuidUnsupported) return;
+    _cuidUnsupported = true;
+    console.warn('AgriInsights: transactions.client_uid not found \u2014 run the offline-outbox migration in Supabase for duplicate-safe sync. (' + ((err&&err.message)||err) + ')');
+  }
   const txn = {
     async add(t) {
       const farmId = farm.active();
       await ensureCats();
+      const row = appToDb(t, farmId);
+      if (row.client_uid && !_cuidUnsupported) {
+        const up = await client().from('transactions')
+          .upsert(row, { onConflict: 'farm_id,client_uid' }).select().single();
+        if (!up.error) return dbToApp(up.data);
+        if (!_isMissingCuid(up.error)) throw up.error;
+        _warnCuid(up.error);                       // column missing -> fall through to insert
+      }
+      delete row.client_uid;
       const { data, error } = await client()
-        .from('transactions').insert(appToDb(t, farmId)).select().single();
+        .from('transactions').insert(row).select().single();
       if (error) throw error;
       return dbToApp(data);
     },
-    async addMany(list) {                       // bulk insert (imports) — one round-trip
+    async addMany(list) {                       // bulk upsert (imports / outbox flush) — one round-trip
       if (!list || !list.length) return [];
       const farmId = farm.active();
       await ensureCats();
       const rows = list.map(function (t) { return appToDb(t, farmId); });
+      const hasCuid = rows.some(function(r){ return r.client_uid; });
+      if (hasCuid && !_cuidUnsupported) {
+        const up = await client().from('transactions')
+          .upsert(rows, { onConflict: 'farm_id,client_uid' }).select();
+        if (!up.error) return (up.data || []).map(dbToApp);
+        if (!_isMissingCuid(up.error)) throw up.error;
+        _warnCuid(up.error);
+      }
+      rows.forEach(function(r){ delete r.client_uid; });
       const { data, error } = await client()
         .from('transactions').insert(rows).select();
       if (error) throw error;
