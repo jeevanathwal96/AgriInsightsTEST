@@ -21796,20 +21796,7 @@ function renderDashWidgets() {
 // ============================================================
 
 // ============================================================
-var MO3  = ['Mar','Apr','May'];
-var MO6  = ['Dec','Jan','Feb','Mar','Apr','May'];
-var MO12 = ['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May'];
-
-var MO1 = ['May'];
-var D1  = {i:[1200], o:[950], p:[250]};
-var D3  = {i:[980,1100,1329], o:[720,890,1043], p:[260,210,286]};
-var D6  = {i:[820,750,980,1100,1329,1200], o:[610,580,720,890,1043,950], p:[210,170,260,210,286,250]};
-var D12 = {i:[1050,980,870,920,1100,1329,1200,950,1400,1720,1650,1100],
-           o:[820,750,700,680,890,1043,950,730,1050,1280,1190,840],
-           p:[230,230,170,240,210,286,250,220,350,440,460,260]};
-
-var SPK_EXT = [820,750,700,680,890,1043,1200,950,1400,1720,1650,1100];
-var LSK_EXT = [42,38,35,40,45,52,48];
+// (dead demo arrays MO*/D*/SPK_EXT/LSK_EXT removed — charts now use periodSeries/real data)
 
 var baseOpts = {
   responsive: true,
@@ -22545,7 +22532,7 @@ function openCfDrawer(monthLabel) {
   rowsHTML +
   '<span class="drawer-txn-link" onclick="nav(\'transactions\')" title="View all">View transactions &#x2192;</span>';
   var cfDr = $('cf-drawer'); if(cfDr) cfDr.style.width = '220px';
-  var chart = ST.charts['cf'];
+  var chart = ST.charts['cfHist'];
   if (chart) {
     var shortMo = monthLabel.split(' ')[0];
     var idx2 = chart.data.labels.findIndex(function(l){ return l.slice(0,3)===shortMo.slice(0,3); });
@@ -22557,7 +22544,7 @@ function openCfDrawer(monthLabel) {
 
 function closeCfDrawer() {
   var d=$('cf-drawer'); if(d) d.style.width='0';
-  var chart = ST.charts['cf'];
+  var chart = ST.charts['cfHist'];
   if (chart) {
     chart.data.datasets[0].backgroundColor = '#40916C';
     chart.data.datasets[1].backgroundColor = '#F87171';
@@ -27222,7 +27209,7 @@ function openDrawer(chartType, monthLabel) {
   inner.innerHTML = buildDrawerHTML(monthLabel, chartType);
   drawer.classList.add('open');
 
-var chartKey = isCfType ? 'cf' : chartType === 'income' ? 'inc' : 'exp';
+var chartKey = isCfType ? 'cfHist' : chartType === 'income' ? 'inc' : 'exp';
   var chart = ST.charts[chartKey];
   if (chart) {
     var labels = chart.data.labels;
@@ -27249,7 +27236,7 @@ function closeDrawer(chartType) {
   var drawer   = $(drawerId);
   if (drawer) drawer.classList.remove('open');
 
-var chartKey = chartType === 'income' ? 'inc' : chartType === 'cashflow' ? 'cf' : 'exp';
+var chartKey = chartType === 'income' ? 'inc' : chartType === 'cashflow' ? 'cfHist' : 'exp';
   var chart = ST.charts[chartKey];
   if (chart) {
     chart.data.datasets[0].backgroundColor = '#40916C';
