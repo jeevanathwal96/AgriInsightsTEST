@@ -9160,7 +9160,7 @@ function clearExpFilters() {
 // ── Period-aware data aggregation ────────────────────────────
 
 function txSummaryPeriod(months) {
-  var curMonth = ST.budgets.currentMonth;
+  var curMonth = currentPeriodLabel();
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
 
 var parts = (curMonth||'May 2024').split(' ');
@@ -19050,7 +19050,7 @@ function dismissBudgetTabsHint() {
 function renderBudgetsPage() {
   var fy       = getCurrentFY();
   var fyMonths = getFYMonths(fy);
-  var curMonth = ST.budgets.currentMonth;
+  var curMonth = currentPeriodLabel();
 
   // Hint banner — hide if user has already dismissed
   var hint = $('bgt-tabs-hint');
@@ -21296,7 +21296,7 @@ function renderTargetBar() {
 
   var actual  = 1328750;
   var target  = getBudgetTarget();
-  var month   = ST.budgets.currentMonth;
+  var month   = currentPeriodLabel();
 
   if (!target) {
     card.innerHTML =
@@ -21443,7 +21443,7 @@ function renderExpBar() {
 
   var actual  = 1043320;
   var target  = getExpBudgetTarget();
-  var month   = ST.budgets.currentMonth;
+  var month   = currentPeriodLabel();
 
   if (!target) {
     card.innerHTML =
@@ -24358,7 +24358,7 @@ function renderProvTax() {
   var fy   = getCurrentFY();
 
 var fyMonths = getFYMonths(fy);
-  var curMonth = ST.budgets.currentMonth;
+  var curMonth = currentPeriodLabel();
   var monthsElapsed = fyMonths.indexOf(curMonth) + 1;
   if (monthsElapsed < 1) monthsElapsed = 5;
 
@@ -27883,7 +27883,7 @@ function monthKeyFromTx(s){
 }
 
 function getCurrentMonthKey(){
-  try { return (ST && ST.budgets && ST.budgets.currentMonth) || 'May 2024'; }
+  try { return (ST && ST.budgets && ST.budgets.currentMonth) || currentPeriodLabel(); }
   catch(e){ return 'May 2024'; }
 }
 
@@ -31004,7 +31004,7 @@ function orExportPackout(){
 
   // ---------- Registry: Budget wave ----------
   function _bgt(){
-    var fy=getCurrentFY(), fyMonths=getFYMonths(fy), curMonth=ST.budgets.currentMonth;
+    var fy=getCurrentFY(), fyMonths=getFYMonths(fy), curMonth=currentPeriodLabel();
     var annualIn=fyMonths.reduce(function(s,m){return s+(ST.budgets.monthlyIncome[m]||0);},0);
     var annualOut=fyMonths.reduce(function(s,m){return s+(ST.budgets.monthlyExpenses[m]||0);},0);
     var curIdx=fyMonths.indexOf(curMonth), monthsElapsed=curIdx>=0?curIdx+1:0;
