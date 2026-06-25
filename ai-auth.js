@@ -136,6 +136,32 @@
         } catch (e) { console.error('Loan hydrate failed:', e); }
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });
     }).then(function () {
+      // Cross-device persistence: load every relational module from the backend so a
+      // farmer signing in on a new device sees ALL their data, not demo defaults.
+      // Each module applies independently (its own try/catch) so one failure can't
+      // break the others. Skipped for brand-new farms (nothing saved yet).
+      if (isNewFarm) return;
+      var fid = AI.farm.active();
+      return Promise.all([
+        AI.load.livestock(fid).catch(function (e) { console.error('livestock load', e); return null; }),
+        AI.load.crops(fid).catch(function (e) { console.error('crops load', e); return null; }),
+        AI.load.orchard(fid).catch(function (e) { console.error('orchard load', e); return null; }),
+        AI.load.plan(fid).catch(function (e) { console.error('plan load', e); return null; }),
+        AI.load.workers(fid).catch(function (e) { console.error('workers load', e); return null; }),
+        AI.load.profile(fid).catch(function (e) { console.error('profile load', e); return null; }),
+        AI.load.coopSettlements(fid).catch(function (e) { console.error('coop load', e); return null; })
+      ]).then(function (r) {
+        var ls = r[0], cr = r[1], orc = r[2], pl = r[3], wk = r[4], pf = r[5], coop = r[6];
+        try { if (window.ST_LS && ls) { ST_LS.camps = ls.camps || []; ST_LS.herd = ls.herds || []; if (ls.benchmarks) ST_LS.benchmarks = ls.benchmarks; ST_LS.moves = ls.moves || []; ST_LS.treatments = ls.treatments || []; ST_LS.animals = ls.animals || []; ST_LS.health = ls.health || []; } } catch (e) { console.error('livestock apply', e); }
+        try { if (window.ST_CROP && cr) { ST_CROP.lands = cr.lands || []; ST_CROP.events = cr.events || []; ST_CROP.inputs = cr.inputs || []; if (cr.season) ST_CROP.season = cr.season; if (cr.compliance) ST_CROP.compliance = cr.compliance; } } catch (e) { console.error('crops apply', e); }
+        try { if (window.ST_FRUIT && orc) { ST_FRUIT.blocks = orc.blocks || []; ST_FRUIT.pricing = orc.pricing || {}; ST_FRUIT.sprayDiary = orc.sprayDiary || {}; ST_FRUIT.harvest = orc.harvest || []; if (orc.comply) ST_FRUIT.comply = orc.comply; if (orc.market) ST_FRUIT.market = orc.market; if (typeof window.orRebuildPhi === 'function') { try { window.orRebuildPhi(); } catch (_) {} } } } catch (e) { console.error('orchard apply', e); }
+        try { if (window.ST_PLAN && pl) { ST_PLAN.crops = pl.crops || []; ST_PLAN.events = pl.events || []; ST_PLAN.fromBackend = true; if (typeof window.planSyncToCurrentYear === 'function') { try { window.planSyncToCurrentYear(); } catch (_) {} } } } catch (e) { console.error('plan apply', e); }
+        try { if (window.ST_WORK && wk) { ST_WORK.workers = wk.workers || []; if (wk.settingsRow && AI.workers && AI.workers.apply) { AI.workers.apply(ST_WORK, wk.settingsRow); } if (wk.payroll) { ST_WORK.paye = wk.payroll.paye || {}; ST_WORK.bonus = wk.payroll.bonus || {}; ST_WORK.extra = wk.payroll.extra || {}; ST_WORK.seasonal = wk.payroll.seasonal || {}; } ST_WORK.payRuns = wk.payRuns || []; } } catch (e) { console.error('workers apply', e); }
+        try { if (window.ST && pf) { Object.keys(pf).forEach(function (k) { if (pf[k] != null) ST[k] = pf[k]; }); if (window.FARM && pf.farmName) FARM.name = pf.farmName; } } catch (e) { console.error('profile apply', e); }
+        try { if (window.ST && Array.isArray(coop)) ST.coopSettlements = coop; } catch (e) { console.error('coop apply', e); }
+        try { if (typeof window.saveState === 'function') window.saveState(); } catch (e) {}
+      }).catch(function (e) { console.error('Relational hydrate failed:', e); });
+    }).then(function () {
       // Signed-in users skip the app's first-run onboarding wizard.
       try {
         var ov = document.getElementById('ob-overlay');
