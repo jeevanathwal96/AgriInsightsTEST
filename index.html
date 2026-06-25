@@ -8929,7 +8929,7 @@ function txSummary(monthLabel) {
 }
 
 function ytdSummary() {
-  var _p = (ST.budgets.currentMonth||'May 2024').split(' ');
+  var _p = (currentPeriodLabel()).split(' ');
   var _MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
   var now = {m: _MN[_p[0]]!==undefined?_MN[_p[0]]:4, y: parseInt(_p[1],10)||2024};
   var fyStart = ST.fyStartMonth - 1;
@@ -8999,7 +8999,7 @@ function filterIncomeTx() {
 
 var n = parseInt(ST.incPeriod || '6', 10);
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  var parts = (ST.budgets.currentMonth || 'May 2024').split(' ');
+  var parts = (currentPeriodLabel()).split(' ');
   var cm = MN[parts[0]] !== undefined ? MN[parts[0]] : 4;
   var cy = parseInt(parts[1], 10) || 2024;
   var periodMonths = [];
@@ -9082,7 +9082,7 @@ function filterExpTx() {
 
 var n = parseInt(ST.expPeriod || '6', 10);
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  var parts = (ST.budgets.currentMonth || 'May 2024').split(' ');
+  var parts = (currentPeriodLabel()).split(' ');
   var cm = MN[parts[0]] !== undefined ? MN[parts[0]] : 4;
   var cy = parseInt(parts[1], 10) || 2024;
   var periodMonths = [];
@@ -9273,7 +9273,7 @@ var ratio = R.income > 0 ? Math.round(R.expenses / R.income * 100) : 0;
 
 var expCats = {};
   var MN2 = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  var parts = (ST.budgets.currentMonth||'May 2024').split(' ');
+  var parts = (currentPeriodLabel()).split(' ');
   var cm = MN2[parts[0]] !== undefined ? MN2[parts[0]] : 4;
   var cy = parseInt(parts[1],10)||2024;
   var periodMonths = [];
@@ -9319,7 +9319,7 @@ var COLORS = (typeof EXP_CAT_COLORS !== 'undefined' && EXP_CAT_COLORS) ? EXP_CAT
   var n  = parseInt(p, 10) || 6;
   var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  var parts = (ST.budgets.currentMonth || 'May 2024').split(' ');
+  var parts = (currentPeriodLabel()).split(' ');
   var cm = MN[parts[0]] !== undefined ? MN[parts[0]] : 4;
   var cy = parseInt(parts[1], 10) || 2024;
   var periodMonths = [];
@@ -9769,7 +9769,7 @@ var pSub = $('season-ytd-profit-sub');
   }
 
 var _MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  var _p = (ST.budgets.currentMonth || 'May 2024').split(' ');
+  var _p = (currentPeriodLabel()).split(' ');
   var nowM = _MN[_p[0]] !== undefined ? _MN[_p[0]] : 4;
   var fyStart = (ST.fyStartMonth || 3) - 1;
   var monthsIn = ((nowM - fyStart) % 12 + 12) % 12 + 1;
@@ -9784,7 +9784,7 @@ var pill = $('dash-season-pill');
   }
 
 var mpill = $('dash-month-pill');
-  if (mpill) mpill.textContent = ST.budgets.currentMonth || 'May 2024';
+  if (mpill) mpill.textContent = currentPeriodLabel();
 }
 
 var EXP_CAT_COLORS = {
@@ -9819,7 +9819,7 @@ function dashPeriodMonths() {
   var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
   var n  = parseInt(ST.period || '6', 10) || 6;
-  var parts = (ST.budgets.currentMonth || 'May 2024').split(' ');
+  var parts = (currentPeriodLabel()).split(' ');
   var cm = MN[parts[0]] !== undefined ? MN[parts[0]] : 4;
   var cy = parseInt(parts[1], 10) || 2024;
   var out = [];
@@ -9940,7 +9940,7 @@ function getFYLabel(year) {
   return '1 March ' + fy + ' – 28 February ' + (fy+1);
 }
 function getCurrentFY() {
-  var parts = (ST.budgets.currentMonth||'May 2024').split(' ');
+  var parts = (currentPeriodLabel()).split(' ');
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
   var m = MN[parts[0]]!==undefined ? MN[parts[0]] : 4;
   var y = parseInt(parts[1],10) || 2024;
@@ -19575,7 +19575,7 @@ function renderLiveCalGrid() {
   });
 
   var allMonths = ST_PLAN.months.map(function(m){ return m.label; });
-  var nowLabel = ST.budgets.currentMonth || 'May 2024';
+  var nowLabel = currentPeriodLabel();
 
   el.innerHTML = orderedKeys.map(function(key) {
     var g = groups[key];
@@ -19897,7 +19897,7 @@ function hideLiveCellPopover() {
 function openAddEvent() {
   ST_PLAN.editingEventIdx = -1;
   EVT_DRAFT = JSON.parse(JSON.stringify(EVT_DEFAULT));
-  EVT_DRAFT.month = ST.budgets.currentMonth || 'May 2024';
+  EVT_DRAFT.month = currentPeriodLabel();
   if (typeof ST_LS!=='undefined' && ST_LS.herd && ST_LS.herd.length) setEvtHerd(ST_LS.herd[0].id, true);
   showEvtModal();
 }
@@ -21005,7 +21005,7 @@ function renderIncBySource() {
   var n  = parseInt(p, 10) || 6;
   var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  var parts = (ST.budgets.currentMonth || 'May 2024').split(' ');
+  var parts = (currentPeriodLabel()).split(' ');
   var cm = MN[parts[0]] !== undefined ? MN[parts[0]] : 4;
   var cy = parseInt(parts[1], 10) || 2024;
   var periodMonths = [];
@@ -21624,7 +21624,7 @@ function setPeriod(p) {
 function periodSeries(n){
   var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  var parts=(ST.budgets.currentMonth||'May 2024').split(' ');
+  var parts=(currentPeriodLabel()).split(' ');
   var cm=MN[parts[0]]!==undefined?MN[parts[0]]:new Date().getMonth();
   var cy=parseInt(parts[1],10)||new Date().getFullYear();
   var labels=[],i=[],o=[],pr=[];
@@ -21857,7 +21857,7 @@ function initDashChart() {
   var to = x.d.o.reduce(function(a,b){return a+b;},0);
   var tp = x.d.p.reduce(function(a,b){return a+b;},0);
   var row = $('dash-totals');
-  if (row) row.innerHTML = '<div class="ct-lbl">Money In</div><div class="ct-val g">R'+(ti/1000).toFixed(1)+'M</div><div class="ct-lbl">Money Out</div><div class="ct-val" style="color:var(--rd)">R'+(to/1000).toFixed(1)+'M</div><div class="ct-lbl">Total Profit</div><div class="ct-val g">R'+(tp/1000).toFixed(1)+'M</div><div class="ct-lbl">Avg. Profit Margin</div><div class="ct-val">'+(tp/ti*100).toFixed(1)+'%</div>';
+  if (row) row.innerHTML = '<div class="ct-lbl">Money In</div><div class="ct-val g">'+fmtK(ti)+'</div><div class="ct-lbl">Money Out</div><div class="ct-val" style="color:var(--rd)">'+fmtK(to)+'</div><div class="ct-lbl">Total Profit</div><div class="ct-val g">'+fmtK(tp)+'</div><div class="ct-lbl">Avg. Profit Margin</div><div class="ct-val">'+(ti>0?(tp/ti*100).toFixed(1):'0.0')+'%</div>';
 }
 
 // ── Income charts ─────────────────────────────────────────────
@@ -22040,7 +22040,7 @@ function renderCfHistoricalBars(numMonths) {
 
   var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  var parts = (ST.budgets.currentMonth || 'May 2024').split(' ');
+  var parts = (currentPeriodLabel()).split(' ');
   var cm = MN[parts[0]] !== undefined ? MN[parts[0]] : 4;
   var cy = parseInt(parts[1], 10) || 2024;
 
@@ -22452,7 +22452,7 @@ function recurringFor(monthIdx) {
 
 var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  var parts = (ST.budgets.currentMonth || 'May 2024').split(' ');
+  var parts = (currentPeriodLabel()).split(' ');
   var cm = MN[parts[0]] !== undefined ? MN[parts[0]] : 4;
   var cy = parseInt(parts[1], 10) || 2024;
 
@@ -26750,7 +26750,7 @@ SEASONAL_DATA.mixed = SEASONAL_DATA.grain;
 
 function renderSeasonalCard() {
   var el = $('seasonal-card'); if (!el) return;
-  var cur    = ST.budgets.currentMonth || 'May 2024';
+  var cur    = currentPeriodLabel();
   var MN     = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
   var mo     = MN[cur.split(' ')[0]];
   if (mo === undefined) mo = 4;
@@ -27281,7 +27281,7 @@ function drawerFullLabel(shortMo, chartType) {
   var n     = parseInt(p);
   var RS    = txSummaryPeriod(n);
 
-  var curMonth = ST.budgets.currentMonth || 'May 2024';
+  var curMonth = currentPeriodLabel();
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
   var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var parts = curMonth.split(' ');
@@ -27312,7 +27312,7 @@ function renderDashSummary() {
 
   var profit   = cur.income - cur.expenses;
   var MO       = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var curMonth = ST.budgets.currentMonth || 'May 2024';
+  var curMonth = currentPeriodLabel();
   var mo       = curMonth.split(' ')[0];
   var lang     = ST.lang || 'en';
   var af       = lang === 'af';
