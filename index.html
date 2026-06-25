@@ -28,8 +28,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=2"></script>
-<script src="ai-auth.js?v=3"></script>
+<script src="ai-data.js?v=4"></script>
+<script src="ai-auth.js?v=4"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -5787,6 +5787,12 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       </div>
     </div>
 
+    <!-- Start fresh (clear demo/explore data) -->
+    <div class="set-danger" style="border-color:#E4C97A;background:#FBF3DD;margin-bottom:10px">
+      <div><div class="dt" style="color:#8A6A14">Clear data &amp; start fresh</div><div class="ds" style="color:#9A7A2A">Removes the demo data so you can start entering your own farm's records.</div></div>
+      <button onclick="startFresh()" style="background:#fff;border:1.5px solid #BA7517;color:#8A6A14;border-radius:var(--rs);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Start fresh</button>
+    </div>
+
     <!-- Danger zone -->
     <div class="set-danger">
       <div><div class="dt">Reset to the demo farm</div><div class="ds">Wipes every change made on this device and reloads the fresh demo farm.</div></div>
@@ -10035,6 +10041,50 @@ var farmNameEl = document.getElementById('farm-name');
     setTimeout(function(){ msg.style.display = 'none'; }, 3000);
   }
   toast('Settings saved!', 'success');
+}
+
+// Empty every data-bearing module in memory (records the user sees), leaving
+// config/UI keys (rates, cropTypes, activeTab, prices) intact. Type-safe so an
+// unexpected shape can never throw. Used by both the onboarding "fresh" path and
+// the Settings "Start fresh" button.
+function clearAllToFresh() {
+  function E(o, k){ if (o && (k in o)) { var v = o[k]; o[k] = Array.isArray(v) ? [] : (v && typeof v === 'object' ? {} : v); } }
+  try {
+    if (typeof ST !== 'undefined') {
+      E(ST,'txns'); E(ST,'importBatches'); E(ST,'coopSettlements'); E(ST,'recurring');
+      if (ST.budgets) { E(ST.budgets,'monthlyIncome'); E(ST.budgets,'monthlyExpenses'); }
+      ST.budgetExpenseTarget = 0;
+    }
+    if (typeof ST_ASSETS !== 'undefined') { E(ST_ASSETS,'assets'); ST_ASSETS.nextId = 1; }
+    if (typeof ST_LOANS !== 'undefined') { ['loans','overdrafts','coopAccounts','archived'].forEach(function(k){ E(ST_LOANS,k); }); }
+    if (typeof ST_WORK !== 'undefined') { ['workers','payRuns'].forEach(function(k){ E(ST_WORK,k); }); }
+    if (typeof ST_LS !== 'undefined') { ['camps','herd','animals','moves','treatments','health'].forEach(function(k){ E(ST_LS,k); }); }
+    if (typeof ST_FRUIT !== 'undefined') { ['blocks','pricing','comply','sprayDiary','phi','harvest'].forEach(function(k){ E(ST_FRUIT,k); }); }
+    if (typeof ST_CROP !== 'undefined') { ['lands','events','inputs','compliance'].forEach(function(k){ E(ST_CROP,k); }); }
+    if (typeof ST_PLAN !== 'undefined') {
+      E(ST_PLAN,'crops'); E(ST_PLAN,'events');
+      if (Array.isArray(ST_PLAN.months)) ST_PLAN.months.forEach(function(m){ m.income=0; m.expenses=0; m.activity=''; m.actIncome=0; m.actExpenses=0; m.events=[]; });
+    }
+  } catch(e){ console.error('clearAllToFresh', e); }
+}
+
+// Settings → "Start fresh": clears the demo/explore data everywhere (this device's
+// saved state AND the farm's backend rows) so the user starts with a clean slate.
+function startFresh() {
+  if (!confirm('Clear the demo data and start fresh?\n\nThis removes all the example transactions, livestock, orchards, crops and planning so you can begin entering your own farm\u2019s records. This cannot be undone.')) return;
+  clearAllToFresh();
+  var finish = function(){ try { saveState(); } catch(e){} try { location.reload(); } catch(e){} };
+  try {
+    var fid = (window.AI && AI.farm && AI.farm.active) ? AI.farm.active() : null;
+    if (fid && AI.farm.clearData) {
+      try { toast('Clearing your data\u2026', 'info'); } catch(e){}
+      AI.farm.clearData(fid).then(finish).catch(function(e){
+        console.error('backend clear failed', e);
+        try { toast('Cleared on this device. Some online data may sync back \u2014 check your connection.', 'info'); } catch(_){}
+        finish();
+      });
+    } else { finish(); }
+  } catch(e){ finish(); }
 }
 
 function clearData() {

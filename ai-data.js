@@ -98,7 +98,17 @@
       return data; // new farm uuid
     },
     setActive(id) { try { localStorage.setItem(ACTIVE_FARM_KEY, id); } catch (e) {} },
-    active() { try { return localStorage.getItem(ACTIVE_FARM_KEY); } catch (e) { return null; } }
+    active() { try { return localStorage.getItem(ACTIVE_FARM_KEY); } catch (e) { return null; } },
+    async clearData(farmId) {
+      // SECURITY DEFINER RPC: deletes every farm-scoped row for this farm
+      // (auto-discovers all public tables with a farm_id column), keeping the
+      // farm itself so the user stays signed in with an empty farm.
+      const fid = farmId || farm.active();
+      if (!fid) return;
+      const { error } = await client().rpc('clear_farm_data', { p_farm_id: fid });
+      if (error) throw error;
+      return true;
+    }
   };
 
   // ---- 4. CATEGORY CACHE + MAPPING -----------------------------------------
@@ -383,7 +393,7 @@
       insured_value: (a.insuredValue != null && a.insuredValue !== '') ? Number(a.insuredValue) : null,
       insurer: a.insurer || null, renewal_date: a.renewalDate || null,
       // Persist doc METADATA + Storage path only — never the base64 blob.
-      docs: (a.docs && a.docs.length) ? a.docs.map(function(d){ return { name:d.name||null, kind:d.kind||null, url:d.url||'' }; }) : null
+      docs: (a.docs && a.docs.length) ? a.docs.map(function(d){ return { id:d.id||null, name:d.name||null, kind:d.kind||null, url:d.url||'' }; }) : null
     };
   }
   function assetToApp(r) {

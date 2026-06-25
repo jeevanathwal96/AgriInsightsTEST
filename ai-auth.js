@@ -98,8 +98,9 @@
 
   // ---- ensure a farm, load its data into ST, re-render ---------------------
   function hydrate() {
+    var isNewFarm = false;
     return AI.farm.mine().then(function (farms) {
-      if (!farms || !farms.length) return AI.farm.create('My Farm');
+      if (!farms || !farms.length) { isNewFarm = true; return AI.farm.create('My Farm'); }
       if (!AI.farm.active()) AI.farm.setActive(farms[0].id);
       return AI.farm.active();
     }).then(function () {
@@ -107,6 +108,11 @@
     }).then(function (core) {
       // Replace the app's working data with the farm's real data.
       if (window.ST) { ST.txns = core.txns || []; ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; ST.firstRun = false; }
+      // Brand-new pilot farm: wipe any in-memory demo defaults across ALL modules
+      // so the user starts on a clean slate and can begin entering data straight away.
+      if (isNewFarm && typeof window.clearAllToFresh === 'function') {
+        try { window.clearAllToFresh(); if (typeof window.saveState === 'function') window.saveState(); } catch (e) {}
+      }
       // Load the asset register + loans before first render (net-worth uses them).
       return Promise.all([
         AI.load.assets(AI.farm.active()),
