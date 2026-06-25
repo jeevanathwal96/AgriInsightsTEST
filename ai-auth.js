@@ -86,7 +86,13 @@
       .then(function () { hideOverlay(); })
       .catch(function (e) {
         btn.disabled = false;
-        msg((e && e.message) ? e.message : 'Sign-in failed. Check your details.', 'err');
+        var raw = (e && e.message) ? e.message : '';
+        var offline = !navigator.onLine || /failed to fetch|networkerror|load failed|fetch/i.test(raw);
+        if (offline) {
+          msg('You appear to be offline. Connect to the internet to sign in.', 'err');
+        } else {
+          msg(raw || 'Sign-in failed. Check your details.', 'err');
+        }
       });
   }
 
@@ -101,26 +107,16 @@
     }).then(function (core) {
       // Replace the app's working data with the farm's real data.
       if (window.ST) { ST.txns = core.txns || []; ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; ST.firstRun = false; }
-      // Load the asset register + loans + co-op settlements + livestock before first render.
+      // Load the asset register + loans before first render (net-worth uses them).
       return Promise.all([
         AI.load.assets(AI.farm.active()),
-        AI.load.loans(AI.farm.active()),
-        AI.load.coopSettlements(AI.farm.active()),
-        AI.load.livestock(AI.farm.active()),
-        AI.load.crops(AI.farm.active()),
-        AI.load.orchard(AI.farm.active()),
-        AI.load.plan(AI.farm.active()),
-        AI.load.workers(AI.farm.active()),
-        AI.load.profile(AI.farm.active())
+        AI.load.loans(AI.farm.active())
       ]).then(function (res) {
-        var assets = res[0], loanData = res[1], coopSettle = res[2], live = res[3], cropData = res[4], orData = res[5], planData = res[6], wkrData = res[7], prof = res[8];
+        var assets = res[0], loanData = res[1];
         try {
           if (window.ST_ASSETS && assets) {
-            var _pendAst = {};
-            try { (ST_ASSETS.assets || []).forEach(function (a2) { (a2.docs || []).forEach(function (d) { if (d && d.pending && d.data && !d.url && d.id) _pendAst[d.id] = { data: d.data }; }); }); } catch (e) {}
             assets.forEach(function (a, i) { a.id = i + 1; });
             ST_ASSETS.assets = assets;
-            try { if (Object.keys(_pendAst).length) ST_ASSETS.assets.forEach(function (a2) { (a2.docs || []).forEach(function (d) { if (d && d.id && _pendAst[d.id] && !d.url) { d.data = _pendAst[d.id].data; d.pending = true; } }); }); } catch (e) {}
             ST_ASSETS.nextId = assets.length + 1;
           }
         } catch (e) { console.error('Asset hydrate failed:', e); }
@@ -132,115 +128,6 @@
             ST_LOANS.archived = loanData.archived || [];
           }
         } catch (e) { console.error('Loan hydrate failed:', e); }
-        try {
-          if (window.ST) ST.coopSettlements = coopSettle || [];
-        } catch (e) { console.error('Co-op settlement hydrate failed:', e); }
-        try {
-          if (window.ST_LS && live) {
-            ST_LS.camps = live.camps || [];
-            ST_LS.herd = live.herds || [];
-            ST_LS.benchmarks = live.benchmarks || {};
-            ST_LS.moves = live.moves || [];
-            ST_LS.treatments = live.treatments || [];
-            ST_LS.animals = live.animals || [];
-            ST_LS.health = live.health || [];
-          }
-        } catch (e) { console.error('Livestock hydrate failed:', e); }
-        try {
-          if (window.ST_CROP && cropData) {
-            ST_CROP.lands = cropData.lands || [];
-            ST_CROP.events = cropData.events || [];
-            ST_CROP.inputs = cropData.inputs || [];
-            if (cropData.season) ST_CROP.season = cropData.season;
-            // Overlay saved compliance onto the app's default structure so the UI's
-            // expected keys (tracked/cadence) always exist. Relational now, not a blob:
-            // load.crops returns it only when the farm has saved before, else keep defaults.
-            if (cropData.compliance) {
-              var cc = cropData.compliance, dst = ST_CROP.compliance;
-              if (cc.settings) Object.keys(cc.settings).forEach(function (k) { dst[k] = cc.settings[k]; });
-              if (cc.tracked) { if (!dst.tracked) dst.tracked = {}; Object.keys(cc.tracked).forEach(function (k) { dst.tracked[k] = cc.tracked[k]; }); }
-              if (cc.cadence) { if (!dst.cadence) dst.cadence = {}; Object.keys(cc.cadence).forEach(function (k) { dst.cadence[k] = cc.cadence[k]; }); }
-              if (cc.logs) dst.logs = cc.logs;
-              if (cc.docs) dst.docs = cc.docs;
-              if (cc.waterReadings) dst.waterReadings = cc.waterReadings;
-            }
-          }
-        } catch (e) { console.error('Crop hydrate failed:', e); }
-        try {
-          if (window.ST_FRUIT && orData) {
-            if (orData.blocks && orData.blocks.length) ST_FRUIT.blocks = orData.blocks;
-            if (orData.pricing && Object.keys(orData.pricing).length) ST_FRUIT.pricing = orData.pricing;
-            if (orData.sprayDiary && Object.keys(orData.sprayDiary).length) ST_FRUIT.sprayDiary = orData.sprayDiary;
-            if (orData.harvest && orData.harvest.length) ST_FRUIT.harvest = orData.harvest;
-            if (orData.market) ST_FRUIT.market = orData.market;
-            // Overlay saved compliance (status/expiry/log + docs/checks/readings) onto
-            // the app's default item definitions so wording stays app-controlled.
-            if (orData.comply) {
-              Object.keys(orData.comply).forEach(function (k) {
-                if (ST_FRUIT.comply && ST_FRUIT.comply[k]) {
-                  var o = orData.comply[k];
-                  Object.keys(o).forEach(function (f) { ST_FRUIT.comply[k][f] = o[f]; });
-                } else if (ST_FRUIT.comply) {
-                  ST_FRUIT.comply[k] = orData.comply[k];
-                }
-              });
-            }
-            // PHI (safe-to-pick) is derived — rebuild from the spray diary, never stored.
-            if (typeof orRebuildPhi === 'function') orRebuildPhi();
-          }
-        } catch (e) { console.error('Orchard hydrate failed:', e); }
-        try {
-          if (window.ST_PLAN) {
-            if (planData) {
-              // Saved plan: forecast crop lines (with link_id) + livestock events.
-              ST_PLAN.crops = planData.crops || [];
-              ST_PLAN.events = planData.events || [];
-            } else {
-              // Never-saved farm: drop the demo plan; seed crop lines from the real
-              // lands (events start empty). cropInitialPlanSync re-links to lands.
-              ST_PLAN.crops = [];
-              ST_PLAN.events = [];
-              if (typeof cropInitialPlanSync === 'function') cropInitialPlanSync(true);
-            }
-            if (typeof recomputePlan === 'function') recomputePlan();
-          }
-        } catch (e) { console.error('Plan hydrate failed:', e); }
-        try {
-          if (window.ST_WORK && wkrData) {
-            // Signed-in farms use the backend register, not the demo workers.
-            // Salvage docs captured locally but not yet uploaded, so a refresh
-            // before the upload finishes doesn't discard their file bytes.
-            var _pendWk = {};
-            try { (ST_WORK.workers || []).forEach(function (w) { (w.docs || []).forEach(function (d) { if (d && d.pending && d.data && !d.url && d.id) _pendWk[d.id] = { data: d.data, mime: d.mime }; }); }); } catch (e) {}
-            ST_WORK.workers = wkrData.workers || [];
-            try { if (Object.keys(_pendWk).length) ST_WORK.workers.forEach(function (w) { (w.docs || []).forEach(function (d) { if (d && d.id && _pendWk[d.id] && !d.url) { d.data = _pendWk[d.id].data; if (!d.mime) d.mime = _pendWk[d.id].mime; d.pending = true; } }); }); } catch (e) {}
-            ST_WORK.paye = (wkrData.payroll && wkrData.payroll.paye) || {};
-            ST_WORK.bonus = (wkrData.payroll && wkrData.payroll.bonus) || {};
-            ST_WORK.extra = (wkrData.payroll && wkrData.payroll.extra) || {};
-            ST_WORK.seasonal = (wkrData.payroll && wkrData.payroll.seasonal) || {};
-            ST_WORK.payRuns = wkrData.payRuns || [];
-            if (wkrData.settingsRow && AI.workers && typeof AI.workers.apply === 'function') {
-              AI.workers.apply(ST_WORK, wkrData.settingsRow);
-            }
-          }
-        } catch (e) { console.error('Workers hydrate failed:', e); }
-        try {
-          if (window.ST && prof) {
-            if (prof.farmName!=null) ST.farmName=prof.farmName;
-            if (prof.ownerName!=null) ST.ownerName=prof.ownerName;
-            if (prof.province!=null) ST.province=prof.province;
-            if (prof.farmHa!=null) ST.farmHa=prof.farmHa;
-            if (prof.farmType!=null) ST.farmType=prof.farmType;
-            if (prof.fyStartMonth!=null) ST.fyStartMonth=prof.fyStartMonth;
-            if (prof.vatRegistered!=null) ST.vatRegistered=prof.vatRegistered;
-            if (prof.taxNumber!=null) ST.taxNumber=prof.taxNumber;
-            if (prof.vatNumber!=null) ST.vatNumber=prof.vatNumber;
-            try { if (typeof FARM!=='undefined' && FARM) { if(prof.farmName!=null)FARM.name=prof.farmName; if(prof.ownerName!=null)FARM.owner=prof.ownerName; if(prof.farmHa!=null)FARM.ha=prof.farmHa; if(prof.vatRegistered!=null)FARM.vat=prof.vatRegistered; if(prof.taxNumber!=null)FARM.taxNo=prof.taxNumber; if(prof.vatNumber!=null)FARM.vatNo=prof.vatNumber; } } catch(e){}
-            try { var _fn=document.getElementById('farm-name'); if(_fn && ST.farmName) _fn.textContent=ST.farmName; } catch(e){}
-            try { if (typeof updateTopbarGreeting==='function') updateTopbarGreeting(); } catch(e){}
-            try { if (prof.lang!=null) { var _ll=prof.lang; if (_ll!==ST.lang && typeof applyLang==='function') applyLang(_ll); else ST.lang=_ll; } } catch(e){}
-          }
-        } catch (e) { console.error('Profile hydrate failed:', e); }
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });
     }).then(function () {
       // Signed-in users skip the app's first-run onboarding wizard.
