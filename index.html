@@ -29,7 +29,7 @@
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
 <script src="ai-data.js?v=8"></script>
-<script src="ai-auth.js?v=7"></script>
+<script src="ai-auth.js?v=9"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -23473,6 +23473,22 @@ function _findTxnByCuid(cuid){
 }
 function _hasBackend(){ return !!(window.AI && AI.farm && AI.farm.active() && AI.txn); }
 
+// Merge a freshly fetched backend transaction list with any client-created rows it doesn't
+// (yet) contain — e.g. added offline and not synced, or synced by a flush that raced this
+// fetch. Dedup is by cuid; only LOCAL rows that carry a cuid are eligible, so backend-origin
+// rows are never duplicated and cuid-less rows are left to the backend list. This makes a
+// sign-in hydrate / refetch non-destructive to in-flight offline transactions.
+window.preservePendingTxns = function(backendTxns){
+  var out = (backendTxns || []).slice();
+  try{
+    var have = {};
+    for(var i=0;i<out.length;i++){ var c = out[i] && out[i].cuid; if(c) have[c] = true; }
+    var local = (window.ST && ST.txns) || [];
+    for(var j=0;j<local.length;j++){ var r = local[j]; if(r && r.cuid && !have[r.cuid]) out.push(r); }
+  }catch(e){}
+  return out;
+};
+
 // Pure DOM render of sync state — NEVER triggers a flush (so a failed flush that
 // refreshes the UI can't kick off a retry storm against a down backend).
 function _renderSyncStatus() {
@@ -23494,12 +23510,26 @@ function _renderSyncStatus() {
 // Called by the online/offline events and on boot: refresh state, then (only here)
 // kick a drain. Retries otherwise come from the 20s timer or the next write.
 function updateOnlineStatus() {
+  var _was = IS_ONLINE;
   IS_ONLINE = navigator.onLine !== false;
   if(IS_ONLINE && typeof _syncOk==='function') _syncOk();   // back online: allow a fresh notice if a new failure occurs
   _renderSyncStatus();
   if(IS_ONLINE && TXN_OUTBOX.length && !_txnFlushing) flushTxnOutbox();
   if(IS_ONLINE && typeof flushDocUploads==='function'){ try{ flushDocUploads(); }catch(e){} }
   if(IS_ONLINE && typeof flushAssetDocUploads==='function'){ try{ flushAssetDocUploads(); }catch(e){} }
+  // On a real offline->online transition, push relational module state so edits made
+  // offline (crop/livestock/orchard/plan/workers) sync up. Each save is snapshot-guarded,
+  // so it's a no-op when nothing changed. (Txns + doc uploads have their own outboxes above.)
+  if(IS_ONLINE && _was===false && typeof flushRelationalToBackend==='function'){ try{ flushRelationalToBackend(); }catch(e){} }
+}
+// Push the current in-memory relational state to the backend (used on reconnect).
+function flushRelationalToBackend(){
+  if(!(window.AI && AI.farm && AI.farm.active())) return;
+  try{ if(window.ST_CROP && AI.crop){ AI.crop.saveAll(ST_CROP).catch(function(){}); AI.crop.saveConfig(ST_CROP).catch(function(){}); } }catch(e){}
+  try{ if(window.ST_LS && AI.livestock){ AI.livestock.saveAll(ST_LS).catch(function(){}); } }catch(e){}
+  try{ if(window.ST_FRUIT && AI.orchard){ AI.orchard.saveAll(ST_FRUIT).catch(function(){}); AI.orchard.saveConfig(ST_FRUIT).catch(function(){}); } }catch(e){}
+  try{ if(window.ST_PLAN && AI.plan){ AI.plan.saveAll(ST_PLAN).catch(function(){}); } }catch(e){}
+  try{ if(typeof wkSync==='function'){ wkSync(); } }catch(e){}
 }
 
 // Drain the outbox to Supabase. Handles inserts (batched), then updates, then
@@ -23552,7 +23582,7 @@ function flushTxnOutbox(){
       // Re-pull only AFTER deletes have been applied, so a row deleted this pass
       // isn't resurrected by the refetch.
       AI.load.financeCore(AI.farm.active()).then(function(core){
-        if(window.ST && core) ST.txns = core.txns || ST.txns;
+        if(window.ST && core) ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || ST.txns) : (core.txns || ST.txns));
         if(typeof dataChanged === 'function') dataChanged('transaction');
       }).catch(function(){});
     }

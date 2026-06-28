@@ -74,6 +74,17 @@
     }
   }
 
+  // ---- offline session: reveal the cached app instead of trapping on login ----
+  function _isOfflineErr(e){ var raw=(e&&e.message)?e.message:String(e||''); return (navigator.onLine===false) || /failed to fetch|networkerror|load failed|fetch|timeout|offline/i.test(raw); }
+  function _hasPersistedSession(){ try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k && /^sb-.*-auth-token$/.test(k) && localStorage.getItem(k)) return true; } }catch(e){} return false; }
+  function _offlineReveal(){
+    // The app's own boot (bootAgriInsights -> loadState) already populated ST from this
+    // device's localStorage, so the user has their last-synced data. Reveal it; the topbar
+    // sync indicator shows the offline state and the outbox/relational flush runs on reconnect.
+    hideOverlay();
+    try{ if(typeof window.toast==='function') window.toast('You\u2019re offline \u2014 showing your last synced data. Changes save on this device and sync when you reconnect.','info'); }catch(e){}
+  }
+
   // ---- sign in -------------------------------------------------------------
   function doSignIn() {
     var btn = document.getElementById('ai-signin');
@@ -107,7 +118,7 @@
       return AI.load.financeCore(AI.farm.active());
     }).then(function (core) {
       // Replace the app's working data with the farm's real data.
-      if (window.ST) { ST.txns = core.txns || []; ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; ST.firstRun = false; }
+      if (window.ST) { ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || []) : (core.txns || [])); ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; ST.firstRun = false; }
       // currentMonth is a local "trailing window" anchor the backend doesn't persist — financeCore returns it as null,
       // which blanked the boot-time anchor on every sign-in (money views then fell back to a computed default). Re-anchor
       // it to the real current month here. Only sets the label; never shifts transaction dates, so real data is untouched.
@@ -194,11 +205,25 @@
     if (!window.AI) { msg('Backend not loaded (check ai-data.js).', 'err'); return; }
     // Run AFTER the app's own boot has populated ST (setTimeout defers past it).
     setTimeout(function () {
+      // Offline boot with a cached session: don't trap the user on a login they can't
+      // complete offline — reveal their already-loaded local data.
+      if (navigator.onLine === false && _hasPersistedSession()) { _offlineReveal(); return; }
       AI.init().auth.getSession().then(function (res) {
         var session = res && res.data ? res.data.session : null;
-        if (session) { hydrate().then(hideOverlay).catch(function(){ /* stay on overlay */ }); }
-        // else: overlay stays visible for sign-in
-      }).catch(function () { /* overlay stays visible */ });
+        if (session) {
+          hydrate().then(hideOverlay).catch(function (e) {
+            if (_isOfflineErr(e) && _hasPersistedSession()) { _offlineReveal(); }
+            // else: a genuine error — overlay stays for sign-in
+          });
+        } else if (_hasPersistedSession() && navigator.onLine === false) {
+          // getSession couldn't confirm offline, but a cached token exists
+          _offlineReveal();
+        }
+        // else: no session — overlay stays visible for sign-in
+      }).catch(function (e) {
+        if (_hasPersistedSession() && _isOfflineErr(e)) { _offlineReveal(); }
+        // else: overlay stays visible
+      });
     }, 0);
   }
 
