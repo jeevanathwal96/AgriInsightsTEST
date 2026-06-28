@@ -1115,10 +1115,11 @@
     if(r.vat_registered!=null) p.vatRegistered=!!r.vat_registered;
     if(r.tax_number!=null) p.taxNumber=r.tax_number;
     if(r.vat_number!=null) p.vatNumber=r.vat_number;
+    if(r.entity_type!=null) p.entityType=r.entity_type;
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select('name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number').eq('id',farmId).single();
+    const r=await client().from('farms').select('name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -1142,10 +1143,11 @@
       if(st.vatRegistered!=null) extra.vat_registered=!!st.vatRegistered;
       if(st.taxNumber) extra.tax_number=st.taxNumber;
       if(st.vatNumber) extra.vat_number=st.vatNumber;
+      if(st.entityType) extra.entity_type=st.entityType;
       var snap=JSON.stringify({c:core,e:extra}); if(snap===_profSnap) return;
       if(Object.keys(core).length){ const e=(await client().from('farms').update(core).eq('id',fid)).error; if(e) throw e; }
       var extraOk=true;
-      if(Object.keys(extra).length){ const e=(await client().from('farms').update(extra).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: VAT/tax fields not saved \u2014 run settings_profile_schema.sql in Supabase. (' + (e.message||e) + ')'); } }
+      if(Object.keys(extra).length){ const e=(await client().from('farms').update(extra).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: optional fields (VAT/tax/business-type) not saved \u2014 run the profile-schema migrations in Supabase. (' + (e.message||e) + ')'); } }
       if(extraOk) _profSnap=snap;
       return true;
     }
