@@ -28,8 +28,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=4"></script>
-<script src="ai-auth.js?v=5"></script>
+<script src="ai-data.js?v=5"></script>
+<script src="ai-auth.js?v=6"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -11807,6 +11807,8 @@ function lnUndoPaid(id){
   var paid=LN_confirmedPaid(); if(!Object.prototype.hasOwnProperty.call(paid,id)) return;
   var l=lnLoan(id); if(l) l.balance += paid[id];
   delete ST_LOANS.confirmed.paid[id];
+  // Remove the Money Flow payment we logged for this loan (newest match).
+  try{ for(var _i=0;_i<ST.txns.length;_i++){ var _t=ST.txns[_i]; if(_t && _t.source==='Loan payment' && _t.ent==='loan:'+id){ ST.txns.splice(_i,1); if(typeof txnDeleteThrough==='function') txnDeleteThrough(_t); break; } } }catch(e){}
   LN_CONF.st[id]='paid'; LN_CONF.amt[id]=l?l.payment:0;
   lnRenderConfirm(); lnConfLive();
 }
@@ -11864,6 +11866,17 @@ function lnConfirmPayments(){
     var s=LN_CONF.st[l.id]; if(s===undefined || s==='no') return;
     var o=lnRowOff(l); l.balance=Math.max(0,l.balance-o);
     ST_LOANS.confirmed.paid[l.id]=o;
+    // Record the cash leaving the farm in Money Flow. The full payment shows here;
+    // Reports back out the capital and keep only the interest as the deductible cost
+    // (cat 'Loan Repayments' is handled in the report builder), so no double-count.
+    var _p=lnRowPaid(l);
+    if(_p>0){
+      var _piso=_lsTxnISO(), _ldesc='Loan payment \u2014 '+(l.name||'loan');
+      ST.txns=ST.txns||[];
+      ST.txns.unshift({ date:cropDispDate(_piso), desc:_ldesc, cat:'Loan Repayments', type:'expense', amt:_p, method:'Bank Debit', source:'Loan payment', ent:'loan:'+l.id });
+      var _lnTx=ST.txns[0];
+      try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_lnTx, {date:_piso, amt:_p, cat:'Loan Repayments', type:'expense', desc:_ldesc, method:'Bank Debit', ent:'loan:'+l.id, source:'Loan payment'}); } }catch(e){}
+    }
   });
   var interest=totPaid-totOff, owedAfter=LN_totalOwed(), eq=LN_equityPct();
   var big,headline,sub,cheer;
@@ -11880,7 +11893,7 @@ function lnConfirmPayments(){
   $('ln-confirmScreen').style.display='none';
   $('ln-doneScreen').style.display='block';
 }
-function lnFinishConfirm(){ lnCloseConfirm(); renderLoans(); if(typeof dataChanged==='function') dataChanged('loan'); }
+function lnFinishConfirm(){ lnCloseConfirm(); renderLoans(); if(typeof dataChanged==='function'){ dataChanged('loan'); dataChanged('transaction'); } }
 
 var CAT_ICONS = {
   'Land & Buildings':      {bg:'var(--gb)', stroke:'var(--gd)', path:'<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'},

@@ -132,6 +132,17 @@
             ST_LOANS.overdrafts = loanData.overdrafts || [];
             ST_LOANS.coopAccounts = loanData.coopAccounts || [];
             ST_LOANS.archived = loanData.archived || [];
+            // Monthly paid-marks (Item 3): restore so a confirmed month survives reload + new device.
+            if (loanData.confirmed) ST_LOANS.confirmed = loanData.confirmed;
+            // Loan->asset link (Item 2): resolve the stored asset UUID back to the
+            // asset's current local id (assets were applied just above).
+            if (window.ST_ASSETS && ST_ASSETS.assets) {
+              var _byUuid = {};
+              ST_ASSETS.assets.forEach(function (a) { if (a._aiId) _byUuid[a._aiId] = a.id; });
+              ST_LOANS.loans.concat(ST_LOANS.archived || []).forEach(function (l) {
+                if (l._assetUuid && _byUuid[l._assetUuid] != null) l.assetId = _byUuid[l._assetUuid];
+              });
+            }
           }
         } catch (e) { console.error('Loan hydrate failed:', e); }
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });
