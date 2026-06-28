@@ -6989,19 +6989,26 @@ function cropFixThumb(img){
   }catch(e){}
 }
 function _cropUploadAttachment(obj, sub, mime){
-  try{
-    if(!obj || !/^data:/.test(obj.url||'')) return;                       // nothing to upload / already a path
-    if(!(window.AI && AI.farm && AI.farm.active() && AI.storage)) return; // demo: keep base64
-    var farmId=AI.farm.active();
-    var path=AI.storage.path(farmId, 'crop-compliance', sub, obj.name||'file');
-    var b64=obj.url;
-    var doUp=function(data){
-      AI.storage.upload(path, data, mime).then(function(stored){ obj.url=stored; try{ if(typeof dataChanged==='function') dataChanged('crop'); }catch(e){} })
-        .catch(function(e){ console.error('Crop attachment upload failed:', e); });
-    };
-    if(obj.kind==='image' && typeof wkDownscaleImage==='function'){ wkDownscaleImage(b64, function(s){ doUp(s||b64); }); }
-    else doUp(b64);
-  }catch(e){ console.error('crop attachment upload', e); }
+  // Upload to Storage and swap base64 -> path. Returns a promise that resolves
+  // once the swap is done (or immediately in demo/offline, keeping base64). The
+  // CALLER persists ONCE after all uploads resolve, so the backend stores only
+  // the final path and is written exactly once per add (no base64-then-path race).
+  return new Promise(function(resolve){
+    try{
+      if(!obj || !/^data:/.test(obj.url||'')){ resolve(); return; }                 // nothing to upload / already a path
+      if(!(window.AI && AI.farm && AI.farm.active() && AI.storage)){ resolve(); return; } // demo: keep base64
+      var farmId=AI.farm.active();
+      var path=AI.storage.path(farmId, 'crop-compliance', sub, obj.name||'file');
+      var b64=obj.url;
+      var doUp=function(data){
+        AI.storage.upload(path, data, mime).then(function(stored){ obj.url=stored; })
+          .catch(function(e){ console.error('Crop attachment upload failed:', e); })
+          .then(resolve, resolve);
+      };
+      if(obj.kind==='image' && typeof wkDownscaleImage==='function'){ wkDownscaleImage(b64, function(s){ doUp(s||b64); }); }
+      else doUp(b64);
+    }catch(e){ console.error('crop attachment upload', e); resolve(); }
+  });
 }
 // Resolve an array of attachment objects to embeddable base64 (mutates ._embed),
 // downloading Storage-backed files so a compliance export is self-contained.
@@ -7090,11 +7097,11 @@ function cropSaveLogEntry(){
   if(!ST_CROP.compliance.logs[it.id]) ST_CROP.compliance.logs[it.id]=[];
   var _logEntry={date:date, what:what||it.t, note:note, photos:CROP_LOG_PHOTOS.slice()};
   ST_CROP.compliance.logs[it.id].push(_logEntry);
-  _logEntry.photos.forEach(function(p){ _cropUploadAttachment(p, it.id, (p.kind==='pdf'?'application/pdf':'image/jpeg')); });
+  var _ups=_logEntry.photos.map(function(p){ return _cropUploadAttachment(p, it.id, (p.kind==='pdf'?'application/pdf':'image/jpeg')); });
   CROP_LOG_PHOTOS=[];
-  dataChanged('crop');
   if(typeof renderNotifications==='function') renderNotifications();
   cropRenderComplianceModal();
+  Promise.all(_ups).then(function(){ dataChanged('crop'); });
   toast('Logged \u2014 reminder reset','success');
 }
 function cropDeleteLogEntry(id,date){
@@ -7124,11 +7131,12 @@ function cropReadDocs(input){
   if(!ST_CROP.compliance.docs) ST_CROP.compliance.docs={};
   if(!ST_CROP.compliance.docs[id]) ST_CROP.compliance.docs[id]=[];
   var pending=files.length;
+  var _ups=[];
   Array.prototype.forEach.call(files, function(file){
     if(file.size>5*1024*1024){ toast(file.name+' is over 5MB','error'); pending--; return; }
     var r=new FileReader();
-    r.onload=function(){ var _doc={name:file.name, kind:(file.type.indexOf('pdf')>=0?'pdf':'image'), url:r.result, expiry:'', added:LS_TODAY.toISOString().slice(0,10)}; ST_CROP.compliance.docs[id].push(_doc); _cropUploadAttachment(_doc, id, file.type); pending--; if(pending<=0){ dataChanged('crop'); if(typeof renderNotifications==='function') renderNotifications(); cropRenderComplianceModal(); } };
-    r.onerror=function(){ pending--; };
+    r.onload=function(){ var _doc={name:file.name, kind:(file.type.indexOf('pdf')>=0?'pdf':'image'), url:r.result, expiry:'', added:LS_TODAY.toISOString().slice(0,10)}; ST_CROP.compliance.docs[id].push(_doc); _ups.push(_cropUploadAttachment(_doc, id, file.type)); pending--; if(pending<=0){ if(typeof renderNotifications==='function') renderNotifications(); cropRenderComplianceModal(); Promise.all(_ups).then(function(){ dataChanged('crop'); }); } };
+    r.onerror=function(){ pending--; if(pending<=0){ cropRenderComplianceModal(); Promise.all(_ups).then(function(){ dataChanged('crop'); }); } };
     r.readAsDataURL(file);
   });
 }
