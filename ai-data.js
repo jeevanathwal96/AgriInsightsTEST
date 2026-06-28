@@ -750,6 +750,7 @@
 
   var _cropSnap=null;
   var _cropCfgSnap=null;
+  var _cropCfgGate=Promise.resolve();   // serializes saveConfig so concurrent/rapid calls never overlap (delete-all+insert would otherwise race into duplicate rows)
   const crop = {
     async saveAll(stc){
       if(!stc) return;
@@ -767,11 +768,13 @@
     async saveConfig(stc){
       if(!stc) return;
       const fid=farm.active(); if(!fid) return;
+      // serialize: wait for any in-flight saveConfig, so the delete-all/insert writes below never overlap and race into duplicate rows
+      var _prev=_cropCfgGate, _rel; _cropCfgGate=new Promise(function(r){ _rel=r; });
+      try{ await _prev; }catch(e){}
+      try {
       const c=stc.compliance||{};
       const snap=JSON.stringify({s:stc.season,c:c});
-      if(snap===_cropCfgSnap) return;
-      _cropCfgSnap=snap;   // claim synchronously: a concurrent saveConfig with the same data (dataChanged calls it, then renderCrop calls it again) now skips, so the delete-all/insert writes below can't race into duplicate rows
-      try {
+      if(snap===_cropCfgSnap) return true;
       // season on the farm row
       { const e=(await client().from('farms').update({ crop_season:stc.season||null }).eq('id',fid)).error; if(e) throw e; }
       // settings: single row per farm
@@ -796,8 +799,9 @@
       { const e=(await client().from('crop_compliance_readings').delete().eq('farm_id',fid)).error; if(e) throw e; }
       var rdRows=[]; (c.waterReadings||[]).forEach(function(rd,i){ rdRows.push({farm_id:fid,area_key:'water',reading_date:rd.date||null,m3:(rd.m3!=null?Number(rd.m3):null),sort_idx:i}); });
       if(rdRows.length){ const e=(await client().from('crop_compliance_readings').insert(rdRows)).error; if(e) throw e; }
+      _cropCfgSnap=snap;
       return true;
-      } catch(e){ _cropCfgSnap=null; throw e; }   // reset on failure so a later save retries
+      } finally { _rel(); }
     }
   };
 
@@ -854,12 +858,17 @@
   };
 
   var _orSnap=null, _orCfgSnap=null;
+  var _orGate=Promise.resolve();   // serializes orchard saveAll (its delete-all+insert children would otherwise race into duplicate rows on rapid edits)
   const orchard = {
     async saveAll(stf){
       if(!stf) return;
       const fid=farm.active(); if(!fid) return;
+      // serialize: wait for any in-flight saveAll so the delete-all/insert children below never overlap
+      var _prev=_orGate, _rel; _orGate=new Promise(function(r){ _rel=r; });
+      try{ await _prev; }catch(e){}
+      try {
       const snap=JSON.stringify({b:stf.blocks,p:stf.pricing,s:stf.sprayDiary,h:stf.harvest,c:stf.comply});
-      if(snap===_orSnap) return;
+      if(snap===_orSnap) return true;
       const blocks=(stf.blocks||[]); const blockIds=blocks.map(function(b){return String(b.id);});
       if(blocks.length){ const e=(await client().from('orchard_blocks').upsert(blocks.map(function(b){return obToDb(b,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       { var bq=client().from('orchard_blocks').delete().eq('farm_id',fid); if(blockIds.length) bq=bq.not('local_id','in',_inList(blockIds)); const e=(await bq).error; if(e) throw e; }
@@ -895,6 +904,7 @@
       if(crRows.length){ const e=(await client().from('orchard_compliance_readings').insert(crRows)).error; if(e) throw e; }
       _orSnap=snap;
       return true;
+      } finally { _rel(); }
     },
     async saveConfig(stf){
       if(!stf) return;
@@ -929,20 +939,25 @@
     return { crops:cropRows.map(planCropFromDb), events:evtRows.map(planEvtFromDb) };
   };
   var _planSnap=null;
+  var _planGate=Promise.resolve();   // serializes plan saveAll (plan_crops/plan_events are delete-all+insert)
   const plan = {
     // crops + events both replace-all (small per-farm sets; sort_idx preserves order)
     async saveAll(stp){
       if(!stp) return;
       const fid=farm.active(); if(!fid) return;
+      var _prev=_planGate, _rel; _planGate=new Promise(function(r){ _rel=r; });
+      try{ await _prev; }catch(e){}
+      try {
       const crops=(stp.crops||[]), events=(stp.events||[]);
       const snap=JSON.stringify({c:crops,e:events});
-      if(snap===_planSnap) return;
+      if(snap===_planSnap) return true;
       { const e=(await client().from('plan_crops').delete().eq('farm_id',fid)).error; if(e) throw e; }
       if(crops.length){ const e=(await client().from('plan_crops').insert(crops.map(function(c,i){return planCropToDb(c,fid,i);}))).error; if(e) throw e; }
       { const e=(await client().from('plan_events').delete().eq('farm_id',fid)).error; if(e) throw e; }
       if(events.length){ const e=(await client().from('plan_events').insert(events.map(function(ev,i){return planEvtToDb(ev,fid,i);}))).error; if(e) throw e; }
       _planSnap=snap;
       return true;
+      } finally { _rel(); }
     }
   };
 
