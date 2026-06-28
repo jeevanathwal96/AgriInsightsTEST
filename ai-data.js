@@ -770,6 +770,8 @@
       const c=stc.compliance||{};
       const snap=JSON.stringify({s:stc.season,c:c});
       if(snap===_cropCfgSnap) return;
+      _cropCfgSnap=snap;   // claim synchronously: a concurrent saveConfig with the same data (dataChanged calls it, then renderCrop calls it again) now skips, so the delete-all/insert writes below can't race into duplicate rows
+      try {
       // season on the farm row
       { const e=(await client().from('farms').update({ crop_season:stc.season||null }).eq('id',fid)).error; if(e) throw e; }
       // settings: single row per farm
@@ -794,8 +796,8 @@
       { const e=(await client().from('crop_compliance_readings').delete().eq('farm_id',fid)).error; if(e) throw e; }
       var rdRows=[]; (c.waterReadings||[]).forEach(function(rd,i){ rdRows.push({farm_id:fid,area_key:'water',reading_date:rd.date||null,m3:(rd.m3!=null?Number(rd.m3):null),sort_idx:i}); });
       if(rdRows.length){ const e=(await client().from('crop_compliance_readings').insert(rdRows)).error; if(e) throw e; }
-      _cropCfgSnap=snap;
       return true;
+      } catch(e){ _cropCfgSnap=null; throw e; }   // reset on failure so a later save retries
     }
   };
 
