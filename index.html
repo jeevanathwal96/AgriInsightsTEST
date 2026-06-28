@@ -3146,6 +3146,16 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
             <option value="7">July</option>
           </select>
         </div>
+        <div class="ob-field">
+          <label class="ob-label">Business type (for tax)</label>
+          <select id="ob-entity" class="ob-select">
+            <option value="sole" selected>Sole proprietor (taxed in your own name)</option>
+            <option value="company">Company / (Pty) Ltd</option>
+            <option value="sbc">Small Business Corporation (SARS-approved)</option>
+            <option value="trust">Trust</option>
+          </select>
+          <div style="font-size:11px;color:#6B7280;line-height:1.45;margin-top:6px">Sets how we estimate your provisional tax. Not sure? Leave as Sole proprietor — change it anytime in Settings.</div>
+        </div>
 
         <div class="ob-actions">
           <button class="ob-btn-pri" onclick="obNext()">Next ⟶</button>
@@ -25058,6 +25068,7 @@ var OB_STRINGS = {
     haLbl:'Farm size', haPh:'hectares',
     provLbl:'Province', provPh:'Select your province',
     fyLbl:'Financial year start',
+    entityLbl:'Business type (for tax)',
     toastFresh:'Your farm is set up — add your first transaction with the + button.',
     toastDemo:'Explore the demo farm below.',
     langBtn:'Continue in English ⟶',
@@ -25112,6 +25123,7 @@ var OB_STRINGS = {
     haLbl:'Plaasgrootte', haPh:'hektaar',
     provLbl:'Provinsie', provPh:'Kies jou provinsie',
     fyLbl:'Begin van finansiele jaar',
+    entityLbl:'Besigheidstipe (vir belasting)',
     toastFresh:'Jou plaas is opgestel — voeg jou eerste transaksie by met die + knoppie.',
     toastDemo:'Verken die demofarm hieronder.',
     langBtn:'Gaan voort in Afrikaans \u27b6',
@@ -25181,7 +25193,7 @@ setQ('#ob-step-1 .ob-h1', s.step1h);
   setQ('#ob-step-1 .ob-btn-sec', s.backBtn);
 
   var lbls = document.querySelectorAll('#ob-step-1 .ob-label');
-  var lblTexts = [s.farmLbl, s.ownerLbl, s.haLbl, s.provLbl, s.fyLbl];
+  var lblTexts = [s.farmLbl, s.ownerLbl, s.haLbl, s.provLbl, s.fyLbl, s.entityLbl];
   for (var j=0; j<lbls.length && j<lblTexts.length; j++) {
     if (lbls[j] && lbls[j].childNodes[0]) lbls[j].childNodes[0].nodeValue = lblTexts[j];
   }
@@ -25371,10 +25383,12 @@ function obFinish() {
   var ha       = parseFloat($('ob-ha') && $('ob-ha').value) || 0;
   var province = ($('ob-province') && $('ob-province').value) || '';
   var fy       = parseInt($('ob-fystart') && $('ob-fystart').value) || 3;
+  var entity   = ($('ob-entity') && $('ob-entity').value) || 'sole';
 
 ST.farmName      = farmName;
   ST.ownerName     = owner;
   ST.fyStartMonth  = fy;
+  ST.entityType    = entity;
   if (ha) ST.farmHa = ha;
   if (province) ST.province = province;
   // Per-enterprise gating — the source of truth (from the Step 3 archetype / Mixed picks)
