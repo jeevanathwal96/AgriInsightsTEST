@@ -974,7 +974,7 @@
     amt:(w.amt!=null&&w.amt!=='')?Number(w.amt):null,
     hours_week:(w.hoursWeek!=null&&w.hoursWeek!=='')?parseInt(w.hoursWeek,10):null,
     hours_day:(w.hoursDay!=null&&w.hoursDay!=='')?parseInt(w.hoursDay,10):null,
-    uif:(w.uif!=null)?!!w.uif:null, uif_no:w.uifNo||null, uif_exempt:!!w.uifExempt,
+    uif:(w.uif!=null)?!!w.uif:null, uif_no:w.uifNo||null, uif_exempt:!!w.uifExempt, works_sundays:!!w.worksSundays,
     contract_status:w.contract||null, activity:w.activity||null,
     leave_annual:(w.leave&&w.leave.annual!=null)?Number(w.leave.annual):null,
     leave_sick:(w.leave&&w.leave.sick!=null)?Number(w.leave.sick):null,
@@ -994,7 +994,7 @@
     start:r.start_date||'', onFarm:!!r.on_farm, idNo:r.id_no||'', basis:r.basis||'month',
     amt:Number(r.amt)||0, hoursWeek:(r.hours_week!=null)?Number(r.hours_week):45,
     hoursDay:(r.hours_day!=null)?Number(r.hours_day):8, uif:(r.uif!=null)?!!r.uif:true,
-    uifNo:r.uif_no||'', uifExempt:!!r.uif_exempt, contract:r.contract_status||'missing', activity:r.activity||'' };
+    uifNo:r.uif_no||'', uifExempt:!!r.uif_exempt, worksSundays:!!r.works_sundays, contract:r.contract_status||'missing', activity:r.activity||'' };
     if(r.leave_annual!=null||r.leave_sick!=null||r.leave_family!=null){ w.leave={annual:Number(r.leave_annual)||0,sick:Number(r.leave_sick)||0,family:(r.leave_family!=null)?Number(r.leave_family):3}; }
     if(r.housing_deduction!=null) w.housing={deduction:Number(r.housing_deduction)};
     if(r.adv_owing!=null||r.adv_per_pay!=null||r.adv_reason||r.adv_consent!=null){ w.adv={owing:Number(r.adv_owing)||0,perPay:Number(r.adv_per_pay)||0,reason:r.adv_reason||'',consent:!!r.adv_consent}; } else { w.adv=null; }

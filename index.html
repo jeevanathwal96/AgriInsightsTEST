@@ -28,7 +28,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=9"></script>
+<script src="ai-data.js?v=10"></script>
 <script src="ai-auth.js?v=9"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -12544,7 +12544,8 @@ function wkPayRows(){
     var base=w.amt||0;
     var bonus=Math.round((bonusMap[w.id]||0)*100)/100;
     var ex=extraMap[w.id]||{}; var hourly=wkHourly(w);
-    var premium=Math.round(((ex.sun||0)*hourly*1.5 + (ex.ph||0)*hourly*2)*100)/100;
+    var sunMult=(w.worksSundays)?STATUTORY.sundayMult.value:STATUTORY.sundayMultDefault.value;  // BCEA s16: 2x unless they ordinarily work Sundays
+    var premium=Math.round(((ex.sun||0)*hourly*sunMult + (ex.ph||0)*hourly*STATUTORY.holidayMult.value)*100)/100;
     var gross=base+bonus+premium;
     var uif=wkUIF(gross);
     var advRepay=(w.adv&&w.adv.owing>0)?Math.min(w.adv.perPay||0, w.adv.owing):0;
@@ -12552,6 +12553,7 @@ function wkPayRows(){
     return { w:w, base:base, bonus:bonus, premium:premium, sun:(ex.sun||0), ph:(ex.ph||0), gross:gross, uif:uif, advRepay:advRepay, savings:savings, net:gross-uif-advRepay-savings, ok:hourly>=rate-0.005 };
   });
 }
+function wkSetWorksSun(wid, on){ var w=(typeof wkFind==='function')?wkFind(wid):null; if(!w) return; w.worksSundays=!!on; if(typeof saveState==='function') saveState(); if(typeof wkSync==='function') wkSync(); if(typeof toast==='function') toast(on?'Marked as usually works Sundays \u2014 Sunday hours load at 1.5\u00d7.':'Sunday hours load at 2\u00d7 (the usual case).','info'); }
 function wkSetExtra(wid, field, val){
   var label=wkMonthLabel(); var v=Math.max(0, parseFloat(val)||0);
   if(field==='bonus'){ ST_WORK.bonus=ST_WORK.bonus||{}; ST_WORK.bonus[label]=ST_WORK.bonus[label]||{}; ST_WORK.bonus[label][wid]=v; }
@@ -12589,9 +12591,10 @@ function renderWkPayroll(){ wkSync();
     return '<div class="wk-wrow" style="flex-wrap:wrap"><div class="nm" style="min-width:64px">'+nm+'</div><div style="display:flex;gap:9px;align-items:center;margin-left:auto;flex-wrap:wrap">'
       +'<span style="font-size:9px;color:var(--t4);font-weight:800">BONUS R <input type="number" value="'+(b||'')+'" placeholder="0" onchange="wkSetExtra(\''+w.id+'\',\'bonus\',this.value)" style="'+_ein+'"></span>'
       +'<span style="font-size:9px;color:var(--t4);font-weight:800">SUN hrs <input type="number" value="'+(ex.sun||'')+'" placeholder="0" onchange="wkSetExtra(\''+w.id+'\',\'sun\',this.value)" style="'+_ein+'"></span>'
+      +'<label style="font-size:8.5px;color:var(--t4);font-weight:800;display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="Tick only if this worker normally works Sundays \u2014 then Sunday hours load at 1.5\u00d7. If not (the usual case for farm workers), the law requires 2\u00d7."><input type="checkbox" '+(w.worksSundays?'checked':'')+' onchange="wkSetWorksSun(\''+w.id+'\',this.checked)" style="margin:0;cursor:pointer"> usual Sun?</label>'
       +'<span style="font-size:9px;color:var(--t4);font-weight:800">PH hrs <input type="number" value="'+(ex.ph||'')+'" placeholder="0" onchange="wkSetExtra(\''+w.id+'\',\'ph\',this.value)" style="'+_ein+'"></span>'
       +'</div></div>'; }).join('');
-  var _extrasCard=rows.length?('<div class="wk-card" id="wk-extras-card" style="margin-top:0"><div onclick="wkToggleExtras()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:800">Bonuses &amp; Sunday / holiday pay</div><div style="font-size:10.5px;color:var(--t3)">13th cheque, Sunday at 1.5\u00d7, public holiday at 2\u00d7</div></div><span style="color:var(--t4);font-size:18px">'+(_exOpen?'\u2212':'+')+'</span></div>'+(_exOpen?('<div style="margin-top:10px">'+_exRows+'<div style="font-size:9.5px;color:var(--t4);margin-top:8px;line-height:1.5">Added to this month\u2019s pay and shown on the payslip. Rates follow BCEA \u2014 a bonus is taxable, so set PAYE in the payroll report if needed.</div></div>'):'')+'</div>'):'';
+  var _extrasCard=rows.length?('<div class="wk-card" id="wk-extras-card" style="margin-top:0"><div onclick="wkToggleExtras()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:800">Bonuses &amp; Sunday / holiday pay</div><div style="font-size:10.5px;color:var(--t3)">13th cheque \u00b7 Sunday at 2\u00d7 (1.5\u00d7 if they usually work Sundays) \u00b7 public holiday at 2\u00d7</div></div><span style="color:var(--t4);font-size:18px">'+(_exOpen?'\u2212':'+')+'</span></div>'+(_exOpen?('<div style="margin-top:10px">'+_exRows+'<div style="font-size:9.5px;color:var(--t4);margin-top:8px;line-height:1.5">Added to this month\u2019s pay and shown on the payslip. Rates follow BCEA \u2014 a bonus is taxable, so set PAYE in the payroll report if needed.</div></div>'):'')+'</div>'):'';
   box.innerHTML =
     '<div class="wk-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><p class="wk-ct" style="margin:0">Pay run \u2014 '+wkE(label)+'</p><span style="font-size:11px;font-weight:800;color:var(--gm);background:var(--gp);border-radius:20px;padding:3px 10px">Monthly</span></div>'
     + '<p class="wk-cw">Your permanent workers, this month\u2019s pay filled in. Change a number if it\u2019s different \u2014 we sort UIF, any advance or savings, and check nobody\u2019s under the minimum. Tap a worker for their payslip.</p>'
@@ -14183,6 +14186,10 @@ var STATUTORY = {
   uifCeiling:   { value: 17712, effectiveFrom:'2021-06-01', asOf:'2026-06', source:'UIC Act monthly remuneration ceiling; unchanged 2026' },
   uifRate:      { value: 0.01,  effectiveFrom:'',           asOf:'2026-06', source:'UIC Act \u2014 1% employee + 1% employer' },
   sdlRate:      { value: 0.01,  effectiveFrom:'',           asOf:'2026-06', source:'SDL Act \u2014 1% of payroll (employer)' },
+  overtimeMult: { value: 1.5,   effectiveFrom:'', asOf:'2026-07', source:'BCEA s10 \u2014 weekday overtime at 1.5x ordinary wage (not auto-applied in pay run \u2014 see pack)' },
+  sundayMult:   { value: 1.5,   effectiveFrom:'', asOf:'2026-07', source:'BCEA s16 \u2014 1.5x if the worker ORDINARILY works Sundays; 2x if not (see payroll review pack)' },
+  sundayMultDefault: { value: 2, effectiveFrom:'', asOf:'2026-07', source:'BCEA s16 \u2014 2x for a worker who does NOT ordinarily work Sundays (per-worker default)' },
+  holidayMult:  { value: 2,     effectiveFrom:'', asOf:'2026-07', source:'BCEA s18 \u2014 public-holiday work at 2x (or ordinary day + hours worked, whichever is greater)' },
   taxThreshold: { value: 99000, effectiveFrom:'2026-03-01', asOf:'2026-06', source:'SARS Budget 2026 under-65 threshold (was R95,750)', note:'Advisory PAYE flag only \u2014 not used in any tax calculation' },
   // --- Income-tax tables (2026/27 year of assessment, 1 Mar 2026 - 28 Feb 2027). Source: SARS
   // Budget 2026 FAQ (Budget Speech 25 Feb 2026). Used by the provisional-tax ESTIMATE only
@@ -14223,8 +14230,6 @@ var STATUTORY = {
     sdlThreshold:   { value: 500000, source:'SDL registration threshold (annual payroll); inline in wkSdlApplies + 2 UI sites' },
     uifExemptHours: { value: 24,     source:'UIF exempt under 24 h/month; inline in wkSeasUif' },
     housingCapPct:  { value: 0.10,   source:'Max 10% accommodation deduction; inline' },
-    sundayMult:     { value: 1.5,    source:'BCEA s16 Sunday premium' },
-    holidayMult:    { value: 2,      source:'BCEA s18 public-holiday premium' },
     leaveAnnual:    { value: 21,     source:'BCEA s20 annual leave (consecutive days)' },
     leaveSick:      { value: 30,     source:'BCEA s22 sick leave (per 36-month cycle)' },
     leaveFamily:    { value: 3,      source:'BCEA s27 family responsibility leave' }
@@ -26382,7 +26387,7 @@ var PAGE_TOURS = {
       text:'This month’s pay is filled in for you. UIF, any advance or savings, and a minimum-wage check are all worked out — tap a worker for their payslip. “Add to my farm costs” posts it to Labour & Wages, and you can undo a run if you mis-tap.',
       tip:'It posts from one place, so your costs, cashflow and profit stay in step — no double entry. Advances you pay out show in Money Flow.', pos:'smart' },
     { target:'wk-extras-card', tab:'pr', title:'Bonuses & Sunday / holiday pay', icon:'🎁',
-      text:'Add a 13th cheque or bonus, or log Sunday and public-holiday hours — the loading (1.5× and 2×) is worked out, folded into that month’s pay, and shown on the payslip.', pos:'smart' },
+      text:'Add a 13th cheque or bonus, or log Sunday and public-holiday hours — the loading is worked out, folded into that month’s pay, and shown on the payslip.', pos:'smart' },
     { target:'wk-report-entry', tab:'pr', title:'Payroll report for SARS', icon:'📄',
       text:'A clean summary or full detail for your accountant and SARS — UIF, PAYE and a year-end pack — all built from the pay you’ve run.', pos:'smart' },
     { target:'wkp-cp', tab:'cp', title:'On the right side of the law', icon:'✅',
