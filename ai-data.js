@@ -711,7 +711,7 @@
 
   load.crops = async function(farmId){
     farmId = farmId || farm.active();
-    const [ld,ev,ip,cfg,cs,ca,cl,cd,cr] = await Promise.all([
+    const [ld,ev,ip,cfg,cs,ca,cl,cd,cr,cp] = await Promise.all([
       client().from('crop_lands').select('*').eq('farm_id',farmId).order('created_at'),
       client().from('crop_events').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
       client().from('crop_inputs').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
@@ -720,11 +720,12 @@
       client().from('crop_compliance_areas').select('*').eq('farm_id',farmId),
       client().from('crop_compliance_logs').select('*').eq('farm_id',farmId).order('sort_idx'),
       client().from('crop_compliance_docs').select('*').eq('farm_id',farmId).order('sort_idx'),
-      client().from('crop_compliance_readings').select('*').eq('farm_id',farmId).order('sort_idx')
+      client().from('crop_compliance_readings').select('*').eq('farm_id',farmId).order('sort_idx'),
+      client().from('crop_compliance_log_photos').select('*').eq('farm_id',farmId).order('sort_idx')
     ]);
     for(const r of [ld,ev,ip]) if(r.error) throw r.error;
-    for(const r of [cs,ca,cl,cd,cr]) if(r&&r.error) throw r.error;
-    // compliance: reconstruct the farm-level record from its 5 tables. Authoritative
+    for(const r of [cs,ca,cl,cd,cr,cp]) if(r&&r.error) throw r.error;
+    // compliance: reconstruct the farm-level record from its tables. Authoritative
     // only when the farm has saved before (settings row / any area rows); else null so
     // ai-auth keeps the app's default structure (tracked/cadence keys the UI needs).
     var settingsRow=(cs&&cs.data&&cs.data[0])||null;
@@ -736,7 +737,9 @@
       var tracked={}, cadence={};
       areaRows.forEach(function(r){ tracked[r.area_key]=(r.tracked!==false); if(r.cadence_months!=null) cadence[r.area_key]=Number(r.cadence_months); });
       var logs={}; (cl.data||[]).forEach(function(r){ (logs[r.area_key]=logs[r.area_key]||[]).push({date:r.log_date||'',what:r.what||'',note:r.note||'',photos:[]}); });
-      var docs={}; (cd.data||[]).forEach(function(r){ (docs[r.area_key]=docs[r.area_key]||[]).push({name:r.name||'',kind:r.kind||'',expiry:r.expiry||'',added:r.added||'',url:''}); });
+      // attach log photos to their log by (area_key, log_idx)
+      (cp&&cp.data||[]).forEach(function(r){ var arr=logs[r.area_key]; if(arr && arr[r.log_idx]){ arr[r.log_idx].photos.push({name:r.name||'',kind:r.kind||'',url:r.url||''}); } });
+      var docs={}; (cd.data||[]).forEach(function(r){ (docs[r.area_key]=docs[r.area_key]||[]).push({name:r.name||'',kind:r.kind||'',expiry:r.expiry||'',added:r.added||'',url:r.url||''}); });
       var waterReadings=(cr.data||[]).map(function(r){ return {date:r.reading_date||'',m3:(r.m3!=null?Number(r.m3):0)}; });
       compliance={ settings:ccSettFromDb(settingsRow), tracked:tracked, cadence:cadence, logs:logs, docs:docs, waterReadings:waterReadings };
     }
@@ -781,8 +784,12 @@
       if(logRows.length){ const e=(await client().from('crop_compliance_logs').insert(logRows)).error; if(e) throw e; }
       // docs: replace-all (per area) — metadata only; file blobs deferred to Storage
       { const e=(await client().from('crop_compliance_docs').delete().eq('farm_id',fid)).error; if(e) throw e; }
-      var docRows=[]; var D=c.docs||{}; Object.keys(D).forEach(function(area){ (D[area]||[]).forEach(function(d,i){ docRows.push({farm_id:fid,area_key:area,name:d.name||null,kind:d.kind||null,expiry:d.expiry||null,added:d.added||null,sort_idx:i}); }); });
+      var docRows=[]; var D=c.docs||{}; Object.keys(D).forEach(function(area){ (D[area]||[]).forEach(function(d,i){ docRows.push({farm_id:fid,area_key:area,name:d.name||null,kind:d.kind||null,expiry:d.expiry||null,added:d.added||null,url:d.url||null,sort_idx:i}); }); });
       if(docRows.length){ const e=(await client().from('crop_compliance_docs').insert(docRows)).error; if(e) throw e; }
+      // log photos: replace-all, one row per photo, keyed to its log by (area_key, log_idx)
+      { const e=(await client().from('crop_compliance_log_photos').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      var photoRows=[]; Object.keys(L).forEach(function(area){ (L[area]||[]).forEach(function(g,li){ (g.photos||[]).forEach(function(p,pi){ photoRows.push({farm_id:fid,area_key:area,log_idx:li,name:p.name||null,kind:p.kind||null,url:p.url||null,sort_idx:pi}); }); }); });
+      if(photoRows.length){ const e=(await client().from('crop_compliance_log_photos').insert(photoRows)).error; if(e) throw e; }
       // water meter readings: replace-all
       { const e=(await client().from('crop_compliance_readings').delete().eq('farm_id',fid)).error; if(e) throw e; }
       var rdRows=[]; (c.waterReadings||[]).forEach(function(rd,i){ rdRows.push({farm_id:fid,area_key:'water',reading_date:rd.date||null,m3:(rd.m3!=null?Number(rd.m3):null),sort_idx:i}); });
@@ -1141,6 +1148,12 @@
     for (var i = 0; i < len; i++) arr[i] = bin.charCodeAt(i);
     return new Blob([arr], { type: mime });
   }
+  function _blobToDataUrl(blob){
+    return new Promise(function (resolve, reject) {
+      try { var fr = new FileReader(); fr.onload = function () { resolve(fr.result); }; fr.onerror = function () { reject(fr.error || new Error('read failed')); }; fr.readAsDataURL(blob); }
+      catch (e) { reject(e); }
+    });
+  }
   const storage = {
     bucket: STORAGE_BUCKET,
     path: function (farmId, module, sub, filename) {
@@ -1169,6 +1182,13 @@
       const { data, error } = await client().storage.from(STORAGE_BUCKET).createSignedUrl(path, expiresIn || 3600);
       if (error) throw error;
       return data.signedUrl;
+    },
+    async download(path) {
+      // Fetch a stored file as a base64 data URL, for embedding into self-contained
+      // exports (compliance packs) that must work offline / when printed.
+      const { data, error } = await client().storage.from(STORAGE_BUCKET).download(path);
+      if (error) throw error;
+      return await _blobToDataUrl(data);
     },
     async remove(paths) {
       var list = Array.isArray(paths) ? paths : [paths];

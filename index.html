@@ -28,7 +28,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=5"></script>
+<script src="ai-data.js?v=6"></script>
 <script src="ai-auth.js?v=6"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -6889,6 +6889,10 @@ function cropAuditFiltered(){
 // ---- Full-size photo viewer (lightbox) ----
 var CROP_LIGHT=null;
 function cropPhotoView(url, kind, caption){
+  if(url && !/^(data:|https?:|blob:)/.test(url) && window.AI && AI.storage && AI.storage.signedUrl){
+    AI.storage.signedUrl(url, 600).then(function(u){ cropPhotoView(u||url, kind, caption); }).catch(function(){ if(typeof toast==='function') toast('Could not open the photo','error'); });
+    return;
+  }
   CROP_LIGHT={url:url, kind:kind, caption:caption||''};
   var ov=$('crop-light-overlay');
   if(!ov){
@@ -6951,7 +6955,7 @@ function cropAuditListHtml(){
     var ph=(e.photos||[]);
     var thumb;
     if(ph.length && ph[0].kind==='image'){
-      thumb='<div onclick="cropPhotoFromAudit(\''+e.areaId+'\',\''+encodeURIComponent(e.date)+'\',0)" style="width:50px;height:50px;border-radius:8px;flex:none;border:1px solid var(--br);overflow:hidden;cursor:pointer;position:relative"><img src="'+ph[0].url+'" style="width:100%;height:100%;object-fit:cover">'+(ph.length>1?'<span style="position:absolute;bottom:-2px;right:-2px;background:var(--gd);color:#fff;font-size:9px;font-weight:800;border-radius:99px;padding:1px 5px">'+ph.length+'</span>':'')+'</div>';
+      thumb='<div onclick="cropPhotoFromAudit(\''+e.areaId+'\',\''+encodeURIComponent(e.date)+'\',0)" style="width:50px;height:50px;border-radius:8px;flex:none;border:1px solid var(--br);overflow:hidden;cursor:pointer;position:relative"><img src="'+ph[0].url+'" data-spath="'+escTxHtml(ph[0].url)+'" onerror="cropFixThumb(this)" style="width:100%;height:100%;object-fit:cover">'+(ph.length>1?'<span style="position:absolute;bottom:-2px;right:-2px;background:var(--gd);color:#fff;font-size:9px;font-weight:800;border-radius:99px;padding:1px 5px">'+ph.length+'</span>':'')+'</div>';
     } else {
       thumb='<div style="width:50px;height:50px;border-radius:8px;flex:none;background:#eef0f2;border:1px solid var(--br);display:flex;align-items:center;justify-content:center;font-size:18px">'+(ph.length?'\uD83D\uDCC4':(e.src==='spray'?'\uD83E\uDDEA':(e.src==='doc'?'\uD83D\uDCCE':'\uD83D\uDDD3\uFE0F')))+'</div>';
     }
@@ -6973,13 +6977,52 @@ function cropPhotoFromAudit(areaId, dateEnc, idx){
   var p=match.photos[idx]||match.photos[0];
   cropPhotoView(p.url, p.kind, p.name+' \u00b7 '+match.area+' \u00b7 '+cropDispDate(match.date));
 }
-function cropExportAudit(){
+// ---- Crop-compliance attachments: Storage upload + export embedding ----
+// Upload a compliance attachment (document or log photo) to Storage, then swap
+// its in-memory base64 for the returned Storage path and persist. Demo/offline
+// (no backend): leaves the base64 in place so it still works locally.
+// Self-contained thumbnail repair: a Storage-path <img> fails to load, then this
+// onerror handler swaps in a short-lived signed URL. No-op for base64 thumbnails.
+function cropFixThumb(img){
+  try{ var p=img.getAttribute('data-spath'); if(!p || /^(data:|https?:|blob:)/.test(p)) return; img.onerror=null;
+    if(window.AI && AI.storage && AI.storage.signedUrl){ AI.storage.signedUrl(p,600).then(function(u){ img.src=u; }).catch(function(){}); }
+  }catch(e){}
+}
+function _cropUploadAttachment(obj, sub, mime){
+  try{
+    if(!obj || !/^data:/.test(obj.url||'')) return;                       // nothing to upload / already a path
+    if(!(window.AI && AI.farm && AI.farm.active() && AI.storage)) return; // demo: keep base64
+    var farmId=AI.farm.active();
+    var path=AI.storage.path(farmId, 'crop-compliance', sub, obj.name||'file');
+    var b64=obj.url;
+    var doUp=function(data){
+      AI.storage.upload(path, data, mime).then(function(stored){ obj.url=stored; try{ if(typeof dataChanged==='function') dataChanged('crop'); }catch(e){} })
+        .catch(function(e){ console.error('Crop attachment upload failed:', e); });
+    };
+    if(obj.kind==='image' && typeof wkDownscaleImage==='function'){ wkDownscaleImage(b64, function(s){ doUp(s||b64); }); }
+    else doUp(b64);
+  }catch(e){ console.error('crop attachment upload', e); }
+}
+// Resolve an array of attachment objects to embeddable base64 (mutates ._embed),
+// downloading Storage-backed files so a compliance export is self-contained.
+async function cropEmbedUrls(items){
+  for(var i=0;i<items.length;i++){
+    var p=items[i]; if(!p || !p.url){ continue; }
+    if(/^data:/.test(p.url)){ p._embed=p.url; continue; }   // already base64
+    if(p.kind && p.kind!=='image'){ continue; }             // non-images listed by name, not embedded
+    try{ if(window.AI && AI.storage && AI.storage.download){ p._embed=await AI.storage.download(p.url); } }
+    catch(e){ console.error('embed download failed', e); }
+  }
+}
+async function cropExportAudit(){
   var rows=cropAuditFiltered();
+  var _all=[]; rows.forEach(function(e){ (e.photos||[]).forEach(function(p){ _all.push(p); }); });
+  if(_all.length){ try{ toast('Preparing export\u2026','info'); }catch(e){} await cropEmbedUrls(_all); }
   var csv=lsCsvRow(['Audit log',FARM.name||'Farm','Range',(CROP_AUDIT.from||'start')+' to '+(CROP_AUDIT.to||'now'),'Area',CROP_AUDIT.area,'Search',CROP_AUDIT.q||''])+lsCsvRow([])+lsCsvRow(['Date','Area','Legislation','Record','Note','Files']);
   rows.forEach(function(e){ csv+=lsCsvRow([e.date,e.area,e.law,e.what,e.note,(e.photos||[]).map(function(p){return p.name;}).join('; ')]); });
   var htmlRows=rows.map(function(e){
     var ph=(e.photos||[]);
-    var thumbs=ph.map(function(p){ return p.kind==='image' ? '<img src="'+p.url+'" style="width:46px;height:46px;object-fit:cover;border-radius:5px;margin:1px">' : '\uD83D\uDCC4 '+escTxHtml(p.name); }).join(' ');
+    var thumbs=ph.map(function(p){ return (p.kind==='image' && (p._embed||/^data:/.test(p.url||''))) ? '<img src="'+(p._embed||p.url)+'" style="width:46px;height:46px;object-fit:cover;border-radius:5px;margin:1px">' : '\uD83D\uDCC4 '+escTxHtml(p.name); }).join(' ');
     return '<tr><td>'+cropDispDate(e.date)+'</td><td>'+escTxHtml(e.area)+'</td><td>'+escTxHtml(e.what)+'</td><td>'+escTxHtml(e.note)+'</td><td>'+(thumbs||'\u2014')+'</td></tr>';
   }).join('');
   var html='<h1>Compliance Audit Log</h1>'+
@@ -6990,8 +7033,11 @@ function cropExportAudit(){
 }
 
 // Export a single area's full history (records + documents + logs with photos)
-function cropExportArea(id){
+async function cropExportArea(id){
   var it=cropComplianceDefById(id); if(!it) return;
+  var log=cropComplianceLog(id);
+  var _all=[]; log.forEach(function(e){ (e.photos||[]).forEach(function(x){ _all.push(x); }); });
+  if(_all.length){ try{ toast('Preparing export\u2026','info'); }catch(e){} await cropEmbedUrls(_all); }
   var kv=it.kv.map(function(p){return '<tr><td>'+escTxHtml(p[0])+'</td><td class="amt">'+escTxHtml(p[1])+'</td></tr>';}).join('');
   var html='<h1>'+escTxHtml(it.t)+'</h1>'+
     '<div class="lsr-meta">'+escTxHtml(FARM.name||'Farm')+' \u00b7 '+escTxHtml(it.law)+' \u00b7 compiled '+lsFmtDate(LS_TODAY)+'</div>'+
@@ -7001,9 +7047,8 @@ function cropExportArea(id){
   if(docs.length){
     html+='<div class="lsr-sub">Documents on file</div><table><thead><tr><th>Document</th><th>Type</th><th>Expiry</th></tr></thead><tbody>'+docs.map(function(d){var ex=cropDocExpiry(d.expiry);return '<tr><td>'+escTxHtml(d.name)+'</td><td>'+(d.kind==='pdf'?'PDF':'Image')+'</td><td>'+(d.expiry?escTxHtml(ex.label):'\u2014')+'</td></tr>';}).join('')+'</tbody></table>';
   }
-  var log=cropComplianceLog(id);
   if(log.length){
-    html+='<div class="lsr-sub">Check &amp; test log</div><table><thead><tr><th>Date</th><th>Check</th><th>Note / result</th><th>Photos</th></tr></thead><tbody>'+log.map(function(e){var ph=(e.photos||[]);var th=ph.map(function(x){return x.kind==='image'?'<img src="'+x.url+'" style="width:42px;height:42px;object-fit:cover;border-radius:5px;margin:1px;border:1px solid #eee">':'\uD83D\uDCC4 '+escTxHtml(x.name);}).join(' ');return '<tr><td>'+cropDispDate(e.date)+'</td><td>'+escTxHtml(e.what||'')+'</td><td>'+escTxHtml(e.note||'')+'</td><td>'+(th||'\u2014')+'</td></tr>';}).join('')+'</tbody></table>';
+    html+='<div class="lsr-sub">Check &amp; test log</div><table><thead><tr><th>Date</th><th>Check</th><th>Note / result</th><th>Photos</th></tr></thead><tbody>'+log.map(function(e){var ph=(e.photos||[]);var th=ph.map(function(x){return (x.kind==='image'&&(x._embed||/^data:/.test(x.url||'')))?'<img src="'+(x._embed||x.url)+'" style="width:42px;height:42px;object-fit:cover;border-radius:5px;margin:1px;border:1px solid #eee">':'\uD83D\uDCC4 '+escTxHtml(x.name);}).join(' ');return '<tr><td>'+cropDispDate(e.date)+'</td><td>'+escTxHtml(e.what||'')+'</td><td>'+escTxHtml(e.note||'')+'</td><td>'+(th||'\u2014')+'</td></tr>';}).join('')+'</tbody></table>';
   }
   if(it.keep&&it.keep.length) html+='<div class="lsr-note"><b>Records to keep:</b> '+it.keep.map(function(k){return escTxHtml(k);}).join(' \u00b7 ')+'</div>';
   html+='<div class="lsr-disc"><b>Not legal advice.</b> A focused record for this area, compiled from your logs.</div>';
@@ -7043,7 +7088,9 @@ function cropSaveLogEntry(){
   if(!date){ toast('Pick a date','error'); return; }
   if(!ST_CROP.compliance.logs) ST_CROP.compliance.logs={};
   if(!ST_CROP.compliance.logs[it.id]) ST_CROP.compliance.logs[it.id]=[];
-  ST_CROP.compliance.logs[it.id].push({date:date, what:what||it.t, note:note, photos:CROP_LOG_PHOTOS.slice()});
+  var _logEntry={date:date, what:what||it.t, note:note, photos:CROP_LOG_PHOTOS.slice()};
+  ST_CROP.compliance.logs[it.id].push(_logEntry);
+  _logEntry.photos.forEach(function(p){ _cropUploadAttachment(p, it.id, (p.kind==='pdf'?'application/pdf':'image/jpeg')); });
   CROP_LOG_PHOTOS=[];
   dataChanged('crop');
   if(typeof renderNotifications==='function') renderNotifications();
@@ -7080,7 +7127,7 @@ function cropReadDocs(input){
   Array.prototype.forEach.call(files, function(file){
     if(file.size>5*1024*1024){ toast(file.name+' is over 5MB','error'); pending--; return; }
     var r=new FileReader();
-    r.onload=function(){ ST_CROP.compliance.docs[id].push({name:file.name, kind:(file.type.indexOf('pdf')>=0?'pdf':'image'), url:r.result, expiry:'', added:LS_TODAY.toISOString().slice(0,10)}); pending--; if(pending<=0){ dataChanged('crop'); if(typeof renderNotifications==='function') renderNotifications(); cropRenderComplianceModal(); } };
+    r.onload=function(){ var _doc={name:file.name, kind:(file.type.indexOf('pdf')>=0?'pdf':'image'), url:r.result, expiry:'', added:LS_TODAY.toISOString().slice(0,10)}; ST_CROP.compliance.docs[id].push(_doc); _cropUploadAttachment(_doc, id, file.type); pending--; if(pending<=0){ dataChanged('crop'); if(typeof renderNotifications==='function') renderNotifications(); cropRenderComplianceModal(); } };
     r.onerror=function(){ pending--; };
     r.readAsDataURL(file);
   });
@@ -7103,7 +7150,10 @@ function cropRemoveDoc(idx){
 function cropViewDoc(idx){
   var id=CROP_COMPLY_ID; var D=ST_CROP.compliance.docs && ST_CROP.compliance.docs[id]; if(!D||!D[idx]) return;
   var doc=D[idx]; if(!doc.url){ toast('No file attached to this record yet','info'); return; }
-  var w=window.open(); if(w){ if(doc.kind==='image') w.document.write('<img src="'+doc.url+'" style="max-width:100%">'); else w.location=doc.url; }
+  var show=function(src){ var w=window.open(); if(w){ if(doc.kind==='image') w.document.write('<img src="'+src+'" style="max-width:100%">'); else w.location=src; } };
+  if(/^data:/.test(doc.url)){ show(doc.url); }
+  else if(window.AI && AI.storage){ AI.storage.signedUrl(doc.url, 300).then(show).catch(function(){ toast('Could not open the file','error'); }); }
+  else { show(doc.url); }
 }
 
 /* ===================================================================
@@ -7385,7 +7435,7 @@ function cropRenderComplianceModal(){
   var log=cropComplianceLog(it.id);
   var entries = log.length ? log.map(function(e){
     var ph=(e.photos||[]);
-    var thumb = ph.length && ph[0].kind==='image' ? '<div onclick="cropPhotoFromAudit(\''+it.id+'\',\''+encodeURIComponent(e.date)+'\',0)" style="width:46px;height:46px;border-radius:8px;flex:none;border:1px solid var(--br);overflow:hidden;cursor:pointer"><img src="'+ph[0].url+'" style="width:100%;height:100%;object-fit:cover"></div>' : '<div style="width:46px;height:46px;border-radius:8px;flex:none;background:#eef0f2;border:1px solid var(--br);display:flex;align-items:center;justify-content:center;font-size:18px">'+(ph.length?'\uD83D\uDCC4':'\uD83D\uDDD3\uFE0F')+'</div>';
+    var thumb = ph.length && ph[0].kind==='image' ? '<div onclick="cropPhotoFromAudit(\''+it.id+'\',\''+encodeURIComponent(e.date)+'\',0)" style="width:46px;height:46px;border-radius:8px;flex:none;border:1px solid var(--br);overflow:hidden;cursor:pointer"><img src="'+ph[0].url+'" data-spath="'+escTxHtml(ph[0].url)+'" onerror="cropFixThumb(this)" style="width:100%;height:100%;object-fit:cover"></div>' : '<div style="width:46px;height:46px;border-radius:8px;flex:none;background:#eef0f2;border:1px solid var(--br);display:flex;align-items:center;justify-content:center;font-size:18px">'+(ph.length?'\uD83D\uDCC4':'\uD83D\uDDD3\uFE0F')+'</div>';
     return '<div style="display:flex;gap:11px;padding:10px 0;border-bottom:1px solid var(--br2)">'+thumb+
       '<div style="flex:1"><div style="font-size:12.5px;font-weight:700">'+cropDispDate(e.date)+' \u00b7 '+esc(e.what||'Check')+'</div>'+
       (e.note?'<div style="font-size:11.5px;color:var(--t3);margin-top:1px;line-height:1.4">'+esc(e.note)+'</div>':'')+
@@ -7854,8 +7904,10 @@ function openCropWaterReport(){
   lsShowReport('Water use return','linear-gradient(135deg,#0891B2,#0E7490)',html,csv,'crop-water-use.csv');
 }
 
-function openCropComplianceReport(){
+async function openCropComplianceReport(){
   var sc=cropComplianceScore();
+  var _all=[]; cropComplianceItems().forEach(function(it){ cropComplianceLog(it.id).forEach(function(e){ (e.photos||[]).forEach(function(x){ _all.push(x); }); }); });
+  if(_all.length){ try{ toast('Preparing pack\u2026','info'); }catch(e){} await cropEmbedUrls(_all); }
   var secs=cropComplianceItems().map(function(it){
     var dot=it.status==='g'?'\u2705':(it.status==='a'?'\u26a0\uFE0F':'\u26d4');
     var kv=it.kv.map(function(p){return '<tr><td>'+escTxHtml(p[0])+'</td><td class="amt">'+escTxHtml(p[1])+'</td></tr>';}).join('');
@@ -7868,7 +7920,7 @@ function openCropComplianceReport(){
     // Check & test log
     var log=cropComplianceLog(it.id);
     if(log.length){
-      html+='<div class="lsr-sub">Check &amp; test log</div><table><thead><tr><th>Date</th><th>Check</th><th>Note / result</th><th>Photos</th></tr></thead><tbody>'+log.map(function(e){var ph=(e.photos||[]);var thumbs=ph.map(function(x){return x.kind==='image'?'<img src="'+x.url+'" style="width:42px;height:42px;object-fit:cover;border-radius:5px;margin:1px;border:1px solid #eee">':'\uD83D\uDCC4 '+escTxHtml(x.name);}).join(' ');return '<tr><td>'+cropDispDate(e.date)+'</td><td>'+escTxHtml(e.what||'')+'</td><td>'+escTxHtml(e.note||'')+'</td><td>'+(thumbs||'\u2014')+'</td></tr>';}).join('')+'</tbody></table>';
+      html+='<div class="lsr-sub">Check &amp; test log</div><table><thead><tr><th>Date</th><th>Check</th><th>Note / result</th><th>Photos</th></tr></thead><tbody>'+log.map(function(e){var ph=(e.photos||[]);var thumbs=ph.map(function(x){return (x.kind==='image'&&(x._embed||/^data:/.test(x.url||'')))?'<img src="'+(x._embed||x.url)+'" style="width:42px;height:42px;object-fit:cover;border-radius:5px;margin:1px;border:1px solid #eee">':'\uD83D\uDCC4 '+escTxHtml(x.name);}).join(' ');return '<tr><td>'+cropDispDate(e.date)+'</td><td>'+escTxHtml(e.what||'')+'</td><td>'+escTxHtml(e.note||'')+'</td><td>'+(thumbs||'\u2014')+'</td></tr>';}).join('')+'</tbody></table>';
     }
     return html;
   }).join('');
