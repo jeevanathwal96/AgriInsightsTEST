@@ -23489,6 +23489,35 @@ window.preservePendingTxns = function(backendTxns){
   return out;
 };
 
+// Rebuild transactions still pending in the persisted outbox back into ST.txns. The outbox is
+// written synchronously on every add (write-ahead via _saveOutbox), whereas ST.txns is only
+// persisted on a debounce / unload — so after an OFFLINE add + refresh, the row can be absent
+// from the restored ST.txns even though it is safely in the outbox (and offline boot does no
+// backend hydrate to bring it back). Dedup by cuid so a row already present — persisted locally
+// or pulled from the backend — is never duplicated. Returns the number of rows re-inserted.
+function _restorePendingTxnsFromOutbox(){
+  try{
+    if(!window.ST) return 0;
+    ST.txns = ST.txns || [];
+    if(!(typeof TXN_OUTBOX !== 'undefined' && TXN_OUTBOX.length)) return 0;
+    var have = {};
+    for(var i=0;i<ST.txns.length;i++){ var c = ST.txns[i] && ST.txns[i].cuid; if(c) have[c] = true; }
+    var added = 0;
+    for(var j=0;j<TXN_OUTBOX.length;j++){
+      var e = TXN_OUTBOX[j];
+      if((e.op||'insert') !== 'insert' || !e.cuid || have[e.cuid]) continue;
+      var p = e.payload || {};
+      var row = {};
+      for(var k in p){ if(Object.prototype.hasOwnProperty.call(p,k)) row[k] = p[k]; }
+      row.cuid = e.cuid;
+      ST.txns.unshift(row);
+      have[e.cuid] = true; added++;
+    }
+    return added;
+  }catch(e){ return 0; }
+}
+window._restorePendingTxnsFromOutbox = _restorePendingTxnsFromOutbox;
+
 // Pure DOM render of sync state — NEVER triggers a flush (so a failed flush that
 // refreshes the UI can't kick off a retry storm against a down backend).
 function _renderSyncStatus() {
@@ -24710,6 +24739,7 @@ initDashChart();
   toast('Welcome back, ' + _fn + '! \uD83D\uDC4B', 'success');
 
 _loadOutbox();
+try{ if(_restorePendingTxnsFromOutbox() && typeof dataChanged==='function'){ dataChanged('transaction'); } }catch(e){}
 updateOnlineStatus();
   window.addEventListener('online',  updateOnlineStatus);
   window.addEventListener('offline', updateOnlineStatus);
