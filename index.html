@@ -29207,13 +29207,13 @@ function pdfBankExtract(pages){
     var lines={},items=pages[pg].items,k;
     for(var n=0;n<items.length;n++){ k=Math.round(items[n].top/2)*2; (lines[k]=lines[k]||[]).push(items[n]); }
     var keys=Object.keys(lines).map(Number).sort(function(a,b){return a-b;});
-    var hk=-1,header=null;
+    var hk=null,header=null;
     for(var ki=0;ki<keys.length;ki++){
       var t=lines[keys[ki]].map(function(w){return w.str;}).join(' ');
       if((/\bdate\b/i.test(t)||/datum/i.test(t))&&/balance|saldo/i.test(t)&&/debit|credit|fee|payment|deposit|debiet|krediet/i.test(t)){
         hk=keys[ki]; header=lines[keys[ki]].slice().sort(function(a,b){return a.x0-b.x0;}); break; }
     }
-    if(hk<0) continue;
+    if(hk===null) continue;
     var outCols=[],inCols=[],balCol=null,descStart=null,descEnd=null;
     for(var h=0;h<header.length;h++){ var w=header[h],s=w.str.toLowerCase();
       if(/desc|narrat|detail|payee|memo|beskrywing/.test(s)){ descStart=w.x0; }
