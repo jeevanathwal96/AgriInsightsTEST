@@ -1992,6 +1992,19 @@ body.simple-view #nav-budgets{display:none}
 .imp-prev-tbl td.r.out{color:var(--rd)}
 .imp-prev-tbl select{width:100%;padding:4px 6px;font-size:11.5px;border:1px solid var(--br);border-radius:6px;background:#fff;font-family:inherit}
 .imp-prev-tbl tr.imp-skip td{opacity:.42;text-decoration:line-through}
+.imp-prev-tbl input.imp-edit{width:100%;border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 6px;font-family:inherit;font-size:12px;color:var(--t1);font-weight:500}
+.imp-prev-tbl input.imp-edit:hover{border-color:var(--br);background:#fff}
+.imp-prev-tbl input.imp-edit:focus{outline:none;border-color:var(--gl);background:#fff;box-shadow:0 0 0 3px rgba(64,145,108,.13)}
+.imp-prev-tbl input.imp-edit-dt{font-weight:600;color:var(--t2);font-variant-numeric:tabular-nums;width:76px}
+.imp-amt{display:flex;align-items:center;justify-content:flex-end;gap:4px}
+.imp-sgn{flex:0 0 auto;width:22px;height:28px;border-radius:6px;border:1px solid var(--br);font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;line-height:1;padding:0}
+.imp-sgn.in{background:var(--gb);color:var(--gm);border-color:var(--gp)}
+.imp-sgn.out{background:var(--rp);color:var(--rd);border-color:#F3C9C4}
+.imp-num{width:94px;border:1px solid transparent;background:transparent;border-radius:6px;padding:6px;font-family:inherit;font-size:12.5px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.imp-num:hover{border-color:var(--br);background:#fff}
+.imp-num:focus{outline:none;border-color:var(--gl);background:#fff;box-shadow:0 0 0 3px rgba(64,145,108,.13)}
+.imp-num.in{color:var(--gm)}.imp-num.out{color:var(--rd)}
+.imp-prev-tbl td.imp-bal{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:var(--t3);white-space:nowrap}
 .imp-prev-chk{width:14px;height:14px;cursor:pointer;accent-color:var(--gd)}
 .imp-recon{margin:0 0 10px;padding:9px 12px;border-radius:var(--rs);font-size:12.5px;line-height:1.45;font-weight:600}
 .imp-recon.ok{background:#E6F4EA;color:#1F6B37;border:1px solid #B7E1C3}
@@ -29165,7 +29178,7 @@ function bankSetStep(step){
   document.getElementById('bank-imp-foot-l').textContent = 'Step '+step+' of 3';
   document.getElementById('bank-imp-back').style.display = step > 1 ? 'inline-flex' : 'none';
   var nb = document.getElementById('bank-imp-next');
-  if(step === 3){ nb.textContent = 'Import selected →'; nb.disabled = !(BANK.parsed && BANK.parsed.length); }
+  if(step === 3){ nb.textContent = 'Import selected →'; nb.disabled = !(BANK.parsed && BANK.parsed.length) || (BANK.recon ? !BANK.recon.ok : false); }
   else { nb.textContent = 'Continue →'; nb.disabled = step === 1 ? !BANK.src : !BANK.rawText.trim(); }
 }
 
@@ -29196,12 +29209,23 @@ function bankImpNext(){
    Validated on real Nedbank + Standard Bank statements. Reuses host
    parseFlexDate / dateToTxFormat / inferCategory. =============================*/
 function pdfBankExtract(pages){
-  var CHROME=/customer care|website|account number|account holder|product name|see money|we subscribe|authorised|3 month statement|transaction details|available balance|statement period|statement date|statement frequency|tax invoice|please verify|statement summary|bank charges|narrative description|reg no|vat reg|nedbank ltd|standard bank of south/i;
+  var CHROME=/customer care|website|account number|account holder|product name|see money|we subscribe|authorised|transaction details|available balance|statement period|statement date|statement frequency|tax invoice|please verify|statement summary|narrative description|reg no|vat reg|nedbank ltd|standard bank of south|ombudsman|daily balance analysis|interest charged|arranged limit|total charge/i;
   function norm(s){ return String(s||'').replace(/\s+/g,'').toLowerCase(); }
-  function num(s){ var t=String(s).replace(/[R\s,*]/g,''); return /^-?\d{1,3}(\d{3})*\.\d{2}$/.test(t)||/^-?\d+\.\d{2}$/.test(t)?parseFloat(t):null; }
+  function num(s){ var t=String(s).replace(/[R\s,*]/g,''); var neg=/-$/.test(t); t=t.replace(/-$/,'');
+    return (/^-?\d{1,3}(\d{3})*\.\d{2}$/.test(t)||/^-?\d+\.\d{2}$/.test(t))?(neg?-parseFloat(t):parseFloat(t)):null; }
   var allText='';
-  for(var p=0;p<pages.length&&p<2;p++){ for(var i=0;i<pages[p].items.length;i++) allText+=' '+pages[p].items[i].str; }
+  for(var p=0;p<pages.length;p++){ for(var i=0;i<pages[p].items.length;i++) allText+=' '+pages[p].items[i].str; }
   var bank=/nedbank/i.test(allText)?'Nedbank':/standard bank/i.test(allText)?'Standard Bank':/capitec/i.test(allText)?'Capitec':/first national|fnb/i.test(allText)?'FNB':'Unknown';
+  // statement period (for short MM DD dates)
+  var period=null;
+  var pm=allText.match(/Statement from\s+(\d{1,2}\s+[A-Za-z]{3,}\s+\d{4})\s+to\s+(\d{1,2}\s+[A-Za-z]{3,}\s+\d{4})/i);
+  if(pm){ var pa=parseFlexDate(pm[1]),pb=parseFlexDate(pm[2]); if(pa&&pb) period={sM:pa.m,sY:pa.y,eM:pb.m,eY:pb.y}; }
+  function resolveDate(tok){ var pp=parseFlexDate(tok); if(pp) return pp;
+    var mm=tok.match(/^(\d{1,2})\s+(\d{1,2})$/);
+    if(mm&&period){ var a=+mm[1],b=+mm[2]; var moI,day; if(a>12){moI=b-1;day=a;}else{moI=a-1;day=b;}
+      var y=(moI>=period.sM)?period.sY:period.eY; return {d:day,m:moI,y:y}; }
+    return null; }
+
   var rows=[],opening=null,closing=null,cur=null;
   for(var pg=0;pg<pages.length;pg++){
     var lines={},items=pages[pg].items,k;
@@ -29210,42 +29234,55 @@ function pdfBankExtract(pages){
     var hk=null,header=null;
     for(var ki=0;ki<keys.length;ki++){
       var t=lines[keys[ki]].map(function(w){return w.str;}).join(' ');
-      if((/\bdate\b/i.test(t)||/datum/i.test(t))&&/balance|saldo/i.test(t)&&/debit|credit|fee|payment|deposit|debiet|krediet/i.test(t)){
-        hk=keys[ki]; header=lines[keys[ki]].slice().sort(function(a,b){return a.x0-b.x0;}); break; }
+      if((/\bdate\b/i.test(t)||/datum/i.test(t))&&/balance|saldo/i.test(t)&&/debit|credit|fee|payment|deposit|debiet|krediet|service/i.test(t)){ hk=keys[ki]; header=lines[keys[ki]].slice(); break; }
     }
     if(hk===null) continue;
-    var outCols=[],inCols=[],balCol=null,descStart=null,descEnd=null;
-    for(var h=0;h<header.length;h++){ var w=header[h],s=w.str.toLowerCase();
-      if(/desc|narrat|detail|payee|memo|beskrywing/.test(s)){ descStart=w.x0; }
-      else if(/fee|debit|debiet|payment/.test(s)){ outCols.push(w.x1); if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
-      else if(/credit|krediet|deposit/.test(s)){ inCols.push(w.x1); if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
-      else if(/balance|saldo/.test(s)){ balCol=w.x1; } }
-    if(descStart==null) descStart=100;
-    if(descEnd==null) descEnd=(balCol!=null?balCol:descStart+200);
-    var moneyCols=outCols.concat(inCols); if(balCol!=null) moneyCols.push(balCol);
-    function classify(x1){ var best=null,bd=1e9; for(var c=0;c<moneyCols.length;c++){ var d=Math.abs(x1-moneyCols[c]); if(d<bd){bd=d;best=moneyCols[c];} } return bd<=45?best:null; }
-    function isOut(col){ for(var c=0;c<outCols.length;c++) if(outCols[c]===col) return true; return false; }
-    function isIn(col){ for(var c=0;c<inCols.length;c++) if(inCols[c]===col) return true; return false; }
-    function findDate(left){ for(var a=0;a<left.length;a++){ var p1=parseFlexDate(left[a].str); if(p1) return {p:p1};
-        if(a+1<left.length){ var p2=parseFlexDate(left[a].str+' '+left[a+1].str); if(p2) return {p:p2}; }
-        if(a+2<left.length){ var p3=parseFlexDate(left[a].str+' '+left[a+1].str+' '+left[a+2].str); if(p3) return {p:p3}; } } return null; }
+    // merge a stacked header line just below (column-keyword-only)
+    for(var kj=0;kj<keys.length;kj++){ if(keys[kj]>hk && keys[kj]<=hk+24){
+      var r3=lines[keys[kj]];
+      if(r3.every(function(w){ return /^(fee|debits?|credits?|service|debiet|krediet|saldo|balance|date|datum|details|description|payments?|deposits?)$/i.test(w.str.trim()); })) header=header.concat(r3);
+    }}
+    header.sort(function(a,b){return a.x0-b.x0;});
+    var outC=[],inC=[],feeC=[],balC=null,descStart=null,descEnd=null,dateC=null,minX0=1e9;
+    for(var h=0;h<header.length;h++){ var w=header[h],s=w.str.toLowerCase(),c=(w.x0+w.x1)/2;
+      if(/desc|narrat|detail|payee|memo|beskrywing/.test(s)) descStart=w.x0;
+      else if(/\bdate\b|datum/.test(s)) dateC=[w.x0,w.x1];
+      else if(/^fee$|service/.test(s)){ feeC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
+      else if(/debit|debiet|payment/.test(s)){ outC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
+      else if(/credit|krediet|deposit/.test(s)){ inC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
+      else if(/balance|saldo/.test(s)){ balC=c; if(w.x0<minX0)minX0=w.x0; }
+      else if(/fee/.test(s)){ feeC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
+    }
+    if(outC.length===0 && feeC.length){ outC=feeC.slice(); feeC=[]; }   // fee is the outflow only when no debit column
+    if(descStart==null) descStart=40;
+    if(descEnd==null) descEnd=(balC!=null?balC:descStart+200);
+    var moneyC=outC.concat(inC).concat(feeC); if(balC!=null) moneyC.push(balC);
+    var leftCut=(minX0<1e9?minX0:60)-30;
+    function classify(x1){ if(x1<leftCut) return null; var best=null,bd=1e9; for(var c=0;c<moneyC.length;c++){var d=Math.abs(x1-moneyC[c]); if(d<bd){bd=d;best=moneyC[c];}} return bd<=95?best:null; }
+    function isIn(c){ return inC.indexOf(c)>=0; }
+    function isFee(c){ return feeC.indexOf(c)>=0; }
+    function inDateCol(w){ return dateC && w.x0>=dateC[0]-12 && w.x0<=dateC[1]+12; }
+    function findDate(left){ for(var a=0;a<left.length;a++){ var p1=resolveDate(left[a].str); if(p1) return {p:p1};
+      if(a+1<left.length){var p2=resolveDate(left[a].str+' '+left[a+1].str); if(p2) return {p:p2};}
+      if(a+2<left.length){var p3=resolveDate(left[a].str+' '+left[a+1].str+' '+left[a+2].str); if(p3) return {p:p3};} } return null; }
     for(var ki2=0;ki2<keys.length;ki2++){ if(keys[ki2]<=hk) continue;
       var row=lines[keys[ki2]].slice().sort(function(a,b){return a.x0-b.x0;});
       var line=row.map(function(w){return w.str;}).join(' '); var nline=norm(line);
       var moneyToks=[],balVal=null;
       for(var r=0;r<row.length;r++){ var v=num(row[r].str); if(v==null) continue; var col=classify(row[r].x1); if(col==null) continue;
-        if(balCol!=null&&col===balCol) balVal=v; else moneyToks.push({col:col,v:v}); }
-      if(/openingbalance|statementopeningbalance/.test(nline)){ if(balVal!=null) opening=balVal; continue; }
-      if(/closingbalance/.test(nline)){ if(balVal!=null) closing=balVal; continue; }
-      var left=row.filter(function(w){ return w.x1<=descStart; });
+        if(balC!=null&&col===balC) balVal=v; else if(!isFee(col)) moneyToks.push({col:col,v:v}); }
+      if(/openingbalance|statementopeningbalance|balancebroughtforward|broughtforward/.test(nline)){ if(opening==null&&balVal!=null) opening=balVal; continue; }
+      if(/closingbalance|balancecarriedforward|carriedforward/.test(nline)){ if(balVal!=null) closing=balVal; continue; }
+      var left=row.filter(function(w){ return w.x1<=descStart || inDateCol(w); });
       var dt=left.length?findDate(left):null;
       if(dt&&(moneyToks.length||balVal!=null)){ var amt=0;
         for(var m=0;m<moneyToks.length;m++){ if(isIn(moneyToks[m].col)) amt+=Math.abs(moneyToks[m].v); else amt-=Math.abs(moneyToks[m].v); }
-        var desc=row.filter(function(w){ return w.x0>=descStart-3&&w.x0<descEnd-4&&!parseFlexDate(w.str); }).map(function(w){return w.str;}).join(' ').trim();
+        var desc=row.filter(function(w){ return w.x0>=descStart-3 && w.x0<descEnd-4 && !resolveDate(w.str); }).map(function(w){return w.str;}).join(' ').trim();
         cur={date:dt.p,desc:desc,amt:amt,bal:balVal}; rows.push(cur);
-      } else if(cur&&!dt&&moneyToks.length===0&&!CHROME.test(line)){
-        var extra=row.filter(function(w){ return w.x0>=descStart-3&&w.x0<descEnd-4; }).map(function(w){return w.str;}).join(' ').trim();
-        if(extra) cur.desc+=' / '+extra; }
+      } else if(cur&&!dt&&moneyToks.length===0&&balVal==null&&!CHROME.test(line)){
+        var extra=row.filter(function(w){ return w.x0>=descStart-3 && w.x0<descEnd-4; }).map(function(w){return w.str;}).join(' ').trim();
+        if(extra) cur.desc+=' / '+extra;
+      }
     }
   }
   var running=(opening!=null?opening:(rows.length&&rows[0].bal!=null?rows[0].bal-rows[0].amt:0));
@@ -29307,10 +29344,12 @@ function bankRenderRecon(){
   var rc=BANK.recon; if(!rc){ el.style.display='none'; el.innerHTML=''; return; }
   el.style.display='block';
   if(rc.ok){ el.className='imp-recon ok';
-    el.innerHTML='\u2713 All '+rc.total+' transactions balance. Opening '+fmtZAR(rc.opening)+' \u2192 closing '+fmtZAR(rc.closing)+' ties out to the cent.';
-  } else { var bad=(BANK.parsed||[]).filter(function(r){return r._rowOk===false;}).length;
+    el.innerHTML='\u2713 All '+rc.total+' transactions balance. Opening '+bankMoney2(rc.opening)+' \u2192 closing '+bankMoney2(rc.closing)+' ties out to the cent.';
+  } else {
+    var diff=(rc.closing!=null && rc.computed!=null) ? Math.round((rc.closing-rc.computed)*100)/100 : null;
     el.className='imp-recon warn';
-    el.innerHTML='\u26A0 Read '+rc.total+' transactions, but the running balance doesn\u2019t fully tie out'+(bad?(' \u2014 '+bad+' row(s) to check (highlighted)'):'')+'. Please check before importing.'; }
+    el.innerHTML='\u26A0 Not verified'+(diff!=null?(' \u2014 off by '+bankMoney2(diff)):'')+'. The highlighted row\u2019s amount doesn\u2019t match its running balance \u2014 fix it and the rest will fall into place.';
+  }
 }
 
 
@@ -29346,19 +29385,26 @@ function bankRenderPreview(){
               'Fuel & Oil','Fertiliser','Seeds & Planting','Crop Protection','Veterinary','Animal Feed',
               'Labour & Wages','Machinery & Repairs','Irrigation & Water','Insurance',
               'Loan Repayments','Admin','Tax','Other'];
+  var hasBal = rows.some(function(r){ return r._bal!=null; });
+  var thBal = document.getElementById('bank-imp-th-bal'); if(thBal) thBal.style.display = hasBal ? '' : 'none';
   tbody.innerHTML = rows.map(function(r, i){
-    return '<tr id="bank-row-'+i+'" class="'+(r.include?'':'imp-skip')+(r._rowOk===false?' imp-warn':'')+'">' +
+    var inc = r.type==='income';
+    return '<tr id="bank-row-'+i+'" class="'+(r.include?'':'imp-skip')+'">' +
       '<td><input class="imp-prev-chk" type="checkbox" '+(r.include?'checked':'')+' onchange="bankToggleRow('+i+',this.checked)"/></td>' +
-      '<td class="imp-date">'+escTxHtml(r.date)+'</td>' +
-      '<td>'+escTxHtml(r.desc)+'</td>' +
+      '<td class="imp-date"><input class="imp-edit imp-edit-dt" value="'+bankEscAttr(r.date)+'" oninput="bankSetDate('+i+',this.value)"/></td>' +
+      '<td><input class="imp-edit" value="'+bankEscAttr(r.desc)+'" oninput="bankSetDesc('+i+',this.value)"/></td>' +
       '<td><select onchange="bankSetCat('+i+',this.value)">' +
         cats.map(function(c){ return '<option '+(c===r.cat?'selected':'')+'>'+c+'</option>'; }).join('') +
       '</select></td>' +
-      '<td class="r '+(r.type==='income'?'in':'out')+'">'+(r.type==='income'?'+':'-')+fmtZAR(r.amt).slice(1)+'</td>' +
+      '<td class="imp-amt-cell"><div class="imp-amt">' +
+        '<button type="button" class="imp-sgn '+(inc?'in':'out')+'" onclick="bankFlipDir('+i+')" aria-label="Toggle money in or out">'+(inc?'+':'\u2212')+'</button>' +
+        '<input class="imp-num '+(inc?'in':'out')+'" inputmode="decimal" value="'+bankAmtGrouped(r.amt)+'" onfocus="bankAmtFocus('+i+',this)" oninput="bankSetAmt('+i+',this.value)" onblur="bankAmtBlur('+i+',this)"/>' +
+      '</div></td>' +
+      (hasBal ? '<td class="imp-bal">'+(r._bal!=null ? bankMoney2(r._bal) : '')+'</td>' : '') +
     '</tr>';
   }).join('');
-  bankUpdateSummary();
-  bankRenderRecon();
+  BANK._firstBad = null;
+  bankRecompute();
 }
 
 function bankUpdateSummary(){
@@ -29373,7 +29419,7 @@ function bankUpdateSummary(){
     '<div>Expenses: <b style="color:var(--rd)">'+fmtZAR(exp)+'</b></div>' +
     '<div>Net: <b>'+fmtZAR(inc-exp)+'</b></div>';
   var nb = document.getElementById('bank-imp-next');
-  nb.disabled = !sel.length;
+  nb.disabled = !sel.length || (BANK.recon ? !BANK.recon.ok : false);
 }
 
 function bankToggleRow(i, on){
@@ -29383,6 +29429,41 @@ function bankToggleRow(i, on){
   bankUpdateSummary();
 }
 
+function bankAmtGrouped(n){ var p=Math.abs(Number(n)||0).toFixed(2).split('.'); p[0]=p[0].replace(/\B(?=(\d{3})+(?!\d))/g,' '); return p.join('.'); }
+function bankMoney2(n){ n=Number(n)||0; return (n<0?'-R':'R')+bankAmtGrouped(n); }
+function bankEscAttr(s){ return escTxHtml(s).replace(/"/g,'&quot;'); }
+function bankSetDate(i,v){ if(BANK.parsed[i]) BANK.parsed[i].date=v; }
+function bankSetDesc(i,v){ if(BANK.parsed[i]) BANK.parsed[i].desc=v; }
+function bankAmtFocus(i,el){ var r=BANK.parsed[i]; if(!r) return; el.value = r.amt ? Number(r.amt).toFixed(2) : ''; el.select(); }
+function bankAmtBlur(i,el){ var r=BANK.parsed[i]; if(!r) return; el.value = bankAmtGrouped(r.amt); }
+function bankSetAmt(i,v){ var r=BANK.parsed[i]; if(!r) return;
+  var neg=/-/.test(v); var mag=parseFloat(String(v).replace(/[^\d.]/g,'')); if(isNaN(mag)) mag=0;
+  r.amt=mag; if(neg) r.type='expense';
+  bankPaintAmt(i); bankRecompute(); }
+function bankFlipDir(i){ var r=BANK.parsed[i]; if(!r) return; r.type=(r.type==='income'?'expense':'income'); bankPaintAmt(i); bankRecompute(); }
+function bankPaintAmt(i){ var tr=document.getElementById('bank-row-'+i); if(!tr) return;
+  var inc=BANK.parsed[i].type==='income'; var sg=tr.querySelector('.imp-sgn'), nm=tr.querySelector('.imp-num');
+  if(sg){ sg.classList.toggle('in',inc); sg.classList.toggle('out',!inc); sg.textContent=inc?'+':'\u2212'; }
+  if(nm){ nm.classList.toggle('in',inc); nm.classList.toggle('out',!inc); } }
+function bankRecompute(){
+  var rows=BANK.parsed||[];
+  if(BANK.recon){
+    var running=(BANK.recon.opening!=null?BANK.recon.opening:0), firstBad=-1;
+    for(var i=0;i<rows.length;i++){
+      var signed=(rows[i].type==='income'? rows[i].amt : -rows[i].amt);
+      running=Math.round((running+signed)*100)/100;
+      if(firstBad<0 && rows[i]._bal!=null && Math.abs(running-rows[i]._bal)>0.005) firstBad=i;
+    }
+    BANK.recon.computed=running;
+    BANK.recon.ok=(BANK.recon.closing!=null && Math.abs(running-BANK.recon.closing)<0.005 && firstBad<0);
+    if(BANK._firstBad!==firstBad){
+      if(BANK._firstBad!=null && BANK._firstBad>=0){ var o2=document.getElementById('bank-row-'+BANK._firstBad); if(o2) o2.classList.remove('imp-warn'); }
+      if(firstBad>=0){ var nw=document.getElementById('bank-row-'+firstBad); if(nw) nw.classList.add('imp-warn'); }
+      BANK._firstBad=firstBad;
+    }
+  }
+  bankRenderRecon(); bankUpdateSummary();
+}
 function bankSetCat(i, c){ BANK.parsed[i].cat = c; }
 
 // ════════════════════════════════════════════════════════════════════
@@ -30978,7 +31059,7 @@ function orExportPackout(){
         <div class="imp-step-hs">We've auto-categorised each transaction. Uncheck anything you don't want to import, or change the category.</div>
         <div class="imp-recon" id="bank-imp-recon" style="display:none"></div>
         <div class="imp-summary" id="bank-imp-summary"></div>
-        <div class="imp-prev-wrap"><table class="imp-prev-tbl" id="bank-imp-tbl"><thead><tr><th style="width:24px"></th><th style="width:78px">Date</th><th>Description</th><th style="width:130px">Category</th><th style="width:90px;text-align:right">Amount</th></tr></thead><tbody id="bank-imp-tbody"></tbody></table></div>
+        <div class="imp-prev-wrap"><table class="imp-prev-tbl" id="bank-imp-tbl"><thead><tr><th style="width:24px"></th><th style="width:78px">Date</th><th>Description</th><th style="width:130px">Category</th><th style="width:132px;text-align:right">Amount</th><th id="bank-imp-th-bal" class="r" style="width:104px;text-align:right">Balance</th></tr></thead><tbody id="bank-imp-tbody"></tbody></table></div>
       </div>
     </div>
     <div class="imp-foot">
