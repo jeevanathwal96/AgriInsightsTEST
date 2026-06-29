@@ -29211,8 +29211,8 @@ function bankImpNext(){
 function pdfBankExtract(pages){
   var CHROME=/customer care|website|account number|account holder|product name|see money|we subscribe|authorised|transaction details|available balance|statement period|statement date|statement frequency|tax invoice|please verify|statement summary|narrative description|reg no|vat reg|nedbank ltd|standard bank of south|ombudsman|daily balance analysis|interest charged|arranged limit|total charge/i;
   function norm(s){ return String(s||'').replace(/\s+/g,'').toLowerCase(); }
-  function num(s){ var t=String(s).replace(/[R\s,*]/g,''); var neg=/-$/.test(t); t=t.replace(/-$/,'');
-    return (/^-?\d{1,3}(\d{3})*\.\d{2}$/.test(t)||/^-?\d+\.\d{2}$/.test(t))?(neg?-parseFloat(t):parseFloat(t)):null; }
+  function num(s){ var t=String(s).replace(/[R\s,*]/g,''); var paren=/^\(.*\)$/.test(t); if(paren)t=t.replace(/[()]/g,''); var neg=paren||/-$/.test(t)||/^-/.test(t); t=t.replace(/^-|-$/g,'');
+    return (/^\d{1,3}(\d{3})*\.\d{2}$/.test(t)||/^\d+\.\d{2}$/.test(t))?(neg?-parseFloat(t):parseFloat(t)):null; }
   var allText='';
   for(var p=0;p<pages.length;p++){ for(var i=0;i<pages[p].items.length;i++) allText+=' '+pages[p].items[i].str; }
   var bank=/nedbank/i.test(allText)?'Nedbank':/standard bank/i.test(allText)?'Standard Bank':/capitec/i.test(allText)?'Capitec':/first national|fnb/i.test(allText)?'FNB':'Unknown';
@@ -29234,7 +29234,7 @@ function pdfBankExtract(pages){
     var hk=null,header=null;
     for(var ki=0;ki<keys.length;ki++){
       var t=lines[keys[ki]].map(function(w){return w.str;}).join(' ');
-      if((/\bdate\b/i.test(t)||/datum/i.test(t))&&/balance|saldo/i.test(t)&&/debit|credit|fee|payment|deposit|debiet|krediet|service/i.test(t)){ hk=keys[ki]; header=lines[keys[ki]].slice(); break; }
+      if((/\bdate\b/i.test(t)||/datum/i.test(t))&&/balance|saldo/i.test(t)&&/debit|credit|fee|payment|deposit|debiet|krediet|service|amount|bedrag|money\s*in|money\s*out/i.test(t)){ hk=keys[ki]; header=lines[keys[ki]].slice(); break; }
     }
     if(hk===null) continue;
     // merge a stacked header line just below (column-keyword-only)
@@ -29243,24 +29243,26 @@ function pdfBankExtract(pages){
       if(r3.every(function(w){ return /^(fee|debits?|credits?|service|debiet|krediet|saldo|balance|date|datum|details|description|payments?|deposits?)$/i.test(w.str.trim()); })) header=header.concat(r3);
     }}
     header.sort(function(a,b){return a.x0-b.x0;});
-    var outC=[],inC=[],feeC=[],balC=null,descStart=null,descEnd=null,dateC=null,minX0=1e9;
+    var outC=[],inC=[],feeC=[],amtC=[],balC=null,descStart=null,descEnd=null,dateC=null,minX0=1e9;
     for(var h=0;h<header.length;h++){ var w=header[h],s=w.str.toLowerCase(),c=(w.x0+w.x1)/2;
       if(/desc|narrat|detail|payee|memo|beskrywing/.test(s)) descStart=w.x0;
       else if(/\bdate\b|datum/.test(s)) dateC=[w.x0,w.x1];
       else if(/^fee$|service/.test(s)){ feeC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
-      else if(/debit|debiet|payment/.test(s)){ outC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
-      else if(/credit|krediet|deposit/.test(s)){ inC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
+      else if(/debit|debiet|payment|money\s*out|withdrawal/.test(s)){ outC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
+      else if(/credit|krediet|deposit|money\s*in/.test(s)){ inC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
+      else if(/^amount$|bedrag|transaction\s*amount|^amt$/.test(s)){ amtC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
       else if(/balance|saldo/.test(s)){ balC=c; if(w.x0<minX0)minX0=w.x0; }
       else if(/fee/.test(s)){ feeC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
     }
     if(outC.length===0 && feeC.length){ outC=feeC.slice(); feeC=[]; }   // fee is the outflow only when no debit column
     if(descStart==null) descStart=40;
     if(descEnd==null) descEnd=(balC!=null?balC:descStart+200);
-    var moneyC=outC.concat(inC).concat(feeC); if(balC!=null) moneyC.push(balC);
+    var moneyC=outC.concat(inC).concat(feeC).concat(amtC); if(balC!=null) moneyC.push(balC);
     var leftCut=(minX0<1e9?minX0:60)-30;
     function classify(x1){ if(x1<leftCut) return null; var best=null,bd=1e9; for(var c=0;c<moneyC.length;c++){var d=Math.abs(x1-moneyC[c]); if(d<bd){bd=d;best=moneyC[c];}} return bd<=95?best:null; }
     function isIn(c){ return inC.indexOf(c)>=0; }
     function isFee(c){ return feeC.indexOf(c)>=0; }
+    function isAmt(c){ return amtC.indexOf(c)>=0; }
     function inDateCol(w){ return dateC && w.x0>=dateC[0]-12 && w.x0<=dateC[1]+12; }
     function findDate(left){ for(var a=0;a<left.length;a++){ var p1=resolveDate(left[a].str); if(p1) return {p:p1};
       if(a+1<left.length){var p2=resolveDate(left[a].str+' '+left[a+1].str); if(p2) return {p:p2};}
@@ -29276,7 +29278,7 @@ function pdfBankExtract(pages){
       var left=row.filter(function(w){ return w.x1<=descStart || inDateCol(w); });
       var dt=left.length?findDate(left):null;
       if(dt&&(moneyToks.length||balVal!=null)){ var amt=0;
-        for(var m=0;m<moneyToks.length;m++){ if(isIn(moneyToks[m].col)) amt+=Math.abs(moneyToks[m].v); else amt-=Math.abs(moneyToks[m].v); }
+        for(var m=0;m<moneyToks.length;m++){ if(isAmt(moneyToks[m].col)) amt+=moneyToks[m].v; else if(isIn(moneyToks[m].col)) amt+=Math.abs(moneyToks[m].v); else amt-=Math.abs(moneyToks[m].v); }
         var desc=row.filter(function(w){ return w.x0>=descStart-3 && w.x0<descEnd-4 && !resolveDate(w.str); }).map(function(w){return w.str;}).join(' ').trim();
         cur={date:dt.p,desc:desc,amt:amt,bal:balVal}; rows.push(cur);
       } else if(cur&&!dt&&moneyToks.length===0&&balVal==null&&!CHROME.test(line)){
@@ -29285,12 +29287,27 @@ function pdfBankExtract(pages){
       }
     }
   }
-  var running=(opening!=null?opening:(rows.length&&rows[0].bal!=null?rows[0].bal-rows[0].amt:0));
-  var mismatches=0;
-  for(var x=0;x<rows.length;x++){ running=Math.round((running+rows[x].amt)*100)/100;
-    rows[x]._rowOk=(rows[x].bal==null)||Math.abs(running-rows[x].bal)<0.01; if(!rows[x]._rowOk) mismatches++; }
-  var statedClose=(closing!=null?closing:(rows.length?rows[rows.length-1].bal:null));
-  var reconOk=statedClose!=null&&Math.abs(running-statedClose)<0.01&&mismatches===0;
+  function _reconWith(getAmt){
+    var run=(opening!=null?opening:(rows.length&&rows[0].bal!=null?rows[0].bal-getAmt(0):0));
+    var mm=0;
+    for(var x=0;x<rows.length;x++){ run=Math.round((run+getAmt(x))*100)/100; var ok=(rows[x].bal==null)||Math.abs(run-rows[x].bal)<0.01; if(!ok) mm++; }
+    var sc=(closing!=null?closing:(rows.length?rows[rows.length-1].bal:null));
+    return { running:run, mismatches:mm, statedClose:sc, ok:(sc!=null&&Math.abs(run-sc)<0.01&&mm===0) };
+  }
+  var _rA=_reconWith(function(i){return rows[i].amt;});
+  var _chosen=_rA;
+  // Reconciliation-driven correction: if the column reading doesn't balance, but every row carries a
+  // printed balance and we know the opening, derive each amount from the balance delta (ground truth)
+  // and adopt it only if THAT ties out to the cent.
+  if(!_rA.ok && opening!=null && rows.length && rows.every(function(r){return r.bal!=null;})){
+    var _prev=opening,_deltas=[];
+    for(var d=0;d<rows.length;d++){ _deltas.push(Math.round((rows[d].bal-_prev)*100)/100); _prev=rows[d].bal; }
+    var _rB=_reconWith(function(i){return _deltas[i];});
+    if(_rB.ok){ for(var d2=0;d2<rows.length;d2++) rows[d2].amt=_deltas[d2]; _chosen=_rB; }
+  }
+  var running=_chosen.running, mismatches=_chosen.mismatches, statedClose=_chosen.statedClose, reconOk=_chosen.ok;
+  var _run2=(opening!=null?opening:(rows.length&&rows[0].bal!=null?rows[0].bal-rows[0].amt:0));
+  for(var x2=0;x2<rows.length;x2++){ _run2=Math.round((_run2+rows[x2].amt)*100)/100; rows[x2]._rowOk=(rows[x2].bal==null)||Math.abs(_run2-rows[x2].bal)<0.01; }
   var out=rows.map(function(t){ var income=t.amt>=0;
     return { date:dateToTxFormat(t.date), desc:t.desc, amt:Math.abs(t.amt), type:income?'income':'expense',
              cat:inferCategory(t.desc,income), include:true, _bal:t.bal, _rowOk:t._rowOk!==false }; });
@@ -29397,7 +29414,7 @@ function bankRenderPreview(){
         cats.map(function(c){ return '<option '+(c===r.cat?'selected':'')+'>'+c+'</option>'; }).join('') +
       '</select></td>' +
       '<td class="imp-amt-cell"><div class="imp-amt">' +
-        '<button type="button" class="imp-sgn '+(inc?'in':'out')+'" onclick="bankFlipDir('+i+')" aria-label="Toggle money in or out">'+(inc?'+':'\u2212')+'</button>' +
+        '<button type="button" class="imp-sgn '+(inc?'in':'out')+'" onclick="bankFlipDir('+i+')" title="Tap to switch this row between money in and money out" aria-label="Toggle money in or out">'+(inc?'+':'\u2212')+'</button>' +
         '<input class="imp-num '+(inc?'in':'out')+'" inputmode="decimal" value="'+bankAmtGrouped(r.amt)+'" onfocus="bankAmtFocus('+i+',this)" oninput="bankSetAmt('+i+',this.value)" onblur="bankAmtBlur('+i+',this)"/>' +
       '</div></td>' +
       (hasBal ? '<td class="imp-bal">'+(r._bal!=null ? bankMoney2(r._bal) : '')+'</td>' : '') +
@@ -31056,7 +31073,7 @@ function orExportPackout(){
       <!-- Step 3: Review -->
       <div class="imp-step-content" id="bank-imp-st3">
         <div class="imp-step-h">Review and import</div>
-        <div class="imp-step-hs">We've auto-categorised each transaction. Uncheck anything you don't want to import, or change the category.</div>
+        <div class="imp-step-hs">We've filled in each transaction for you. Tap any field to change it — and tap the green <b style="color:var(--gm)">+</b> or red <b style="color:var(--rd)">−</b> beside an amount to switch a row between <b>money in</b> and <b>money out</b>. Uncheck anything you don't want to import.</div>
         <div class="imp-recon" id="bank-imp-recon" style="display:none"></div>
         <div class="imp-summary" id="bank-imp-summary"></div>
         <div class="imp-prev-wrap"><table class="imp-prev-tbl" id="bank-imp-tbl"><thead><tr><th style="width:24px"></th><th style="width:78px">Date</th><th>Description</th><th style="width:130px">Category</th><th style="width:132px;text-align:right">Amount</th><th id="bank-imp-th-bal" class="r" style="width:104px;text-align:right">Balance</th></tr></thead><tbody id="bank-imp-tbody"></tbody></table></div>
