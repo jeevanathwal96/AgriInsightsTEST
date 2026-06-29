@@ -1993,6 +1993,10 @@ body.simple-view #nav-budgets{display:none}
 .imp-prev-tbl select{width:100%;padding:4px 6px;font-size:11.5px;border:1px solid var(--br);border-radius:6px;background:#fff;font-family:inherit}
 .imp-prev-tbl tr.imp-skip td{opacity:.42;text-decoration:line-through}
 .imp-prev-chk{width:14px;height:14px;cursor:pointer;accent-color:var(--gd)}
+.imp-recon{margin:0 0 10px;padding:9px 12px;border-radius:var(--rs);font-size:12.5px;line-height:1.45;font-weight:600}
+.imp-recon.ok{background:#E6F4EA;color:#1F6B37;border:1px solid #B7E1C3}
+.imp-recon.warn{background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A}
+.imp-prev-tbl tr.imp-warn td{background:#FDF3E2}
 .imp-summary{display:flex;gap:14px;padding:10px 12px;background:var(--gb);border:1px solid var(--gp);border-radius:var(--rs);margin-bottom:10px;font-size:12.5px;flex-wrap:wrap;align-items:center}
 .imp-summary b{color:var(--gd);font-weight:800}
 .imp-result{padding:18px;text-align:center}
@@ -28887,7 +28891,8 @@ var BANK = {
   src: null,
   rawText: '',
   parsed: [],
-  step: 1
+  step: 1,
+  recon: null
 };
 
 // Generate a date N days before APP_TODAY (defined earlier in the file), in
@@ -28992,6 +28997,14 @@ function parseFlexDate(s){
   // DD/MM/YYYY
   m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
   if(m){ return { d: parseInt(m[1],10), m: parseInt(m[2],10)-1, y: parseInt(m[3],10) }; }
+  // dd MMM yyyy / dd-MMM-yy  (English + Afrikaans month names)
+  m = s.match(/^(\d{1,2})[\s\-\/.]+([A-Za-z]{3,})[\s\-\/.]+(\d{2,4})$/);
+  if(m){
+    var _mon = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11,
+                 mrt:2,maa:2,mei:4,okt:9,des:11 };
+    var _mo = _mon[m[2].slice(0,3).toLowerCase()];
+    if(_mo != null){ var _yy = parseInt(m[3],10); if(_yy < 100) _yy += 2000; return { d: parseInt(m[1],10), m: _mo, y: _yy }; }
+  }
   return null;
 }
 
@@ -29008,14 +29021,15 @@ function parseAmount(s){
   return isNaN(n) ? 0 : n;
 }
 
-function splitCSVLine(line){
+function splitCSVLine(line, delim){
+  delim = delim || ',';
   var out = [], buf = '', inQ = false;
   for(var i=0; i<line.length; i++){
     var ch = line[i];
     if(ch === '"'){
       if(inQ && line[i+1] === '"'){ buf += '"'; i++; }
       else inQ = !inQ;
-    } else if(ch === ',' && !inQ){
+    } else if(ch === delim && !inQ){
       out.push(buf); buf = '';
     } else { buf += ch; }
   }
@@ -29023,41 +29037,80 @@ function splitCSVLine(line){
   return out;
 }
 
+// Signed amount for a single Amount column: leading/trailing minus, (1 234.56)
+// accounting negatives, and Dr/Cr markers. parseAmount stays magnitude-only so the
+// Debit/Credit-column path and the co-op parser are unaffected.
+function parseSignedAmount(s){
+  if(s == null) return 0;
+  var raw = String(s).trim();
+  var n = parseAmount(raw);
+  var neg = n < 0;
+  if(/^\(.*\)$/.test(raw)) neg = true;
+  if(/-\s*$/.test(raw)) neg = true;
+  if(/\bdr\b/i.test(raw)) neg = true;
+  if(/\bcr\b/i.test(raw)) neg = false;
+  return neg ? -Math.abs(n) : Math.abs(n);
+}
+// Sniff the column delimiter from the first few lines (comma/semicolon/tab/pipe).
+function detectBankDelim(lines){
+  var cands = [',',';','\t','|'], best = ',', bestN = -1;
+  for(var c=0;c<cands.length;c++){
+    var tot = 0, lim = Math.min(lines.length, 8);
+    for(var i=0;i<lim;i++){ tot += lines[i].split(cands[c]).length - 1; }
+    if(tot > bestN){ bestN = tot; best = cands[c]; }
+  }
+  return best;
+}
+// Find the real header row, skipping statement preamble; returns its index (or 0).
+function findBankHeader(lines, delim){
+  var lim = Math.min(lines.length, 8);
+  for(var i=0;i<lim;i++){
+    var cells = lines[i].toLowerCase().split(delim);
+    var hasDate = cells.some(function(c){ return /date|datum/.test(c); });
+    var hasAmt  = cells.some(function(c){ return /amount|amt|debit|credit|bedrag|debiet|krediet|value/.test(c); });
+    if(hasDate && hasAmt) return i;
+  }
+  return 0;
+}
+
 function parseBankCSV(text, src){
-  // Returns array of {date, desc, amt, type, cat, include}
+  // Returns {date,desc,amt,type,cat,include}[] — the array also carries .skipped
+  // (data rows we could not read) and .total (data rows seen) for honest feedback.
   var lines = text.replace(/\r\n/g,'\n').split('\n').filter(function(l){return l.trim();});
-  if(!lines.length) return [];
-  var headerLine = lines[0].toLowerCase();
-  var hdr = splitCSVLine(headerLine);
-  var rows = [];
-  // detect column indices
-  var dateIx = hdr.findIndex(function(h){return /date/.test(h);});
-  var descIx = hdr.findIndex(function(h){return /(desc|narrat|detail|payee|memo|reference\b)/.test(h);});
-  var amtIx  = hdr.findIndex(function(h){return /^amount$|^amt$/.test(h.trim());});
-  var debIx  = hdr.findIndex(function(h){return /debit/.test(h);});
-  var credIx = hdr.findIndex(function(h){return /credit/.test(h);});
+  var out = []; out.skipped = 0; out.total = 0;
+  if(!lines.length) return out;
+  var delim = detectBankDelim(lines);
+  var hIx   = findBankHeader(lines, delim);
+  var hdr   = splitCSVLine(lines[hIx].toLowerCase(), delim);
+  // detect column indices (English + Afrikaans header words)
+  var dateIx = hdr.findIndex(function(h){return /date|datum/.test(h);});
+  var descIx = hdr.findIndex(function(h){return /(desc|narrat|detail|payee|memo|reference\b|beskrywing|verwysing)/.test(h);});
+  var amtIx  = hdr.findIndex(function(h){return /^\s*(amount|amt|bedrag|value)\s*$/.test(h.trim());});
+  var debIx  = hdr.findIndex(function(h){return /debit|debiet/.test(h);});
+  var credIx = hdr.findIndex(function(h){return /credit|krediet/.test(h);});
   if(dateIx < 0) dateIx = 0;
   if(descIx < 0) descIx = Math.min(hdr.length - 1, dateIx + 1);
 
-  for(var i=1; i<lines.length; i++){
-    var parts = splitCSVLine(lines[i]);
+  for(var i=hIx+1; i<lines.length; i++){
+    var parts = splitCSVLine(lines[i], delim);
     if(parts.length < 2) continue;
-    var d = parseFlexDate(parts[dateIx]); if(!d) continue;
+    out.total++;
+    var d = parseFlexDate(parts[dateIx]);
+    if(!d){ out.skipped++; continue; }
     var desc = String(parts[descIx] || '').trim();
     var amt = 0;
-    if(amtIx >= 0){ amt = parseAmount(parts[amtIx]); }
+    if(amtIx >= 0){ amt = parseSignedAmount(parts[amtIx]); }
     else if(debIx >= 0 && credIx >= 0){
       var deb = parseAmount(parts[debIx]); var crd = parseAmount(parts[credIx]);
       amt = (crd || 0) - (deb || 0);
     } else {
-      // fallback: scan for any numeric column
       for(var j=2; j<parts.length; j++){
-        var n = parseAmount(parts[j]); if(n){ amt = n; break; }
+        var n = parseSignedAmount(parts[j]); if(n){ amt = n; break; }
       }
     }
-    if(!desc && !amt) continue;
+    if(!desc && !amt){ out.skipped++; continue; }
     var type = amt >= 0 ? 'income' : 'expense';
-    rows.push({
+    out.push({
       date: dateToTxFormat(d),
       desc: desc,
       amt:  Math.abs(amt),
@@ -29066,13 +29119,13 @@ function parseBankCSV(text, src){
       include: true
     });
   }
-  return rows;
+  return out;
 }
 
 function openBankImport(){
   var bg = document.getElementById('bank-imp-bg');
   if(!bg){ toast('Import dialog not loaded yet — refresh the page','error'); return; }
-  BANK = { src:null, rawText:'', parsed:[], step:1 };
+  BANK = { src:null, rawText:'', parsed:[], step:1, recon:null };
   bg.classList.add('on');
   bankSetStep(1);
   // reset tiles
@@ -29127,6 +29180,7 @@ function bankImpNext(){
     if(!text){ toast('Paste CSV content or upload a file','error'); return; }
     BANK.rawText = text;
     BANK.parsed = parseBankCSV(text, BANK.src);
+    BANK.recon = null;
     if(!BANK.parsed.length){ toast('Couldn\u2019t parse any transactions — check format','error'); return; }
     bankRenderPreview();
     bankSetStep(3);
@@ -29135,10 +29189,136 @@ function bankImpNext(){
   }
 }
 
+/* ===== PHASE A: on-device PDF bank-statement import (digital PDFs) =====
+   Geometry engine: rebuilds the transaction table from positioned text,
+   keyed off the header row. Direction from WHICH column a number sits in;
+   magnitude from abs(value). Reconciles against the running balance.
+   Validated on real Nedbank + Standard Bank statements. Reuses host
+   parseFlexDate / dateToTxFormat / inferCategory. =============================*/
+function pdfBankExtract(pages){
+  var CHROME=/customer care|website|account number|account holder|product name|see money|we subscribe|authorised|3 month statement|transaction details|available balance|statement period|statement date|statement frequency|tax invoice|please verify|statement summary|bank charges|narrative description|reg no|vat reg|nedbank ltd|standard bank of south/i;
+  function norm(s){ return String(s||'').replace(/\s+/g,'').toLowerCase(); }
+  function num(s){ var t=String(s).replace(/[R\s,*]/g,''); return /^-?\d{1,3}(\d{3})*\.\d{2}$/.test(t)||/^-?\d+\.\d{2}$/.test(t)?parseFloat(t):null; }
+  var allText='';
+  for(var p=0;p<pages.length&&p<2;p++){ for(var i=0;i<pages[p].items.length;i++) allText+=' '+pages[p].items[i].str; }
+  var bank=/nedbank/i.test(allText)?'Nedbank':/standard bank/i.test(allText)?'Standard Bank':/capitec/i.test(allText)?'Capitec':/first national|fnb/i.test(allText)?'FNB':'Unknown';
+  var rows=[],opening=null,closing=null,cur=null;
+  for(var pg=0;pg<pages.length;pg++){
+    var lines={},items=pages[pg].items,k;
+    for(var n=0;n<items.length;n++){ k=Math.round(items[n].top/2)*2; (lines[k]=lines[k]||[]).push(items[n]); }
+    var keys=Object.keys(lines).map(Number).sort(function(a,b){return a-b;});
+    var hk=-1,header=null;
+    for(var ki=0;ki<keys.length;ki++){
+      var t=lines[keys[ki]].map(function(w){return w.str;}).join(' ');
+      if((/\bdate\b/i.test(t)||/datum/i.test(t))&&/balance|saldo/i.test(t)&&/debit|credit|fee|payment|deposit|debiet|krediet/i.test(t)){
+        hk=keys[ki]; header=lines[keys[ki]].slice().sort(function(a,b){return a.x0-b.x0;}); break; }
+    }
+    if(hk<0) continue;
+    var outCols=[],inCols=[],balCol=null,descStart=null,descEnd=null;
+    for(var h=0;h<header.length;h++){ var w=header[h],s=w.str.toLowerCase();
+      if(/desc|narrat|detail|payee|memo|beskrywing/.test(s)){ descStart=w.x0; }
+      else if(/fee|debit|debiet|payment/.test(s)){ outCols.push(w.x1); if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
+      else if(/credit|krediet|deposit/.test(s)){ inCols.push(w.x1); if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
+      else if(/balance|saldo/.test(s)){ balCol=w.x1; } }
+    if(descStart==null) descStart=100;
+    if(descEnd==null) descEnd=(balCol!=null?balCol:descStart+200);
+    var moneyCols=outCols.concat(inCols); if(balCol!=null) moneyCols.push(balCol);
+    function classify(x1){ var best=null,bd=1e9; for(var c=0;c<moneyCols.length;c++){ var d=Math.abs(x1-moneyCols[c]); if(d<bd){bd=d;best=moneyCols[c];} } return bd<=45?best:null; }
+    function isOut(col){ for(var c=0;c<outCols.length;c++) if(outCols[c]===col) return true; return false; }
+    function isIn(col){ for(var c=0;c<inCols.length;c++) if(inCols[c]===col) return true; return false; }
+    function findDate(left){ for(var a=0;a<left.length;a++){ var p1=parseFlexDate(left[a].str); if(p1) return {p:p1};
+        if(a+1<left.length){ var p2=parseFlexDate(left[a].str+' '+left[a+1].str); if(p2) return {p:p2}; }
+        if(a+2<left.length){ var p3=parseFlexDate(left[a].str+' '+left[a+1].str+' '+left[a+2].str); if(p3) return {p:p3}; } } return null; }
+    for(var ki2=0;ki2<keys.length;ki2++){ if(keys[ki2]<=hk) continue;
+      var row=lines[keys[ki2]].slice().sort(function(a,b){return a.x0-b.x0;});
+      var line=row.map(function(w){return w.str;}).join(' '); var nline=norm(line);
+      var moneyToks=[],balVal=null;
+      for(var r=0;r<row.length;r++){ var v=num(row[r].str); if(v==null) continue; var col=classify(row[r].x1); if(col==null) continue;
+        if(balCol!=null&&col===balCol) balVal=v; else moneyToks.push({col:col,v:v}); }
+      if(/openingbalance|statementopeningbalance/.test(nline)){ if(balVal!=null) opening=balVal; continue; }
+      if(/closingbalance/.test(nline)){ if(balVal!=null) closing=balVal; continue; }
+      var left=row.filter(function(w){ return w.x1<=descStart; });
+      var dt=left.length?findDate(left):null;
+      if(dt&&(moneyToks.length||balVal!=null)){ var amt=0;
+        for(var m=0;m<moneyToks.length;m++){ if(isIn(moneyToks[m].col)) amt+=Math.abs(moneyToks[m].v); else amt-=Math.abs(moneyToks[m].v); }
+        var desc=row.filter(function(w){ return w.x0>=descStart-3&&w.x0<descEnd-4&&!parseFlexDate(w.str); }).map(function(w){return w.str;}).join(' ').trim();
+        cur={date:dt.p,desc:desc,amt:amt,bal:balVal}; rows.push(cur);
+      } else if(cur&&!dt&&moneyToks.length===0&&!CHROME.test(line)){
+        var extra=row.filter(function(w){ return w.x0>=descStart-3&&w.x0<descEnd-4; }).map(function(w){return w.str;}).join(' ').trim();
+        if(extra) cur.desc+=' / '+extra; }
+    }
+  }
+  var running=(opening!=null?opening:(rows.length&&rows[0].bal!=null?rows[0].bal-rows[0].amt:0));
+  var mismatches=0;
+  for(var x=0;x<rows.length;x++){ running=Math.round((running+rows[x].amt)*100)/100;
+    rows[x]._rowOk=(rows[x].bal==null)||Math.abs(running-rows[x].bal)<0.01; if(!rows[x]._rowOk) mismatches++; }
+  var statedClose=(closing!=null?closing:(rows.length?rows[rows.length-1].bal:null));
+  var reconOk=statedClose!=null&&Math.abs(running-statedClose)<0.01&&mismatches===0;
+  var out=rows.map(function(t){ var income=t.amt>=0;
+    return { date:dateToTxFormat(t.date), desc:t.desc, amt:Math.abs(t.amt), type:income?'income':'expense',
+             cat:inferCategory(t.desc,income), include:true, _bal:t.bal, _rowOk:t._rowOk!==false }; });
+  return { bank:bank, rows:out, recon:{ opening:opening, closing:statedClose, computed:running, ok:reconOk, mismatches:mismatches, total:out.length } };
+}
+
+// Lazy-load self-hosted pdf.js only when a PDF import is actually attempted.
+function ensurePdfJs(){
+  if(window.pdfjsLib && window.pdfjsLib.getDocument) return Promise.resolve(window.pdfjsLib);
+  if(window.__pdfjsLoading) return window.__pdfjsLoading;
+  window.__pdfjsLoading=new Promise(function(resolve,reject){
+    var s=document.createElement('script'); s.src='./vendor/pdf.min.js';
+    s.onload=function(){ if(window.pdfjsLib){ try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc='./vendor/pdf.worker.min.js'; }catch(e){} resolve(window.pdfjsLib); } else reject(new Error('pdfjsLib missing')); };
+    s.onerror=function(){ reject(new Error('failed to load pdf.js')); };
+    document.head.appendChild(s);
+  });
+  return window.__pdfjsLoading;
+}
+// Browser adapter: pdf.js text items -> {items:[{str,x0,x1,top}]} -> engine.
+function extractBankPDF(arrayBuffer){
+  return ensurePdfJs().then(function(pdfjsLib){ return pdfjsLib.getDocument({data:arrayBuffer}).promise; })
+    .then(function(pdf){ var ps=[]; for(var i=1;i<=pdf.numPages;i++) ps.push(pdf.getPage(i)); return Promise.all(ps); })
+    .then(function(pageObjs){ return Promise.all(pageObjs.map(function(pg){
+        return pg.getTextContent().then(function(tc){
+          var items=tc.items.filter(function(it){return it.str&&it.str.trim();}).map(function(it){
+            var tr=it.transform,x0=tr[4],y=tr[5]; return { str:it.str, x0:x0, x1:x0+(it.width||0), top:-y }; });
+          return { items:items }; }); })); })
+    .then(function(pages){ return pdfBankExtract(pages); });
+}
+// Route a chosen PDF: extract on-device, then jump straight to the preview.
+function bankImportPDF(f){
+  var nameEl=document.getElementById('bank-file-name'); var orig=f.name;
+  if(nameEl) nameEl.textContent=orig+' \u2014 reading\u2026';
+  var nb=document.getElementById('bank-imp-next'); if(nb) nb.disabled=true;
+  var r=new FileReader();
+  r.onerror=function(){ if(nameEl) nameEl.textContent=orig; toast('Couldn\u2019t read that file','error'); };
+  r.onload=function(){
+    extractBankPDF(r.result).then(function(res){
+      if(!res.rows.length){ if(nameEl) nameEl.textContent=orig;
+        toast('Couldn\u2019t read this PDF automatically \u2014 it may be a scan or photo. Type it in or use a CSV.','error'); return; }
+      BANK.parsed=res.rows; BANK.recon=res.recon;
+      bankRenderPreview(); bankSetStep(3);
+    }).catch(function(e){ if(nameEl) nameEl.textContent=orig;
+      toast('Couldn\u2019t read this PDF \u2014 type it in or use a CSV.','error'); });
+  };
+  r.readAsArrayBuffer(f);
+}
+// Tie-out banner shown above the preview.
+function bankRenderRecon(){
+  var el=document.getElementById('bank-imp-recon'); if(!el) return;
+  var rc=BANK.recon; if(!rc){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='block';
+  if(rc.ok){ el.className='imp-recon ok';
+    el.innerHTML='\u2713 All '+rc.total+' transactions balance. Opening '+fmtZAR(rc.opening)+' \u2192 closing '+fmtZAR(rc.closing)+' ties out to the cent.';
+  } else { var bad=(BANK.parsed||[]).filter(function(r){return r._rowOk===false;}).length;
+    el.className='imp-recon warn';
+    el.innerHTML='\u26A0 Read '+rc.total+' transactions, but the running balance doesn\u2019t fully tie out'+(bad?(' \u2014 '+bad+' row(s) to check (highlighted)'):'')+'. Please check before importing.'; }
+}
+
+
 function bankFileChosen(input){
   if(!input.files || !input.files[0]) return;
   var f = input.files[0];
   document.getElementById('bank-file-name').textContent = f.name;
+  if(/\.pdf$/i.test(f.name) || f.type === 'application/pdf'){ bankImportPDF(f); return; }
   var r = new FileReader();
   r.onload = function(){
     document.getElementById('bank-paste').value = r.result;
@@ -29167,7 +29347,7 @@ function bankRenderPreview(){
               'Labour & Wages','Machinery & Repairs','Irrigation & Water','Insurance',
               'Loan Repayments','Admin','Tax','Other'];
   tbody.innerHTML = rows.map(function(r, i){
-    return '<tr id="bank-row-'+i+'" class="'+(r.include?'':'imp-skip')+'">' +
+    return '<tr id="bank-row-'+i+'" class="'+(r.include?'':'imp-skip')+(r._rowOk===false?' imp-warn':'')+'">' +
       '<td><input class="imp-prev-chk" type="checkbox" '+(r.include?'checked':'')+' onchange="bankToggleRow('+i+',this.checked)"/></td>' +
       '<td class="imp-date">'+escTxHtml(r.date)+'</td>' +
       '<td>'+escTxHtml(r.desc)+'</td>' +
@@ -29178,6 +29358,7 @@ function bankRenderPreview(){
     '</tr>';
   }).join('');
   bankUpdateSummary();
+  bankRenderRecon();
 }
 
 function bankUpdateSummary(){
@@ -29186,6 +29367,7 @@ function bankUpdateSummary(){
   var exp = sel.filter(function(r){return r.type==='expense'}).reduce(function(s,r){return s+r.amt;},0);
   document.getElementById('bank-imp-summary').innerHTML =
     '<div>Total parsed: <b>'+BANK.parsed.length+'</b></div>' +
+    (BANK.parsed.skipped>0 ? '<div style="color:#b45309">Couldn\u2019t read: <b>'+BANK.parsed.skipped+'</b> row'+(BANK.parsed.skipped===1?'':'s')+' \u2014 check the file format</div>' : '') +
     '<div>Selected: <b>'+sel.length+'</b></div>' +
     '<div>Income: <b style="color:var(--gm)">'+fmtZAR(inc)+'</b></div>' +
     '<div>Expenses: <b style="color:var(--rd)">'+fmtZAR(exp)+'</b></div>' +
@@ -29317,6 +29499,13 @@ function bankCommitImport(){
   if(added.length){
     var dates=added.map(function(t){return t.date;});
     impRegisterBatch({source:(BANK_NAMES[BANK.src]||'Bank')+' statement', kind:'bank', span:impSpan(dates)}, added);
+    // Persist every imported row through the same offline-safe chokepoint manual entries
+    // use: stamps a cuid, queues the outbox, syncs cross-device, survives reload + sign-in.
+    try {
+      if (typeof txnWriteThrough === 'function' && typeof _hasBackend === 'function' && _hasBackend()) {
+        added.forEach(function(t){ txnWriteThrough(t, _txnSnapshot(t)); });
+      }
+    } catch(e){ console.error('Bank import backend write-through failed:', e); }
   }
   try{ saveState&&saveState(); }catch(e){}
   closeBankImport();
@@ -29681,10 +29870,10 @@ function coopCommitImport(){
   // (The co-op account paydown persists via renderLoans() -> AI.loans.saveAll.)
   try {
     if (window.AI && AI.farm && AI.farm.active()) {
-      if (_coopAdded.length) {
-        AI.txn.addMany(_coopAdded).then(function(saved){
-          (saved||[]).forEach(function(s, i){ if(s && s.id && _coopAdded[i]) _coopAdded[i].id = s.id; });
-        }).catch(function(e){ console.error('Backend co-op txn save failed:', e); });
+      if (_coopAdded.length && typeof txnWriteThrough === 'function') {
+        // Route co-op income txns through the offline-safe outbox (parity with bank
+        // import): cuid-stamped, cross-device, survives an offline import + reconnect.
+        _coopAdded.forEach(function(t){ txnWriteThrough(t, _txnSnapshot(t)); });
       }
       if (_coopSettleAdded.length) {
         AI.coopSettlement.addMany(_coopSettleAdded).then(function(saved){
@@ -30740,7 +30929,7 @@ function orExportPackout(){
         <div class="imp-hdr-ic">🏦</div>
         <div>
           <div class="imp-hdr-t">Import bank statement</div>
-          <div class="imp-hdr-s" id="bank-imp-sub">CSV from your online banking</div>
+          <div class="imp-hdr-s" id="bank-imp-sub">CSV or PDF from your online banking</div>
         </div>
       </div>
       <button class="imp-close" onclick="closeBankImport()">&times;</button>
@@ -30770,12 +30959,12 @@ function orExportPackout(){
 
       <!-- Step 2: Upload -->
       <div class="imp-step-content" id="bank-imp-st2">
-        <div class="imp-step-h">Upload <span id="bank-st2-name">your</span> CSV statement</div>
-        <div class="imp-step-hs">Export a CSV from your online banking (usually under Statements or Transactions), then drop it here. Your data stays on your device.</div>
+        <div class="imp-step-h">Upload <span id="bank-st2-name">your</span> CSV or PDF statement</div>
+        <div class="imp-step-hs">Export a CSV or download a PDF statement from your online banking, then drop it here. We read it right on your device — your data never leaves your phone.</div>
         <label class="imp-upload" for="bank-file-input">
-          <input type="file" id="bank-file-input" accept=".csv,.txt" style="display:none" onchange="bankFileChosen(this)"/>
+          <input type="file" id="bank-file-input" accept=".csv,.txt,.pdf" style="display:none" onchange="bankFileChosen(this)"/>
           <div class="imp-upload-ic">📄</div>
-          <div class="imp-upload-t" id="bank-file-name">Click to choose a CSV file</div>
+          <div class="imp-upload-t" id="bank-file-name">Click to choose a CSV or PDF file</div>
           <div class="imp-upload-s">or drag and drop here</div>
         </label>
         <div class="imp-or">or paste statement content</div>
@@ -30787,6 +30976,7 @@ function orExportPackout(){
       <div class="imp-step-content" id="bank-imp-st3">
         <div class="imp-step-h">Review and import</div>
         <div class="imp-step-hs">We've auto-categorised each transaction. Uncheck anything you don't want to import, or change the category.</div>
+        <div class="imp-recon" id="bank-imp-recon" style="display:none"></div>
         <div class="imp-summary" id="bank-imp-summary"></div>
         <div class="imp-prev-wrap"><table class="imp-prev-tbl" id="bank-imp-tbl"><thead><tr><th style="width:24px"></th><th style="width:78px">Date</th><th>Description</th><th style="width:130px">Category</th><th style="width:90px;text-align:right">Amount</th></tr></thead><tbody id="bank-imp-tbody"></tbody></table></div>
       </div>
