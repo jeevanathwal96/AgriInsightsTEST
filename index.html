@@ -1996,6 +1996,7 @@ body.simple-view #nav-budgets{display:none}
 .imp-prev-tbl input.imp-edit:hover{border-color:var(--br);background:#fff}
 .imp-prev-tbl input.imp-edit:focus{outline:none;border-color:var(--gl);background:#fff;box-shadow:0 0 0 3px rgba(64,145,108,.13)}
 .imp-prev-tbl input.imp-edit-dt{font-weight:600;color:var(--t2);font-variant-numeric:tabular-nums;width:76px}
+.imp-prev-tbl input.imp-edit-bal{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:var(--t3)}
 .imp-amt{display:flex;align-items:center;justify-content:flex-end;gap:4px}
 .imp-sgn{flex:0 0 auto;width:22px;height:28px;border-radius:6px;border:1px solid var(--br);font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;line-height:1;padding:0}
 .imp-sgn.in{background:var(--gb);color:var(--gm);border-color:var(--gp)}
@@ -2009,6 +2010,10 @@ body.simple-view #nav-budgets{display:none}
 .imp-recon{margin:0 0 10px;padding:9px 12px;border-radius:var(--rs);font-size:12.5px;line-height:1.45;font-weight:600}
 .imp-recon.ok{background:#E6F4EA;color:#1F6B37;border:1px solid #B7E1C3}
 .imp-recon.warn{background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A}
+.imp-recon-act{flex:none;background:#8A5A12;color:#fff;border:none;border-radius:7px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.imp-recon-act:hover{background:#754A0E}
+.imp-readnote{background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A;border-radius:8px;padding:11px 13px;font-size:12.5px;line-height:1.5;margin-top:12px}
+.imp-hist-tag{display:inline-block;background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A;border-radius:5px;padding:1px 7px;font-size:10.5px;font-weight:600;margin-left:6px;vertical-align:middle}
 .imp-prev-tbl tr.imp-warn td{background:#FDF3E2}
 .imp-summary{display:flex;gap:14px;padding:10px 12px;background:var(--gb);border:1px solid var(--gp);border-radius:var(--rs);margin-bottom:10px;font-size:12.5px;flex-wrap:wrap;align-items:center}
 .imp-summary b{color:var(--gd);font-weight:800}
@@ -28905,7 +28910,9 @@ var BANK = {
   rawText: '',
   parsed: [],
   step: 1,
-  recon: null
+  recon: null,
+  allowAnyway: false,
+  bank: null
 };
 
 // Generate a date N days before APP_TODAY (defined earlier in the file), in
@@ -29178,7 +29185,7 @@ function bankSetStep(step){
   document.getElementById('bank-imp-foot-l').textContent = 'Step '+step+' of 3';
   document.getElementById('bank-imp-back').style.display = step > 1 ? 'inline-flex' : 'none';
   var nb = document.getElementById('bank-imp-next');
-  if(step === 3){ nb.textContent = 'Import selected →'; nb.disabled = !(BANK.parsed && BANK.parsed.length) || (BANK.recon ? !BANK.recon.ok : false); }
+  if(step === 3){ nb.textContent = 'Import selected →'; nb.disabled = !(BANK.parsed && BANK.parsed.length) || (BANK.recon && !BANK.recon.ok && !BANK.allowAnyway); }
   else { nb.textContent = 'Continue →'; nb.disabled = step === 1 ? !BANK.src : !BANK.rawText.trim(); }
 }
 
@@ -29193,7 +29200,7 @@ function bankImpNext(){
     if(!text){ toast('Paste CSV content or upload a file','error'); return; }
     BANK.rawText = text;
     BANK.parsed = parseBankCSV(text, BANK.src);
-    BANK.recon = null;
+    BANK.recon = null; BANK.bank = null;
     if(!BANK.parsed.length){ toast('Couldn\u2019t parse any transactions — check format','error'); return; }
     bankRenderPreview();
     bankSetStep(3);
@@ -29391,15 +29398,15 @@ function bankImportPDF(f){
         if(nameEl) nameEl.textContent=orig+' \u2014 reading (OCR)\u2026';
         var r2=new FileReader();
         r2.onload=function(){ extractBankPDFviaOCR(r2.result, function(idx,total,p){ if(nameEl) nameEl.textContent=orig+' \u2014 reading page '+(idx+1)+(total>1?('/'+total):'')+' '+Math.round((p||0)*100)+'%'; })
-          .then(function(res2){ if(!res2.rows.length){ if(nameEl) nameEl.textContent=orig; toast('Couldn\u2019t read this PDF \u2014 it may be a faint scan. Try a clearer copy, a CSV, or type it in.','error'); return; }
-            BANK.parsed=res2.rows; BANK.recon=res2.recon; if(nameEl) nameEl.textContent=orig; bankRenderPreview(); bankSetStep(3); })
-          .catch(function(){ if(nameEl) nameEl.textContent=orig; toast('Couldn\u2019t read this PDF \u2014 type it in or use a CSV.','error'); }); };
+          .then(function(res2){ if(!res2.rows.length){ if(nameEl) nameEl.textContent=orig; bankReadFailNote('We couldn\u2019t read this statement \u2014 it may be a faint scan.'); return; }
+            BANK.parsed=res2.rows; BANK.recon=res2.recon; BANK.bank=res2.bank; if(nameEl) nameEl.textContent=orig; bankRenderPreview(); bankSetStep(3); })
+          .catch(function(){ if(nameEl) nameEl.textContent=orig; bankReadFailNote(); }); };
         r2.readAsArrayBuffer(f);
         return; }
-      BANK.parsed=res.rows; BANK.recon=res.recon;
+      BANK.parsed=res.rows; BANK.recon=res.recon; BANK.bank=res.bank;
       bankRenderPreview(); bankSetStep(3);
     }).catch(function(e){ if(nameEl) nameEl.textContent=orig;
-      toast('Couldn\u2019t read this PDF \u2014 type it in or use a CSV.','error'); });
+      bankReadFailNote(); });
   };
   r.readAsArrayBuffer(f);
 }
@@ -29410,16 +29417,23 @@ function bankRenderRecon(){
   el.style.display='block';
   if(rc.ok){ el.className='imp-recon ok';
     el.innerHTML='\u2713 All '+rc.total+' transactions balance. Opening '+bankMoney2(rc.opening)+' \u2192 closing '+bankMoney2(rc.closing)+' ties out to the cent.';
+  } else if(BANK.allowAnyway){
+    el.className='imp-recon warn';
+    el.innerHTML='\u26A0 Importing without the auto-check \u2014 please scan the rows below before you import. We couldn\u2019t make this statement balance to the cent, so double-check the amounts are right.';
   } else {
     var diff=(rc.closing!=null && rc.computed!=null) ? Math.round((rc.closing-rc.computed)*100)/100 : null;
     el.className='imp-recon warn';
-    el.innerHTML='\u26A0 Not verified'+(diff!=null?(' \u2014 off by '+bankMoney2(diff)):'')+'. The highlighted row\u2019s amount doesn\u2019t match its running balance \u2014 fix it and the rest will fall into place.';
+    el.innerHTML='<span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="flex:1;min-width:240px">\u26A0 Not verified'+(diff!=null?(' \u2014 off by '+bankMoney2(diff)):'')+'. The highlighted row\u2019s amount doesn\u2019t match its running balance \u2014 fix it and the rest will fall into place.</span><button class="imp-recon-act" onclick="bankImportAnyway()">Import anyway \u2192</button></span>';
   }
 }
 
 
 // ── On-device OCR for photographed / scanned statements (Phase B) ──────────────
 // Tesseract.js is lazy-loaded only when an image (or scanned PDF) is actually imported.
+function bankImportAnyway(){ BANK.allowAnyway=true; bankRenderRecon(); bankUpdateSummary(); }
+function bankShowReadNote(html){ var el=document.getElementById('bank-read-note'); if(!el) return; el.innerHTML=html; el.style.display='block'; }
+function bankHideReadNote(){ var el=document.getElementById('bank-read-note'); if(!el) return; el.style.display='none'; el.innerHTML=''; }
+function bankReadFailNote(lead){ bankShowReadNote('<b>'+(lead||'We couldn\u2019t read this one automatically.')+'</b><br>Two easy options: export a CSV from your banking app and paste it below, or type the transactions in. If it\u2019s a photo, a clearer, straight-on snap usually does the trick.'); }
 function ensureTesseract(){
   if(window.Tesseract) return Promise.resolve(window.Tesseract);
   if(window.__tessLoading) return window.__tessLoading;
@@ -29498,13 +29512,14 @@ function bankImportImages(files){
   if(nameEl) nameEl.textContent=label+' \u2014 reading\u2026 this can take a few seconds';
   extractBankImages(files, function(idx,total,p){ if(nameEl) nameEl.textContent=label+' \u2014 reading'+(total>1?(' '+(idx+1)+'/'+total):'')+'\u2026 '+Math.round((p||0)*100)+'%'; })
     .then(function(res){
-      if(!res.rows.length){ if(nameEl) nameEl.textContent=label; toast('Couldn\u2019t read that statement photo \u2014 try a clearer, straight-on image or type it in.','error'); return; }
-      BANK.parsed=res.rows; BANK.recon=res.recon; if(nameEl) nameEl.textContent=label;
+      if(!res.rows.length){ if(nameEl) nameEl.textContent=label; bankReadFailNote('We couldn\u2019t read that statement photo.'); return; }
+      BANK.parsed=res.rows; BANK.recon=res.recon; BANK.bank=res.bank; if(nameEl) nameEl.textContent=label;
       bankRenderPreview(); bankSetStep(3);
-    }).catch(function(e){ if(nameEl) nameEl.textContent=label; toast('Couldn\u2019t read that photo \u2014 try a clearer image or type it in.','error'); });
+    }).catch(function(e){ if(nameEl) nameEl.textContent=label; bankReadFailNote(); });
 }
 
 function bankFileChosen(input){
+  bankHideReadNote();
   if(!input.files || !input.files[0]) return;
   var files = Array.prototype.slice.call(input.files);
   var f = files[0];
@@ -29533,6 +29548,7 @@ function bankLoadSample(){
 }
 
 function bankRenderPreview(){
+  BANK.allowAnyway = false; bankHideReadNote();
   var tbody = document.getElementById('bank-imp-tbody');
   var rows = BANK.parsed;
   var cats = ['Crop Sales','Fruit Sales','Livestock Sales','Government Grant','Rental Income','Other Income',
@@ -29554,7 +29570,7 @@ function bankRenderPreview(){
         '<button type="button" class="imp-sgn '+(inc?'in':'out')+'" onclick="bankFlipDir('+i+')" title="Tap to switch this row between money in and money out" aria-label="Toggle money in or out">'+(inc?'+':'\u2212')+'</button>' +
         '<input class="imp-num '+(inc?'in':'out')+'" inputmode="decimal" value="'+bankAmtGrouped(r.amt)+'" onfocus="bankAmtFocus('+i+',this)" oninput="bankSetAmt('+i+',this.value)" onblur="bankAmtBlur('+i+',this)"/>' +
       '</div></td>' +
-      (hasBal ? '<td class="imp-bal">'+(r._bal!=null ? bankMoney2(r._bal) : '')+'</td>' : '') +
+      (hasBal ? '<td class="imp-bal"><input class="imp-edit imp-edit-bal" inputmode="decimal" value="'+bankEscAttr(r._bal!=null?bankAmtGrouped(r._bal):'')+'" oninput="bankSetBal('+i+',this.value)"/></td>' : '') +
     '</tr>';
   }).join('');
   BANK._firstBad = null;
@@ -29573,7 +29589,7 @@ function bankUpdateSummary(){
     '<div>Expenses: <b style="color:var(--rd)">'+fmtZAR(exp)+'</b></div>' +
     '<div>Net: <b>'+fmtZAR(inc-exp)+'</b></div>';
   var nb = document.getElementById('bank-imp-next');
-  nb.disabled = !sel.length || (BANK.recon ? !BANK.recon.ok : false);
+  nb.disabled = !sel.length || (BANK.recon && !BANK.recon.ok && !BANK.allowAnyway);
 }
 
 function bankToggleRow(i, on){
@@ -29588,6 +29604,7 @@ function bankMoney2(n){ n=Number(n)||0; return (n<0?'-R':'R')+bankAmtGrouped(n);
 function bankEscAttr(s){ return escTxHtml(s).replace(/"/g,'&quot;'); }
 function bankSetDate(i,v){ if(BANK.parsed[i]) BANK.parsed[i].date=v; }
 function bankSetDesc(i,v){ if(BANK.parsed[i]) BANK.parsed[i].desc=v; }
+function bankSetBal(i,v){ var r=BANK.parsed[i]; if(!r) return; var x=String(v).replace(/[^\d.\-]/g,''); var f=parseFloat(x); if(isNaN(f)) f=null; r._bal=f; if(BANK.recon && i===BANK.parsed.length-1 && f!=null) BANK.recon.closing=f; bankRecompute(); }
 function bankAmtFocus(i,el){ var r=BANK.parsed[i]; if(!r) return; el.value = r.amt ? Number(r.amt).toFixed(2) : ''; el.select(); }
 function bankAmtBlur(i,el){ var r=BANK.parsed[i]; if(!r) return; el.value = bankAmtGrouped(r.amt); }
 function bankSetAmt(i,v){ var r=BANK.parsed[i]; if(!r) return;
@@ -29685,7 +29702,7 @@ function impRenderHistory(){
   var rows=batches.map(function(b){
     var when=''; try{ when=new Date(b.when).toLocaleDateString('en-ZA',{day:'numeric',month:'short'}); }catch(e){}
     var sub=b.rows+' '+(b.rows===1?'row':'rows')+(b.span?' · '+b.span:'')+(when?' · added '+when:'');
-    return '<div class="imp-hist-row"><div><div class="ihl">'+esc(b.source)+'</div><div class="ihs">'+esc(sub)+'</div></div>'+
+    return '<div class="imp-hist-row"><div><div class="ihl">'+esc(b.source)+(b.note==='unverified'?' <span class="imp-hist-tag">\u26A0 Not verified</span>':'')+'</div><div class="ihs">'+esc(sub)+'</div></div>'+
       '<button class="imp-hist-undo" onclick="impConfirmUndo(\''+b.id+'\')">Undo</button></div>';
   }).join('');
   el.innerHTML='<div class="imp-hist-card"><div class="imp-hist-hd">\uD83D\uDCE5 Imports so far</div>'+rows+'</div>';
@@ -29733,7 +29750,8 @@ function bankCommitImport(){
   });
   if(added.length){
     var dates=added.map(function(t){return t.date;});
-    impRegisterBatch({source:(BANK_NAMES[BANK.src]||'Bank')+' statement', kind:'bank', span:impSpan(dates)}, added);
+    var _detected=(BANK.bank && BANK.bank!=='Unknown') ? BANK.bank : (BANK_NAMES[BANK.src]||'Bank');
+    impRegisterBatch({source:_detected+' statement', kind:'bank', span:impSpan(dates), note:((BANK.recon && !BANK.recon.ok)?'unverified':'')}, added);
     // Persist every imported row through the same offline-safe chokepoint manual entries
     // use: stamps a cuid, queues the outbox, syncs cross-device, survives reload + sign-in.
     try {
@@ -29744,7 +29762,7 @@ function bankCommitImport(){
   }
   try{ saveState&&saveState(); }catch(e){}
   closeBankImport();
-  var msg='Imported '+added.length+' transactions from '+(BANK_NAMES[BANK.src]||'CSV');
+  var msg='Imported '+added.length+' transactions from '+((BANK.bank && BANK.bank!=='Unknown') ? (BANK.bank+' statement') : (BANK_NAMES[BANK.src]||'CSV'));
   if(dupes>0) msg+=' · skipped '+dupes+' already in your records';
   toast(msg, 'success');
   // Refresh views
@@ -31202,6 +31220,7 @@ function orExportPackout(){
           <div class="imp-upload-t" id="bank-file-name">Click to choose a CSV, PDF, or photo</div>
           <div class="imp-upload-s">or drag and drop here</div>
         </label>
+        <div id="bank-read-note" class="imp-readnote" style="display:none"></div>
         <div class="imp-or">or paste statement content</div>
         <textarea class="imp-textarea" id="bank-paste" placeholder="Paste the CSV content from your bank statement here..." oninput="bankPasteChanged()"></textarea>
         <button class="imp-sample-link" onclick="bankLoadSample()">↻ Try a sample <span id="bank-sample-name">statement</span> instead</button>
