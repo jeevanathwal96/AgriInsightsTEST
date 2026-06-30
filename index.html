@@ -29243,9 +29243,13 @@ function pdfBankExtract(pages){
       if(r3.every(function(w){ return /^(fee|debits?|credits?|service|debiet|krediet|saldo|balance|date|datum|details|description|payments?|deposits?)$/i.test(w.str.trim()); })) header=header.concat(r3);
     }}
     header.sort(function(a,b){return a.x0-b.x0;});
-    var outC=[],inC=[],feeC=[],amtC=[],balC=null,descStart=null,descEnd=null,dateC=null,minX0=1e9;
+    // OCR often splits 'Money In' / 'Money Out' into two words — merge them so the column is seen.
+    for(var hm=0;hm<header.length-1;hm++){ var ha=header[hm].str.toLowerCase(), hb=header[hm+1].str.toLowerCase();
+      if((ha==='money'||ha==='geld') && (hb==='in'||hb==='out'||hb==='uit')){ header[hm]={str:'money '+(hb==='uit'?'out':hb), x0:header[hm].x0, x1:header[hm+1].x1}; header.splice(hm+1,1); } }
+    var outC=[],inC=[],feeC=[],amtC=[],balC=null,catC=null,descStart=null,descEnd=null,dateC=null,minX0=1e9;
     for(var h=0;h<header.length;h++){ var w=header[h],s=w.str.toLowerCase(),c=(w.x0+w.x1)/2;
       if(/desc|narrat|detail|payee|memo|beskrywing/.test(s)) descStart=w.x0;
+      else if(/categor|kategorie/.test(s)) catC=w.x0;
       else if(/\bdate\b|datum/.test(s)) dateC=[w.x0,w.x1];
       else if(/^fee$|service/.test(s)){ feeC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
       else if(/debit|debiet|payment|money\s*out|withdrawal/.test(s)){ outC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
@@ -29255,6 +29259,7 @@ function pdfBankExtract(pages){
       else if(/fee/.test(s)){ feeC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
     }
     if(outC.length===0 && feeC.length){ outC=feeC.slice(); feeC=[]; }   // fee is the outflow only when no debit column
+    if(catC!=null && (descEnd==null || catC<descEnd)) descEnd=catC;
     if(descStart==null) descStart=40;
     if(descEnd==null) descEnd=(balC!=null?balC:descStart+200);
     var moneyC=outC.concat(inC).concat(feeC).concat(amtC); if(balC!=null) moneyC.push(balC);
@@ -29287,6 +29292,18 @@ function pdfBankExtract(pages){
       }
     }
   }
+  // Opening/closing may be printed on a summary section (no transaction header). If we still don't
+  // have them, scan every line of every page for a labelled balance and take the rightmost number.
+  if(opening==null || closing==null){
+    for(var gp=0;gp<pages.length;gp++){ var gl={},git=pages[gp].items,gk;
+      for(var gi=0;gi<git.length;gi++){ gk=Math.round(git[gi].top/2)*2; (gl[gk]=gl[gk]||[]).push(git[gi]); }
+      for(var gkey in gl){ var gln=gl[gkey].slice().sort(function(a,b){return a.x0-b.x0;});
+        var gtxt=norm(gln.map(function(w){return w.str;}).join('')); var gr=null;
+        for(var z=0;z<gln.length;z++){ var vv=num(gln[z].str); if(vv!=null) gr=vv; }
+        if(opening==null && /openingbalance/.test(gtxt) && gr!=null) opening=gr;
+        if(closing==null && /closingbalance/.test(gtxt) && gr!=null) closing=gr;
+      } }
+  }
   function _reconWith(getAmt){
     var run=(opening!=null?opening:(rows.length&&rows[0].bal!=null?rows[0].bal-getAmt(0):0));
     var mm=0;
@@ -29296,14 +29313,17 @@ function pdfBankExtract(pages){
   }
   var _rA=_reconWith(function(i){return rows[i].amt;});
   var _chosen=_rA;
-  // Reconciliation-driven correction: if the column reading doesn't balance, but every row carries a
-  // printed balance and we know the opening, derive each amount from the balance delta (ground truth)
-  // and adopt it only if THAT ties out to the cent.
-  if(!_rA.ok && opening!=null && rows.length && rows.every(function(r){return r.bal!=null;})){
-    var _prev=opening,_deltas=[];
+  // Reconciliation-driven correction: if the column reading doesn't balance but every row carries a
+  // printed balance, derive each amount from the balance delta (ground truth) and adopt it only if
+  // THAT ties out. Opening is used if known, otherwise back-computed from the first row.
+  if(!_rA.ok && rows.length && rows.every(function(r){return r.bal!=null;})){
+    var _op0=(opening!=null)?opening:Math.round((rows[0].bal-rows[0].amt)*100)/100;
+    var _prev=_op0,_deltas=[];
     for(var d=0;d<rows.length;d++){ _deltas.push(Math.round((rows[d].bal-_prev)*100)/100); _prev=rows[d].bal; }
+    var _savedOpening=opening; opening=_op0;
     var _rB=_reconWith(function(i){return _deltas[i];});
     if(_rB.ok){ for(var d2=0;d2<rows.length;d2++) rows[d2].amt=_deltas[d2]; _chosen=_rB; }
+    else { opening=_savedOpening; }
   }
   var running=_chosen.running, mismatches=_chosen.mismatches, statedClose=_chosen.statedClose, reconOk=_chosen.ok;
   var _run2=(opening!=null?opening:(rows.length&&rows[0].bal!=null?rows[0].bal-rows[0].amt:0));
@@ -29346,8 +29366,15 @@ function bankImportPDF(f){
   r.onerror=function(){ if(nameEl) nameEl.textContent=orig; toast('Couldn\u2019t read that file','error'); };
   r.onload=function(){
     extractBankPDF(r.result).then(function(res){
-      if(!res.rows.length){ if(nameEl) nameEl.textContent=orig;
-        toast('Couldn\u2019t read this PDF automatically \u2014 it may be a scan or photo. Type it in or use a CSV.','error'); return; }
+      if(!res.rows.length){
+        if(nameEl) nameEl.textContent=orig+' \u2014 reading (OCR)\u2026';
+        var r2=new FileReader();
+        r2.onload=function(){ extractBankPDFviaOCR(r2.result, function(idx,total,p){ if(nameEl) nameEl.textContent=orig+' \u2014 reading page '+(idx+1)+(total>1?('/'+total):'')+' '+Math.round((p||0)*100)+'%'; })
+          .then(function(res2){ if(!res2.rows.length){ if(nameEl) nameEl.textContent=orig; toast('Couldn\u2019t read this PDF \u2014 it may be a faint scan. Try a clearer copy, a CSV, or type it in.','error'); return; }
+            BANK.parsed=res2.rows; BANK.recon=res2.recon; if(nameEl) nameEl.textContent=orig; bankRenderPreview(); bankSetStep(3); })
+          .catch(function(){ if(nameEl) nameEl.textContent=orig; toast('Couldn\u2019t read this PDF \u2014 type it in or use a CSV.','error'); }); };
+        r2.readAsArrayBuffer(f);
+        return; }
       BANK.parsed=res.rows; BANK.recon=res.recon;
       bankRenderPreview(); bankSetStep(3);
     }).catch(function(e){ if(nameEl) nameEl.textContent=orig;
@@ -29370,11 +29397,100 @@ function bankRenderRecon(){
 }
 
 
+// ── On-device OCR for photographed / scanned statements (Phase B) ──────────────
+// Tesseract.js is lazy-loaded only when an image (or scanned PDF) is actually imported.
+function ensureTesseract(){
+  if(window.Tesseract) return Promise.resolve(window.Tesseract);
+  if(window.__tessLoading) return window.__tessLoading;
+  window.__tessLoading=new Promise(function(resolve,reject){
+    var s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+    s.onload=function(){ window.Tesseract ? resolve(window.Tesseract) : reject(new Error('OCR engine missing')); };
+    s.onerror=function(){ reject(new Error('failed to load OCR engine')); };
+    document.head.appendChild(s);
+  });
+  return window.__tessLoading;
+}
+// Flatten a Tesseract result into a word list with bounding boxes, whatever the shape.
+function _ocrWords(data){
+  if(data && data.words && data.words.length) return data.words;
+  var out=[]; ((data&&data.blocks)||[]).forEach(function(b){ (b.paragraphs||[]).forEach(function(par){ (par.lines||[]).forEach(function(ln){ (ln.words||[]).forEach(function(w){ out.push(w); }); }); }); });
+  return out;
+}
+// OCR one image (File/Blob/canvas) -> word list.
+function ocrImage(image, onProgress){
+  return ensureTesseract().then(function(T){
+    return T.createWorker('eng', 1, { logger:function(m){ if(m && m.status==='recognizing text' && onProgress) onProgress(m.progress||0); } })
+      .then(function(worker){
+        return worker.setParameters({ tessedit_pageseg_mode:'6' })
+          .then(function(){ return worker.recognize(image, {}, { blocks:true }); })
+          .then(function(ret){ return worker.terminate().then(function(){ return _ocrWords(ret.data); }); })
+          .catch(function(e){ try{ worker.terminate(); }catch(_){} throw e; });
+      });
+  });
+}
+// OCR word boxes -> engine geometry page. Merges thousands that OCR split ("1" + "050.00").
+function _ocrPageFromWords(words){
+  var NH=/^-?\d{1,3}$/, NT=/^\d{3}(\.\d{2})?\*?$/;
+  var ws=(words||[]).filter(function(w){ return w && w.text && w.text.trim() && (w.confidence==null||w.confidence>=30); })
+    .map(function(w){ var b=w.bbox||{}; return { str:w.text, x0:b.x0||0, x1:b.x1||0, y0:b.y0||0, y1:b.y1||0 }; });
+  if(!ws.length) return { items:[] };
+  ws.sort(function(a,b){ return (a.y0-b.y0)||(a.x0-b.x0); });
+  var hs=ws.map(function(w){ return (w.y1-w.y0)||12; }).sort(function(a,b){ return a-b; });
+  var tol=Math.max(6, (hs[Math.floor(hs.length/2)]||12)*0.6);
+  var lines=[], cur=null;
+  ws.forEach(function(w){ if(cur && Math.abs(w.y0-cur.y0)<=tol){ cur.items.push(w); } else { cur={ y0:w.y0, items:[w] }; lines.push(cur); } });
+  var items=[];
+  lines.forEach(function(ln){ var a=ln.items.slice().sort(function(p,q){ return p.x0-q.x0; }); var i=0;
+    while(i<a.length){ var c={ str:a[i].str, x0:a[i].x0, x1:a[i].x1 }; var j=i+1;
+      while(j<a.length){ var nx=a[j]; var gap=nx.x0-c.x1; var head=c.str.replace(/[^\d-]/g,'')||c.str;
+        if(gap<30 && NH.test(head) && NT.test(nx.str)){ c.str=c.str+nx.str; c.x1=nx.x1; j++; } else break; }
+      items.push({ str:c.str, x0:c.x0, x1:c.x1, top:ln.y0 }); i=j; } });
+  return { items:items };
+}
+// OCR a set of image files -> reconciled result via the same engine + editable preview.
+function extractBankImages(files, onProgress){
+  var arr=Array.prototype.slice.call(files), pages=[];
+  return arr.reduce(function(prom, file, idx){
+    return prom.then(function(){ return ocrImage(file, function(p){ if(onProgress) onProgress(idx, arr.length, p); }); })
+      .then(function(words){ pages.push(_ocrPageFromWords(words)); });
+  }, Promise.resolve()).then(function(){ return pdfBankExtract(pages); });
+}
+// A scanned (image-only) PDF: render each page to a canvas, then OCR.
+function extractBankPDFviaOCR(arrayBuffer, onProgress){
+  return ensurePdfJs().then(function(lib){ return lib.getDocument({data:arrayBuffer}).promise; })
+    .then(function(pdf){ var ns=[]; for(var i=1;i<=pdf.numPages;i++) ns.push(i); var pages=[];
+      return ns.reduce(function(prom, n, idx){
+        return prom.then(function(){ return pdf.getPage(n); })
+          .then(function(page){ var vp=page.getViewport({scale:2}); var cv=document.createElement('canvas'); cv.width=vp.width; cv.height=vp.height;
+            return page.render({ canvasContext:cv.getContext('2d'), viewport:vp }).promise.then(function(){ return cv; }); })
+          .then(function(cv){ return ocrImage(cv, function(p){ if(onProgress) onProgress(idx, ns.length, p); }); })
+          .then(function(words){ pages.push(_ocrPageFromWords(words)); });
+      }, Promise.resolve()).then(function(){ return pdfBankExtract(pages); });
+    });
+}
+// Route chosen image(s): OCR on-device, then jump to the editable preview.
+function bankImportImages(files){
+  var nameEl=document.getElementById('bank-file-name');
+  var nb=document.getElementById('bank-imp-next'); if(nb) nb.disabled=true;
+  var label=(files.length>1 ? files.length+' photos' : files[0].name);
+  if(nameEl) nameEl.textContent=label+' \u2014 reading\u2026 this can take a few seconds';
+  extractBankImages(files, function(idx,total,p){ if(nameEl) nameEl.textContent=label+' \u2014 reading'+(total>1?(' '+(idx+1)+'/'+total):'')+'\u2026 '+Math.round((p||0)*100)+'%'; })
+    .then(function(res){
+      if(!res.rows.length){ if(nameEl) nameEl.textContent=label; toast('Couldn\u2019t read that statement photo \u2014 try a clearer, straight-on image or type it in.','error'); return; }
+      BANK.parsed=res.rows; BANK.recon=res.recon; if(nameEl) nameEl.textContent=label;
+      bankRenderPreview(); bankSetStep(3);
+    }).catch(function(e){ if(nameEl) nameEl.textContent=label; toast('Couldn\u2019t read that photo \u2014 try a clearer image or type it in.','error'); });
+}
+
 function bankFileChosen(input){
   if(!input.files || !input.files[0]) return;
-  var f = input.files[0];
-  document.getElementById('bank-file-name').textContent = f.name;
+  var files = Array.prototype.slice.call(input.files);
+  var f = files[0];
+  document.getElementById('bank-file-name').textContent = (files.length>1 ? files.length+' files' : f.name);
   if(/\.pdf$/i.test(f.name) || f.type === 'application/pdf'){ bankImportPDF(f); return; }
+  var imgs = files.filter(function(x){ return /^image\//.test(x.type||'') || /\.(png|jpe?g|webp|heic|heif|gif|bmp|tiff?)$/i.test(x.name); });
+  if(imgs.length){ bankImportImages(imgs); return; }
   var r = new FileReader();
   r.onload = function(){
     document.getElementById('bank-paste').value = r.result;
@@ -31057,12 +31173,12 @@ function orExportPackout(){
 
       <!-- Step 2: Upload -->
       <div class="imp-step-content" id="bank-imp-st2">
-        <div class="imp-step-h">Upload <span id="bank-st2-name">your</span> CSV or PDF statement</div>
-        <div class="imp-step-hs">Export a CSV or download a PDF statement from your online banking, then drop it here. We read it right on your device — your data never leaves your phone.</div>
+        <div class="imp-step-h">Upload <span id="bank-st2-name">your</span> CSV, PDF or photo</div>
+        <div class="imp-step-hs">Export a CSV, download a PDF, or snap a clear photo of your statement, then drop it here. We read it right on your device — your data never leaves your phone.</div>
         <label class="imp-upload" for="bank-file-input">
-          <input type="file" id="bank-file-input" accept=".csv,.txt,.pdf" style="display:none" onchange="bankFileChosen(this)"/>
+          <input type="file" id="bank-file-input" accept=".csv,.txt,.pdf,image/*" multiple style="display:none" onchange="bankFileChosen(this)"/>
           <div class="imp-upload-ic">📄</div>
-          <div class="imp-upload-t" id="bank-file-name">Click to choose a CSV or PDF file</div>
+          <div class="imp-upload-t" id="bank-file-name">Click to choose a CSV, PDF, or photo</div>
           <div class="imp-upload-s">or drag and drop here</div>
         </label>
         <div class="imp-or">or paste statement content</div>
