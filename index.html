@@ -29211,22 +29211,33 @@ function bankImpNext(){
 function pdfBankExtract(pages){
   var CHROME=/customer care|website|account number|account holder|product name|see money|we subscribe|authorised|transaction details|available balance|statement period|statement date|statement frequency|tax invoice|please verify|statement summary|narrative description|reg no|vat reg|nedbank ltd|standard bank of south|ombudsman|daily balance analysis|interest charged|arranged limit|total charge/i;
   function norm(s){ return String(s||'').replace(/\s+/g,'').toLowerCase(); }
-  function num(s){ var t=String(s).replace(/[R\s,*]/g,''); var paren=/^\(.*\)$/.test(t); if(paren)t=t.replace(/[()]/g,''); var neg=paren||/-$/.test(t)||/^-/.test(t); t=t.replace(/^-|-$/g,'');
-    return (/^\d{1,3}(\d{3})*\.\d{2}$/.test(t)||/^\d+\.\d{2}$/.test(t))?(neg?-parseFloat(t):parseFloat(t)):null; }
+  function num(s){ var t=String(s).replace(/[\s*]/g,'');
+    var cr=/cr$/i.test(t), dr=/dr$/i.test(t); t=t.replace(/(cr|dr)$/i,'').replace(/r/gi,'');
+    var paren=/^\(.*\)$/.test(t); if(paren) t=t.replace(/[()]/g,'');
+    var trail=/-$/.test(t), lead=/^-/.test(t); t=t.replace(/^-|-$/g,'');
+    var hasDot=t.indexOf('.')>=0, hasComma=t.indexOf(',')>=0;
+    if(hasDot&&hasComma) t=t.replace(/,/g,'');
+    else if(hasComma&&/,\d{2}$/.test(t)) t=t.replace(/,/g,'.');
+    else t=t.replace(/,/g,'');
+    if(!(/^\d{1,3}(\d{3})*\.\d{2}$/.test(t)||/^\d+\.\d{2}$/.test(t))) return null;
+    var v=parseFloat(t); var neg=dr||paren||trail||lead;
+    return cr? v : (neg? -v : v); }
   var allText='';
   for(var p=0;p<pages.length;p++){ for(var i=0;i<pages[p].items.length;i++) allText+=' '+pages[p].items[i].str; }
   var bank=/nedbank/i.test(allText)?'Nedbank':/standard bank/i.test(allText)?'Standard Bank':/capitec/i.test(allText)?'Capitec':/first national|fnb/i.test(allText)?'FNB':'Unknown';
   // statement period (for short MM DD dates)
   var period=null;
-  var pm=allText.match(/Statement from\s+(\d{1,2}\s+[A-Za-z]{3,}\s+\d{4})\s+to\s+(\d{1,2}\s+[A-Za-z]{3,}\s+\d{4})/i);
+  var pm=allText.match(/Statement from\s+(\d{1,2}\s+[A-Za-z]{3,}\s+\d{4})\s+to\s+(\d{1,2}\s+[A-Za-z]{3,}\s+\d{4})/i) || allText.match(/(\d{1,2}\s+[A-Za-z]{3,}\s+\d{4})\s+(?:to|until|\u2013|-)\s+(\d{1,2}\s+[A-Za-z]{3,}\s+\d{4})/i);
   if(pm){ var pa=parseFlexDate(pm[1]),pb=parseFlexDate(pm[2]); if(pa&&pb) period={sM:pa.m,sY:pa.y,eM:pb.m,eY:pb.y}; }
   function resolveDate(tok){ var pp=parseFlexDate(tok); if(pp) return pp;
     var mm=tok.match(/^(\d{1,2})\s+(\d{1,2})$/);
     if(mm&&period){ var a=+mm[1],b=+mm[2]; var moI,day; if(a>12){moI=b-1;day=a;}else{moI=a-1;day=b;}
       var y=(moI>=period.sM)?period.sY:period.eY; return {d:day,m:moI,y:y}; }
+    var dm=tok.match(/^(\d{1,2})\s+([A-Za-z]{3,})$/);
+    if(dm){ var probe=parseFlexDate(dm[1]+' '+dm[2]+' 2000'); if(probe){ var yy=period?((probe.m>=period.sM)?period.sY:period.eY):(new Date().getFullYear()); return {d:+dm[1],m:probe.m,y:yy}; } }
     return null; }
 
-  var rows=[],opening=null,closing=null,cur=null;
+  var rows=[],opening=null,closing=null,cur=null,LAYok=false;
   for(var pg=0;pg<pages.length;pg++){
     var lines={},items=pages[pg].items,k;
     for(var n=0;n<items.length;n++){ k=Math.round(items[n].top/2)*2; (lines[k]=lines[k]||[]).push(items[n]); }
@@ -29234,9 +29245,11 @@ function pdfBankExtract(pages){
     var hk=null,header=null;
     for(var ki=0;ki<keys.length;ki++){
       var t=lines[keys[ki]].map(function(w){return w.str;}).join(' ');
-      if((/\bdate\b/i.test(t)||/datum/i.test(t))&&/balance|saldo/i.test(t)&&/debit|credit|fee|payment|deposit|debiet|krediet|service|amount|bedrag|money\s*in|money\s*out/i.test(t)){ hk=keys[ki]; header=lines[keys[ki]].slice(); break; }
+      if(((/\bdate\b/i.test(t)||/datum/i.test(t))||/desc|narrat|detail|beskrywing/i.test(t))&&/balance|saldo/i.test(t)&&/debit|credit|fee|payment|deposit|debiet|krediet|service|amount|bedrag|money\s*in|money\s*out|paid\s*in|paid\s*out/i.test(t)){ hk=keys[ki]; header=lines[keys[ki]].slice(); break; }
     }
-    if(hk===null) continue;
+    var carried=false;
+    if(hk===null){ if(!LAYok) continue; carried=true; }
+    if(!carried){
     // merge a stacked header line just below (column-keyword-only)
     for(var kj=0;kj<keys.length;kj++){ if(keys[kj]>hk && keys[kj]<=hk+24){
       var r3=lines[keys[kj]];
@@ -29245,15 +29258,15 @@ function pdfBankExtract(pages){
     header.sort(function(a,b){return a.x0-b.x0;});
     // OCR often splits 'Money In' / 'Money Out' into two words — merge them so the column is seen.
     for(var hm=0;hm<header.length-1;hm++){ var ha=header[hm].str.toLowerCase(), hb=header[hm+1].str.toLowerCase();
-      if((ha==='money'||ha==='geld') && (hb==='in'||hb==='out'||hb==='uit')){ header[hm]={str:'money '+(hb==='uit'?'out':hb), x0:header[hm].x0, x1:header[hm+1].x1}; header.splice(hm+1,1); } }
+      if((ha==='money'||ha==='geld'||ha==='paid') && (hb==='in'||hb==='out'||hb==='uit')){ header[hm]={str:(ha==='paid'?'paid':'money')+' '+(hb==='uit'?'out':hb), x0:header[hm].x0, x1:header[hm+1].x1}; header.splice(hm+1,1); } }
     var outC=[],inC=[],feeC=[],amtC=[],balC=null,catC=null,descStart=null,descEnd=null,dateC=null,minX0=1e9;
     for(var h=0;h<header.length;h++){ var w=header[h],s=w.str.toLowerCase(),c=(w.x0+w.x1)/2;
       if(/desc|narrat|detail|payee|memo|beskrywing/.test(s)) descStart=w.x0;
       else if(/categor|kategorie/.test(s)) catC=w.x0;
       else if(/\bdate\b|datum/.test(s)) dateC=[w.x0,w.x1];
       else if(/^fee$|service/.test(s)){ feeC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
-      else if(/debit|debiet|payment|money\s*out|withdrawal/.test(s)){ outC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
-      else if(/credit|krediet|deposit|money\s*in/.test(s)){ inC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
+      else if(/debit|debiet|payment|money\s*out|withdrawal|paid\s*out/.test(s)){ outC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
+      else if(/credit|krediet|deposit|money\s*in|paid\s*in/.test(s)){ inC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
       else if(/^amount$|bedrag|transaction\s*amount|^amt$/.test(s)){ amtC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
       else if(/balance|saldo/.test(s)){ balC=c; if(w.x0<minX0)minX0=w.x0; }
       else if(/fee/.test(s)){ feeC.push(c); if(w.x0<minX0)minX0=w.x0; if(descEnd==null||w.x0<descEnd)descEnd=w.x0; }
@@ -29264,6 +29277,8 @@ function pdfBankExtract(pages){
     if(descEnd==null) descEnd=(balC!=null?balC:descStart+200);
     var moneyC=outC.concat(inC).concat(feeC).concat(amtC); if(balC!=null) moneyC.push(balC);
     var leftCut=(minX0<1e9?minX0:60)-30;
+    LAYok=true;
+    }
     function classify(x1){ if(x1<leftCut) return null; var best=null,bd=1e9; for(var c=0;c<moneyC.length;c++){var d=Math.abs(x1-moneyC[c]); if(d<bd){bd=d;best=moneyC[c];}} return bd<=95?best:null; }
     function isIn(c){ return inC.indexOf(c)>=0; }
     function isFee(c){ return feeC.indexOf(c)>=0; }
@@ -29272,7 +29287,8 @@ function pdfBankExtract(pages){
     function findDate(left){ for(var a=0;a<left.length;a++){ var p1=resolveDate(left[a].str); if(p1) return {p:p1};
       if(a+1<left.length){var p2=resolveDate(left[a].str+' '+left[a+1].str); if(p2) return {p:p2};}
       if(a+2<left.length){var p3=resolveDate(left[a].str+' '+left[a+1].str+' '+left[a+2].str); if(p3) return {p:p3};} } return null; }
-    for(var ki2=0;ki2<keys.length;ki2++){ if(keys[ki2]<=hk) continue;
+    var rowLo=carried?-1e18:hk;
+    for(var ki2=0;ki2<keys.length;ki2++){ if(keys[ki2]<=rowLo) continue;
       var row=lines[keys[ki2]].slice().sort(function(a,b){return a.x0-b.x0;});
       var line=row.map(function(w){return w.str;}).join(' '); var nline=norm(line);
       var moneyToks=[],balVal=null;
@@ -29295,13 +29311,16 @@ function pdfBankExtract(pages){
   // Opening/closing may be printed on a summary section (no transaction header). If we still don't
   // have them, scan every line of every page for a labelled balance and take the rightmost number.
   if(opening==null || closing==null){
+    function _valAfter(gln, re){ var lab='', seen=false;
+      for(var z=0;z<gln.length;z++){ var ws=gln[z].str.toLowerCase();
+        if(!seen){ lab=(lab+ws).slice(-40); if(re.test(lab)) seen=true; }
+        else { var v=num(gln[z].str); if(v!=null) return v; } }
+      return null; }
     for(var gp=0;gp<pages.length;gp++){ var gl={},git=pages[gp].items,gk;
       for(var gi=0;gi<git.length;gi++){ gk=Math.round(git[gi].top/2)*2; (gl[gk]=gl[gk]||[]).push(git[gi]); }
       for(var gkey in gl){ var gln=gl[gkey].slice().sort(function(a,b){return a.x0-b.x0;});
-        var gtxt=norm(gln.map(function(w){return w.str;}).join('')); var gr=null;
-        for(var z=0;z<gln.length;z++){ var vv=num(gln[z].str); if(vv!=null) gr=vv; }
-        if(opening==null && /openingbalance/.test(gtxt) && gr!=null) opening=gr;
-        if(closing==null && /closingbalance/.test(gtxt) && gr!=null) closing=gr;
+        if(opening==null){ var ov=_valAfter(gln, /openingbalance/); if(ov!=null) opening=ov; }
+        if(closing==null){ var cv=_valAfter(gln, /closingbalance/); if(cv!=null) closing=cv; }
       } }
   }
   function _reconWith(getAmt){
@@ -29317,15 +29336,17 @@ function pdfBankExtract(pages){
   // printed balance, derive each amount from the balance delta (ground truth) and adopt it only if
   // THAT ties out. Opening is used if known, otherwise back-computed from the first row.
   if(!_rA.ok && rows.length && rows.every(function(r){return r.bal!=null;})){
-    var _op0=(opening!=null)?opening:Math.round((rows[0].bal-rows[0].amt)*100)/100;
-    var _prev=_op0,_deltas=[];
-    for(var d=0;d<rows.length;d++){ _deltas.push(Math.round((rows[d].bal-_prev)*100)/100); _prev=rows[d].bal; }
-    var _savedOpening=opening; opening=_op0;
-    var _rB=_reconWith(function(i){return _deltas[i];});
-    if(_rB.ok){ for(var d2=0;d2<rows.length;d2++) rows[d2].amt=_deltas[d2]; _chosen=_rB; }
-    else { opening=_savedOpening; }
+    var _cands=[]; if(opening!=null) _cands.push(opening); _cands.push(Math.round((rows[0].bal-rows[0].amt)*100)/100);
+    for(var _ci=0;_ci<_cands.length;_ci++){
+      var _op0=_cands[_ci], _prev=_op0, _deltas=[];
+      for(var d=0;d<rows.length;d++){ _deltas.push(Math.round((rows[d].bal-_prev)*100)/100); _prev=rows[d].bal; }
+      var _savedOpening=opening; opening=_op0;
+      var _rB=_reconWith(function(i){return _deltas[i];});
+      if(_rB.ok){ for(var d2=0;d2<rows.length;d2++) rows[d2].amt=_deltas[d2]; _chosen=_rB; break; }
+      else opening=_savedOpening;
+    }
   }
-  var running=_chosen.running, mismatches=_chosen.mismatches, statedClose=_chosen.statedClose, reconOk=_chosen.ok;
+  var running=_chosen.running, mismatches=_chosen.mismatches, statedClose=_chosen.statedClose, reconOk=_chosen.ok && rows.length>0;
   var _run2=(opening!=null?opening:(rows.length&&rows[0].bal!=null?rows[0].bal-rows[0].amt:0));
   for(var x2=0;x2<rows.length;x2++){ _run2=Math.round((_run2+rows[x2].amt)*100)/100; rows[x2]._rowOk=(rows[x2].bal==null)||Math.abs(_run2-rows[x2].bal)<0.01; }
   var out=rows.map(function(t){ var income=t.amt>=0;
