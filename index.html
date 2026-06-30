@@ -2014,6 +2014,29 @@ body.simple-view #nav-budgets{display:none}
 .imp-recon-act:hover{background:#754A0E}
 .imp-readnote{background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A;border-radius:8px;padding:11px 13px;font-size:12.5px;line-height:1.5;margin-top:12px}
 .imp-hist-tag{display:inline-block;background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A;border-radius:5px;padding:1px 7px;font-size:10.5px;font-weight:600;margin-left:6px;vertical-align:middle}
+.imp-hist-card{background:#fff;border:1px solid var(--gp);border-radius:12px;overflow:hidden}
+.imp-hist-hd{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600;color:var(--t1)}
+.imp-hist-count{margin-left:auto;font-size:11.5px;font-weight:500;color:var(--t3)}
+.imp-hist-row{display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer}
+.imp-hist-row + .imp-hist-row{border-top:1px solid #f3f3f3}
+.imp-hist-row:hover{background:#FAFAFA}
+.imp-hist-chev{flex:none;color:#9ca3af;font-size:15px;line-height:1;transition:transform .12s;display:inline-block}
+.imp-hist-row.open .imp-hist-chev{transform:rotate(90deg)}
+.imp-hist-meta{flex:1;min-width:0}
+.imp-hist-meta .ihl{font-size:13px;font-weight:500;color:var(--t1)}
+.imp-hist-meta .ihs{font-size:11.5px;color:var(--t3);margin-top:2px}
+.imp-hist-undo{flex:none;background:#fff;color:var(--t2);border:1px solid var(--br);border-radius:7px;padding:6px 14px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit}
+.imp-hist-undo:hover{background:#F3F4F6;border-color:#d1d5db}
+.imp-hist-txs{background:#FCFCFB}
+.imp-hist-tx{display:flex;align-items:center;gap:10px;padding:6px 16px 6px 42px;border-top:1px solid #f4f4f4;font-size:12px}
+.iht-d{width:64px;flex:none;color:var(--t3);font-size:11px;white-space:nowrap}
+.iht-x{flex:1;min-width:0;color:var(--t2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iht-a{flex:none;font-weight:600;font-variant-numeric:tabular-nums}
+.iht-a.in{color:var(--gm)}
+.iht-a.out{color:var(--rd)}
+.imp-hist-more{padding:8px 16px 10px 42px;background:#FAFAFA}
+.imp-hist-more a{font-size:11.5px;color:var(--gd);font-weight:600;cursor:pointer}
+.imp-hist-toggle{width:100%;text-align:center;padding:10px;border:none;border-top:1px solid #f0f0f0;background:#FAFAFA;color:var(--gd);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
 .imp-prev-tbl tr.imp-warn td{background:#FDF3E2}
 .imp-summary{display:flex;gap:14px;padding:10px 12px;background:var(--gb);border:1px solid var(--gp);border-radius:var(--rs);margin-bottom:10px;font-size:12.5px;flex-wrap:wrap;align-items:center}
 .imp-summary b{color:var(--gd);font-weight:800}
@@ -3411,7 +3434,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div class="drop-item" onclick="nav('transactions')" style="text-align:center;justify-content:center;color:var(--gl);font-weight:600">View all</div>
         </div>
       </div>
-      <div class="avatar" onclick="nav('settings')">JG</div>
+      <div class="avatar" id="user-avatar" onclick="nav('settings')">JM</div>
     </div>
   </div>
 
@@ -10073,8 +10096,11 @@ function syncTopbarFarm(){
     var fn=document.getElementById('farm-name'); if(fn) fn.textContent = ST.farmName || 'Your farm';
     var di=document.querySelector('#farm-drop .drop-item'); if(di) di.textContent = '\u2713  ' + (ST.farmName || 'Your farm');
     if (typeof updateTopbarGreeting==='function') updateTopbarGreeting();
+    if (typeof updateUserAvatar==='function') updateUserAvatar();
   }catch(e){}
 }
+function userInitials(name){ var n=String(name||'').trim(); if(!n) return 'F'; var p=n.split(/\s+/); return (p.length>1 ? (p[0].charAt(0)+p[p.length-1].charAt(0)) : p[0].slice(0,2)).toUpperCase(); }
+function updateUserAvatar(){ var el=document.getElementById('user-avatar'); if(!el) return; el.textContent=userInitials(ST.ownerName); }
 function updateTopbarGreeting() {
   var el = document.getElementById('topbar-greeting');
   if (!el) return;
@@ -10109,7 +10135,7 @@ function saveSettings() {
   var lang  = langEl  ? langEl.value : ST.lang;
 
 if (name)  { ST.farmName = name;  FARM.name  = name; }
-  if (owner) { ST.ownerName = owner; FARM.owner = owner; }
+  if (owner) { ST.ownerName = owner; FARM.owner = owner; updateUserAvatar(); }
   ST.farmHa       = ha;  FARM.ha  = ha;
   ST.fyStartMonth = fy;
   ST.vatRegistered = (vat === 'yes'); FARM.vat = ST.vatRegistered;
@@ -25458,6 +25484,7 @@ var fnEl = $('farm-name'); if(fnEl) fnEl.textContent = farmName;
   var di = document.querySelector('#farm-drop .drop-item');
   if(di) di.textContent = '\u2713  ' + farmName;
   updateTopbarGreeting();
+  updateUserAvatar();
 
 var sf = $('set-farm');  if(sf) sf.value = farmName;
   var so = $('set-owner'); if(so) so.value = owner;
@@ -26832,6 +26859,13 @@ function updateDemoBtnVisibility() {
 // ============================================================
 var SYNC_INTERVAL = null;
 
+function syncTimeAgo(ts){
+  var m=Math.floor((Date.now()-ts)/60000);
+  if(m<1) return 'just now';
+  if(m<60) return m+' min'+(m>1?'s':'')+' ago';
+  var h=Math.floor(m/60); if(h<24) return h+' hour'+(h>1?'s':'')+' ago';
+  var d=Math.floor(h/24); return d+' day'+(d>1?'s':'')+' ago';
+}
 function updateSyncIndicator() {
   ST.lastSaved = Date.now();
   var dot  = $('sync-dot');
@@ -26848,9 +26882,8 @@ if (SYNC_INTERVAL) clearInterval(SYNC_INTERVAL);
     var mins = Math.floor((Date.now() - ST.lastSaved) / 60000);
     var t = $('sync-text');
     if (!t) return;
-    if (mins < 1)   t.textContent = navigator.onLine ? 'Saved just now' : 'Offline — saved locally';
-    else if (mins < 60) t.textContent = 'Saved ' + mins + ' min' + (mins>1?'s':'') + ' ago';
-    else { clearInterval(SYNC_INTERVAL); t.textContent = 'Last saved today'; }
+    if (!navigator.onLine) { t.textContent = 'Offline — saved locally'; return; }
+    t.textContent = 'Saved ' + syncTimeAgo(ST.lastSaved);
   }, 30000);
 }
 
@@ -26861,8 +26894,7 @@ function initSyncIndicator() {
   var online = navigator.onLine !== false;
   dot.style.background = online ? '#40916C' : '#F59E0B';
   if (ST.lastSaved) {
-    var mins = Math.floor((Date.now() - ST.lastSaved) / 60000);
-    text.textContent = mins < 1 ? 'Saved just now' : 'Saved ' + mins + ' min ago';
+    text.textContent = 'Saved ' + syncTimeAgo(ST.lastSaved);
   } else {
     text.textContent = online ? 'Ready' : 'Offline mode';
   }
@@ -27828,6 +27860,7 @@ if (on) {
 var TX_TYPE_FILTER = 'all';
 var TX_FROM = '';
 var TX_TO = '';
+var TX_BATCH_FILTER = '';
 function txSetRange(){
   TX_FROM = ($('tx-from')||{}).value || '';
   TX_TO   = ($('tx-to')||{}).value || '';
@@ -27862,9 +27895,11 @@ function txSetTypeFilter(t) {
   txRender();
 }
 
+function txClearBatchFilter(){ TX_BATCH_FILTER=''; txRender(); }
 function txClearFilters() {
   TX_TYPE_FILTER = 'all';
   TX_CAT_FILTER  = '';
+  TX_BATCH_FILTER = '';
   TX_FROM = ''; TX_TO = '';
   var tf = $('tx-from'); if (tf) tf.value = '';
   var tt = $('tx-to');   if (tt) tt.value = '';
@@ -27937,6 +27972,7 @@ function txRender() {
   var list = ST.txns.filter(function(t, i) {
     t._idx = i;  // stash index for edit
     if (TX_TYPE_FILTER !== 'all' && t.type !== TX_TYPE_FILTER) return false;
+    if (TX_BATCH_FILTER && t.batch !== TX_BATCH_FILTER) return false;
     if (TX_CAT_FILTER && t.cat !== TX_CAT_FILTER) return false;
     if (TX_FROM || TX_TO) {
       var dd = parseDate(t.date);
@@ -28054,6 +28090,13 @@ function txRender() {
     });
   }
 
+  if (TX_BATCH_FILTER) {
+    var _bb=(ST.importBatches||[]).find(function(x){return x.id===TX_BATCH_FILTER;});
+    rows = '<tr><td colspan="6" style="padding:10px 14px;background:#F1F5F2;border-bottom:1px solid #DCE7DF">'+
+      '<span style="font-size:12.5px;color:var(--t2)">Showing one import: <b>'+escHtml((_bb&&_bb.source)||'import')+'</b></span>'+
+      '<button onclick="txClearBatchFilter()" style="margin-left:10px;background:#fff;border:1px solid var(--br);border-radius:6px;padding:4px 11px;font-size:11.5px;font-weight:600;color:var(--gd);cursor:pointer;font-family:inherit">Show all transactions</button>'+
+      '</td></tr>'+rows;
+  }
   var tb = $('all-tbody'); if(tb) tb.innerHTML = rows;
 
   // Update summary
@@ -29642,12 +29685,19 @@ function bankSetCat(i, c){ BANK.parsed[i].cat = c; }
 //  Transactions carry t.batch = batch id; undo removes exactly those.
 // ════════════════════════════════════════════════════════════════════
 function impNewBatchId(){ return 'imp_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function impSpanFmt(p1,p2){ var MO=MONTHS_SHORT;
+  if(!p2) return p1.d+' '+MO[p1.m]+' '+p1.y;
+  if(p1.y===p2.y && p1.m===p2.m) return p1.d+' – '+p2.d+' '+MO[p1.m]+' '+p1.y;
+  if(p1.y===p2.y) return p1.d+' '+MO[p1.m]+' – '+p2.d+' '+MO[p2.m]+' '+p1.y;
+  return p1.d+' '+MO[p1.m]+' '+p1.y+' – '+p2.d+' '+MO[p2.m]+' '+p2.y;
+}
 function impSpan(dates){
   if(!dates||!dates.length) return '';
-  var ds=dates.slice().filter(Boolean).sort();
-  if(!ds.length) return '';
-  var a=ds[0], b=ds[ds.length-1];
-  return a===b ? a : (a+' – '+b);
+  var ks=dates.slice().filter(Boolean).map(function(s){ var p=parseFlexDate(s); return p?{p:p,k:p.y*10000+p.m*100+p.d}:null; }).filter(Boolean);
+  if(!ks.length) return '';
+  ks.sort(function(a,b){return a.k-b.k;});
+  var a=ks[0], b=ks[ks.length-1];
+  return a.k===b.k ? impSpanFmt(a.p,null) : impSpanFmt(a.p,b.p);
 }
 // Stamp a freshly-imported set: tag each txn, register the batch, return id.
 function impRegisterBatch(meta, txnRefs){
@@ -29694,18 +29744,39 @@ function impUndoBatch(id){
 }
 
 // Render the "Imports so far" panel on the Transactions page.
+var IMP_HIST_UI = { all:false, open:{} };
+function impToggleHistAll(){ IMP_HIST_UI.all=!IMP_HIST_UI.all; impRenderHistory(); }
+function impToggleHistBatch(id){ IMP_HIST_UI.open[id]=!IMP_HIST_UI.open[id]; impRenderHistory(); }
+function impViewBatchTxns(id){ TX_BATCH_FILTER=id; nav('transactions'); }
 function impRenderHistory(){
   var el=document.getElementById('tx-import-history'); if(!el) return;
   var batches=(ST.importBatches||[]);
   if(!batches.length){ el.style.display='none'; el.innerHTML=''; return; }
   el.style.display='block';
-  var rows=batches.map(function(b){
+  var SHOW=4, showAll=IMP_HIST_UI.all||batches.length<=SHOW;
+  var visible=showAll?batches:batches.slice(0,SHOW);
+  var rows=visible.map(function(b){
     var when=''; try{ when=new Date(b.when).toLocaleDateString('en-ZA',{day:'numeric',month:'short'}); }catch(e){}
     var sub=b.rows+' '+(b.rows===1?'row':'rows')+(b.span?' · '+b.span:'')+(when?' · added '+when:'');
-    return '<div class="imp-hist-row"><div><div class="ihl">'+esc(b.source)+(b.note==='unverified'?' <span class="imp-hist-tag">\u26A0 Not verified</span>':'')+'</div><div class="ihs">'+esc(sub)+'</div></div>'+
-      '<button class="imp-hist-undo" onclick="impConfirmUndo(\''+b.id+'\')">Undo</button></div>';
+    var tag=b.note==='unverified'?' <span class="imp-hist-tag">\u26A0 Not verified</span>':'';
+    var open=!!IMP_HIST_UI.open[b.id];
+    var head='<div class="imp-hist-row'+(open?' open':'')+'" onclick="impToggleHistBatch(\''+b.id+'\')">'+
+      '<span class="imp-hist-chev">\u203A</span>'+
+      '<div class="imp-hist-meta"><div class="ihl">'+esc(b.source)+tag+'</div><div class="ihs">'+esc(sub)+'</div></div>'+
+      '<button class="imp-hist-undo" onclick="event.stopPropagation();impConfirmUndo(\''+b.id+'\')">Undo</button>'+
+    '</div>';
+    var body='';
+    if(open){
+      var txns=(ST.txns||[]).filter(function(t){return t.batch===b.id;});
+      var prev=txns.slice(0,8).map(function(t){ var inc=t.type==='income';
+        return '<div class="imp-hist-tx"><span class="iht-d">'+esc(t.date)+'</span><span class="iht-x">'+esc(t.desc||'')+'</span><span class="iht-a '+(inc?'in':'out')+'">'+(inc?'+':'\u2212')+'R'+bankAmtGrouped(t.amt)+'</span></div>'; }).join('');
+      var more=txns.length>8?'<div class="imp-hist-more"><a onclick="event.stopPropagation();impViewBatchTxns(\''+b.id+'\')">View all '+txns.length+' in Transactions \u2192</a></div>':'';
+      body='<div class="imp-hist-txs">'+prev+more+'</div>';
+    }
+    return head+body;
   }).join('');
-  el.innerHTML='<div class="imp-hist-card"><div class="imp-hist-hd">\uD83D\uDCE5 Imports so far</div>'+rows+'</div>';
+  var foot=batches.length>SHOW?'<button class="imp-hist-toggle" onclick="impToggleHistAll()">'+(showAll?'Show fewer':('Show all '+batches.length+' imports'))+'</button>':'';
+  el.innerHTML='<div class="imp-hist-card"><div class="imp-hist-hd">\uD83D\uDCE5 Imports so far<span class="imp-hist-count">'+batches.length+' import'+(batches.length===1?'':'s')+'</span></div>'+rows+foot+'</div>';
 }
 function impConfirmUndo(id){
   var b=(ST.importBatches||[]).find(function(x){return x.id===id;}); if(!b) return;
