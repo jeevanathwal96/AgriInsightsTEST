@@ -18412,7 +18412,9 @@ function recomputePlan() {
 
   // ── Step 4: Push plan to budgets ─────────────────────────
   ST_PLAN.months.forEach(function(m){
-    if(m.income > 0 && m.label) ST.budgets.monthlyIncome[m.label] = m.income;
+    if(!m.label) return;
+    if(m.income   > 0 && !(ST.budgets.monthlyIncome[m.label]   > 0)) ST.budgets.monthlyIncome[m.label]   = m.income;
+    if(m.expenses > 0 && !(ST.budgets.monthlyExpenses[m.label] > 0)) ST.budgets.monthlyExpenses[m.label] = m.expenses;
   });
 }
 
@@ -30866,8 +30868,25 @@ function orWfSize(v){ if(v==='custom'){ var c=$('or-csize-c'); c.style.display='
 function orWfSizeCustom(){ var v=parseFloat($('or-csize-c').value); if(!isNaN(v)&&v>0){ orBlockById(OR_CUR_WF).cartonKg=v; orRecalcWf(); } }
 function orAddOther(){ orSyncWf(); ST_FRUIT.pricing[OR_CUR_WF].others.push({label:'',amt:0}); orRenderWf(OR_CUR_WF); var n=ST_FRUIT.pricing[OR_CUR_WF].others.length-1; var el=$('or-oth-lbl-'+n); if(el) el.focus(); }
 function orRemoveOther(i){ orSyncWf(); ST_FRUIT.pricing[OR_CUR_WF].others.splice(i,1); if(!ST_FRUIT.pricing[OR_CUR_WF].others.length) ST_FRUIT.pricing[OR_CUR_WF].others.push({label:'Other costs',amt:0}); orRenderWf(OR_CUR_WF); }
-function orWfReset(){ orToast('Reset to typical prices'); }
-function orWfApplyAll(){ orToast('Applied to all blocks of this crop'); }
+function orWfReset(){
+  var b=orBlockById(OR_CUR_WF); if(!b||!ST_FRUIT.pricing) return;
+  var crop=(OR_CATS[b.cat]?OR_CATS[b.cat].nm:'crop').toLowerCase();
+  if(!confirm('Reset this block\u2019s prices to typical '+crop+' values? Your custom entries will be replaced.')) return;
+  ST_FRUIT.pricing[OR_CUR_WF]=orDefaultPricing(b.cat);
+  orRenderWf(OR_CUR_WF); orSave(); orToast('Reset to typical prices');
+}
+function orWfApplyAll(){
+  orSyncWf();
+  var b=orBlockById(OR_CUR_WF); if(!b||!ST_FRUIT.pricing) return;
+  var crop=(OR_CATS[b.cat]?OR_CATS[b.cat].nm:'crop').toLowerCase();
+  var targets=(ST_FRUIT.blocks||[]).filter(function(x){ return x.cat===b.cat && x.id!==b.id && !x.plan; });
+  if(!targets.length){ orToast('No other '+crop+' blocks to apply to'); return; }
+  var n=targets.length;
+  if(!confirm('Apply these prices to '+n+' other '+crop+' block'+(n===1?'':'s')+'? Their current prices will be replaced.')) return;
+  var src=JSON.parse(JSON.stringify(ST_FRUIT.pricing[OR_CUR_WF]));
+  targets.forEach(function(x){ ST_FRUIT.pricing[x.id]=JSON.parse(JSON.stringify(src)); });
+  orSave(); orToast('Applied to '+n+' other '+crop+' block'+(n===1?'':'s'));
+}
 
 /* ---------- compliance tab ---------- */
 function orComplyScaffold(){
