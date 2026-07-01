@@ -5860,7 +5860,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <!-- Danger zone -->
     <div class="set-danger">
       <div><div class="dt">Reset to the demo farm</div><div class="ds">Wipes every change made on this device and reloads the fresh demo farm.</div></div>
-      <button onclick="if(confirm('Reset to the demo farm? All changes on this device will be erased.'))clearData()" style="background:#fff;border:1.5px solid var(--rd);color:var(--rd);border-radius:var(--rs);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Reset</button>
+      <button onclick="appConfirm('Reset to the demo farm? All changes on this device will be erased.').then(function(o){if(o)clearData();})" style="background:#fff;border:1.5px solid var(--rd);color:var(--rd);border-radius:var(--rs);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Reset</button>
     </div>
 
     <!-- Save -->
@@ -7195,17 +7195,17 @@ function cropSaveLogEntry(){
   Promise.all(_ups).then(function(){ dataChanged('crop'); });
   toast('Logged \u2014 reminder reset','success');
 }
-function cropDeleteLogEntry(id,date){
+async function cropDeleteLogEntry(id,date){
   var L=ST_CROP.compliance.logs && ST_CROP.compliance.logs[id]; if(!L) return;
-  if(!confirm('Delete this log entry?')) return;
+  if(!(await appConfirm('Delete this log entry?'))) return;
   ST_CROP.compliance.logs[id]=L.filter(function(e){return e.date!==date;});
   dataChanged('crop');
   if(typeof renderNotifications==='function') renderNotifications();
   cropRenderComplianceModal();
 }
-function cropEditCadence(id){
+async function cropEditCadence(id){
   var cur=cropComplianceCadence(id);
-  var v=prompt('Remind me to check this every how many months? (0 = no reminder)', cur);
+  var v= await appPrompt('Remind me to check this every how many months? (0 = no reminder)', cur);
   if(v===null) return; v=parseInt(v,10); if(isNaN(v)||v<0){ toast('Enter a number','error'); return; }
   if(!ST_CROP.compliance.cadence) ST_CROP.compliance.cadence={};
   ST_CROP.compliance.cadence[id]=v;
@@ -7238,9 +7238,9 @@ function cropSetDocExpiry(idx, val){
   if(typeof renderNotifications==='function') renderNotifications();
   cropRenderComplianceModal();
 }
-function cropRemoveDoc(idx){
+async function cropRemoveDoc(idx){
   var id=CROP_COMPLY_ID; var D=ST_CROP.compliance.docs && ST_CROP.compliance.docs[id]; if(!D||!D[idx]) return;
-  if(!confirm('Remove '+(D[idx].name||'this document')+'?')) return;
+  if(!(await appConfirm('Remove '+(D[idx].name||'this document')+'?'))) return;
   D.splice(idx,1);
   dataChanged('crop');
   if(typeof renderNotifications==='function') renderNotifications();
@@ -7698,11 +7698,11 @@ function cropSaveLand(){
 }
 
 function cropQuickPlant(){ ST_CROP.activeTab='add'; cropSetTab('add'); }
-function cropQuickHarvest(){
+async function cropQuickHarvest(){
   var growing=ST_CROP.lands.filter(function(l){var e=cropEffStage(l);return e==='growing'||e==='harvest';});
   if(!growing.length){ toast('No lands ready to harvest','info'); return; }
   var l=growing[0];
-  var y=prompt('Record harvest for '+l.name+' \u2014 actual yield (t/ha)?', l.targetYield||'');
+  var y= await appPrompt('Record harvest for '+l.name+' \u2014 actual yield (t/ha)?', l.targetYield||'');
   if(y===null) return; y=parseFloat(y); if(isNaN(y)||y<0){ toast('Enter a valid yield','error'); return; }
   l.actualYield=y; l.stage='fallow'; var prev=l.crop;
   var qpi=cropFindPlanLine(l);
@@ -7888,9 +7888,9 @@ function cropSaveLandEdit(){
   toast('Land updated \u2014 '+l.name,'success');
 }
 
-function cropHarvestLand(){
+async function cropHarvestLand(){
   var l=cropLandById(CROP_LAND_IDX); if(!l) return;
-  var y=prompt('Record harvest for '+l.name+' \u2014 actual yield (t/ha)?', l.targetYield||'');
+  var y= await appPrompt('Record harvest for '+l.name+' \u2014 actual yield (t/ha)?', l.targetYield||'');
   if(y===null) return; y=parseFloat(y); if(isNaN(y)||y<0){ toast('Enter a valid yield','error'); return; }
   l.actualYield=y; var prev=l.crop;
   var pIdx=cropFindPlanLine(l);
@@ -7901,9 +7901,9 @@ function cropHarvestLand(){
   dataChanged('crop'); cropRenderLandModal(); toast('Harvest recorded \u2014 '+l.name,'success');
 }
 
-function cropDeleteLand(){
+async function cropDeleteLand(){
   var l=cropLandById(CROP_LAND_IDX); if(!l) return;
-  if(!confirm('Delete the land \u201c'+l.name+'\u201d and its history? This cannot be undone.')) return;
+  if(!(await appConfirm('Delete the land \u201c'+l.name+'\u201d and its history? This cannot be undone.'))) return;
   var dpi=cropFindPlanLine(l);
   if(dpi>=0) ST_PLAN.crops.splice(dpi,1);
   ST_CROP.lands = ST_CROP.lands.filter(function(x){return x.id!==l.id;});
@@ -9512,7 +9512,8 @@ var COLORS = (typeof EXP_CAT_COLORS !== 'undefined' && EXP_CAT_COLORS) ? EXP_CAT
   }
 
   var amounts = sorted.map(function(c){ return cats[c]; });
-  var colors  = sorted.map(function(c, i){ return COLORS[c] || FALLBACK[i % FALLBACK.length]; });
+  var _cmap = catColorMap(sorted, EXP_CAT_COLORS);
+  var colors  = sorted.map(function(c){ return _cmap[c]; });
 
 el.innerHTML = sorted.map(function(cat, i) {
     var amt = cats[cat];
@@ -9957,6 +9958,9 @@ var EXP_CAT_COLORS = {
   'Land & Rental':           '#6B7280',
   'Insurance':               '#9333EA',
   'Admin & Professional Fees':'#64748B',
+  'Veterinary':              '#7C3AED',
+  'Admin':                   '#64748B',
+  'Other':                   '#9CA3AF',
   'Other Expenses':          '#9CA3AF'
 };
 
@@ -9969,6 +9973,29 @@ var INC_CAT_COLORS = {
   'Subsidies':        '#059669',
   'Other':            '#9CA3AF'
 };
+
+// Deterministic colour for ANY category label: curated colour if known, else a stable
+// pick from a well-spaced palette (same label -> same colour everywhere, never grey).
+// New categories auto-colour without needing to be added to the maps above.
+var _CAT_PALETTE = ['#1F77B4','#FF7F0E','#2CA02C','#D62728','#9467BD','#8C564B','#E377C2','#BCBD22','#17BECF'];
+function _catHash(s){ s=String(s||''); var h=0; for(var i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))>>>0; } return h; }
+function _catAuto(cat){ return _CAT_PALETTE[_catHash(cat) % _CAT_PALETTE.length]; }
+function expCatColor(cat){ return EXP_CAT_COLORS[cat] || _catAuto(cat); }
+function incCatColor(cat){ return INC_CAT_COLORS[cat] || _catAuto(cat); }
+// Per-chart colour map: curated colour if known, else a hash-seeded palette pick bumped to
+// the next free slot so no two categories in the same chart share a colour (high contrast).
+// Assigned in a stable (alphabetical) order so colours don't churn between periods.
+function catColorMap(cats, curated){
+  var used={}, map={}, order=cats.slice().sort();
+  order.forEach(function(c){ var cur=curated && curated[c]; if(cur){ map[c]=cur; used[cur]=1; } });
+  order.forEach(function(c){ if(map[c]) return;
+    var start=_catHash(c)%_CAT_PALETTE.length, col=null;
+    for(var k=0;k<_CAT_PALETTE.length;k++){ var cand=_CAT_PALETTE[(start+k)%_CAT_PALETTE.length]; if(!used[cand]){ col=cand; break; } }
+    if(!col) col=_CAT_PALETTE[start];
+    map[c]=col; used[col]=1;
+  });
+  return map;
+}
 
 // Month labels for the dashboard's selected period (ST.period), ending at the
 // current month — so the Income/Expenses breakdown boxes show the whole window
@@ -10012,10 +10039,11 @@ function renderDashExpCats() {
     return;
   }
 
+  var _cmap = catColorMap(sorted, EXP_CAT_COLORS);
   el.innerHTML = sorted.map(function(cat) {
     var amt = cats[cat];
     var pct = total > 0 ? Math.round(amt / total * 100) : 0;
-    var col = EXP_CAT_COLORS[cat] || '#9CA3AF';
+    var col = _cmap[cat];
     return '<div style="margin-bottom:10px">' +
       '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">' +
         '<div style="display:flex;align-items:center;gap:6px">' +
@@ -10054,10 +10082,11 @@ function renderDashIncSources() {
     return;
   }
 
+  var _cmap = catColorMap(sorted, INC_CAT_COLORS);
   el.innerHTML = sorted.map(function(cat) {
     var amt = cats[cat];
     var pct = total > 0 ? Math.round(amt / total * 100) : 0;
-    var col = INC_CAT_COLORS[cat] || '#2D6A4F';
+    var col = _cmap[cat];
     return '<div style="margin-bottom:10px">' +
       '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">' +
         '<div style="display:flex;align-items:center;gap:6px">' +
@@ -10226,8 +10255,8 @@ function clearAllToFresh() {
 
 // Settings → "Start fresh": clears the demo/explore data everywhere (this device's
 // saved state AND the farm's backend rows) so the user starts with a clean slate.
-function startFresh() {
-  if (!confirm('Clear the demo data and start fresh?\n\nThis removes all the example transactions, livestock, orchards, crops and planning so you can begin entering your own farm\u2019s records. This cannot be undone.')) return;
+async function startFresh() {
+  if (!(await appConfirm('Clear the demo data and start fresh?\n\nThis removes all the example transactions, livestock, orchards, crops and planning so you can begin entering your own farm\u2019s records. This cannot be undone.'))) return;
   clearAllToFresh();
   var finish = function(){ try { saveState(); } catch(e){} try { location.reload(); } catch(e){} };
   try {
@@ -10426,6 +10455,55 @@ function markRead() {
 // ============================================================
 
 // ============================================================
+/* ── Themed in-app dialogs — on-brand replacements for native prompt()/confirm() ── */
+function _dlgEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _appDialog(o){
+  return new Promise(function(resolve){
+    var prev=document.activeElement;
+    var bg=document.getElementById('app-dlg-bg');
+    if(!bg){ bg=document.createElement('div'); bg.id='app-dlg-bg';
+      bg.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(17,24,39,.5);display:none;align-items:flex-start;justify-content:center;padding:15vh 16px 16px;overflow-y:auto';
+      bg.innerHTML='<div id="app-dlg-card" style="width:100%;max-width:360px;background:#fff;border-radius:var(--rl);box-shadow:0 12px 32px rgba(0,0,0,.22);overflow:hidden;font-family:inherit"></div>';
+      document.body.appendChild(bg);
+    }
+    var card=document.getElementById('app-dlg-card');
+    var isPrompt=(o.kind==='prompt'), danger=!!o.danger;
+    var okLabel=o.okLabel||(isPrompt?'Save':(danger?'Remove':'Confirm'));
+    var okBg=danger?'var(--rd,#DC2626)':'var(--gd)';
+    var head;
+    if(isPrompt){
+      head='<div style="font-size:14px;font-weight:600;color:var(--t1)">'+_dlgEsc(o.message)+'</div>'
+        +(o.sub?'<div style="font-size:12.5px;color:var(--t3);margin-top:3px">'+_dlgEsc(o.sub)+'</div>':'')
+        +'<div style="display:flex;align-items:center;border:1.5px solid var(--gl);border-radius:var(--rs);box-shadow:0 0 0 3px rgba(64,145,108,.15);overflow:hidden;margin-top:12px">'
+        +(o.prefix?'<span style="padding:10px 10px 10px 12px;color:var(--t3);font-size:14px;background:var(--gb);border-right:1px solid var(--br)">'+_dlgEsc(o.prefix)+'</span>':'')
+        +'<input id="app-dlg-input" style="flex:1;border:none;outline:none;padding:10px 12px;font-size:15px;font-weight:600;color:var(--t1);font-family:inherit"></div>';
+    } else if(danger){
+      head='<div style="display:flex;gap:12px;align-items:flex-start"><div style="width:36px;height:36px;border-radius:10px;background:#FEE2E2;color:#DC2626;display:flex;align-items:center;justify-content:center;flex:none;font-size:19px">⚠</div>'
+        +'<div style="font-size:14px;color:var(--t2);line-height:1.5;white-space:pre-wrap">'+_dlgEsc(o.message)+'</div></div>';
+    } else {
+      head='<div style="font-size:14px;color:var(--t2);line-height:1.5;white-space:pre-wrap">'+_dlgEsc(o.message)+'</div>';
+    }
+    card.innerHTML='<div style="padding:20px 22px 4px">'+head+'</div>'
+      +'<div style="padding:16px 22px 20px;display:flex;justify-content:flex-end;gap:10px">'
+      +'<button id="app-dlg-cancel" style="background:#fff;border:1px solid var(--br);color:var(--t2);border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Cancel</button>'
+      +'<button id="app-dlg-ok" style="background:'+okBg+';border:none;color:#fff;border-radius:var(--rs);padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">'+_dlgEsc(okLabel)+'</button></div>';
+    bg.style.display='flex';
+    var input=document.getElementById('app-dlg-input');
+    if(input) input.value=(o.value!=null?o.value:'');
+    function done(r){ bg.style.display='none'; document.removeEventListener('keydown',onKey,true); bg.onclick=null; try{ if(prev&&prev.focus) prev.focus(); }catch(e){} resolve(r); }
+    function ok(){ done(isPrompt?(input?input.value:''):true); }
+    function cancel(){ done(isPrompt?null:false); }
+    function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); cancel(); } else if(e.key==='Enter'){ e.preventDefault(); ok(); } }
+    document.getElementById('app-dlg-ok').onclick=ok;
+    document.getElementById('app-dlg-cancel').onclick=cancel;
+    bg.onclick=function(e){ if(e.target===bg) cancel(); };
+    document.addEventListener('keydown',onKey,true);
+    setTimeout(function(){ if(input){ input.focus(); input.select(); } else { var b=document.getElementById('app-dlg-ok'); if(b) b.focus(); } },30);
+  });
+}
+function appConfirm(message,opts){ opts=opts||{}; var m=String(message||''); var danger=(opts.danger!=null)?opts.danger:/delete|remove|undo|clear|reset|erase|for good|grubbed/i.test(m); var label=opts.okLabel; if(!label){ if(/delete/i.test(m))label='Delete'; else if(/\bundo\b/i.test(m))label='Undo'; else if(/\breset\b/i.test(m))label='Reset'; else if(/\bclear\b/i.test(m))label='Clear'; else if(/remove|grubbed/i.test(m))label='Remove'; else label='Confirm'; } return _appDialog({kind:'confirm',message:m,danger:danger,okLabel:label}); }
+function appPrompt(label,defaultValue,opts){ opts=opts||{}; return _appDialog({kind:'prompt',message:label,sub:opts.sub,value:(defaultValue!=null?defaultValue:''),prefix:opts.prefix,okLabel:opts.okLabel}); }
+
 function toast(msg, type) {
   var el = $('toast');
   var bg = type === 'success' ? '#1B4332' : type === 'error' ? '#E74C3C' : '#374151';
@@ -11219,8 +11297,8 @@ function lnRestore(id){
   renderLoans();
   if(typeof dataChanged==='function') dataChanged('loan');
 }
-function lnDeleteFacility(kind, id){
-  if(!window.confirm('Delete this for good? This cannot be undone.')) return;
+async function lnDeleteFacility(kind, id){
+  if(!(await appConfirm('Delete this for good? This cannot be undone.'))) return;
   ['loans','overdrafts','coopAccounts','archived'].forEach(function(key){
     if(ST_LOANS[key]) ST_LOANS[key]=ST_LOANS[key].filter(function(x){ return x.id!==id; });
   });
@@ -12714,11 +12792,11 @@ function wkPostPayRun(){
   if(typeof toast==='function') toast('Posted '+wkMoney(cost)+' to Labour & Wages.','success');
   renderWorkers();
 }
-function wkUndoPayRun(runId){
+async function wkUndoPayRun(runId){
   var runs=ST_WORK.payRuns||[]; var idx=-1; for(var i=0;i<runs.length;i++){ if(runs[i].id===runId){ idx=i; break; } }
   if(idx<0) return;
   var run=runs[idx];
-  if(typeof confirm==='function' && !confirm('Undo the pay run for '+(run.label||'')+'? This removes the Labour & Wages entry it posted.')) return;
+  if(!(await appConfirm('Undo the pay run for '+(run.label||'')+'? This removes the Labour & Wages entry it posted.'))) return;
   if(typeof ST!=='undefined' && ST.txns){
     try{ if(window.AI && AI.farm && AI.farm.active()){ ST.txns.filter(function(t){return t.payRunId===runId;}).forEach(function(t){ txnDeleteThrough(t); }); if(AI.workers&&AI.workers.removePayRun) AI.workers.removePayRun(runId).catch(function(e){ console.error('Backend pay-run delete failed:', e); }); } }catch(e){}
     ST.txns=ST.txns.filter(function(t){ return t.payRunId!==runId; });
@@ -13725,7 +13803,7 @@ function wkDocView(id,docId){ var w=wkFind(id); if(!w) return; var d=(w.docs||[]
   AI.storage.signedUrl(d.url, 300).then(function(u){
     if(win){ try{ win.location=u; }catch(e){} } else { try{ window.location.href=u; }catch(e){} }
   }).catch(function(e){ console.error('Signed URL failed:', e); try{ if(win) win.close(); }catch(_e){} if(typeof toast==='function') toast('Could not open the document.','error'); }); }
-function wkDocRemove(id,docId){ var w=wkFind(id); if(!w) return; if(typeof confirm==='function' && !confirm('Remove this document?')) return; var d=(w.docs||[]).filter(function(x){return x.id===docId;})[0]; if(d && d.url && window.AI && AI.storage){ AI.storage.remove(d.url).catch(function(e){ console.error('Storage remove failed:', e); }); } w.docs=(w.docs||[]).filter(function(x){return x.id!==docId;}); if(!(w.docs||[]).some(function(x){return x.type==='contract';})) w.contract='missing'; if(typeof toast==='function') toast('Document removed.','info'); wkDocSync(id); }
+async function wkDocRemove(id,docId){ var w=wkFind(id); if(!w) return; if(!(await appConfirm('Remove this document?'))) return; var d=(w.docs||[]).filter(function(x){return x.id===docId;})[0]; if(d && d.url && window.AI && AI.storage){ AI.storage.remove(d.url).catch(function(e){ console.error('Storage remove failed:', e); }); } w.docs=(w.docs||[]).filter(function(x){return x.id!==docId;}); if(!(w.docs||[]).some(function(x){return x.type==='contract';})) w.contract='missing'; if(typeof toast==='function') toast('Document removed.','info'); wkDocSync(id); }
 function wkGiveAdvance(id){
   var w=wkFind(id); if(!w) return;
   var amt=parseFloat(($('wk-adv-amt')||{}).value)||0;
@@ -13831,12 +13909,12 @@ function wkDangerCard(w){
     +'<button class="wk-mini" style="border-color:#e3b4ad;color:var(--rd)" onclick="wkRemoveWorker(\''+w.id+'\')">Remove worker</button>'
     +'</div>';
 }
-function wkRemoveWorker(id){
+async function wkRemoveWorker(id){
   var w=wkFind(id); if(!w) return;
   var hold=(w.fund&&w.fund.on&&w.fund.where==='hold')?(w.fund.balance||0):0;
   var owe=(w.adv&&w.adv.owing)?(w.adv.owing||0):0;
   if(hold<=0 && owe<=0){
-    if(typeof confirm==='function' && !confirm('Remove '+(w.name||'this worker')+'? Past pay runs stay on record.')) return;
+    if(!(await appConfirm('Remove '+(w.name||'this worker')+'? Past pay runs stay on record.'))) return;
     wkDoRemove(id); return;
   }
   var nm=wkE((w.name||'this worker').split(' ')[0]);
@@ -14647,9 +14725,9 @@ function lsSetPlannedCamp(id,campId){
   try{ saveState&&saveState(); }catch(e){}
   renderCamps();
 }
-function lsConfirmPlannedBuy(id){
+async function lsConfirmPlannedBuy(id){
   var h=lsHerdById(id); if(!h) return;
-  if(typeof confirm==='function' && !confirm('Add \u201c'+lsHerdName(h)+'\u201d to your herd now? This makes the animals real \u2014 they\u2019ll count in your herd totals, register and forecasts, and the purchase will be recorded.')) return;
+  if(!(await appConfirm('Add \u201c'+lsHerdName(h)+'\u201d to your herd now? This makes the animals real \u2014 they\u2019ll count in your herd totals, register and forecasts, and the purchase will be recorded.'))) return;
   h.classes=(h.planClasses||[]).map(function(c){ return {k:c.k, n:c.n||0, v:c.v||0}; });
   h.qty=h.classes.reduce(function(s,c){return s+(c.n||0);},0);
   h.planned=false; h.inPlanning=false; h.track=h.track||false;
@@ -14681,9 +14759,9 @@ function lsConfirmPlannedBuy(id){
   renderCamps();
   try{ toast('\u201c'+lsHerdName(h)+'\u201d added to your herd'+(buyTotal>0?(' \u00b7 '+lsRand0(buyTotal)+' purchase recorded'):'')+'.','success'); }catch(e){}
 }
-function lsRemovePlanned(id){
+async function lsRemovePlanned(id){
   var h=lsHerdById(id); if(!h) return;
-  if(typeof confirm==='function' && !confirm('Remove the plan for \u201c'+lsHerdName(h)+'\u201d? This deletes the planned line and its forecast entries.')) return;
+  if(!(await appConfirm('Remove the plan for \u201c'+lsHerdName(h)+'\u201d? This deletes the planned line and its forecast entries.'))) return;
   ST_LS.herd=(ST_LS.herd||[]).filter(function(x){return x.id!==id;});
   if(typeof ST_PLAN!=='undefined' && ST_PLAN.events){ ST_PLAN.events=ST_PLAN.events.filter(function(e){ return !(e._hp && e.herdId===id); }); }
   try{ saveState&&saveState(); }catch(e){}
@@ -14893,8 +14971,8 @@ function lsTagSave(){
   lsTagFormClose();
   if(typeof renderCamps==='function') renderCamps();
 }
-function lsTagDelete(animId){
-  if(typeof confirm==='function' && !confirm('Remove this tag? The animal stays in the herd count \u2014 only the individual record goes.')) return;
+async function lsTagDelete(animId){
+  if(!(await appConfirm('Remove this tag? The animal stays in the herd count \u2014 only the individual record goes.'))) return;
   ST_LS.animals=(ST_LS.animals||[]).filter(function(x){return x.id!==animId;});
   try { if(window.AI && AI.farm && AI.farm.active()){ AI.livestock.removeAnimal(animId).catch(function(e){ console.error('Backend animal delete failed:', e); }); } } catch(e){}
   try{ saveState&&saveState(); }catch(e){}
@@ -15066,9 +15144,9 @@ function lsMoveCampSave(){
   toast(lsHerdName(h)+' moved to '+c.name+'.','success');
   renderCamps();
 }
-function lsAddCampPrompt(){
-  var nm=prompt('Name this camp (e.g. Camp 4, Rivierkant, Top veld):'); if(!nm) return;
-  var ha=prompt('Size in hectares? (leave blank if you\u2019re not sure)','');
+async function lsAddCampPrompt(){
+  var nm=await appPrompt('Name this camp (e.g. Camp 4, Rivierkant, Top veld):'); if(!nm) return;
+  var ha=await appPrompt('Size in hectares? (leave blank if you\u2019re not sure)','');
   ST_LS.camps=ST_LS.camps||[];
   ST_LS.camps.push({id:'cmp_'+Date.now().toString(36), name:nm.trim(), ha:(parseFloat(ha)||0), since:'', notes:''});
   try{ saveState&&saveState(); }catch(e){}
@@ -18093,11 +18171,11 @@ function addLsFillCamps(selId){
   sel.innerHTML=opts;
 }
 // When "add a new camp" is picked, prompt and create it, then select it.
-function addLsCampChange(sel){
+async function addLsCampChange(sel){
   if(sel.value!=='__new__') return;
-  var nm=prompt('Name this camp (e.g. Camp 4, Rivierkant, Top veld):');
+  var nm=await appPrompt('Name this camp (e.g. Camp 4, Rivierkant, Top veld):');
   if(!nm){ sel.value=''; return; }
-  var ha=prompt('Size in hectares? (leave blank if you\u2019re not sure)','');
+  var ha=await appPrompt('Size in hectares? (leave blank if you\u2019re not sure)','');
   ST_LS.camps=ST_LS.camps||[];
   var id='cmp_'+Date.now().toString(36);
   ST_LS.camps.push({id:id, name:nm.trim(), ha:(parseFloat(ha)||0), since:'', notes:''});
@@ -19554,7 +19632,7 @@ function renderPlanHelperText(side, ft) {
                  (side === 'in' ? 'income target' : 'spending budget') + ' with this figure?' + pillsHtml;
 }
 
-function pullPlanToBudgets(side) {
+async function pullPlanToBudgets(side) {
   var fy       = getCurrentFY();
   var fyMonths = getFYMonths(fy);
 
@@ -19563,7 +19641,7 @@ function pullPlanToBudgets(side) {
   var existingTotal = fyMonths.reduce(function(s,m){ return s + (target[m] || 0); }, 0);
   if (existingTotal > 0) {
     var label = side === 'in' ? 'income target' : 'spending budget';
-    var ok = window.confirm(
+    var ok = await appConfirm(
       'This will replace your current ' + label + ' (R' + Math.round(existingTotal/1000) + 'k) with the figures from your Planning page.\n\n' +
       'Any month-by-month tweaks you have made will be lost.\n\n' +
       'Continue?'
@@ -19642,11 +19720,11 @@ function renderBudgetMonthBars(side, fyMonths, curMonth) {
   }).join('');
 }
 
-function editBudgetMonth(side, monthLabel) {
+async function editBudgetMonth(side, monthLabel) {
   var target = side === 'in' ? ST.budgets.monthlyIncome : ST.budgets.monthlyExpenses;
   var current = target[monthLabel] || 0;
-  var prompt = (side === 'in' ? 'Income target' : 'Spending budget') + ' for ' + monthLabel + ' (R):';
-  var input = window.prompt(prompt, current);
+  var msg = (side === 'in' ? 'Income target' : 'Spending budget');
+  var input = await appPrompt(msg, current, {sub:'For '+monthLabel, prefix:'R'});
   if (input === null) return;
   var val = parseFloat(input.replace(/[^\d.\-]/g,'')) || 0;
   target[monthLabel] = val;
@@ -20172,8 +20250,8 @@ function openEditEvent(idx) {
   showEvtModal();
 }
 
-function deleteEvent(idx) {
-  if (!confirm('Delete this livestock event?')) return;
+async function deleteEvent(idx) {
+  if (!(await appConfirm('Delete this livestock event?'))) return;
   ST_PLAN.events.splice(idx, 1);
   dataChanged('plan');
   // Plan summary is not in the dispatcher's switch
@@ -20348,9 +20426,9 @@ function txdDownload(){
   document.body.appendChild(a); a.click(); a.remove();
 }
 
-function txdRemoveReceipt(){
+async function txdRemoveReceipt(){
   var t = ST.txns[TXD_IDX]; if(!t||!t.receipt) return;
-  if(!confirm('Remove this receipt from the transaction?')) return;
+  if(!(await appConfirm('Remove this receipt from the transaction?'))) return;
   delete t.receipt;
   dataChanged('transaction');
   renderTxnDetail();
@@ -20428,9 +20506,9 @@ function txdSaveEdit(){
   toast('Transaction updated \u2014 synced everywhere','success');
 }
 
-function txdDelete(){
+async function txdDelete(){
   var t = ST.txns[TXD_IDX]; if(!t) return;
-  if(!confirm('Delete this transaction permanently? This cannot be undone.')) return;
+  if(!(await appConfirm('Delete this transaction permanently? This cannot be undone.'))) return;
   ST.txns.splice(TXD_IDX, 1);
   txnDeleteThrough(t);
   hideTxnDetail();
@@ -20842,13 +20920,13 @@ function onSetFarmEnterprise(value) {
   toast('Farm type updated', 'success');
 }
 
-function pushPlanToBudgets() {
+async function pushPlanToBudgets() {
   // Detect existing manual budgets so we can warn before overwriting
   var fyMonths = getFYMonths(getCurrentFY());
   var hasIncomeTargets  = fyMonths.some(function(m){ return (ST.budgets.monthlyIncome[m]   || 0) > 0; });
   var hasExpenseTargets = fyMonths.some(function(m){ return (ST.budgets.monthlyExpenses[m] || 0) > 0; });
   if (hasIncomeTargets || hasExpenseTargets) {
-    var ok = window.confirm(
+    var ok = await appConfirm(
       'This will replace your current Budgets targets with the figures from your plan.\n\n' +
       'Any month-by-month tweaks you have made on the Budgets page will be lost.\n\n' +
       'Continue?'
@@ -29873,9 +29951,9 @@ function impRenderHistory(){
   var foot=batches.length>SHOW?'<button class="imp-hist-toggle" onclick="impToggleHistAll()">'+(showAll?'Show fewer':('Show all '+batches.length+' imports'))+'</button>':'';
   el.innerHTML='<div class="imp-hist-card"><div class="imp-hist-hd">\uD83D\uDCE5 Imports so far<span class="imp-hist-count">'+batches.length+' import'+(batches.length===1?'':'s')+'</span></div>'+rows+foot+'</div>';
 }
-function impConfirmUndo(id){
+async function impConfirmUndo(id){
   var b=(ST.importBatches||[]).find(function(x){return x.id===id;}); if(!b) return;
-  if(confirm('Undo this import? '+b.rows+' transactions from '+b.source+' will be removed. This can\u2019t be reversed.')){
+  if(await appConfirm('Undo this import? '+b.rows+' transactions from '+b.source+' will be removed. This can\u2019t be reversed.')){
     impUndoBatch(id);
   }
 }
@@ -30517,9 +30595,9 @@ function orSetBlockField(id,field,v){
   b[field]=isNaN(n)?0:n; orSave(); orOpenBlock(id);
   var pg=document.querySelector('.pg.on'); if(pg&&pg.id==='pg-orchards' && ST_FRUIT.activeTab==='overview') orRenderOverview();
 }
-function orMarkRemoved(id){
+async function orMarkRemoved(id){
   var b=orBlockById(id); if(!b) return;
-  if(typeof confirm==='function' && !confirm('Mark '+b.name+' as removed / grubbed? It stops counting in your forecasts (you can replant it later).')) return;
+  if(!(await appConfirm('Mark '+b.name+' as removed / grubbed? It stops counting in your forecasts (you can replant it later).'))) return;
   b.removed=true; b.status='Removed'; b.statusTag='gray'; orSave(); orCloseModal();
   if(typeof ST_FRUIT!=='undefined') orSetTab(ST_FRUIT.activeTab||'overview'); orToast(b.name+' marked removed');
 }
@@ -30949,21 +31027,21 @@ function orWfSize(v){ if(v==='custom'){ var c=$('or-csize-c'); c.style.display='
 function orWfSizeCustom(){ var v=parseFloat($('or-csize-c').value); if(!isNaN(v)&&v>0){ orBlockById(OR_CUR_WF).cartonKg=v; orRecalcWf(); } }
 function orAddOther(){ orSyncWf(); ST_FRUIT.pricing[OR_CUR_WF].others.push({label:'',amt:0}); orRenderWf(OR_CUR_WF); var n=ST_FRUIT.pricing[OR_CUR_WF].others.length-1; var el=$('or-oth-lbl-'+n); if(el) el.focus(); }
 function orRemoveOther(i){ orSyncWf(); ST_FRUIT.pricing[OR_CUR_WF].others.splice(i,1); if(!ST_FRUIT.pricing[OR_CUR_WF].others.length) ST_FRUIT.pricing[OR_CUR_WF].others.push({label:'Other costs',amt:0}); orRenderWf(OR_CUR_WF); }
-function orWfReset(){
+async function orWfReset(){
   var b=orBlockById(OR_CUR_WF); if(!b||!ST_FRUIT.pricing) return;
   var crop=(OR_CATS[b.cat]?OR_CATS[b.cat].nm:'crop').toLowerCase();
-  if(!confirm('Reset this block\u2019s prices to typical '+crop+' values? Your custom entries will be replaced.')) return;
+  if(!(await appConfirm('Reset this block\u2019s prices to typical '+crop+' values? Your custom entries will be replaced.'))) return;
   ST_FRUIT.pricing[OR_CUR_WF]=orDefaultPricing(b.cat);
   orRenderWf(OR_CUR_WF); orSave(); orToast('Reset to typical prices');
 }
-function orWfApplyAll(){
+async function orWfApplyAll(){
   orSyncWf();
   var b=orBlockById(OR_CUR_WF); if(!b||!ST_FRUIT.pricing) return;
   var crop=(OR_CATS[b.cat]?OR_CATS[b.cat].nm:'crop').toLowerCase();
   var targets=(ST_FRUIT.blocks||[]).filter(function(x){ return x.cat===b.cat && x.id!==b.id && !x.plan; });
   if(!targets.length){ orToast('No other '+crop+' blocks to apply to'); return; }
   var n=targets.length;
-  if(!confirm('Apply these prices to '+n+' other '+crop+' block'+(n===1?'':'s')+'? Their current prices will be replaced.')) return;
+  if(!(await appConfirm('Apply these prices to '+n+' other '+crop+' block'+(n===1?'':'s')+'? Their current prices will be replaced.'))) return;
   var src=JSON.parse(JSON.stringify(ST_FRUIT.pricing[OR_CUR_WF]));
   targets.forEach(function(x){ ST_FRUIT.pricing[x.id]=JSON.parse(JSON.stringify(src)); });
   orSave(); orToast('Applied to '+n+' other '+crop+' block'+(n===1?'':'s'));
