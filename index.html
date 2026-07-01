@@ -695,6 +695,19 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pf-means{background:var(--gb);border:1px solid var(--gp)}
 .pf-reset{display:block;margin:14px auto 0;background:#fff;border:1px solid var(--br);border-radius:8px;color:var(--t2);font-family:var(--fn);font-size:11.5px;font-weight:700;padding:7px 16px;cursor:pointer}
 .pf-reset:hover{border-color:var(--gl);color:var(--gd)}
+.pf-fc{border-radius:14px;padding:18px 20px;margin-top:15px}
+.pf-fc.profit{background:#F0FAF4;border:1px solid #CDEBD8}
+.pf-fc.loss{background:#FEF3F2;border:1px solid #F7D4D0}
+.pf-fc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
+.pf-fc-lbl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--t3)}
+.pf-fc-delta{font-size:11px;font-weight:700}
+.pf-fc-delta .up{color:var(--gm)} .pf-fc-delta .dn{color:var(--rd)} .pf-fc-delta .flat{color:var(--t4)}
+.pf-fc-hero{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+.pf-fc-hero .amt{font-size:32px;font-weight:800;font-family:Georgia,serif;line-height:1}
+.pf-fc.profit .pf-fc-hero .amt{color:var(--gd)}
+.pf-fc.loss .pf-fc-hero .amt{color:#B42318}
+.pf-fc-hero .sub{font-size:13px;color:var(--t3)}
+.pf-fc-be{border-top:1px solid rgba(0,0,0,.06);margin-top:15px;padding-top:13px;font-size:13.5px;color:var(--t2);line-height:1.6}
 .ai-arow{margin-bottom:15px;cursor:pointer;border-radius:8px;padding:4px 5px 3px}
 .ai-arow:hover{background:#fafbfc}
 .ai-arow .ah{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:5px}
@@ -2969,16 +2982,22 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 .hp-net .v small{font-family:inherit;font-size:10.5px;font-weight:600}
 @media(max-width:420px){.hp-row,.hp-colhd,.hp-net{grid-template-columns:1fr 132px}.hp-dual{grid-template-columns:54px 1fr}}
 .or-othx{border:none;background:transparent;color:var(--t4);font-size:17px;cursor:pointer;padding:0 0 0 4px;line-height:1}
-.or-wfres{background:var(--gb);border-radius:12px;padding:16px;margin-top:14px}
-.or-wfres .biglbl{font-size:11.5px;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
-.or-wfres .big{font-size:24px;font-weight:800;color:var(--gd);font-family:Georgia,serif;margin:3px 0 12px}
-.or-wfblk{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.or-wfblk .l{font-size:10.5px;color:var(--t3)}
-.or-wfblk .v{font-size:15px;font-weight:800;color:var(--t1);margin-top:2px}
-.or-wfblk .v.lspos{color:var(--gm)}
-.or-be{margin-top:13px;padding:10px 13px;border-radius:9px;font-size:12.5px;font-weight:700}
-.or-be.ok{background:var(--gp);color:var(--gd)}
-.or-be.bad{background:#FDE8E8;color:#B42318}
+.or-wfres{border-radius:14px;padding:20px;margin-top:14px}
+.or-wfres.profit{background:#F0FAF4;border:1px solid #CDEBD8}
+.or-wfres.loss{background:#FEF3F2;border:1px solid #F7D4D0}
+.or-verdict{display:flex;align-items:center;gap:9px;margin-bottom:13px;font-size:16px;font-weight:800}
+.or-wfres.loss .or-verdict{color:#B42318}
+.or-wfres.profit .or-verdict{color:#1B7A3E}
+.or-vdot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;font-size:15px;font-weight:800}
+.or-wfres.loss .or-vdot{background:#FBD5D2}
+.or-wfres.profit .or-vdot{background:#C9EBD5}
+.or-hero{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+.or-hero .amt{font-size:34px;font-weight:800;font-family:Georgia,serif;line-height:1}
+.or-wfres.loss .or-hero .amt{color:#B42318}
+.or-wfres.profit .or-hero .amt{color:var(--gd)}
+.or-hero .sub{font-size:13px;color:var(--t3)}
+.or-be{border-top:1px solid rgba(0,0,0,.06);margin-top:16px;padding-top:14px;font-size:14px;color:var(--t2);line-height:1.6}
+.or-foot{font-size:12px;color:var(--t4);margin-top:13px}
 .or-link{font-size:11.5px;color:var(--gl);font-weight:700;cursor:pointer}
 .or-what{font-size:11px;color:var(--gl);font-weight:700;cursor:pointer;border-bottom:1px dotted var(--gl);margin-left:5px}
 .or-whatbox{background:#FFF9EC;border:1px solid #FAEEDA;border-radius:9px;padding:11px 13px;font-size:12px;color:var(--t2);line-height:1.5;margin:4px 0 6px}
@@ -8382,8 +8401,9 @@ function _pfWhatIfCropHTML(c){
     '<div id="pf-cc-single"><div class="pf-sl"><div class="pf-sllab"><span>Input cost <small style="color:var(--t4)">seed, fert, chem, fuel</small></span><span class="pf-slval"><span id="vPfIn">'+fmt(input0)+'</span><small>/ha</small></span></div>'+_pfSlider('pfIn',iMin,iMax,50,input0,'pfWhatIfCrop')+'<div class="pf-slends"><span>'+fmt(iMin)+'</span><span>your budget</span><span>'+fmt(iMax)+'</span></div></div></div>'+
     '<div id="pf-cc-lines" style="display:none"></div>'+
     '<button class="pf-costtog" onclick="pfCcToggle()"><span id="pf-cc-chev">\u25BC</span><span id="pf-cc-toglbl">Break down the cost</span></button>'+
-    '<div class="pf-res"><div class="pf-rb hero" style="grid-column:1/-1"><div class="l">Expected profit \u2014 this crop</div><div class="v" id="rPfB" style="font-size:24px"></div><div class="d" id="dPfB"></div></div><div class="pf-rb"><div class="l">Margin / ha</div><div class="v" id="rPfA"></div><div class="d" id="dPfA"></div></div><div class="pf-rb"><div class="l">Cost to produce / ton</div><div class="v" id="rPfC"></div><div class="d" id="dPfC"></div></div></div>'+'<div class="pf-szline" id="pfSzC"></div>'+
-    '<div class="pf-be ok" id="pfBe"></div>'+
+    '<div class="pf-fc profit" id="pfFc"><div class="pf-fc-top"><span class="pf-fc-lbl">Expected profit \u2014 this crop</span><span class="pf-fc-delta" id="dPfB"></span></div>'+
+    '<div class="pf-fc-hero"><span class="amt" id="rPfB">R 0</span><span class="sub" id="pfSzC"></span></div>'+
+    '<div class="pf-fc-be" id="pfBe"></div></div>'+
     '<button class="pf-reset" onclick="pfResetWhatIf()">\u21BA Reset to my figures</button>'+
     
     '<div class="pf-note">Cutting inputs usually trims yield too \u2014 move both together to stay realistic. Starting price comes from your Market Prices.</div></div>';
@@ -8395,13 +8415,17 @@ function pfWhatIfCrop(){
   if($('vPfHa')) $('vPfHa').textContent=area;
   $('vPfPr').textContent=fmt(price); $('vPfYl').textContent=yld.toFixed(1); if($('vPfIn')) $('vPfIn').textContent=fmt(input);
   var gmHa=yld*price-input, gm=gmHa*area, cop=yld>0?input/yld:0, cushion=price-cop;
-  $('rPfA').textContent=fmt(gmHa); $('dPfA').innerHTML=_pfDelta(gmHa,PF_CURC.baseGmHa);
-  $('rPfB').textContent=_pfK(gm); $('rPfB').style.color=gm<0?'#ffb4ab':''; $('dPfB').innerHTML=_pfDelta(gm,PF_CURC.baseGm);
-  if($('rPfC')){ $('rPfC').textContent=fmt(cop); $('dPfC').innerHTML=_pfDelta(cop,PF_CURC.baseCop); }
-  var sz=$('pfSzC'); if(sz) sz.innerHTML='At <b>'+area+' ha</b>, this crop is expected to earn about <b>'+_pfK(gm)+'</b> ('+fmt(gmHa)+'/ha).';
+  var signedR=function(n){ return (n<0?'\u2212R\u00a0':'R\u00a0')+_grpInt(n); };
+  var loss=gm<0;
+  var _fc=$('pfFc'); if(_fc) _fc.className='pf-fc '+(loss?'loss':'profit');
+  $('rPfB').textContent=signedR(gm); $('rPfB').style.color='';
+  if($('pfSzC')) $('pfSzC').innerHTML='over <b>'+area+' ha</b> &nbsp;\u00b7&nbsp; <b>'+signedR(gmHa)+'</b> per hectare';
+  var _dc=$('dPfB'); if(_dc) _dc.innerHTML=(Math.abs(gm-(PF_CURC.baseGm||0))<1)?'':_pfDelta(gm,PF_CURC.baseGm);
   var be=$('pfBe');
-  if(gmHa<0){ be.className='pf-be bad'; be.innerHTML='<b>Loss at these numbers.</b> Below '+fmt(Math.round(cop))+'/ton you don\u2019t cover your input costs \u2014 more hectares just grows the loss.'; }
-  else { be.className='pf-be ok'; be.innerHTML='<b>Break-even '+fmt(Math.round(cop))+'/ton.</b> Each extra hectare adds about <b>'+fmt(Math.round(gmHa))+'</b> at these prices ('+fmt(Math.round(cushion))+'/ton cushion).'; }
+  if(be){
+    if(loss) be.innerHTML='You\u2019d <b style="color:#B42318">lose money</b> at these numbers \u2014 below <b>'+fmt(Math.round(cop))+'/ton</b> you don\u2019t cover your input costs; more hectares just grows the loss.';
+    else be.innerHTML='Costs <b>'+fmt(Math.round(cop))+'/ton</b> to grow \u2014 your break-even. At today\u2019s price you clear <b style="color:#1B7A3E">'+fmt(Math.round(cushion))+'/ton</b> on top, a comfortable cushion.';
+  }
 }
 
 function _pfWhatIfOrchHTML(o){
@@ -30952,10 +30976,10 @@ function orRenderWf(id){
     h+=orInLine('Other costs','','or-lother',p.local.other,true,'/ ton',false,true);
     h+='<div class="hp-net"><span class="l">In your pocket \u2014 local</span><span class="v">R <span id="or-lnet">0</span> <small>/ ton</small></span></div>';
   }
-  h+='<div class="or-wfres"><div class="biglbl">Money back to you</div><div class="big" id="or-net">R 0</div>'+
-     '<div class="or-wfblk"><div><div class="l">This block sells</div><div class="v" id="or-units">0</div></div><div><div class="l">Total money back</div><div class="v lspos" id="or-total">R 0</div></div><div><div class="l">Per hectare</div><div class="v lspos" id="or-perha">R 0</div></div></div>'+
-     '<div class="or-wfsplit" id="or-split" style="display:none"></div>'+
-     '<div class="or-be" id="or-be"></div></div>'+
+  h+='<div class="or-wfres" id="or-res"><div class="or-verdict"><span class="or-vdot" id="or-vdot"></span><span id="or-vtext"></span></div>'+
+     '<div class="or-hero"><span class="amt" id="or-total">R 0</span><span class="sub" id="or-herosub"></span></div>'+
+     '<div class="or-be" id="or-be"></div>'+
+     '<div class="or-foot" id="or-foot"></div></div>'+
      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:8px"><span style="font-size:11.5px;color:var(--t3)">\u2713 Saved for this block — drives your profit forecast.</span><span><span class="or-link" onclick="orWfApplyAll()">Use for all blocks of this crop</span> &nbsp;\u00b7&nbsp; <span class="or-link" onclick="orWfReset()">Reset to typical</span></span></div>';
   var body=$('or-wf-body'); if(body) body.innerHTML=h;
   orRecalcWf();
@@ -30988,24 +31012,34 @@ function orRecalcWf(){
   var cr=$('or-commR'); if(cr) cr.textContent=orR2(commR);
   var lcr=$('or-lcommR'); if(lcr) lcr.textContent=orR2((p.local?(parseFloat(p.local.price)||0):0)*(p.local?(parseFloat(p.local.comm)||0):0)/100);
   if($('or-lnet')) $('or-lnet').textContent=orR2(lnet);
-  if($('or-net')) $('or-net').textContent=(chan==='loc')?('R '+orR2(lnet)+' / ton'):('R '+orR2(net)+' / '+u);
-  if($('or-units')){
-    if(chan==='loc') $('or-units').textContent=Math.round(ltons).toLocaleString('en-ZA')+' t local / juice';
-    else $('or-units').textContent=units.toLocaleString('en-ZA')+' '+orWfPlural(b)+((b.cat!=='veg'&&b.cat!=='berry')?' ('+(b.cartonKg||15)+' kg each)':'')+(chan==='mix'&&ltons>0.5?' + '+Math.round(ltons).toLocaleString('en-ZA')+' t local':'');
-  }
-  if($('or-total')) $('or-total').textContent=orRm(total);
-  if($('or-perha')) $('or-perha').textContent=orRm(perha)+'/ha';
-  var sp=$('or-split'); if(sp){ if(chan==='mix'){ sp.style.display=''; sp.innerHTML='\uD83C\uDF0D Export '+orRm(expTotal)+' &nbsp;\u00b7&nbsp; \uD83C\uDFEA Local / juice '+orRm(locTotal); } else sp.style.display='none'; }
+  // Verdict + hero + break-even (colour driven off the season total)
+  var loss = total < 0;
+  var signedR = function(n){ return (n<0?'\u2212R\u00a0':'R\u00a0')+_grpInt(n); };
+  var _res=$('or-res'); if(_res) _res.className='or-wfres '+(loss?'loss':'profit');
+  var _vd=$('or-vdot'); if(_vd) _vd.textContent=loss?'\u2193':'\u2191';
+  var _vt=$('or-vtext'); if(_vt) _vt.textContent=loss?'This block is losing money':'This block is making money';
+  if($('or-total')) $('or-total').textContent=signedR(total);
+  if($('or-herosub')) $('or-herosub').innerHTML='this season &nbsp;\u00b7&nbsp; <b>'+signedR(perha)+'</b> per hectare';
+  var _sells;
+  if(chan==='loc') _sells=Math.round(ltons).toLocaleString('en-ZA')+' t local / juice';
+  else _sells=units.toLocaleString('en-ZA')+' '+orWfPlural(b)+((b.cat!=='veg'&&b.cat!=='berry')?' ('+(b.cartonKg||15)+' kg each)':'')+(chan==='mix'&&ltons>0.5?' + '+Math.round(ltons).toLocaleString('en-ZA')+' t local':'');
+  var _foot='Sells '+_sells;
+  if(chan==='mix') _foot+=' &nbsp;\u00b7&nbsp; Export '+orRm(expTotal)+' \u00b7 Local / juice '+orRm(locTotal);
+  if($('or-foot')) $('or-foot').innerHTML=_foot;
   var beEl=$('or-be');
   if(beEl){
+    beEl.className='or-be'; var _red=' style="color:#B42318"';
     if(chan==='loc'){
       var lfixed=(p.local?(parseFloat(p.local.trans)||0)+(parseFloat(p.local.other)||0):0);
       var lcm=p.local?(parseFloat(p.local.comm)||0):0;
       var lbe=lcm<100?lfixed/(1-lcm/100):0; var lprice=p.local?(parseFloat(p.local.price)||0):0;
-      if(lnet>=0){ beEl.className='or-be ok'; beEl.innerHTML='Break-even price: R '+orR2(lbe)+' / ton — you\u2019re R '+orR2(lprice-lbe)+' above it \u2713'; }
-      else { beEl.className='or-be bad'; beEl.innerHTML='Break-even price: R '+orR2(lbe)+' / ton — you\u2019re R '+orR2(lbe-lprice)+' short, this block loses money \u26a0'; }
-    } else if(net>=0){ var fixed=pack+ship+others+levy; var be=comm<100?fixed/(1-comm/100):0; beEl.className='or-be ok'; beEl.innerHTML='Break-even price: R '+orR2(be)+' / '+u+' — you\u2019re R '+orR2(price-be)+' above it \u2713'; }
-    else { var fixed2=pack+ship+others+levy; var be2=comm<100?fixed2/(1-comm/100):0; beEl.className='or-be bad'; beEl.innerHTML='Break-even price: R '+orR2(be2)+' / '+u+' — you\u2019re R '+orR2(be2-price)+' short, this block loses money \u26a0'; }
+      if(lnet>=0) beEl.innerHTML='You\u2019re getting R '+orR2(lprice)+' a ton \u2014 R '+orR2(lprice-lbe)+' above your R '+orR2(lbe)+' break-even.';
+      else beEl.innerHTML='You\u2019re getting R '+orR2(lprice)+' a ton. To break even you need R '+orR2(lbe)+' \u2014 <b'+_red+'>you\u2019re R '+orR2(lbe-lprice)+' short</b> a ton.';
+    } else {
+      var fixed=pack+ship+others+levy; var be=comm<100?fixed/(1-comm/100):0;
+      if(net>=0) beEl.innerHTML='You\u2019re getting R '+orR2(price)+' a '+u+' \u2014 R '+orR2(price-be)+' above your R '+orR2(be)+' break-even.';
+      else beEl.innerHTML='You\u2019re getting R '+orR2(price)+' a '+u+'. To break even you need R '+orR2(be)+' \u2014 <b'+_red+'>you\u2019re R '+orR2(be-price)+' short</b> on every '+u+'.';
+    }
   }
   orSave();
 }
