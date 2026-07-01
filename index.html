@@ -30872,7 +30872,7 @@ function orHasExport(){ return ST_FRUIT.blocks.some(function(b){ return (b.cat!=
 function orActiveCats(){ var s={}; ST_FRUIT.blocks.forEach(function(b){ s[b.cat]=true; }); return s; }
 function orRenderComply(){
   try{
-  if(!ST_FRUIT.comply || !Object.keys(ST_FRUIT.comply).length) ST_FRUIT.comply=orComplyScaffold();
+  if(!ST_FRUIT.comply) ST_FRUIT.comply={}; (function(){ var _sc=orComplyScaffold(); Object.keys(_sc).forEach(function(_k){ if(!ST_FRUIT.comply[_k]) ST_FRUIT.comply[_k]=_sc[_k]; }); })();
   var exp=orHasExport(); var cats=orActiveCats();
   var certs=$('or-cmp-certs'); var other=$('or-cmp-other'); var pl=$('or-pest-list');
   var kExist=function(k){return !!ST_FRUIT.comply[k];};
