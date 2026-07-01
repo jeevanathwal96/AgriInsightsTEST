@@ -29,7 +29,7 @@
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
 <script src="ai-data.js?v=10"></script>
-<script src="ai-auth.js?v=9"></script>
+<script src="ai-auth.js?v=10"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -26866,6 +26866,11 @@ function syncTimeAgo(ts){
   var h=Math.floor(m/60); if(h<24) return h+' hour'+(h>1?'s':'')+' ago';
   var d=Math.floor(h/24); return d+' day'+(d>1?'s':'')+' ago';
 }
+function syncStatusText(){
+  if(navigator.onLine===false) return 'Offline — saved locally';
+  if(!ST.lastSaved) return 'Synced · up to date';
+  return (Date.now()-ST.lastSaved < 60000) ? 'Synced · up to date' : ('Saved ' + syncTimeAgo(ST.lastSaved));
+}
 function updateSyncIndicator() {
   ST.lastSaved = Date.now();
   var dot  = $('sync-dot');
@@ -26874,16 +26879,14 @@ function updateSyncIndicator() {
 
   var online = navigator.onLine !== false;
   dot.style.background = online ? '#40916C' : '#F59E0B';
-  text.textContent = online ? 'Saved just now' : 'Offline — saved locally';
+  text.textContent = syncStatusText();
 
 if (SYNC_INTERVAL) clearInterval(SYNC_INTERVAL);
   SYNC_INTERVAL = setInterval(function() {
     if (!ST.lastSaved) return;
-    var mins = Math.floor((Date.now() - ST.lastSaved) / 60000);
     var t = $('sync-text');
     if (!t) return;
-    if (!navigator.onLine) { t.textContent = 'Offline — saved locally'; return; }
-    t.textContent = 'Saved ' + syncTimeAgo(ST.lastSaved);
+    t.textContent = syncStatusText();
   }, 30000);
 }
 
@@ -26893,11 +26896,7 @@ function initSyncIndicator() {
   if (!dot || !text) return;
   var online = navigator.onLine !== false;
   dot.style.background = online ? '#40916C' : '#F59E0B';
-  if (ST.lastSaved) {
-    text.textContent = 'Saved ' + syncTimeAgo(ST.lastSaved);
-  } else {
-    text.textContent = online ? 'Ready' : 'Offline mode';
-  }
+  text.textContent = syncStatusText();
 }
 
 window.addEventListener('online',  function() { updateSyncIndicator(); });
@@ -29747,7 +29746,9 @@ function impUndoBatch(id){
 var IMP_HIST_UI = { all:false, open:{} };
 function impToggleHistAll(){ IMP_HIST_UI.all=!IMP_HIST_UI.all; impRenderHistory(); }
 function impToggleHistBatch(id){ IMP_HIST_UI.open[id]=!IMP_HIST_UI.open[id]; impRenderHistory(); }
-function impViewBatchTxns(id){ TX_BATCH_FILTER=id; nav('transactions'); }
+function impViewBatchTxns(id){ TX_BATCH_FILTER=id; nav('transactions');
+  setTimeout(function(){ var b=document.querySelector('#all-tbody button[onclick*="txClearBatchFilter"]'); var t=(b&&b.closest&&b.closest('tr'))||document.querySelector('.tx-search-wrap')||document.getElementById('all-tbody'); if(t&&t.scrollIntoView){ try{ t.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){ t.scrollIntoView(); } } }, 160);
+}
 function impRenderHistory(){
   var el=document.getElementById('tx-import-history'); if(!el) return;
   var batches=(ST.importBatches||[]);
@@ -29757,7 +29758,9 @@ function impRenderHistory(){
   var visible=showAll?batches:batches.slice(0,SHOW);
   var rows=visible.map(function(b){
     var when=''; try{ when=new Date(b.when).toLocaleDateString('en-ZA',{day:'numeric',month:'short'}); }catch(e){}
-    var sub=b.rows+' '+(b.rows===1?'row':'rows')+(b.span?' · '+b.span:'')+(when?' · added '+when:'');
+    var bt=(ST.txns||[]).filter(function(t){return t.batch===b.id;});
+    var span=bt.length?impSpan(bt.map(function(t){return t.date;})):b.span;
+    var sub=b.rows+' '+(b.rows===1?'row':'rows')+(span?' · '+span:'')+(when?' · added '+when:'');
     var tag=b.note==='unverified'?' <span class="imp-hist-tag">\u26A0 Not verified</span>':'';
     var open=!!IMP_HIST_UI.open[b.id];
     var head='<div class="imp-hist-row'+(open?' open':'')+'" onclick="impToggleHistBatch(\''+b.id+'\')">'+
@@ -29767,7 +29770,7 @@ function impRenderHistory(){
     '</div>';
     var body='';
     if(open){
-      var txns=(ST.txns||[]).filter(function(t){return t.batch===b.id;});
+      var txns=bt;
       var prev=txns.slice(0,8).map(function(t){ var inc=t.type==='income';
         return '<div class="imp-hist-tx"><span class="iht-d">'+esc(t.date)+'</span><span class="iht-x">'+esc(t.desc||'')+'</span><span class="iht-a '+(inc?'in':'out')+'">'+(inc?'+':'\u2212')+'R'+bankAmtGrouped(t.amt)+'</span></div>'; }).join('');
       var more=txns.length>8?'<div class="imp-hist-more"><a onclick="event.stopPropagation();impViewBatchTxns(\''+b.id+'\')">View all '+txns.length+' in Transactions \u2192</a></div>':'';

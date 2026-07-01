@@ -197,6 +197,9 @@
         if (typeof nav === 'function') nav('dashboard');
         else if (typeof updateDashboardFigures === 'function') updateDashboardFigures();
       } catch (e) {}
+      try {
+        if (typeof window.updateSyncIndicator === 'function') window.updateSyncIndicator();
+      } catch (e) {}
     });
   }
 
