@@ -21518,6 +21518,15 @@ function setBudgetMonthTarget(month, amount) {
   if (month === ST.budgets.currentMonth) renderTargetBar();
 }
 
+function _paceDays(){
+  var MN3={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  var p=(currentPeriodLabel()||'').split(' '); var pm=MN3[p[0]]; var py=parseInt(p[1],10);
+  var now=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date();
+  if(pm==null||isNaN(py)){ pm=now.getMonth(); py=now.getFullYear(); }
+  var total=new Date(py, pm+1, 0).getDate();
+  var elapsed=(now.getMonth()===pm && now.getFullYear()===py) ? now.getDate() : total;
+  return { daysIn: Math.max(1, Math.min(elapsed, total)), daysTotal: total };
+}
 function renderTargetBar() {
   var card = $('inc-target-card');
   if (!card) return;
@@ -21526,7 +21535,7 @@ function renderTargetBar() {
   if (hidden) hidden.style.display = ST.showTargetBar ? 'none' : 'flex';
   if (!ST.showTargetBar) return;
 
-  var actual  = 1328750;
+  var actual  = txSummary(currentPeriodLabel()).income;
   var target  = getBudgetTarget();
   var month   = currentPeriodLabel();
 
@@ -21556,7 +21565,7 @@ function renderTargetBar() {
 
   var pct     = Math.min(Math.round((actual / target) * 100), 100);
   var over    = actual > target;
-  var daysIn  = 26, daysTotal = 31;
+  var _pd=_paceDays(), daysIn=_pd.daysIn, daysTotal=_pd.daysTotal;
   var pace    = Math.round((actual / daysIn) * daysTotal);
   var warning = !over && pct >= 85;
   var col     = over ? 'var(--gl)' : warning ? 'var(--or)' : 'var(--gl)';
@@ -21575,7 +21584,7 @@ function renderTargetBar() {
     ? '<span style="font-size:12px;font-weight:600;color:var(--gl)">+R' + _grpInt(Math.abs(remaining)) + ' over target — great month!</span>'
     : warning
     ? '<span style="font-size:12px;color:var(--or)">Projected to reach R' + _grpInt(pace) + ' by month end</span>'
-    : '<span style="font-size:12px;color:var(--t3)">R' + _grpInt(remaining) + ' to go · ' + (daysTotal - daysIn) + ' days left</span>';
+    : '<span style="font-size:12px;color:var(--t3)">R' + _grpInt(remaining) + ' to go · ' + (daysTotal - daysIn) + ' day' + ((daysTotal - daysIn)===1?'':'s') + ' left</span>';
 
   card.innerHTML =
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap">' +
@@ -21583,7 +21592,7 @@ function renderTargetBar() {
         '<div style="width:32px;height:32px;border-radius:8px;background:' + bcol + ';display:flex;align-items:center;justify-content:center;flex-shrink:0">' + icon + '</div>' +
         '<div>' +
           '<div style="font-size:13px;font-weight:700;color:var(--t1)">' + month + ' income target' + badge + '</div>' +
-          '<div style="font-size:12px;color:var(--t3)">R' + _grpInt(actual) + ' of R' + _grpInt(target) + ' · from budget · ' + daysIn + ' days in</div>' +
+          '<div style="font-size:12px;color:var(--t3)">R' + _grpInt(actual) + ' of R' + _grpInt(target) + ' · from budget · ' + daysIn + ' day' + (daysIn===1?'':'s') + ' in</div>' +
         '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:10px">' +
@@ -21673,7 +21682,7 @@ function renderExpBar() {
   if (hidden) hidden.style.display = ST.showExpBar ? 'none' : 'flex';
   if (!ST.showExpBar) return;
 
-  var actual  = 1043320;
+  var actual  = txSummary(currentPeriodLabel()).expenses;
   var target  = getExpBudgetTarget();
   var month   = currentPeriodLabel();
 
@@ -21703,7 +21712,7 @@ function renderExpBar() {
 
   var pct     = Math.min(Math.round((actual / target) * 100), 100);
   var over    = actual > target;
-  var daysIn  = 26, daysTotal = 31;
+  var _pd=_paceDays(), daysIn=_pd.daysIn, daysTotal=_pd.daysTotal;
   var pace    = Math.round((actual / daysIn) * daysTotal);
   var warning = !over && pct >= 85;
   var col     = over ? 'var(--rd)' : warning ? 'var(--or)' : 'var(--gl)';
@@ -21724,7 +21733,7 @@ function renderExpBar() {
     ? '<span style="font-size:12px;font-weight:600;color:var(--rd)">R' + _grpInt(Math.abs(remaining)) + ' over budget this month</span>'
     : warning
     ? '<span style="font-size:12px;color:var(--or)">Projected to reach R' + _grpInt(pace) + ' — only R' + _grpInt(remaining) + ' left</span>'
-    : '<span style="font-size:12px;color:var(--t3)">R' + _grpInt(remaining) + ' remaining · ' + (daysTotal - daysIn) + ' days left</span>';
+    : '<span style="font-size:12px;color:var(--t3)">R' + _grpInt(remaining) + ' remaining · ' + (daysTotal - daysIn) + ' day' + ((daysTotal - daysIn)===1?'':'s') + ' left</span>';
 
   card.innerHTML =
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap">' +
@@ -21732,7 +21741,7 @@ function renderExpBar() {
         '<div style="width:32px;height:32px;border-radius:8px;background:' + bcol + ';display:flex;align-items:center;justify-content:center;flex-shrink:0">' + icon + '</div>' +
         '<div>' +
           '<div style="font-size:13px;font-weight:700;color:var(--t1)">' + month + ' expense budget' + badge + '</div>' +
-          '<div style="font-size:12px;color:var(--t3)">R' + _grpInt(actual) + ' of R' + _grpInt(target) + ' · from budget · ' + daysIn + ' days in</div>' +
+          '<div style="font-size:12px;color:var(--t3)">R' + _grpInt(actual) + ' of R' + _grpInt(target) + ' · from budget · ' + daysIn + ' day' + (daysIn===1?'':'s') + ' in</div>' +
         '</div>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:10px">' +
