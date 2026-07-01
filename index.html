@@ -30592,6 +30592,7 @@ function orDaysUntil(s){
   return Math.round((dt-new Date())/86400000);
 }
 function orAttentionHTML(){
+  try{ orComplyEnsure(); }catch(e){}
   var rows=[];
   // 1) cert expiring soonest within 90 days
   try{
@@ -30879,7 +30880,7 @@ function orComplyEnsure(){
     if(c.type==='pest' && c.log==null) c.log='No issues logged yet';
   });
 }
-function orComplyRow(key){var c=ST_FRUIT.comply[key];if(!c)return '';return '<div class="or-cmp" onclick="orOpenComply(\''+key+'\')"><div class="or-cmpic">'+c.ic+'</div><div class="or-cmpmid"><div class="or-cmpt">'+c.title+'</div><div class="or-cmps">'+c.what.split('.')[0]+'</div></div><span class="or-tag '+c.statusTag+'">'+c.status+'</span><span class="or-chev">\u203A</span></div>';}
+function orComplyRow(key){var c=ST_FRUIT.comply[key];if(!c)return '';return '<div class="or-cmp" onclick="orOpenComply(\''+key+'\')"><div class="or-cmpic">'+c.ic+'</div><div class="or-cmpmid"><div class="or-cmpt">'+c.title+'</div><div class="or-cmps">'+(c.what||'').split('.')[0]+'</div></div><span class="or-tag '+c.statusTag+'">'+c.status+'</span><span class="or-chev">\u203A</span></div>';}
 function orHasExport(){ return ST_FRUIT.blocks.some(function(b){ return (b.cat!=='veg') && (b.exp>0); }); }
 function orActiveCats(){ var s={}; ST_FRUIT.blocks.forEach(function(b){ s[b.cat]=true; }); return s; }
 function orRenderComply(){
@@ -30937,7 +30938,7 @@ function orRemoveDoc(i){ var arr=orCurDocs(); arr.splice(i,1); orSave(); if(OR_M
 function orSetExpiry(v){ if(OR_MODAL_CTX.type==='comply'){ ST_FRUIT.comply[OR_MODAL_CTX.key].expiry=v; orSave(); } }
 
 function orOpenComply(key){
-  OR_MODAL_CTX={type:'comply',key:key}; var c=ST_FRUIT.comply[key];
+  orComplyEnsure(); OR_MODAL_CTX={type:'comply',key:key}; var c=ST_FRUIT.comply[key];
   var h='<div class="or-mhd"><div class="or-mic">'+c.ic+'</div><div><div class="or-mt">'+c.title+'</div><div class="or-ms">'+c.what+'</div></div><button class="or-mx" onclick="orCloseModal()">\u00d7</button></div><div class="or-mbd">';
   if(c.type==='cert'||(c.type==='record'&&c.expiry!==undefined)){
     h+='<div class="or-mlbl">Status</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="or-tag '+c.statusTag+'">'+c.status+'</span>';
@@ -31212,7 +31213,7 @@ function orPfTypeToggle(k){ if(!OR_PF_OPEN)OR_PF_OPEN={}; OR_PF_OPEN[k]=!OR_PF_O
 function orFarmName(){ return (typeof FARM!=='undefined'&&FARM&&FARM.name)?FARM.name:'Farm'; }
 function orRowHtml(cells){ return '<tr>'+cells.map(function(c){return '<td>'+c+'</td>';}).join('')+'</tr>'; }
 function orExportAudit(){
-  var C=ST_FRUIT.comply;
+  orComplyEnsure(); var C=ST_FRUIT.comply;
   var certRows=['gap','siza','ppecb','phytclean'].filter(function(k){return C[k];}).map(function(k){var c=C[k];return orRowHtml([c.title,c.status,(c.expiry||'\u2014'),((c.docs&&c.docs.length)||0)+' file(s)']);}).join('');
   var pestRows=Object.keys(C).filter(function(k){return C[k].type==='pest';}).map(function(k){var c=C[k];return orRowHtml([c.title,c.status,(c.log||''),((c.checks&&c.checks.length)||0)+' check(s)']);}).join('');
   var sprayRows='';
