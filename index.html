@@ -29,7 +29,7 @@
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
 <script src="ai-data.js?v=10"></script>
-<script src="ai-auth.js?v=10"></script>
+<script src="ai-auth.js?v=11"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -29339,6 +29339,24 @@ function pdfBankExtract(pages){
     if(!(/^\d{1,3}(\d{3})*\.\d{2}$/.test(t)||/^\d+\.\d{2}$/.test(t))) return null;
     var v=parseFloat(t); var neg=dr||paren||trail||lead;
     return cr? v : (neg? -v : v); }
+  // Reassemble fragmented number tokens: some PDFs split "37,884.20" into "37"+",884.20",
+  // which mangles amounts/balances. Merge only maximal runs of pure-number fragments (gap<1.5)
+  // that reassemble to a valid number, so asterisks/letters/complete-numbers are never corrupted.
+  pages = pages.map(function(_pg){
+    var _RUN=/^[\d.,()\-]*(?:cr|dr)?$/i, _byL={}, _it=_pg.items, _i;
+    for(_i=0;_i<_it.length;_i++){ var _k=Math.round(_it[_i].top/2)*2; (_byL[_k]=_byL[_k]||[]).push(_it[_i]); }
+    var _out=[];
+    for(var _ky in _byL){ var _tk=_byL[_ky].slice().sort(function(a,b){return a.x0-b.x0;}), _j=0;
+      while(_j<_tk.length){
+        if(_RUN.test(_tk[_j].str)){ var _e=_j, _run=[_tk[_j]];
+          while(_e+1<_tk.length && _RUN.test(_tk[_e+1].str) && (_tk[_e+1].x0-_tk[_e].x1)<1.5){ _e++; _run.push(_tk[_e]); }
+          if(_run.length>1){ var _cc=_run.map(function(w){return w.str;}).join(''); if(num(_cc)!=null){ _out.push({str:_cc,x0:_run[0].x0,x1:_run[_run.length-1].x1,top:_run[0].top}); _j=_e+1; continue; } }
+        }
+        _out.push(_tk[_j]); _j++;
+      }
+    }
+    return {items:_out};
+  });
   var allText='';
   for(var p=0;p<pages.length;p++){ for(var i=0;i<pages[p].items.length;i++) allText+=' '+pages[p].items[i].str; }
   var bank=/nedbank/i.test(allText)?'Nedbank':/standard bank/i.test(allText)?'Standard Bank':/capitec/i.test(allText)?'Capitec':/first national|fnb/i.test(allText)?'FNB':'Unknown';
@@ -29361,7 +29379,7 @@ function pdfBankExtract(pages){
     var keys=Object.keys(lines).map(Number).sort(function(a,b){return a-b;});
     var hk=null,header=null;
     for(var ki=0;ki<keys.length;ki++){
-      var t=lines[keys[ki]].map(function(w){return w.str;}).join(' ');
+      var t=lines[keys[ki]].map(function(w){return w.str;}).join(' '); t=t+' '+t.replace(/\s+/g,'');
       if(((/\bdate\b/i.test(t)||/datum/i.test(t))||/desc|narrat|detail|beskrywing/i.test(t))&&/balance|saldo/i.test(t)&&/debit|credit|fee|payment|deposit|debiet|krediet|service|amount|bedrag|money\s*in|money\s*out|paid\s*in|paid\s*out/i.test(t)){ hk=keys[ki]; header=lines[keys[ki]].slice(); break; }
     }
     var carried=false;
@@ -29373,6 +29391,7 @@ function pdfBankExtract(pages){
       if(r3.every(function(w){ return /^(fee|debits?|credits?|service|debiet|krediet|saldo|balance|date|datum|details|description|payments?|deposits?)$/i.test(w.str.trim()); })) header=header.concat(r3);
     }}
     header.sort(function(a,b){return a.x0-b.x0;});
+    (function(){ var _H=[],_hi=0; while(_hi<header.length){ var _r=[header[_hi]],_hj=_hi; while(_hj+1<header.length && (header[_hj+1].x0-header[_hj].x1)<1.5){ _hj++; _r.push(header[_hj]); } if(_r.length>1){ _H.push({str:_r.map(function(w){return w.str;}).join(''),x0:_r[0].x0,x1:_r[_r.length-1].x1}); } else _H.push(header[_hi]); _hi=_hj+1; } header=_H; })();
     // OCR often splits 'Money In' / 'Money Out' into two words — merge them so the column is seen.
     for(var hm=0;hm<header.length-1;hm++){ var ha=header[hm].str.toLowerCase(), hb=header[hm+1].str.toLowerCase();
       if((ha==='money'||ha==='geld'||ha==='paid') && (hb==='in'||hb==='out'||hb==='uit')){ header[hm]={str:(ha==='paid'?'paid':'money')+' '+(hb==='uit'?'out':hb), x0:header[hm].x0, x1:header[hm+1].x1}; header.splice(hm+1,1); } }
@@ -29548,12 +29567,17 @@ function ensureTesseract(){
   if(window.Tesseract) return Promise.resolve(window.Tesseract);
   if(window.__tessLoading) return window.__tessLoading;
   window.__tessLoading=new Promise(function(resolve,reject){
+    if(navigator.onLine===false){ reject(new Error('OCR needs an internet connection')); return; }
+    var done=false;
+    var timer=setTimeout(function(){ if(done) return; done=true; reject(new Error('OCR engine took too long to load')); }, 20000);
     var s=document.createElement('script');
     s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
-    s.onload=function(){ window.Tesseract ? resolve(window.Tesseract) : reject(new Error('OCR engine missing')); };
-    s.onerror=function(){ reject(new Error('failed to load OCR engine')); };
+    s.onload=function(){ if(done) return; done=true; clearTimeout(timer); window.Tesseract ? resolve(window.Tesseract) : reject(new Error('OCR engine missing')); };
+    s.onerror=function(){ if(done) return; done=true; clearTimeout(timer); reject(new Error('failed to load OCR engine')); };
     document.head.appendChild(s);
   });
+  // On failure, clear the cached promise so a later (online) retry can try again.
+  window.__tessLoading.catch(function(){ window.__tessLoading=null; });
   return window.__tessLoading;
 }
 // Flatten a Tesseract result into a word list with bounding boxes, whatever the shape.

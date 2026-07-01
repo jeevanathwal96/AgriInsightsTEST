@@ -108,7 +108,8 @@
   }
 
   // ---- ensure a farm, load its data into ST, re-render ---------------------
-  function hydrate() {
+  function hydrate(opts) {
+    opts = opts || {};
     var isNewFarm = false;
     return AI.farm.mine().then(function (farms) {
       if (!farms || !farms.length) { isNewFarm = true; return AI.farm.create('My Farm'); }
@@ -194,7 +195,7 @@
         if (ov) ov.style.display = 'none';
       } catch (e) {}
       try {
-        if (typeof nav === 'function') nav('dashboard');
+        if (typeof nav === 'function') nav(opts.silent && window.CURRENT_PAGE ? window.CURRENT_PAGE : 'dashboard');
         else if (typeof updateDashboardFigures === 'function') updateDashboardFigures();
       } catch (e) {}
       try {
@@ -229,6 +230,24 @@
       });
     }, 0);
   }
+
+  // ---- Tier-1 cross-device: re-pull from the cloud when the app regains focus ----
+  var _lastRefresh = 0, _refreshing = false;
+  function refreshFromCloud(){
+    if (_refreshing) return;
+    if (navigator.onLine === false) return;                                   // offline: outbox handles it
+    if (!(window.AI && AI.farm && AI.farm.active()) || !_hasPersistedSession()) return;  // signed-in only
+    var ae = document.activeElement;                                          // don't yank data mid-edit
+    if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+    try { if (document.querySelector('[id$="-bg"].on')) return; } catch(e){}  // a modal is open
+    if (Date.now() - _lastRefresh < 20000) return;                           // debounce ~20s
+    _refreshing = true; _lastRefresh = Date.now();
+    try { if (window.flushTxnOutbox) window.flushTxnOutbox(); } catch(e){}    // push local writes first
+    hydrate({silent:true}).catch(function(){}).then(function(){ _refreshing = false; });
+  }
+  window.refreshFromCloud = refreshFromCloud;
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) refreshFromCloud(); });
+  window.addEventListener('online', function(){ refreshFromCloud(); });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { injectUI(); start(); });
