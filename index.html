@@ -8784,7 +8784,7 @@ function renderProfit(){
   else if(so.length){ best=so[0]; bestTxt=fmt(best.gmHa)+'/ha gross margin'; }
   var watch, watchSub='';
   if(sc.length){ var th=null; sc.forEach(function(c){ if(c.price>0){ var cu=c.price-c.cop; if(th===null||cu<th.cu) th={c:c,cu:cu}; } }); if(th){ watch=th.c.crop; watchSub=fmt(th.cu)+'/ton above cost'; } }
-  if(!watch && sl.length){ var lw=sl.slice().sort(function(a,b){return a.marginHead-b.marginHead;})[0]; watch=lw.name; watchSub=fmt(lw.marginHead)+'/head margin'; }
+  if(!watch && sl.length){ var lw=sl.slice().sort(function(a,b){return a.marginHead-b.marginHead;})[0]; watch=lw.name; watchSub=IE_R(lw.marginHead)+'/head margin'; }
   html+='<div class="pf-kpis">'+
     '<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfFarmProfit\')"><span class="kpi-i">\u24D8</span><div class="l">Farm profit this season</div><div class="v">'+_pfK(profit)+'</div><div class="s">after '+_pfK(overheads)+' shared costs</div></div>'+
     '<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfBestEarner\')"><span class="kpi-i">\u24D8</span><div class="l">Best earner</div><div class="v">'+esc(best.crop||best.name)+'</div><div class="s">'+bestTxt+'</div></div>'+
@@ -14037,9 +14037,9 @@ function renderAssetInsights(){
   var swB='You can claim about <b>'+astK(dep[fy0])+'</b> against tax this year'+(dep[fy0+4]<dep[fy0]?', dropping to '+astK(dep[fy0+4])+' by FY'+(''+(fy0+4)).slice(-2)+'. As that shrinks your tax bill creeps up \u2014 plan for it, or buy gear that brings fresh deductions.':'. Keep your register current so every deduction is captured.');
   var totP=0; A.forEach(function(a){ totP+=a.price||0; }); var owed=(typeof LN_totalOwed==='function')?LN_totalOwed():0; if(typeof LN_totalOwed!=='function'){ A.forEach(function(a){ if(a.financed) owed+=a.outstanding||0; }); }
   var netEq=totP-owed; var ownP=totP?Math.round(netEq/totP*100):100;
-  var innerC='<div style="font-size:24px;font-weight:800;color:var(--gd);line-height:1">'+fmt(netEq)+' <span style="font-size:12px;color:var(--t3);font-weight:600">you own</span></div>'+
+  var innerC='<div style="font-size:24px;font-weight:800;color:var(--gd);line-height:1">'+IE_R(netEq)+' <span style="font-size:12px;color:var(--t3);font-weight:600">you own</span></div>'+
     '<div style="height:20px;border-radius:7px;overflow:hidden;display:flex;margin:14px 0 9px;cursor:pointer" onclick="astDrill(\'fin\',\'all\',\'ai-bd-c\')"><div style="width:'+ownP+'%;background:#1B4332"></div><div style="width:'+(100-ownP)+'%;background:#E74C3C"></div></div>'+
-    '<div style="display:flex;justify-content:space-between;font-size:12px">'+_aiLeg('#1B4332','Owned '+fmt(netEq),'')+_aiLeg('#E74C3C','Financed '+fmt(owed),"astDrill('fin','all','ai-bd-c')")+'</div>';
+    '<div style="display:flex;justify-content:space-between;font-size:12px">'+_aiLeg('#1B4332','Owned '+IE_R(netEq),'')+_aiLeg('#E74C3C','Financed '+fmt(owed),"astDrill('fin','all','ai-bd-c')")+'</div>';
   var swC='You own <b>'+ownP+'%</b> of your assets outright. '+(ownP>=80?'That is a strong position \u2014 good news when you apply for a loan.':'The bank still holds a fair chunk \u2014 paying down finance lifts how much you can borrow.');
   var equip=[];
   A.forEach(function(a,i){
@@ -14067,7 +14067,7 @@ function renderAssetInsights(){
   var html='';
   html+='<div class="ai-kpis" id="ai-kpis">'+
     '<div class="ai-kpi" onclick="astDrill(\'kpi-total\',\'all\',\'ai-bd-kpi\')"><div class="l">Total assets</div><div class="v">'+astK(totVal)+'</div><div class="s">'+A.length+' assets \u00b7 tap to split</div></div>'+
-    '<div class="ai-kpi" onclick="astDrill(\'fin\',\'all\',\'ai-bd-kpi\')"><div class="l">You own</div><div class="v">'+ownP+'%</div><div class="s">'+fmt(netEq)+' yours after debt</div></div>'+
+    '<div class="ai-kpi" onclick="astDrill(\'fin\',\'all\',\'ai-bd-kpi\')"><div class="l">You own</div><div class="v">'+ownP+'%</div><div class="s">'+IE_R(netEq)+' yours after debt</div></div>'+
     '<div class="ai-kpi" onclick="astDrill(\'fy\',\''+fy0+'\',\'ai-bd-kpi\')"><div class="l">Tax write-off this yr</div><div class="v">'+astK(dep[fy0])+'</div><div class="s">depreciation FY'+(''+fy0).slice(-2)+'</div></div>'+
   '</div><div id="ai-bd-kpi"></div>';
   html+='<div class="ai-grid2">';
@@ -14177,11 +14177,11 @@ function astLenderPrint(){
     '<div class="meta">'+(FARM?FARM.name:'Farm')+' &nbsp;&middot;&nbsp; prepared for a finance / loan application &nbsp;&middot;&nbsp; '+new Date().toLocaleDateString('en-ZA')+'</div>'+
     '<button onclick="window.print()" style="background:#1B4332;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;margin-bottom:20px">Print / Save as PDF</button>'+
     '<table><tr><th>Category</th><th>Value</th><th>Finance owed</th><th>Net equity</th></tr>'+rows+
-    '<tr class="total"><td>TOTAL</td><td class="amt">'+fmt(D.tV)+'</td><td class="amt">'+fmt(D.tO)+'</td><td class="amt">'+fmt(D.net)+'</td></tr></table>'+
+    '<tr class="total"><td>TOTAL</td><td class="amt">'+fmt(D.tV)+'</td><td class="amt">'+fmt(D.tO)+'</td><td class="amt">'+IE_R(D.net)+'</td></tr></table>'+
     '<h2>Net asset position</h2><table>'+
     '<tr><td>Total asset value</td><td class="amt">'+fmt(D.tV)+'</td></tr>'+
     '<tr><td>Less: outstanding finance</td><td class="amt">'+fmt(D.tO)+'</td></tr>'+
-    '<tr class="total"><td>Net asset position (equity)</td><td class="amt pos">'+fmt(D.net)+'</td></tr></table>'+
+    '<tr class="total"><td>Net asset position (equity)</td><td class="amt pos">'+IE_R(D.net)+'</td></tr></table>'+
     '<p style="font-size:12px;color:#666;margin-top:18px">Asset values reflect insured / replacement value where recorded, otherwise purchase price. Outstanding finance is the balance owed on financed assets. Prepared from the AgriInsights asset register \u2014 figures to be confirmed against source documents.</p>';
   printWindow('Asset Schedule \u2014 '+(FARM?FARM.name:'Farm'), html);
 }
@@ -14195,13 +14195,13 @@ function astExportLenderPack(){
   var body=$('ast-lender-body');
   if(body) body.innerHTML='<style>'+PREVIEW_CSS+'</style>'+
     '<div style="background:#F0FAF4;border:1px solid #cfe9d8;border-radius:12px;padding:14px 16px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center">'+
-      '<div><div style="font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Net asset position (equity)</div><div style="font-size:22px;font-weight:800;color:#1B4332">'+fmt(D.net)+'</div></div>'+
+      '<div><div style="font-size:11px;color:#6B7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Net asset position (equity)</div><div style="font-size:22px;font-weight:800;color:#1B4332">'+IE_R(D.net)+'</div></div>'+
       '<div style="text-align:right;font-size:11.5px;color:#6B7280;line-height:1.6">Total assets '+fmt(D.tV)+'<br>Less finance '+fmt(D.tO)+'</div>'+
     '</div>'+
     printBtn+
     '<div style="font-size:11px;font-weight:800;color:#6B7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">Preview</div>'+
     '<table class="pv-table"><thead><tr><th>Category</th><th class="amt">Value</th><th class="amt">Finance owed</th><th class="amt">Net equity</th></tr></thead><tbody>'+rows+
-    '<tr class="total"><td>Total</td><td class="amt">'+fmt(D.tV)+'</td><td class="amt">'+fmt(D.tO)+'</td><td class="amt">'+fmt(D.net)+'</td></tr></tbody></table>'+
+    '<tr class="total"><td>Total</td><td class="amt">'+fmt(D.tV)+'</td><td class="amt">'+fmt(D.tO)+'</td><td class="amt">'+IE_R(D.net)+'</td></tr></tbody></table>'+
     '<p style="font-size:11px;color:#9CA3AF;margin-top:14px">Asset values use insured / replacement value where recorded, otherwise purchase price. Figures to be confirmed against source documents.</p>';
   var bg=$('ast-lender-bg'); if(bg) bg.style.display='flex';
 }
@@ -23924,6 +23924,35 @@ function applyRptCustom(){
   updateRptDisplay();
 }
 
+/* Deductible interest portion of one recorded 'Loan Repayments' txn (per-loan exact, ratio fallback) */
+function _rptLoanInterest(t){
+  var amt = (t && t.amt) || 0;
+  if (amt <= 0) return 0;
+  var loans = (typeof ST_LOANS!=='undefined' && ST_LOANS.loans) ? ST_LOANS.loans : [];
+  var loan = null;
+  // 1) explicit tag ent:'loan:<id>'
+  if (t.ent && /^loan:/.test(t.ent)){
+    var id = t.ent.slice(5);
+    loan = loans.filter(function(l){ return String(l.id)===id; })[0] || null;
+  }
+  // 2) unique scheduled-payment amount
+  if (!loan){
+    var byPay = loans.filter(function(l){ return (l.payment||0)===amt; });
+    if (byPay.length===1) loan = byPay[0];
+  }
+  // 3) full loan name contained in description (unique)
+  if (!loan && t.desc){
+    var d = (''+t.desc).toLowerCase();
+    var byName = loans.filter(function(l){ return l.name && d.indexOf((''+l.name).toLowerCase())>=0; });
+    if (byName.length===1) loan = byName[0];
+  }
+  if (loan) return Math.min(amt, LN_intM(loan)); // that loan's monthly interest, capped at the payment
+  // 4) fallback: blended term-loan interest share of a repayment
+  var sInt=0, sPay=0;
+  loans.forEach(function(l){ sInt+=LN_intM(l); sPay+=(l.payment||0); });
+  if (sPay <= 0) return amt;                       // no loan data to split against -> show full repayment
+  return Math.round(amt * (sInt/sPay));
+}
 function computeRPT() {
   var info = rptPeriodInfo();
   var months = info.months;
@@ -23931,6 +23960,7 @@ function computeRPT() {
   var totalIncome = 0, totalCOS = 0, totalOpex = 0;
   var wt = 0, vatOut = 0, vatIn = 0;
   var byCat = {};
+  var loanIntSum = 0;
 
   ST.txns.forEach(function(t) {
     var d = parseDate(t.date); if (!d) return;
@@ -23943,15 +23973,17 @@ function computeRPT() {
       if (isCOS) totalCOS += t.amt; else totalOpex += t.amt;
       if (FARM.vat) vatIn += t.amt * 0.15 / 1.15;
       byCat[t.cat] = (byCat[t.cat]||0) + t.amt;
+      if (t.cat === 'Loan Repayments') loanIntSum += _rptLoanInterest(t);
     }
   });
 
-  // Loans: only the interest is a real (deductible) cost — capital repayment is not an expense
-  if (typeof LN_monthlyInterest === 'function') {
+  // Loans: expense only the interest portion of recorded repayments (capital is balance-sheet)
+  if (typeof LN_intM === 'function') {
     var _loanFull = byCat['Loan Repayments'] || 0;
-    var _loanInt  = LN_monthlyInterest() * months.length;
-    totalOpex = totalOpex - _loanFull + _loanInt;
-    byCat['Loan Repayments'] = _loanInt;   // show interest as the line item (the deductible cost)
+    if (_loanFull > 0) {                         // transactions-driven: no repayments -> no injection
+      totalOpex = totalOpex - _loanFull + loanIntSum;
+      byCat['Loan Repayments'] = loanIntSum;     // line item shows deductible interest
+    }
   }
   var grossProfit  = totalIncome - totalCOS;
   var netProfitBT  = grossProfit - totalOpex;
@@ -23995,8 +24027,8 @@ function updateRptDisplay() {
   setEl('rpt-period-disp', lbl);
   setEl('rpt-income',   fmt(R.totalIncome));
   setEl('rpt-expenses', fmt(R.totalCOS+R.totalOpex));
-  setEl('rpt-gross',    fmt(R.grossProfit));
-  setEl('rpt-net',      fmt(R.netProfitBT));
+  setEl('rpt-gross',    IE_R(R.grossProfit));
+  setEl('rpt-net',      IE_R(R.netProfitBT));
   setEl('rpt-margin',   R.netMargin+'%');
   setEl('rpt-income-lbl', lbl);
 
@@ -24134,10 +24166,10 @@ function buildPLReport() {
     '<tr class="total"><td>TOTAL OPEX</td><td class="amt neg">'+fmt(R.totalOpex)+'</td></tr></table>'+
     '<h2>Summary</h2>'+
     '<table>'+
-    '<tr><td>Gross Profit</td><td class="amt '+(R.grossProfit>=0?'pos':'neg')+'">'+fmt(R.grossProfit)+'</td></tr>'+
-    '<tr><td>Net Profit (before tax)</td><td class="amt '+(R.netProfitBT>=0?'pos':'neg')+'">'+fmt(R.netProfitBT)+'</td></tr>'+
+    '<tr><td>Gross Profit</td><td class="amt '+(R.grossProfit>=0?'pos':'neg')+'">'+IE_R(R.grossProfit)+'</td></tr>'+
+    '<tr><td>Net Profit (before tax)</td><td class="amt '+(R.netProfitBT>=0?'pos':'neg')+'">'+IE_R(R.netProfitBT)+'</td></tr>'+
     '<tr><td>Estimated Tax ('+R.taxRate+'%)</td><td class="amt neg">'+fmt(R.taxAmount)+'</td></tr>'+
-    '<tr class="total"><td>NET PROFIT AFTER TAX</td><td class="amt '+(R.netProfitAT>=0?'pos':'neg')+'">'+fmt(R.netProfitAT)+'</td></tr>'+
+    '<tr class="total"><td>NET PROFIT AFTER TAX</td><td class="amt '+(R.netProfitAT>=0?'pos':'neg')+'">'+IE_R(R.netProfitAT)+'</td></tr>'+
     '<tr><td>Net Margin</td><td class="amt">'+R.netMargin+'%</td></tr>'+
     '</table>';
   printWindow('P&L — '+lbl, html);
@@ -24174,7 +24206,7 @@ function buildCFReport() {
     '<tr class="total"><td colspan="2">TOTAL OUTFLOWS</td><td class="amt neg">'+fmt(R.totalCOS+R.totalOpex)+'</td></tr></table>'+
     '<h2>Net Cash Position</h2>'+
     '<table>'+
-    '<tr class="total"><td>Net Cash Flow</td><td class="amt '+(R.netProfitBT>=0?'pos':'neg')+'">'+fmt(R.netProfitBT)+'</td></tr>'+
+    '<tr class="total"><td>Net Cash Flow</td><td class="amt '+(R.netProfitBT>=0?'pos':'neg')+'">'+IE_R(R.netProfitBT)+'</td></tr>'+
     '</table>';
   printWindow('Cash Flow — '+lbl, html);
 }
@@ -24202,7 +24234,7 @@ function buildTaxReport() {
     '<tr class="total"><td colspan="2">TOTAL DEDUCTIONS</td><td class="amt">'+fmt(R.totalCOS+R.totalOpex)+'</td></tr></table>'+
     '<h2>Tax Calculation</h2>'+
     '<table>'+
-    '<tr><td>Taxable income</td><td class="amt">'+fmt(R.netProfitBT)+'</td></tr>'+
+    '<tr><td>Taxable income</td><td class="amt">'+IE_R(R.netProfitBT)+'</td></tr>'+
     '<tr><td>Tax rate</td><td class="amt">'+R.taxRate+'%</td></tr>'+
     '<tr class="total"><td>Estimated tax bill</td><td class="amt neg">'+fmt(R.taxAmount)+'</td></tr>'+
     '</table>'+
@@ -24337,11 +24369,11 @@ function buildPreviewPL(R, meta) {
     '</tbody></table></div>'+
     '<div class="pv-section"><h2>Summary</h2>'+
     '<table class="pv-table"><tbody>'+
-    '<tr><td>Gross Profit</td><td class="amt '+(R.grossProfit>=0?'pv-pos':'pv-neg')+'">'+fmt(R.grossProfit)+'</td></tr>'+
+    '<tr><td>Gross Profit</td><td class="amt '+(R.grossProfit>=0?'pv-pos':'pv-neg')+'">'+IE_R(R.grossProfit)+'</td></tr>'+
     '<tr><td>Gross Margin</td><td class="amt">'+R.grossMargin+'%</td></tr>'+
-    '<tr><td>Net Profit (before tax)</td><td class="amt '+(R.netProfitBT>=0?'pv-pos':'pv-neg')+'">'+fmt(R.netProfitBT)+'</td></tr>'+
+    '<tr><td>Net Profit (before tax)</td><td class="amt '+(R.netProfitBT>=0?'pv-pos':'pv-neg')+'">'+IE_R(R.netProfitBT)+'</td></tr>'+
     '<tr><td>Estimated Tax ('+R.taxRate+'%)</td><td class="amt pv-neg">'+fmt(R.taxAmount)+'</td></tr>'+
-    '<tr class="total"><td>NET PROFIT AFTER TAX</td><td class="amt '+(R.netProfitAT>=0?'pv-pos':'pv-neg')+'">'+fmt(R.netProfitAT)+'</td></tr>'+
+    '<tr class="total"><td>NET PROFIT AFTER TAX</td><td class="amt '+(R.netProfitAT>=0?'pv-pos':'pv-neg')+'">'+IE_R(R.netProfitAT)+'</td></tr>'+
     '<tr><td>Net Margin</td><td class="amt">'+R.netMargin+'%</td></tr>'+
     '</tbody></table></div>'+
     '<div class="pv-disclaimer">This P&amp;L is prepared for management purposes only. Please review with your accountant before submitting to SARS.</div>';
@@ -24390,7 +24422,7 @@ function buildPreviewTax(R, meta) {
   var fy = getCurrentFY();
   return meta +
     '<div class="pv-hero">'+
-      '<div class="pv-card"><div class="pv-card-lbl">Taxable Income</div><div class="pv-card-val">'+fmt(R.netProfitBT)+'</div></div>'+
+      '<div class="pv-card"><div class="pv-card-lbl">Taxable Income</div><div class="pv-card-val">'+IE_R(R.netProfitBT)+'</div></div>'+
       '<div class="pv-card"><div class="pv-card-lbl">Tax Rate</div><div class="pv-card-val">'+R.taxRate+'%</div></div>'+
       '<div class="pv-card"><div class="pv-card-lbl">Est. tax bill</div><div class="pv-card-val pv-neg">'+fmt(R.taxAmount)+'</div></div>'+
     '</div>'+
@@ -24411,7 +24443,7 @@ function buildPreviewTax(R, meta) {
     '</tbody></table></div>'+
     '<div class="pv-section"><h2>Tax Calculation</h2>'+
     '<table class="pv-table"><tbody>'+
-    '<tr><td>Net taxable income</td><td class="amt">'+fmt(R.netProfitBT)+'</td></tr>'+
+    '<tr><td>Net taxable income</td><td class="amt">'+IE_R(R.netProfitBT)+'</td></tr>'+
     '<tr><td>Applicable tax rate</td><td class="amt">'+R.taxRate+'%</td></tr>'+
     '<tr class="total-neg"><td>ESTIMATED TAX BILL</td><td class="amt pv-neg">'+fmt(R.taxAmount)+'</td></tr>'+
     '</tbody></table></div>'+
@@ -24736,7 +24768,7 @@ var entity     = (ST.entityType) || 'sole';
   card.style.display = 'block';
   setEl('prov-tax-amount', fmt(provPayment));
   setEl('prov-tax-sub',
-    'Based on ' + monthsElapsed + ' months · annualised profit ' + fmt(annualProfit) +
+    'Based on ' + monthsElapsed + ' months · annualised profit ' + IE_R(annualProfit) +
     ' · ' + _entityTaxLabel(entity) + ' · ~' + Math.round(effRate * 100) + '% effective');
   setEl('prov-tax-due', next.lbl + ' (' + next.per + ')');
   setEl('prov-tax-days',
