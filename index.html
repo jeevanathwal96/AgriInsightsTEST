@@ -30867,12 +30867,24 @@ function orComplyScaffold(){
     else { c.status='Set up'; c.statusTag='gray'; c.expiry=''; if('log' in c) c.log=''; } });
   return t;
 }
+function orComplyEnsure(){
+  if(!ST_FRUIT.comply) ST_FRUIT.comply={};
+  var t=OR_COMPLY_TEMPLATE||{};
+  Object.keys(t).forEach(function(k){
+    var c=ST_FRUIT.comply[k]; if(!c){ c=ST_FRUIT.comply[k]={}; }
+    ['ic','title','what','type','cropcat'].forEach(function(f){ if(t[k][f]!=null) c[f]=t[k][f]; });
+    if(c.status==null) c.status=(c.type==='pest'?'Clear':'Set up');
+    if(c.statusTag==null) c.statusTag=(c.type==='pest'?'green':'gray');
+    if(!Array.isArray(c.docs)) c.docs=[];
+    if(c.type==='pest' && c.log==null) c.log='No issues logged yet';
+  });
+}
 function orComplyRow(key){var c=ST_FRUIT.comply[key];if(!c)return '';return '<div class="or-cmp" onclick="orOpenComply(\''+key+'\')"><div class="or-cmpic">'+c.ic+'</div><div class="or-cmpmid"><div class="or-cmpt">'+c.title+'</div><div class="or-cmps">'+c.what.split('.')[0]+'</div></div><span class="or-tag '+c.statusTag+'">'+c.status+'</span><span class="or-chev">\u203A</span></div>';}
 function orHasExport(){ return ST_FRUIT.blocks.some(function(b){ return (b.cat!=='veg') && (b.exp>0); }); }
 function orActiveCats(){ var s={}; ST_FRUIT.blocks.forEach(function(b){ s[b.cat]=true; }); return s; }
 function orRenderComply(){
   try{
-  if(!ST_FRUIT.comply) ST_FRUIT.comply={}; (function(){ var _sc=orComplyScaffold(); Object.keys(_sc).forEach(function(_k){ if(!ST_FRUIT.comply[_k]) ST_FRUIT.comply[_k]=_sc[_k]; }); })();
+  orComplyEnsure();
   var exp=orHasExport(); var cats=orActiveCats();
   var certs=$('or-cmp-certs'); var other=$('or-cmp-other'); var pl=$('or-pest-list');
   var kExist=function(k){return !!ST_FRUIT.comply[k];};
