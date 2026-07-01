@@ -23960,6 +23960,7 @@ function computeRPT() {
   var totalIncome = 0, totalCOS = 0, totalOpex = 0;
   var wt = 0, vatOut = 0, vatIn = 0;
   var byCat = {};
+  var byIncCat = {};
   var loanIntSum = 0;
 
   ST.txns.forEach(function(t) {
@@ -23967,6 +23968,7 @@ function computeRPT() {
     if (!rptInPeriod(d, info)) return;
     if (t.type === 'income') {
       totalIncome += t.amt;
+      byIncCat[t.cat] = (byIncCat[t.cat]||0) + t.amt;
       if (FARM.vat) vatOut += t.amt * 0.15 / 1.15;
     } else {
       var isCOS = ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].indexOf(t.cat) >= 0;
@@ -23998,7 +24000,7 @@ function computeRPT() {
     months:months, from:info.from, to:info.to, totalIncome:totalIncome, totalCOS:totalCOS, totalOpex:totalOpex,
     grossProfit:grossProfit, netProfitBT:netProfitBT, taxAmount:taxAmount,
     netProfitAT:netProfitAT, grossMargin:grossMargin, netMargin:netMargin,
-    vatOut:vatOut, vatIn:vatIn, vatPayable:vatPayable, byCat:byCat,
+    vatOut:vatOut, vatIn:vatIn, vatPayable:vatPayable, byCat:byCat, byIncCat:byIncCat,
     wt:wt, taxRate:(taxRate*100).toFixed(0)
   };
 }
@@ -24148,9 +24150,9 @@ function buildPLReport() {
     '<button onclick="window.print()" style="background:#1B4332;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;margin-bottom:20px">🖨 Print</button>'+
     '<h2>Revenue</h2>'+
     '<table><tr><th>Source</th><th class="amt">Amount (R)</th></tr>'+
-    Object.keys(R.byCat).filter(function(k){ return ST.txns.some(function(t){return t.cat===k&&t.type==='income';}); }).map(function(k){
-      return '<tr><td>'+k+'</td><td class="amt">'+fmt(R.byCat[k]||0)+'</td></tr>';
-    }).join('')+
+    (Object.keys(R.byIncCat).length ? Object.keys(R.byIncCat).sort(function(a,b){return R.byIncCat[b]-R.byIncCat[a];}).map(function(k){
+      return '<tr><td>'+k+'</td><td class="amt">'+fmt(R.byIncCat[k]||0)+'</td></tr>';
+    }).join('') : '<tr><td style="color:#9ca3af" colspan="2">No income recorded for this period</td></tr>')+
     '<tr class="total"><td>TOTAL INCOME</td><td class="amt pos">'+fmt(R.totalIncome)+'</td></tr></table>'+
     '<h2>Cost of Sales (S11a)</h2>'+
     '<table><tr><th>Category</th><th class="amt">Amount (R)</th></tr>'+
@@ -24217,7 +24219,7 @@ function buildTaxReport() {
   var html =
     '<h1>Tax Summary — FY '+fy+'</h1>'+
     '<div class="meta">'+FARM.name+' &nbsp;·&nbsp; '+FARM.owner+'<br>'+
-    (FARM.vat?'VAT Registered — VAT No: 4xxx xxx xxx<br>':'')+
+    (FARM.vat?'VAT Registered'+(FARM.vatNo?' — VAT No: '+FARM.vatNo:'')+'<br>':'')+
     'Financial Year: '+getFYLabel(fy)+'</div>'+
     '<button onclick="window.print()" style="background:#1B4332;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;margin-bottom:20px">🖨 Print</button>'+
     '<h2>Income (IT3b / Schedule S)</h2>'+
@@ -24344,11 +24346,9 @@ function buildPreviewPL(R, meta) {
     '</div>'+
     '<div class="pv-section"><h2>Revenue</h2>'+
     '<table class="pv-table"><thead><tr><th>Source</th><th class="amt">Amount</th></tr></thead><tbody>'+
-    Object.keys(R.byCat).filter(function(k){
-      return ST.txns.some(function(t){return t.cat===k && t.type==='income';});
-    }).map(function(k){
-      return '<tr><td>'+k+'</td><td class="amt pv-pos">'+fmt(R.byCat[k]||0)+'</td></tr>';
-    }).join('')+
+    (Object.keys(R.byIncCat).length ? Object.keys(R.byIncCat).sort(function(a,b){return R.byIncCat[b]-R.byIncCat[a];}).map(function(k){
+      return '<tr><td>'+k+'</td><td class="amt pv-pos">'+fmt(R.byIncCat[k]||0)+'</td></tr>';
+    }).join('') : '<tr><td style="color:#9CA3AF" colspan="2">No income recorded for this period</td></tr>')+
     '<tr class="total"><td>TOTAL INCOME</td><td class="amt pv-pos">'+fmt(R.totalIncome)+'</td></tr>'+
     '</tbody></table></div>'+
     '<div class="pv-section"><h2>Cost of Sales <span style="font-weight:400;color:#9CA3AF">(S11a)</span></h2>'+
@@ -28204,16 +28204,11 @@ function txCancelEdit() {
 
 // ── CSV Export ─────────────────────────────────────────────────
 function txExportCSV() {
-  var rows = [['Date','Description','Category','Type','Amount','Method']];
-  ST.txns.forEach(function(t) {
-    rows.push([t.date, '"'+(t.desc||'').replace(/"/g,'""')+'"', t.cat||'', t.type, (t.type==='income'?'+':'-')+(t.amt||0), t.method||'']);
+  var rows = ST.txns.map(function(t) {
+    return [t.date, t.desc||'', t.cat||'', t.type, (t.type==='income'?'+':'-')+(t.amt||0), t.method||''];
   });
-  var csv = rows.map(function(r){ return r.join(','); }).join('\n');
-  var blob = new Blob([csv], {type:'text/csv'});
-  var url  = URL.createObjectURL(blob);
-  var a    = document.createElement('a');
-  a.href   = url; a.download = (FARM.name||'Farm')+'_Transactions.csv'; a.click();
-  URL.revokeObjectURL(url);
+  var csv = toCSV(['Date','Description','Category','Type','Amount','Method'], rows);
+  downloadFile((FARM.name||'Farm')+'_Transactions.csv', csv);
   toast('CSV downloaded.', 'success');
 }
 
