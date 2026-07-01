@@ -1162,10 +1162,10 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .ob-nav-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:1px}
 .ob-nav-line{width:2px;height:20px;background:rgba(255,255,255,.15);margin-left:13px}
 .ob-left-footer{font-size:12px;color:rgba(255,255,255,.4);padding-top:24px;border-top:1px solid rgba(255,255,255,.1);line-height:1.6}
-.ob-right{flex:1;display:flex;flex-direction:column;padding:48px 52px;max-width:600px}
+.ob-right{flex:1;display:flex;flex-direction:column;padding:48px 52px;max-width:600px;height:100vh;overflow:hidden;min-height:0}
 @media(max-width:900px){.ob-right{padding:36px 28px}}
-@media(max-width:760px){.ob-right{padding:28px 20px}}
-.ob-step{display:none;flex-direction:column;flex:1;animation:obSlide .22s ease}
+@media(max-width:760px){.ob-right{padding:28px 20px;height:auto;overflow:visible}#ob-step-4 .ob-tour-list{overflow:visible;min-height:0}}
+.ob-step{display:none;flex-direction:column;flex:1;min-height:0;animation:obSlide .22s ease}
 .ob-step.on{display:flex}
 @keyframes obSlide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .ob-step-tag{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gl);margin-bottom:12px}
@@ -1246,12 +1246,12 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 #ob-step-4 .ob-congrats-icon{font-size:46px;margin-bottom:8px}
 #ob-step-4 .ob-congrats-h{font-size:22px;margin-bottom:4px}
 #ob-step-4 .ob-congrats-sub{font-size:13px;margin-bottom:14px;line-height:1.5}
-#ob-step-4 .ob-tour-list{gap:8px;margin-bottom:12px}
+#ob-step-4 .ob-tour-list{gap:8px;margin-bottom:0;flex:1 1 auto;overflow-y:auto;min-height:0;padding-right:4px}
 #ob-step-4 .ob-tour-item{padding:10px 12px}
 #ob-step-4 .ob-tour-icon{width:32px;height:32px;font-size:15px}
 #ob-step-4 .ob-tour-title{font-size:12.5px}
 #ob-step-4 .ob-tour-sub{font-size:11.5px}
-#ob-step-4 .ob-actions{position:sticky;bottom:0;margin-top:6px;padding:12px 0 18px;background:linear-gradient(180deg,rgba(240,250,244,0),#F0FAF4 30%);z-index:2}
+#ob-step-4 .ob-actions{margin-top:0;padding:12px 0 6px;border-top:1px solid rgba(0,0,0,.07)}
 .ob-btn-pri{padding:15px 24px;background:#1B4332;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:-.1px}
 .ob-btn-pri:hover{background:#2D6A4F;transform:translateY(-1px);box-shadow:0 4px 12px rgba(27,67,50,.25)}
 .ob-btn-sec{padding:12px 20px;background:transparent;color:#6B7280;border:1.5px solid #E5E7EB;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit}
@@ -10188,7 +10188,7 @@ function clearAllToFresh() {
     if (typeof ST_LOANS !== 'undefined') { ['loans','overdrafts','coopAccounts','archived'].forEach(function(k){ E(ST_LOANS,k); }); }
     if (typeof ST_WORK !== 'undefined') { ['workers','payRuns'].forEach(function(k){ E(ST_WORK,k); }); }
     if (typeof ST_LS !== 'undefined') { ['camps','herd','animals','moves','treatments','health'].forEach(function(k){ E(ST_LS,k); }); }
-    if (typeof ST_FRUIT !== 'undefined') { ['blocks','pricing','comply','sprayDiary','phi','harvest'].forEach(function(k){ E(ST_FRUIT,k); }); }
+    if (typeof ST_FRUIT !== 'undefined') { ['blocks','pricing','sprayDiary','phi','harvest'].forEach(function(k){ E(ST_FRUIT,k); }); ST_FRUIT.comply=(typeof orComplyScaffold==='function'?orComplyScaffold():{}); }
     if (typeof ST_CROP !== 'undefined') { ['lands','events','inputs','compliance'].forEach(function(k){ E(ST_CROP,k); }); }
     if (typeof ST_PLAN !== 'undefined') {
       E(ST_PLAN,'crops'); E(ST_PLAN,'events');
@@ -30341,6 +30341,7 @@ var ST_FRUIT = {
 };
 
 var OR_CATS = {citrus:{nm:'Citrus',ic:'\uD83C\uDF4A'}, fruit:{nm:'Other fruit',ic:'\uD83C\uDF4F'}, berry:{nm:'Berries',ic:'\uD83E\uDED0'}, veg:{nm:'Vegetables',ic:'\uD83E\uDD6C'}};
+var OR_COMPLY_TEMPLATE = JSON.parse(JSON.stringify(ST_FRUIT.comply));
 var OR_CAT_ORDER = ['citrus','fruit','berry','veg'];
 var OR_CURVES = {
   citrus:[0,0,0,15,30,50,70,85,95,100,100,100,100,98,96,94,92,88,84,80,72,64,55,46,38],
@@ -30859,32 +30860,47 @@ function orWfReset(){ orToast('Reset to typical prices'); }
 function orWfApplyAll(){ orToast('Applied to all blocks of this crop'); }
 
 /* ---------- compliance tab ---------- */
-function orComplyRow(key){var c=ST_FRUIT.comply[key];return '<div class="or-cmp" onclick="orOpenComply(\''+key+'\')"><div class="or-cmpic">'+c.ic+'</div><div class="or-cmpmid"><div class="or-cmpt">'+c.title+'</div><div class="or-cmps">'+c.what.split('.')[0]+'</div></div><span class="or-tag '+c.statusTag+'">'+c.status+'</span><span class="or-chev">\u203A</span></div>';}
+function orComplyScaffold(){
+  var t=JSON.parse(JSON.stringify(OR_COMPLY_TEMPLATE||{}));
+  Object.keys(t).forEach(function(k){ var c=t[k]; c.docs=[]; if('readings' in c) c.readings=[]; if('checks' in c) c.checks=[];
+    if(c.type==='pest'){ c.statusTag='green'; c.status='Clear'; if('log' in c) c.log='No issues logged yet'; }
+    else { c.status='Set up'; c.statusTag='gray'; c.expiry=''; if('log' in c) c.log=''; } });
+  return t;
+}
+function orComplyRow(key){var c=ST_FRUIT.comply[key];if(!c)return '';return '<div class="or-cmp" onclick="orOpenComply(\''+key+'\')"><div class="or-cmpic">'+c.ic+'</div><div class="or-cmpmid"><div class="or-cmpt">'+c.title+'</div><div class="or-cmps">'+c.what.split('.')[0]+'</div></div><span class="or-tag '+c.statusTag+'">'+c.status+'</span><span class="or-chev">\u203A</span></div>';}
 function orHasExport(){ return ST_FRUIT.blocks.some(function(b){ return (b.cat!=='veg') && (b.exp>0); }); }
 function orActiveCats(){ var s={}; ST_FRUIT.blocks.forEach(function(b){ s[b.cat]=true; }); return s; }
 function orRenderComply(){
+  try{
+  if(!ST_FRUIT.comply || !Object.keys(ST_FRUIT.comply).length) ST_FRUIT.comply=orComplyScaffold();
   var exp=orHasExport(); var cats=orActiveCats();
   var certs=$('or-cmp-certs'); var other=$('or-cmp-other'); var pl=$('or-pest-list');
-  if(certs) certs.innerHTML=(exp?['gap','siza','ppecb','phytclean']:[]).map(orComplyRow).join('') || '<div class="or-empty">No export certificates needed — you sell locally.</div>';
-  if(other) other.innerHTML=['water','operators','diesel'].map(orComplyRow).join('');
+  var kExist=function(k){return !!ST_FRUIT.comply[k];};
+  if(certs) certs.innerHTML=(exp?['gap','siza','ppecb','phytclean']:[]).filter(kExist).map(orComplyRow).join('') || '<div class="or-empty">No export certificates needed \u2014 you sell locally.</div>';
+  if(other) other.innerHTML=['water','operators','diesel'].filter(kExist).map(orComplyRow).join('') || '<div class="or-empty">No other records on file yet.</div>';
   if(pl){
     var html='';
     ['citrus','fruit','berry'].forEach(function(cat){
       if(!cats[cat]) return;
       Object.keys(ST_FRUIT.comply).forEach(function(key){
-        var c=ST_FRUIT.comply[key]; if(c.type!=='pest'||c.cropcat!==cat) return;
+        var c=ST_FRUIT.comply[key]; if(!c||c.type!=='pest'||c.cropcat!==cat) return;
         html+='<div class="or-lrow" style="cursor:pointer" onclick="orOpenComply(\''+key+'\')"><div class="or-lic" style="background:'+(c.statusTag==='red'?'var(--rp)':'var(--gb)')+'">'+c.ic+'</div><div class="or-lmid"><div class="or-lt"><span class="or-tag '+(cat==='citrus'?'amber':'purple')+'" style="margin-right:7px">'+OR_CATS[cat].nm+'</span>'+c.title+'</div><div class="or-ls">'+c.log+'</div></div><div class="or-lr"><span class="or-cc '+(c.statusTag==='red'?'wd':'ok')+'">'+(c.statusTag==='red'?'Action':'Clear')+'</span><span class="or-chev">\u203A</span></div></div>';
       });
     });
-    pl.innerHTML=html||'<div class="or-empty">No fruit pests to watch — you grow veg only.</div>';
+    pl.innerHTML=html||'<div class="or-empty">No fruit pests to watch \u2014 you grow veg only.</div>';
   }
   var kp=$('or-cmp-kpis');
   if(kp){
-    var pests=Object.keys(ST_FRUIT.comply).filter(function(k){return ST_FRUIT.comply[k].type==='pest'&&ST_FRUIT.comply[k].statusTag==='red';}).length;
-    kp.innerHTML='<div class="lskpi-c accent"><div class="lskpi-l">Export readiness</div><div class="lskpi-v">'+(exp?'82%':'n/a')+'</div><div class="lskpi-s">'+(exp?'2 items need action':'local only')+'</div></div>'+
-      '<div class="lskpi-c"><div class="lskpi-l">Certificates valid</div><div class="lskpi-v">'+(exp?'3 of 4':'\u2014')+'</div><div class="lskpi-s">'+(exp?'GLOBALG.A.P. expiring':'none needed')+'</div></div>'+
+    var complyKeys=Object.keys(ST_FRUIT.comply);
+    var certKeys=complyKeys.filter(function(k){return ST_FRUIT.comply[k].type==='cert';});
+    var certsValid=certKeys.filter(function(k){return ST_FRUIT.comply[k].statusTag==='green';}).length;
+    var pests=complyKeys.filter(function(k){return ST_FRUIT.comply[k].type==='pest'&&ST_FRUIT.comply[k].statusTag==='red';}).length;
+    var readyPct=certKeys.length?Math.round(certsValid/certKeys.length*100)+'%':'n/a';
+    kp.innerHTML='<div class="lskpi-c accent"><div class="lskpi-l">Export readiness</div><div class="lskpi-v">'+(exp?(certsValid?readyPct:'Set up'):'n/a')+'</div><div class="lskpi-s">'+(exp?(certsValid?(pests?pests+' items need action':'on track'):'add your certificates'):'local only')+'</div></div>'+
+      '<div class="lskpi-c"><div class="lskpi-l">Certificates on file</div><div class="lskpi-v">'+(exp?(certsValid+' of '+certKeys.length):'\u2014')+'</div><div class="lskpi-s">'+(exp?(certsValid?'valid':'none set up yet'):'none needed')+'</div></div>'+
       '<div class="lskpi-c"><div class="lskpi-l">Open pest alerts</div><div class="lskpi-v '+(pests?'lsneg':'')+'">'+pests+'</div><div class="lskpi-s">'+(pests?'needs action':'all clear')+'</div></div>';
   }
+  }catch(e){ console.error('orRenderComply failed:',e); }
 }
 
 /* ---------- modal + documents ---------- */
