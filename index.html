@@ -12255,8 +12255,8 @@ function renderAssetList() {
             '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="'+ic.stroke+'" stroke-width="2">'+ic.path+'</svg>' +
           '</div>' +
           '<div>' +
-            '<div style="font-size:13px;font-weight:700">'+a.name+'</div>' +
-            (a.notes ? '<div style="font-size:11px;color:var(--t3)">'+a.notes+'</div>' : '') +
+            '<div style="font-size:13px;font-weight:700">'+esc(a.name)+'</div>' +
+            (a.notes ? '<div style="font-size:11px;color:var(--t3)">'+esc(a.notes)+'</div>' : '') +
           '</div>' +
         '</div>' +
       '</td>' +
@@ -12509,6 +12509,7 @@ function deleteAsset(idx) {
 // ============================================================
 function wkE(x){ return (typeof escHtml==='function') ? escHtml(String(x==null?'':x)) : String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
 function wkMoney(n){ return (typeof fmt==='function') ? fmt(Math.round(n||0)) : ('R'+Math.round(n||0)); }
+function wkMoney2(n){ n=(n||0); var neg=n<0; n=Math.abs(n); var w=Math.floor(n+1e-9); var c=Math.round((n-w)*100); if(c>=100){w+=1;c-=100;} return (neg?'\u2212R':'R')+_grpInt(w)+'.'+(c<10?'0'+c:c); }
 function wkInitials(n){ n=(n||'').trim(); if(!n) return '+'; var p=n.split(/\s+/); return ((p[0][0]||'')+(p[1]?p[1][0]:'')).toUpperCase(); }
 function wkColor(i){ var c=['#2D6A4F','#40916C','#C8962C','#7C3AED','#E0930E','#0E7490']; return c[i%c.length]; }
 function wkHourly(w){ if(!w||!w.amt) return 0; if(w.basis==='day'){ return (w.hoursDay? w.amt/w.hoursDay : 0); } var hw=(w.hoursWeek||ST_WORK.hoursWeek||STATUTORY.hoursWeek.value); var hm=hw*52/12; return hm? w.amt/hm : 0; }
@@ -12541,9 +12542,11 @@ function renderWkOverview(){ wkSync();
   var ws=wkList();
   var perm = ws.filter(function(w){ return w.basis==='month'; });
   var seas = ws.filter(function(w){ return w.basis==='day'; });
+  var permCount = ws.filter(function(w){ return w.type==='Permanent'; }).length;
+  var seasCount = ws.filter(function(w){ return w.type!=='Permanent'; }).reduce(function(a,w){ return a+(w.count||1); },0);
   var permTotal = perm.reduce(function(a,w){ return a+(w.amt||0); },0);
-  var seasEst = seas.reduce(function(a,w){ return a+((w.amt||0)*8); },0); // ~8 days, demo estimate
-  var heads = perm.length + seas.reduce(function(a,w){ return a+(w.count||1); },0);
+  var seasEst = seas.reduce(function(a,w){ return a+((w.amt||0)*8*(w.count||1)); },0); // ~8 days x crew, demo estimate
+  var heads = permCount + seasCount;
   var rate = ST_WORK.nmwRate||STATUTORY.nmwRate.value;
   var below = ws.filter(function(w){ return wkHourly(w) > 0 && wkHourly(w) < rate - 0.005; });
   var owe = ws.reduce(function(a,w){ return a+((w.adv&&w.adv.owing)||0); },0);
@@ -12565,7 +12568,7 @@ function renderWkOverview(){ wkSync();
   box.innerHTML =
     wkComplianceBanner() +
     '<div class="wk-kpis" id="wk-ov-kpis">'
-    + '<div class="wk-kpi acc kpi-tap" onclick="kpiOpen(\'wkWage\')" style="position:relative"><span class="kpi-i">\u24D8</span><div class="l">Wage bill &mdash; this month</div><div class="v">'+wkMoney(permTotal+seasEst)+'</div><div class="s">'+perm.length+' permanent &middot; '+seas.reduce(function(a,w){return a+(w.count||1);},0)+' seasonal</div></div>'
+    + '<div class="wk-kpi acc kpi-tap" onclick="kpiOpen(\'wkWage\')" style="position:relative"><span class="kpi-i">\u24D8</span><div class="l">Wage bill &mdash; this month</div><div class="v">'+wkMoney(permTotal+seasEst)+'</div><div class="s">'+permCount+' permanent &middot; '+seasCount+' seasonal</div></div>'
     + '<div class="wk-kpi kpi-tap" onclick="kpiOpen(\'wkHeads\')" style="position:relative"><span class="kpi-i">\u24D8</span><div class="l">Workers</div><div class="v">'+heads+'</div><div class="s">on the books</div></div>'
     + '<div class="wk-kpi kpi-tap" onclick="kpiOpen(\'wkOwe\')" style="position:relative"><span class="kpi-i">\u24D8</span><div class="l">Owed to you</div><div class="v">'+wkMoney(owe)+'</div><div class="s">advances out</div></div>'
     + '<div class="wk-kpi kpi-tap" onclick="kpiOpen(\'wkContracts\')" style="position:relative"><span class="kpi-i">\u24D8</span><div class="l">Contracts on file</div><div class="v">'+contractsOk+'/'+ws.length+'</div><div class="s">'+(ws.length-contractsOk)+' to sort out</div></div>'
@@ -12577,7 +12580,7 @@ function renderWkOverview(){ wkSync();
       + (seasEst>0 ? '<div class="wk-sp"><div class="ic" style="background:var(--ap)">&#127809;</div><div><div class="nm">Seasonal workers</div><div class="ds">Hired for one job &rarr; tag the pay to that crop</div></div><div class="vv">'+wkMoney(seasEst)+' <span style="font-size:9px;color:var(--t4)">est.</span></div></div>' : '')
       + '</div></div>'
     + moneyCard
-    + '<div class="wk-card" style="display:flex;align-items:center;gap:13px"><div style="width:46px;height:46px;border-radius:12px;background:var(--ap);display:flex;align-items:center;justify-content:center;font-size:22px;flex:none">&#128197;</div><div><div style="font-size:13.5px;font-weight:800">Payday is the 25th</div><div style="font-size:11.5px;color:var(--t3);margin-top:2px">'+perm.length+' permanent &middot; UIF worked out for you each run</div></div></div>'
+    + '<div class="wk-card" style="display:flex;align-items:center;gap:13px"><div style="width:46px;height:46px;border-radius:12px;background:var(--ap);display:flex;align-items:center;justify-content:center;font-size:22px;flex:none">&#128197;</div><div><div style="font-size:13.5px;font-weight:800">Payday is the 25th</div><div style="font-size:11.5px;color:var(--t3);margin-top:2px">'+permCount+' permanent &middot; UIF worked out for you each run</div></div></div>'
     + '<div class="wk-banner am"><span class="bi">&#128276;</span><div><b>Workmen&rsquo;s-comp return (COIDA) is your once-a-year filing.</b> We total the wages so the figure&rsquo;s ready &mdash; see the Compliance tab.</div></div>';
 }
 
@@ -12652,7 +12655,7 @@ function renderWkPayroll(){ wkSync();
     var off=r.uif+r.advRepay+r.savings;
     var sub=['UIF '+Math.round(r.uif)]; if(r.bonus) sub.push('bonus '+Math.round(r.bonus)); if(r.premium) sub.push('extra '+Math.round(r.premium)); if(r.advRepay) sub.push('adv '+Math.round(r.advRepay)); if(r.savings) sub.push('save '+Math.round(r.savings));
     var fn=r.w.name.split(/\s+/); var nm=wkE(fn[0]+' '+((fn[1]||'').charAt(0))+(fn[1]?'.':''));
-    return '<tr onclick="wkPayslip(\''+r.w.id+'\')"><td>'+nm+'<div class="sm">'+sub.join(' \u00b7 ')+'</div></td><td>'+wkMoney(r.gross)+'</td><td>\u2212'+Math.round(off)+'</td><td class="net">'+wkMoney(r.net)+'</td><td class="nmwok">'+(r.ok?'\u2713':'\u26a0')+'</td></tr>';
+    return '<tr onclick="wkPayslip(\''+r.w.id+'\')"><td>'+nm+'<div class="sm">'+sub.join(' \u00b7 ')+'</div></td><td>'+wkMoney2(r.gross)+'</td><td>\u2212'+off.toFixed(2)+'</td><td class="net">'+wkMoney2(r.net)+'</td><td class="nmwok">'+(r.ok?'\u2713':'\u26a0')+'</td></tr>';
   }).join('');
   var action = posted
     ? '<div class="wk-posted"><span>\u2713</span><span>Posted to Labour &amp; Wages for '+wkE(label)+'.</span></div>'
@@ -12675,7 +12678,7 @@ function renderWkPayroll(){ wkSync();
     + '<p class="wk-cw">Your permanent workers, this month\u2019s pay filled in. Change a number if it\u2019s different \u2014 we sort UIF, any advance or savings, and check nobody\u2019s under the minimum. Tap a worker for their payslip.</p>'
     + (rows.length
         ? '<table class="wk-ptbl" id="wk-pay-table"><thead><tr><th>Worker</th><th>Pay</th><th>Off</th><th>In hand</th><th>Min?</th></tr></thead><tbody>'+trs+'</tbody>'
-          + '<tfoot><tr><td>Totals</td><td>'+wkMoney(totGross)+'</td><td>\u2212'+Math.round(totUIF+totAdv+totSav)+'</td><td>'+wkMoney(totNet)+'</td><td></td></tr></tfoot></table>'
+          + '<tfoot><tr><td>Totals</td><td>'+wkMoney2(totGross)+'</td><td>\u2212'+(totUIF+totAdv+totSav).toFixed(2)+'</td><td>'+wkMoney2(totNet)+'</td><td></td></tr></tfoot></table>'
           + '<div style="font-size:10.5px;color:var(--t3);margin-top:10px;line-height:1.5">UIF to pay over: <b>'+wkMoney(totUIF*2)+'</b> (worker + you).'+(totAdv?(' Advances repaid: '+wkMoney(totAdv)+'.'):'')+(totSav?(' Into savings: '+wkMoney(totSav)+'.'):'')+' The cost added to your books is the wages plus your UIF share.</div>'
           + action
         : '<div style="font-size:12px;color:var(--t3)">No monthly-paid workers yet \u2014 add one on the Workers tab.</div>')
@@ -12761,21 +12764,21 @@ function wkPayslip(id){
   if(!r){ renderWkPayroll(); return; }
   var w=r.w, label=wkMonthLabel();
   var farm=(typeof ST!=='undefined'&&ST.farmName)?ST.farmName:'Your farm';
-  var ded='<div class="wk-srow"><span>UIF (1%)</span><span class="neg">\u2212'+wkMoney(r.uif)+'</span></div>';
-  if(r.advRepay) ded+='<div class="wk-srow"><span>Advance repayment</span><span class="neg">\u2212'+wkMoney(r.advRepay)+'</span></div>';
-  if(r.savings) ded+='<div class="wk-srow"><span>Into funeral &amp; savings</span><span class="neg">\u2212'+wkMoney(r.savings)+'</span></div>';
+  var ded='<div class="wk-srow"><span>UIF (1%)</span><span class="neg">\u2212'+wkMoney2(r.uif)+'</span></div>';
+  if(r.advRepay) ded+='<div class="wk-srow"><span>Advance repayment</span><span class="neg">\u2212'+wkMoney2(r.advRepay)+'</span></div>';
+  if(r.savings) ded+='<div class="wk-srow"><span>Into funeral &amp; savings</span><span class="neg">\u2212'+wkMoney2(r.savings)+'</span></div>';
   var totOff=r.uif+r.advRepay+r.savings;
-  var pot=(w.fund&&w.fund.on&&w.fund.where==='hold'&&r.savings)?('<div style="font-size:10px;color:var(--t4);margin-top:9px;line-height:1.5">Savings pot would be '+wkMoney((w.fund.balance||0)+r.savings)+' after this run.</div>'):'';
+  var pot=(w.fund&&w.fund.on&&w.fund.where==='hold'&&r.savings)?('<div style="font-size:10px;color:var(--t4);margin-top:9px;line-height:1.5">Savings pot would be '+wkMoney2((w.fund.balance||0)+r.savings)+' after this run.</div>'):'';
   box.innerHTML='<div onclick="renderWkPayroll()" style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--gm);cursor:pointer;margin-bottom:12px">\u2039 Back to pay run</div>'
     + '<div class="wk-slip"><div class="sh"><div class="t">'+wkE(farm)+'</div><div class="s">Payslip \u00b7 '+wkE(w.name)+' \u00b7 '+wkE(label)+'</div></div><div class="sb">'
     + '<div class="wk-srow head"><span>What they earned</span><span></span></div>'
-    + '<div class="wk-srow"><span>Pay for the month</span><span>'+wkMoney(r.base!=null?r.base:r.gross)+'</span></div>'
-    + ((r.bonus)?('<div class="wk-srow"><span>Bonus / 13th cheque</span><span>'+wkMoney(r.bonus)+'</span></div>'):'')
-    + ((r.premium)?('<div class="wk-srow"><span>Sunday / public-holiday pay</span><span>'+wkMoney(r.premium)+'</span></div>'):'')
-    + '<div class="wk-srow tot"><span>Total earned</span><span>'+wkMoney(r.gross)+'</span></div>'
+    + '<div class="wk-srow"><span>Pay for the month</span><span>'+wkMoney2(r.base!=null?r.base:r.gross)+'</span></div>'
+    + ((r.bonus)?('<div class="wk-srow"><span>Bonus / 13th cheque</span><span>'+wkMoney2(r.bonus)+'</span></div>'):'')
+    + ((r.premium)?('<div class="wk-srow"><span>Sunday / public-holiday pay</span><span>'+wkMoney2(r.premium)+'</span></div>'):'')
+    + '<div class="wk-srow tot"><span>Total earned</span><span>'+wkMoney2(r.gross)+'</span></div>'
     + '<div class="wk-srow head"><span>Taken off</span><span></span></div>'+ded
-    + '<div class="wk-srow tot"><span>Total taken off</span><span class="neg">\u2212'+wkMoney(totOff)+'</span></div>'
-    + '<div class="wk-snet"><span class="l">Takes home</span><span class="v">'+wkMoney(r.net)+'</span></div>'+pot
+    + '<div class="wk-srow tot"><span>Total taken off</span><span class="neg">\u2212'+wkMoney2(totOff)+'</span></div>'
+    + '<div class="wk-snet"><span class="l">Takes home</span><span class="v">'+wkMoney2(r.net)+'</span></div>'+pot
     + '<div style="font-size:10px;color:var(--t4);margin-top:9px;line-height:1.5">Shows employer &amp; worker, the period, pay, every deduction and the take-home \u2014 the fields the law requires.</div>'
     + '</div></div>';
 }
@@ -12785,14 +12788,14 @@ function wkSeasonalSlipHtml(id,label){
   var days=(typeof wkSeasDaysFor==='function')?wkSeasDaysFor(label,id):0;
   var gross=days*(w.amt||0); var uif=(typeof wkSeasUif==='function')?wkSeasUif(gross,days,w):0; var net=gross-uif;
   var farm=(typeof ST!=='undefined'&&ST.farmName)?ST.farmName:'Your farm';
-  var ded=uif>0?('<div class="wk-srow"><span>UIF (1%)</span><span class="neg">\u2212'+wkMoney(uif)+'</span></div>'):'<div class="wk-srow"><span>UIF</span><span style="color:var(--t4)">\u2014 under 24 hrs/mo, exempt</span></div>';
+  var ded=uif>0?('<div class="wk-srow"><span>UIF (1%)</span><span class="neg">\u2212'+wkMoney2(uif)+'</span></div>'):'<div class="wk-srow"><span>UIF</span><span style="color:var(--t4)">\u2014 under 24 hrs/mo, exempt</span></div>';
   var foot='Worked on: '+wkE(wkActLabel(w.activity))+(w.uifNo?(' \u00b7 UIF no. '+wkE(w.uifNo)):'');
   return '<div class="wk-slip"><div class="sh"><div class="t">'+wkE(farm)+'</div><div class="s">Payslip \u00b7 '+wkE(w.name)+' \u00b7 '+wkE(label)+'</div></div><div class="sb">'
     + '<div class="wk-srow head"><span>What they earned</span><span></span></div>'
-    + '<div class="wk-srow"><span>'+days+' day'+(days===1?'':'s')+' \u00d7 '+wkMoney(w.amt||0)+'</span><span>'+wkMoney(gross)+'</span></div>'
-    + '<div class="wk-srow tot"><span>Total earned</span><span>'+wkMoney(gross)+'</span></div>'
+    + '<div class="wk-srow"><span>'+days+' day'+(days===1?'':'s')+' \u00d7 '+wkMoney2(w.amt||0)+'</span><span>'+wkMoney2(gross)+'</span></div>'
+    + '<div class="wk-srow tot"><span>Total earned</span><span>'+wkMoney2(gross)+'</span></div>'
     + '<div class="wk-srow head"><span>Taken off</span><span></span></div>'+ded
-    + '<div class="wk-snet"><span class="l">Takes home</span><span class="v">'+wkMoney(net)+'</span></div>'
+    + '<div class="wk-snet"><span class="l">Takes home</span><span class="v">'+wkMoney2(net)+'</span></div>'
     + '<div style="font-size:10px;color:var(--t4);margin-top:9px;line-height:1.5">'+foot+' \u2014 paid in cash. Shows employer, worker, period, days, rate, UIF and take-home.</div>'
     + '</div></div>';
 }
@@ -14035,10 +14038,10 @@ function renderAssetInsights(){
   var mxD=Math.max.apply(null, fys.map(function(f){return dep[f];}).concat(1));
   var barsB=fys.map(function(f){ return _aiBar('FY'+(''+f).slice(-2), dep[f]/mxD*100, '#40916C', dep[f]>0?astK(dep[f]):'\u2014', "astDrill('fy','"+f+"','ai-bd-b')"); }).join('');
   var swB='You can claim about <b>'+astK(dep[fy0])+'</b> against tax this year'+(dep[fy0+4]<dep[fy0]?', dropping to '+astK(dep[fy0+4])+' by FY'+(''+(fy0+4)).slice(-2)+'. As that shrinks your tax bill creeps up \u2014 plan for it, or buy gear that brings fresh deductions.':'. Keep your register current so every deduction is captured.');
-  var totP=0; A.forEach(function(a){ totP+=a.price||0; }); var owed=(typeof LN_totalOwed==='function')?LN_totalOwed():0; if(typeof LN_totalOwed!=='function'){ A.forEach(function(a){ if(a.financed) owed+=a.outstanding||0; }); }
-  var netEq=totP-owed; var ownP=totP?Math.round(netEq/totP*100):100;
-  var innerC='<div style="font-size:24px;font-weight:800;color:var(--gd);line-height:1">'+IE_R(netEq)+' <span style="font-size:12px;color:var(--t3);font-weight:600">you own</span></div>'+
-    '<div style="height:20px;border-radius:7px;overflow:hidden;display:flex;margin:14px 0 9px;cursor:pointer" onclick="astDrill(\'fin\',\'all\',\'ai-bd-c\')"><div style="width:'+ownP+'%;background:#1B4332"></div><div style="width:'+(100-ownP)+'%;background:#E74C3C"></div></div>'+
+  var totP=0, owed=0; A.forEach(function(a){ totP+=a.price||0; owed+=(typeof assetOwed==='function')?assetOwed(a):(a.financed?(a.outstanding||0):0); });
+  var netEq=totP-owed; var ownP=totP?Math.round(netEq/totP*100):100; var ownPB=Math.max(0,Math.min(100,ownP));
+  var innerC='<div style="font-size:24px;font-weight:800;color:'+(netEq<0?'var(--rd)':'var(--gd)')+';line-height:1">'+IE_R(netEq)+' <span style="font-size:12px;color:var(--t3);font-weight:600">you own</span></div>'+
+    '<div style="height:20px;border-radius:7px;overflow:hidden;display:flex;margin:14px 0 9px;cursor:pointer" onclick="astDrill(\'fin\',\'all\',\'ai-bd-c\')"><div style="width:'+ownPB+'%;background:#1B4332"></div><div style="width:'+(100-ownPB)+'%;background:#E74C3C"></div></div>'+
     '<div style="display:flex;justify-content:space-between;font-size:12px">'+_aiLeg('#1B4332','Owned '+IE_R(netEq),'')+_aiLeg('#E74C3C','Financed '+fmt(owed),"astDrill('fin','all','ai-bd-c')")+'</div>';
   var swC='You own <b>'+ownP+'%</b> of your assets outright. '+(ownP>=80?'That is a strong position \u2014 good news when you apply for a loan.':'The bank still holds a fair chunk \u2014 paying down finance lifts how much you can borrow.');
   var equip=[];
@@ -14147,7 +14150,7 @@ function printAssetRegister() {
     '<h2>Assets</h2>'+
     '<table><tr><th>Asset</th><th>Category</th><th>Date</th><th>Purchase Price</th><th>Book Value</th><th>Depr This FY</th></tr>'+
     ST_ASSETS.assets.map(function(a){ var d=calcDepr(a);
-      return '<tr><td>'+a.name+'</td><td>'+a.cat+'</td><td>'+(a.date||'—')+'</td><td class="amt">'+fmt(a.price||0)+'</td><td class="amt">'+fmt(d.bookValue)+'</td><td class="amt pos">'+fmt(d.deprYear)+'</td></tr>';
+      return '<tr><td>'+esc(a.name)+'</td><td>'+esc(a.cat)+'</td><td>'+(a.date||'—')+'</td><td class="amt">'+fmt(a.price||0)+'</td><td class="amt">'+fmt(d.bookValue)+'</td><td class="amt pos">'+fmt(d.deprYear)+'</td></tr>';
     }).join('')+
     '<tr class="total"><td colspan="3">TOTAL</td><td class="amt">'+fmt(totalPurchase)+'</td><td class="amt">'+fmt(totalBook)+'</td><td class="amt pos">'+fmt(totalDeprYear)+'/yr</td></tr></table>'+
     '<h2>Summary</h2>'+
@@ -21478,7 +21481,7 @@ function renderAlerts() {
     var cur = mp ? 'Now: R'+mp.price+(mp.unit==='ton'?'/ton':'/'+mp.unit) : '';
     return '<div style="background:#fff;border:1.5px solid '+(triggered?'var(--gd)':'var(--br)')+';border-radius:var(--rs);padding:12px 14px;position:relative">'+
       '<div style="display:flex;align-items:center;justify-content:space-between">'+
-        '<div style="font-size:13px;font-weight:700">'+a.commodity+'</div>'+
+        '<div style="font-size:13px;font-weight:700">'+esc(a.commodity)+'</div>'+
         '<div style="display:flex;align-items:center;gap:8px">'+
           (triggered?'<span style="background:var(--gp);color:var(--gd);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px">✓ Triggered!</span>':'')+
           '<button onclick="deleteAlert('+idx+')" style="background:none;border:none;color:var(--t4);font-size:18px;cursor:pointer;line-height:1">&times;</button>'+
@@ -21489,7 +21492,7 @@ function renderAlerts() {
         ' <strong style="color:var(--t1)">R'+_grpInt(a.price)+'</strong>'+
         (cur?' &nbsp;&middot;&nbsp; '+cur:'')+
       '</div>'+
-      (a.notes?'<div style="font-size:11px;color:var(--t3);margin-top:3px">'+a.notes+'</div>':'')+
+      (a.notes?'<div style="font-size:11px;color:var(--t3);margin-top:3px">'+esc(a.notes)+'</div>':'')+
       '<div style="font-size:10px;color:var(--t4);margin-top:3px">Set '+a.set+'</div>'+
     '</div>';
   }).join('');
@@ -23969,11 +23972,11 @@ function computeRPT() {
     if (t.type === 'income') {
       totalIncome += t.amt;
       byIncCat[t.cat] = (byIncCat[t.cat]||0) + t.amt;
-      if (FARM.vat) vatOut += t.amt * 0.15 / 1.15;
+      if (FARM.vat) vatOut += IE_split(t.amt, t.cat).vat;
     } else {
       var isCOS = ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].indexOf(t.cat) >= 0;
       if (isCOS) totalCOS += t.amt; else totalOpex += t.amt;
-      if (FARM.vat) vatIn += t.amt * 0.15 / 1.15;
+      if (FARM.vat) vatIn += IE_split(t.amt, t.cat).vat;
       byCat[t.cat] = (byCat[t.cat]||0) + t.amt;
       if (t.cat === 'Loan Repayments') loanIntSum += _rptLoanInterest(t);
     }
