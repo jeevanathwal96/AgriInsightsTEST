@@ -708,6 +708,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pf-fc.loss .pf-fc-hero .amt{color:#B42318}
 .pf-fc-hero .sub{font-size:13px;color:var(--t3)}
 .pf-fc-be{border-top:1px solid rgba(0,0,0,.06);margin-top:15px;padding-top:13px;font-size:13.5px;color:var(--t2);line-height:1.6}
+.pf-fc-foot{font-size:12px;color:var(--t4);margin-top:11px}
 .ai-arow{margin-bottom:15px;cursor:pointer;border-radius:8px;padding:4px 5px 3px}
 .ai-arow:hover{background:#fafbfc}
 .ai-arow .ah{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:5px}
@@ -8502,13 +8503,10 @@ function _pfWhatIfOrchHTML(o){
        _pfSlider('pfOcG',gMin,gMax,500,PF_CURO.growHa0,'pfWhatIfOrch')+'<div class="pf-slends"><span>'+fmt(gMin)+'</span><span>'+orGrowCostSource(b.cat)+'</span><span>'+fmt(gMax)+'</span></div></div>'+
      '<div id="pf-oc-lines" style="display:none"></div>'+
      '<button class="pf-costtog" onclick="pfOcToggle()"><span id="pf-oc-chev">\u25BC</span><span id="pf-oc-toglbl">Break down the cost</span></button>';
-  h+='<div class="pf-res"><div class="pf-rb hero" style="grid-column:1/-1"><div class="l">Profit \u2014 after growing costs</div><div class="v" id="rPfOB" style="font-size:24px"></div><div class="d" id="dPfOB"></div></div>'+
-     '<div class="pf-rb"><div class="l">Per hectare</div><div class="v" id="rPfOA"></div><div class="d" id="dPfOA"></div></div>'+
-     '<div class="pf-rb"><div class="l" id="lPfOS">Cost to produce / '+(isV?'ton':(isB?'kg':'carton'))+'</div><div class="v" id="rPfOS" style="font-size:16px"></div></div></div>'+
-     '<div class="pf-res" style="margin-top:9px"><div class="pf-rb"><div class="l">Money back</div><div class="v" id="rPfOMB" style="font-size:15px"></div></div>'+
-     '<div class="pf-rb"><div class="l" id="lPfOSplit">'+(mode==='mix'?'Export vs local':'In your pocket')+'</div><div class="v" id="rPfOSplit" style="font-size:13px;line-height:1.5"></div></div></div>';
-  h+='<div class="pf-szline" id="pfOSz"></div>';
-  h+='<div class="pf-be ok" id="pfOBe"></div>';
+  h+='<div class="pf-fc profit" id="pfFcO"><div class="pf-fc-top"><span class="pf-fc-lbl">Profit \u2014 after growing costs</span><span class="pf-fc-delta" id="dPfOB"></span></div>'+
+     '<div class="pf-fc-hero"><span class="amt" id="rPfOB">R 0</span><span class="sub" id="pfOSz"></span></div>'+
+     '<div class="pf-fc-be" id="pfOBe"></div>'+
+     '<div class="pf-fc-foot" id="pfOFoot"></div></div>';
   h+='<button class="pf-reset" onclick="pfResetWhatIf()">\u21BA Reset to my figures</button>';
   h+='<div class="pf-note">'+(PF_CURO.hasLogged
    ? 'Cost lines show your <b>season budget</b> \u2014 the same figure your Profit page uses. The green tags show what you\u2019ve already spent on this block this season; as the season fills in, drag a line to match your real spend.'
@@ -8629,36 +8627,23 @@ function pfWhatIfOrch(){
   // cost to produce per selling unit (growing cost spread over the units sold)
   var unitsSold=(O.mode==='veg')?t:(t*pct/100*O.upt + (O.mode==='exp'?0:0)); // export-equiv units
   var copUnit = unitsSold>0 ? growTot/unitsSold : 0;
-  $('rPfOB').textContent=_pfK(profit); $('rPfOB').style.color=profit<0?'#ffb4ab':''; $('dPfOB').innerHTML=_pfDelta(profit,baseProfit);
-  $('rPfOA').textContent=_pfK(perha); $('dPfOA').innerHTML=_pfDelta(perha,basePerHa);
-  if($('rPfOMB')) $('rPfOMB').textContent=_pfK(moneyBack);
-  var sBox=$('rPfOS');
-  if(sBox){
-    // cost-to-produce per ton is the clearest single figure for tree crops
-    var copTon = t>0 ? growTot/t : 0;
-    sBox.innerHTML=fmt(Math.round(copTon))+'<small style="color:var(--t4)">/ton</small>';
-    var lbl=$('lPfOS'); if(lbl) lbl.textContent='Cost to produce / ton';
+  var signedR=function(n){ return (n<0?'\u2212R\u00a0':'R\u00a0')+_grpInt(n); };
+  var loss=profit<0;
+  var _fc=$('pfFcO'); if(_fc) _fc.className='pf-fc '+(loss?'loss':'profit');
+  $('rPfOB').textContent=signedR(profit); $('rPfOB').style.color='';
+  if($('pfOSz')) $('pfOSz').innerHTML='over <b>'+ha+' ha</b> &nbsp;\u00b7&nbsp; <b>'+signedR(perha)+'</b> per hectare';
+  var _dc=$('dPfOB'); if(_dc) _dc.innerHTML=(Math.abs(profit-baseProfit)<1)?'':_pfDelta(profit,baseProfit);
+  var copTon = t>0 ? growTot/t : 0;
+  var be=$('pfOBe');
+  if(be){
+    if(loss) be.innerHTML='You\u2019d <b style="color:#B42318">lose money</b> after growing costs \u2014 it costs about <b>'+fmt(Math.round(copTon))+'/ton</b> to grow and today\u2019s prices don\u2019t cover it; more tons just grows the loss.';
+    else be.innerHTML='Costs about <b>'+fmt(Math.round(copTon))+'/ton</b> to grow \u2014 that leaves <b style="color:#1B7A3E">'+signedR(perha)+'/ha</b> profit after growing costs.';
   }
-  var split=$('rPfOSplit');
-  if(split){
-    if(O.mode==='mix') split.innerHTML=_pfK(expR)+' <small style="color:var(--t4)">export</small><br>'+_pfK(locR)+' <small style="color:var(--t4)">local</small>';
-    else if(O.mode==='veg'||O.mode==='exp') split.innerHTML=fmt(Math.round(en))+'<small style="color:var(--t4)">/'+O.unit+'</small>';
-    else split.innerHTML=fmt(Math.round(ln))+'<small style="color:var(--t4)">/ton</small>';
-    var sl=$('lPfOSplit'); if(sl) sl.textContent=(O.mode==='mix'?'Export vs local':'In your pocket');
-  }
-  var sz=$('pfOSz'); if(sz) sz.innerHTML='At <b>'+t+' t</b>, '+esc(O.name)+' makes about <b>'+_pfK(profit)+'</b> profit after growing costs ('+_pfK(perha)+'/ha).';
-  var be=$('pfOBe'); if(!be) return;
-  var copTon2 = t>0 ? growTot/t : 0;
-  if(profit<0){
-    be.className='pf-be bad';
-    be.innerHTML='<b>Loss after growing costs.</b> This block costs about '+fmt(Math.round(copTon2))+'/ton to grow and isn\u2019t covering it at these prices \u2014 more tons just grows the loss.';
-  } else if(PF_OC_EXPANDED){
-    var top=PF_OC_LINES.slice().sort(function(a,b){return b.v-a.v;})[0];
-    be.className='pf-be ok';
-    be.innerHTML='<b>'+top.nm+'</b> is your biggest growing cost ('+fmt(top.v)+'/ha). Trimming it 10% adds about <b>'+_pfK(top.v*0.1*ha)+'</b> to this block.';
-  } else {
-    be.className='pf-be ok';
-    be.innerHTML='<b>'+_pfK(perha)+'/ha profit</b> after growing costs, at about '+fmt(Math.round(copTon2))+'/ton to produce. Break it down to test spray, fertiliser or labour on their own.';
+  var foot=$('pfOFoot');
+  if(foot){
+    var _f='Money back '+_pfK(moneyBack);
+    if(O.mode==='mix') _f+=' &nbsp;\u00b7&nbsp; Export '+_pfK(expR)+' \u00b7 Local '+_pfK(locR);
+    foot.innerHTML=_f;
   }
 }
 
@@ -8750,8 +8735,9 @@ function _pfWhatIfLiveHTML(l){
     '<button class="pf-costtog" onclick="pfLcToggle()"><span id="pf-lc-chev">\u25BC</span><span id="pf-lc-toglbl">Break down the cost</span></button>'+
     '<label class="pf-chk"><input type="checkbox" id="pfIB" '+(incBuy?'checked':'')+' onchange="pfToggleBuy()"> Include buy / replacement cost <small>leave off if you rear your own</small></label>'+
     '<div id="pfBuyW" style="display:'+(incBuy?'block':'none')+'"><div class="pf-sl" style="margin-top:8px"><div class="pf-sllab"><span>Buy / replacement</span><span class="pf-slval"><span id="vPfBu">'+fmt(l.buy||0)+'</span><small>/head</small></span></div>'+_pfSlider('pfBu',bMin,bMax,50,l.buy||0,'pfWhatIfHerd')+'<div class="pf-slends"><span>'+fmt(bMin)+'</span><span>your price</span><span>'+fmt(bMax)+'</span></div></div></div>'+
-    '<div class="pf-res"><div class="pf-rb hero" style="grid-column:1/-1"><div class="l">Expected profit \u2014 this herd</div><div class="v" id="rPfB" style="font-size:24px"></div><div class="d" id="dPfB"></div></div><div class="pf-rb"><div class="l">Margin / head</div><div class="v" id="rPfA"></div><div class="d" id="dPfA"></div></div><div class="pf-rb"><div class="l">Break-even / head</div><div class="v" id="rPfD"></div></div></div>'+'<div class="pf-szline" id="pfSzL"></div>'+
-    '<div class="pf-be ok" id="pfBe"></div>'+
+    '<div class="pf-fc profit" id="pfFc"><div class="pf-fc-top"><span class="pf-fc-lbl">Expected profit \u2014 this herd</span><span class="pf-fc-delta" id="dPfB"></span></div>'+
+    '<div class="pf-fc-hero"><span class="amt" id="rPfB">R 0</span><span class="sub" id="pfSzL"></span></div>'+
+    '<div class="pf-fc-be" id="pfBe"></div></div>'+
     '<button class="pf-reset" onclick="pfResetWhatIf()">\u21BA Reset to my figures</button>'+
     
     '<div class="pf-note">One monthly figure covers feed, health &amp; licks. Tick buy-in only if you purchase animals \u2014 breeders who rear their own leave it off.</div></div>';
@@ -8764,13 +8750,17 @@ function pfWhatIfHerd(){
   if($('vPfHd')) $('vPfHd').textContent=head;
   $('vPfSe').textContent=fmt(sell); if($('vPfMo')) $('vPfMo').textContent=fmt(monthly); if($('vPfBu')) $('vPfBu').textContent=fmt(buy);
   var costHead=monthly*PF_CURL.months+(inc?buy:0), mh=sell-costHead, gm=mh*head;
-  $('rPfA').textContent=fmt(mh); $('dPfA').innerHTML=_pfDelta(mh,PF_CURL.baseMh);
-  $('rPfB').textContent=_pfK(gm); $('rPfB').style.color=gm<0?'#ffb4ab':''; $('dPfB').innerHTML=_pfDelta(gm,PF_CURL.baseGm);
-  if($('rPfD')) $('rPfD').textContent=fmt(Math.round(costHead));
-  var sz=$('pfSzL'); if(sz) sz.innerHTML='At <b>'+head+' head</b>, this herd is expected to earn about <b>'+_pfK(gm)+'</b> ('+fmt(mh)+'/head).';
+  var signedR=function(n){ return (n<0?'\u2212R\u00a0':'R\u00a0')+_grpInt(n); };
+  var loss=gm<0;
+  var _fc=$('pfFc'); if(_fc) _fc.className='pf-fc '+(loss?'loss':'profit');
+  $('rPfB').textContent=signedR(gm); $('rPfB').style.color='';
+  if($('pfSzL')) $('pfSzL').innerHTML='over <b>'+head+' head</b> &nbsp;\u00b7&nbsp; <b>'+signedR(mh)+'</b> per head';
+  var _dc=$('dPfB'); if(_dc) _dc.innerHTML=(Math.abs(gm-(PF_CURL.baseGm||0))<1)?'':_pfDelta(gm,PF_CURL.baseGm);
   var be=$('pfBe');
-  if(mh<0){ be.className='pf-be bad'; be.innerHTML='<b>Loss at these numbers.</b> It costs '+fmt(Math.round(costHead))+'/head, more than the '+fmt(sell)+' sale price \u2014 more head just grows the loss.'; }
-  else { be.className='pf-be ok'; be.innerHTML='<b>Break-even '+fmt(Math.round(costHead))+'/head.</b> Each extra head adds about <b>'+fmt(Math.round(mh))+'</b>'+(inc?' (replacement cost in)':' on running cost alone')+'.'; }
+  if(be){
+    if(loss) be.innerHTML='You\u2019d <b style="color:#B42318">lose money</b> at these numbers \u2014 each head costs <b>'+fmt(Math.round(costHead))+'</b> to run, more than the <b>'+fmt(sell)+'</b> sale price; more head just grows the loss.';
+    else be.innerHTML='Costs <b>'+fmt(Math.round(costHead))+'/head</b> to run \u2014 your break-even. At <b>'+fmt(sell)+'</b> you clear <b style="color:#1B7A3E">'+fmt(Math.round(mh))+'/head</b>'+(inc?' (replacement cost in)':'')+'.';
+  }
 }
 
 function renderProfit(){
