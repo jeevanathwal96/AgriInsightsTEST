@@ -53,6 +53,21 @@ body{font-family:var(--fn);background:var(--bg);color:var(--t1);font-size:14px}
 button{cursor:pointer;font-family:var(--fn);border:none;background:none;padding:0}
 input,select,textarea{font-family:var(--fn);font-size:14px;border:1.5px solid var(--br);border-radius:var(--rs);padding:10px 12px;width:100%;background:#fff;color:var(--t1);outline:none;transition:border-color .15s}
 input:focus,select:focus,textarea:focus{border-color:var(--gl)}
+/* Selects: hide the native OS arrow, add a themed chevron + green focus ring (closed box, all selects) */
+select{-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='%236B746C' stroke-width='1.6' fill='none'/></svg>");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px!important;cursor:pointer}
+select:focus{border-color:var(--gl);box-shadow:0 0 0 3px rgba(64,145,108,.15)}
+/* Custom dropdown popup (themed replacement for the native open list) */
+.cs-pop{position:fixed;background:#fff;border:1px solid var(--br);border-radius:14px;box-shadow:0 12px 28px rgba(0,0,0,.16);z-index:600;padding:6px;font-family:var(--fn);box-sizing:border-box;max-height:min(360px,60vh);display:flex;flex-direction:column}
+.cs-search{display:flex;align-items:center;gap:8px;padding:4px 8px 8px;border-bottom:1px solid var(--br2);margin-bottom:4px;flex:none}
+.cs-search-in{border:none!important;outline:none;padding:2px 0!important;font-size:13px;font-family:inherit;flex:1;width:auto!important;background:transparent;box-shadow:none!important}
+.cs-list{overflow-y:auto;-webkit-overflow-scrolling:touch}
+.cs-grp{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t4);padding:7px 10px 3px}
+.cs-opt{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:8px;font-size:13.5px;color:var(--t1);cursor:pointer;line-height:1.3}
+.cs-opt .cs-lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs-opt.act{background:var(--gb)}
+.cs-opt.sel{background:var(--gb);color:var(--gd);font-weight:700}
+.cs-opt .cs-tick{flex:none;color:var(--gd)}
+.cs-opt.dis{opacity:.45;cursor:default}
 label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom:5px}
 
 .app{display:flex;height:100vh;overflow:hidden}
@@ -456,16 +471,23 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px}
 
 .type-cards{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
-.tc{border:1.5px solid var(--br);border-radius:var(--rs);padding:12px 8px;text-align:center;cursor:pointer;transition:all .15s}
-.tc:hover{border-color:var(--gl)}
+.tc{position:relative;border:1.5px solid var(--br);border-radius:var(--rs);padding:12px 8px;text-align:center;cursor:pointer;transition:all .15s}
+.tc:hover{border-color:var(--gl);transform:translateY(-2px);box-shadow:var(--sh)}
 .tc.on{border-color:var(--gd);background:var(--gb)}
-.tc-icon{width:38px;height:38px;border-radius:9px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center}
+.tc.on::after{content:'\2713';position:absolute;top:-7px;right:-7px;width:19px;height:19px;border-radius:50%;background:var(--gd);color:#fff;font-size:11px;font-weight:800;line-height:19px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tc.on .tc-icon.g{background:var(--gd)}.tc.on .tc-icon.g svg{stroke:#fff}
+.tc.on .tc-icon.o{background:var(--or)}.tc.on .tc-icon.o svg{stroke:#fff}
+.tc.on .tc-icon.br{background:var(--or)}.tc.on .tc-icon.br svg{stroke:#fff}
+.tc.on .tc-icon.b{background:var(--bl)}.tc.on .tc-icon.b svg{stroke:#fff}
+.tc.on .tc-icon.p{background:var(--pu)}.tc.on .tc-icon.p svg{stroke:#fff}
+.tc.on .tc-icon.r{background:var(--rd)}.tc.on .tc-icon.r svg{stroke:#fff}
+.tc-icon{width:38px;height:38px;border-radius:10px;margin:0 auto 8px;display:flex;align-items:center;justify-content:center;transition:background .15s}
 .tc-icon.g{background:var(--gb)}.tc-icon.g svg{stroke:var(--gd)}
 .tc-icon.br{background:#FFF3E0}.tc-icon.br svg{stroke:var(--or)}
 .tc-icon.b{background:var(--bp)}.tc-icon.b svg{stroke:var(--bl)}
 .tc-icon.o{background:var(--op)}.tc-icon.o svg{stroke:var(--or)}
 .tc-icon.p{background:var(--pp)}.tc-icon.p svg{stroke:var(--pu)}.tc-icon.r{background:var(--rp)}.tc-icon.r svg{stroke:var(--rd)}
-.tc-icon svg{width:17px;height:17px;fill:none;stroke-width:1.8}
+.tc-icon svg{width:18px;height:18px;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .tc-name{font-size:12px;font-weight:700;color:var(--t1)}
 .tc-sub{font-size:10px;color:var(--t3);line-height:1.4;margin-top:2px}
 
@@ -3836,12 +3858,12 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <div class="form-sh" id="ai-subhead">Record crops, livestock or other goods your farm has sold.</div>
         <div class="form-step">1. What type of income is this?</div>
         <div class="type-cards" id="ai-type-cards">
-          <div class="tc on" data-st="Crops" onclick="setSaleType('Crops')"><div class="tc-icon g"><svg viewBox="0 0 24 24"><path d="M12 22V12M17 7l-5-5-5 5"/></svg></div><div class="tc-name">Crops</div><div class="tc-sub">Maize, Wheat, Sunflowers</div></div>
+          <div class="tc on" data-st="Crops" onclick="setSaleType('Crops')"><div class="tc-icon g"><svg viewBox="0 0 24 24"><path d="M12 4v17"/><path d="M12 9c0-2.6 2-4.4 4.6-4.4C16.6 7.2 14.6 9 12 9z"/><path d="M12 12c0-2.6-2-4.4-4.6-4.4C7.4 10.2 9.4 12 12 12z"/><path d="M12 15c0-2.6 2-4.4 4.6-4.4C16.6 13.2 14.6 15 12 15z"/><path d="M12 18c0-2.6-2-4.4-4.6-4.4C7.4 16.2 9.4 18 12 18z"/></svg></div><div class="tc-name">Crops</div><div class="tc-sub">Maize, Wheat, Sunflowers</div></div>
           <div class="tc" data-st="Fruit" onclick="setSaleType('Fruit')"><div class="tc-icon o"><svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="7.5"/><path d="M12 6.5V14M5 11.5h14"/><path d="M12 6.5c.4-2.2 2.2-3.5 4.2-3.5-.2 2.1-1.8 3.4-3.6 3.6"/></svg></div><div class="tc-name">Fruit &amp; Veg</div><div class="tc-sub">Citrus, apples, berries, veg</div></div>
-          <div class="tc" data-st="Livestock" onclick="setSaleType('Livestock')"><div class="tc-icon br"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 20v-2a4 4 0 014-4h4a4 4 0 014 4v2"/></svg></div><div class="tc-name">Livestock</div><div class="tc-sub">Cattle, Sheep, Pigs</div></div>
-          <div class="tc" data-st="Agritourism" onclick="setSaleType('Agritourism')"><div class="tc-icon b"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg></div><div class="tc-name">Agritourism</div><div class="tc-sub">Farm stays, Tours</div></div>
-          <div class="tc" data-st="Rental" onclick="setSaleType('Rental')"><div class="tc-icon o"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 3v18M16 3v18M2 9h20M2 15h20"/></svg></div><div class="tc-name">Rental</div><div class="tc-sub">Land, Buildings, Equipment</div></div>
-          <div class="tc" data-st="Subsidies" onclick="setSaleType('Subsidies')"><div class="tc-icon p"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg></div><div class="tc-name">Subsidies</div><div class="tc-sub">Government grants, support</div></div>
+          <div class="tc" data-st="Livestock" onclick="setSaleType('Livestock')"><div class="tc-icon br"><svg viewBox="0 0 24 24"><ellipse cx="13" cy="9.8" rx="6.2" ry="3.5"/><ellipse cx="5.3" cy="9" rx="2.8" ry="2.4"/><ellipse cx="3.1" cy="10.7" rx="1.5" ry="1.1"/><path d="M3.9 6.7C3.6 5.7 3.9 4.9 4.7 4.8"/><path d="M6.8 6.9C7.1 5.9 7.8 5.6 8.5 5.9"/><path d="M8.6 13.1V19M10.8 13.3V19M16 13.3V19M18.2 12.8V19"/><path d="M19.1 7.7C20.7 8.2 21.2 10.5 20 12.4"/></svg></div><div class="tc-name">Livestock</div><div class="tc-sub">Cattle, Sheep, Pigs</div></div>
+          <div class="tc" data-st="Agritourism" onclick="setSaleType('Agritourism')"><div class="tc-icon b"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><div class="tc-name">Agritourism</div><div class="tc-sub">Farm stays, Tours</div></div>
+          <div class="tc" data-st="Rental" onclick="setSaleType('Rental')"><div class="tc-icon o"><svg viewBox="0 0 24 24"><circle cx="7.8" cy="7.8" r="4.3"/><path d="M10.9 10.9L19.5 19.5"/><path d="M17 17l2.2-2.2"/><path d="M14.8 14.8l1.8-1.8"/></svg></div><div class="tc-name">Rental</div><div class="tc-sub">Land, Buildings, Equipment</div></div>
+          <div class="tc" data-st="Subsidies" onclick="setSaleType('Subsidies')"><div class="tc-icon p"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V10.5M9.4 21V10.5M14.6 21V10.5M19 21V10.5"/><path d="M3.5 10.5L12 4l8.5 6.5Z"/></svg></div><div class="tc-name">Subsidies</div><div class="tc-sub">Government grants, support</div></div>
         </div>
         <div class="form-step" id="ai-step2">2. Sale details</div>
         <div class="fg2">
@@ -4020,6 +4042,10 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
               <option>Insurance</option>
               <option>Admin & Professional Fees</option>
               <option>Other Expenses</option>
+              <option>Co-op levies</option>
+              <option>Co-op storage & handling</option>
+              <option>Co-op transport</option>
+              <option>Co-op cut & admin</option>
             </select>
           <select id="exp-period-filter" style="font-size:12px;padding:7px 10px;width:auto;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff" onchange="filterExpTx()">
             <option value="">All Time</option>
@@ -4049,17 +4075,17 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <div class="form-sh">Record any cost or expense you've paid for your farm.</div>
         <div class="form-step">1. What is this expense for?</div>
         <div class="type-cards" id="ae-type-cards">
-          <div class="tc on" data-et="Seeds &amp; Planting" onclick="setExpType(this.dataset.et)"><div class="tc-icon g"><svg viewBox="0 0 24 24"><path d="M12 22V12M17 7l-5-5-5 5"/><path d="M5 12H2a10 10 0 0020 0h-3"/></svg></div><div class="tc-name">Seeds &amp; Planting</div><div class="tc-sub">Certified seed, inoculants</div></div>
+          <div class="tc on" data-et="Seeds &amp; Planting" onclick="setExpType(this.dataset.et)"><div class="tc-icon g"><svg viewBox="0 0 24 24"><path d="M12 21V11"/><path d="M12 12.5C12 9 9.2 6.6 5.5 6.6 5.5 10 8 12.5 12 12.5z"/><path d="M12 11C12 7.8 14.6 5.6 18 5.6 18 8.8 15.6 11 12 11z"/><path d="M6 21h12"/></svg></div><div class="tc-name">Seeds &amp; Planting</div><div class="tc-sub">Certified seed, inoculants</div></div>
           <div class="tc" data-et="Fertiliser" onclick="setExpType(this.dataset.et)"><div class="tc-icon g"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 015 5v3H7V7a5 5 0 015-5z"/><path d="M5 10h14l-1 11H6z"/></svg></div><div class="tc-name">Fertiliser</div><div class="tc-sub">Urea, LAN, MAP, lime</div></div>
           <div class="tc" data-et="Crop Protection" onclick="setExpType(this.dataset.et)"><div class="tc-icon r"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="tc-name">Crop Protection</div><div class="tc-sub">Herbicides, fungicides</div></div>
-          <div class="tc" data-et="Veterinary &amp; Animal Health" onclick="setExpType(this.dataset.et)"><div class="tc-icon p"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg></div><div class="tc-name">Vet &amp; Animal Health</div><div class="tc-sub">Vaccines, dipping, dosing</div></div>
-          <div class="tc" data-et="Labour &amp; Wages" onclick="setExpType(this.dataset.et)"><div class="tc-icon b"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div class="tc-name">Labour &amp; Wages</div><div class="tc-sub">Permanent &amp; casual staff</div></div>
-          <div class="tc" data-et="Fuel &amp; Oil" onclick="setExpType(this.dataset.et)"><div class="tc-icon o"><svg viewBox="0 0 24 24"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="2"/></svg></div><div class="tc-name">Fuel &amp; Oil</div><div class="tc-sub">Diesel, Petrol, Lubricants</div></div>
+          <div class="tc" data-et="Veterinary &amp; Animal Health" onclick="setExpType(this.dataset.et)"><div class="tc-icon p"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="16" rx="4" ry="3.2"/><ellipse cx="6.4" cy="11" rx="1.9" ry="2.3"/><ellipse cx="9.8" cy="7.4" rx="1.9" ry="2.3"/><ellipse cx="14.2" cy="7.4" rx="1.9" ry="2.3"/><ellipse cx="17.6" cy="11" rx="1.9" ry="2.3"/></svg></div><div class="tc-name">Vet &amp; Animal Health</div><div class="tc-sub">Vaccines, dipping, dosing</div></div>
+          <div class="tc" data-et="Labour &amp; Wages" onclick="setExpType(this.dataset.et)"><div class="tc-icon b"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><div class="tc-name">Labour &amp; Wages</div><div class="tc-sub">Permanent &amp; casual staff</div></div>
+          <div class="tc" data-et="Fuel &amp; Oil" onclick="setExpType(this.dataset.et)"><div class="tc-icon o"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="9" height="17" rx="1.5"/><rect x="5.5" y="7" width="4" height="3.5" rx="0.5"/><path d="M12 10h2.6a2 2 0 012 2v5.5a1.4 1.4 0 002.8 0V9.5L17 7"/><path d="M2 21h11"/></svg></div><div class="tc-name">Fuel &amp; Oil</div><div class="tc-sub">Diesel, Petrol, Lubricants</div></div>
           <div class="tc" data-et="Machinery &amp; Repairs" onclick="setExpType(this.dataset.et)"><div class="tc-icon p"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></div><div class="tc-name">Machinery &amp; Repairs</div><div class="tc-sub">Repairs, Services, Parts</div></div>
 
 <div class="tc" data-et="Irrigation &amp; Water" onclick="setExpType(this.dataset.et)"><div class="tc-icon b"><svg viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg></div><div class="tc-name">Irrigation &amp; Water</div><div class="tc-sub">Levies, electricity, tape</div></div>
-          <div class="tc" data-et="Land &amp; Rental" onclick="setExpType(this.dataset.et)"><div class="tc-icon g"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M8 3v18M16 3v18M2 9h20M2 15h20"/></svg></div><div class="tc-name">Land &amp; Rental</div><div class="tc-sub">Lease, grazing rights</div></div>
-          <div class="tc" data-et="Insurance" onclick="setExpType(this.dataset.et)"><div class="tc-icon b"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div><div class="tc-name">Insurance</div><div class="tc-sub">Crop, asset &amp; life cover</div></div>
+          <div class="tc" data-et="Land &amp; Rental" onclick="setExpType(this.dataset.et)"><div class="tc-icon g"><svg viewBox="0 0 24 24"><path d="M2 20h20"/><path d="M2 16l5-5 4 3 4-5 7 8"/><circle cx="17.5" cy="6.5" r="1.8"/></svg></div><div class="tc-name">Land &amp; Rental</div><div class="tc-sub">Lease, grazing rights</div></div>
+          <div class="tc" data-et="Insurance" onclick="setExpType(this.dataset.et)"><div class="tc-icon b"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M12 19a2 2 0 01-4 0"/><path d="M3 12a9 9 0 0118 0z"/><path d="M12 3v2"/></svg></div><div class="tc-name">Insurance</div><div class="tc-sub">Crop, asset &amp; life cover</div></div>
           <div class="tc" data-et="Admin &amp; Professional Fees" onclick="setExpType(this.dataset.et)"><div class="tc-icon p"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="tc-name">Admin &amp; Professional</div><div class="tc-sub">Accountant, bank fees, phone</div></div>
           <div class="tc" data-et="Other Expenses" onclick="setExpType(this.dataset.et)"><div class="tc-icon" style="background:var(--br2)"><svg viewBox="0 0 24 24" style="stroke:var(--t3)"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></div><div class="tc-name">Other Expenses</div><div class="tc-sub">Anything that doesn't fit</div></div>
         </div>
@@ -9374,6 +9400,7 @@ setEl('inc-banner-val',    fmt(R.income));
   setEl('inc-metric-in',     fmt(R.income));
   setEl('inc-metric-profit', fmt(Math.abs(R.profit)));
   setEl('inc-chart-title',   'Income Overview — ' + lbl);
+  ['1','3','6','12'].forEach(function(x){ var b=$('inc-pill-'+x); if(b) b.className='pill'+(p===x?' on':''); });
 
 setEl('inc-lbl-in',     'Money In (' + lbl + ')');
   setEl('inc-lbl-profit', 'Profit (' + lbl + ')');
@@ -9420,6 +9447,7 @@ function updateExpPage() {
 setEl('exp-banner-val',   fmt(R.expenses));
   setEl('exp-metric-total', fmt(R.expenses));
   setEl('exp-chart-title',  'Expenses Overview — ' + lbl);
+  ['1','3','6','12'].forEach(function(x){ var b=$('exp-pill-'+x); if(b) b.className='pill'+(p===x?' on':''); });
 
 setEl('exp-lbl-total', 'Total Expenses (' + lbl + ')');
   setEl('exp-lbl-ratio', 'Expense Ratio (' + lbl + ')');
@@ -10518,6 +10546,176 @@ function _appDialog(o){
 function appConfirm(message,opts){ opts=opts||{}; var m=String(message||''); var danger=(opts.danger!=null)?opts.danger:/delete|remove|undo|clear|reset|erase|for good|grubbed/i.test(m); var label=opts.okLabel; if(!label){ if(/delete/i.test(m))label='Delete'; else if(/\bundo\b/i.test(m))label='Undo'; else if(/\breset\b/i.test(m))label='Reset'; else if(/\bclear\b/i.test(m))label='Clear'; else if(/remove|grubbed/i.test(m))label='Remove'; else label='Confirm'; } return _appDialog({kind:'confirm',message:m,danger:danger,okLabel:label}); }
 function appPrompt(label,defaultValue,opts){ opts=opts||{}; return _appDialog({kind:'prompt',message:label,sub:opts.sub,value:(defaultValue!=null?defaultValue:''),prefix:opts.prefix,okLabel:opts.okLabel}); }
 
+/* ===== Custom dropdown — themed replacement for the native <select> popup (desktop web).
+   One set of delegated listeners enhances ALL <select> elements with zero per-select wiring:
+   the popup is built live from the select's current <option>/<optgroup> each time it opens, so
+   dynamically rebuilt selects work automatically. The native <select> stays the source of truth —
+   picking sets its .value and dispatches 'input'+'change', so every existing handler runs
+   unchanged. Opt a select out with data-cs-skip. Mobile is handled by a separate app. ===== */
+(function(){
+  var pop=null, curSel=null, rows=[], activeIdx=-1;
+  function _csEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function _csOpenable(s){ return s && s.tagName==='SELECT' && !s.disabled && !s.hasAttribute('data-cs-skip'); }
+
+  function _csBuildData(sel){
+    var out=[];
+    Array.prototype.forEach.call(sel.children, function(node){
+      if(node.tagName==='OPTGROUP'){
+        out.push({group:node.getAttribute('label')||''});
+        Array.prototype.forEach.call(node.children, function(o){
+          if(o.tagName==='OPTION') out.push({label:o.textContent, value:o.value, selected:o.selected, disabled:o.disabled});
+        });
+      } else if(node.tagName==='OPTION'){
+        out.push({label:node.textContent, value:node.value, selected:node.selected, disabled:node.disabled});
+      }
+    });
+    return out;
+  }
+
+  function _csClose(refocus){
+    if(pop){ if(pop.parentNode) pop.parentNode.removeChild(pop); pop=null; }
+    document.removeEventListener('keydown', _csKey, true);
+    document.removeEventListener('mousedown', _csOutside, true);
+    window.removeEventListener('scroll', _csScroll, true);
+    window.removeEventListener('resize', _csClose2);
+    var s=curSel; curSel=null; rows=[]; activeIdx=-1;
+    if(refocus && s){ try{ s.focus(); }catch(e){} }
+  }
+  function _csClose2(){ _csClose(false); }
+  function _csScroll(e){ if(pop){ if(e && e.target && e.target.nodeType===1 && pop.contains(e.target)) return; _csClose(false); } }
+
+  function _csHighlight(idx, scroll){
+    if(!pop) return;
+    activeIdx=idx;
+    Array.prototype.forEach.call(pop.querySelectorAll('.cs-opt'), function(el){ el.classList.remove('act'); });
+    var el=pop.querySelector('.cs-opt[data-i="'+idx+'"]');
+    if(el){ el.classList.add('act'); if(scroll && el.scrollIntoView) el.scrollIntoView({block:'nearest'}); }
+  }
+  function _csVisible(){
+    var out=[];
+    for(var i=0;i<rows.length;i++){ var el=pop.querySelector('.cs-opt[data-i="'+i+'"]'); if(el && el.style.display!=='none') out.push(i); }
+    return out;
+  }
+  function _csFilter(q){
+    q=(q||'').trim().toLowerCase();
+    var first=-1;
+    Array.prototype.forEach.call(pop.querySelectorAll('.cs-opt'), function(el){
+      var i=parseInt(el.getAttribute('data-i'),10);
+      var match=!q || rows[i].label.toLowerCase().indexOf(q)>=0;
+      el.style.display=match?'':'none';
+      if(match && first<0) first=i;
+    });
+    Array.prototype.forEach.call(pop.querySelectorAll('.cs-grp'), function(g){
+      var vis=false, n=g.nextElementSibling;
+      while(n && !n.classList.contains('cs-grp')){ if(n.classList.contains('cs-opt') && n.style.display!=='none'){ vis=true; break; } n=n.nextElementSibling; }
+      g.style.display=vis?'':'none';
+    });
+    if(first>=0) _csHighlight(first,false);
+    _csPosition(curSel.getBoundingClientRect());
+  }
+
+  function _csCommit(idx){
+    if(!curSel) return;
+    var r=rows[idx]; if(!r || r.disabled) return;
+    var s=curSel, changed=(s.value!==r.value);
+    if(changed) s.value=r.value;
+    _csClose(true);
+    if(changed && s){
+      try{ s.dispatchEvent(new Event('input',{bubbles:true})); }catch(e){}
+      try{ s.dispatchEvent(new Event('change',{bubbles:true})); }catch(e){}
+    }
+  }
+
+  function _csPosition(rect){
+    pop.style.left='0px'; pop.style.top='0px';
+    pop.style.minWidth=Math.max(rect.width,180)+'px';
+    pop.style.maxWidth=Math.min(360, window.innerWidth-16)+'px';
+    var pw=pop.offsetWidth, ph=pop.offsetHeight;
+    var left=rect.left; if(left+pw>window.innerWidth-8) left=window.innerWidth-pw-8; if(left<8) left=8;
+    var below=window.innerHeight-rect.bottom, above=rect.top, top;
+    if(below>=ph+8 || below>=above) top=rect.bottom+4; else top=Math.max(8, rect.top-ph-4);
+    pop.style.left=left+'px'; pop.style.top=top+'px';
+  }
+
+  function _csOpen(sel){
+    _csClose(false);
+    curSel=sel;
+    var data=_csBuildData(sel);
+    var nOpts=data.filter(function(d){return d.label!=null;}).length;
+    var useSearch=nOpts>10;
+    pop=document.createElement('div');
+    pop.className='cs-pop'; pop.setAttribute('role','listbox'); pop.setAttribute('data-notranslate','');
+    var html='';
+    if(useSearch){
+      html+='<div class="cs-search"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" class="cs-search-in" placeholder="Search…" data-notranslate/></div>';
+    }
+    html+='<div class="cs-list">';
+    rows=[];
+    data.forEach(function(d){
+      if(d.label==null){ html+='<div class="cs-grp">'+_csEsc(d.group)+'</div>'; return; }
+      var idx=rows.length; rows.push(d);
+      html+='<div class="cs-opt'+(d.selected?' sel':'')+(d.disabled?' dis':'')+'" role="option" aria-selected="'+(d.selected?'true':'false')+'" data-i="'+idx+'">'+
+        '<span class="cs-lbl">'+_csEsc(d.label||' ')+'</span>'+
+        (d.selected?'<svg class="cs-tick" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':'')+
+      '</div>';
+    });
+    html+='</div>';
+    pop.innerHTML=html;
+    document.body.appendChild(pop);
+    _csPosition(sel.getBoundingClientRect());
+
+    pop.addEventListener('mousedown', function(e){
+      var opt=e.target.closest && e.target.closest('.cs-opt');
+      if(opt){ e.preventDefault(); _csCommit(parseInt(opt.getAttribute('data-i'),10)); }
+    });
+    var si=pop.querySelector('.cs-search-in');
+    if(si) si.addEventListener('input', function(){ _csFilter(si.value); });
+
+    activeIdx=-1;
+    for(var i=0;i<rows.length;i++){ if(rows[i].selected){ activeIdx=i; break; } }
+    if(activeIdx<0) activeIdx=0;
+    _csHighlight(activeIdx, true);
+
+    document.addEventListener('keydown', _csKey, true);
+    document.addEventListener('mousedown', _csOutside, true);
+    window.addEventListener('scroll', _csScroll, true);
+    window.addEventListener('resize', _csClose2);
+    if(si) setTimeout(function(){ try{ si.focus(); }catch(e){} }, 0);
+  }
+
+  function _csOutside(e){ if(pop && !pop.contains(e.target) && e.target!==curSel) _csClose(false); }
+  function _csKey(e){
+    if(!pop) return;
+    if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); _csClose(true); return; }
+    if(e.key==='Tab'){ _csClose(false); return; }
+    if(e.key==='Enter'){ e.preventDefault(); if(activeIdx>=0) _csCommit(activeIdx); return; }
+    if(e.key==='ArrowDown' || e.key==='ArrowUp'){
+      e.preventDefault();
+      var vis=_csVisible(); if(!vis.length) return;
+      var pos=vis.indexOf(activeIdx);
+      if(pos<0) pos=0; else if(e.key==='ArrowDown') pos=(pos+1)%vis.length; else pos=(pos-1+vis.length)%vis.length;
+      _csHighlight(vis[pos], true);
+    }
+  }
+
+  // Open on click (block the native popup) and toggle if the same select is clicked again.
+  document.addEventListener('mousedown', function(e){
+    var sel=e.target.closest && e.target.closest('select');
+    if(!_csOpenable(sel)) return;
+    e.preventDefault();
+    if(curSel===sel){ _csClose(true); return; }
+    try{ sel.focus(); }catch(_){}
+    _csOpen(sel);
+  }, true);
+  // Open on keyboard when a select is focused and no popup is open.
+  document.addEventListener('keydown', function(e){
+    if(pop) return;
+    var sel=e.target.closest && e.target.closest('select');
+    if(!_csOpenable(sel)) return;
+    if(e.key==='Enter' || e.key===' ' || e.key==='ArrowDown' || e.key==='ArrowUp'){ e.preventDefault(); _csOpen(sel); }
+  });
+})();
+
 function toast(msg, type) {
   var el = $('toast');
   var bg = type === 'success' ? '#1B4332' : type === 'error' ? '#E74C3C' : '#374151';
@@ -11488,13 +11686,15 @@ function lnOdSlide(id,val){
     : (co?'Paying '+LN_Rk(u.amt)+' off cuts your interest to about <b>'+LN_R(Math.round(newUsed*eff/100/12))+'/mo</b>. Pay any amount, any time.':'Repaying '+LN_Rk(u.amt)+' cuts your interest to about <b>'+LN_R(Math.round(newUsed*eff/100/12))+'/mo</b>. Repay any amount, any time.'); }
 }
 function LN_recordPaydown(name, amt, method, dateStr){
-  amt=Math.round(amt||0); if(amt<=0) return;
+  amt=Math.round(amt||0); if(amt<=0) return null;
   if(!dateStr){
     var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date();
     var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     dateStr=d.getDate()+' '+MO[d.getMonth()]+' '+d.getFullYear();
   }
-  ST.txns.unshift({date:dateStr, desc:'Paid '+name, cat:'Account payment', type:'paydown', amt:amt, method:(method||'Bank'), source:'Account payment'});
+  var _pt={date:dateStr, desc:'Paid '+name, cat:'Account payment', type:'paydown', amt:amt, method:(method||'Bank'), source:'Account payment'};
+  ST.txns=ST.txns||[]; ST.txns.unshift(_pt);
+  return _pt;
 }
 function lnOdCommit(id){
   var o=LN_od(id), u=lnOdUI(id); if(!o) return;
@@ -22196,6 +22396,11 @@ var CAT_TAG = {
 
 function initDashChart() {
   var c=$('dashChart'); if(!c) return;
+  // Keep the title + range pills in sync with the (persisted) ST.period so a restored
+  // range can't disagree with the rendered chart — they're static HTML otherwise.
+  var _dp = ST.period || '6';
+  var _dt = $('dash-chart-title'); if(_dt) _dt.textContent = _dp+' Month Performance';
+  ['1','3','6','12'].forEach(function(x){ var b=$('pill-'+x); if(b) b.className='pill'+(x===_dp?' on':''); });
   destroyChart('dash');
   var x = getD();
   ST.charts['dash'] = new Chart(c, {
@@ -23135,6 +23340,10 @@ var LANG_PAIRS = [
   ['Land & Rental',            'Grond & Huur'],
   ['Insurance',                'Versekering'],
   ['Admin & Professional Fees','Admin & Professionele Fooie'],
+  ['Co-op storage & handling', 'Koöp-berging & hantering'],
+  ['Co-op cut & admin',        'Koöp-kommissie & admin'],
+  ['Co-op transport',          'Koöp-vervoer'],
+  ['Co-op levies',             'Koöp-heffings'],
   ['Daily',       'Daagliks'],
   ['Money',       'Geld'],
   ['My Farm',     'My Plaas'],
@@ -24559,7 +24768,10 @@ var IE_VATT = {
   'Fertiliser':'zero', 'Seeds & Planting':'zero', 'Crop Protection':'zero', 'Animal Feed':'zero', 'Fuel & Oil':'zero',
   'Labour & Wages':'none', 'Loan Repayments':'exmt',
   'Machinery & Repairs':'std', 'Veterinary':'std', 'Veterinary & Animal Health':'std', 'Livestock Purchases':'std',
-  'Irrigation & Water':'std', 'Insurance':'std', 'Admin':'std', 'Other':'std'
+  'Irrigation & Water':'std', 'Insurance':'std', 'Admin':'std', 'Other':'std',
+  // Co-op settlement deductions (gross-method). 'Co-op levies' VAT = 'none' is the recommended
+  // default — statutory grain levies are generally outside VAT — PENDING SA specialist sign-off.
+  'Co-op levies':'none', 'Co-op storage & handling':'std', 'Co-op transport':'std', 'Co-op cut & admin':'std'
 };
 var IE_VAT_RATE = 0.15;
 var IE_VTLABEL = {std:'VAT 15%', zero:'Zero-rated', none:'No VAT', exmt:'Exempt'};
@@ -27446,7 +27658,11 @@ var byCat = {};
     'Insurance':                {section:'S11(a)', desc:'Short-term insurance'},
     'Land & Rental':            {section:'S11(a)', desc:'Land rental'},
     'Admin & Professional Fees':{section:'S11(a)', desc:'Admin and professional fees'},
-    'Other Expenses':           {section:'S11(a)', desc:'Other farming expenses'}
+    'Other Expenses':           {section:'S11(a)', desc:'Other farming expenses'},
+    'Co-op levies':             {section:'S11(a)', desc:'Co-op marketing levies'},
+    'Co-op storage & handling': {section:'S11(a)', desc:'Co-op storage, handling and grading'},
+    'Co-op transport':          {section:'S11(a)', desc:'Co-op transport and cartage'},
+    'Co-op cut & admin':        {section:'S11(a)', desc:'Co-op commission and admin'}
   };
 
   var fmt2 = function(n){ return 'R '+Math.round(n).toLocaleString('en-ZA'); };
@@ -29908,6 +30124,13 @@ function impUndoBatch(id){
   ST.txns=(ST.txns||[]).filter(function(t){ return t.batch!==id; });
   // also drop any co-op settlement rows from the same batch
   if(ST.coopSettlements) ST.coopSettlements=ST.coopSettlements.filter(function(s){ return s.batch!==id; });
+  // Co-op settlement undo: give back the balance that was paid down against the account
+  // (the offsetting paydown txns are removed above via the batch filter).
+  var _coopRestored=false;
+  if(b.coopAcctId && b.coopPaid){
+    var _racct=(typeof LN_coAccts==='function'?LN_coAccts():[]).find(function(a){return a && a.id===b.coopAcctId;});
+    if(_racct){ _racct.used=(_racct.used||0)+b.coopPaid; _coopRestored=true; }
+  }
   ST.importBatches=(ST.importBatches||[]).filter(function(x){ return x.id!==id; });
   // Backend write-through: delete persisted txns (those with a DB id) + settlement rows.
   // Bank-import txns have no id yet (not persisted) so they're skipped harmlessly.
@@ -29919,6 +30142,8 @@ function impUndoBatch(id){
   } catch(e){}
   var removed=before-(ST.txns||[]).length;
   try{ saveState&&saveState(); }catch(e){}
+  // Persist the restored co-op balance to the backend (renderLoans -> AI.loans.saveAll).
+  if(_coopRestored){ try{ renderLoans&&renderLoans(); }catch(e){} }
   try{ renderAll&&renderAll(); }catch(e){}
   try{ txRender&&txRender(); }catch(e){}
   try{ updateDashboardFigures&&updateDashboardFigures(); }catch(e){}
@@ -30043,6 +30268,17 @@ var COOP = {
 var COOP_NAMES = {
   senwes:'Senwes', vkb:'VKB Landbou', afgri:'Afgri',
   nwk:'NWK', ovk:'OVK', suidwes:'Suidwes'
+};
+// Maps a parsed co-op deduction type (dedItems key, see DED_LABELS) to a plain-language,
+// farmer-friendly expense category. Gross-method accounting: each co-op deduction becomes its
+// own deductible expense, VAT-treated per category via IE_VATT. Insurance reuses the existing
+// category; anything unmapped falls back to 'Other Expenses'.
+var COOP_DED_CAT = {
+  'Levies':'Co-op levies',
+  'Storage':'Co-op storage & handling', 'Handling':'Co-op storage & handling', 'Grading':'Co-op storage & handling',
+  'Transport':'Co-op transport',
+  'Commission':'Co-op cut & admin', 'Admin':'Co-op cut & admin', 'Deductions':'Co-op cut & admin',
+  'Insurance':'Insurance'
 };
 
 // Co-op settlement samples — generated relative to today so imported demo
@@ -30352,7 +30588,7 @@ function coopCommitImport(){
   var remaining = acct ? (acct.used||0) : 0;
   ST.coopSettlements = ST.coopSettlements || [];
   var totBank = 0, totPaid = 0, totKept = 0;
-  var _coopAdded=[], _coopSettleAdded=[];
+  var _coopAdded=[], _coopSettleAdded=[], _coopPaidTx=[], _coopExpTx=[];
   sel.forEach(function(r){
     var desc = (r.commodity || 'Delivery') +
       (r.tons ? ' - ' + r.tons.toFixed(2) + ' tons' : '') +
@@ -30360,10 +30596,22 @@ function coopCommitImport(){
     var paid = 0;
     if(offsetOn && remaining > 0){ paid = Math.min(r.amt, remaining); remaining -= paid; }
     var toBank = r.amt - paid;
+    // Gross method: book the FULL sale value as income (turnover), then record each co-op
+    // deduction as its own deductible expense below. Profit still nets to the same figure
+    // (gross − deductions = net), but revenue, expenses and VAT are now all correct.
     var _ct={ date: r.date, desc: desc, cat: 'Crop Sales', type: 'income',
-      amt: r.amt, method: paid>0 ? (srcName + ' settlement') : 'Bank Deposit', source:'Co-op import' };
+      amt: (r.gross||r.amt), method: (srcName + ' settlement'), source:'Co-op import' };
     ST.txns.unshift(_ct); _coopAdded.push(_ct);
-    if(paid>0){ LN_recordPaydown(((acct&&acct.coop)?acct.coop:srcName)+' account', paid, srcName+' settlement', r.date); }
+    // One deductible expense per typed deduction (levies / storage / transport / commission…),
+    // mapped to a plain farmer-friendly category (VAT auto-applied per category via IE_VATT).
+    if(r.dedItems){ for(var _dk in r.dedItems){ var _dv=Math.round(r.dedItems[_dk]||0); if(_dv>0){
+      var _et={ date:r.date, desc:(r.commodity||'Delivery')+' — '+_dk+' ('+srcName+')',
+        cat:(COOP_DED_CAT[_dk]||'Other Expenses'), type:'expense', amt:_dv,
+        method:srcName+' settlement', source:'Co-op deduction' };
+      ST.txns.unshift(_et); _coopExpTx.push(_et); } } }
+    // Input-debt repayment stays a balance-sheet paydown (excluded from P&L) — the inputs it
+    // repays were already expensed when they were bought, so it is never expensed again here.
+    if(paid>0){ var _pt=LN_recordPaydown(((acct&&acct.coop)?acct.coop:srcName)+' account', paid, srcName+' settlement', r.date); if(_pt) _coopPaidTx.push(_pt); }
     var _cs={ date: r.date, coop: srcName, commodity: r.commodity || 'Delivery', tons: r.tons||0,
       gross: r.gross||r.amt, net: r.amt, ded: r.ded||0, dedItems: r.dedItems||{},
       paid: paid, toBank: toBank };
@@ -30374,17 +30622,29 @@ function coopCommitImport(){
   if(_coopAdded.length){
     var _cdates=_coopAdded.map(function(t){return t.date;});
     var _bid=impRegisterBatch({source:srcName+' settlement', kind:'coop', span:impSpan(_cdates)}, _coopAdded);
+    // Stamp the offsetting paydown txns with the same batch id so an undo removes them
+    // too (they are not counted in the batch's delivery-row total).
+    _coopPaidTx.forEach(function(t){ t.batch=_bid; });
+    _coopExpTx.forEach(function(t){ t.batch=_bid; });
     _coopSettleAdded.forEach(function(s){ s.batch=_bid; });
+    // Record the account offset so impUndoBatch can restore the paid-down balance.
+    if(offsetOn && acct && totPaid>0){
+      var _bref=(ST.importBatches||[]).find(function(x){return x.id===_bid;});
+      if(_bref){ _bref.coopAcctId=acct.id; _bref.coopPaid=totPaid; }
+    }
   }
-  // Backend write-through: persist imported income txns + settlement rows,
-  // back-patch DB ids so edit/delete/undo work and they survive reload.
-  // (The co-op account paydown persists via renderLoans() -> AI.loans.saveAll.)
+  // Backend write-through: persist imported income txns + offsetting paydown txns +
+  // settlement rows, back-patch DB ids so edit/delete/undo work and they survive reload.
+  // (The co-op account *balance* persists via renderLoans() -> AI.loans.saveAll; the
+  //  paydown *ledger* txns route through the txn outbox below, same as the income txns.)
   try {
     if (window.AI && AI.farm && AI.farm.active()) {
       if (_coopAdded.length && typeof txnWriteThrough === 'function') {
-        // Route co-op income txns through the offline-safe outbox (parity with bank
-        // import): cuid-stamped, cross-device, survives an offline import + reconnect.
+        // Route co-op income, deduction and paydown txns through the offline-safe outbox
+        // (parity with bank import): cuid-stamped, cross-device, survives an offline import + reconnect.
         _coopAdded.forEach(function(t){ txnWriteThrough(t, _txnSnapshot(t)); });
+        _coopExpTx.forEach(function(t){ txnWriteThrough(t, _txnSnapshot(t)); });
+        _coopPaidTx.forEach(function(t){ txnWriteThrough(t, _txnSnapshot(t)); });
       }
       if (_coopSettleAdded.length) {
         AI.coopSettlement.addMany(_coopSettleAdded).then(function(saved){
