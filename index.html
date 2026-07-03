@@ -3484,6 +3484,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="nav-item" id="nav-cashflow" onclick="nav('cashflow')"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span data-t="nav.cashflow">Money Flow</span></div>
     <div class="nav-item" id="nav-budgets" onclick="nav('budgets')"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg><span data-t="nav.budgets">Budgets</span></div>
     <div class="nav-item" id="nav-loans" onclick="nav('loans')"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg><span data-t="nav.loans">Loans &amp; Debt</span></div>
+    <div class="nav-item" id="nav-tax" onclick="nav('tax')"><svg viewBox="0 0 24 24"><path d="M9 7h6M9 11h6M9 15h4"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg><span data-t="nav.tax">Tax &amp; SARS</span></div>
     <div class="nav-item" id="nav-reports" onclick="nav('reports')"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span data-t="nav.reports">Reports</span></div>
 
     <!-- ── MY FARM ── -->
@@ -5000,6 +5001,16 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
   </div>
   <div id="loans-body" style="padding:16px 20px 48px"></div>
+</div>
+
+<div class="pg" id="pg-tax">
+  <div class="page-hdr">
+    <div>
+      <div class="page-title" data-t="tax.title">Tax &amp; SARS</div>
+      <div class="page-sub" data-t="tax.sub">What to set aside, what&rsquo;s due and when &mdash; in plain words.</div>
+    </div>
+  </div>
+  <div id="tax-body" style="padding:16px 20px 48px"></div>
 </div>
 
 <div class="pg" id="pg-livestock">
@@ -10621,6 +10632,7 @@ function nav(id) {
     if (id === 'livestock')   { lsTab('camps'); renderHealthMed(); }
     if (id === 'profit')      { renderProfit(); }
     if (id === 'loans')       { renderLoans(); }
+    if (id === 'tax')         { renderTax(); }
     if (id === 'crop')        { renderCrop(); }
     if (id === 'orchards')    { renderOrchards(); }
     if (id === 'planning')    { recomputePlan(); setPlanTab(ST_PLAN.activeTab || 'crops'); updatePlanCombinedBanner(); updatePlanTabCounts(); }
@@ -14768,6 +14780,9 @@ var STATUTORY = {
   sundayMultDefault: { value: 2, effectiveFrom:'', asOf:'2026-07', source:'BCEA s16 \u2014 2x for a worker who does NOT ordinarily work Sundays (per-worker default)' },
   holidayMult:  { value: 2,     effectiveFrom:'', asOf:'2026-07', source:'BCEA s18 \u2014 public-holiday work at 2x (or ordinary day + hours worked, whichever is greater)' },
   taxThreshold: { value: 99000, effectiveFrom:'2026-03-01', asOf:'2026-06', source:'SARS Budget 2026 under-65 threshold (was R95,750)', note:'Advisory PAYE flag only \u2014 not used in any tax calculation' },
+  // Tax & SARS home \u2014 advisory only, SPECIALIST-CONFIRM. Neither is used in any tax/VAT calculation.
+  vatThreshold: { value: 1000000, effectiveFrom:'', asOf:'2026-07', source:'VAT Act s23 \u2014 compulsory VAT registration at R1m turnover; SPECIALIST-CONFIRM', note:'Drives an advisory \u201cyou may need to register\u201d nudge only \u2014 not enforced' },
+  dieselRebate: { value: null,    effectiveFrom:'', asOf:'2026-07', source:'Customs & Excise diesel refund cents/litre \u2014 set each Budget; SPECIALIST to supply current rate', note:'null \u2192 the app shows eligible litres only, never an invented rand amount' },
   // --- Income-tax tables (2026/27 year of assessment, 1 Mar 2026 - 28 Feb 2027). Source: SARS
   // Budget 2026 FAQ (Budget Speech 25 Feb 2026). Used by the provisional-tax ESTIMATE only
   // (renderProvTax) - NOT a filing calculation. See the specialist-review pack for the
@@ -23847,6 +23862,38 @@ var LANG_PAIRS = [
   ['Price alert', 'Pryswaarskuwing'],
   ['Cash flow', 'Geldvloei'],
   ['Accounts', 'Rekeninge'],
+  ['Put aside for SARS', 'Sit weg vir SARS'],
+  ['Next payment', 'Volgende betaling'],
+  ['days away', 'dae weg'],
+  ['is really yours', 'is regtig joune'],
+  ['worked out for you', 'vir jou uitgewerk'],
+  ['Money back — diesel refund', 'Geld terug — dieselterugbetaling'],
+  ['Eligible farming diesel logged', 'Toegelate plaas-diesel aangeteken'],
+  ['ready to claim on your next VAT201', 'gereed om op jou volgende BTW201 te eis'],
+  ['What’s due, and when', 'Wat is betaalbaar, en wanneer'],
+  ['What is this?', 'Wat is dit?'],
+  ['Workers’ tax & UIF', 'Werkers se belasting & UIF'],
+  ['VAT return', 'BTW-opgawe'],
+  ['Provisional tax', 'Voorlopige belasting'],
+  ['Yearly income tax return', 'Jaarlikse inkomstebelastingopgawe'],
+  ['Workmen’s comp return', 'Ongevalle-opgawe'],
+  ['Overdue', 'Agterstallig'],
+  ['VAT — current period', 'BTW — huidige tydperk'],
+  ['Collected on sales', 'Ingevorder op verkope'],
+  ['Paid on costs', 'Betaal op koste'],
+  ['Owe SARS', 'Skuld SARS'],
+  ['SARS owes you', 'SARS skuld jou'],
+  ['Your workers', 'Jou werkers'],
+  ['paid above minimum wage', 'betaal bo minimum loon'],
+  ['Skills levy (SDL)', 'Vaardigheidsheffing (SDL)'],
+  ['Don’t miss these — ask your accountant', 'Moet nie dié mis nie — vra jou rekenmeester'],
+  ['Solar allowance', 'Sonkrag-toelae'],
+  ['Wear & tear on equipment', 'Slytasie op toerusting'],
+  ['Livestock standard values', 'Vee standaardwaardes'],
+  ['You may need to register for VAT.', 'Jy mag dalk vir BTW moet registreer.'],
+  ['This tax year so far', 'Hierdie belastingjaar tot dusver'],
+  ['Profit so far', 'Wins tot dusver'],
+  ['Share SARS-ready pack with your accountant', 'Deel SARS-gereed pak met jou rekenmeester'],
   ['Income',       'Inkomste'],
   ['Expenses',     'Uitgawes'],
   ['Money Flow',   'Geldvloei'],
@@ -24248,7 +24295,7 @@ var LANG_PAIRS = [
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
 
 // Key-based dictionary — elements tagged data-t translate exactly and reversibly
-var I18N = {"nav.group.daily":{"en":"Daily","af":"Daagliks"},"nav.dashboard":{"en":"Dashboard","af":"Tuisblad"},"nav.transactions":{"en":"Transactions","af":"Transaksies"},"nav.group.money":{"en":"Money","af":"Geld"},"nav.income":{"en":"Income","af":"Inkomste"},"nav.expenses":{"en":"Expenses","af":"Uitgawes"},"nav.cashflow":{"en":"Money Flow","af":"Geldvloei"},"nav.budgets":{"en":"Budgets","af":"Begrotings"},"nav.loans":{"en":"Loans & Debt","af":"Loans & Debt"},"nav.reports":{"en":"Reports","af":"Verslae"},"nav.group.farm":{"en":"My Farm","af":"My Plaas"},"nav.planning":{"en":"Planning","af":"Beplanning"},"nav.crop":{"en":"Crops","af":"Crops"},"nav.orchards":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"nav.livestock":{"en":"Livestock","af":"Vee"},"nav.profit":{"en":"Profit","af":"Profit"},"nav.assets":{"en":"Assets","af":"Bates"},"nav.workers":{"en":"Workers","af":"Workers"},"nav.group.market":{"en":"Market","af":"Mark"},"nav.market":{"en":"Market Prices","af":"Markpryse"},"nav.settings":{"en":"Settings","af":"Instellings"},"offline.sub":{"en":"Working offline. Data syncs when online.","af":"Werk vanlyn. Data sinkroniseer wanneer aanlyn."},"or.title":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"or.sub":{"en":"Trees, vines, berries and veg \u2014 what each block costs, yields and earns","af":"Bome, wingerde, bessies en groente \u2014 wat elke blok kos, lewer en verdien"},"or.tab.overview":{"en":"Overview","af":"Oorsig"},"or.tab.blocks":{"en":"Blocks","af":"Blokke"},"or.tab.spray":{"en":"Spray & Inputs","af":"Spuit & Insette"},"or.tab.harvest":{"en":"Harvest & Pack","af":"Oes & Pak"},"or.tab.comply":{"en":"Compliance","af":"Voldoening"},"or.tab.add":{"en":"\uff0b Add block","af":"\uff0b Voeg blok by"},"or.spray.safe":{"en":"Safe to pick","af":"Veilig om te pluk"},"or.spray.safesub":{"en":"Pick a market \u2014 the wait changes with its rules","af":"Kies \u2019n mark \u2014 die wagtyd verander met sy re\u00ebls"},"or.local":{"en":"Local","af":"Local"},"or.spray.diary":{"en":"Spray diary","af":"Spuitdagboek"},"or.spray.log":{"en":"\uff0b Log spray","af":"\uff0b Teken spuit aan"},"or.harvest.calc":{"en":"What one packed unit pays you","af":"Wat een verpakte eenheid jou betaal"},"or.harvest.calcsub":{"en":"Edit any number \u2014 your money-back updates live","af":"Wysig enige getal \u2014 jou geld-terug werk regstreeks by"},"or.harvest.block":{"en":"Block","af":"Block"},"or.harvest.recent":{"en":"Recent picks","af":"Onlangse oeste"},"or.harvest.log":{"en":"\uff0b Log pick","af":"\uff0b Teken oes aan"},"or.cmp.certs":{"en":"Certificates & audits","af":"Sertifikate & oudits"},"or.cmp.pests":{"en":"Pests & diseases watched","af":"Plae & siektes dopgehou"},"or.cmp.other":{"en":"Other records on file","af":"Ander rekords op l\u00eaer"},"or.add.title":{"en":"Add a block","af":"Voeg \u2019n blok by"},"or.add.sub":{"en":"Tell us what you're growing \u2014 we set up the rest","af":"Tell us what you're growing \u2014 we set up the rest"},"or.add.tree":{"en":"Tree / vine","af":"Tree / vine"},"or.add.treesub":{"en":"citrus, avo, apple\u2026","af":"citrus, avo, apple\u2026"},"or.add.berry":{"en":"Berry","af":"Berry"},"or.add.berrysub":{"en":"blueberry, rasp\u2026","af":"blueberry, rasp\u2026"},"or.add.veg":{"en":"Vegetable","af":"Vegetable"},"or.add.vegsub":{"en":"replanted each season","af":"replanted each season"},"or.add.name":{"en":"Block name","af":"Bloknaam"},"or.add.crop":{"en":"What are you growing?","af":"Wat kweek jy?"},"or.add.area":{"en":"Area (ha)","af":"Area (ha)"},"or.add.spacing":{"en":"Spacing","af":"Spacing"},"or.add.yield":{"en":"Target yield once mature","af":"Target yield once mature"},"or.add.save":{"en":"Save block","af":"Stoor blok"}};
+var I18N = {"nav.group.daily":{"en":"Daily","af":"Daagliks"},"nav.dashboard":{"en":"Dashboard","af":"Tuisblad"},"nav.transactions":{"en":"Transactions","af":"Transaksies"},"nav.group.money":{"en":"Money","af":"Geld"},"nav.income":{"en":"Income","af":"Inkomste"},"nav.expenses":{"en":"Expenses","af":"Uitgawes"},"nav.cashflow":{"en":"Money Flow","af":"Geldvloei"},"nav.budgets":{"en":"Budgets","af":"Begrotings"},"nav.loans":{"en":"Loans & Debt","af":"Loans & Debt"},"nav.tax":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.title":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.sub":{"en":"What to set aside, what’s due and when — in plain words.","af":"Wat om weg te sit, wat betaalbaar is en wanneer — in eenvoudige taal."},"nav.reports":{"en":"Reports","af":"Verslae"},"nav.group.farm":{"en":"My Farm","af":"My Plaas"},"nav.planning":{"en":"Planning","af":"Beplanning"},"nav.crop":{"en":"Crops","af":"Crops"},"nav.orchards":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"nav.livestock":{"en":"Livestock","af":"Vee"},"nav.profit":{"en":"Profit","af":"Profit"},"nav.assets":{"en":"Assets","af":"Bates"},"nav.workers":{"en":"Workers","af":"Workers"},"nav.group.market":{"en":"Market","af":"Mark"},"nav.market":{"en":"Market Prices","af":"Markpryse"},"nav.settings":{"en":"Settings","af":"Instellings"},"offline.sub":{"en":"Working offline. Data syncs when online.","af":"Werk vanlyn. Data sinkroniseer wanneer aanlyn."},"or.title":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"or.sub":{"en":"Trees, vines, berries and veg \u2014 what each block costs, yields and earns","af":"Bome, wingerde, bessies en groente \u2014 wat elke blok kos, lewer en verdien"},"or.tab.overview":{"en":"Overview","af":"Oorsig"},"or.tab.blocks":{"en":"Blocks","af":"Blokke"},"or.tab.spray":{"en":"Spray & Inputs","af":"Spuit & Insette"},"or.tab.harvest":{"en":"Harvest & Pack","af":"Oes & Pak"},"or.tab.comply":{"en":"Compliance","af":"Voldoening"},"or.tab.add":{"en":"\uff0b Add block","af":"\uff0b Voeg blok by"},"or.spray.safe":{"en":"Safe to pick","af":"Veilig om te pluk"},"or.spray.safesub":{"en":"Pick a market \u2014 the wait changes with its rules","af":"Kies \u2019n mark \u2014 die wagtyd verander met sy re\u00ebls"},"or.local":{"en":"Local","af":"Local"},"or.spray.diary":{"en":"Spray diary","af":"Spuitdagboek"},"or.spray.log":{"en":"\uff0b Log spray","af":"\uff0b Teken spuit aan"},"or.harvest.calc":{"en":"What one packed unit pays you","af":"Wat een verpakte eenheid jou betaal"},"or.harvest.calcsub":{"en":"Edit any number \u2014 your money-back updates live","af":"Wysig enige getal \u2014 jou geld-terug werk regstreeks by"},"or.harvest.block":{"en":"Block","af":"Block"},"or.harvest.recent":{"en":"Recent picks","af":"Onlangse oeste"},"or.harvest.log":{"en":"\uff0b Log pick","af":"\uff0b Teken oes aan"},"or.cmp.certs":{"en":"Certificates & audits","af":"Sertifikate & oudits"},"or.cmp.pests":{"en":"Pests & diseases watched","af":"Plae & siektes dopgehou"},"or.cmp.other":{"en":"Other records on file","af":"Ander rekords op l\u00eaer"},"or.add.title":{"en":"Add a block","af":"Voeg \u2019n blok by"},"or.add.sub":{"en":"Tell us what you're growing \u2014 we set up the rest","af":"Tell us what you're growing \u2014 we set up the rest"},"or.add.tree":{"en":"Tree / vine","af":"Tree / vine"},"or.add.treesub":{"en":"citrus, avo, apple\u2026","af":"citrus, avo, apple\u2026"},"or.add.berry":{"en":"Berry","af":"Berry"},"or.add.berrysub":{"en":"blueberry, rasp\u2026","af":"blueberry, rasp\u2026"},"or.add.veg":{"en":"Vegetable","af":"Vegetable"},"or.add.vegsub":{"en":"replanted each season","af":"replanted each season"},"or.add.name":{"en":"Block name","af":"Bloknaam"},"or.add.crop":{"en":"What are you growing?","af":"Wat kweek jy?"},"or.add.area":{"en":"Area (ha)","af":"Area (ha)"},"or.add.spacing":{"en":"Spacing","af":"Spacing"},"or.add.yield":{"en":"Target yield once mature","af":"Target yield once mature"},"or.add.save":{"en":"Save block","af":"Stoor blok"}};
 
 var SKIP_TAGS = {SCRIPT:1, STYLE:1, SVG:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1};
 
@@ -25512,6 +25559,138 @@ function _entityTaxLabel(et) {
   return ({ sole:'sole proprietor', company:'company (Pty) Ltd', sbc:'small business corporation', trust:'trust' })[et||'sole'] || 'sole proprietor';
 }
 window.calcAnnualIncomeTax = calcAnnualIncomeTax; window._taxFromBands = _taxFromBands;
+
+/* ════════ Tax & SARS home — derive-only: reuses the existing tax/VAT/payroll engines.
+   No statutory maths is duplicated; provisional reuses ytdSummary + calcAnnualIncomeTax. ════════ */
+function _txNow(){ return (typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); }
+function _txDaysTo(d){ return Math.ceil((d-_txNow())/86400000); }
+function _txWhen(d){ var n=_txDaysTo(d); if(n<0) return {t:'Overdue',late:true}; if(n===0) return {t:'Due today',late:false}; return {t:'in '+n+' day'+(n===1?'':'s'),late:false}; }
+// Provisional-tax estimate — same annualisation as renderProvTax, using the real tax engine.
+function taxProvEstimate(){
+  var ytd=ytdSummary(), fy=getCurrentFY(), fyMonths=getFYMonths(fy), cur=currentPeriodLabel();
+  var me=fyMonths.indexOf(cur)+1; if(me<1) me=5;
+  var annualIncome=me>0?Math.round(ytd.income/me*12):0, annualExpense=me>0?Math.round(ytd.expenses/me*12):0;
+  var annualProfit=annualIncome-annualExpense, entity=(ST.entityType)||'sole';
+  var annualTax=(typeof calcAnnualIncomeTax==='function')?calcAnnualIncomeTax(Math.max(0,annualProfit),entity):0;
+  var provPayment=Math.round(annualTax/2), now=_txNow(), endFebDay=new Date(fy+1,2,0).getDate();
+  var dts=[{d:new Date(fy,7,31),lbl:'31 Aug '+fy,per:'1st'},{d:new Date(fy+1,1,endFebDay),lbl:endFebDay+' Feb '+(fy+1),per:'2nd'},{d:new Date(fy+1,8,30),lbl:'30 Sep '+(fy+1),per:'top-up'}];
+  var next=dts[0]; for(var i=0;i<dts.length;i++){ if(dts[i].d>=now){ next=dts[i]; break; } }
+  return {annualProfit:annualProfit,annualTax:annualTax,provPayment:provPayment,entity:entity,next:next,daysAway:Math.ceil((next.d-now)/86400000),ok:(annualProfit>0&&annualIncome>0)};
+}
+// Current 2-month VAT position — derive-only via IE_split.
+function taxVatPosition(){
+  if(typeof FARM==='undefined'||!FARM.vat) return null;
+  var now=_txNow(), end=new Date(now.getFullYear(),now.getMonth()+1,0), start=new Date(now.getFullYear(),now.getMonth()-1,1), out=0,inp=0;
+  (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var dd=new Date(d.y,d.m,d.d||1); if(dd<start||dd>end) return; var s=IE_split(t.amt,t.cat); if(t.type==='income') out+=s.vat; else inp+=s.vat; });
+  return {out:Math.round(out),inp:Math.round(inp),owe:Math.round(out-inp),from:start,to:end};
+}
+// Workers/BCEA snapshot — min-wage check is exact; UIF/PAYE stay on the payroll screen (not re-totalled here).
+function taxWorkerSnapshot(){
+  var ws=(typeof wkList==='function')?wkList():[]; if(!ws.length) return null;
+  var rate=(ST_WORK&&ST_WORK.nmwRate)||STATUTORY.nmwRate.value;
+  return {count:ws.length, allOk:ws.every(function(w){ return wkHourly(w)>=rate-0.005; }), sdl:(typeof wkSdlApplies==='function'&&wkSdlApplies()), rate:rate};
+}
+function taxAccountantPack(){ if(typeof previewSARSExport==='function') previewSARSExport(); }
+function renderTax(){
+  var body=$('tax-body'); if(!body) return;
+  if(!document.getElementById('tax-css')){ var st=document.createElement('style'); st.id='tax-css'; st.textContent=
+    ".tx-wrap{max-width:640px}.tx-hero{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}"+
+    ".tx-owe{flex:1;min-width:230px;background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;border-radius:16px;padding:16px 18px}"+
+    ".tx-owe .l,.tx-back .l{font-size:11px;text-transform:uppercase;letter-spacing:.07em}.tx-owe .l{opacity:.8}.tx-back .l{color:var(--gm)}"+
+    ".tx-owe .big{font-size:30px;font-weight:800;margin:2px 0}.tx-back .big{font-size:26px;font-weight:800;color:var(--gd);margin:2px 0}"+
+    ".tx-owe .yours{margin-top:11px;background:rgba(255,255,255,.14);border-radius:10px;padding:8px 11px;font-size:12px;line-height:1.5}"+
+    ".tx-back{flex:1;min-width:230px;background:#fff;border:1.5px solid var(--gp);border-radius:16px;padding:16px 18px}"+
+    ".tx-card{background:#fff;border:1px solid var(--br);border-radius:14px;padding:15px 16px;margin-bottom:12px}"+
+    ".tx-h{font-size:13px;font-weight:800;color:var(--gd);margin-bottom:9px}"+
+    ".tx-due .row{display:flex;gap:11px;align-items:center;padding:10px 0;border-bottom:1px solid var(--br2)}.tx-due .row:last-child{border-bottom:0}.tx-due .em{font-size:16px}"+
+    ".tx-mr{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0}"+
+    ".tx-chips{display:flex;gap:8px;flex-wrap:wrap}.tx-chip{font-size:11.5px;background:var(--gb);border:1px solid var(--gp);color:var(--gd);border-radius:999px;padding:5px 11px;font-weight:600;cursor:pointer}"+
+    ".tx-btn{display:block;text-align:center;background:var(--gd);color:#fff;font-weight:700;font-size:13.5px;border-radius:12px;padding:13px;margin-bottom:12px;cursor:pointer}"+
+    ".tx-nudge{background:#FFF3E0;border:1px solid #F5D9A8;border-left:4px solid #B45309;border-radius:0 10px 10px 0;padding:11px 14px;font-size:12.5px;color:#7a4a10;margin-bottom:12px}"+
+    ".tx-disc{background:var(--gb);border:1px solid var(--gp);border-radius:12px;padding:12px 14px;font-size:11.5px;color:var(--gd);line-height:1.55}"+
+    ".tx-wi{margin-top:8px;font-size:11.5px;color:var(--t3)}.tx-wi summary{cursor:pointer;color:var(--gm);font-weight:600;list-style:none}.tx-wi summary::-webkit-details-marker{display:none}.tx-wi[open] summary{margin-bottom:4px}";
+    document.head.appendChild(st); }
+  var prov=taxProvEstimate(), ytd=ytdSummary(), vat=taxVatPosition(), wk=taxWorkerSnapshot();
+  var bank=(typeof ST!=='undefined')?ST.bankBalance:null;
+  var diesel=(typeof ST_CROP!=='undefined'&&ST_CROP.compliance&&ST_CROP.compliance.dieselLitres)||0;
+  var ft=(typeof getFarmType==='function')?getFarmType():'';
+  var h='<div class="tx-wrap">';
+
+  // 1+7 hero: set aside + what's really yours ; 2 diesel money-back
+  var hero='';
+  if(prov.ok){
+    hero+='<div class="tx-owe"><div class="l">Put aside for SARS</div><div class="big">'+fmt(prov.provPayment)+'</div>'+
+      '<div style="font-size:12.5px;opacity:.9">Next payment '+esc(prov.next.lbl)+' · '+(prov.daysAway>0?prov.daysAway+' days away':'due now')+'</div>';
+    if(bank!=null){ var yours=Math.round(bank-prov.provPayment); hero+='<div class="yours">After setting this aside, <b>'+fmt(Math.max(0,yours))+'</b> of your '+fmt(Math.round(bank))+' balance is really yours — worked out for you.</div>'; }
+    hero+='<div class="tx-wi" style="color:rgba(255,255,255,.7)"><details><summary style="color:rgba(255,255,255,.85)">What is this?</summary>An estimate of the income tax to set aside, based on your profit so far annualised. Paid in two provisional amounts (Aug &amp; Feb) on an IRP6. Your accountant confirms the final figure.</details></div></div>';
+  }
+  if(diesel>0){
+    hero+='<div class="tx-back"><div class="l">Money back — diesel refund</div><div class="big">'+_grpInt(diesel)+' L</div>'+
+      '<div style="font-size:12.5px;color:#3d453f">Eligible farming diesel logged — ready to claim on your next VAT201.</div>'+
+      '<div class="tx-wi"><details><summary>What is this?</summary>Farming diesel qualifies for a SARS refund claimed on your VAT return. The cents-per-litre rate is set each Budget — your accountant applies the current rate to these litres.</details></div></div>';
+  }
+  if(hero) h+='<div class="tx-hero">'+hero+'</div>';
+
+  // 3 what's due, and when (+10 overdue)
+  h+='<div class="tx-card tx-due"><div class="tx-h">What’s due, and when 🔔</div>';
+  var due=[];
+  if(wk) due.push({em:'👷',t:'Workers’ tax & UIF',s:'PAYE + UIF for your team',code:'EMP201',d:new Date(_txNow().getFullYear(),_txNow().getMonth()+1,7)});
+  if(vat) due.push({em:'💧',t:'VAT return',s:'What you owe SARS on VAT',code:'VAT201',d:new Date(vat.to.getFullYear(),vat.to.getMonth()+1,25)});
+  if(prov.ok) due.push({em:'📋',t:'Provisional tax ('+prov.next.per+')',s:'Part of your year’s tax',code:'IRP6',d:prov.next.d});
+  due.push({em:'🧾',t:'Yearly income tax return',s:'Your farm’s annual return',code:'ITR12',d:null,when:'after year-end'});
+  if(wk) due.push({em:'🛡️',t:'Workmen’s comp return',s:'Once-a-year wage return',code:'COIDA',d:new Date((_txNow().getMonth()>2?_txNow().getFullYear()+1:_txNow().getFullYear()),2,31)});
+  due.forEach(function(r){ var w=r.d?_txWhen(r.d):{t:r.when||'',late:false};
+    h+='<div class="row"><span class="em">'+r.em+'</span><div style="flex:1"><div style="font-size:13px;font-weight:700">'+esc(r.t)+'</div><div style="font-size:11px;color:var(--t4)">'+esc(r.s)+'</div></div>'+
+      '<div style="text-align:right"><div style="font-size:11.5px;font-weight:800'+(w.late?';color:var(--rd)':'')+'">'+esc(w.t)+'</div><div style="font-size:10px;color:var(--t4)">'+(r.d?r.d.toLocaleDateString('en-ZA'):'')+' · '+r.code+'</div></div></div>';
+  });
+  h+='</div>';
+
+  // 4 VAT card
+  if(vat){
+    h+='<div class="tx-card"><div class="tx-h">💧 VAT — current period</div>'+
+      '<div class="tx-mr"><span>Collected on sales</span><b>'+IE_R(vat.out)+'</b></div>'+
+      '<div class="tx-mr"><span>Paid on costs</span><b>−'+IE_R(vat.inp).replace('−','')+'</b></div>'+
+      '<div class="tx-mr" style="border-top:1px solid var(--br2);padding-top:6px;margin-top:4px"><span style="font-weight:700">'+(vat.owe>=0?'Owe SARS':'SARS owes you')+'</span><b style="color:'+(vat.owe>=0?'var(--rd)':'var(--gm)')+'">'+IE_R(Math.abs(vat.owe))+'</b></div>'+
+      '<div class="tx-wi"><details><summary>What is this?</summary>VAT you charged on sales, minus VAT you paid on standard-rated costs. Farming inputs like fertiliser, seed and diesel are zero-rated. Filed on a VAT201 every two months.</details></div></div>';
+  }
+
+  // 5-worker card
+  if(wk){
+    h+='<div class="tx-card"><div class="tx-h">👷 Your workers</div>'+
+      '<div style="font-size:12.5px;font-weight:700;color:'+(wk.allOk?'var(--gm)':'var(--rd)')+'">'+(wk.allOk?'✓ All '+wk.count+' paid above minimum wage':'⚠ Someone is below minimum wage')+'</div>'+
+      '<div class="tx-mr"><span>Skills levy (SDL)</span><b>'+(wk.sdl?'applies':'not yet — under R500k/yr')+'</b></div>'+
+      '<div style="font-size:11px;color:var(--t3);margin-top:5px">UIF &amp; PAYE are worked out on each payroll run — <span onclick="nav(\'workers\')" style="color:var(--gm);font-weight:700;cursor:pointer">open Workers →</span></div></div>';
+  }
+
+  // 8 deductions
+  h+='<div class="tx-card"><div class="tx-h">Don’t miss these — ask your accountant</div><div class="tx-chips">'+
+    '<span class="tx-chip" onclick="nav(\'assets\')">☀️ Solar allowance (S12B)</span>'+
+    '<span class="tx-chip" onclick="nav(\'assets\')">🚜 Wear & tear on equipment</span>'+
+    ((ft==='livestock'||ft==='mixed')?'<span class="tx-chip" onclick="openSarsLivestockReport()">🐄 Livestock standard values</span>':'')+
+    '</div><div class="tx-wi"><details><summary>What is this?</summary>Deductions the app already helps you track. Your accountant confirms which apply and the current rates.</details></div></div>';
+
+  // 9 registration nudge
+  var vatThr=(STATUTORY.vatThreshold&&STATUTORY.vatThreshold.value)||1000000;
+  if(ytd && ytd.income>=vatThr && (typeof FARM==='undefined'||!FARM.vat)){
+    h+='<div class="tx-nudge"><b>You may need to register for VAT.</b> Your income this year is over R1m — the point where SARS registration usually becomes compulsory. Confirm with your accountant.</div>';
+  }
+
+  // 13 this year so far
+  if(ytd){
+    h+='<div class="tx-card"><div class="tx-h">This tax year so far</div>'+
+      '<div class="tx-mr"><span>Income</span><b>'+IE_R(ytd.income)+'</b></div>'+
+      '<div class="tx-mr"><span>Expenses</span><b>'+IE_R(ytd.expenses)+'</b></div>'+
+      '<div class="tx-mr" style="border-top:1px solid var(--br2);padding-top:6px;margin-top:4px"><span style="font-weight:700">Profit so far</span><b>'+IE_R(ytd.income-ytd.expenses)+'</b></div></div>';
+  }
+
+  // 5 accountant pack + 6 disclaimer
+  h+='<div class="tx-btn" onclick="taxAccountantPack()">📤 Share SARS-ready pack with your accountant</div>';
+  h+='<div class="tx-disc"><b>Everything here is a helper to plan with — not a filed return.</b> Figures are worked out from your records; rates are reviewed each Budget ('+esc((STATUTORY&&STATUTORY.tax&&STATUTORY.tax.yearLabel)||'2026/27')+' tables). Confirm the final numbers with your accountant.</div>';
+
+  h+='</div>';
+  body.innerHTML=h;
+  if(typeof ST!=='undefined' && ST.lang==='af' && typeof applyLangNodes==='function'){ try{ applyLangNodes(body,0,1); }catch(e){} }
+}
 
 function renderProvTax() {
   var card = $('prov-tax-card'); if (!card) return;
@@ -29487,6 +29666,28 @@ function computeNotifications(){
           time:  'Accounts', action:function(){ nav('loans'); } });
       }
     });
+  } catch(e){}
+
+  // Tax deadlines — provisional / VAT / EMP201 due soon (or overdue). Derive-only.
+  try {
+    var _tp = (typeof taxProvEstimate==='function') ? taxProvEstimate() : null;
+    if (_tp && _tp.ok) {
+      var pd = _tp.daysAway;
+      if (pd >= 0 && pd <= 30) n.push({ color:'#7C3AED', score:88, title:'Provisional tax due in '+pd+' day'+(pd===1?'':'s'), body:'Set aside about '+fmtZAR(_tp.provPayment)+' for '+_tp.next.lbl+'.', time:'Tax', action:function(){ nav('tax'); } });
+    }
+    if (typeof FARM!=='undefined' && FARM.vat && typeof taxVatPosition==='function') {
+      var _vp = taxVatPosition();
+      if (_vp) {
+        var _vd = new Date(_vp.to.getFullYear(), _vp.to.getMonth()+1, 25);
+        var vdays = (typeof _txDaysTo==='function') ? _txDaysTo(_vd) : 99;
+        if (vdays >= 0 && vdays <= 20) n.push({ color:'var(--am)', score:82, title:'VAT return due in '+vdays+' day'+(vdays===1?'':'s'), body:(_vp.owe>=0?'About '+fmtZAR(_vp.owe)+' to pay':'A refund is due')+' on your VAT201.', time:'Tax', action:function(){ nav('tax'); } });
+      }
+    }
+    if (typeof taxWorkerSnapshot==='function' && taxWorkerSnapshot()) {
+      var _ed = new Date((typeof APP_TODAY!=='undefined'&&APP_TODAY?new Date(APP_TODAY):new Date()).getFullYear(), (typeof APP_TODAY!=='undefined'&&APP_TODAY?new Date(APP_TODAY):new Date()).getMonth()+1, 7);
+      var edays = (typeof _txDaysTo==='function') ? _txDaysTo(_ed) : 99;
+      if (edays >= 0 && edays <= 7) n.push({ color:'var(--gm)', score:70, title:'Worker tax (EMP201) due in '+edays+' day'+(edays===1?'':'s'), body:'PAYE + UIF for your team, due the 7th.', time:'Tax', action:function(){ nav('tax'); } });
+    }
   } catch(e){}
 
   // Compliance reminders (only when a crop section exists & is tracked)
