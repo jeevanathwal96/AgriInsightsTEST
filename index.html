@@ -23835,6 +23835,13 @@ var LANG_PAIRS = [
   ['SA average', 'SA-gemiddeld'],
   ['benchmark', 'maatstaf'],
   ['guide', 'riglyn'],
+  ['hit your target', 'het jou teiken bereik'],
+  ['Projected shortfall in', 'Verwagte tekort in'],
+  ['Cash gets tight in', 'Kontant raak krap in'],
+  ['Low bank balance', 'Lae bankbalans'],
+  ['Price alert', 'Pryswaarskuwing'],
+  ['Cash flow', 'Geldvloei'],
+  ['Accounts', 'Rekeninge'],
   ['Income',       'Inkomste'],
   ['Expenses',     'Uitgawes'],
   ['Money Flow',   'Geldvloei'],
@@ -29416,14 +29423,66 @@ function computeNotifications(){
     });
   }
 
-  // Always include a market-price line (mocked)
-  n.push({
-    color: 'var(--bl)', score: 30,
-    title: 'Market prices updated',
-    body:  'White maize up 3.15% on SAFEX today.',
-    time:  'Today, 08:30',
-    action: function(){ nav('market'); }
-  });
+  // Price target hit — surface triggered price alerts (from the Price Alerts tab) in the bell.
+  try {
+    (ST_ALERTS||[]).forEach(function(a){
+      var mp = MKT_PRICES[a.commodity]; if(!mp) return;
+      var hit = (a.direction==='above') ? mp.price >= a.price : mp.price <= a.price;
+      if(!hit) return;
+      n.push({
+        color:'var(--gd)', score:78,
+        title: a.commodity + ' hit your target',
+        body:  'Now R'+_grpInt(mp.price)+'/'+mp.unit+' — you set ‘alert '+(a.direction==='above'?'above':'below')+' R'+_grpInt(a.price)+'’.',
+        time:  'Price alert',
+        action: function(){ nav('market'); }
+      });
+    });
+  } catch(e){}
+
+  // Cash-flow risk ahead — first projected shortfall (danger) / tight month, from buildCfForecast.
+  try {
+    if(ST.bankBalance != null && typeof buildCfForecast==='function'){
+      var _burn = (txSummaryPeriod(3).expenses/3) || 500000;
+      var _fc = buildCfForecast(parseInt(ST.cfFwdPeriod||'6',10)) || [];
+      var _risk=null;
+      for(var _i=0; _i<_fc.length && !_risk; _i++){
+        if(_fc[_i].balance < 0)             _risk={m:_fc[_i], danger:true};
+        else if(_fc[_i].balance < _burn*1.5) _risk={m:_fc[_i], danger:false};
+      }
+      if(_risk && _risk.danger){
+        n.push({ color:'var(--rd)', score:92,
+          title:'Projected shortfall in '+_risk.m.name,
+          body:'Your runway dips to '+(_risk.m.balance<0?'−':'')+'R'+_grpInt(Math.abs(_risk.m.balance))+' — costs land before the income does.',
+          time:'Cash flow', action:function(){ nav('cashflow'); } });
+      } else if(_risk){
+        n.push({ color:'var(--am)', score:72,
+          title:'Cash gets tight in '+_risk.m.name,
+          body:'Projected balance R'+_grpInt(Math.max(0,_risk.m.balance))+' — under a comfortable buffer for your burn rate.',
+          time:'Cash flow', action:function(){ nav('cashflow'); } });
+      }
+      if(ST.bankBalance < _burn){
+        n.push({ color:'var(--rd)', score:90,
+          title:'Low bank balance',
+          body:'R'+_grpInt(Math.max(0,ST.bankBalance))+' on hand — under one month of typical costs.',
+          time:'Cash flow', action:function(){ nav('cashflow'); } });
+      }
+    }
+  } catch(e){}
+
+  // Account near limit — overdraft / co-op input accounts approaching their limit.
+  try {
+    var _accts = ((ST_LOANS&&ST_LOANS.overdrafts)||[]).concat((ST_LOANS&&ST_LOANS.coopAccounts)||[]);
+    _accts.forEach(function(o){
+      if(!o || !o.limit) return;
+      var frac = (o.used||0)/o.limit;
+      if(frac >= 0.85){
+        n.push({ color:'var(--or)', score:85,
+          title: o.name+' '+Math.round(frac*100)+'% used',
+          body:  'R'+_grpInt(o.used||0)+' of your R'+_grpInt(o.limit)+' limit drawn — interest climbs as you approach it.',
+          time:  'Accounts', action:function(){ nav('loans'); } });
+      }
+    });
+  } catch(e){}
 
   // Compliance reminders (only when a crop section exists & is tracked)
   try {
@@ -29462,7 +29521,9 @@ function renderNotifications(){
       '<div class="notif-body">'+escTxHtml(it.body)+'</div>' +
       '<div class="notif-time">'+escTxHtml(it.time)+'</div>' +
     '</div>';
-  }).join('') + '<div class="drop-item" onclick="nav(\'transactions\');closeDrop(\'notif-drop\')" style="text-align:center;justify-content:center;color:var(--gl);font-weight:600">View all</div>';
+  }).join('');  // single "View all" lives in the static panel footer (nav() closes the dropdown)
+  // Notifications are built in English; translate the freshly-rendered list when in Afrikaans.
+  if(typeof ST!=='undefined' && ST.lang==='af' && typeof applyLangNodes==='function'){ try{ applyLangNodes(list, 0, 1); }catch(e){} }
   // wire handlers
   var rows = list.querySelectorAll('.notif-item');
   for(var i=0; i<rows.length; i++){
