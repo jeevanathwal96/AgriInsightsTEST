@@ -657,6 +657,12 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pf-drill:empty{margin:0}
 .pf-sub{background:var(--br2);border-radius:12px;padding:13px 14px;margin:10px 0}
 .pf-subt{font-size:12px;font-weight:800;color:var(--t1);margin-bottom:11px}
+.pf-be{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:2px}
+.pf-be-t{flex:1;min-width:140px;background:var(--wh);border:1px solid var(--br);border-radius:11px;padding:10px 12px}
+.pf-be-t .bel{font-size:11px;color:var(--t3)}
+.pf-be-t .bev{font-size:18px;font-weight:800;color:var(--t1);line-height:1.15;margin:1px 0}
+.pf-be-t .bev small{font-size:11px;font-weight:600;color:var(--t4)}
+.pf-be-t .bes{font-size:10px;color:var(--t4)}
 .pf-mk{display:flex;align-items:center;gap:9px;margin-bottom:7px;font-size:11.5px}
 .pf-mk .mkn{width:150px;flex:none;color:var(--t2);font-weight:600}
 .pf-mk .mktk{flex:1;background:#e6e9ec;border-radius:6px;height:13px;overflow:hidden}
@@ -8431,6 +8437,17 @@ function _pfDetailCropHTML(c){
   h+='<div class="pf-trwrap"><div class="pf-bench" style="bottom:'+Math.round(bench/tmx*100)+'%"><span>Similar EC farms \u2248 '+_pfK(bench)+'/ha</span></div><div class="pf-trbars">';
   hist.forEach(function(x,i){ h+='<div class="pf-trb"><span class="vv">'+_pfK(x.v)+'</span><div class="bar" style="height:'+Math.max(6,Math.round(x.v/tmx*100))+'%;background:'+(i===hist.length-1?'#1B4332':'#74C69D')+'"></div><span class="yr">'+x.fy+'</span></div>'; });
   h+='</div></div><div class="pf-note">Past seasons are sample data \u2014 your real trend fills in as you complete each season. Benchmark is an illustrative regional reference.</div></div>';
+  h+='<div class="pf-sub"><div class="pf-subt">\u2696\ufe0f Break-even</div>';
+  if(c.price>0 && c.area>0 && c.tons>0){
+    var beY=Math.round((c.cost/c.area)/c.price*10)/10, cush=c.price-c.cop, curY=Math.round(c.tons/c.area*10)/10;
+    h+='<div class="pf-be"><div class="pf-be-t"><div class="bel">Break-even price</div><div class="bev">'+fmt(c.cop)+'<small> /ton</small></div><div class="bes">what covers your costs</div></div>'+
+       '<div class="pf-be-t"><div class="bel">Break-even yield</div><div class="bev">'+beY+'<small> t/ha</small></div><div class="bes">minimum to not lose money</div></div></div>';
+    if(cush>0) h+='<div class="pf-note">At today\u2019s <b>'+fmt(c.price)+'/ton</b> and your <b>'+curY+' t/ha</b>, you clear <b style="color:#1B7A3E">'+fmt(cush)+'/ton</b> on top of covering costs.</div>';
+    else h+='<div class="pf-note">At today\u2019s <b>'+fmt(c.price)+'/ton</b> you\u2019re <b style="color:var(--rd)">'+fmt(Math.abs(cush))+'/ton</b> short of covering costs \u2014 you lose money below <b>'+fmt(c.cop)+'/ton</b>.</div>';
+  } else {
+    h+='<div class="pf-note">Add a market price for '+esc(c.crop)+' on the Crops page to see your break-even price and yield.</div>';
+  }
+  h+='</div>';
     var sw=[];
   if(inp.tot>0 && inp.rows.length){ var topk=inp.rows[0], tpc=Math.round(topk.cost/inp.tot*100); sw.push('<b>'+esc(_pfKindLabel(topk.kind))+'</b> is your biggest logged cost on '+esc(c.crop)+' (about '+tpc+'%) \u2014 where a price rise hurts most, and where shopping around or buying early saves the most.'); }
   if(lands.length>1){ var ss=lands.slice().sort(function(a,b){return b.gmHa-a.gmHa;}), st=ss[0], wk2=ss[ss.length-1]; if(st.gmHa>0){ sw.push('<b>'+esc(wk2.name)+'</b> earns '+fmt(wk2.gmHa)+'/ha against <b>'+esc(st.name)+'</b>\u2019s '+fmt(st.gmHa)+'/ha \u2014 same crop, very different result. That field is the first place to look for an easy win.'); } }
@@ -8760,6 +8777,17 @@ function _pfDetailLiveHTML(l){
   h+='<div class="pf-trwrap"><div class="pf-bench" style="bottom:'+Math.round(bench/tmx*100)+'%"><span>Similar EC farms \u2248 '+_pfK(bench)+'/LSU</span></div><div class="pf-trbars">';
   hist.forEach(function(x,i){ h+='<div class="pf-trb"><span class="vv">'+_pfK(x.v)+'</span><div class="bar" style="height:'+Math.max(6,Math.round(x.v/tmx*100))+'%;background:'+(i===hist.length-1?'#1B4332':'#74C69D')+'"></div><span class="yr">'+x.fy+'</span></div>'; });
   h+='</div></div><div class="pf-note">Past seasons are sample data. Benchmark is an illustrative regional reference per LSU.</div></div>';
+  if(l.costHead>0){
+    var lcush=(l.sellHead||0)-l.costHead;
+    h+='<div class="pf-sub"><div class="pf-subt">⚖️ Break-even</div>';
+    h+='<div class="pf-be"><div class="pf-be-t"><div class="bel">Break-even sale price</div><div class="bev">'+fmt(l.costHead)+'<small> /head</small></div><div class="bes">what covers your costs</div></div>';
+    if(l.sellHead>0) h+='<div class="pf-be-t"><div class="bel">Your margin</div><div class="bev" style="color:'+(lcush>=0?'#1B7A3E':'var(--rd)')+'">'+(lcush<0?'−':'')+fmt(Math.abs(lcush))+'<small> /head</small></div><div class="bes">'+(lcush>=0?'above break-even':'below break-even')+'</div></div>';
+    h+='</div>';
+    if(l.sellHead<=0) h+='<div class="pf-note">Set a sale price for '+esc(l.name)+' in Livestock to see your cushion — break-even is '+fmt(l.costHead)+'/head.</div>';
+    else if(lcush>=0) h+='<div class="pf-note">You break even selling at <b>'+fmt(l.costHead)+'/head</b> — at your <b>'+fmt(l.sellHead)+'</b> price you keep <b style="color:#1B7A3E">'+fmt(lcush)+'/head</b>.</div>';
+    else h+='<div class="pf-note">You break even at <b>'+fmt(l.costHead)+'/head</b>, but your <b>'+fmt(l.sellHead)+'</b> price is <b style="color:var(--rd)">'+fmt(Math.abs(lcush))+'/head</b> short — you lose money on each head sold.</div>';
+    h+='</div>';
+  }
     var sw=[];
   var comps=[{n:'Buy / replacement',v:(incBuy?buyC:0)},{n:'Feed',v:feedC},{n:'Health / vet',v:vetC}].filter(function(x){return x.v>0;}).sort(function(a,b){return b.v-a.v;});
   if(comps.length){ var tc=comps[0], cpc=tot>0?Math.round(tc.v/tot*100):0; sw.push('<b>'+tc.n+'</b> is the biggest cost per head for '+esc(l.name)+' (about '+cpc+'%). '+(tc.n.indexOf('Buy')>=0?'Paying less for replacements moves your margin more than feed does.':'Feed and health is where the running cost sits \u2014 worth watching feed prices.')); }
@@ -9815,6 +9843,10 @@ function updateDashboardFigures() {
   var ha      = ST.farmHa || 1;
   var profit  = cur.profit;
   var margin  = cur.income > 0 ? (profit / cur.income * 100).toFixed(1) : '0.0';
+  // Margin-health band (reuses the dotState logic): green ≥15% · amber 0–15% · red on a loss.
+  var _mh = (profit < 0) ? {word:'Loss',color:'#B42318',bg:'#FDECEA'}
+          : (parseFloat(margin) >= 15 ? {word:'Healthy',color:'#1B7A3E',bg:'#D8F3DC'}
+                                       : {word:'Tight',color:'#B45309',bg:'#FFF3E0'});
 
   // ── Combo card — answer stripe + cashflow grid (legacy profit-sec IDs no-op gracefully) ──
   var prevPrf  = txSummary(prevMonthLabel(month));
@@ -9856,7 +9888,8 @@ var subEl = $('dash-combo-sub');
     subEl.textContent = subText;
   }
 
-setEl('dash-combo-margin', margin + '%');
+var _mEl=$('dash-combo-margin');
+  if(_mEl) _mEl.innerHTML = margin + '% <span style="font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:999px;margin-left:5px;vertical-align:middle;background:'+_mh.bg+';color:'+_mh.color+'">'+_mh.word+'</span>';
   var marginChgEl = $('dash-combo-margin-chg');
   if (marginChgEl) {
     var prevMargin = prevPrf.income > 0 ? (prevProf / prevPrf.income * 100) : null;
@@ -9958,7 +9991,7 @@ var prev       = txSummary(prevMonthLabel(month));
 var marginEl = $('cf-margin-detail');
   if (marginEl) {
     marginEl.innerHTML = margin + '% margin';
-    marginEl.style.color = profit >= 0 ? 'var(--gm)' : 'var(--rd)';
+    marginEl.style.color = _mh.color;
   }
 
 var txCount = ST.txns.filter(function(t){
@@ -22727,6 +22760,16 @@ function initDashChart() {
       {type:'line',label:'Profit',data:x.d.p,borderColor:'#1B4332',backgroundColor:'transparent',tension:0.4,pointRadius:4,pointBackgroundColor:'#1B4332',pointBorderColor:'#fff',pointBorderWidth:2,borderWidth:2.5,order:1}
     ]}, options: baseOpts
   });
+  // Tap a month bar -> drill straight to that month's transactions (dashboard has no drawer).
+  setTimeout(function(){
+    var ch=ST.charts['dash']; if(!ch||!ch.canvas) return;
+    ch.canvas.onclick=function(e){
+      var pts=ch.getElementsAtEventForMode(e,'nearest',{intersect:true},false);
+      if(!pts.length) return;
+      var lbl=(dashPeriodMonths()||[])[pts[0].index];
+      if(lbl) txDrillMonth(lbl);
+    };
+  }, 50);
   var ti = x.d.i.reduce(function(a,b){return a+b;},0);
   var to = x.d.o.reduce(function(a,b){return a+b;},0);
   var tp = x.d.p.reduce(function(a,b){return a+b;},0);
@@ -23617,6 +23660,24 @@ var LANG_PAIRS = [
   ['Export pack-out','Uitvoer pak-uit'],
   ['Export readiness','Uitvoer gereedheid'],
   ['Break-even price','Gelykbreekprys'],
+  ['Break-even sale price','Gelykbreek verkoopprys'],
+  ['Break-even yield','Gelykbreekopbrengs'],
+  ['Break-even','Gelykbreek'],
+  ['what covers your costs','wat jou koste dek'],
+  ['minimum to not lose money','minimum om nie geld te verloor nie'],
+  ['on top of covering costs','bo-op die dekking van koste'],
+  ['short of covering costs','kort om koste te dek'],
+  ['you lose money below','jy verloor geld onder'],
+  ['Add a market price for','Voeg ’n markprys by vir'],
+  ['on the Crops page to see your break-even price and yield','op die Gewasse-bladsy om jou gelykbreekprys en -opbrengs te sien'],
+  ['Your margin','Jou marge'],
+  ['above break-even','bo gelykbreek'],
+  ['below break-even','onder gelykbreek'],
+  ['You break even selling at','Jy breek gelyk deur te verkoop teen'],
+  ['price you keep','prys hou jy'],
+  ['you lose money on each head sold','verloor jy geld op elke kop wat verkoop word'],
+  ['Set a sale price for','Stel ’n verkoopprys vir'],
+  ['to see your cushion','om jou buffer te sien'],
   ['This block sells','Hierdie blok verkoop'],
   ['Crop estimate','Oesskatting'],
   ['Add another cost','Voeg nog \u2019n koste by'],
@@ -23673,6 +23734,9 @@ var LANG_PAIRS = [
   ['Orchards',                  'Boorde'],
   ['harvested',                 'geoes'],
   ['picked',                    'gepluk'],
+  ['Healthy',                   'Gesond'],
+  ['Tight',                     'Krap'],
+  ['Loss',                      'Verlies'],
   ['Daily',       'Daagliks'],
   ['Money',       'Geld'],
   ['My Farm',     'My Plaas'],
@@ -23697,6 +23761,8 @@ var LANG_PAIRS = [
   // ── Navigation ──────────────────────────────────────────────
   ['Dashboard',    'Tuisblad'],
   ['Transactions', 'Transaksies'],
+  ['transactions', 'transaksies'],
+  ['View', 'Bekyk'],
   ['Income',       'Inkomste'],
   ['Expenses',     'Uitgawes'],
   ['Money Flow',   'Geldvloei'],
@@ -28237,7 +28303,7 @@ var p   = chartType === 'income' ? (ST.incPeriod||'6') : (ST.expPeriod||'6');
     (diffStr ? '&nbsp;·&nbsp;' + diffStr : '') +
   '</div>' +
   rowsHTML +
-  '<span class="drawer-txn-link" onclick="nav(\'transactions\')" title="View all transactions">View transactions →</span>';
+  '<span class="drawer-txn-link" onclick="txDrillMonth(\'' + monthLabel + '\')" title="View ' + monthLabel + ' transactions">View ' + monthLabel + ' transactions →</span>';
 }
 
 function openDrawer(chartType, monthLabel) {
@@ -28574,6 +28640,19 @@ function txSetRange(){
   TX_FROM = ($('tx-from')||{}).value || '';
   TX_TO   = ($('tx-to')||{}).value || '';
   txUpdateClearBtn();
+  txRender();
+}
+// Chart drill-down: 'Aug 2026' -> filter Transactions to that whole month and jump there.
+function txDrillMonth(monthLabel){
+  var MN={Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
+  var p=String(monthLabel||'').trim().split(/\s+/);
+  var m=MN[p[0]], y=parseInt(p[1],10);
+  if(!m || !y){ nav('transactions'); return; }
+  var mm=('0'+m).slice(-2), last=new Date(y, m, 0).getDate();
+  TX_FROM=y+'-'+mm+'-01'; TX_TO=y+'-'+mm+'-'+('0'+last).slice(-2);
+  var fe=$('tx-from'), te=$('tx-to'); if(fe) fe.value=TX_FROM; if(te) te.value=TX_TO;
+  if(typeof txUpdateClearBtn==='function') txUpdateClearBtn();
+  nav('transactions');
   txRender();
 }
 var TX_CAT_FILTER  = '';
