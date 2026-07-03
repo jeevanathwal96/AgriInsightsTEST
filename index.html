@@ -629,6 +629,8 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pf-tk{height:16px;background:var(--br2);border-radius:7px;overflow:hidden}
 .pf-fl{height:100%;border-radius:7px}
 .pf-note{font-size:11px;color:var(--t4);margin-top:9px;line-height:1.5}
+.pf-benchsrc{font-size:10.5px;color:var(--t3);margin-top:7px;line-height:1.5}
+.pf-benchsrc .bench-chip{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:1px 6px;border-radius:8px;vertical-align:1px;margin-left:3px}
 .pf-tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
 .pf-tbl th{text-align:right;font-size:9.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--t3);border-bottom:2px solid var(--br);padding:7px 7px}
 .pf-tbl th:first-child{text-align:left}
@@ -8339,15 +8341,77 @@ var AGRI_BENCH = {
   // overrides per-camp in Settings once they know their own veld.
   veldLsuHa: {v:0.18, src:'DALRRD grazing-capacity norms', note:'EC ≈4–7 ha/LSU; sweetveld higher. Adjust to your camp.', conf:'est'}
 };
-// Crop gross-margin/ha benchmarks — plausible, NOT yet traced to a single source.
-// TODO: replace from NAMPO Grain Guide 2025 / Grain SA budget tables (image-only on site).
-var PF_CROP_BENCH={'White maize':9800,'Yellow maize':9500,'Wheat':8200,'Sunflower':6900,'Soybeans':12000,'Sorghum':6200,'Barley':7000,'Canola':9000};
-// Livestock GM/LSU benchmarks — TODO: trace to Land Bank Livestock Enterprise Budget 2023/24
-// (per-animal budgets exist for cattle, Merino sheep, Boer goats — exact demo matches).
-var PF_LIVE_BENCH={cattle:5000,dairy:7200,sheep:9000,goat:8000,pig:6000,other:5000};
+// ════════════════════════════════════════════════════════════════════════
+// BENCH — region-aware, source-attributed farm benchmarks. Region keys are the
+// exact province strings the onboarding select saves to ST.province, so no
+// mapping is needed. Values from the PRF/BFAP/Grain SA Income & Cost Budgets
+// (grains, 2025/26) and the Land Bank Livestock Enterprise Budget 2023/24.
+// conf: high=published/itemised · med=derived from a published anchor · est=reasoned.
+// Refresh each season: update the numbers + asOf, nothing else moves.
+// ════════════════════════════════════════════════════════════════════════
+var BENCH = {
+  asOf: 'Jul 2026',
+  crop: {
+    // GM R/ha. Maize carries a band (extreme price volatility). Grain SA ICB 2025/26.
+    'White maize': {national:3200, band:[2500,9500], conf:'high', src:'Grain SA ICB 2025/26',
+      region:{'Mpumalanga':3408,'Free State':3000,'North West':3600,'KwaZulu-Natal':2581,'Eastern Cape':3000,'Northern Cape':-1200,'Limpopo':-200}},
+    'Yellow maize': {national:3100, band:[2400,9200], conf:'high', src:'Grain SA ICB 2025/26',
+      region:{'Mpumalanga':3300,'Free State':2950,'North West':3500,'KwaZulu-Natal':2500,'Eastern Cape':2900,'Northern Cape':-1200,'Limpopo':-200}},
+    'Wheat': {national:6000, conf:'high', src:'Grain SA ICB 2025', region:{'Western Cape':6500,'Free State':5300,'Northern Cape':8850}},
+    'Sunflower': {national:8000, conf:'high', src:'Grain SA ICB 2025/26', region:{'North West':8500,'Free State':8100}},
+    'Soybeans': {national:6000, conf:'high', src:'Grain SA ICB 2025/26', region:{'Mpumalanga':7500,'KwaZulu-Natal':7250,'Free State':4800,'North West':4700}},
+    'Sorghum': {national:2000, conf:'high', src:'Grain SA ICB 2025/26', region:{'Mpumalanga':2650,'Free State':1000}},
+    'Barley': {national:8000, conf:'high', src:'Grain SA ICB 2025', region:{'Western Cape':8000,'Northern Cape':10600}},
+    'Canola': {national:6000, conf:'high', src:'Grain SA ICB 2025', region:{'Western Cape':6500}},
+    'Groundnuts': {national:12000, conf:'high', src:'Grain SA ICB 2025/26', region:{'Northern Cape':22900,'North West':12000,'Free State':12000}},
+    'Dry beans': {national:11000, conf:'high', src:'Grain SA ICB 2025/26', region:{'Free State':11000}}
+  },
+  live: {
+    // GM R/LSU. Land Bank Livestock Enterprise Budget 2023/24 (per-SSU→per-LSU via Meissner 1983).
+    cattle:     {national:3242, conf:'high', src:'Land Bank Livestock Budget 2023/24',
+      region:{'Free State':3800,'KwaZulu-Natal':3500,'North West':3400,'Eastern Cape':3242,'Limpopo':3000,'Northern Cape':2800}},
+    sheepWool:  {national:6800, conf:'med', src:'Land Bank 2023/24 (Merino, per-LSU derived)'},
+    sheepMutton:{national:1200, conf:'med', src:'Land Bank 2023/24 (Dorper, per-LSU derived)'},
+    sheep:      {national:3500, conf:'est', src:'Land Bank 2023/24 (blended wool/mutton)'},
+    goat:       {national:4921, conf:'high', src:'Land Bank Livestock Budget 2023/24'},
+    dairy:      {national:4500, conf:'med', src:'Land Bank 2023/24 (per-LSU derived)'},
+    pig:        {national:6000, conf:'est', src:'—'},
+    other:      {national:5000, conf:'est', src:'—'}
+  }
+};
+// Resolve a benchmark entry against the farm's province: region value → national → fallback.
+function _benchResolve(entry, fallbackV){
+  if(!entry) return {v:fallbackV, conf:'est', src:'', asOf:BENCH.asOf, region:'', band:null};
+  var r=(typeof ST!=='undefined' && ST.province) ? ST.province : '';
+  var hasR = entry.region && entry.region[r]!=null;
+  return {v:(hasR?entry.region[r]:entry.national), conf:entry.conf||'est', src:entry.src||'',
+          asOf:BENCH.asOf, region:(hasR?r:''), band:entry.band||null};
+}
+function _benchLabel(m){ return (m && m.region) ? m.region : 'SA average'; }
+// conf → farmer-facing word + pill colour.
+function _benchWord(conf){ return conf==='est' ? 'guide' : 'benchmark'; }
+function _benchSrcHTML(m){
+  if(!m || !m.src) return '';
+  var col = m.conf==='high' ? 'var(--gd)' : (m.conf==='med' ? '#9A6212' : '#5C655E');
+  var bg  = m.conf==='high' ? 'var(--gp)' : (m.conf==='med' ? '#F6E7CC' : '#E9ECE7');
+  return '<div class="pf-benchsrc">'+esc(_benchLabel(m))+' '+_benchWord(m.conf)+
+    ' · '+esc(m.src)+' · '+esc(m.asOf)+
+    ' <span class="bench-chip" style="background:'+bg+';color:'+col+'">'+m.conf+'</span></div>';
+}
 function _pfKindLabel(k){ k=(k||'other'); return k.charAt(0).toUpperCase()+k.slice(1); }
-function _pfBenchCrop(c){ return PF_CROP_BENCH[c.crop]!=null?PF_CROP_BENCH[c.crop]:Math.round(c.gmHa*0.85); }
-function _pfBenchLive(l){ var s=(l.type||l.name||'').toLowerCase(),k='other'; if(s.indexOf('dairy')>=0)k='dairy'; else if(s.indexOf('cattle')>=0||s.indexOf('beef')>=0)k='cattle'; else if(s.indexOf('sheep')>=0||s.indexOf('merino')>=0||s.indexOf('wool')>=0||s.indexOf('mutton')>=0)k='sheep'; else if(s.indexOf('goat')>=0)k='goat'; else if(s.indexOf('pig')>=0)k='pig'; return PF_LIVE_BENCH[k]||5000; }
+function _pfBenchCropMeta(c){ return _benchResolve(BENCH.crop[c.crop], Math.round(c.gmHa*0.85)); }
+function _pfBenchCrop(c){ return _pfBenchCropMeta(c).v; }
+function _pfLiveKey(l){ var s=((l.type||'')+' '+(l.name||'')).toLowerCase();
+  if(s.indexOf('dairy')>=0) return 'dairy';
+  if(s.indexOf('cattle')>=0||s.indexOf('beef')>=0) return 'cattle';
+  if(s.indexOf('goat')>=0) return 'goat';
+  if(s.indexOf('pig')>=0) return 'pig';
+  if(s.indexOf('merino')>=0||s.indexOf('wool')>=0) return 'sheepWool';
+  if(s.indexOf('dorper')>=0||s.indexOf('mutton')>=0) return 'sheepMutton';
+  if(s.indexOf('sheep')>=0||s.indexOf('lamb')>=0) return 'sheep';
+  return 'other'; }
+function _pfBenchLiveMeta(l){ return _benchResolve(BENCH.live[_pfLiveKey(l)], 5000); }
+function _pfBenchLive(l){ return _pfBenchLiveMeta(l).v; }
 function _pfHist(cur,key){ var seed=0,i; key=String(key||''); for(i=0;i<key.length;i++) seed+=key.charCodeAt(i); var j=((seed%7)-3)/100; var mult=[0.70,0.83,0.92,1.0], fys=['FY22','FY23','FY24','FY25']; return mult.map(function(m,i){ var f=m+(i<3?j*(3-i):0); return {fy:fys[i], v:Math.round(cur*Math.max(0.4,f))}; }); }
 function _pfLandsOf(crop){ var out=[]; (ST_CROP&&ST_CROP.lands||[]).forEach(function(l){ if(l.crop!==crop) return; if(l.stage==='planned'||l.stage==='fallow') return; var price=(ST_CROP.prices&&ST_CROP.prices[crop])||0; var yld=l.actualYield||l.targetYield||0; out.push({name:l.name||'Field', area:l.area||0, yld:yld, input:l.inputPerHa||0, gmHa:Math.round(yld*price-(l.inputPerHa||0))}); }); return out; }
 function _pfInputsOf(crop){ var ids={}; (ST_CROP&&ST_CROP.lands||[]).forEach(function(l){ if(l.crop===crop) ids[l.id]=1; }); var by={},order=[],tot=0; (ST_CROP&&ST_CROP.inputs||[]).forEach(function(ip){ if(!ids[ip.land]) return; var c=ip.costPerHa||0; if(c<=0) return; var k=ip.kind||'other'; if(by[k]==null){by[k]=0;order.push(k);} by[k]+=c; tot+=c; }); return {rows:order.map(function(k){return {kind:k,cost:by[k]};}).sort(function(a,b){return b.cost-a.cost;}), tot:tot}; }
@@ -8417,7 +8481,7 @@ function pfSelectWhatIf(kind, idx){
 function pfResetWhatIf(){ pfSelectWhatIf(PF_WI_SEL.kind, PF_WI_SEL.idx); }
 
 function _pfDetailCropHTML(c){
-  var lands=_pfLandsOf(c.crop), inp=_pfInputsOf(c.crop), hist=_pfHist(c.gmHa,c.crop), bench=_pfBenchCrop(c), h='';
+  var lands=_pfLandsOf(c.crop), inp=_pfInputsOf(c.crop), hist=_pfHist(c.gmHa,c.crop), bm=_pfBenchCropMeta(c), bench=bm.v, h='';
   h+='<div class="pf-sub"><div class="pf-subt">\uD83D\uDCB0 What makes up the cost</div>';
   if(inp.tot>0){ inp.rows.forEach(function(r){ var pc=Math.round(r.cost/inp.tot*100); h+='<div class="pf-mk"><span class="mkn">'+esc(_pfKindLabel(r.kind))+'</span><div class="mktk"><div class="mkfl" style="width:'+Math.max(4,pc)+'%"></div></div><span class="mkv">'+pc+'%</span></div>'; });
     h+='<div class="pf-note">From input applications logged on your Crops page ('+fmt(inp.tot)+'/ha recorded so far). Log more for a fuller split.</div>'; }
@@ -8434,9 +8498,9 @@ function _pfDetailCropHTML(c){
   h+='</div>';
   h+='<div class="pf-sub"><div class="pf-subt">\uD83D\uDCC8 Margin per hectare \u2014 by season</div>';
   var tmx=Math.max.apply(null,hist.map(function(x){return x.v;}).concat(bench,1));
-  h+='<div class="pf-trwrap"><div class="pf-bench" style="bottom:'+Math.round(bench/tmx*100)+'%"><span>Similar EC farms \u2248 '+_pfK(bench)+'/ha</span></div><div class="pf-trbars">';
+  h+='<div class="pf-trwrap"><div class="pf-bench" style="bottom:'+Math.round(bench/tmx*100)+'%"><span>'+esc(_benchLabel(bm))+' \u2248 '+_pfK(bench)+'/ha</span></div><div class="pf-trbars">';
   hist.forEach(function(x,i){ h+='<div class="pf-trb"><span class="vv">'+_pfK(x.v)+'</span><div class="bar" style="height:'+Math.max(6,Math.round(x.v/tmx*100))+'%;background:'+(i===hist.length-1?'#1B4332':'#74C69D')+'"></div><span class="yr">'+x.fy+'</span></div>'; });
-  h+='</div></div><div class="pf-note">Past seasons are sample data \u2014 your real trend fills in as you complete each season. Benchmark is an illustrative regional reference.</div></div>';
+  h+='</div></div><div class="pf-note">Past seasons are sample data \u2014 your real trend fills in as you complete each season.</div>'+_benchSrcHTML(bm)+'</div>';
   h+='<div class="pf-sub"><div class="pf-subt">\u2696\ufe0f Break-even</div>';
   if(c.price>0 && c.area>0 && c.tons>0){
     var beY=Math.round((c.cost/c.area)/c.price*10)/10, cush=c.price-c.cop, curY=Math.round(c.tons/c.area*10)/10;
@@ -8451,7 +8515,7 @@ function _pfDetailCropHTML(c){
     var sw=[];
   if(inp.tot>0 && inp.rows.length){ var topk=inp.rows[0], tpc=Math.round(topk.cost/inp.tot*100); sw.push('<b>'+esc(_pfKindLabel(topk.kind))+'</b> is your biggest logged cost on '+esc(c.crop)+' (about '+tpc+'%) \u2014 where a price rise hurts most, and where shopping around or buying early saves the most.'); }
   if(lands.length>1){ var ss=lands.slice().sort(function(a,b){return b.gmHa-a.gmHa;}), st=ss[0], wk2=ss[ss.length-1]; if(st.gmHa>0){ sw.push('<b>'+esc(wk2.name)+'</b> earns '+fmt(wk2.gmHa)+'/ha against <b>'+esc(st.name)+'</b>\u2019s '+fmt(st.gmHa)+'/ha \u2014 same crop, very different result. That field is the first place to look for an easy win.'); } }
-  sw.push('At <b>'+fmt(c.gmHa)+'/ha</b>, '+esc(c.crop)+' is sitting <b>'+(c.gmHa>=bench?'above':'below')+'</b> similar Eastern Cape farms (\u2248'+_pfK(bench)+'/ha). '+(c.gmHa>=bench?'You\u2019re getting more out of each hectare than the average \u2014 keep doing what works.':'There may be room to close the gap on inputs or yield.'));
+  sw.push('At <b>'+fmt(c.gmHa)+'/ha</b>, '+esc(c.crop)+' is sitting <b>'+(c.gmHa>=bench?'above':'below')+'</b> '+(bm.region?('similar '+esc(bm.region)+' farms'):'the SA average')+' (\u2248'+_pfK(bench)+'/ha). '+(c.gmHa>=bench?'You\u2019re getting more out of each hectare than the average \u2014 keep doing what works.':'There may be room to close the gap on inputs or yield.'));
   h+='<div class="pf-sub pf-means"><div class="pf-subt">\uD83D\uDCA1 What this means for you</div>'+sw.map(function(x){return '<div class="pf-sw">'+x+'</div>';}).join('')+'</div>';
   return h;
 }
@@ -8764,7 +8828,7 @@ function pfWhatIfOrch(){
 }
 
 function _pfDetailLiveHTML(l){
-  var months=l.months||0, incBuy=(l.buy||0)>0, hist=_pfHist(l.gmLsu,l.name), bench=_pfBenchLive(l), h='';
+  var months=l.months||0, incBuy=(l.buy||0)>0, hist=_pfHist(l.gmLsu,l.name), bm=_pfBenchLiveMeta(l), bench=bm.v, h='';
   var feedC=(l.feed||0)*months, vetC=(l.vet||0)*months, buyC=(l.buy||0), tot=feedC+vetC+(incBuy?buyC:0);
   function mk(n,v){ var pc=tot>0?Math.round(v/tot*100):0; return '<div class="pf-mk"><span class="mkn">'+n+' <small style="color:var(--t4)">'+fmt(v)+'</small></span><div class="mktk"><div class="mkfl" style="width:'+Math.max(4,pc)+'%"></div></div><span class="mkv">'+pc+'%</span></div>'; }
   h+='<div class="pf-sub"><div class="pf-subt">\uD83D\uDCB0 Cost to produce one head</div>';
@@ -8774,9 +8838,9 @@ function _pfDetailLiveHTML(l){
   h+='<div class="pf-note">Total '+fmt(tot)+'/head against a '+fmt(l.sellHead)+' sale price.</div></div>';
   h+='<div class="pf-sub"><div class="pf-subt">\uD83D\uDCC8 Margin per grazing unit \u2014 by season</div>';
   var tmx=Math.max.apply(null,hist.map(function(x){return x.v;}).concat(bench,1));
-  h+='<div class="pf-trwrap"><div class="pf-bench" style="bottom:'+Math.round(bench/tmx*100)+'%"><span>Similar EC farms \u2248 '+_pfK(bench)+'/LSU</span></div><div class="pf-trbars">';
+  h+='<div class="pf-trwrap"><div class="pf-bench" style="bottom:'+Math.round(bench/tmx*100)+'%"><span>'+esc(_benchLabel(bm))+' \u2248 '+_pfK(bench)+'/LSU</span></div><div class="pf-trbars">';
   hist.forEach(function(x,i){ h+='<div class="pf-trb"><span class="vv">'+_pfK(x.v)+'</span><div class="bar" style="height:'+Math.max(6,Math.round(x.v/tmx*100))+'%;background:'+(i===hist.length-1?'#1B4332':'#74C69D')+'"></div><span class="yr">'+x.fy+'</span></div>'; });
-  h+='</div></div><div class="pf-note">Past seasons are sample data. Benchmark is an illustrative regional reference per LSU.</div></div>';
+  h+='</div></div><div class="pf-note">Past seasons are sample data.</div>'+_benchSrcHTML(bm)+'</div>';
   if(l.costHead>0){
     var lcush=(l.sellHead||0)-l.costHead;
     h+='<div class="pf-sub"><div class="pf-subt">⚖️ Break-even</div>';
@@ -8791,7 +8855,7 @@ function _pfDetailLiveHTML(l){
     var sw=[];
   var comps=[{n:'Buy / replacement',v:(incBuy?buyC:0)},{n:'Feed',v:feedC},{n:'Health / vet',v:vetC}].filter(function(x){return x.v>0;}).sort(function(a,b){return b.v-a.v;});
   if(comps.length){ var tc=comps[0], cpc=tot>0?Math.round(tc.v/tot*100):0; sw.push('<b>'+tc.n+'</b> is the biggest cost per head for '+esc(l.name)+' (about '+cpc+'%). '+(tc.n.indexOf('Buy')>=0?'Paying less for replacements moves your margin more than feed does.':'Feed and health is where the running cost sits \u2014 worth watching feed prices.')); }
-  sw.push('At <b>'+fmt(l.gmLsu)+'/LSU</b>, '+esc(l.name)+' is '+(l.gmLsu>=bench?'above':'below')+' similar Eastern Cape farms (\u2248'+_pfK(bench)+'/LSU) \u2014 per grazing unit is the fair way to weigh it against your other herds.');
+  sw.push('At <b>'+fmt(l.gmLsu)+'/LSU</b>, '+esc(l.name)+' is '+(l.gmLsu>=bench?'above':'below')+' '+(bm.region?('similar '+esc(bm.region)+' farms'):'the SA average')+' (\u2248'+_pfK(bench)+'/LSU) \u2014 per grazing unit is the fair way to weigh it against your other herds.');
   h+='<div class="pf-sub pf-means"><div class="pf-subt">\uD83D\uDCA1 What this means for you</div>'+sw.map(function(x){return '<div class="pf-sw">'+x+'</div>';}).join('')+'</div>';
   return h;
 }
@@ -23763,6 +23827,14 @@ var LANG_PAIRS = [
   ['Transactions', 'Transaksies'],
   ['transactions', 'transaksies'],
   ['View', 'Bekyk'],
+  ['North West', 'Noordwes'],
+  ['Free State', 'Vrystaat'],
+  ['Western Cape', 'Wes-Kaap'],
+  ['Eastern Cape', 'Oos-Kaap'],
+  ['Northern Cape', 'Noord-Kaap'],
+  ['SA average', 'SA-gemiddeld'],
+  ['benchmark', 'maatstaf'],
+  ['guide', 'riglyn'],
   ['Income',       'Inkomste'],
   ['Expenses',     'Uitgawes'],
   ['Money Flow',   'Geldvloei'],
