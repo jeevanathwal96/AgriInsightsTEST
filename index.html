@@ -10499,6 +10499,19 @@ function clearAllToFresh() {
       E(ST,'txns'); E(ST,'importBatches'); E(ST,'coopSettlements'); E(ST,'recurring');
       if (ST.budgets) { E(ST.budgets,'monthlyIncome'); E(ST.budgets,'monthlyExpenses'); }
       ST.budgetExpenseTarget = 0;
+      // Clear the demo FARM IDENTITY too — otherwise a fresh/new user keeps seeing
+      // "Doringkloof Boerdery / Jaco van der Merwe" in the header + profile, and the
+      // demo entityType ('sole') would silently drive the tax calc. Blank = "not set
+      // yet" so the user fills in their own; leave UI-preference fields (lang etc.)
+      // and the SAFEX reference prices untouched.
+      ST.farmName = ''; ST.ownerName = ''; ST.province = '';
+      ST.farmHa = 0; ST.vatRegistered = false; ST.entityType = '';
+      if ('taxNumber' in ST) ST.taxNumber = '';
+      if ('vatNumber' in ST) ST.vatNumber = '';
+    }
+    if (typeof FARM !== 'undefined') {
+      FARM.name = ''; FARM.owner = ''; FARM.ha = 0;
+      FARM.vat = false; FARM.vatNo = ''; FARM.taxNo = '';
     }
     if (typeof ST_ASSETS !== 'undefined') { E(ST_ASSETS,'assets'); ST_ASSETS.nextId = 1; }
     if (typeof ST_LOANS !== 'undefined') { ['loans','overdrafts','coopAccounts','archived'].forEach(function(k){ E(ST_LOANS,k); }); }
@@ -25654,18 +25667,33 @@ function _taxGauge(frac){ frac=Math.max(0,Math.min(1,frac||0)); var off=Math.rou
 var TAX_TAB='glance', TAX_WI_ENT='sole';
 function taxTab(name){ TAX_TAB=name; ['glance','reports','whatif'].forEach(function(t){ var p=$('tax-tab-'+t), b=$('tax-tabbtn-'+t); if(p) p.classList.toggle('on',t===name); if(b) b.classList.toggle('on',t===name); }); if(name==='whatif') taxWhatIf(); var c=$('content'); if(c) c.scrollTop=0; }
 function taxWiEnt(e){ TAX_WI_ENT=e; var bs=document.querySelectorAll('#tax-wi-ents button'); [].forEach.call(bs,function(b){ b.classList.toggle('on', b.getAttribute('data-e')===e); }); taxWhatIf(); }
+var TAX_WI_VAT='no';
+function taxWiVat(v){ TAX_WI_VAT=v; var bs=document.querySelectorAll('#tax-wi-vatseg button'); [].forEach.call(bs,function(b){ b.classList.toggle('on', b.getAttribute('data-v')===v); }); taxWhatIf(); }
+// Potential VAT position IF registered — derived from the farmer's own FY transactions (never demo/hardcoded).
+function taxVatIfRegistered(){
+  var _p=(currentPeriodLabel()).split(' '), MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  var now={m:MN[_p[0]]!==undefined?MN[_p[0]]:4,y:parseInt(_p[1],10)||2024}, fyStart=(ST.fyStartMonth||3)-1, curFY=(now.m>=fyStart?now.y:now.y-1), inV=0,outV=0;
+  (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var fy=(d.m>=fyStart?d.y:d.y-1); if(fy!==curFY) return; if(typeof IE_treat==='function' && IE_treat(t.cat)==='std'){ var vat=Math.round((t.amt||0)*0.15/1.15); if(t.type==='expense') inV+=vat; else if(t.type==='income') outV+=vat; } });
+  return {inputVat:inV, outputVat:outV, dieselLitres:(typeof ST_CROP!=='undefined'&&ST_CROP.compliance&&ST_CROP.compliance.dieselLitres)||0};
+}
 function taxWhatIf(){
-  var pe=$('tax-wi-profit'); if(!pe) return; var p=+pe.value, et=TAX_WI_ENT;
-  setEl('tax-wi-pv','R'+_grpInt(p));
-  var ann=calcAnnualIncomeTax(p,et), prov=Math.round(ann/2), eff=p>0?Math.round(ann/p*100):0;
-  setEl('tax-wi-prov','R'+_grpInt(prov)); setEl('tax-wi-ann','R'+_grpInt(ann)); setEl('tax-wi-eff',eff+'%'); setEl('tax-wi-mo','R'+_grpInt(Math.round(ann/12)));
-  setEl('tax-wi-p1','R'+_grpInt(prov)); setEl('tax-wi-p2','R'+_grpInt(ann-prov));
-  var ents=[['sole','Sole prop'],['company','Company'],['sbc','SBC'],['trust','Trust']];
-  var rows=ents.map(function(e){ return {e:e[0],n:e[1],t:calcAnnualIncomeTax(p,e[0])}; }), min=Math.min.apply(null,rows.map(function(r){return r.t;}));
-  var cmp=$('tax-wi-cmp'); if(cmp) cmp.innerHTML=rows.map(function(r){ var best=r.t===min&&p>0; return '<div class="tx-mr" style="border-bottom:1px solid var(--br2);padding:6px 0"><span style="font-weight:'+(r.e===et?'800':'600')+';color:'+(r.e===et?'var(--gd)':'var(--t2)')+'">'+r.n+(r.e===et?' · you':'')+(best?' <span style="font-size:9px;font-weight:800;background:var(--gp);color:var(--gd);padding:1px 6px;border-radius:999px">cheapest</span>':'')+'</span><b style="color:'+(best?'var(--gm)':'var(--t1)')+'">R'+_grpInt(r.t)+'</b></div>'; }).join('');
-  var mine=calcAnnualIncomeTax(p,et), ch=rows.filter(function(r){return r.t===min;})[0], tip=$('tax-wi-tip');
-  if(tip){ if(p>0&&ch.e!==et&&(mine-min)>1000) tip.innerHTML='💡 As a <b>'+ch.n+'</b> you’d pay <b>R'+_grpInt(mine-min)+' less</b> at this profit — worth asking your accountant.'; else tip.innerHTML='💡 Entity choice is one of the biggest tax levers on a farm — the cheapest option changes as your profit grows.'; }
-  var cv=$('tax-wi-curve'); if(cv){ var mx=2000000, maxT=calcAnnualIncomeTax(mx,et)||1, pts=[]; for(var q=0;q<=mx;q+=100000){ var t=calcAnnualIncomeTax(q,et); pts.push([10+q/mx*240,110-(t/maxT)*100]); } var poly=pts.map(function(a){return a[0].toFixed(0)+','+a[1].toFixed(0);}).join(' '); var cx=10+p/mx*240, cy=110-(calcAnnualIncomeTax(p,et)/maxT)*100; cv.innerHTML='<polyline points="'+poly+'" fill="none" stroke="var(--gl)" stroke-width="2.5"/><line x1="'+cx.toFixed(0)+'" y1="8" x2="'+cx.toFixed(0)+'" y2="112" stroke="var(--br)" stroke-dasharray="3"/><circle cx="'+cx.toFixed(0)+'" cy="'+cy.toFixed(0)+'" r="4" fill="var(--gd)"/>'; }
+  var pe=$('tax-wi-profit'); if(!pe) return;
+  var p=+pe.value, cap=+(($('tax-wi-capex')||{}).value||0), raRaw=+(($('tax-wi-ra')||{}).value||0), et=TAX_WI_ENT;
+  var raCap=Math.min(raRaw, Math.round(p*0.275), 350000), ti=Math.max(0,p-cap-raCap);
+  setEl('tax-wi-pv','R'+_grpInt(p)); setEl('tax-wi-cv','R'+_grpInt(cap)); setEl('tax-wi-rv','R'+_grpInt(raCap));
+  var rc=$('tax-wi-racap'); if(rc) rc.textContent=(raRaw>raCap?'capped at 27.5% (R'+_grpInt(raCap)+')':'up to 27.5% of profit');
+  setEl('tax-wi-taxable','R'+_grpInt(ti));
+  var t=calcAnnualIncomeTax(ti,et), t0=calcAnnualIncomeTax(p,et), keep=p-t;
+  var effp=ti>0?Math.round(t/ti*100):0, taxPct=p>0?Math.round(t/p*100):0, mrg=Math.round((calcAnnualIncomeTax(ti+100000,et)-t)/100000*100);
+  setEl('tax-wi-ann','R'+_grpInt(t)); setEl('tax-wi-eff',effp+'% effective');
+  var bt=$('tax-wi-bartax'), bk=$('tax-wi-barkeep'); if(bt) bt.style.width=taxPct+'%'; if(bk) bk.style.width=(100-taxPct)+'%';
+  setEl('tax-wi-bartaxv','R'+_grpInt(t)); setEl('tax-wi-barkeepv','R'+_grpInt(keep));
+  setEl('tax-wi-p1','R'+_grpInt(Math.round(t/2))); setEl('tax-wi-p2','R'+_grpInt(t-Math.round(t/2))); setEl('tax-wi-mo','R'+_grpInt(Math.round(t/12))); setEl('tax-wi-marg',mrg+'%');
+  var sv=$('tax-wi-save'), ded=t0-t; if(sv){ if(ded>0){ sv.style.display='block'; sv.innerHTML='🛠️ Your deductions cut this year’s tax by about <b>R'+_grpInt(ded)+'</b>.'; } else sv.style.display='none'; }
+  var vo=$('tax-wi-vatout'); if(vo){ var vr=taxVatIfRegistered();
+    if(TAX_WI_VAT==='yes') vo.innerHTML='<b style="color:var(--gm)">If you register:</b> reclaim about <b>R'+_grpInt(vr.inputVat)+'</b> input VAT on your standard-rated costs (machinery, repairs, vet, admin)'+(vr.dieselLitres>0?' and claim the diesel refund on your <b>'+_grpInt(vr.dieselLitres)+' L</b> logged':'')+'. You’d charge 15% on sales (~R'+_grpInt(vr.outputVat)+' output VAT) — usually fine when your buyers are VAT-registered. Below R1m it’s your choice.';
+    else vo.innerHTML='<b>Not registered.</b> No VAT returns to file — but you can’t reclaim the ~<b>R'+_grpInt(vr.inputVat)+'</b> input VAT on your standard-rated costs'+(vr.dieselLitres>0?', and can’t claim the diesel refund on your '+_grpInt(vr.dieselLitres)+' L':'')+'. Tap “Registered” to weigh it up.';
+  }
 }
 
 function renderTax(){
@@ -25685,7 +25713,9 @@ function renderTax(){
     ".tax-panel{display:none}.tax-panel.on{display:block}"+
     ".tx-cta{display:flex;gap:12px;align-items:center;border-radius:12px;padding:14px 16px;color:#fff;cursor:pointer;background:linear-gradient(135deg,#2D6A4F,#1B4332);margin-bottom:10px}.tx-cta .ic{font-size:22px}.tx-cta .t{font-size:13.5px;font-weight:800}.tx-cta .s{font-size:11px;opacity:.9}"+
     ".tx-tile{background:rgba(255,255,255,.13);border-radius:11px;padding:9px 13px;text-align:center;min-width:88px}.tx-tile .k{font-size:10px;opacity:.75}.tx-tile .v{font-size:17px;font-weight:800}"+
-    ".tx-seg button{font-family:var(--fn)}";
+    ".tx-seg button{font-family:var(--fn)}"+
+    ".tx-vaticon{display:inline-flex;width:19px;height:19px;border-radius:6px;background:var(--gp);color:var(--gd);font-size:10.5px;font-weight:800;align-items:center;justify-content:center;vertical-align:-3px}"+
+    "#tax-wi-ents button,#tax-wi-vatseg button{background:#F1F3F0;color:var(--t3);transition:background .15s,color .15s}#tax-wi-ents button.on,#tax-wi-vatseg button.on{background:var(--gd);color:#fff}";
     document.head.appendChild(st); }
 
   var h='<div class="tx2">'+
@@ -25771,8 +25801,8 @@ function taxGlanceHTML(){
 
   // VAT + workers
   h+='<div class="tx-g2">';
-  if(vat){ h+='<div class="tx-card"><div class="tx-h">💧 VAT — current period</div><div class="tx-mr"><span>Collected on sales</span><b>'+IE_R(vat.out)+'</b></div><div class="tx-mr"><span>Paid on costs</span><b>−'+IE_R(vat.inp).replace('−','')+'</b></div><div class="tx-mr" style="border-top:1px solid var(--br2);padding-top:6px;margin-top:4px"><span style="font-weight:700">'+(vat.owe>=0?'Owe SARS':'SARS owes you')+'</span><b style="color:'+(vat.owe>=0?'var(--rd)':'var(--gm)')+'">'+IE_R(Math.abs(vat.owe))+'</b></div><div class="tx-wi"><details><summary>What is this?</summary>VAT charged on sales minus VAT paid on standard-rated costs. Farming inputs like fertiliser, seed and diesel are zero-rated. Filed on a VAT201 every two months.</details></div></div>'; }
-  else h+='<div class="tx-card"><div class="tx-h">💧 VAT</div><div style="font-size:12.5px;color:var(--t3)">You’re not registered for VAT. If your turnover passes R1m, registration usually becomes compulsory.</div></div>';
+  if(vat){ h+='<div class="tx-card"><div class="tx-h"><span class="tx-vaticon">%</span> VAT — current period</div><div class="tx-mr"><span>Collected on sales</span><b>'+IE_R(vat.out)+'</b></div><div class="tx-mr"><span>Paid on costs</span><b>−'+IE_R(vat.inp).replace('−','')+'</b></div><div class="tx-mr" style="border-top:1px solid var(--br2);padding-top:6px;margin-top:4px"><span style="font-weight:700">'+(vat.owe>=0?'Owe SARS':'SARS owes you')+'</span><b style="color:'+(vat.owe>=0?'var(--rd)':'var(--gm)')+'">'+IE_R(Math.abs(vat.owe))+'</b></div><div class="tx-wi"><details><summary>What is this?</summary>VAT charged on sales minus VAT paid on standard-rated costs. Farming inputs like fertiliser, seed and diesel are zero-rated. Filed on a VAT201 every two months.</details></div></div>'; }
+  else h+='<div class="tx-card"><div class="tx-h"><span class="tx-vaticon">%</span> VAT</div><div style="font-size:12.5px;color:var(--t3)">You’re not registered for VAT. If your turnover passes R1m, registration usually becomes compulsory.</div></div>';
   if(wk){ h+='<div class="tx-card"><div class="tx-h">👷 Your workers</div><div style="font-size:12.5px;font-weight:700;color:'+(wk.allOk?'var(--gm)':'var(--rd)')+'">'+(wk.allOk?'✓ All '+wk.count+' paid above minimum wage':'⚠ Someone is below minimum wage')+'</div><div class="tx-mr"><span>Skills levy (SDL)</span><b>'+(wk.sdl?'applies':'not yet — under R500k/yr')+'</b></div><div style="font-size:11px;color:var(--t3);margin-top:5px">UIF &amp; PAYE worked out each payroll run — <span onclick="nav(\'workers\')" style="color:var(--gm);font-weight:700;cursor:pointer">open Workers →</span></div></div>'; }
   else h+='<div class="tx-card"><div class="tx-h">👷 Workers</div><div style="font-size:12.5px;color:var(--t3)">No workers on your register — no PAYE, UIF or COIDA to manage.</div></div>';
   h+='</div>';
@@ -25817,28 +25847,35 @@ function taxReportsHTML(){
 
 function taxWhatIfHTML(){
   var prov=taxProvEstimate(); var p0=prov.ok?Math.max(0,prov.annualProfit):500000; if(p0>2000000)p0=2000000;
+  var curEnt=(['sole','company','sbc','trust'].indexOf(ST.entityType)>=0)?ST.entityType:'sole'; TAX_WI_ENT=curEnt;
+  TAX_WI_VAT=(typeof FARM!=='undefined'&&FARM.vat)?'yes':'no';
   var ents=[['sole','Sole prop'],['company','Company'],['sbc','SBC'],['trust','Trust']];
-  var h='<div class="tx-card" style="margin-bottom:12px">'+
-    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span style="font-size:12.5px;font-weight:700;color:var(--t2)">Your taxable profit for the year</span><span id="tax-wi-pv" style="font-size:15px;font-weight:800">R'+_grpInt(p0)+'</span></div>'+
-    _pfSlider('tax-wi-profit',0,2000000,20000,p0,'taxWhatIf')+
-    '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--t4)"><span>R0</span><span>R2m</span></div>'+
-    '<div style="font-size:12.5px;font-weight:700;color:var(--t2);margin:14px 0 7px">How you’re registered</div>'+
-    '<div id="tax-wi-ents" style="display:flex;gap:5px">'+ents.map(function(e){return '<button data-e="'+e[0]+'" class="'+(e[0]==='sole'?'on':'')+'" onclick="taxWiEnt(\''+e[0]+'\')" style="flex:1;border:0;border-radius:9px;padding:9px 4px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--fn)">'+e[1]+'</button>';}).join('')+'</div>'+
-  '</div>';
-  // full-width result panel
-  h+='<div style="background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;border-radius:16px;padding:18px 20px;margin-bottom:12px">'+
-    '<div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px">'+
-      '<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.07em;opacity:.78">Set aside per provisional payment</div><div id="tax-wi-prov" style="font-size:38px;font-weight:800;line-height:1">R—</div></div>'+
-      '<div style="display:flex;gap:9px;flex-wrap:wrap"><div class="tx-tile"><div class="k">Full-year tax</div><div class="v" id="tax-wi-ann">R—</div></div><div class="tx-tile"><div class="k">Effective rate</div><div class="v" id="tax-wi-eff">—</div></div><div class="tx-tile"><div class="k">Per month</div><div class="v" id="tax-wi-mo">R—</div></div></div>'+
+  var eb='style="flex:1;border:0;border-radius:9px;padding:9px 4px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--fn)"';
+  // ── ONE income-tax calculator: profit − deductions = taxable income → tax ──
+  var h='<div class="tx-card" style="margin-bottom:12px"><div class="tx-h">Work out this year’s income tax</div>'+
+    '<div class="pf-sl" style="margin-top:0"><div class="pf-sllab"><span>Your taxable profit for the year</span><span class="pf-slval" id="tax-wi-pv">R'+_grpInt(p0)+'</span></div>'+_pfSlider('tax-wi-profit',0,2000000,20000,p0,'taxWhatIf')+'<div class="pf-slends"><span>R0</span><span>income − running costs</span><span>R2m</span></div></div>'+
+    '<div class="pf-sl"><div class="pf-sllab"><span>Equipment or solar bought this year <small style="color:var(--t4);font-weight:600">deductible</small></span><span class="pf-slval" style="color:#B45309" id="tax-wi-cv">R0</span></div>'+_pfSlider('tax-wi-capex',0,1000000,25000,0,'taxWhatIf')+'<div class="pf-slends"><span>R0</span><span>solar 100% yr 1 · equipment spread</span><span>R1m</span></div></div>'+
+    '<div class="pf-sl"><div class="pf-sllab"><span>Retirement annuity / pension <small style="color:var(--t4);font-weight:600">deductible</small></span><span class="pf-slval" style="color:#B45309" id="tax-wi-rv">R0</span></div>'+_pfSlider('tax-wi-ra',0,350000,5000,0,'taxWhatIf')+'<div class="pf-slends"><span>R0</span><span id="tax-wi-racap">up to 27.5% of profit</span><span>R350k</span></div></div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;background:var(--br2);border-radius:10px;padding:10px 13px;margin:14px 0"><span style="font-size:12.5px;font-weight:700;color:var(--t2)">= Taxable income</span><span style="font-size:18px;font-weight:800" id="tax-wi-taxable">R'+_grpInt(p0)+'</span></div>'+
+    '<div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:7px">How you’re registered</div>'+
+    '<div id="tax-wi-ents" style="display:flex;gap:5px">'+ents.map(function(e){return '<button data-e="'+e[0]+'" class="'+(e[0]===curEnt?'on':'')+'" onclick="taxWiEnt(\''+e[0]+'\')" '+eb+'>'+e[1]+'</button>';}).join('')+'</div></div>';
+  // ── redesigned result box: big tax + effective pill + tax-vs-keep split bar + stats ──
+  h+='<div style="background:linear-gradient(150deg,#173a2c,#1B4332 60%,#245139);color:#fff;border-radius:16px;padding:18px 20px;margin-bottom:12px">'+
+    '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.72">Income tax for the year</div>'+
+    '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap"><div id="tax-wi-ann" style="font-size:40px;font-weight:800;line-height:1.05">R—</div><div id="tax-wi-eff" style="font-size:11.5px;font-weight:700;background:rgba(255,255,255,.16);border-radius:999px;padding:3px 10px">—</div></div>'+
+    '<div style="margin-top:14px"><div style="display:flex;height:12px;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.12)"><div id="tax-wi-bartax" style="width:0;background:#E8A33D"></div><div id="tax-wi-barkeep" style="flex:1;background:#5FBE85"></div></div>'+
+      '<div style="display:flex;justify-content:space-between;font-size:11px;margin-top:6px"><span>🟠 To SARS <b id="tax-wi-bartaxv">R—</b></span><span>🟢 You keep <b id="tax-wi-barkeepv">R—</b></span></div></div>'+
+    '<div style="display:flex;justify-content:space-between;gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.16)">'+
+      ['1st · 31 Aug|tax-wi-p1','2nd · Feb|tax-wi-p2','≈ / month|tax-wi-mo','Next-R100k|tax-wi-marg'].map(function(s){var a=s.split('|');return '<div style="text-align:center"><div style="font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;opacity:.72">'+a[0]+'</div><div style="font-size:15px;font-weight:800" id="'+a[1]+'">R—</div></div>';}).join('')+
     '</div>'+
-    '<div style="display:flex;gap:10px;margin-top:15px;padding-top:13px;border-top:1px solid rgba(255,255,255,.18);flex-wrap:wrap">'+
-      '<div style="flex:1;min-width:200px;background:rgba(255,255,255,.08);border-radius:10px;padding:9px 13px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px"><b>1st payment</b> · 31 Aug</span><b id="tax-wi-p1">R—</b></div>'+
-      '<div style="flex:1;min-width:200px;background:rgba(255,255,255,.08);border-radius:10px;padding:9px 13px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px"><b>2nd payment</b> · end-Feb</span><b id="tax-wi-p2">R—</b></div>'+
-    '</div></div>';
-  // curve + comparison
-  h+='<div class="tx-g2"><div class="tx-card"><div class="tx-h">Your tax as profit grows</div><svg id="tax-wi-curve" viewBox="0 0 260 120" style="width:100%;height:120px"></svg><div style="font-size:10.5px;color:var(--t4);text-align:center">Marginal rate steepens as you earn more</div></div>'+
-    '<div class="tx-card"><div class="tx-h">Same profit, different registration</div><div id="tax-wi-cmp"></div><div id="tax-wi-tip" style="font-size:11.5px;color:var(--gm);background:var(--gb);border-radius:9px;padding:8px 10px;margin-top:9px;line-height:1.5"></div></div></div>';
-  h+='<div class="tx-disc">Runs the '+esc((STATUTORY&&STATUTORY.tax&&STATUTORY.tax.yearLabel)||'2026/27')+' SARS tables — a planning guide, not a filed return or tax advice. Confirm your registration with your accountant.</div>';
+    '<div id="tax-wi-save" style="font-size:12px;margin-top:14px;background:rgba(255,255,255,.1);border-radius:9px;padding:9px 12px;line-height:1.5;display:none"></div></div>';
+  // ── VAT registration helper (a separate tax) ──
+  h+='<div class="tx-card"><div class="tx-h"><span class="tx-vaticon">%</span> Should you register for VAT? <small style="font-weight:600;color:var(--t4)">— a separate tax</small></div>'+
+    '<div id="tax-wi-vatseg" style="display:flex;gap:5px;max-width:260px">'+
+      '<button data-v="no" class="'+(TAX_WI_VAT==='no'?'on':'')+'" onclick="taxWiVat(\'no\')" '+eb+'>Not registered</button>'+
+      '<button data-v="yes" class="'+(TAX_WI_VAT==='yes'?'on':'')+'" onclick="taxWiVat(\'yes\')" '+eb+'>Registered</button>'+
+    '</div><div id="tax-wi-vatout" style="font-size:12.5px;color:var(--t2);margin-top:11px;line-height:1.55"></div></div>';
+  h+='<div class="tx-disc">Runs the '+esc((STATUTORY&&STATUTORY.tax&&STATUTORY.tax.yearLabel)||'2026/27')+' SARS tables on your own figures — a planning guide, not a filed return or tax advice. Confirm with your accountant.</div>';
   return h;
 }
 
