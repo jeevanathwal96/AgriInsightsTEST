@@ -253,11 +253,13 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 #pg-cashflow .cf-divider-line{flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--br),var(--br),transparent)}
 #pg-cashflow .cf-divider-lbl{font-size:11px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;white-space:nowrap}
 
-/* Money Flow tab bar: Now | Forecast */
-#pg-cashflow .mf-tabs{display:flex;gap:2px;border-bottom:1.5px solid var(--br);margin-bottom:18px}
-#pg-cashflow .mf-tab{appearance:none;border:0;background:none;font:inherit;cursor:pointer;padding:11px 16px 12px;font-size:14px;font-weight:800;color:var(--t4);position:relative;letter-spacing:-.01em}
-#pg-cashflow .mf-tab.on{color:var(--gd)}
-#pg-cashflow .mf-tab.on:after{content:"";position:absolute;left:10px;right:10px;bottom:-1.5px;height:2.5px;background:var(--gd);border-radius:2px}
+/* Money Flow: Now | Forecast use the app-standard .pf-tabs segmented control (see markup). */
+#pg-cashflow #mf-tabs{max-width:340px}
+#pg-cashflow .cfl-toggle{display:flex;gap:3px;background:var(--br2);border:1px solid var(--br);border-radius:9px;padding:3px}
+#pg-cashflow .cfl-toggle button{border:0;background:transparent;font-family:var(--fn);font-size:11.5px;font-weight:800;color:var(--t3);padding:5px 13px;border-radius:7px;cursor:pointer;letter-spacing:0;text-transform:none}
+#pg-cashflow .cfl-toggle button.on{background:var(--wh);color:var(--gd);box-shadow:0 1px 2px rgba(20,50,35,.12)}
+#pg-cashflow #cfl-wi-card{margin-top:24px}
+#pg-cashflow #cf-recur-panel{margin-top:24px;margin-bottom:24px}
 
 /* Forecast tab — single cash-on-hand line, data strip, breakdown, what-if */
 #pg-cashflow .cfl-card{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:16px 20px;margin-bottom:14px;box-shadow:var(--sh)}
@@ -6302,9 +6304,9 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
   </div>
 
-  <div class="mf-tabs" id="mf-tabs">
-    <button id="mf-tabbtn-now" class="mf-tab on" onclick="mfTab('now')">📊 Now</button>
-    <button id="mf-tabbtn-forecast" class="mf-tab" onclick="mfTab('forecast')">🔮 Forecast</button>
+  <div class="pf-tabs" id="mf-tabs">
+    <button id="mf-tabbtn-now" class="on" onclick="mfTab('now')">📊 Now</button>
+    <button id="mf-tabbtn-forecast" onclick="mfTab('forecast')">🔮 Forecast</button>
   </div>
 
   <div id="mf-tab-now">
@@ -6413,9 +6415,9 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
   <!-- new: single cash-on-hand line + built-from-data strip -->
   <div class="cfl-card" id="cfl-line-card" style="display:none">
-    <div class="cfl-h"><span id="cfl-line-title">Cash on hand — next 6 months</span><span class="hint">tap a month for the breakdown</span></div>
+    <div class="cfl-h"><span id="cfl-line-title">Cash on hand — next 6 months</span><span class="cfl-toggle"><button id="cfl-mode-line" class="on" onclick="cfChartMode('line')">Line</button><button id="cfl-mode-bars" onclick="cfChartMode('bars')">Bars</button></span></div>
     <div id="cfl-line"></div>
-    <div class="cfl-legend">One line: your <b>estimated cash</b> as income and costs land through the year. Where it dips into the <span style="color:#c0392b;font-weight:800">red</span>, you'll be short.</div>
+    <div class="cfl-legend" id="cfl-legend"></div>
     <div class="cfl-feeds" id="cfl-feeds"></div>
   </div>
 
@@ -7114,6 +7116,48 @@ function cropInitialPlanSync(fresh){
     ST_PLAN.crops = ST_PLAN.crops.filter(function(c){return false;}); // clear demo crop lines
     ST_CROP.lands.forEach(function(l){ if(l) { l.planId=null; cropSyncToPlan(l); } });
   }
+}
+
+// Demo-only: land-derived crops harvest in May (a summer-grain cycle), which falls one month past
+// the end of the May–Apr planning grid, so recomputePlan drops them and the Money Flow forecast has
+// no crop income (it slips into the conservative fallback). This seeds a varied, grid-valid crop plan
+// and re-anchors the seeded livestock events into the current grid so the demo forecast shows real
+// seasonal income. Runs on a fresh demo only (guarded by !loaded at the call site).
+function demoAlignForecast(){
+  if(typeof ST_PLAN==='undefined') return;
+  var py = ST.planYear || (typeof computeFyYear==='function' ? computeFyYear(APP_TODAY, ST.fyStartMonth||3)
+         : (typeof planYear!=='undefined' && planYear ? planYear : APP_TODAY.getFullYear()));
+  var L = (typeof planMonthsFor==='function') ? planMonthsFor(py).map(function(m){return m.label;})
+        : (ST_PLAN.months||[]).map(function(m){return m.label;});
+  if(!L || L.length<12) return; // grid is May[py]..Apr[py+1]: index 5=Oct, 6=Nov, 9=Feb, 10=Mar, 11=Apr
+  var pr=(typeof ST_CROP!=='undefined'&&ST_CROP.prices)?ST_CROP.prices:{};
+  ST_PLAN.crops = [
+    {crop:'Maize (white)', field:'Vlakte',      ha:70, plant:L[5], harvest:L[11], yield:6.0, price:pr['White maize']||4180, inputCost:9500, otherCost:1300, repeat:'annual'},
+    {crop:'Sunflower',     field:'Rietkuil',    ha:45, plant:L[6], harvest:L[10], yield:1.8, price:pr['Sunflower']||9650,   inputCost:6500, otherCost:1000, repeat:'annual'},
+    {crop:'Soybeans',      field:'Langfontein', ha:35, plant:L[5], harvest:L[10], yield:2.6, price:pr['Soybeans']||8900,    inputCost:7500, otherCost:1100, repeat:'annual'}
+  ];
+  // A grain operation this size runs on production credit, so give the demo a realistic opening cash
+  // position — the pre-harvest squeeze then reads as "tight, then recovers at harvest", not a false crisis.
+  if(ST.bankBalance==null || ST.bankBalance===500000) ST.bankBalance=900000;
+  // Re-anchor seeded livestock events to the current grid by month name (preserves their season).
+  if(ST_PLAN.events && ST_PLAN.events.length){
+    var byMon={}; L.forEach(function(lab){ byMon[lab.split(' ')[0]]=lab; });
+    ST_PLAN.events.forEach(function(e){ var mn=String(e.month||'').split(' ')[0]; if(byMon[mn]) e.month=byMon[mn]; });
+  }
+}
+
+// Idempotent repair that also reaches EXISTING demo installs (whose broken plan is already persisted, so
+// the fresh-only path never runs). Fires ONLY on the exact auto-seeded demo fingerprint — three identical
+// "Maize (white)" lines planted Oct / harvested May with no land link — which a real user's plan never
+// matches, so it is safe to run on every boot. Once repaired the plan is varied, so it never re-triggers.
+function demoRepairCrops(){
+  try{
+    var cs=(typeof ST_PLAN!=='undefined' && ST_PLAN.crops)?ST_PLAN.crops:[];
+    if(cs.length!==3) return;
+    var isSeed=cs.every(function(c){ return c && c.crop==='Maize (white)' && !c.linkId
+      && String(c.plant||'').indexOf('Oct')===0 && String(c.harvest||'').indexOf('May')===0; });
+    if(isSeed) demoAlignForecast();
+  }catch(e){}
 }
 // Jump from a land to its line in Planning (and flash it)
 function cropViewInPlanning(id){
@@ -9319,6 +9363,7 @@ function bootAgriInsights() {
   // only sets the label; it never shifts transaction dates, so real data is untouched.)
   try { if (ST.budgets) ST.budgets.currentMonth = MONTH_LABELS_SHORT[APP_TODAY.getMonth()] + ' ' + APP_TODAY.getFullYear(); } catch(e){}
   try { cropInitialPlanSync(!loaded); } catch(e){}
+  try { demoRepairCrops(); } catch(e){}
   try { if(typeof planSyncToCurrentYear==='function') planSyncToCurrentYear(); } catch(e){}
   attachAutosave();
   registerServiceWorker();
@@ -24362,6 +24407,7 @@ function renderCfLineView(n){
   var drivers=_cfDrivers();
   _cfBuildLevers(drivers);
   cfBuildFeeds();
+  CF_SEL_M=-1; // re-default the selected month to the trough on a full re-render (period/tab change)
   cfLineRedraw();
   if(lineCard) lineCard.style.display='';
   if(bdEl)     bdEl.style.display='';
@@ -24369,13 +24415,44 @@ function renderCfLineView(n){
   if(fwdChart) fwdChart.style.display='none'; // the single line replaces the month bars
 }
 
-function cfLineRedraw(){ var months=_cfScenMonths(); if(months.length) drawCfLine(months, CF_FWD_N); }
+var CF_CHART_MODE='line';
+function cfChartMode(m){ CF_CHART_MODE=(m==='bars')?'bars':'line'; var bl=$('cfl-mode-line'), bb=$('cfl-mode-bars'); if(bl) bl.classList.toggle('on',CF_CHART_MODE==='line'); if(bb) bb.classList.toggle('on',CF_CHART_MODE==='bars'); cfLineRedraw(); }
+function _cfSetLegend(mode){ var el=$('cfl-legend'); if(!el) return; el.innerHTML=(mode==='bars')?'Each bar is that month’s <b>net</b> — money in minus money out. <span style="color:#c0392b;font-weight:800">Red</span> months you spend more than you earn. Tap a month for the breakdown.':'One line: your <b>estimated cash</b> as income and costs land through the year. Where it dips into the <span style="color:#c0392b;font-weight:800">red</span>, you’ll be short. Tap a month for the breakdown.'; }
+function cfLineRedraw(){ var months=_cfScenMonths(); if(!months.length) return; if(CF_CHART_MODE==='bars') drawCfBars(months, CF_FWD_N); else drawCfLine(months, CF_FWD_N); }
+
+function drawCfBars(months, n){
+  var W=960,H=270,padL=80,padR=22,padT=26,padB=42;
+  var nets=months.map(function(m){return (m.income||0)-(m.expenses||0);});
+  var bals=months.map(function(m){return m.balance;});
+  var minIdx=0; for(var k=1;k<bals.length;k++){ if(bals[k]<bals[minIdx]) minIdx=k; }
+  if(CF_SEL_M<0||CF_SEL_M>=months.length) CF_SEL_M=minIdx;
+  var maxAbs=Math.max.apply(null, nets.map(function(v){return Math.abs(v);}).concat([1]));
+  var mid=padT+(H-padT-padB)*0.5, halfH=(H-padT-padB)*0.40;
+  var nn=months.length, slotW=(W-padL-padR)/nn, bw=Math.min(48, slotW*0.52);
+  var out='';
+  out+='<text x="'+(padL-8)+'" y="'+(padT+8)+'" text-anchor="end" font-size="10.5" fill="#8a978f" font-weight="700">+'+fmtK(maxAbs)+'</text>';
+  out+='<line x1="'+padL+'" y1="'+mid+'" x2="'+(W-padR)+'" y2="'+mid+'" stroke="#d0d8d0" stroke-width="1.5"/>';
+  out+='<text x="'+(padL-8)+'" y="'+(mid+4)+'" text-anchor="end" font-size="10.5" fill="#8a978f" font-weight="700">R0</text>';
+  out+='<text x="'+(padL-8)+'" y="'+(H-padB-2)+'" text-anchor="end" font-size="10.5" fill="#8a978f" font-weight="700">−'+fmtK(maxAbs)+'</text>';
+  for(var i=0;i<nn;i++){ var cx=padL+slotW*(i+0.5), v=nets[i], h=Math.abs(v)/maxAbs*halfH, on=(i===CF_SEL_M), pos=(v>=0), y=pos?(mid-h):mid, col=pos?'#1b4332':'#c0392b';
+    out+='<rect x="'+(cx-slotW/2)+'" y="'+padT+'" width="'+slotW+'" height="'+(H-padT-padB)+'" fill="transparent" onclick="cfLineSel('+i+')" style="cursor:pointer"/>';
+    out+='<rect x="'+(cx-bw/2)+'" y="'+y+'" width="'+bw+'" height="'+Math.max(1.5,h)+'" rx="4" fill="'+col+'" opacity="'+(on?1:0.85)+'"'+(on?' stroke="#14281f" stroke-width="1"':'')+' style="pointer-events:none"/>';
+    out+='<text x="'+cx+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10.5" fill="'+(i===minIdx?'#c0392b':(on?'#1b4332':'#8a978f'))+'" font-weight="'+(on||i===minIdx?'800':'700')+'" style="pointer-events:none">'+months[i].name+'</text>';
+    out+='<text x="'+cx+'" y="'+(pos?(y-5):(y+h+13))+'" text-anchor="middle" font-size="9.5" fill="'+col+'" font-weight="800" style="pointer-events:none">'+(pos?'+':'−')+fmtK(Math.abs(v))+'</text>';
+  }
+  var host=$('cfl-line'); if(host) host.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" class="cfl-svg" xmlns="http://www.w3.org/2000/svg">'+out+'</svg>';
+  setEl('cfl-line-title','Money in vs out — next '+n+(n===1?' month':' months'));
+  _cfSetLegend('bars');
+  cfLineHeadline(months, minIdx);
+  cfBdRender(months, minIdx);
+}
 
 function drawCfLine(months, n){
-  var W=860,H=300,padL=64,padR=16,padT=18,padB=44;
+  var W=960,H=270,padL=80,padR=22,padT=22,padB=42;
   var bals=months.map(function(m){return m.balance;});
-  var maxB=Math.max.apply(null,bals.concat([0])), minB=Math.min.apply(null,bals.concat([0]));
-  var sp=Math.max(maxB-minB,1), yMax=maxB+sp*0.14, yMin=minB-sp*0.14; if(yMax<=yMin){ yMax+=1; yMin-=1; }
+  var lo=Math.min.apply(null,bals), hi=Math.max.apply(null,bals);
+  var rng=Math.max(hi-lo,1), yMax=hi+rng*0.25, yMin=lo-rng*0.25;
+  if(lo>=0 && yMin<0) yMin=Math.min(yMin,0);
   function X(i){ return padL + (months.length<=1?0:i*((W-padL-padR)/(months.length-1))); }
   function Y(v){ return padT + (yMax-v)/(yMax-yMin)*(H-padT-padB); }
   var minIdx=0; for(var k=1;k<bals.length;k++){ if(bals[k]<bals[minIdx]) minIdx=k; }
@@ -24383,14 +24460,16 @@ function drawCfLine(months, n){
   var out='';
   if(yMin<0) out+='<rect x="'+padL+'" y="'+Y(0)+'" width="'+(W-padL-padR)+'" height="'+(Y(yMin)-Y(0))+'" fill="#fdecec"/>';
   [yMax,(yMax+yMin)/2,0,yMin].forEach(function(g){ if(g>yMax||g<yMin) return; var y=Y(g); out+='<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="'+(Math.abs(g)<1?'#e0a0a0':'#eef1ec')+'" stroke-width="1"/>'; out+='<text x="'+(padL-8)+'" y="'+(y+4)+'" text-anchor="end" font-size="10.5" fill="#8a978f" font-weight="700">'+(g<0?'−':'')+fmtK(Math.abs(g))+'</text>'; });
-  for(var i=0;i<months.length;i++){ var on=(i===CF_SEL_M), cx=X(i), half=(months.length>1?((W-padL-padR)/(months.length-1))/2:20); out+='<rect x="'+(cx-half)+'" y="'+padT+'" width="'+(half*2)+'" height="'+(H-padB-padT)+'" fill="'+(on?'#eef4ef':'transparent')+'" onclick="cfLineSel('+i+')" style="cursor:pointer"/>'; out+='<text x="'+cx+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10.5" fill="'+(i===minIdx?'#c0392b':(on?'#1b4332':'#8a978f'))+'" font-weight="'+(i===minIdx||on?'800':'700')+'" style="pointer-events:none">'+months[i].name+'</text>'; }
+  for(var i=0;i<months.length;i++){ var on=(i===CF_SEL_M), cx=X(i), half=(months.length>1?((W-padL-padR)/(months.length-1))/2:20); out+='<rect x="'+(cx-half)+'" y="'+padT+'" width="'+(half*2)+'" height="'+(H-padB-padT)+'" fill="transparent" onclick="cfLineSel('+i+')" style="cursor:pointer"/>'; out+='<text x="'+cx+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10.5" fill="'+(i===minIdx?'#c0392b':(on?'#1b4332':'#8a978f'))+'" font-weight="'+(i===minIdx||on?'800':'700')+'" style="pointer-events:none">'+months[i].name+'</text>'; }
   var d='M'+X(0)+' '+Y(bals[0]); for(var j=1;j<months.length;j++) d+='L'+X(j)+' '+Y(bals[j]);
-  out+='<path d="'+d+'L'+X(months.length-1)+' '+Y(0)+'L'+X(0)+' '+Y(0)+'Z" fill="#eef4ef" style="pointer-events:none"/>';
+  out+='<path d="'+d+'L'+X(months.length-1)+' '+(H-padB)+'L'+X(0)+' '+(H-padB)+'Z" fill="#eef4ef" opacity="0.5" style="pointer-events:none"/>';
   out+='<path d="'+d+'" fill="none" stroke="#1b4332" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" style="pointer-events:none"/>';
-  for(var p=0;p<months.length;p++){ var neg=bals[p]<0; out+='<circle cx="'+X(p)+'" cy="'+Y(bals[p])+'" r="'+(p===minIdx?5:(p===CF_SEL_M?4:2.5))+'" fill="'+(neg||p===minIdx?'#c0392b':'#1b4332')+'" style="pointer-events:none"/>'; }
-  out+='<text x="'+X(minIdx)+'" y="'+(Y(bals[minIdx])+(bals[minIdx]<0?26:-12))+'" text-anchor="middle" font-size="12.5" font-weight="800" fill="#c0392b" style="pointer-events:none">'+(bals[minIdx]<0?'−':'')+fmtK(Math.abs(bals[minIdx]))+'</text>';
+  for(var p=0;p<months.length;p++){ var neg=bals[p]<0; out+='<circle cx="'+X(p)+'" cy="'+Y(bals[p])+'" r="'+(p===minIdx?5:(p===CF_SEL_M?4.5:3))+'" fill="'+(neg||p===minIdx?'#c0392b':'#1b4332')+'"'+(p===CF_SEL_M?' stroke="#fff" stroke-width="1.5"':'')+' style="pointer-events:none"/>'; }
+  var _tx=X(minIdx), _ta='middle'; if(minIdx===0){ _ta='start'; _tx=X(0)+6; } else if(minIdx===months.length-1){ _ta='end'; _tx=X(months.length-1)-6; }
+  out+='<text x="'+_tx+'" y="'+(Y(bals[minIdx])+(bals[minIdx]<0?26:-12))+'" text-anchor="'+_ta+'" font-size="12.5" font-weight="800" fill="#c0392b" style="pointer-events:none">'+(bals[minIdx]<0?'−':'')+fmtK(Math.abs(bals[minIdx]))+'</text>';
   var host=$('cfl-line'); if(host) host.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" class="cfl-svg" xmlns="http://www.w3.org/2000/svg">'+out+'</svg>';
   setEl('cfl-line-title','Cash on hand — next '+n+(n===1?' month':' months'));
+  _cfSetLegend('line');
   cfLineHeadline(months, minIdx);
   cfBdRender(months, minIdx);
 }
