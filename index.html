@@ -294,7 +294,9 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 #pg-cashflow .cfl-sl{display:flex;align-items:center;gap:12px;margin-bottom:12px}
 #pg-cashflow .cfl-sl .l{width:160px;flex:none;font-size:12.5px;font-weight:700;color:var(--t2)}
 #pg-cashflow .cfl-sl .l small{display:block;font-size:9.5px;color:var(--t4);font-weight:700}
-#pg-cashflow .cfl-sl input[type=range]{flex:1;accent-color:var(--gd)}
+#pg-cashflow .cfl-sl input[type=range]{flex:1;-webkit-appearance:none;appearance:none;height:6px;border-radius:4px;background:#dfe3e7;outline:none;margin:0}
+#pg-cashflow .cfl-sl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--gd);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+#pg-cashflow .cfl-sl input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--gd);cursor:pointer}
 #pg-cashflow .cfl-sl .v{width:100px;text-align:right;font-size:12.5px;font-weight:800;color:var(--gd);font-variant-numeric:tabular-nums}
 #pg-cashflow .cfl-presets{display:flex;gap:6px}
 #pg-cashflow .cfl-preset{font-size:11px;font-weight:800;border-radius:999px;padding:6px 12px;border:1px solid var(--br);background:#fff;color:var(--t3);cursor:pointer}
@@ -24384,7 +24386,22 @@ function _cfDrivers(){
   return out.slice(0,4);
 }
 
-var CF_SCEN = {adj:{}, prod:0}, CF_SEL_M = -1, CF_DRIVER_KEYS = [], CF_BASE = [], CF_FWD_N = 6;
+var CF_SCEN = {adj:{}, prod:0}, CF_SEL_M = -1, CF_DRIVER_KEYS = [], CF_BASE = [], CF_FWD_N = 6, CF_PTS = [];
+// Hidden hover/tap tooltip appended to the chart SVG; positioned by cfLinePeek from CF_PTS.
+function _cfTipSvg(){ return '<g id="cfl-tip" style="display:none;pointer-events:none"><rect id="cfl-tip-bg" rx="5" fill="#14281f"/><text id="cfl-tip-tx" fill="#fff" font-size="12" font-weight="800" text-anchor="middle"></text></g>'; }
+function cfLinePeek(i){
+  var p=CF_PTS[i]; if(!p) return;
+  var g=document.getElementById('cfl-tip'); if(!g) return;
+  var bg=document.getElementById('cfl-tip-bg'), tx=document.getElementById('cfl-tip-tx'); if(!bg||!tx) return;
+  var s=p.name+' · '+(p.val<0?'−':'')+fmtK(Math.abs(p.val));
+  tx.textContent=s;
+  var w=s.length*7+16, h=21, top=p.y-8-h; if(top<24) top=p.y+8;
+  var x=Math.max(82, Math.min(938-w, p.x-w/2));
+  bg.setAttribute('x',x); bg.setAttribute('y',top); bg.setAttribute('width',w); bg.setAttribute('height',h);
+  tx.setAttribute('x',x+w/2); tx.setAttribute('y',top+14.5);
+  g.style.display='';
+}
+function cfLineTipHide(){ var g=document.getElementById('cfl-tip'); if(g) g.style.display='none'; }
 
 function _cfScenG(){
   var drivers=_cfDrivers(), tot=drivers.reduce(function(s,d){return s+d.value;},0)||1, G=1;
@@ -24434,12 +24451,15 @@ function drawCfBars(months, n){
   out+='<line x1="'+padL+'" y1="'+mid+'" x2="'+(W-padR)+'" y2="'+mid+'" stroke="#d0d8d0" stroke-width="1.5"/>';
   out+='<text x="'+(padL-8)+'" y="'+(mid+4)+'" text-anchor="end" font-size="10.5" fill="#8a978f" font-weight="700">R0</text>';
   out+='<text x="'+(padL-8)+'" y="'+(H-padB-2)+'" text-anchor="end" font-size="10.5" fill="#8a978f" font-weight="700">−'+fmtK(maxAbs)+'</text>';
+  CF_PTS=[];
   for(var i=0;i<nn;i++){ var cx=padL+slotW*(i+0.5), v=nets[i], h=Math.abs(v)/maxAbs*halfH, on=(i===CF_SEL_M), pos=(v>=0), y=pos?(mid-h):mid, col=pos?'#1b4332':'#c0392b';
-    out+='<rect x="'+(cx-slotW/2)+'" y="'+padT+'" width="'+slotW+'" height="'+(H-padT-padB)+'" fill="transparent" onclick="cfLineSel('+i+')" style="cursor:pointer"/>';
+    CF_PTS.push({x:cx, y:pos?y:(mid+h), name:months[i].name, val:v});
+    out+='<rect x="'+(cx-slotW/2)+'" y="'+padT+'" width="'+slotW+'" height="'+(H-padT-padB)+'" fill="transparent" onclick="cfLineSel('+i+')" onmouseover="cfLinePeek('+i+')" onmouseout="cfLineTipHide()" style="cursor:pointer"/>';
     out+='<rect x="'+(cx-bw/2)+'" y="'+y+'" width="'+bw+'" height="'+Math.max(1.5,h)+'" rx="4" fill="'+col+'" opacity="'+(on?1:0.85)+'"'+(on?' stroke="#14281f" stroke-width="1"':'')+' style="pointer-events:none"/>';
     out+='<text x="'+cx+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10.5" fill="'+(i===minIdx?'#c0392b':(on?'#1b4332':'#8a978f'))+'" font-weight="'+(on||i===minIdx?'800':'700')+'" style="pointer-events:none">'+months[i].name+'</text>';
     out+='<text x="'+cx+'" y="'+(pos?(y-5):(y+h+13))+'" text-anchor="middle" font-size="9.5" fill="'+col+'" font-weight="800" style="pointer-events:none">'+(pos?'+':'−')+fmtK(Math.abs(v))+'</text>';
   }
+  out+=_cfTipSvg();
   var host=$('cfl-line'); if(host) host.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" class="cfl-svg" xmlns="http://www.w3.org/2000/svg">'+out+'</svg>';
   setEl('cfl-line-title','Money in vs out — next '+n+(n===1?' month':' months'));
   _cfSetLegend('bars');
@@ -24460,13 +24480,16 @@ function drawCfLine(months, n){
   var out='';
   if(yMin<0) out+='<rect x="'+padL+'" y="'+Y(0)+'" width="'+(W-padL-padR)+'" height="'+(Y(yMin)-Y(0))+'" fill="#fdecec"/>';
   [yMax,(yMax+yMin)/2,0,yMin].forEach(function(g){ if(g>yMax||g<yMin) return; var y=Y(g); out+='<line x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'" stroke="'+(Math.abs(g)<1?'#e0a0a0':'#eef1ec')+'" stroke-width="1"/>'; out+='<text x="'+(padL-8)+'" y="'+(y+4)+'" text-anchor="end" font-size="10.5" fill="#8a978f" font-weight="700">'+(g<0?'−':'')+fmtK(Math.abs(g))+'</text>'; });
-  for(var i=0;i<months.length;i++){ var on=(i===CF_SEL_M), cx=X(i), half=(months.length>1?((W-padL-padR)/(months.length-1))/2:20); out+='<rect x="'+(cx-half)+'" y="'+padT+'" width="'+(half*2)+'" height="'+(H-padB-padT)+'" fill="transparent" onclick="cfLineSel('+i+')" style="cursor:pointer"/>'; out+='<text x="'+cx+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10.5" fill="'+(i===minIdx?'#c0392b':(on?'#1b4332':'#8a978f'))+'" font-weight="'+(i===minIdx||on?'800':'700')+'" style="pointer-events:none">'+months[i].name+'</text>'; }
+  for(var i=0;i<months.length;i++){ var on=(i===CF_SEL_M), cx=X(i), half=(months.length>1?((W-padL-padR)/(months.length-1))/2:20); out+='<rect x="'+(cx-half)+'" y="'+padT+'" width="'+(half*2)+'" height="'+(H-padB-padT)+'" fill="transparent" onclick="cfLineSel('+i+')" onmouseover="cfLinePeek('+i+')" onmouseout="cfLineTipHide()" style="cursor:pointer"/>'; out+='<text x="'+cx+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10.5" fill="'+(i===minIdx?'#c0392b':(on?'#1b4332':'#8a978f'))+'" font-weight="'+(i===minIdx||on?'800':'700')+'" style="pointer-events:none">'+months[i].name+'</text>'; }
   var d='M'+X(0)+' '+Y(bals[0]); for(var j=1;j<months.length;j++) d+='L'+X(j)+' '+Y(bals[j]);
   out+='<path d="'+d+'L'+X(months.length-1)+' '+(H-padB)+'L'+X(0)+' '+(H-padB)+'Z" fill="#eef4ef" opacity="0.5" style="pointer-events:none"/>';
   out+='<path d="'+d+'" fill="none" stroke="#1b4332" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" style="pointer-events:none"/>';
-  for(var p=0;p<months.length;p++){ var neg=bals[p]<0; out+='<circle cx="'+X(p)+'" cy="'+Y(bals[p])+'" r="'+(p===minIdx?5:(p===CF_SEL_M?4.5:3))+'" fill="'+(neg||p===minIdx?'#c0392b':'#1b4332')+'"'+(p===CF_SEL_M?' stroke="#fff" stroke-width="1.5"':'')+' style="pointer-events:none"/>'; }
+  CF_PTS=[];
+  for(var p=0;p<months.length;p++){ var neg=bals[p]<0; CF_PTS.push({x:X(p), y:Y(bals[p]), name:months[p].name, val:bals[p]}); out+='<circle cx="'+X(p)+'" cy="'+Y(bals[p])+'" r="'+(p===minIdx?5:(p===CF_SEL_M?4.5:3))+'" fill="'+(neg||p===minIdx?'#c0392b':'#1b4332')+'"'+(p===CF_SEL_M?' stroke="#fff" stroke-width="1.5"':'')+' style="pointer-events:none"/>'; }
   var _tx=X(minIdx), _ta='middle'; if(minIdx===0){ _ta='start'; _tx=X(0)+6; } else if(minIdx===months.length-1){ _ta='end'; _tx=X(months.length-1)-6; }
-  out+='<text x="'+_tx+'" y="'+(Y(bals[minIdx])+(bals[minIdx]<0?26:-12))+'" text-anchor="'+_ta+'" font-size="12.5" font-weight="800" fill="#c0392b" style="pointer-events:none">'+(bals[minIdx]<0?'−':'')+fmtK(Math.abs(bals[minIdx]))+'</text>';
+  var _tly=Math.min(Y(bals[minIdx])+20, H-padB-6); // below the trough point — the always-clear side of a valley
+  out+='<text x="'+_tx+'" y="'+_tly+'" text-anchor="'+_ta+'" font-size="12.5" font-weight="800" fill="#c0392b" style="pointer-events:none">'+(bals[minIdx]<0?'−':'')+fmtK(Math.abs(bals[minIdx]))+'</text>';
+  out+=_cfTipSvg();
   var host=$('cfl-line'); if(host) host.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" class="cfl-svg" xmlns="http://www.w3.org/2000/svg">'+out+'</svg>';
   setEl('cfl-line-title','Cash on hand — next '+n+(n===1?' month':' months'));
   _cfSetLegend('line');
@@ -24489,7 +24512,7 @@ function cfLineHeadline(months, minIdx){
   }
 }
 
-function cfLineSel(i){ CF_SEL_M=+i; cfLineRedraw(); }
+function cfLineSel(i){ CF_SEL_M=+i; cfLineRedraw(); cfLinePeek(i); }
 
 function cfBdRender(months, minIdx){
   var m=months[CF_SEL_M]; if(!m) return;
