@@ -301,6 +301,18 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 #pg-cashflow .cfl-presets{display:flex;gap:6px}
 #pg-cashflow .cfl-preset{font-size:11px;font-weight:800;border-radius:999px;padding:6px 12px;border:1px solid var(--br);background:#fff;color:var(--t3);cursor:pointer}
 #pg-cashflow .cfl-preset.on{background:var(--gd);border-color:var(--gd);color:#fff}
+/* collapsible What-if card (sits between the chart and the month breakdown) */
+#pg-cashflow .cfl-wif{background:#fff;border:1px solid var(--br);border-radius:var(--rl);margin-bottom:14px;box-shadow:var(--sh);overflow:hidden}
+#pg-cashflow .cfl-wif.open{border-color:var(--gp)}
+#pg-cashflow .cfl-wif-head{display:flex;align-items:center;gap:12px;padding:13px 18px;cursor:pointer;user-select:none;flex-wrap:wrap}
+#pg-cashflow .cfl-wif-t{font-size:14px;font-weight:800;display:flex;align-items:center;gap:7px}
+#pg-cashflow .cfl-wif-res{margin-left:auto;font-size:12px;font-weight:800;color:var(--gd);white-space:nowrap}
+#pg-cashflow .cfl-wif-res.warn{color:#b4530a}
+#pg-cashflow .cfl-wif-x{width:26px;height:26px;border-radius:8px;border:1px solid var(--br);display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:12px;font-weight:800;background:#fff;flex:none;transition:transform .2s}
+#pg-cashflow .cfl-wif.open .cfl-wif-x{transform:rotate(180deg)}
+#pg-cashflow .cfl-wif-body{max-height:0;overflow:hidden;transition:max-height .28s ease}
+#pg-cashflow .cfl-wif.open .cfl-wif-body{max-height:340px}
+#pg-cashflow .cfl-wif-inner{padding:4px 18px 16px;border-top:1px solid var(--br2)}
 
 #pg-cashflow .fwd-chart{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:18px 22px;box-shadow:var(--sh)}
 #pg-cashflow .fwd-chart-h{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:4px}
@@ -6423,6 +6435,22 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="cfl-feeds" id="cfl-feeds"></div>
   </div>
 
+  <!-- new: collapsible What-if — sits between the chart and the month breakdown, closable -->
+  <div class="cfl-wif open" id="cfl-wi-card" style="display:none">
+    <div class="cfl-wif-head" onclick="cfWifToggle()">
+      <span class="cfl-wif-t">🎚️ What if…</span>
+      <span class="cfl-presets" onclick="event.stopPropagation()"><span class="cfl-preset on" id="cfl-pre-base" onclick="cfScenPreset('base')">Base</span><span class="cfl-preset" id="cfl-pre-bad" onclick="cfScenPreset('bad')">Bad year</span><span class="cfl-preset" id="cfl-pre-good" onclick="cfScenPreset('good')">Good year</span></span>
+      <span class="cfl-wif-res" id="cfl-wi-res"></span>
+      <span class="cfl-wif-x" id="cfl-wi-x">▾</span>
+    </div>
+    <div class="cfl-wif-body">
+      <div class="cfl-wif-inner">
+        <div class="cfl-wi-cap" id="cfl-wi-cap"></div>
+        <div id="cfl-levers"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- new: collapsible month breakdown (default closed) -->
   <details class="cfl-bd" id="cfl-bd" style="display:none">
     <summary><span class="bm" id="cfl-bd-month">—</span><span class="btag" id="cfl-bd-tag" style="display:none">tightest month</span><span class="bnet" id="cfl-bd-net"></span><span class="bchev">▾</span></summary>
@@ -6479,13 +6507,6 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         These items are added on top of your crop plan in the forecast. To edit, head to <a onclick="nav('settings')" style="color:var(--gd);font-weight:700;cursor:pointer;text-decoration:underline">settings &rsaquo; recurring</a>.
       </div>
     </div>
-  </div>
-
-  <!-- new: What-if scenario levers (adaptive to the farm's own commodities) -->
-  <div class="cfl-card" id="cfl-wi-card" style="display:none">
-    <div class="cfl-h" style="text-transform:none;font-size:14px;color:var(--t1)"><span>🎚️ What if…</span><span class="cfl-presets"><span class="cfl-preset on" id="cfl-pre-base" onclick="cfScenPreset('base')">Base</span><span class="cfl-preset" id="cfl-pre-bad" onclick="cfScenPreset('bad')">Bad year</span><span class="cfl-preset" id="cfl-pre-good" onclick="cfScenPreset('good')">Good year</span></span></div>
-    <div class="cfl-wi-cap" id="cfl-wi-cap"></div>
-    <div id="cfl-levers"></div>
   </div>
 
   <!-- Calculation note -->
@@ -20098,6 +20119,7 @@ function recomputePlan() {
     m.events     = [];
     m.actIncome  = 0;
     m.actExpenses= 0;
+    m.lsRun      = 0;   // livestock running cost (feed + health) — populated in Step 3.5b
   });
 
   // ── Step 2: Distribute crop cycle figures across months ───
@@ -20198,6 +20220,28 @@ function recomputePlan() {
       });
     });
   });
+
+  // ── Step 3.5b: Ongoing livestock running costs (feed, licks, vet) for KEPT herds ──
+  // These hit cash flow every month whether or not animals are sold. Per-head monthly figure
+  // (h.feed + h.vet) × head count, spread across all months. Skips planned/removed herds and any
+  // herd already carrying a Herd-Plan (_hp) feed cost event (e.g. poultry) to avoid double-counting.
+  if(typeof entOn!=='function' || entOn('livestock')){
+    var _hpCostHerds = {};
+    (ST_PLAN.events||[]).forEach(function(e){ if(e && e._hp && e.type==='cost' && e.herdId!=null) _hpCostHerds[e.herdId]=true; });
+    (typeof ST_LS!=='undefined' && ST_LS.herd ? ST_LS.herd : []).forEach(function(h){
+      if(!h || h.removed || h.planned || h.inPlanning) return;
+      if(_hpCostHerds[h.id]) return;
+      var head=h.qty||0, perHead=(h.feed||0)+(h.vet||0);
+      if(head<=0 || perHead<=0) return;
+      var monthly=perHead*head;
+      for(var i=0;i<ST_PLAN.months.length;i++){
+        ST_PLAN.months[i].expenses += monthly;
+        ST_PLAN.months[i].lsRun = (ST_PLAN.months[i].lsRun||0) + monthly;
+        ST_PLAN.months[i].events = ST_PLAN.months[i].events || [];
+        ST_PLAN.months[i].events.push({ type:'cost', animal:(typeof lsHerdName==='function'?lsHerdName(h):(h.name||'Livestock')), icon:(typeof lsHerdIcon==='function'?lsHerdIcon(h):'🐄'), desc:'Feed & health', amount:-monthly });
+      }
+    });
+  }
 
   // ── Step 3.6: Distribute orchards / fruit & veg (auto-pulled from ST_FRUIT) ──
   if(typeof orPlanRows==='function'){
@@ -24379,8 +24423,19 @@ function _cfMonthFull(a){ var M={Jan:'January',Feb:'February',Mar:'March',Apr:'A
 // The farm's real income drivers — a price slider is built per driver, so the What-if adapts to whatever is farmed.
 function _cfDrivers(){
   var out=[];
-  try{ if(typeof ST_PLAN!=='undefined' && ST_PLAN.crops){ ST_PLAN.crops.forEach(function(c){ if(c.inForecast===false) return; var val=(c.ha||0)*(c.yield||0)*(c.price||0); if(val>0) out.push({key:'crop:'+(c.crop||'')+':'+(c.field||''), label:(c.crop||'Crop').split('(')[0].trim()+' price', value:val}); }); } }catch(e){}
-  try{ if(typeof ST_PLAN!=='undefined' && ST_PLAN.events){ var lv=0; ST_PLAN.events.forEach(function(e){ if(e.type==='sell'||e.type==='income'){ lv+=(e.qty||0)*(e.price||0)*(e.recur==='monthly'?12:(e.recur==='quarterly'?4:1)); } }); if(lv>0) out.push({key:'livestock', label:'Livestock prices', value:lv}); } }catch(e){}
+  // Merge crop lines by commodity so two maize fields make ONE "Maize price" slider (not a duplicate per field).
+  try{ if(typeof ST_PLAN!=='undefined' && ST_PLAN.crops){ var byCrop={};
+    ST_PLAN.crops.forEach(function(c){ if(c.inForecast===false) return; var val=(c.ha||0)*(c.yield||0)*(c.price||0); if(val<=0) return;
+      var nm=(c.crop||'Crop').split('(')[0].trim(), key='crop:'+nm.toLowerCase();
+      if(!byCrop[key]) byCrop[key]={key:key, label:nm+' price', value:0}; byCrop[key].value+=val; });
+    Object.keys(byCrop).forEach(function(k){ out.push(byCrop[k]); });
+  } }catch(e){}
+  // Livestock income the forecast actually uses: planActiveEvents() (this year's events + projected annuals),
+  // skipping realised (done) sales, and only when the livestock enterprise is on — so the slider matches the line.
+  try{ if((typeof entOn!=='function' || entOn('livestock')) && typeof planActiveEvents==='function'){ var lv=0;
+    planActiveEvents().forEach(function(e){ if(!e || e.done) return; if(e.type==='sell'||e.type==='income'){ lv+=(e.qty||0)*(e.price||0)*(e.recur==='monthly'?12:(e.recur==='quarterly'?4:1)); } });
+    if(lv>0) out.push({key:'livestock', label:'Livestock prices', value:lv});
+  } }catch(e){}
   try{ if(typeof orPlanRows==='function'){ var orv=0; orPlanRows().forEach(function(r){ orv+=r.income||0; }); if(orv>0) out.push({key:'orchard', label:'Fruit / orchard prices', value:orv}); } }catch(e){}
   out.sort(function(a,b){ return b.value-a.value; });
   return out.slice(0,4);
@@ -24510,7 +24565,11 @@ function cfLineHeadline(months, minIdx){
     setEl('cf-fwd-answer-h','Cash stays positive all year');
     setEl('cf-fwd-answer-s','Your leanest month is '+_cfMonthFull(m.name)+' at about '+fmtK(m.balance)+' — tight, but you don’t go under.');
   }
+  // live read-out on the collapsible What-if header (visible even when it's closed)
+  var wr=$('cfl-wi-res');
+  if(wr){ wr.className='cfl-wif-res'+(m.balance<0?' warn':''); wr.textContent='Leanest: '+m.name+' · '+(m.balance<0?'−':'')+fmtK(Math.abs(m.balance)); }
 }
+function cfWifToggle(){ var c=$('cfl-wi-card'); if(!c) return; c.classList.toggle('open'); var x=$('cfl-wi-x'); if(x) x.textContent=c.classList.contains('open')?'▾':'▸'; }
 
 function cfLineSel(i){ CF_SEL_M=+i; cfLineRedraw(); cfLinePeek(i); }
 
@@ -24749,7 +24808,7 @@ var sug = $('cf-suggestion');
 var planEl = $('cf-plan-status');
   if (planEl) {
     var planHasIncome = ST_PLAN && ST_PLAN.months &&
-                        ST_PLAN.months.some(function(m){ return m.income > 0; });
+                        ST_PLAN.months.some(function(m){ return m.income > 0 || m.expenses > 0; });
     if (planHasIncome) {
       planEl.textContent = 'Your forecast is using your current crop plan.';
     } else {
@@ -24931,7 +24990,7 @@ var balance;
   }
 
 var planHasIncome = ST_PLAN && ST_PLAN.months &&
-                      ST_PLAN.months.some(function(m){ return m.income > 0; });
+                      ST_PLAN.months.some(function(m){ return m.income > 0 || m.expenses > 0; }); // expense-only plans (e.g. kept livestock) still drive the forecast
 
 var pastSum = txSummaryPeriod(3);
   var avgIn   = (pastSum.income   / 3) || 0;
@@ -24964,12 +25023,13 @@ var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec
     var yr   = cy + Math.floor(ofs / 12);
     var label = MO[mIdx] + ' ' + yr;
 
-var cropInc = 0, cropExp = 0, src = 'fallback';
+var cropInc = 0, cropExp = 0, lsRun = 0, src = 'fallback';
     if (planHasIncome) {
       var pm = ST_PLAN.months.find(function(x){ return x.label === label; });
       if (pm && (pm.income > 0 || pm.expenses > 0)) {
         cropInc = pm.income   || 0;
         cropExp = pm.expenses || 0;
+        lsRun   = pm.lsRun    || 0;   // livestock feed & health portion of cropExp
         src = 'plan';
       }
     }
@@ -25006,10 +25066,12 @@ var inc, exp;
 
     // Itemised cash lines for this month's drill-down / breakdown — crop + recurring + every finance/tax stream.
     var lines = [];
-    if (cropInc > 0)  lines.push({label:'Crop plan income', src:'Crop plan', amt: cropInc});
+    if (cropInc > 0)  lines.push({label:'Farm plan income', src:'Farm plan', amt: cropInc});
     if (rec.inc  > 0) lines.push({label:'Recurring income', src:'Recurring', amt: rec.inc});
-    if (cropExp > 0)  lines.push({label:'Crop plan costs',  src:'Crop plan', amt: -cropExp});
-    if (rec.exp  > 0) lines.push({label:'Recurring bills',  src:'Recurring', amt: -rec.exp});
+    var otherExp = cropExp - lsRun;   // crops + orchards + livestock sale/buy events (the livestock feed/health part is broken out)
+    if (otherExp > 0) lines.push({label:'Farm plan costs',           src:'Farm plan',  amt: -otherExp});
+    if (lsRun    > 0) lines.push({label:'Livestock feed & health',   src:'Livestock',  amt: -lsRun});
+    if (rec.exp  > 0) lines.push({label:'Recurring bills',           src:'Recurring',  amt: -rec.exp});
     fin.lines.forEach(function(x){ lines.push(x); });
 
     months.push({
