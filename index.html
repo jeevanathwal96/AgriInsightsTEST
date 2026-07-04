@@ -5022,17 +5022,23 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
   <!-- Tabs -->
   <div class="tabs" style="margin-bottom:16px">
-    <div class="tab on"  id="ls-tab-camps"     onclick="lsTab('camps')">My Animals</div>
+    <div class="tab on"  id="ls-tab-herd"      onclick="lsTab('herd')">Herd</div>
     <div class="tab"     id="ls-tab-breeding"  onclick="lsTab('breeding')">Breeding</div>
     <div class="tab"     id="ls-tab-health"    onclick="lsTab('health')">Health</div>
-    <div class="tab"     id="ls-tab-register"  onclick="lsTab('register')">Register</div>
-    <div class="tab"     id="ls-tab-insights"  onclick="lsTab('insights')">Insights</div>
     <div class="tab"     id="ls-tab-plan"      onclick="lsTab('plan')">Plan</div>
-    <div class="tab"     id="ls-tab-add"       onclick="lsTab('add')">Add</div>
   </div>
 
 
-  <!-- ── CAMPS ── -->
+  <!-- ── HERD sub-segment (Overview / Productivity / Records) ── -->
+  <div id="ls-view-herd" style="display:none">
+    <div class="pf-tabs" style="max-width:440px">
+      <button id="ls-hsub-overview"     class="on" onclick="lsHerdSub('overview')">Overview</button>
+      <button id="ls-hsub-productivity"            onclick="lsHerdSub('productivity')">Productivity</button>
+      <button id="ls-hsub-records"                 onclick="lsHerdSub('records')">Records</button>
+    </div>
+  </div>
+
+  <!-- ── CAMPS (Herd → Overview) ── -->
   <div id="ls-view-camps" style="display:none">
     <div id="ls-camps-list" style="display:flex;flex-direction:column;gap:0"></div>
   </div>
@@ -5093,7 +5099,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div id="ls-hm-filter" class="lshm-filt"></div>
     <div style="display:flex;margin-bottom:14px"><button class="btn-pri" style="margin-left:auto" onclick="lsTrFormOpen()">+ Log a treatment</button></div>
     <div id="ls-hm-table"></div>
-    <div style="font-size:12px;color:var(--t3);background:var(--br2);border-radius:var(--rs);padding:10px 13px;line-height:1.55;margin-top:14px">Each entry does two jobs: the <b>Cost</b> feeds your SARS S11(a) deductions and the <b>Status</b> tracks the safe-to-sell date — log a vaccination once, not twice. Births, deaths and sales are recorded in the <b>Stock Register</b>.</div>
+    <div style="font-size:12px;color:var(--t3);background:var(--br2);border-radius:var(--rs);padding:10px 13px;line-height:1.55;margin-top:14px">Each entry does two jobs: the <b>Cost</b> feeds your SARS S11(a) deductions and the <b>Status</b> tracks the safe-to-sell date — log a vaccination once, not twice. Births, deaths and sales are recorded under <b>Herd → Records</b>.</div>
     <div class="ls-rpt-divider"></div>
     <div class="ls-rpt-label">Report</div>
     <button class="ls-report-cta med" onclick="openMedicineAuditReport()"><span class="ic">💉</span><span class="tx"><span class="t">Medicine &amp; Vaccine Audit Report</span><span class="s">Full treatment register, active withdrawals and antibiotic-use summary — export PDF / CSV.</span></span><span class="ar">›</span></button>
@@ -14986,24 +14992,34 @@ function _broilerBench(type){ var v=POULTRY_BENCH.variants[type]||{}; var b={}; 
 function _layerBench(type){ var v=POULTRY_BENCH.variants[type]||{}; var b={}; for(var k in POULTRY_BENCH.layer) b[k]=POULTRY_BENCH.layer[k]; for(var k2 in v){ if(k2!=='model') b[k2]=v[k2]; } return b; }
 
 function lsNextHerdId(){ var m=0; (ST_LS.herd||[]).forEach(function(h){ var n=parseInt(h.id,10); if(!isNaN(n)&&n>m) m=n; }); return m+1; }
-function lsTab(tab) {
+var LS_HERD_SUB='overview';
+function lsTab(tab, sub) {
   try { if(window.AI && AI.farm && AI.farm.active() && window.ST_LS){ AI.livestock.saveAll(ST_LS).catch(function(e){ console.error('Backend livestock save failed:', e); }); } } catch(e){}
-  var views  = ['camps','breeding','insights','register','health','plan','add'];
-  var labels = {overview:'Overview of your herd',camps:'Camps \u2014 what\u2019s grazing where',breeding:'Breeding & calving \u2014 the number that pays the bills',insights:'Herd makeup & productivity',register:'Stock reconciliation & SARS values',health:'Treatments & health \u2014 cost and compliance in one place',plan:'Plan the season ahead \u2014 keep, sell &amp; cash',add:'Add livestock to your herd'};
-  views.forEach(function(v){
-    var view=$('ls-view-'+v), btn=$('ls-tab-'+v);
-    if(view) view.style.display = v===tab?'':'none';
-    if(btn)  btn.classList.toggle('on', v===tab);
-  });
-  var sub=$('ls-tab-sub'); if(sub) sub.textContent=labels[tab]||'';
+  // Back-compat: the old My Animals / Insights / Register tabs now live inside "Herd".
+  if(tab==='camps')    return lsTab('herd','overview');
+  if(tab==='insights') return lsTab('herd','productivity');
+  if(tab==='register') return lsTab('herd','records');
+  var labels = {herd:'Your herd \u2014 where they are, how they\u2019re doing & the stock register',breeding:'Breeding & calving \u2014 the number that pays the bills',health:'Treatments & health \u2014 cost and compliance in one place',plan:'Plan the season ahead \u2014 keep, sell &amp; cash',add:'Add livestock to your herd'};
+  // hide every livestock view, then reveal the one for this tab
+  ['herd','breeding','health','plan','add','camps','insights','register'].forEach(function(v){ var el=$('ls-view-'+v); if(el) el.style.display='none'; });
+  ['herd','breeding','health','plan'].forEach(function(v){ var btn=$('ls-tab-'+v); if(btn) btn.classList.toggle('on', v===tab); });
+  var subLbl=$('ls-tab-sub'); if(subLbl) subLbl.textContent=labels[tab]||'';
   if(tab==='move'){ lsMoveOpen(); return; }
-  if(tab==='camps')     renderCamps();
-  if(tab==='breeding')  renderBreeding();
-  if(tab==='insights')  renderHerdInsights();
-  if(tab==='register')  renderStockRegister();
-  if(tab==='health')    renderHealthMed();
-  if(tab==='plan')      renderHerdPlan();
-  if(tab==='add') { var d=$('add-ls-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; var ts=$('add-ls-type'); if(ts) ts.innerHTML=animalOptions(ts.value); addLsFillCamps(); }
+  if(tab==='herd'){ var hv=$('ls-view-herd'); if(hv) hv.style.display=''; lsHerdSub(sub||LS_HERD_SUB); return; }
+  if(tab==='breeding'){ var bv=$('ls-view-breeding'); if(bv) bv.style.display=''; renderBreeding(); return; }
+  if(tab==='health'){ var ev=$('ls-view-health'); if(ev) ev.style.display=''; renderHealthMed(); return; }
+  if(tab==='plan'){ var pv=$('ls-view-plan'); if(pv) pv.style.display=''; renderHerdPlan(); return; }
+  if(tab==='add'){ var av=$('ls-view-add'); if(av) av.style.display=''; var d=$('add-ls-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; var ts=$('add-ls-type'); if(ts) ts.innerHTML=animalOptions(ts.value); addLsFillCamps(); return; }
+}
+// Herd sub-segment: Overview (camps) / Productivity (insights) / Records (register) \u2014 reuses the existing views.
+function lsHerdSub(sub){
+  sub=sub||'overview'; LS_HERD_SUB=sub;
+  var map={overview:'camps',productivity:'insights',records:'register'};
+  ['camps','insights','register'].forEach(function(v){ var el=$('ls-view-'+v); if(el) el.style.display=(map[sub]===v)?'':'none'; });
+  ['overview','productivity','records'].forEach(function(s){ var b=$('ls-hsub-'+s); if(b) b.classList.toggle('on', s===sub); });
+  if(sub==='overview') renderCamps();
+  else if(sub==='productivity') renderHerdInsights();
+  else if(sub==='records') renderStockRegister();
 }
 
 function openEditHerd(idx) {
@@ -15702,7 +15718,7 @@ function renderHerdPlan(presetHerd){
   var herds=_hpHerds();
   if(!herds.length){
     body.innerHTML='<div class="card" style="max-width:560px"><div style="font-size:13px;color:var(--t3);line-height:1.6">The planner works on herds split into classes (cows, heifers, steers\u2026). '+
-      'Add a herd with its class breakdown on <b>My Animals</b> first, then come back to plan the season ahead.</div></div>';
+      'Add a herd with its class breakdown in <b>Overview</b> first, then come back to plan the season ahead.</div></div>';
     return;
   }
   // init state on first open or herd change
@@ -16858,7 +16874,7 @@ function hpAddToForecast(){
   }
   // start-new: buy-in of breeding stock + sires
   if(P.mode==='start'){
-    // mark this planned herd as "in planning" so it shows (badged) on My Animals etc. with the intended stock,
+    // mark this planned herd as "in planning" so it shows (badged) in Overview etc. with the intended stock,
     // until the farmer confirms the buy (makes it real) or removes it.
     if(h.planned){
       var breedK=lsBreedingClass(h.type), sireK=lsSireClass(h.type);
@@ -16878,7 +16894,7 @@ function hpAddToForecast(){
   }
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
-  if(h.inPlanning){ try{ toast(added+' planned buy/cost added \u2014 \u201c'+lsHerdName(h)+'\u201d now shows In planning on My Animals until you confirm the buy.','success'); }catch(e){} }
+  if(h.inPlanning){ try{ toast(added+' planned buy/cost added \u2014 \u201c'+lsHerdName(h)+'\u201d now shows In planning in Overview until you confirm the buy.','success'); }catch(e){} }
   else { toast(added+' planned event'+(added===1?'':'s')+' added as a scenario \u2014 see Planning \u00b7 Livestock to confirm.','success'); }
 }
 
@@ -16892,7 +16908,7 @@ function renderHerdInsights(){
   var act = LS_INS_FILTER==='all' ? allAct : allAct.filter(function(h){return animalBase(h.type)===LS_INS_FILTER;});
   var fyLabel=(typeof fyLabelNow==='function')?fyLabelNow():'this season';
   if(!allAct.length){
-    el.innerHTML='<div class="ls-empty"><div class="ls-empty-top"><span class="ls-empty-ic">\uD83D\uDC04</span><span class="ls-empty-h">No animals yet</span></div><div class="ls-empty-p">Add a herd on My Animals and your insights build here.</div><button class="ls-empty-btn" onclick="lsTab(\u0027camps\u0027)">Go to My Animals \u203a</button></div>';
+    el.innerHTML='<div class="ls-empty"><div class="ls-empty-top"><span class="ls-empty-ic">\uD83D\uDC04</span><span class="ls-empty-h">No animals yet</span></div><div class="ls-empty-p">Add a herd and your productivity insights build here.</div><button class="ls-empty-btn" onclick="lsTab(\u0027camps\u0027)">Go to Overview \u203a</button></div>';
     return;
   }
   el.innerHTML =
@@ -17061,7 +17077,7 @@ function _lsSeasonZone(act){
   var lockLine = locked.length ? '<div class="ls-locked" onclick="lsMoveOpen()">\u23F3 <span><b>'+locked.join(', ')+'</b> unlock'+(locked.length===1?'s':'')+' once you log births, deaths &amp; sales.</span><span class="go">Record \u203a</span></div>' : '';
 
   if(!heads.length){
-    return '<div class="ls-prodnote">Log births, deaths and sales (from My Animals) and this season\u2019s rates fill in here \u2014 never a guessed number.</div>'+lockLine;
+    return '<div class="ls-prodnote">Log births, deaths and sales (in Records) and this season\u2019s rates fill in here \u2014 never a guessed number.</div>'+lockLine;
   }
   return headRow + lockLine;
 }
@@ -17108,8 +17124,8 @@ function _lsSnapshotZone(act){
   var known=F+M+Y;
   if(!known){
     out+=_lsSnapCard('makeup','\uD83D\uDC1F','Herd makeup','Not split into classes yet','',
-      '<div class="ls-snap-means">Break a group into males, females &amp; young (on My Animals) to see your herd makeup, breeding ratios and rates.</div>'+
-      '<button class="ls-snap-act" onclick="lsTab(\'camps\')">\u2194 Go to My Animals \u2192</button>');
+      '<div class="ls-snap-means">Break a group into males, females &amp; young (in Overview) to see your herd makeup, breeding ratios and rates.</div>'+
+      '<button class="ls-snap-act" onclick="lsTab(\'camps\')">\u2194 Go to Overview \u2192</button>');
   } else {
     var pf=Math.round(F/known*100),pm=Math.round(M/known*100),py=100-pf-pm;
     var right='<span class="ls-pill ok">'+withCls+' of '+act.length+'</span>';
@@ -17821,10 +17837,10 @@ var BR_FORM = null; // {kind:'season'|'pd'|'calving'|'weaning', herdId, brId}
 function lsGestation(type){ var b=animalBase(type); return b==='Cattle'?283:b==='Sheep'?147:b==='Goats'?150:b==='Pigs'?114:b==='Game'?240:250; }
 function lsWeanAge(type){ var b=animalBase(type); return b==='Cattle'?205:b==='Sheep'?120:b==='Goats'?110:b==='Pigs'?42:150; }
 function _brTerm(type){ var b=animalBase(type);
-  return b==='Sheep'?{ev:'Lambing',young:'lambs',single:'lamb',verb:'lamb',fem:'ewes',femSingle:'ewe',sire:'ram'}
-    :b==='Goats'?{ev:'Kidding',young:'kids',single:'kid',verb:'kid',fem:'does',femSingle:'doe',sire:'buck'}
-    :b==='Pigs'?{ev:'Farrowing',young:'piglets',single:'piglet',verb:'farrow',fem:'sows',femSingle:'sow',sire:'boar'}
-    :{ev:'Calving',young:'calves',single:'calf',verb:'calve',fem:'cows',femSingle:'cow',sire:'bull'}; }
+  return b==='Sheep'?{ev:'Lambing',young:'lambs',single:'lamb',verb:'lamb',fem:'ewes',femSingle:'ewe',sire:'ram',sireIcon:'🐏',bornIcon:'🐑'}
+    :b==='Goats'?{ev:'Kidding',young:'kids',single:'kid',verb:'kid',fem:'does',femSingle:'doe',sire:'buck',sireIcon:'🐐',bornIcon:'🐐'}
+    :b==='Pigs'?{ev:'Farrowing',young:'piglets',single:'piglet',verb:'farrow',fem:'sows',femSingle:'sow',sire:'boar',sireIcon:'🐗',bornIcon:'🐖'}
+    :{ev:'Calving',young:'calves',single:'calf',verb:'calve',fem:'cows',femSingle:'cow',sire:'bull',sireIcon:'🐂',bornIcon:'🐄'}; }
 function lsBreedingHerds(){ return (ST_LS.herd||[]).filter(function(h){ return !h.planned && lsBreedingClass(h.type); }); }
 function lsHerdBreedings(id){ return (ST_LS.breedings||[]).filter(function(b){return b.herd===id;}).sort(function(a,b){return (a.start||'')<(b.start||'')?1:-1;}); }
 function _brFind(id){ return (ST_LS.breedings||[]).filter(function(b){return b.id===id;})[0]||null; }
@@ -17947,7 +17963,7 @@ function brGroupCard(h){
     : (function(){ var c=_brStatusChip(cur); return '<span class="br-gstat" style="background:'+c.bg+';color:'+c.c+'">'+c.t+'</span>'; })();
   var head='<div class="br-gh"><span class="br-gi">'+icon+'</span><div style="min-width:0"><div class="br-gt">'+esc(lsHerdName(h))+'</div><div class="br-gs">'+esc(h.breed||h.type)+(h.camp?(' · '+esc(h.camp)):'')+'</div></div>'+chipHTML+'</div>';
   if(noSeason){
-    return '<div class="br-grp">'+head+'<div style="font-size:12.5px;color:var(--t3);margin-bottom:11px">'+(cur?('Last season weaned '+(cur.weaned||0)+' '+term.young+'. '):'')+'Start a new season when the '+term.sire+' goes in.</div><div class="br-acts"><span class="br-b pri" onclick="brOpenForm(\'season\','+h.id+')">🐂 Start a season ('+term.sire+' in)</span></div></div>';
+    return '<div class="br-grp">'+head+'<div style="font-size:12.5px;color:var(--t3);margin-bottom:11px">'+(cur?('Last season weaned '+(cur.weaned||0)+' '+term.young+'. '):'')+'Start a new season when the '+term.sire+' goes in.</div><div class="br-acts"><span class="br-b pri" onclick="brOpenForm(\'season\','+h.id+')">'+term.sireIcon+' Start a season ('+term.sire+' in)</span></div></div>';
   }
   var idx=_brStageIdx(cur); var fem=_brFemales(cur);
   var inCalfTxt = cur.inCalf!=null?(cur.inCalf+' / '+fem):'not scanned';
@@ -17961,18 +17977,18 @@ function brGroupCard(h){
   var pct=[15,33,50,70,88,100][idx]||10;
   var prog='<div class="br-prog"><i style="width:'+pct+'%"></i></div>';
   // timeline
-  var stages=[['🐂',term.sire.charAt(0).toUpperCase()+term.sire.slice(1)+' in',_brDisp(cur.start)],
+  var stages=[[term.sireIcon,term.sire.charAt(0).toUpperCase()+term.sire.slice(1)+' in',_brDisp(cur.start)],
     ['✅',term.sire.charAt(0).toUpperCase()+term.sire.slice(1)+' out',cur.end?_brDisp(cur.end):'—'],
     ['🔬','Scan (PD)',cur.pdDate?_brDisp(cur.pdDate):'~'+_brDisp(_brAddDays(cur.end,63))],
     ['💉','Pre-'+term.ev.toLowerCase(),_brExpectedFrom(cur)?_brDisp(_brAddDays(_brExpectedFrom(cur),-42)):'—'],
-    ['🐄',term.ev,expTxt],
+    [term.bornIcon,term.ev,expTxt],
     ['⚖️','Weaning',_brExpectedFrom(cur)?_brDisp(_brAddDays(_brExpectedFrom(cur),lsWeanAge(h.type))):'—']];
   var tl='<div class="br-tl">'+stages.map(function(s,i){ var cl=i<idx?'done':(i===idx?'now':''); return '<div class="br-st '+cl+'"><div class="si">'+s[0]+'</div><div class="sn">'+s[1]+'</div><div class="sd">'+s[2]+'</div></div>'; }).join('')+'</div>';
   var next=_brNextAction(cur,term);
   // actions by stage
   var acts='<div class="br-acts">';
   if(idx>=1 && !cur.pdDate) acts+='<span class="br-b pri" onclick="brOpenForm(\'pd\','+h.id+',\''+cur.id+'\')">🔬 Record scan (PD)</span>';
-  if(idx>=3 || cur.born>0) acts+='<span class="br-b '+(cur.born>0?'sec':'pri')+'" onclick="brOpenForm(\'calving\','+h.id+',\''+cur.id+'\')">🐄 Record '+term.ev.toLowerCase()+'</span>';
+  if(idx>=3 || cur.born>0) acts+='<span class="br-b '+(cur.born>0?'sec':'pri')+'" onclick="brOpenForm(\'calving\','+h.id+',\''+cur.id+'\')">'+term.bornIcon+' Record '+term.ev.toLowerCase()+'</span>';
   if(cur.born>0) acts+='<span class="br-b pri" onclick="brOpenForm(\'weaning\','+h.id+',\''+cur.id+'\')">⚖️ Record weaning</span>';
   if(idx<1 && !cur.end) acts+='<span class="br-b sec" onclick="brOpenForm(\'pd\','+h.id+',\''+cur.id+'\')">🔬 Record scan (PD)</span>';
   acts+='<span class="br-b gh" onclick="brOpenForm(\'season\','+h.id+')">+ New season</span></div>';
@@ -17994,7 +18010,7 @@ function brFormHTML(){ var h=(ST_LS.herd||[]).filter(function(x){return x.id===B
   var top='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span class="br-b gh" onclick="brCloseForm()">‹ Back</span><div style="font-size:15px;font-weight:800">'+esc(lsHerdName(h))+'</div></div>';
   var today=_brTodayISO();
   if(BR_FORM.kind==='season'){ return '<div class="br-form">'+top+
-    '<div class="br-h">🐂 Start a breeding season</div>'+
+    '<div class="br-h">'+term.sireIcon+' Start a breeding season</div>'+
     '<div class="br-fr"><label>Which '+term.sire+'(s)?</label><input id="br-f-sire" placeholder="e.g. GV-Bull-07 or Bull group"></div>'+
     '<div class="br-f2"><div class="br-fr"><label>'+term.sire.charAt(0).toUpperCase()+term.sire.slice(1)+' went in</label><input id="br-f-start" type="date" value="'+today+'"></div>'+
     '<div class="br-fr"><label>Season length</label><select id="br-f-len"><option value="60">60 days (tight)</option><option value="90" selected>90 days</option><option value="120">120 days</option></select></div></div>'+
@@ -18009,7 +18025,7 @@ function brFormHTML(){ var h=(ST_LS.herd||[]).filter(function(x){return x.id===B
     '<div class="br-acts"><span class="br-b pri" onclick="brSavePD()">Save scan</span><span class="br-b gh" onclick="brCloseForm()">Cancel</span></div>'+
     '<div class="br-src">Empty '+term.fem+' are worked out automatically ('+term.fem+' mated − in calf) and flagged as cull candidates.</div></div>'; }
   if(BR_FORM.kind==='calving'){ if(!b) return top; return '<div class="br-form">'+top+
-    '<div class="br-h">🐄 Record '+term.ev.toLowerCase()+'</div>'+
+    '<div class="br-h">'+term.bornIcon+' Record '+term.ev.toLowerCase()+'</div>'+
     '<div class="br-f2"><div class="br-fr"><label>Date</label><input id="br-f-cdate" type="date" value="'+today+'"></div>'+
     '<div class="br-fr"><label>Live '+term.young+'</label><input id="br-f-live" type="number" value="" placeholder="0"></div></div>'+
     '<div class="br-fr"><label>Stillborn / died at birth</label><input id="br-f-still" type="number" value="0"></div>'+
@@ -18384,7 +18400,7 @@ function renderStockRegister(){
         body='<div class="lscb-bar">'+bar+'</div><div class="lscb-key">'+chips+'</div>'+
           '<div class="lscb-sex"><div class="sx f">Female<b>'+sex.F+'</b></div><div class="sx m">Male<b>'+sex.M+'</b></div><div class="sx y">Young<b>'+sex.Y+'</b></div></div>';
       } else {
-        body='<div class="lscb-nosplit">One mob of '+h.qty+' \u2014 not broken into classes, so no male / female view yet. <b onclick="lsTab(\'camps\')" style="cursor:pointer;text-decoration:underline">Split it on My Animals</b> to see it here.</div>';
+        body='<div class="lscb-nosplit">One mob of '+h.qty+' \u2014 not broken into classes, so no male / female view yet. <b onclick="lsTab(\'camps\')" style="cursor:pointer;text-decoration:underline">Split it in Overview</b> to see it here.</div>';
       }
       var viewMv = moveN>0
         ? '<button class="lscb-act go" onclick="lsHerdMovesOpen('+JSON.stringify(h.id)+')">\ud83d\udcdc View movements \u00b7 '+moveN+'</button>'
@@ -18627,7 +18643,7 @@ function _lsTrFormHtml(){
     '<div class="ls-tr-row2"><div class="ls-tr-fld"><label>Meat withdrawal (days)</label><input type="number" id="ls-tr-meat" min="0" value="0" oninput="lsTrWdPrev()"></div>'+
       '<div class="ls-tr-fld"><label>Milk withdrawal (days)</label><input type="number" id="ls-tr-milk" min="0" value="0" oninput="lsTrWdPrev()"></div></div>'+
     '<div class="ls-tr-wdprev" id="ls-tr-wdprev"></div>'+
-    '<div class="ls-trsub" style="margin-top:6px">From the product label \u2014 this drives the "not safe to sell" flag on My Animals.</div>'+
+    '<div class="ls-trsub" style="margin-top:6px">From the product label \u2014 this drives the "not safe to sell" flag in Overview.</div>'+
     '<div class="ls-tr-fld" style="margin-top:14px"><label>Cost (optional)</label><input type="number" id="ls-tr-cost" min="0" placeholder="0">'+
       '<label class="ls-trcost"><input type="checkbox" id="ls-tr-toexp" checked> Also record as a Vet &amp; Animal Health expense in Money Flow</label></div>'+
     '<div class="ls-tr-fld"><label>Given by &middot; batch &middot; reason (optional)</label><input type="text" id="ls-tr-by" placeholder="e.g. Dr P. Botha"><input type="text" id="ls-tr-batch" placeholder="Batch no (for the audit)" style="margin-top:7px"><input type="text" id="ls-tr-reason" placeholder="Reason e.g. annual prevention" style="margin-top:7px"></div>'+
@@ -28265,9 +28281,9 @@ var PAGE_TOURS = {
     { target:'ls-plan-body', title:'See 3 or 5 years ahead', icon:'📈', tab:'plan',
       text:'Tap 3 yr or 5 yr and the plan opens full-screen, carrying your herd forward season by season — births, keeps and sales — or repeating the flock for poultry. Stress-test a tough year to see how a dry spell or weak prices would hit.', pos:'center' },
     { target:'ls-plan-body', title:'From a plan to real animals', icon:'✅', tab:'plan',
-      text:'Add a new line to your forecast and it shows as “In planning” on My Animals — earmark a camp for it, then Confirm the buy to make it real and record the cash, or Remove it. Planned stock stays out of your herd totals and the SARS register until you confirm.', pos:'center' },
+      text:'Add a new line to your forecast and it shows as “In planning” in Overview — earmark a camp for it, then Confirm the buy to make it real and record the cash, or Remove it. Planned stock stays out of your herd totals and the SARS register until you confirm.', pos:'center' },
     { target:'ls-tab-add', title:'Add a group or animal', icon:'➕', tab:'add',
-      text:'Add a new livestock group here. For stud, dairy or breeding stock you can also tag individual animals (from a group on My Animals) to track withdrawal per animal — everything you capture flows into the overview, the register and your forecasts.', pos:'center' }
+      text:'Add a new livestock group here. For stud, dairy or breeding stock you can also tag individual animals (from a group in Overview) to track withdrawal per animal — everything you capture flows into the overview, the register and your forecasts.', pos:'center' }
   ],
   market: [
     { target:'mkt-myfarm-section', title:'Today\u2019s calls on your farm', icon:'🌾', tab:'crops',
