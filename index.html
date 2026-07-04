@@ -1562,6 +1562,20 @@ body.simple-view #nav-budgets{display:none}
 .ls-clstbl{margin:10px 0 4px}
 .ls-fmline{font-size:11.5px;color:var(--t4);font-weight:700;margin:4px 0 11px}
 .ls-mobnote{font-size:12px;color:var(--t3);line-height:1.55;background:var(--gb);border:1px solid var(--gp);border-radius:11px;padding:11px 13px;margin:10px 0 11px}.ls-mobnote b{color:var(--gd);font-weight:800}
+.ls-synced{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:var(--gd);background:var(--gb);border:1px solid var(--gp);border-radius:999px;padding:3px 9px;margin:10px 0 8px}
+.ls-acts2{display:flex;gap:9px;margin-top:2px}.ls-acts2>.ls-actbtn,.ls-acts2>.ls-rec{flex:1;min-width:0}
+.ls-actbtn.edit{width:100%;font-size:12px;font-weight:800;border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;border:1px solid var(--gp);background:var(--gb);color:var(--gd)}
+.ls-rec{position:relative}
+.ls-recbtn2{width:100%;font-size:12px;font-weight:800;border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;border:1px solid var(--gd);background:var(--gd);color:#fff}
+details.ls-taglist{margin-top:12px;border:1px solid var(--br);border-radius:11px;overflow:hidden}
+details.ls-taglist>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:9px;padding:11px 13px;font-size:12.5px;font-weight:800;color:var(--t2)}
+details.ls-taglist>summary::-webkit-details-marker{display:none}
+details.ls-taglist>summary .n{font-size:11px;color:var(--t4);font-weight:700}
+details.ls-taglist>summary .tchev{color:var(--t4);font-size:12px;transition:transform .15s}details.ls-taglist[open]>summary .tchev{transform:rotate(180deg)}
+details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(--gd);background:#fff;border:1px solid var(--gp);border-radius:8px;padding:6px 10px;cursor:pointer;font-family:inherit}
+.ls-tstat{font-size:10px;font-weight:800;border-radius:999px;padding:3px 8px;margin-left:auto}.ls-tstat.ok{color:#2e7d4f;background:#e6f4ec}.ls-tstat.warn{color:#b45309;background:#fbead4}
+.ls-tl-body{border-top:1px solid var(--br2);padding:2px 13px 8px}
+.ls-tag-w{font-size:10.5px;font-weight:800;color:var(--t3);background:var(--br2);border-radius:6px;padding:2px 7px;flex:none}
 .ls-camp-ic{width:42px;height:42px;border-radius:11px;background:var(--gp);display:flex;align-items:center;justify-content:center;font-size:21px;flex:none}
 .ls-camp-mid{flex:1;min-width:0}
 .ls-camp-nm{font-size:15px;font-weight:800}
@@ -15499,29 +15513,26 @@ function _lsTagSection(h){
   var idx=ST_LS.herd.indexOf(h);
   var anims=lsHerdAnimals(h.id);
   if(!anims.length){
-    return '<div class="ls-tagsec"><div class="ls-tagsec-h"><span>Tagged animals</span></div>'+
-      '<div class="ls-tag-none">Counted as one mob of '+(h.qty||0)+' \u2014 fine for a commercial group, and the group withdrawal flag still protects you. '+
-      '<b onclick="event.stopPropagation();lsTagAddOpen('+idx+')">Tag an animal</b> only if you need per-animal withdrawal tracking (stud, dairy, breeding stock).</div></div>';
+    return '<details class="ls-taglist"><summary>🏷️ Individual animals <span class="n">· none tagged</span><button class="ls-tag-add" style="margin-left:auto" onclick="event.stopPropagation();heOpen('+h.id+',0)">✎ Edit all</button><span class="tchev">▾</span></summary><div class="ls-tl-body"><div class="ls-tag-none">Counted as one mob — fine for a commercial group, and the withdrawal flag still protects you. Tag animals (or set the whole herd up with <b onclick="event.stopPropagation();heOpen('+h.id+',0)">Edit all</b>) only if you need per-animal withdrawal or medicine records (stud, dairy, breeding stock).</div></div></details>';
   }
+  var wd=anims.filter(function(a){return lsAnimalSafe(a);}).length;
+  var pill = wd ? '<span class="ls-tstat warn">'+wd+' under withdrawal</span>' : '<span class="ls-tstat ok">all clear</span>';
   var rows=anims.map(function(a){
-    var safe=lsAnimalSafe(a); var wd=!!safe;
+    var safe=lsAnimalSafe(a); var wdd=!!safe;
     var sx=a.sex==='F'?'<span class="ls-tag-sx F">F</span>':a.sex==='M'?'<span class="ls-tag-sx M">M</span>':'';
-    var status= wd ? '<span class="ls-tag-st wd">\u26d4 until '+lsFmtDate(safe)+'</span>' : '<span class="ls-tag-st ok">\u2713 clear</span>';
+    var status= wdd ? '<span class="ls-tag-st wd">⛔ until '+lsFmtDate(safe)+'</span>' : '<span class="ls-tag-st ok">✓ clear</span>';
     var med=_lsAnimMedHistory(a);
-    var medRows=med.length ? med.slice(0,6).map(function(t){ var meta=lsTrTypeMeta(t); var wdtxt=(Math.max(t.meat||0,t.milk||0)>0)?(' \u00b7 '+meta[0].toLowerCase()+' \u00b7 meat '+(t.meat||0)+'d'):''; return '<div class="ls-tag-ev"><span class="d">'+lsFmtDate(new Date(t.date+'T00:00:00'))+'</span><span>'+esc(t.product||meta[0])+(t.target==='whole'?' (whole herd)':'')+wdtxt+'</span></div>'; }).join('') : '<div class="ls-tag-ev" style="color:var(--t4)">No medicine recorded for this animal yet.</div>';
-    var banner = wd ? '<div class="ls-tag-wd">\u26d4 Not safe to sell until '+lsFmtDate(safe)+'</div>' : '<div class="ls-tag-okb">\u2713 Clear \u2014 safe to sell</div>';
+    var medRows=med.length ? med.slice(0,6).map(function(t){ var meta=lsTrTypeMeta(t); var wdtxt=(Math.max(t.meat||0,t.milk||0)>0)?(' · '+meta[0].toLowerCase()+' · meat '+(t.meat||0)+'d'):''; return '<div class="ls-tag-ev"><span class="d">'+lsFmtDate(new Date(t.date+'T00:00:00'))+'</span><span>'+esc(t.product||meta[0])+(t.target==='whole'?' (whole herd)':'')+wdtxt+'</span></div>'; }).join('') : '<div class="ls-tag-ev" style="color:var(--t4)">No medicine recorded for this animal yet.</div>';
+    var banner = wdd ? '<div class="ls-tag-wd">⛔ Not safe to sell until '+lsFmtDate(safe)+'</div>' : '<div class="ls-tag-okb">✓ Clear — safe to sell</div>';
+    var wkg = a.weight?('<span class="ls-tag-w">'+a.weight+' kg</span>'):'';
     return '<div class="ls-tag-row" onclick="lsTagTog(this)"><span class="ls-tag-tg">'+esc(a.tag)+'</span>'+
         '<span class="ls-tag-nm"><b>'+esc(a.name||a.tag)+'</b><small>'+esc(lsClassMeta(h.type,a.cls).label||a.cls||'')+'</small></span>'+
-        sx+status+'<span class="ls-tag-ch">\u25be</span></div>'+
+        wkg+sx+status+'<span class="ls-tag-ch">▾</span></div>'+
       '<div class="ls-tag-detail">'+banner+'<div class="ls-tag-tl">Medicine record</div>'+medRows+
-        '<span class="ls-tag-edit" onclick="event.stopPropagation();lsTagEditOpen(\''+esc(a.id)+'\')">\u270e Edit tag</span> '+
+        '<span class="ls-tag-edit" onclick="event.stopPropagation();lsTagEditOpen(\''+esc(a.id)+'\')">✎ Edit tag</span> '+
         '<span class="ls-tag-edit del" onclick="event.stopPropagation();lsTagDelete(\''+esc(a.id)+'\')">Remove</span></div>';
   }).join('');
-  return '<div class="ls-tagsec"><div class="ls-tagsec-h"><span>Tagged animals \u00b7 '+anims.length+' of '+(h.qty||0)+'</span>'+
-      '<span style="display:flex;gap:6px"><button class="ls-tag-add" onclick="event.stopPropagation();heOpen('+h.id+',0)">\u270e Edit all</button>'+
-      '<button class="ls-tag-add" onclick="event.stopPropagation();lsTagAddOpen('+idx+')">+ Tag animal</button></span></div>'+
-      '<div class="ls-tagsec-sub">Tag only the animals you need to track for withdrawal or the medicine register \u2014 not the whole herd.</div>'+
-      rows+'</div>';
+  return '<details class="ls-taglist"><summary>🏷️ Individual animals <span class="n">· '+anims.length+' tracked</span>'+pill+'<button class="ls-tag-add" onclick="event.stopPropagation();heOpen('+h.id+',0)">✎ Edit all</button><span class="tchev">▾</span></summary><div class="ls-tl-body">'+rows+'</div></details>';
 }
 var LS_TAG_FORM={};
 var LS_TAG_PREFILL=null; // {cls,sire} — born-in defaults when tagging new calves from a calving
@@ -15620,6 +15631,7 @@ function lsTagSave(){
     toast('Tag added.','success');
   }
   if(!h.track) h.track=true; // tagging turns on individual tracking for this herd
+  try{ _lsSyncHerd(h); }catch(e){}   // roll the tagged animals up into the class breakdown
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
   lsTagFormClose();
@@ -15628,7 +15640,9 @@ function lsTagSave(){
 }
 async function lsTagDelete(animId){
   if(!(await appConfirm('Remove this tag? The animal stays in the herd count \u2014 only the individual record goes.'))) return;
+  var _dh=lsHerdById(((ST_LS.animals||[]).filter(function(x){return x.id===animId;})[0]||{}).herd);
   ST_LS.animals=(ST_LS.animals||[]).filter(function(x){return x.id!==animId;});
+  try{ _lsSyncHerd(_dh); }catch(e){}
   try { if(window.AI && AI.farm && AI.farm.active()){ AI.livestock.removeAnimal(animId).catch(function(e){ console.error('Backend animal delete failed:', e); }); } } catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
@@ -15639,26 +15653,49 @@ function lsTagTog(el){ var dt=el.nextElementSibling; var open=dt.classList.conta
   // close siblings within the same section
   var sec=el.closest('.ls-tagsec'); if(sec) sec.querySelectorAll('.ls-tag-detail.open').forEach(function(d){d.classList.remove('open');});
   if(!open) dt.classList.add('open'); }
+// Roll the individual animals up into the herd's class breakdown + head count — individuals are the source of truth.
+function _lsSyncHerd(h){
+  if(!h) return; var anims=lsHerdAnimals(h.id); if(!anims.length) return;
+  var defOrder=(lsClassDefs(h.type)||[]).map(function(d){return d.k;});
+  var dflt=(lsClassDefs(h.type)||[{k:''}])[0].k;
+  var by={}, order=[];
+  anims.forEach(function(a){ var k=a.cls||dflt; if(!by[k]){by[k]={k:k,n:0}; order.push(k);} by[k].n++; });
+  order.sort(function(a,b){ var ia=defOrder.indexOf(a), ib=defOrder.indexOf(b); return (ia<0?99:ia)-(ib<0?99:ib); });
+  var prevV={}; (h.classes||[]).forEach(function(c){ prevV[c.k]=c.v; });
+  h.classes=order.map(function(k){ return {k:k, n:by[k].n, v:prevV[k]||h.sell||0}; });
+  if(anims.length>(h.qty||0)) h.qty=anims.length;   // count follows records when they exceed the mob total
+  h.track=true;
+}
+function _lsRecInline(hid){
+  var items=[['sold','💰','Sold','posts income to Money Flow'],['born','🐣','Born','lands in the youngest class'],['bought','➕','Bought',''],['promote','⬆️','Promoted','e.g. calves → heifers'],['died','📉','Died / home use',''],['stolen','🚨','Stolen / missing','with SAPS reference']];
+  var id='lsrec-'+hid;
+  var menu=items.map(function(it){ return '<div class="ls-rec-item'+(it[0]==='stolen'||it[0]==='died'?' lost':'')+'" onclick="lsRecPick('+hid+',\''+it[0]+'\')"><span class="ic">'+it[1]+'</span><div>'+it[2]+(it[3]?'<small>'+it[3]+'</small>':'')+'</div></div>'; }).join('');
+  return '<div class="ls-rec" id="'+id+'"><button class="ls-recbtn2" onclick="event.stopPropagation();lsRecToggle(\''+id+'\')">↕ Record a movement</button><div class="ls-rec-menu">'+menu+'</div></div>';
+}
 function _lsGroupBlock(h, autoOpen){
   var idx=ST_LS.herd.indexOf(h);
   var val=lsHerdValueDerived(h);
+  var nAnim=lsHerdAnimals(h.id).length; var tracked=nAnim>0;
   var w=_lsHerdWd(h.id);
   var wdBanner = w.wd ? '<div class="ls-grp-wd"><span class="ico">⛔</span><span>'+(w.count!=null&&w.count>0?w.count+' head under withdrawal — ':'Under withdrawal — ')+'not safe to sell'+(w.safe?' until '+lsFmtDate(w.safe):'')+'</span><span class="lnk" onclick="event.stopPropagation();lsTab(\'health\')">View →</span></div>' : '';
   var bd=_lsHerdBreakdown(h);
   var detail;
   if(bd){
-    detail='<div class="ls-clstbl">'+bd.rows+'</div>'+bd.fm+'<button class="ls-editbtn" onclick="event.stopPropagation();lsClassEditOpen('+idx+')">✎ Edit classes &amp; values</button><div class="ls-edit-host" id="ls-edit-'+idx+'"></div>';
+    var badge = tracked ? '<div class="ls-synced">🔗 Synced from '+nAnim+' tagged animal'+(nAnim===1?'':'s')+'</div>' : '';
+    detail=badge+'<div class="ls-clstbl">'+bd.rows+'</div>'+bd.fm;
   } else {
-    detail='<div class="ls-mobnote">✅ Counted as <b>one mob of '+(h.qty||0)+'</b> — fine for a commercial group, and the withdrawal flag still protects you. Split into classes only if you want per-class values or the breeding tools.</div><button class="ls-editbtn" onclick="event.stopPropagation();lsClassEditOpen('+idx+')">＋ Add a breakdown</button><div class="ls-edit-host" id="ls-edit-'+idx+'"></div>';
+    detail='<div class="ls-mobnote">✅ Counted as <b>one mob of '+(h.qty||0)+'</b> — fine for a commercial group, and the withdrawal flag still protects you. Split into classes only if you want per-class values or the breeding tools.</div>';
   }
-  var rec=_lsGroupRecMenu(h.id);
+  var editLabel = tracked?'✎ Edit animals':(bd?'✎ Edit classes':'＋ Add a breakdown');
+  var editFn = tracked?('heOpen('+h.id+',0)'):('lsClassEditOpen('+idx+')');
+  var actionRow = '<div class="ls-acts2"><button class="ls-actbtn edit" onclick="event.stopPropagation();'+editFn+'">'+editLabel+'</button>'+_lsRecInline(h.id)+'</div><div class="ls-edit-host" id="ls-edit-'+idx+'"></div>';
   var subP=[]; if(h.breed) subP.push('<span class="ls-breedchip">'+esc(h.breed)+'</span>'); if(h.notes && h.notes!==h.type) subP.push(esc(h.notes));
   var sub=subP.length?('<small>'+subP.join(' · ')+'</small>'):'';
   return '<div class="ls-grp'+(autoOpen?' open':'')+'">'+
     '<div class="ls-grp-top" onclick="this.closest(\'.ls-grp\').classList.toggle(\'open\')"><span class="ls-grp-ic">'+lsHerdIcon(h)+'</span>'+
       '<span class="ls-grp-nm">'+esc(lsHerdName(h))+sub+'</span>'+
       '<span class="ls-grp-val">'+(h.qty||0)+' <small>· '+lsRand0(val)+'</small></span><span class="ls-grp-chev">▾</span></div>'+
-    '<div class="ls-grp-body">'+wdBanner+detail+rec+_lsTagSection(h)+'</div></div>';
+    '<div class="ls-grp-body">'+wdBanner+detail+actionRow+_lsTagSection(h)+'</div></div>';
 }
 // Per-group "Record a movement" dropdown — routes each option to the modal preset.
 function _lsGroupRecMenu(hid){
@@ -18755,6 +18792,7 @@ function dairySetupSave(){
     var fcN=Math.min(DZ.detail.firstCalvers||0, created.length); for(var j=0;j<fcN;j++) created[j].parity='first';
     if(made && !h.track) h.track=true; try{toast(made+' animals set up.','success');}catch(e){}
   } else { try{toast('Cows sorted.','success');}catch(e){} }
+  try{ _lsSyncHerd(h); }catch(e){}
   _dzCommit(); _dzBackToBreeding();
 }
 
@@ -18817,7 +18855,7 @@ function heOpen(herdId, seedN){ var h=lsHerdById(herdId); if(!h) return; ST_LS.a
   HE={herdId:herdId, sel:{}, bulkCol:'weight'}; _heShow(_heHtml());
 }
 function heClose(){ var bg=$('he-bg'); if(bg) bg.classList.remove('on');
-  if(HE){ try{ saveState&&saveState(); }catch(e){} try{ if(window.AI&&AI.farm&&AI.farm.active()&&window.ST_LS){ AI.livestock.saveAll(ST_LS).catch(function(e){console.error('Backend livestock save failed:',e);}); } }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){} }
+  if(HE){ try{ _lsSyncHerd(lsHerdById(HE.herdId)); }catch(e){} try{ saveState&&saveState(); }catch(e){} try{ if(window.AI&&AI.farm&&AI.farm.active()&&window.ST_LS){ AI.livestock.saveAll(ST_LS).catch(function(e){console.error('Backend livestock save failed:',e);}); } }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){} }
   HE=null; try{ if(typeof renderCamps==='function') renderCamps(); }catch(e){} try{ if(typeof BR_COWS!=='undefined'&&BR_COWS&&typeof renderBreeding==='function') renderBreeding(); }catch(e){}
 }
 function heTrackPrompt(herdId, qty){ var h=lsHerdById(herdId); if(!h) return; qty=parseInt(qty,10)||0;
@@ -18841,7 +18879,7 @@ function heBulkApply(){ var col=HE.bulkCol; var el=$('he-bulkval'); var val=el?e
 function heAddRow(){ var h=lsHerdById(HE.herdId); if(!h) return; ST_LS.animals=ST_LS.animals||[]; var used=ST_LS.animals.filter(function(a){return a.herd===h.id;}).map(function(a){return a.tag;});
   ST_LS.animals.push({id:'an'+Date.now().toString(36)+Math.floor(Math.random()*1e5), herd:h.id, tag:_heTag(h,used), sex:'F', cls:(lsClassDefs(h.type)||[{k:''}])[0].k}); if(!h.track) h.track=true; _heRender();
 }
-function heDelRow(id){ ST_LS.animals=(ST_LS.animals||[]).filter(function(x){return x.id!==id;}); if(HE) delete HE.sel[id]; try{ if(window.AI&&AI.farm&&AI.farm.active()) AI.livestock.removeAnimal(id).catch(function(){}); }catch(e){} _heRender(); }
+function heDelRow(id){ var h=lsHerdById(HE&&HE.herdId); var wasFull=h && lsHerdAnimals(h.id).length>=(h.qty||0); ST_LS.animals=(ST_LS.animals||[]).filter(function(x){return x.id!==id;}); if(wasFull && h) h.qty=lsHerdAnimals(h.id).length; if(HE) delete HE.sel[id]; try{ if(window.AI&&AI.farm&&AI.farm.active()) AI.livestock.removeAnimal(id).catch(function(){}); }catch(e){} _heRender(); }
 function _heBulkCtrls(h){
   var cols=[['weight','Weight'],['dob','Born'],['sex','Sex'],['cls','Class'],['name','Name']];
   var colSel='<select id="he-bulkcol" onchange="heBulkColChange(this.value)">'+cols.map(function(c){return '<option value="'+c[0]+'"'+(HE.bulkCol===c[0]?' selected':'')+'>'+c[1]+'</option>';}).join('')+'</select>';
