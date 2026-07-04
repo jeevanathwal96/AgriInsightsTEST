@@ -6974,8 +6974,9 @@ var ST_CROP = {
   filter: 'all',
   complyView: 'tracker',
   season: '2024/25',
-  // SAFEX / reference grain prices (R per tonne) — editable, not hard-coded into UI
-  prices: { 'White maize':4180, 'Yellow maize':4090, 'Wheat':6450, 'Sunflower':9650, 'Soybeans':8900, 'Sorghum':4600 },
+  // Baseline reference prices (R per tonne) — editable, not hard-coded into UI. Traded grains/oilseeds from
+  // SAFEX spot (Jul 2026); the rest are sector estimates. Used as a fallback until a live market feed is wired.
+  prices: { 'White maize':3200, 'Yellow maize':3200, 'Wheat':5800, 'Sunflower':9200, 'Soybeans':7000, 'Sorghum':4500, 'Groundnuts':18000, 'Dry beans':15000, 'Barley':5500, 'Canola':11000, 'Sugarcane':650, 'Lucerne / hay':2800, 'Potatoes':5000 },
   // Master crop list (label + icon + whether a SAFEX ref price applies via prices{})
   cropTypes: [
     {t:'White maize', i:'\uD83C\uDF3D'}, {t:'Yellow maize', i:'\uD83C\uDF3D'}, {t:'Wheat', i:'\uD83C\uDF3E'},
@@ -7044,6 +7045,9 @@ function cropFmtR(n){ return 'R' + _grpInt(n); }
 function cropLandById(id){ for(var i=0;i<ST_CROP.lands.length;i++) if(ST_CROP.lands[i].id===id) return ST_CROP.lands[i]; return null; }
 function cropIcon(type){ var c=ST_CROP.cropTypes.filter(function(x){return x.t===type;})[0]; return c?c.i:'\uD83C\uDF31'; }
 function cropPrice(type){ return ST_CROP.prices[type] || 0; }
+// A plan crop's price/ton: its own price if set, else the baseline reference for the crop, else a last-resort
+// grain-ish default — so every planted crop still projects income (and gets a What-if slider) until SAFEX is live.
+function _cropPriceOf(c){ if(c && c.price>0) return c.price; var p=(c&&typeof cropPrice==='function')?cropPrice(c.crop):0; return p>0 ? p : 4000; }
 function cropPlanted(l){ return l.stage!=='fallow' && l.crop; }
 function cropAreaPlanted(){ return ST_CROP.lands.filter(cropPlanted).reduce(function(s,l){return s+(l.area||0);},0); }
 function cropLandYield(l){ return (l.actualYield!=null ? l.actualYield : l.targetYield) || 0; }
@@ -20130,7 +20134,7 @@ function recomputePlan() {
     var harvestIdx = ST_PLAN.months.findIndex(function(m){return m.label===c.harvest;});
     if(plantIdx<0||harvestIdx<0) return;
 
-    var totalRevenue = c.ha * c.yield * c.price;
+    var totalRevenue = c.ha * c.yield * _cropPriceOf(c);
     var totalInputs  = c.ha * c.inputCost;
     var totalOther   = c.ha * c.otherCost;
     var growMonths   = Math.max(1, harvestIdx - plantIdx - 1);
@@ -20430,7 +20434,7 @@ function renderCalGrid() {
     if (plantIdx < 0)   plantIdx   = 0;
     if (harvestIdx < 0) harvestIdx = allMonths.length - 1;
 
-    var totalRevenue = c.ha * c.yield * c.price;
+    var totalRevenue = c.ha * c.yield * _cropPriceOf(c);
     var totalCost    = c.ha * (c.inputCost + c.otherCost);
     var net          = totalRevenue - totalCost;
     var profitable   = net >= 0;
@@ -24425,7 +24429,7 @@ function _cfDrivers(){
   var out=[];
   // Merge crop lines by commodity so two maize fields make ONE "Maize price" slider (not a duplicate per field).
   try{ if(typeof ST_PLAN!=='undefined' && ST_PLAN.crops){ var byCrop={};
-    ST_PLAN.crops.forEach(function(c){ if(c.inForecast===false) return; var val=(c.ha||0)*(c.yield||0)*(c.price||0); if(val<=0) return;
+    ST_PLAN.crops.forEach(function(c){ if(c.inForecast===false) return; var val=(c.ha||0)*(c.yield||0)*_cropPriceOf(c); if(val<=0) return;
       var nm=(c.crop||'Crop').split('(')[0].trim(), key='crop:'+nm.toLowerCase();
       if(!byCrop[key]) byCrop[key]={key:key, label:nm+' price', value:0}; byCrop[key].value+=val; });
     Object.keys(byCrop).forEach(function(k){ out.push(byCrop[k]); });
@@ -24441,7 +24445,7 @@ function _cfDrivers(){
   return out.slice(0,4);
 }
 
-var CF_SCEN = {adj:{}, prod:0}, CF_SEL_M = -1, CF_DRIVER_KEYS = [], CF_BASE = [], CF_FWD_N = 6, CF_PTS = [];
+var CF_SCEN = {adj:{}, prod:0, lsCost:0}, CF_SEL_M = -1, CF_DRIVER_KEYS = [], CF_BASE = [], CF_FWD_N = 6, CF_PTS = [];
 // Hidden hover/tap tooltip appended to the chart SVG; positioned by cfLinePeek from CF_PTS.
 function _cfTipSvg(){ return '<g id="cfl-tip" style="display:none;pointer-events:none"><rect id="cfl-tip-bg" rx="5" fill="#14281f"/><text id="cfl-tip-tx" fill="#fff" font-size="12" font-weight="800" text-anchor="middle"></text></g>'; }
 function cfLinePeek(i){
@@ -24466,8 +24470,10 @@ function _cfScenG(){
 }
 function _cfScenMonths(){
   var base=CF_BASE; if(!base.length) return [];
-  var G=_cfScenG(), start=base[0].balance-(base[0].income-base[0].expenses), bal=start;
-  return base.map(function(m){ var inc=Math.round((m.income||0)*G), e=m.expenses||0; bal+=inc-e; return {label:m.label,name:m.name,year:m.year,income:inc,expenses:e,lines:m.lines,G:G,balance:Math.round(bal),source:m.source}; });
+  var G=_cfScenG(), lc=(CF_SCEN.lsCost||0)/100, start=base[0].balance-(base[0].income-base[0].expenses), bal=start;
+  // Scale ONLY commodity income (crops + livestock sales + orchards = m.cropIncome) by the price/yield levers;
+  // rental, grants and other non-commodity income (m.income − m.cropIncome) don't move with commodity prices.
+  return base.map(function(m){ var comm=m.cropIncome||0, other=(m.income||0)-comm; var inc=Math.round(comm*G)+other, e=(m.expenses||0)+Math.round((m.lsRun||0)*lc); bal+=inc-e; return {label:m.label,name:m.name,year:m.year,income:inc,cropIncome:comm,expenses:e,lines:m.lines,lsRun:m.lsRun,G:G,lc:lc,balance:Math.round(bal),source:m.source}; });
 }
 
 function renderCfLineView(n){
@@ -24483,7 +24489,8 @@ function renderCfLineView(n){
   cfLineRedraw();
   if(lineCard) lineCard.style.display='';
   if(bdEl)     bdEl.style.display='';
-  if(wiCard)   wiCard.style.display=drivers.length?'':'none';
+  var hasLsRun = CF_BASE.some(function(m){ return (m.lsRun||0)>0; });
+  if(wiCard)   wiCard.style.display=(drivers.length||hasLsRun)?'':'none';
   if(fwdChart) fwdChart.style.display='none'; // the single line replaces the month bars
 }
 
@@ -24578,7 +24585,11 @@ function cfBdRender(months, minIdx){
   var G=m.G||1;
   setEl('cfl-bd-month', _cfMonthFull(m.name));
   var tag=$('cfl-bd-tag'); if(tag) tag.style.display=(CF_SEL_M===minIdx)?'':'none';
-  var rows=(m.lines||[]).map(function(x){ var amt=x.amt; if(amt>0) amt=Math.round(amt*G); var neg=amt<0; return '<div class="cfl-bd-row"><span class="nm">'+esc(x.label)+'</span><span class="src">'+esc(x.src||'')+'</span><span class="amt '+(neg?'out':'in')+'">'+(neg?'−':'+')+fmtK(Math.abs(amt))+'</span></div>'; }).join('');
+  var lc=m.lc||0;
+  var rows=(m.lines||[]).map(function(x){ var amt=x.amt;
+    if(amt>0){ if(x.src==='Farm plan') amt=Math.round(amt*G); }        // only commodity income moves with the levers
+    else if(x.src==='Livestock') amt=Math.round(amt*(1+lc));           // feed & health cost moves with its lever
+    var neg=amt<0; return '<div class="cfl-bd-row"><span class="nm">'+esc(x.label)+'</span><span class="src">'+esc(x.src||'')+'</span><span class="amt '+(neg?'out':'in')+'">'+(neg?'−':'+')+fmtK(Math.abs(amt))+'</span></div>'; }).join('');
   var rowsEl=$('cfl-bd-rows'); if(rowsEl) rowsEl.innerHTML = rows || '<div class="cfl-bd-row"><span class="nm" style="color:var(--t4)">No cash movements captured for this month.</span></div>';
   var net=m.income-m.expenses;
   setEl('cfl-bd-tot-l','Net for '+_cfMonthFull(m.name));
@@ -24603,18 +24614,22 @@ function _cfBuildLevers(drivers){
   CF_DRIVER_KEYS=drivers.map(function(d){return d.key;});
   var h='';
   drivers.forEach(function(d,i){ var v=(CF_SCEN.adj[d.key]||0); h+='<div class="cfl-sl"><span class="l">'+esc(d.label)+' <small>your assumed price</small></span><input type="range" min="-20" max="20" value="'+v+'" oninput="cfScenPrice('+i+',this.value)"><span class="v" id="cfl-v-'+i+'">'+(v>0?'+':'')+v+'%</span></div>'; });
-  var pv=CF_SCEN.prod||0;
-  h+='<div class="cfl-sl"><span class="l">Yield / production <small>how the season turns out</small></span><input type="range" min="-25" max="15" value="'+pv+'" oninput="cfScenProd(this.value)"><span class="v" id="cfl-v-prod">'+(pv===0?'as planned':(pv>0?'+':'')+pv+'%')+'</span></div>';
+  if(drivers.length){ var pv=CF_SCEN.prod||0;
+    h+='<div class="cfl-sl"><span class="l">Yield / production <small>how the season turns out</small></span><input type="range" min="-25" max="15" value="'+pv+'" oninput="cfScenProd(this.value)"><span class="v" id="cfl-v-prod">'+(pv===0?'as planned':(pv>0?'+':'')+pv+'%')+'</span></div>'; }
+  var hasLsRun=(CF_BASE||[]).some(function(m){ return (m.lsRun||0)>0; });
+  if(hasLsRun){ var lcv=CF_SCEN.lsCost||0;
+    h+='<div class="cfl-sl"><span class="l">Feed &amp; health cost <small>what it costs to keep them</small></span><input type="range" min="-20" max="25" value="'+lcv+'" oninput="cfScenLsCost(this.value)"><span class="v" id="cfl-v-lscost">'+(lcv===0?'as planned':(lcv>0?'+':'')+lcv+'%')+'</span></div>'; }
   host.innerHTML=h;
-  var cap=$('cfl-wi-cap'); if(cap) cap.innerHTML='Each slider starts at <b>the price you assumed</b> in your plan and moves ± around it. Live market prices coming soon.';
+  var cap=$('cfl-wi-cap'); if(cap) cap.innerHTML=drivers.length?'Each price starts at <b>a sensible baseline</b> for your crops and moves ± around it — live market prices coming soon.':'Test a tougher or better season — the chart moves as you drag.';
 }
 function _cfClearPreset(){ ['base','bad','good'].forEach(function(x){ var el=$('cfl-pre-'+x); if(el) el.classList.remove('on'); }); }
 function cfScenPrice(i,v){ var k=CF_DRIVER_KEYS[i]; if(k==null) return; CF_SCEN.adj[k]=+v; var lbl=$('cfl-v-'+i); if(lbl) lbl.textContent=(+v>0?'+':'')+v+'%'; _cfClearPreset(); cfLineRedraw(); }
 function cfScenProd(v){ CF_SCEN.prod=+v; var lbl=$('cfl-v-prod'); if(lbl) lbl.textContent=(+v===0?'as planned':(+v>0?'+':'')+v+'%'); _cfClearPreset(); cfLineRedraw(); }
+function cfScenLsCost(v){ CF_SCEN.lsCost=+v; var lbl=$('cfl-v-lscost'); if(lbl) lbl.textContent=(+v===0?'as planned':(+v>0?'+':'')+v+'%'); _cfClearPreset(); cfLineRedraw(); }
 function cfScenPreset(p){
-  var drivers=_cfDrivers(); CF_SCEN={adj:{},prod:0};
-  if(p==='bad'){ drivers.forEach(function(d){ CF_SCEN.adj[d.key]=-15; }); CF_SCEN.prod=-18; }
-  else if(p==='good'){ drivers.forEach(function(d){ CF_SCEN.adj[d.key]=12; }); CF_SCEN.prod=12; }
+  var drivers=_cfDrivers(); CF_SCEN={adj:{},prod:0,lsCost:0};
+  if(p==='bad'){ drivers.forEach(function(d){ CF_SCEN.adj[d.key]=-15; }); CF_SCEN.prod=-18; CF_SCEN.lsCost=15; }
+  else if(p==='good'){ drivers.forEach(function(d){ CF_SCEN.adj[d.key]=12; }); CF_SCEN.prod=12; CF_SCEN.lsCost=-8; }
   ['base','bad','good'].forEach(function(x){ var el=$('cfl-pre-'+x); if(el) el.classList.toggle('on', x===p); });
   _cfBuildLevers(drivers); cfLineRedraw();
 }
@@ -25078,7 +25093,7 @@ var inc, exp;
       label: label, name: MO[mIdx], year: yr,
       cropIncome: cropInc, cropExpenses: cropExp,
       recurringIncome: rec.inc, recurringExpenses: rec.exp,
-      income: inc, expenses: exp, lines: lines,
+      income: inc, expenses: exp, lines: lines, lsRun: lsRun,
       balance: balance, source: src
     });
   }
