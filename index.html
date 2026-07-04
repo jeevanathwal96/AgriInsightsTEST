@@ -15385,6 +15385,7 @@ function _lsTagSection(h){
       rows+'</div>';
 }
 var LS_TAG_FORM={};
+var LS_TAG_PREFILL=null; // {cls,sire} — born-in defaults when tagging new calves from a calving
 function lsTagAddOpen(herdIdx, editId){
   var h=ST_LS.herd[herdIdx]; if(!h) return;
   LS_TAG_FORM={herdIdx:herdIdx, herdId:h.id, mode:'one', editId:editId||null};
@@ -15397,12 +15398,28 @@ function lsTagEditOpen(animId){
   var hi=ST_LS.herd.indexOf(lsHerdById(a.herd));
   lsTagAddOpen(hi, animId);
 }
-function lsTagFormClose(){ var bg=$('ls-tag-bg'); if(bg) bg.classList.remove('on'); }
+function lsTagFormClose(){ var bg=$('ls-tag-bg'); if(bg) bg.classList.remove('on'); LS_TAG_PREFILL=null; }
 function _lsTagClassOpts(type, sel){ return (lsClassDefs(type)||[{k:'',label:'\u2014'}]).map(function(c){ return '<option value="'+c.k+'"'+(c.k===sel?' selected':'')+'>'+esc(c.label)+'</option>'; }).join(''); }
+// Collapsed "Age & pedigree" dropdown for the tag sheet \u2014 dam/sire pick from this herd's tagged animals (datalist), or free-type. Optional, closed by default so the sheet stays tag-first.
+function _lsPedFields(h,a){
+  var an=lsHerdAnimals(h.id);
+  var damO=an.filter(function(x){return x.sex==='F' && (!a||x.id!==a.id);}).map(function(x){return '<option value="'+esc(x.tag)+'">'+esc(x.name||x.tag)+'</option>';}).join('');
+  var sireO=an.filter(function(x){return x.sex==='M';}).map(function(x){return '<option value="'+esc(x.tag)+'">'+esc(x.name||x.tag)+'</option>';}).join('');
+  var sireLbl=(typeof _hpSireLabel==='function')?_hpSireLabel(h.type):'sire';
+  var preSire=(!a && LS_TAG_PREFILL && LS_TAG_PREFILL.sire)?LS_TAG_PREFILL.sire:'';
+  var preDam=(!a && LS_TAG_PREFILL && LS_TAG_PREFILL.dam)?LS_TAG_PREFILL.dam:'';
+  var open=((a&&(a.dob||a.dam||a.sire))||preSire||preDam)?' open':'';
+  return '<details'+open+' style="margin-top:8px;border:1px solid var(--br);border-radius:10px;padding:11px 13px;background:#FAFBF9">'+
+    '<summary style="cursor:pointer;font-size:12.5px;font-weight:800;color:var(--gd)">\ud83e\uddec Age &amp; pedigree <span style="color:var(--t4);font-weight:600;font-size:11px">optional</span></summary>'+
+    '<div class="ls-tr-row2" style="margin-top:11px"><div class="ls-tr-fld"><label>Born <small style="color:var(--t4)">year or age</small></label><input type="text" id="ls-tag-dob" value="'+(a&&a.dob?esc(a.dob):'')+'" placeholder="2021 or 5 yrs"></div>'+
+      '<div class="ls-tr-fld"><label>Dam <small style="color:var(--t4)">mother</small></label><input type="text" id="ls-tag-dam" list="ls-dam-dl" value="'+(a&&a.dam?esc(a.dam):esc(preDam))+'" placeholder="pick or type tag"><datalist id="ls-dam-dl">'+damO+'</datalist></div></div>'+
+    '<div class="ls-tr-fld"><label>Sire <small style="color:var(--t4)">'+esc(sireLbl)+'</small></label><input type="text" id="ls-tag-sire" list="ls-sire-dl" value="'+(a&&a.sire?esc(a.sire):esc(preSire))+'" placeholder="pick or type tag"><datalist id="ls-sire-dl">'+sireO+'</datalist></div>'+
+  '</details>';
+}
 function _lsTagFormHtml(h, editId){
   var a = editId ? (ST_LS.animals||[]).filter(function(x){return x.id===editId;})[0] : null;
   var title = a ? 'Edit tag' : 'Tag an animal';
-  var defCls=(lsClassDefs(h.type)||[{k:''}])[0].k;
+  var defCls=(!a && LS_TAG_PREFILL && LS_TAG_PREFILL.cls)||(lsClassDefs(h.type)||[{k:''}])[0].k;
   return '<div class="lshmv-top"><div class="ttl"><span class="dic">'+lsHerdIcon(h)+'</span><div><h3>'+title+'</h3><small>'+esc(lsHerdName(h))+' \u00b7 '+esc(h.camp||'')+(h.breed?' \u00b7 '+esc(h.breed):'')+'</small></div></div><button class="lshmv-x" onclick="lsTagFormClose()">\u00d7</button></div>'+
     (a?'':'<div class="ls-tagseg"><button class="on" onclick="lsTagMode(\'one\',this)">One animal</button><button onclick="lsTagMode(\'bulk\',this)">A range</button></div>')+
     '<div id="ls-tag-onebox">'+
@@ -15410,6 +15427,7 @@ function _lsTagFormHtml(h, editId){
       '<div class="ls-tr-row2"><div class="ls-tr-fld"><label>Class</label><select id="ls-tag-cls">'+_lsTagClassOpts(h.type, a?a.cls:defCls)+'</select></div>'+
         '<div class="ls-tr-fld"><label>Sex</label><select id="ls-tag-sex"><option value="F"'+(a&&a.sex==='F'?' selected':'')+'>Female</option><option value="M"'+(a&&a.sex==='M'?' selected':'')+'>Male</option></select></div></div>'+
       '<div class="ls-tr-fld"><label>Name (optional)</label><input type="text" id="ls-tag-name" value="'+(a&&a.name?esc(a.name):'')+'" placeholder="just for recognition"></div>'+
+      _lsPedFields(h,a)+
     '</div>'+
     (a?'':'<div id="ls-tag-bulkbox" style="display:none">'+
       '<div class="ls-tr-row2"><div class="ls-tr-fld"><label>From tag</label><input type="text" id="ls-tag-from" placeholder="GV-0601"></div><div class="ls-tr-fld"><label>To tag</label><input type="text" id="ls-tag-to" placeholder="GV-0620"></div></div>'+
@@ -15428,6 +15446,7 @@ function lsTagSave(){
     var a=ST_LS.animals.filter(function(x){return x.id===LS_TAG_FORM.editId;})[0]; if(!a){ toast('Tag not found.','error'); return; }
     var tg=(($('ls-tag-tag')||{}).value||'').trim(); if(!tg){ toast('Tag number?','error'); return; }
     a.tag=tg; a.cls=($('ls-tag-cls')||{}).value; a.sex=($('ls-tag-sex')||{}).value; a.name=(($('ls-tag-name')||{}).value||'').trim()||undefined;
+    a.dob=(($('ls-tag-dob')||{}).value||'').trim()||undefined; a.dam=(($('ls-tag-dam')||{}).value||'').trim()||undefined; a.sire=(($('ls-tag-sire')||{}).value||'').trim()||undefined;
   } else if(LS_TAG_FORM.mode==='bulk'){
     var from=(($('ls-tag-from')||{}).value||'').trim(), to=(($('ls-tag-to')||{}).value||'').trim();
     var pf=_lsTagSplitNum(from), pt=_lsTagSplitNum(to);
@@ -15444,7 +15463,7 @@ function lsTagSave(){
   } else {
     var t1=(($('ls-tag-tag')||{}).value||'').trim(); if(!t1){ toast('Tag number?','error'); return; }
     if((ST_LS.animals||[]).some(function(x){return x.herd===h.id&&x.tag===t1;})){ toast('That tag is already in this herd.','error'); return; }
-    ST_LS.animals.push({id:'an'+Date.now().toString(36)+Math.floor(Math.random()*1e3), herd:h.id, tag:t1, cls:($('ls-tag-cls')||{}).value, sex:($('ls-tag-sex')||{}).value, name:(($('ls-tag-name')||{}).value||'').trim()||undefined});
+    ST_LS.animals.push({id:'an'+Date.now().toString(36)+Math.floor(Math.random()*1e3), herd:h.id, tag:t1, cls:($('ls-tag-cls')||{}).value, sex:($('ls-tag-sex')||{}).value, name:(($('ls-tag-name')||{}).value||'').trim()||undefined, dob:(($('ls-tag-dob')||{}).value||'').trim()||undefined, dam:(($('ls-tag-dam')||{}).value||'').trim()||undefined, sire:(($('ls-tag-sire')||{}).value||'').trim()||undefined});
     toast('Tag added.','success');
   }
   if(!h.track) h.track=true; // tagging turns on individual tracking for this herd
@@ -17850,6 +17869,7 @@ function lsAnimalSafe(a){
    lsRecordMove) so Herd/Camps/Register/value/tax all stay in sync. Breeding
    records add the reproductive context (season, expected dates, PD, KPIs). */
 var BR_FORM = null; // {kind:'season'|'pd'|'calving'|'weaning', herdId, brId}
+var BR_COWS = null; // {herdId, animId} — Phase 2 per-cow drill-in ('__dam__' = dam-performance)
 
 function lsGestation(type){ var b=animalBase(type); return b==='Cattle'?283:b==='Sheep'?147:b==='Goats'?150:b==='Pigs'?114:b==='Game'?240:250; }
 function lsWeanAge(type){ var b=animalBase(type); return b==='Cattle'?205:b==='Sheep'?120:b==='Goats'?110:b==='Pigs'?42:150; }
@@ -17935,10 +17955,33 @@ function renderBreeding(){ var box=$('ls-view-breeding'); if(!box) return;
     ".br-cull{background:#FDECEC;border:1px solid #F5C4C4;border-radius:13px;padding:14px 16px;margin-bottom:12px}.br-cull .t{font-size:13px;font-weight:800;color:#9b1c1c}.br-cull .s{font-size:12px;color:#7a2020;line-height:1.55;margin-top:5px}"+
     ".br-empty{background:#fff;border:1px dashed var(--gp);border-radius:14px;padding:22px 18px;text-align:center;margin-bottom:12px}.br-empty .e1{font-size:15px;font-weight:800;margin-bottom:5px}.br-empty .e2{font-size:12.5px;color:var(--t3);line-height:1.55;max-width:460px;margin:0 auto 12px}"+
     ".br-form{background:#fff;border:1px solid var(--br);border-radius:14px;padding:16px 18px;margin-bottom:12px}.br-fr{margin-bottom:12px}.br-fr label{display:block;font-size:12px;font-weight:700;color:var(--t2);margin-bottom:5px}.br-fr input,.br-fr select{width:100%;box-sizing:border-box;font-size:14px;font-family:var(--fn);border:1px solid var(--br);border-radius:9px;padding:9px 11px;background:#fff;color:var(--ink)}.br-fr .hint{font-size:11px;color:var(--t4);margin-top:4px}.br-f2{display:grid;grid-template-columns:1fr 1fr;gap:11px}"+
-    ".br-src{font-size:11px;color:var(--t4);line-height:1.5;margin-top:2px}";
+    ".br-src{font-size:11px;color:var(--t4);line-height:1.5;margin-top:2px}"+
+    ".brc-row{display:flex;align-items:center;gap:11px;padding:11px 4px;border-bottom:1px solid var(--br2);cursor:pointer}.brc-row:last-child{border-bottom:0}"+
+    ".brc-tag{width:40px;height:34px;border-radius:8px;background:var(--br2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--t3);flex:none}"+
+    ".brc-rk{width:24px;text-align:center;font-size:13px;font-weight:800;color:var(--t4);flex:none}"+
+    ".brc-nm{font-size:13.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brc-s{font-size:11px;color:var(--t4);margin-top:1px}"+
+    ".brc-pill{font-size:10px;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap;flex:none}"+
+    ".brc-ch{color:var(--t4);font-size:16px;flex:none}"+
+    ".brc-bar{height:7px;border-radius:4px;background:var(--br2);overflow:hidden;margin-top:5px}.brc-bar>i{display:block;height:100%}"+
+    ".brc-val{font-size:12px;font-weight:800;white-space:nowrap;flex:none}"+
+    ".brc-hd{display:flex;align-items:center;gap:11px;margin-bottom:12px}.brc-av{width:42px;height:42px;border-radius:11px;background:var(--gb);display:flex;align-items:center;justify-content:center;font-size:21px;flex:none}"+
+    ".brc-hnm{font-size:15px;font-weight:800}.brc-hs{font-size:11.5px;color:var(--t4);margin-top:1px}"+
+    ".brc-ped{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--t3);background:var(--br2);border-radius:9px;padding:9px 12px;margin-bottom:4px}.brc-ped b{color:var(--t2)}.brc-ped .lnk{color:var(--gd);font-weight:800;cursor:pointer}"+
+    ".brc-sec{font-size:11px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.04em;margin:14px 0 8px}"+
+    ".brc-tl{display:flex;gap:6px}.brc-tl>div{flex:1;background:var(--gb);border:1px solid var(--gp);border-radius:9px;padding:8px 9px;text-align:center}.brc-tl .k{font-size:9px;color:var(--gd);text-transform:uppercase;letter-spacing:.03em;font-weight:800}.brc-tl .v{font-size:11.5px;font-weight:800;margin-top:2px;color:var(--t2)}"+
+    ".brc-note{font-size:11px;color:var(--t4);line-height:1.5;margin-top:8px}"+
+    ".p-mut{background:var(--br2);color:var(--t3)}"+
+    ".brc-sub{font-weight:600;color:var(--t4);font-size:10px}"+
+    ".brc-flag{background:#FBEAD4;border:1px solid #F0D9AD;border-radius:10px;padding:9px 12px;margin-top:10px;font-size:12px;color:#7a4a10;line-height:1.5}"+
+    ".brc-life{display:flex;gap:9px}.brc-life>div{flex:1;background:#fff;border:1px solid var(--br);border-radius:10px;padding:9px 11px;text-align:center}.brc-life .lv{font-size:17px;font-weight:800}.brc-life .ll{font-size:10px;color:var(--t4);margin-top:1px}"+
+    ".brc-kid{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--br2);font-size:12.5px;cursor:pointer}.brc-kid:last-child{border-bottom:0}"+
+    ".brc-cull{background:#FDECEC;border:1px solid #F5C4C4;border-radius:11px;padding:12px 14px;margin-top:12px;font-size:12.5px;color:#7a2320;line-height:1.5}.brc-cull b{color:#C0392B}"+
+    ".brc-filt{display:flex;gap:6px;margin-bottom:10px}"+
+    ".brwrap .chip{font-size:11.5px;font-weight:700;border-radius:999px;padding:6px 12px;background:#fff;border:1px solid var(--br);color:var(--t3);cursor:pointer}.brwrap .chip.on{background:var(--gd);border-color:var(--gd);color:#fff}";
     document.head.appendChild(st); }
 
   if(BR_FORM){ box.innerHTML='<div class="brwrap">'+brFormHTML()+'</div>'; return; }
+  if(BR_COWS){ box.innerHTML='<div class="brwrap">'+brCowsHTML()+'</div>'; return; }
 
   var herds=lsBreedingHerds();
   var h='<div class="brwrap">';
@@ -17980,7 +18023,8 @@ function brGroupCard(h){
     : (function(){ var c=_brStatusChip(cur); return '<span class="br-gstat" style="background:'+c.bg+';color:'+c.c+'">'+c.t+'</span>'; })();
   var head='<div class="br-gh"><span class="br-gi">'+icon+'</span><div style="min-width:0"><div class="br-gt">'+esc(lsHerdName(h))+'</div><div class="br-gs">'+esc(h.breed||h.type)+(h.camp?(' · '+esc(h.camp)):'')+'</div></div>'+chipHTML+'</div>';
   if(noSeason){
-    return '<div class="br-grp">'+head+'<div style="font-size:12.5px;color:var(--t3);margin-bottom:11px">'+(cur?('Last season weaned '+(cur.weaned||0)+' '+term.young+'. '):'')+'Start a new season when the '+term.sire+' goes in.</div><div class="br-acts"><span class="br-b pri" onclick="brOpenForm(\'season\','+h.id+')">'+term.sireIcon+' Start a season ('+term.sire+' in)</span></div></div>';
+    var _nAn0=lsHerdAnimals(h.id).length;
+    return '<div class="br-grp">'+head+'<div style="font-size:12.5px;color:var(--t3);margin-bottom:11px">'+(cur?('Last season weaned '+(cur.weaned||0)+' '+term.young+'. '):'')+'Start a new season when the '+term.sire+' goes in.</div><div class="br-acts"><span class="br-b pri" onclick="brOpenForm(\'season\','+h.id+')">'+term.sireIcon+' Start a season ('+term.sire+' in)</span><span class="br-b gh" onclick="brViewCows('+h.id+')">🐄 '+(_nAn0?('View '+term.fem+' ('+_nAn0+')'):('Track '+term.fem))+'</span></div></div>';
   }
   var idx=_brStageIdx(cur); var fem=_brFemales(cur);
   var inCalfTxt = cur.inCalf!=null?(cur.inCalf+' / '+fem):'not scanned';
@@ -18008,6 +18052,8 @@ function brGroupCard(h){
   if(idx>=3 || cur.born>0) acts+='<span class="br-b '+(cur.born>0?'sec':'pri')+'" onclick="brOpenForm(\'calving\','+h.id+',\''+cur.id+'\')">'+term.bornIcon+' Record '+term.ev.toLowerCase()+'</span>';
   if(cur.born>0) acts+='<span class="br-b pri" onclick="brOpenForm(\'weaning\','+h.id+',\''+cur.id+'\')">⚖️ Record weaning</span>';
   if(idx<1 && !cur.end) acts+='<span class="br-b sec" onclick="brOpenForm(\'pd\','+h.id+',\''+cur.id+'\')">🔬 Record scan (PD)</span>';
+  var _nAn=lsHerdAnimals(h.id).length;
+  acts+='<span class="br-b gh" onclick="brViewCows('+h.id+')">🐄 '+(_nAn?('View '+term.fem+' ('+_nAn+')'):('Track '+term.fem+' individually'))+'</span>';
   acts+='<span class="br-b gh" onclick="brOpenForm(\'season\','+h.id+')">+ New season</span></div>';
   return '<div class="br-grp">'+head+mets+prog+tl+(next?'<div class="br-next">'+next+'</div>':'')+'<div style="height:11px"></div>'+acts+'</div>';
 }
@@ -18076,10 +18122,230 @@ function brSaveCalving(){ var b=_brFind(BR_FORM.brId); if(!b) return; var term=_
   b.born=(b.born||0)+live; b.stillborn=(b.stillborn||0)+still; b.status='calving';
   if(live>0 && typeof lsRecordMove==='function'){ lsRecordMove({herdId:b.herd,reason:'born',qty:live,date:date,note:live+' '+term.young+' · '+b.season}); }
   brCommit(); BR_FORM=null; renderBreeding(); try{ toast&&toast(live+' '+term.young+' added to your herd.','success'); }catch(e){}
+  // Born-in: if this herd tracks individuals, offer to tag the new young with their sire auto-linked (pedigree builds itself)
+  try{
+    var _h=(ST_LS.herd||[]).filter(function(x){return x.id===b.herd;})[0];
+    if(live>0 && _h && (_h.track || (typeof lsHerdAnimals==='function' && lsHerdAnimals(_h.id).length)) && typeof appConfirm==='function'){
+      appConfirm('Tag the '+live+' new '+term.young+' individually? Their '+term.sire+(b.sire?(' ('+b.sire+')'):'')+' links automatically for pedigree.').then(function(ok){ if(ok){ LS_TAG_PREFILL={cls:(typeof lsYoungClass==='function'?lsYoungClass(_h.type):''), sire:b.sire||''}; lsTagAddOpen(ST_LS.herd.indexOf(_h)); } });
+    }
+  }catch(e){}
 }
 function brSaveWeaning(){ var b=_brFind(BR_FORM.brId); if(!b) return; var wn=parseInt(($('br-f-wn')||{}).value,10); if(isNaN(wn)) wn=0;
   b.weaned=Math.max(0,wn); var wt=parseFloat(($('br-f-wt')||{}).value); if(!isNaN(wt)&&wt>0) b.weanWeight=wt; b.weanDate=(($('br-f-wdate')||{}).value)||_brTodayISO(); b.status='weaned';
   brCommit(); BR_FORM=null; renderBreeding(); try{ toast&&toast('Weaning recorded.','success'); }catch(e){}
+}
+
+/* ═══════════ BREEDING Phase 2a — per-cow drill-in (pedigree · lifetime · dam performance) ═══════════
+   Progressive disclosure: reached only from a group card's "View cows". Reuses ST_LS.animals + the tag
+   form; the season status is read from the herd's group breeding record (per-cow logging is Phase 2b). */
+function brViewCows(herdId){ BR_COWS={herdId:herdId, animId:null}; renderBreeding(); var c=$('content'); if(c) c.scrollTop=0; }
+function brCowOpen(herdId,animId){ BR_COWS={herdId:herdId, animId:animId}; renderBreeding(); var c=$('content'); if(c) c.scrollTop=0; }
+function brDamPerf(herdId){ BR_COWS={herdId:herdId, animId:'__dam__'}; renderBreeding(); var c=$('content'); if(c) c.scrollTop=0; }
+function brCowsBack(){ if(BR_COWS && BR_COWS.animId){ BR_COWS={herdId:BR_COWS.herdId, animId:null}; renderBreeding(); } else { brCowsClose(); } }
+function brCowsClose(){ BR_COWS=null; renderBreeding(); }
+
+function _brCowCalves(tag){ if(!tag) return []; return (ST_LS.animals||[]).filter(function(x){return x.dam===tag;}); }
+function _brCowAge(a){ if(!a||!a.dob) return ''; var s=String(a.dob); if(/yr|year|mo|month/i.test(s)) return s; var y=parseInt(s.replace(/[^0-9]/g,''),10); if(y>1900){ var now=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY).getFullYear():new Date().getFullYear(); var d=now-y; return d>=0?(d+' yr'+(d===1?'':'s')):s; } return s; }
+function _brHerdCurSeason(herdId){ var ss=(typeof lsHerdBreedings==='function')?lsHerdBreedings(herdId):[]; return ss[0]||null; }
+
+function brCowsHTML(){
+  var herdId=BR_COWS.herdId; var h=(ST_LS.herd||[]).filter(function(x){return x.id===herdId;})[0];
+  if(!h){ BR_COWS=null; return ''; }
+  if(BR_COWS.form && BR_COWS.animId && BR_COWS.animId!=='__dam__'){ var af=(ST_LS.animals||[]).filter(function(x){return x.id===BR_COWS.animId;})[0]; if(af) return brCowFormHTML(h,af,BR_COWS.form); }
+  if(BR_COWS.animId==='__dam__') return brDamPerfHTML(h);
+  if(BR_COWS.animId) return brCowRecordHTML(h, BR_COWS.animId);
+  var term=_brTerm(h.type); var anims=lsHerdAnimals(h.id); var femClass=lsBreedingClass(h.type); var idx=ST_LS.herd.indexOf(h);
+  var top='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span class="br-b gh" onclick="brCowsClose()">‹ Back</span><div style="font-size:15px;font-weight:800">'+esc(lsHerdName(h))+' · '+term.fem+'</div><span class="br-b pri" style="margin-left:auto" onclick="lsTagAddOpen('+idx+')">+ Add '+term.femSingle+'</span></div>';
+  if(!anims.length){
+    return '<div class="br-card">'+top+'<div style="text-align:center;padding:14px 10px"><div style="font-size:14px;font-weight:800;margin-bottom:5px">No '+term.fem+' tagged yet</div><div style="font-size:12.5px;color:var(--t3);line-height:1.55;max-width:430px;margin:0 auto 12px">Tag the '+term.fem+' you want to follow individually — for pedigree, lifetime fertility and a cull list. The herd count is unaffected, and you can add them one tag at a time.</div><span class="br-b pri" style="display:inline-block" onclick="lsTagAddOpen('+idx+')">+ Tag your first '+term.femSingle+'</span></div></div>';
+  }
+  var cur=_brHerdCurSeason(h.id);
+  var rows=anims.map(function(a){
+    var calves=_brCowCalves(a.tag).length; var age=_brCowAge(a);
+    var isFem=(a.sex==='F' && a.cls===femClass);
+    var pillTxt, pillCls='p-mut'; var cst=isFem?_brCowState(a,h):null;
+    if(cst){
+      if(cst.calvedDate){ pillTxt=term.ev; pillCls='p-good'; }
+      else if(cst.scan==='in-calf'){ pillTxt='In '+term.single; pillCls='p-good'; }
+      else if(cst.scan==='empty'){ pillTxt='Empty'; pillCls='p-bad'; }
+      else if(cst.servedDate){ pillTxt='Served'; pillCls='p-mut'; }
+      else { pillTxt=lsClassMeta(h.type,a.cls).label; }
+    } else if(isFem && cur){ var i=_brStageIdx(cur);
+      if(cur.born>0 || i>=4){ pillTxt=term.ev; pillCls='p-good'; }
+      else if(cur.pdDate){ pillTxt='In '+term.single; pillCls='p-good'; }
+      else if(i>=2){ pillTxt='Scan due'; pillCls='p-warn'; }
+      else { pillTxt='Season'; pillCls='p-mut'; }
+    } else { pillTxt=lsClassMeta(h.type,a.cls).label; }
+    var meta=[lsClassMeta(h.type,a.cls).label]; if(age) meta.push(age); if(calves) meta.push(calves+' '+(calves===1?term.single:term.young));
+    return '<div class="brc-row" onclick="brCowOpen('+h.id+',\''+esc(a.id)+'\')"><span class="brc-tag">'+esc(a.tag)+'</span><div style="flex:1;min-width:0"><div class="brc-nm">'+esc(a.name||a.tag)+'</div><div class="brc-s">'+esc(meta.join(' · '))+'</div></div><span class="brc-pill '+pillCls+'">'+esc(pillTxt)+'</span><span class="brc-ch">›</span></div>';
+  }).join('');
+  return '<div class="br-card">'+top+
+    '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:12px;color:var(--t3)">'+anims.length+' tagged · pedigree &amp; lifetime</span><span class="br-b sec" style="margin-left:auto;padding:6px 11px" onclick="brDamPerf('+h.id+')">🏆 Dam performance</span></div>'+
+    rows+'</div>';
+}
+
+function brCowRecordHTML(h, animId){
+  var a=(ST_LS.animals||[]).filter(function(x){return x.id===animId;})[0];
+  if(!a){ BR_COWS={herdId:h.id, animId:null}; return brCowsHTML(); }
+  var term=_brTerm(h.type); var calves=_brCowCalves(a.tag); var age=_brCowAge(a); var cur=_brHerdCurSeason(h.id);
+  var top='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span class="br-b gh" onclick="brCowsBack()">‹ Back</span><div style="font-size:15px;font-weight:800">'+esc(a.name||a.tag)+'</div><span class="br-b sec" style="margin-left:auto" onclick="lsTagEditOpen(\''+esc(a.id)+'\')">✎ Edit</span></div>';
+  var hd='<div class="brc-hd"><span class="brc-av">'+animalIcon(h.type)+'</span><div style="min-width:0"><div class="brc-hnm">'+esc(a.tag)+(a.name?(' · '+esc(a.name)):'')+'</div><div class="brc-hs">'+esc(lsClassMeta(h.type,a.cls).label)+(age?(' · '+age):'')+' · '+esc(a.breed||h.breed||h.type)+'</div></div></div>';
+  var damA=a.dam?(ST_LS.animals||[]).filter(function(x){return x.tag===a.dam&&x.herd===h.id;})[0]:null;
+  var ped='<div class="brc-ped">🧬 <span>Dam <b>'+(a.dam?esc(a.dam):'—')+'</b>'+(damA?(' <span class="lnk" onclick="brCowOpen('+h.id+',\''+esc(damA.id)+'\')">view ›</span>'):'')+'</span><span>Sire <b>'+(a.sire?esc(a.sire):'—')+'</b></span></div>';
+  var isFem=(a.sex==='F' && a.cls===lsBreedingClass(h.type));
+  var season='', flagLine='';
+  if(isFem){
+    var st=_brCowState(a,h); var served=(st&&st.servedDate&&!st.calvedDate);
+    var btns='<div class="br-acts" style="margin-top:11px"><span class="br-b pri" onclick="brCowLog(\'service\')">'+(st&&st.servedDate&&!st.calvedDate?'↻ Re-serve':'＋ Log service')+'</span>'+
+      (served?('<span class="br-b sec" onclick="brCowLog(\'scan\')">🔬 Log scan</span><span class="br-b sec" onclick="brCowLog(\'calving\')">'+term.bornIcon+' Log '+term.ev.toLowerCase()+'</span>'):'')+'</div>';
+    if(st){
+      var expCell = st.calvedDate ? ('<div><div class="k">'+term.ev+'</div><div class="v">'+_brDisp(st.calvedDate)+'</div></div>')
+        : ('<div><div class="k">Expected '+term.ev.toLowerCase()+'</div><div class="v">'+(st.expected?_brDisp(st.expected):'—')+'</div></div>');
+      season='<div class="brc-sec">Her breeding</div><div class="brc-tl">'+
+        '<div><div class="k">Served</div><div class="v">'+(st.servedDate?_brDisp(st.servedDate):'—')+(st.sire?('<div class="brc-sub">'+esc(st.sire)+(st.method==='AI'?' · AI':'')+'</div>'):'')+'</div></div>'+
+        '<div><div class="k">Scan</div><div class="v">'+(st.scan?(st.scan==='in-calf'?('In '+term.single):'Empty'):(st.calvedDate?'—':'due'))+'</div></div>'+
+        expCell+'</div>'+btns;
+    } else {
+      season='<div class="brc-sec">Her breeding</div><div class="brc-note">No service logged yet — she inherits the herd season'+(cur?(' ('+term.sire+' in '+(cur.start?_brDisp(cur.start):'—')+', expected '+term.ev.toLowerCase()+' '+(_brExpectedFrom(cur)?_brDisp(_brExpectedFrom(cur)):'—')+')'):'')+'. Log her first service to follow her individually.</div>'+btns;
+    }
+    var mo=_brCowAgeMonths(a); var everCalved=_brCowCalves(a.tag).length>0 || (st&&st.nCalvings>0);
+    if(!everCalved && mo!=null && mo>=_brFirstCalveMo(h.type)){ flagLine='<div class="brc-flag">⚠️ Past first '+term.ev.toLowerCase()+' age ('+(Math.round(mo/12*10)/10)+' yr) with no '+term.single+' yet — check she is cycling.</div>'; }
+    else { var cd=(a.repro||[]).filter(function(e){return e.k==='calving'&&e.date;}).map(function(e){return e.date;}).sort(); if(cd.length>=2){ var gap=Math.round((new Date(cd[cd.length-1])-new Date(cd[cd.length-2]))/86400000); if(gap>_brIcpTargetD(h.type)) flagLine='<div class="brc-flag">⚠️ Long '+term.ev.toLowerCase()+' interval ('+gap+' days) — target under '+_brIcpTargetD(h.type)+' days.</div>'; } }
+  }
+  var life='<div class="brc-sec">Lifetime</div><div class="brc-life">'+
+    '<div><div class="lv">'+calves.length+'</div><div class="ll">'+term.young+' recorded</div></div>'+
+    '<div><div class="lv">'+(age||'—')+'</div><div class="ll">age</div></div>'+
+    '<div><div class="lv">'+(calves.length>=2?'✓':'—')+'</div><div class="ll">'+(calves.length>=2?'proven breeder':'building record')+'</div></div></div>';
+  var kids = calves.length ? ('<div class="brc-sec">Her offspring</div>'+calves.map(function(c){ return '<div class="brc-kid" onclick="brCowOpen('+h.id+',\''+esc(c.id)+'\')"><span class="brc-tag">'+esc(c.tag)+'</span><span style="flex:1">'+esc(c.name||c.tag)+' · '+esc(lsClassMeta(h.type,c.cls).label)+(c.sire?(' · '+term.sire+' '+esc(c.sire)):'')+'</span><span class="brc-ch">›</span></div>'; }).join('')) : '';
+  return '<div class="br-card">'+top+hd+ped+season+flagLine+life+kids+'</div>';
+}
+
+function brDamPerfHTML(h){
+  var term=_brTerm(h.type); var femClass=lsBreedingClass(h.type);
+  var fems=lsHerdAnimals(h.id).filter(function(a){return a.sex==='F' && (a.cls===femClass || !a.cls);});
+  var top='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span class="br-b gh" onclick="brViewCows('+h.id+')">‹ Back</span><div style="font-size:15px;font-weight:800">🏆 Dam performance</div></div>';
+  if(!fems.length) return '<div class="br-card">'+top+'<div style="font-size:12.5px;color:var(--t3);line-height:1.55;padding:8px 4px">Tag your '+term.fem+' (with their '+term.young+' as they’re born) to rank them by '+term.young+' recorded and flag the passengers.</div></div>';
+  var scored=fems.map(function(a){ return {a:a, calves:_brCowCalves(a.tag).length}; }).sort(function(x,y){return y.calves-x.calves;});
+  var mx=Math.max.apply(null, scored.map(function(s){return s.calves;}).concat(1));
+  var rows=scored.map(function(s,i){ var w=Math.max(6,Math.round(s.calves/mx*100)); var bad=s.calves===0;
+    return '<div class="brc-row" onclick="brCowOpen('+h.id+',\''+esc(s.a.id)+'\')"><span class="brc-rk">'+(i+1)+'</span><div style="flex:1;min-width:0"><div class="brc-nm">'+esc(s.a.tag)+(s.a.name?(' · '+esc(s.a.name)):'')+'</div><div class="brc-bar"><i style="width:'+w+'%;background:'+(bad?'#C0392B':'#40916C')+'"></i></div></div><span class="brc-val">'+s.calves+' '+(s.calves===1?term.single:term.young)+'</span></div>';
+  }).join('');
+  var culls=scored.filter(function(s){return s.calves===0;});
+  var cull = culls.length ? '<div class="brc-cull">💰 <b>'+culls.length+' cull candidate'+(culls.length===1?'':'s')+'</b> — '+term.fem+' with no '+term.single+' recorded ('+culls.map(function(s){return esc(s.a.tag);}).slice(0,8).join(', ')+(culls.length>8?'…':'')+'). At ~R6 500/yr grazing each, roughly <b>R'+_grpInt(culls.length*6500)+'</b> for no return — consider culling for fertility.</div>' : '<div class="brc-note" style="margin-top:12px">No non-producers flagged. '+term.young.charAt(0).toUpperCase()+term.young.slice(1)+' link to a dam automatically when you tag them at calving.</div>';
+  return '<div class="br-card">'+top+'<div style="font-size:12px;color:var(--t3);margin-bottom:11px">Ranked by '+term.young+' recorded (from the pedigree links). Tap a '+term.femSingle+' for her record.</div>'+rows+cull+'</div>';
+}
+
+/* ═══════════ BREEDING Phase 2b (core) — per-cow service→scan→calving logging + pedigree intelligence ═══════════
+   Opt-in: only tracked females (h.track / tagged cows) get this. Events live on a.repro; her status, expected
+   calving and lifetime derive from her own events (falling back to the herd season until she has any). */
+function _brCowState(a,h){
+  var ev=(a&&a.repro)?a.repro.slice():[]; if(!ev.length) return null;
+  ev.sort(function(x,y){ return (x.date||'')<(y.date||'')?-1:((x.date||'')>(y.date||'')?1:0); });
+  var services=ev.filter(function(e){return e.k==='service';});
+  var scans=ev.filter(function(e){return e.k==='scan';});
+  var calvings=ev.filter(function(e){return e.k==='calving';});
+  var lastService=services.length?services[services.length-1]:null;
+  var lastCalving=calvings.length?calvings[calvings.length-1]:null;
+  var lastScan=null;
+  if(lastService){ for(var i=scans.length-1;i>=0;i--){ if((scans[i].date||'')>=(lastService.date||'')){ lastScan=scans[i]; break; } } }
+  else lastScan=scans.length?scans[scans.length-1]:null;
+  var gest=(typeof lsGestation==='function')?lsGestation(h.type):283;
+  var calvedThisCycle=lastCalving && (!lastService || (lastCalving.date||'')>=(lastService.date||''));
+  var stage=calvedThisCycle?3:(lastScan?2:(lastService?1:0));
+  return { stage:stage,
+    servedDate:lastService?lastService.date:'', sire:lastService?(lastService.sire||''):'', method:lastService?(lastService.method||''):'',
+    scan:(lastScan&&!calvedThisCycle)?(lastScan.result||''):'',
+    expected:lastService?_brAddDays(lastService.date,gest):'',
+    calvedDate:calvedThisCycle?lastCalving.date:'', nCalvings:calvings.length };
+}
+// First-degree relatedness between a cow and a chosen sire, among THIS herd's tagged animals only (free-text sires skipped).
+function _brRelated(cowTag, sireTag, herdId){
+  if(!cowTag||!sireTag||cowTag===sireTag) return '';
+  var anims=(ST_LS.animals||[]).filter(function(x){return x.herd===herdId;});
+  function find(t){ for(var i=0;i<anims.length;i++){ if(anims[i].tag===t) return anims[i]; } return null; }
+  var cow=find(cowTag), sire=find(sireTag); if(!sire) return '';   // can't assess an untagged/free-text sire
+  if(cow && (cow.sire===sireTag||cow.dam===sireTag)) return 'he is a parent of '+cowTag;
+  if(sire.sire===cowTag||sire.dam===cowTag) return 'she is a parent of '+sireTag;
+  if(cow){
+    if(cow.dam && sire.dam && cow.dam===sire.dam && cow.sire && sire.sire && cow.sire===sire.sire) return 'full siblings';
+    if(cow.dam && sire.dam && cow.dam===sire.dam) return 'same dam ('+cow.dam+')';
+    if(cow.sire && sire.sire && cow.sire===sire.sire) return 'same sire ('+cow.sire+')';
+  }
+  return '';
+}
+function _brCowAgeMonths(a){
+  if(!a||!a.dob) return null; var s=String(a.dob);
+  var moM=s.match(/(\d+)\s*mo/i); if(moM) return parseInt(moM[1],10);
+  var yrM=s.match(/(\d+)\s*(?:yr|year)/i); if(yrM) return parseInt(yrM[1],10)*12;
+  var d=null; if(/^\d{4}-\d{2}-\d{2}/.test(s)) d=new Date(s.slice(0,10)+'T00:00:00');
+  else { var y=parseInt(s.replace(/[^0-9]/g,''),10); if(y>1900) d=new Date(y+'-07-01T00:00:00'); }
+  if(!d||isNaN(d.getTime())) return null;
+  var now=_brToday(); var m=(now.getFullYear()-d.getFullYear())*12+(now.getMonth()-d.getMonth());
+  return m>=0?m:null;
+}
+function _brFirstCalveMo(type){ var b=animalBase(type); return b==='Cattle'?36:((b==='Sheep'||b==='Goats')?18:(b==='Pigs'?12:24)); }
+function _brIcpTargetD(type){ var b=animalBase(type); return b==='Cattle'?430:((b==='Sheep'||b==='Goats')?300:430); }
+
+function _brCowAnim(){ if(!BR_COWS||!BR_COWS.animId||BR_COWS.animId==='__dam__') return null; return (ST_LS.animals||[]).filter(function(x){return x.id===BR_COWS.animId;})[0]||null; }
+function brCowLog(kind){ if(!BR_COWS) return; BR_COWS.form=kind; renderBreeding(); var c=$('content'); if(c) c.scrollTop=0; }
+function brCowLogClose(){ if(!BR_COWS) return; BR_COWS.form=null; renderBreeding(); }
+function brCowSireCheck(){ var a=_brCowAnim(); if(!a) return; var w=$('brcf-warn'); if(!w) return; var v=(($('brcf-sire')||{}).value||'').trim(); var r=v?_brRelated(a.tag,v,BR_COWS.herdId):''; if(r){ w.style.display='block'; w.textContent='⚠️ Inbreeding risk: '+r+'.'; } else { w.style.display='none'; w.textContent=''; } }
+
+function brCowFormHTML(h,a,kind){
+  var term=_brTerm(h.type); var today=_brTodayISO();
+  var top='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span class="br-b gh" onclick="brCowLogClose()">‹ Back</span><div style="font-size:15px;font-weight:800">'+esc(a.name||a.tag)+'</div></div>';
+  if(kind==='service'){
+    var males=(ST_LS.animals||[]).filter(function(x){return x.herd===h.id&&x.sex==='M';});
+    var dl='<datalist id="brcf-sires">'+males.map(function(m){return '<option value="'+esc(m.tag)+'">'+esc(m.name||m.tag)+'</option>';}).join('')+'</datalist>';
+    return '<div class="br-form">'+top+
+      '<div class="br-h">'+term.sireIcon+' Log a service for '+esc(a.tag)+'</div>'+
+      '<div class="br-f2"><div class="br-fr"><label>Date served</label><input id="brcf-date" type="date" value="'+today+'"></div>'+
+      '<div class="br-fr"><label>Method</label><select id="brcf-method"><option value="natural">Natural ('+term.sire+')</option><option value="AI">AI</option></select></div></div>'+
+      '<div class="br-fr"><label>'+term.sire.charAt(0).toUpperCase()+term.sire.slice(1)+' / semen</label><input id="brcf-sire" list="brcf-sires" oninput="brCowSireCheck()" placeholder="pick a tag or type a semen code">'+dl+'<div class="hint" id="brcf-warn" style="display:none;color:#B45309;font-weight:700"></div></div>'+
+      '<div class="br-acts"><span class="br-b pri" onclick="brSaveCowService()">Save service</span><span class="br-b gh" onclick="brCowLogClose()">Cancel</span></div>'+
+      '<div class="br-src">Her expected '+term.ev.toLowerCase()+' is worked out as the service date plus gestation ('+lsGestation(h.type)+' days). We flag the service if the '+term.sire+' is closely related to her.</div></div>';
+  }
+  if(kind==='scan'){
+    return '<div class="br-form">'+top+
+      '<div class="br-h">🔬 Log a pregnancy scan for '+esc(a.tag)+'</div>'+
+      '<div class="br-f2"><div class="br-fr"><label>Scan date</label><input id="brcf-date" type="date" value="'+today+'"></div>'+
+      '<div class="br-fr"><label>Result</label><select id="brcf-result"><option value="in-calf">In '+term.single+'</option><option value="empty">Empty</option></select></div></div>'+
+      '<div class="br-acts"><span class="br-b pri" onclick="brSaveCowScan()">Save scan</span><span class="br-b gh" onclick="brCowLogClose()">Cancel</span></div>'+
+      '<div class="br-src">An empty '+term.femSingle+' after a service is a cull candidate — she costs grazing for no '+term.single+'.</div></div>';
+  }
+  if(kind==='calving'){
+    return '<div class="br-form">'+top+
+      '<div class="br-h">'+term.bornIcon+' Log '+term.ev.toLowerCase()+' for '+esc(a.tag)+'</div>'+
+      '<div class="br-f2"><div class="br-fr"><label>Date</label><input id="brcf-date" type="date" value="'+today+'"></div>'+
+      '<div class="br-fr"><label>Live '+term.young+'</label><input id="brcf-live" type="number" value="1" min="0"></div></div>'+
+      '<div class="br-acts"><span class="br-b pri" onclick="brSaveCowCalving()">Save '+term.ev.toLowerCase()+'</span><span class="br-b gh" onclick="brCowLogClose()">Cancel</span></div>'+
+      '<div class="br-src">Her '+term.young+' are added to your herd count, and you can tag them straight after — their dam links to '+esc(a.tag)+' automatically. Use the herd season’s “Record '+term.ev.toLowerCase()+'” for a whole-group tally.</div></div>';
+  }
+  return top;
+}
+function brSaveCowService(){ var a=_brCowAnim(); if(!a) return; var h=(ST_LS.herd||[]).filter(function(x){return x.id===BR_COWS.herdId;})[0]; if(!h) return;
+  var date=(($('brcf-date')||{}).value)||_brTodayISO(); var sire=(($('brcf-sire')||{}).value||'').trim(); var method=(($('brcf-method')||{}).value)||'natural';
+  var doSave=function(){ a.repro=a.repro||[]; a.repro.push({id:brNewId(),k:'service',date:date,sire:sire,method:method}); brCommit(); BR_COWS.form=null; renderBreeding(); try{ toast&&toast('Service logged for '+a.tag+'.','success'); }catch(e){} };
+  var rel=sire?_brRelated(a.tag,sire,h.id):'';
+  if(rel && typeof appConfirm==='function'){ appConfirm(a.tag+' and '+sire+' share ancestry ('+rel+'). Breeding them raises inbreeding risk — continue?').then(function(ok){ if(ok) doSave(); }); }
+  else doSave();
+}
+function brSaveCowScan(){ var a=_brCowAnim(); if(!a) return;
+  var date=(($('brcf-date')||{}).value)||_brTodayISO(); var result=(($('brcf-result')||{}).value)||'in-calf';
+  a.repro=a.repro||[]; a.repro.push({id:brNewId(),k:'scan',date:date,result:result}); brCommit(); BR_COWS.form=null; renderBreeding();
+  try{ toast&&toast('Scan logged — '+(result==='in-calf'?'in calf':'empty')+'.','success'); }catch(e){}
+}
+function brSaveCowCalving(){ var a=_brCowAnim(); if(!a) return; var h=(ST_LS.herd||[]).filter(function(x){return x.id===BR_COWS.herdId;})[0]; if(!h) return; var term=_brTerm(h.type);
+  var date=(($('brcf-date')||{}).value)||_brTodayISO(); var live=parseInt(($('brcf-live')||{}).value,10); if(isNaN(live)||live<0) live=0;
+  var st=_brCowState(a,h); var sire=st?st.sire:'';
+  a.repro=a.repro||[]; a.repro.push({id:brNewId(),k:'calving',date:date,young:live,sire:sire}); brCommit();
+  if(live>0 && typeof lsRecordMove==='function'){ lsRecordMove({herdId:h.id,reason:'born',qty:live,date:date,note:live+' '+(live===1?term.single:term.young)+' · dam '+a.tag}); }
+  BR_COWS.form=null; renderBreeding(); try{ toast&&toast(term.ev+' logged for '+a.tag+'.','success'); }catch(e){}
+  try{
+    if(live>0 && typeof appConfirm==='function'){
+      appConfirm('Tag the '+live+' new '+(live===1?term.single:term.young)+' from '+a.tag+'? Their dam links to '+a.tag+(sire?(' and '+term.sire+' '+sire):'')+' automatically.').then(function(ok){ if(ok){ LS_TAG_PREFILL={cls:(typeof lsYoungClass==='function'?lsYoungClass(h.type):''), dam:a.tag, sire:sire||''}; lsTagAddOpen(ST_LS.herd.indexOf(h)); } });
+    }
+  }catch(e){}
 }
 
 /* ===== Livestock reports: SARS valuation + Medicine/vaccine audit ===== */
