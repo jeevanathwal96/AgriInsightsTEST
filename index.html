@@ -25621,7 +25621,7 @@ function taxWorkerSnapshot(){
   var rate=(ST_WORK&&ST_WORK.nmwRate)||STATUTORY.nmwRate.value;
   return {count:ws.length, allOk:ws.every(function(w){ return wkHourly(w)>=rate-0.005; }), sdl:(typeof wkSdlApplies==='function'&&wkSdlApplies()), rate:rate};
 }
-function taxAccountantPack(){ if(typeof previewSARSExport==='function') previewSARSExport(); }
+function taxAccountantPack(){ if(typeof previewSARSExport==='function') previewSARSExport(_txResolveFy()); }
 // ── extra derive helpers for the richer tab (all reuse existing engines) ──
 function _taxFYProfit(offset){
   var _p=(currentPeriodLabel()).split(' '), MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
@@ -25668,6 +25668,7 @@ var TAX_TAB='glance', TAX_WI_ENT='sole';
 function taxTab(name){ TAX_TAB=name; ['glance','reports','whatif'].forEach(function(t){ var p=$('tax-tab-'+t), b=$('tax-tabbtn-'+t); if(p) p.classList.toggle('on',t===name); if(b) b.classList.toggle('on',t===name); }); if(name==='whatif') taxWhatIf(); var c=$('content'); if(c) c.scrollTop=0; }
 function taxWiEnt(e){ TAX_WI_ENT=e; var bs=document.querySelectorAll('#tax-wi-ents button'); [].forEach.call(bs,function(b){ b.classList.toggle('on', b.getAttribute('data-e')===e); }); taxWhatIf(); }
 var TAX_WI_VAT='no';
+var TAX_RPT_FY=null, TAX_RPT_VATP=0;
 function taxWiVat(v){ TAX_WI_VAT=v; var bs=document.querySelectorAll('#tax-wi-vatseg button'); [].forEach.call(bs,function(b){ b.classList.toggle('on', b.getAttribute('data-v')===v); }); taxWhatIf(); }
 // Potential VAT position IF registered — derived from the farmer's own FY transactions (never demo/hardcoded).
 function taxVatIfRegistered(){
@@ -25715,7 +25716,25 @@ function renderTax(){
     ".tx-tile{background:rgba(255,255,255,.13);border-radius:11px;padding:9px 13px;text-align:center;min-width:88px}.tx-tile .k{font-size:10px;opacity:.75}.tx-tile .v{font-size:17px;font-weight:800}"+
     ".tx-seg button{font-family:var(--fn)}"+
     ".tx-vaticon{display:inline-flex;width:19px;height:19px;border-radius:6px;background:var(--gp);color:var(--gd);font-size:10.5px;font-weight:800;align-items:center;justify-content:center;vertical-align:-3px}"+
-    "#tax-wi-ents button,#tax-wi-vatseg button{background:#F1F3F0;color:var(--t3);transition:background .15s,color .15s}#tax-wi-ents button.on,#tax-wi-vatseg button.on{background:var(--gd);color:#fff}";
+    "#tax-wi-ents button,#tax-wi-vatseg button{background:#F1F3F0;color:var(--t3);transition:background .15s,color .15s}#tax-wi-ents button.on,#tax-wi-vatseg button.on{background:var(--gd);color:#fff}"+
+    ".tx2{--tx-amber:#FBEAD4;--tx-violet:#ECE6F7;--tx-green:#E3F0E7}"+
+    ".txband{margin-bottom:22px}"+
+    ".txband .tx-card{display:flex;flex-direction:column}"+
+    ".txb-hd{display:flex;align-items:center;gap:11px;margin-bottom:11px}"+
+    ".txb-ic{width:33px;height:33px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:var(--gd);flex:none}"+
+    ".txb-tt{font-size:14.5px;font-weight:800;letter-spacing:-.01em;line-height:1.15}"+
+    ".txb-meta{font-size:11px;color:var(--t4);font-weight:600;margin-top:1px}"+
+    ".tx-step{display:inline-flex;align-items:center;gap:2px;background:#fff;border:1px solid var(--br);border-radius:11px;padding:3px;flex:none}"+
+    ".tx-step button{border:0;background:transparent;width:27px;height:27px;border-radius:8px;font-size:15px;color:var(--t3);cursor:pointer;font-family:var(--fn)}"+
+    ".tx-step button:hover:not(:disabled){background:var(--br2)}.tx-step button:disabled{opacity:.32;cursor:default}"+
+    ".tx-step .lbl{font-size:12px;font-weight:800;color:var(--t2);min-width:92px;text-align:center;font-variant-numeric:tabular-nums;letter-spacing:-.01em}"+
+    ".txc-hd{display:flex;gap:10px;align-items:flex-start;margin-bottom:11px}"+
+    ".txc-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}"+
+    ".txc-t{font-size:13px;font-weight:800;line-height:1.2}.txc-s{font-size:11px;color:var(--t4);margin-top:2px;line-height:1.3}"+
+    ".txc-btns{display:flex;gap:7px;margin-top:auto;padding-top:4px}"+
+    ".txb-b{flex:1;text-align:center;font-size:12px;font-weight:700;border-radius:8px;padding:8px 6px;cursor:pointer}"+
+    ".txb-b.pri{color:var(--gd);background:var(--gb);border:1px solid var(--gp)}.txb-b.sec{color:var(--t2);background:var(--br2);border:1px solid transparent}"+
+    ".txb-note{font-size:11px;color:var(--t4);margin-top:9px;line-height:1.45}";
     document.head.appendChild(st); }
 
   var h='<div class="tx2">'+
@@ -25733,6 +25752,12 @@ function renderTax(){
   if(typeof ST!=='undefined' && ST.lang==='af' && typeof applyLangNodes==='function'){ try{ applyLangNodes(body,0,1); }catch(e){} }
 }
 
+// Tidy a raw expense-category key for display: fall back for uncategorised
+// transactions (null/blank), and normalise spacing around an ampersand.
+function _txCatLabel(c){
+  if(c==null || c==='' || c==='null' || c==='undefined') return 'Uncategorised';
+  return (''+c).replace(/\s*&\s*/g,' & ').trim();
+}
 function taxGlanceHTML(){
   var prov=taxProvEstimate(), ytd=ytdSummary(), vat=taxVatPosition(), wk=taxWorkerSnapshot();
   var cap=taxCapitalAllowances(), pay=taxPayrollAnnual(), vatFY=_taxFYVat(), trend=taxVatTrend();
@@ -25759,10 +25784,10 @@ function taxGlanceHTML(){
   h+='<div class="tx-g3">';
   if(prov.ok){ var eff=prov.annualProfit>0?Math.round(prov.annualTax/prov.annualProfit*100):0;
     h+='<div class="tx-card"><div class="tx-h">Effective tax rate</div>'+_taxGauge(eff/45)+'<div style="text-align:center;font-size:20px;font-weight:800;margin-top:-6px">'+eff+'%</div><div style="text-align:center;font-size:10.5px;color:var(--t4)">of profit · '+esc(_entityTaxLabel(prov.entity))+'</div></div>';
-    h+='<div class="tx-card"><div class="tx-h">Set aside each month</div><div style="font-size:24px;font-weight:800">'+fmt(Math.round(prov.annualTax/12))+'</div><div style="font-size:11px;color:var(--t3);margin-top:2px">to cover '+esc(prov.next.lbl)+' — '+(prov.daysAway>0?prov.daysAway+' days to go':'due now')+'</div></div>';
+    h+='<div class="tx-card" style="display:flex;flex-direction:column"><div class="tx-h">Set aside each month</div><div style="flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:24px;font-weight:800">'+fmt(Math.round(prov.annualTax/12))+'</div><div style="font-size:11px;color:var(--t3);margin-top:3px">to cover '+esc(prov.next.lbl)+' — '+(prov.daysAway>0?prov.daysAway+' days to go':'due now')+'</div></div></div>';
   } else { h+='<div class="tx-card"><div class="tx-h">Set aside for tax</div><div style="font-size:12.5px;color:var(--t3)">Once your season shows a profit, your provisional-tax set-aside appears here.</div></div>'; }
   if(trend.length){ var mx=Math.max.apply(null,trend.map(function(t){return Math.abs(t.net);}).concat(1));
-    h+='<div class="tx-card"><div class="tx-h">VAT — last 3 periods</div><div style="display:flex;align-items:flex-end;gap:10px;height:52px">'+trend.map(function(t,i){var pc=Math.max(6,Math.round(Math.abs(t.net)/mx*100));return '<div style="flex:1;text-align:center"><div style="height:'+Math.round(pc*0.44)+'px;background:'+(i===trend.length-1?'#DC2626':'#F87171')+';border-radius:4px 4px 0 0"></div><div style="font-size:9px;color:var(--t4);margin-top:3px">'+t.label+'</div></div>';}).join('')+'</div><div style="font-size:10.5px;color:var(--t4);margin-top:4px">Net VAT payable per period</div></div>';
+    h+='<div class="tx-card" style="display:flex;flex-direction:column"><div class="tx-h">VAT — last 3 periods</div><div style="flex:1;display:flex;flex-direction:column;justify-content:center"><div style="display:flex;align-items:flex-end;gap:10px;height:52px">'+trend.map(function(t,i){var pc=Math.max(6,Math.round(Math.abs(t.net)/mx*100));return '<div style="flex:1;text-align:center"><div style="height:'+Math.round(pc*0.44)+'px;background:'+(i===trend.length-1?'#DC2626':'#F87171')+';border-radius:4px 4px 0 0"></div><div style="font-size:9px;color:var(--t4);margin-top:3px">'+t.label+'</div></div>';}).join('')+'</div><div style="font-size:10.5px;color:var(--t4);margin-top:6px;text-align:center">Net VAT payable per period</div></div></div>';
   } else { h+='<div class="tx-card"><div class="tx-h">VAT</div><div style="font-size:12.5px;color:var(--t3)">Not registered for VAT — no VAT to track.</div></div>'; }
   h+='</div>';
 
@@ -25789,7 +25814,7 @@ function taxGlanceHTML(){
   var fy=_taxFYProfit(0), ded=[]; Object.keys(fy.byCat||{}).forEach(function(k){ ded.push([k,fy.byCat[k]]); }); ded.sort(function(a,b){return b[1]-a[1];}); ded=ded.slice(0,3);
   if(cap.total>0) ded.push(['Capital allowances (S12B, wear & tear)',cap.total]);
   var dmx=Math.max.apply(null,ded.map(function(d){return d[1];}).concat(1));
-  h+=(ded.length?ded.map(function(d){ var pc=Math.max(5,Math.round(d[1]/dmx*100)); return '<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:600">'+esc(d[0])+'</span><b>'+IE_R(d[1])+'</b></div><div class="tx-bar"><i style="width:'+pc+'%;background:#40916C"></i></div></div>'; }).join(''):'<div style="font-size:12.5px;color:var(--t3)">Log costs and assets to see your deductions build up.</div>');
+  h+=(ded.length?ded.map(function(d){ var pc=Math.max(5,Math.round(d[1]/dmx*100)); return '<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:600">'+esc(_txCatLabel(d[0]))+'</span><b>'+IE_R(d[1])+'</b></div><div class="tx-bar"><i style="width:'+pc+'%;background:#40916C"></i></div></div>'; }).join(''):'<div style="font-size:12.5px;color:var(--t3)">Log costs and assets to see your deductions build up.</div>');
   h+='</div>';
   h+='<div class="tx-card"><div class="tx-h">Income tax — this year vs last</div>';
   if(prov.ok||priorTax){ var yv=Math.max(prov.annualTax,priorTax,1);
@@ -25832,19 +25857,196 @@ function taxGlanceHTML(){
 function _shortDate(d){ try{ var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return d.getDate()+' '+MO[d.getMonth()]; }catch(e){ return ''; } }
 
 function taxReportsHTML(){
-  var ft=(typeof getFarmType==='function')?getFarmType():'', wk=taxWorkerSnapshot();
-  var h='<div style="font-size:12.5px;color:var(--t3);margin-bottom:12px">Every SARS report the app builds — preview, print or hand to your accountant.</div>';
-  h+='<div class="tx-g2">';
-  h+='<div class="tx-card"><div style="display:flex;gap:10px;align-items:center;margin-bottom:8px"><span style="width:34px;height:34px;border-radius:9px;background:#EDE7F6;display:flex;align-items:center;justify-content:center;font-size:16px">🧾</span><div><div style="font-size:13px;font-weight:800">Income tax pre-fill (IT12)</div><div style="font-size:11px;color:var(--t4)">Your annual return, filled from your books</div></div></div><div style="display:flex;gap:7px"><span onclick="previewSARSExport()" style="flex:1;text-align:center;font-size:12px;font-weight:700;color:var(--gd);background:var(--gb);border:1px solid var(--gp);border-radius:8px;padding:8px;cursor:pointer">Preview</span><span onclick="printSARSExport()" style="flex:1;text-align:center;font-size:12px;font-weight:700;color:var(--t2);background:var(--br2);border-radius:8px;padding:8px;cursor:pointer">Print / PDF</span></div></div>';
-  h+='<div class="tx-card"><div style="display:flex;gap:10px;align-items:center;margin-bottom:8px"><span style="width:34px;height:34px;border-radius:9px;background:#E8F0FE;display:flex;align-items:center;justify-content:center;font-size:16px">📊</span><div><div style="font-size:13px;font-weight:800">Income &amp; Expenses + VAT201</div><div style="font-size:11px;color:var(--t4)">The statement, VAT summarised per SARS</div></div></div><div style="display:flex;gap:7px"><span onclick="previewStatement(\'ie\')" style="flex:1;text-align:center;font-size:12px;font-weight:700;color:var(--gd);background:var(--gb);border:1px solid var(--gp);border-radius:8px;padding:8px;cursor:pointer">Preview</span><span onclick="openStatement(\'ie\')" style="flex:1;text-align:center;font-size:12px;font-weight:700;color:var(--t2);background:var(--br2);border-radius:8px;padding:8px;cursor:pointer">Print</span><span onclick="exportIECsv()" style="flex:1;text-align:center;font-size:12px;font-weight:700;color:var(--t2);background:var(--br2);border-radius:8px;padding:8px;cursor:pointer">CSV</span></div></div>';
-  h+='</div>';
-  if(ft==='livestock'||ft==='mixed') h+='<div class="tx-cta" onclick="openSarsLivestockReport()"><span class="ic">🐄</span><div style="flex:1"><div class="t">SARS livestock year-end valuation (S26)</div><div class="s">Reconciliation, standard values &amp; trading result — PDF or CSV</div></div><span style="font-size:18px;opacity:.8">›</span></div>';
-  if(ft==='crops'||ft==='mixed'||ft==='generic') h+='<div class="tx-cta" style="background:linear-gradient(135deg,#3f7a52,#245139)" onclick="openCropInputCostReport()"><span class="ic">🌾</span><div style="flex:1"><div class="t">Crop input cost + diesel refund</div><div class="s">S11(a) input costs and eligible diesel litres — PDF or CSV</div></div><span style="font-size:18px;opacity:.8">›</span></div>';
-  h+='<div class="tx-cta" style="background:linear-gradient(135deg,#1B4332,#111f18)" onclick="taxAccountantPack()"><span class="ic">📤</span><div style="flex:1"><div class="t">Accountant pack — everything in one</div><div class="s">IT12 + statement + reports, ready to send</div></div><span style="font-size:18px;opacity:.8">›</span></div>';
-  h+='<div class="tx-disc" style="margin-top:6px">Reports use the figures already in your app. Livestock shows for livestock farms, crop input for crop farms.</div>';
+  var ft=(typeof getFarmType==='function')?getFarmType():'';
+  var wk=taxWorkerSnapshot();
+  var hasVat=(typeof FARM!=='undefined'&&FARM.vat);
+  var curFY=(typeof getCurrentFY==='function')?getCurrentFY():2024;
+  var selFY=_txResolveFy();
+  var diesel=(typeof ST_CROP!=='undefined'&&ST_CROP.compliance&&ST_CROP.compliance.dieselLitres)||0;
+  function bandHd(icon,bg,title,meta,picker){
+    return '<div class="txb-hd"><span class="txb-ic" style="background:'+bg+'">'+icon+'</span>'+
+      '<div style="min-width:0"><div class="txb-tt">'+title+'</div><div class="txb-meta">'+meta+'</div></div>'+
+      '<span style="flex:1"></span>'+(picker||'')+'</div>';
+  }
+  var h='<div style="font-size:12.5px;color:var(--t3);margin-bottom:16px">Every SARS report the app builds, grouped by when you file it. Each section shows only if it applies to you, and carries the right period picker.</div>';
+
+  if(wk){
+    if(typeof wkPRPeriod==='function'){ try{ wkPRPeriod(); }catch(e){} }
+    var _mLbl=_txPayMonthLabel();
+    var _mpick='<div class="tx-step"><button onclick="taxRptMonth(-1)" aria-label="Previous month">‹</button><span class="lbl">'+_mLbl+'</span><button onclick="taxRptMonth(1)"'+(_txPayAtCurrent()?' disabled':'')+' aria-label="Next month">›</button></div>';
+    h+='<section class="txband">'+
+      bandHd('&#128197;','var(--tx-amber)','Every month · Payroll','Shown because you have '+wk.count+' worker'+(wk.count===1?'':'s')+' · due by the 7th',_mpick)+
+      '<div class="tx-g2">'+
+        '<div class="tx-card"><div class="txc-hd"><span class="txc-ic" style="background:#FDECD2">&#129518;</span><div><div class="txc-t">EMP201 (PAYE · UIF · SDL)</div><div class="txc-s">Monthly declaration, totalled from your pay runs</div></div></div><div class="txc-btns"><span class="txb-b pri" onclick="taxOpenEmp201()">Open &amp; print</span></div></div>'+
+        '<div class="tx-card"><div class="txc-hd"><span class="txc-ic" style="background:#FDECD2">&#129534;</span><div><div class="txc-t">Payslips</div><div class="txc-s">One per worker, per month — BCEA fields</div></div></div><div class="txc-btns"><span class="txb-b pri" onclick="taxOpenPayslips()">Open &amp; print</span></div></div>'+
+      '</div>'+
+      '<div class="txb-note">Opens the payroll report for '+_mLbl+' — EMP201 under “SARS &amp; statutory”, payslips under “Payroll register”. Change the month here or in the report.</div>'+
+    '</section>';
+  }
+
+  if(hasVat){
+    var vp=_txResolveVatp();
+    var vpick='<div class="tx-step"><button onclick="taxRptVatP(-1)" aria-label="Previous VAT period">‹</button><span class="lbl">'+vp.label+'</span><button onclick="taxRptVatP(1)"'+(vp.atCur?' disabled':'')+' aria-label="Next VAT period">›</button></div>';
+    h+='<section class="txband">'+
+      bandHd('%','var(--tx-violet)','Every 2 months · VAT','VAT vendor · filed bi-monthly · due 25th after period end',vpick)+
+      '<div class="tx-card"><div class="txc-hd"><span class="txc-ic" style="background:#E8F0FE">&#128202;</span><div><div class="txc-t">VAT201 + diesel refund</div><div class="txc-s">Output vs input VAT for '+vp.label+(diesel>0?(' · '+diesel.toLocaleString('en-ZA')+' L diesel ready to claim'):'')+'</div></div></div>'+
+        '<div class="txc-btns" style="max-width:430px"><span class="txb-b pri" onclick="taxOpenIE(\'preview\',\'vat\')">Preview</span><span class="txb-b sec" onclick="taxOpenIE(\'print\',\'vat\')">Print / PDF</span><span class="txb-b sec" onclick="taxOpenIE(\'csv\',\'vat\')">CSV</span></div></div>'+
+      '<div class="txb-note">Farming enterprises may qualify for Category D (6-monthly) — confirm your VAT category with SARS.</div>'+
+    '</section>';
+  }
+
+  var fpick='<div class="tx-step"><button onclick="taxRptFy(-1)" aria-label="Previous financial year">‹</button><span class="lbl">'+_txFyLabel(selFY)+'</span><button onclick="taxRptFy(1)"'+(selFY>=curFY?' disabled':'')+' aria-label="Next financial year">›</button></div>';
+  h+='<section class="txband">'+
+    bandHd('&#128197;','var(--tx-green)','Year-end · Tax return &amp; accountant pack','1 March – 28 February · hand to your accountant at year-end',fpick)+
+    '<div class="tx-g3">'+
+      '<div class="tx-card"><div class="txc-hd"><span class="txc-ic" style="background:#EDE7F6">&#129534;</span><div><div class="txc-t">Income tax pre-fill (IT12)</div><div class="txc-s">Your annual return, filled from your books</div></div></div><div class="txc-btns"><span class="txb-b pri" onclick="previewSARSExport(_txResolveFy())">Preview</span><span class="txb-b sec" onclick="printSARSExport(_txResolveFy())">Print</span></div></div>'+
+      '<div class="tx-card"><div class="txc-hd"><span class="txc-ic" style="background:#E8F0FE">&#128200;</span><div><div class="txc-t">Income &amp; Expenses</div><div class="txc-s">Full-year statement, VAT summarised</div></div></div><div class="txc-btns"><span class="txb-b pri" onclick="taxOpenIE(\'preview\',\'fy\')">Preview</span><span class="txb-b sec" onclick="taxOpenIE(\'csv\',\'fy\')">CSV</span></div></div>'+
+      '<div class="tx-card"><div class="txc-hd"><span class="txc-ic" style="background:#E3F0E7">&#127959;</span><div><div class="txc-t">Depreciation schedule</div><div class="txc-s">S12B &amp; S11(e) wear-and-tear</div></div></div><div class="txc-btns"><span class="txb-b pri" onclick="previewDeprSchedule(_txResolveFy())">Preview</span><span class="txb-b sec" onclick="exportDeprCsv(_txResolveFy())">CSV</span></div></div>'+
+    '</div>';
+  if(ft==='livestock'||ft==='mixed') h+='<div class="tx-cta" style="background:linear-gradient(135deg,#3f7a52,#245139)" onclick="openSarsLivestockReport()"><span class="ic">&#128004;</span><div style="flex:1"><div class="t">SARS livestock year-end valuation (S26)</div><div class="s">Reconciliation, standard values &amp; trading result — PDF or CSV</div></div><span style="font-size:18px;opacity:.8">›</span></div>';
+  if(ft==='crops'||ft==='mixed'||ft==='generic') h+='<div class="tx-cta" style="background:linear-gradient(135deg,#357a4d,#1f4a34)" onclick="openCropInputCostReport()"><span class="ic">&#127806;</span><div style="flex:1"><div class="t">Crop input cost + diesel refund</div><div class="s">S11(a) input costs and eligible diesel litres — PDF or CSV</div></div><span style="font-size:18px;opacity:.8">›</span></div>';
+  h+='<div class="tx-cta" style="background:linear-gradient(135deg,#1B4332,#111f18)" onclick="taxAccountantPack()"><span class="ic">&#128228;</span><div style="flex:1"><div class="t">Accountant pack — everything in one</div><div class="s">IT12 + statement + reports, ready to send</div></div><span style="font-size:18px;opacity:.8">›</span></div>';
+  h+='</section>';
+
+  h+='<div class="tx-disc" style="margin-top:8px">Reports use the figures already in your app. The month, VAT period and financial-year pickers each scope only the reports beneath them. Livestock and crop reports reflect the current year-end and season. A planning guide — confirm with your accountant.</div>';
   return h;
 }
 
+function _txResolveFy(){ return (TAX_RPT_FY!=null)?TAX_RPT_FY:((typeof getCurrentFY==='function')?getCurrentFY():2024); }
+function _txFyLabel(fy){ var n=(fy+1)%100; return 'FY '+fy+'/'+(n<10?'0':'')+n; }
+function _txMinFy(){
+  var min=null; ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var fy=(d.m>=2)?d.y:d.y-1; if(min==null||fy<min) min=fy; });
+  var cur=(typeof getCurrentFY==='function')?getCurrentFY():2024;
+  if(min==null||min>cur) min=cur-1; return min;
+}
+function taxRptFy(dir){
+  var cur=(typeof getCurrentFY==='function')?getCurrentFY():2024, min=_txMinFy();
+  var v=_txResolveFy()+dir; if(v>cur) v=cur; if(v<min) v=min; TAX_RPT_FY=v; _txRerenderReports();
+}
+function _txVatBlock(offset){
+  var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date();
+  var y=d.getFullYear(), idx=Math.floor(d.getMonth()/2)+(offset||0);
+  y+=Math.floor(idx/6); idx=((idx%6)+6)%6; var m0=idx*2;
+  var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var lastDay=new Date(y,m0+2,0).getDate();
+  return {from:y+'-'+('0'+(m0+1)).slice(-2)+'-01', to:y+'-'+('0'+(m0+2)).slice(-2)+'-'+('0'+lastDay).slice(-2), label:MO[m0]+'–'+MO[m0+1]+' '+y};
+}
+function _txResolveVatp(){ var b=_txVatBlock(TAX_RPT_VATP||0); b.atCur=((TAX_RPT_VATP||0)>=0); return b; }
+function taxRptVatP(dir){ var v=(TAX_RPT_VATP||0)+dir; if(v>0) v=0; if(v<-11) v=-11; TAX_RPT_VATP=v; _txRerenderReports(); }
+function _txRerenderReports(){ var el=document.getElementById('tax-tab-reports'); if(el){ el.innerHTML=taxReportsHTML(); if(typeof ST!=='undefined'&&ST.lang==='af'&&typeof applyLangNodes==='function'){ try{ applyLangNodes(el,0,1); }catch(e){} } } }
+
+function _txFyIE(fy){
+  var inc=0,exp=0,byCat={};
+  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var f=(d.m>=2)?d.y:d.y-1; if(f!==fy) return; if(t.type==='income') inc+=t.amt; else if(t.type==='expense'){ exp+=t.amt; byCat[t.cat]=(byCat[t.cat]||0)+t.amt; } });
+  return {income:inc,expenses:exp,profit:inc-exp,byCat:byCat};
+}
+
+function taxOpenEmp201(){ if(typeof ST_WORK!=='undefined') ST_WORK.payRepTab='stat'; if(typeof wkPayReport==='function') wkPayReport(); }
+function taxOpenPayslips(){ if(typeof ST_WORK!=='undefined') ST_WORK.payRepTab='reg'; if(typeof wkPayReport==='function') wkPayReport(); }
+
+// Band 1 month picker — drives the payroll report's own period (single source of truth),
+// so the tax band and the opened payroll modal always agree.
+function _txPayMonthLabel(){
+  if(typeof ST_WORK==='undefined') return '';
+  var p=ST_WORK.payRepPeriod;
+  if(p&&p.from){ if(p.from===p.to) return p.from; return (typeof wkShortMo==='function')?(wkShortMo(p.from)+' – '+wkShortMo(p.to)):(p.from+' – '+p.to); }
+  return (typeof wkMonthLabel==='function')?wkMonthLabel():'';
+}
+function _txPayAtCurrent(){
+  if(typeof wkMonthLabel!=='function'||typeof wkLabelToDate!=='function') return true;
+  var focus=(typeof wkPRFocus==='function')?wkPRFocus():_txPayMonthLabel();
+  try{ return wkLabelToDate(focus)>=wkLabelToDate(wkMonthLabel()); }catch(e){ return true; }
+}
+function taxRptMonth(dir){
+  if(typeof ST_WORK==='undefined') return;
+  var cur=(typeof wkMonthLabel==='function')?wkMonthLabel():null;
+  var p=ST_WORK.payRepPeriod; var base=(p&&p.from)?((p.from===p.to)?p.from:p.to):cur;
+  var nl=(typeof wkStepLabel==='function')?wkStepLabel(base,dir):base;
+  if(cur && typeof wkLabelToDate==='function' && wkLabelToDate(nl)>wkLabelToDate(cur)) nl=cur;
+  ST_WORK.payRepPeriod={mode:'single',from:nl,to:nl};
+  if(typeof saveState==='function') saveState();
+  _txRerenderReports();
+}
+
+// Statement period isolation — snapshot/apply/restore so a tax-scoped I&E/VAT201
+// report NEVER leaves the shared Reports tab on a changed period.
+function _txRptSnap(){ return {type:RPT_STATE.type,monthIdx:RPT_STATE.monthIdx,year:RPT_STATE.year,quarterIdx:RPT_STATE.quarterIdx,customFrom:RPT_STATE.customFrom,customTo:RPT_STATE.customTo}; }
+function _txRptPut(s){ RPT_STATE.type=s.type;RPT_STATE.monthIdx=s.monthIdx;RPT_STATE.year=s.year;RPT_STATE.quarterIdx=s.quarterIdx;RPT_STATE.customFrom=s.customFrom;RPT_STATE.customTo=s.customTo; }
+function _txRptApply(scope){
+  if(scope==='vat'){ var b=_txResolveVatp(); RPT_STATE.type='custom'; RPT_STATE.customFrom=b.from; RPT_STATE.customTo=b.to; }
+  else { var fy=_txResolveFy(); RPT_STATE.type='custom'; RPT_STATE.customFrom=fy+'-03-01'; var ld=new Date(fy+1,2,0).getDate(); RPT_STATE.customTo=(fy+1)+'-02-'+('0'+ld).slice(-2); }
+}
+function taxOpenIE(mode,scope){
+  if(typeof RPT_STATE==='undefined'){
+    if(mode==='preview'){ if(typeof previewStatement==='function') previewStatement('ie'); }
+    else if(mode==='csv'){ if(typeof exportIECsv==='function') exportIECsv(); }
+    else { if(typeof openStatement==='function') openStatement('ie'); }
+    return;
+  }
+  var snap=_txRptSnap();
+  _txRptApply(scope);
+  if(mode==='preview'){
+    if(typeof previewStatement==='function') previewStatement('ie');
+    // The modal's Print/WhatsApp buttons fire later, after we restore the shared state,
+    // so rebind them to re-apply this tax period at click time, then restore again.
+    var _rebind=function(id,fn){ var el=$(id); if(el) el.onclick=function(){ var s2=_txRptSnap(); _txRptApply(scope); try{ fn(); } finally { _txRptPut(s2); } }; };
+    _rebind('stmt-preview-print-btn', function(){ if(typeof openStatement==='function') openStatement('ie'); });
+    _rebind('stmt-preview-wa-btn', function(){ if(typeof shareWhatsApp==='function') shareWhatsApp(); });
+  } else if(mode==='csv'){ if(typeof exportIECsv==='function') exportIECsv(); }
+  else { if(typeof openStatement==='function') openStatement('ie'); }
+  _txRptPut(snap);
+}
+
+function _txSecLabel(t){ return t==='s12b'?'S12B (50/30/20)':t==='s11e'?'S11(e) wear & tear':t==='s12u'?'S12U farm dev':t==='renew'?'Renewable':t; }
+function _txDeprRows(fy){
+  var rows=[]; ((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]).forEach(function(a){
+    if(!a.deprType||a.deprType==='none') return; if(typeof calcDepr!=='function') return;
+    var sch=(calcDepr(a).deprSchedule)||[]; if(!sch.length) return; if(sch[0].yr>fy+1) return;
+    var thisFy=0, toDate=0;
+    sch.forEach(function(x){ if(x.yr<=fy+1) toDate+=x.amount; if(x.yr===fy+1) thisFy+=x.amount; });
+    rows.push({name:a.name||a.desc||'Asset', type:a.deprType, price:a.price||0, thisFy:thisFy, book:Math.max(0,(a.price||0)-toDate)});
+  });
+  return rows;
+}
+function _txDeprHTML(fy,rows){
+  var s12=0,s11=0,tot=0,book=0;
+  var farm=(typeof FARM!=='undefined'&&FARM.name)||'Farm';
+  var tr=rows.map(function(r){ tot+=r.thisFy; book+=r.book; if(r.type==='s12b') s12+=r.thisFy; else if(r.type==='s11e') s11+=r.thisFy;
+    return '<tr><td>'+escTxHtml(r.name)+'</td><td>'+_txSecLabel(r.type)+'</td><td class="amt">R '+Math.round(r.price).toLocaleString('en-ZA')+'</td><td class="amt">R '+Math.round(r.thisFy).toLocaleString('en-ZA')+'</td><td class="amt">R '+Math.round(r.book).toLocaleString('en-ZA')+'</td></tr>'; }).join('');
+  return '<style>'+PREVIEW_CSS+'</style>'+
+    '<div class="pv-meta"><strong>'+escTxHtml(farm)+'</strong><br>Financial year 1 March '+fy+' – 28 February '+(fy+1)+'<br>Generated: '+new Date().toLocaleDateString('en-ZA')+'</div>'+
+    '<div class="pv-hero"><div class="pv-card"><div class="pv-card-lbl">S12B write-off</div><div class="pv-card-val">R '+Math.round(s12).toLocaleString('en-ZA')+'</div></div>'+
+      '<div class="pv-card"><div class="pv-card-lbl">S11(e) write-off</div><div class="pv-card-val">R '+Math.round(s11).toLocaleString('en-ZA')+'</div></div>'+
+      '<div class="pv-card"><div class="pv-card-lbl">Total this year</div><div class="pv-card-val">R '+Math.round(tot).toLocaleString('en-ZA')+'</div></div></div>'+
+    '<div class="pv-section"><h2>Capital allowances · '+_txFyLabel(fy)+'</h2>'+
+      (rows.length?('<table class="pv-table"><thead><tr><th>Asset</th><th>Allowance</th><th class="amt">Cost</th><th class="amt">Write-off this year</th><th class="amt">Tax value carried</th></tr></thead><tbody>'+tr+
+      '</tbody><tfoot><tr class="total"><td colspan="3">Total capital allowance</td><td class="amt">R '+Math.round(tot).toLocaleString('en-ZA')+'</td><td class="amt">R '+Math.round(book).toLocaleString('en-ZA')+'</td></tr></tfoot></table>')
+      :'<div style="font-size:13px;color:#6B7280;padding:8px 0">No depreciating assets in this financial year. Add assets with a S12B or S11(e) write-off in the Assets tab.</div>')+
+    '</div>'+
+    '<div class="pv-disclaimer"><strong>Not tax advice.</strong> S12B is the accelerated 50/30/20 farming allowance; S11(e) is standard wear &amp; tear. Compiled from your asset register to support your tax practitioner — confirm rates and apportionment with your accountant.</div>';
+}
+function previewDeprSchedule(fy){
+  fy=(fy==null)?_txResolveFy():fy; var rows=_txDeprRows(fy);
+  var icon=$('stmt-preview-icon'); if(icon) icon.style.background='#3f7a52';
+  var t=$('stmt-preview-title'); if(t) t.textContent='Depreciation schedule';
+  var sub=$('stmt-preview-sub'); if(sub) sub.textContent=((typeof FARM!=='undefined'&&FARM.name)||'Farm')+' · '+_txFyLabel(fy);
+  var pb=$('stmt-preview-print-btn'); if(pb){ pb.style.display=''; pb.innerHTML='Print / Save PDF'; pb.onclick=function(){ printDeprSchedule(fy); }; }
+  var wa=$('stmt-preview-wa-btn'); if(wa) wa.style.display='none';
+  var body=$('stmt-preview-body'); if(body) body.innerHTML=_txDeprHTML(fy,rows);
+  var bg=$('stmt-preview-bg'); if(bg){ if(bg.parentNode!==document.body) document.body.appendChild(bg); bg.style.display='flex'; }
+}
+function printDeprSchedule(fy){ fy=(fy==null)?_txResolveFy():fy;
+  var html=_txDeprHTML(fy,_txDeprRows(fy));
+  if(typeof printWindow==='function'){ printWindow('Depreciation schedule — '+_txFyLabel(fy), html); return; }
+  var w=window.open('','_blank'); if(!w) return; w.document.write('<html><head><title>Depreciation schedule</title></head><body style="font-family:-apple-system,Segoe UI,sans-serif;padding:24px;max-width:820px;margin:0 auto">'+html+'</body></html>'); w.document.close(); setTimeout(function(){ try{ w.print(); }catch(e){} },250);
+}
+function exportDeprCsv(fy){ fy=(fy==null)?_txResolveFy():fy; var rows=_txDeprRows(fy);
+  function esc(v){ v=''+v; return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+  function row(a){ return a.map(esc).join(',')+'\r\n'; }
+  var csv=row(['Depreciation schedule',(typeof FARM!=='undefined'&&FARM.name)||'Farm',_txFyLabel(fy)])+row([])+row(['Asset','Allowance','Cost','Write-off this year','Tax value carried']);
+  rows.forEach(function(r){ csv+=row([r.name,_txSecLabel(r.type),Math.round(r.price),Math.round(r.thisFy),Math.round(r.book)]); });
+  var blob=new Blob([csv],{type:'text/csv'}); var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='depreciation-'+_txFyLabel(fy).replace(/[^A-Za-z0-9]+/g,'-').toLowerCase()+'.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); if(typeof toast==='function') toast('CSV downloaded','success');
+}
 function taxWhatIfHTML(){
   var prov=taxProvEstimate(); var p0=prov.ok?Math.max(0,prov.annualProfit):500000; if(p0>2000000)p0=2000000;
   var curEnt=(['sole','company','sbc','trust'].indexOf(ST.entityType)>=0)?ST.entityType:'sole'; TAX_WI_ENT=curEnt;
@@ -28325,8 +28527,8 @@ function renderSeasonalCard() {
 // ============================================================
 
 // ── SARS IT12 preview modal ──────────────────────────────────────
-function previewSARSExport() {
-  var fy  = getCurrentFY ? getCurrentFY() : 2024;
+function previewSARSExport(fy) {
+  fy = (fy==null) ? (getCurrentFY ? getCurrentFY() : 2024) : fy;
   var lbl = 'FY ' + fy + '/' + (fy+1).toString().slice(-2);
 
 var icon = $('stmt-preview-icon');
@@ -28354,15 +28556,17 @@ var bg = $('stmt-preview-bg');
 }
 
 function buildSARSPreviewHTML(fy) {
-  var ytd    = ytdSummary ? ytdSummary() : {income:0,expenses:0,profit:0};
+  var _curFY = (typeof getCurrentFY==='function') ? getCurrentFY() : fy;
+  var ytd    = (typeof _txFyIE==='function' && fy!==_curFY) ? _txFyIE(fy) : (ytdSummary ? ytdSummary() : {income:0,expenses:0,profit:0});
   var assets = ST_ASSETS ? ST_ASSETS.assets : [];
   var R      = computeRPT ? (function(){ var old=RPT_STATE.type; RPT_STATE.type='yearly'; var r=computeRPT(); RPT_STATE.type=old; return r; })() : null;
 
   var s12bTotal=0, s11eTotal=0;
   assets.forEach(function(a){
-    var d=calcDepr?calcDepr(a):{deprYear:0};
-    if(a.deprType==='s12b') s12bTotal+=d.deprYear;
-    if(a.deprType==='s11e') s11eTotal+=d.deprYear;
+    var d=calcDepr?calcDepr(a):{deprSchedule:[]}; var _amt=0;
+    (d.deprSchedule||[]).forEach(function(x){ if(x.yr===fy+1) _amt+=x.amount; });
+    if(a.deprType==='s12b') s12bTotal+=_amt;
+    if(a.deprType==='s11e') s11eTotal+=_amt;
   });
 
   var byCat = {};
@@ -28431,7 +28635,7 @@ var pill = function(txt, col){ return '<span style="background:'+col+';color:#ff
     Object.keys(byCat).map(function(cat){
       var sm=sarsMap[cat]||{section:'S11(a)'};
       var col=sm.section==='S11(a)'?'#1B4332':sm.section==='S11(d)'?'#D97706':'#7C3AED';
-      return '<tr><td>'+cat+'</td><td>'+pill(sm.section,col)+'</td><td class="amt pv-neg">'+fmt2(byCat[cat])+'</td></tr>';
+      return '<tr><td>'+_txCatLabel(cat)+'</td><td>'+pill(sm.section,col)+'</td><td class="amt pv-neg">'+fmt2(byCat[cat])+'</td></tr>';
     }).join('')+
     (Object.keys(byCat).length===0?'<tr><td colspan="3" style="color:#9CA3AF;text-align:center">No expenses recorded for FY '+fy+'</td></tr>':'')+
     '<tr class="total-neg"><td colspan="2">TOTAL ALLOWABLE DEDUCTIONS</td><td class="amt pv-neg">'+fmt2(ytd.expenses)+'</td></tr>'+
@@ -28469,17 +28673,19 @@ var pill = function(txt, col){ return '<span style="background:'+col+';color:#ff
     'Capital allowances, livestock valuations and other adjustments may require your accountant\'s input.'+
     '</div>';
 }
-function printSARSExport() {
+function printSARSExport(fy) {
+  fy = (fy==null) ? (getCurrentFY ? getCurrentFY() : 2024) : fy;
+  var _curFY = (typeof getCurrentFY==='function') ? getCurrentFY() : fy;
   var R   = computeRPT ? computeRPT() : null;
-  var fy  = getCurrentFY ? getCurrentFY() : 2024;
-  var ytd = ytdSummary ? ytdSummary() : {income:0,expenses:0,profit:0};
+  var ytd = (typeof _txFyIE==='function' && fy!==_curFY) ? _txFyIE(fy) : (ytdSummary ? ytdSummary() : {income:0,expenses:0,profit:0});
   var assets = ST_ASSETS ? ST_ASSETS.assets : [];
 
 var s12bTotal=0, s11eTotal=0;
   assets.forEach(function(a) {
-    var d = calcDepr ? calcDepr(a) : {deprYear:0};
-    if (a.deprType==='s12b') s12bTotal += d.deprYear;
-    if (a.deprType==='s11e') s11eTotal += d.deprYear;
+    var d = calcDepr ? calcDepr(a) : {deprSchedule:[]}; var _amt=0;
+    (d.deprSchedule||[]).forEach(function(x){ if(x.yr===fy+1) _amt+=x.amount; });
+    if (a.deprType==='s12b') s12bTotal += _amt;
+    if (a.deprType==='s11e') s11eTotal += _amt;
   });
 
 var byCat = {};
@@ -28513,8 +28719,8 @@ var byCat = {};
   var fmt2 = function(n){ return 'R '+Math.round(n).toLocaleString('en-ZA'); };
 
   var rows = Object.keys(byCat).map(function(cat) {
-    var sm = sarsMap[cat] || {section:'S11(a)', desc:cat};
-    return '<tr><td>'+cat+'</td><td>'+sm.section+'</td><td>'+sm.desc+'</td><td style="text-align:right;font-weight:600">'+fmt2(byCat[cat])+'</td></tr>';
+    var sm = sarsMap[cat] || {section:'S11(a)', desc:_txCatLabel(cat)};
+    return '<tr><td>'+_txCatLabel(cat)+'</td><td>'+sm.section+'</td><td>'+sm.desc+'</td><td style="text-align:right;font-weight:600">'+fmt2(byCat[cat])+'</td></tr>';
   }).join('');
 
   var html = '<h1>SARS IT12 Farming Schedule — Pre-fill Export</h1>'+
