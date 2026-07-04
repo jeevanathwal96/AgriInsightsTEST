@@ -15430,15 +15430,27 @@ function _lsTagFormHtml(h, editId){
       _lsPedFields(h,a)+
     '</div>'+
     (a?'':'<div id="ls-tag-bulkbox" style="display:none">'+
-      '<div class="ls-tr-row2"><div class="ls-tr-fld"><label>From tag</label><input type="text" id="ls-tag-from" placeholder="GV-0601"></div><div class="ls-tr-fld"><label>To tag</label><input type="text" id="ls-tag-to" placeholder="GV-0620"></div></div>'+
-      '<div class="ls-tr-row2"><div class="ls-tr-fld"><label>Class for all</label><select id="ls-tag-bcls">'+_lsTagClassOpts(h.type, defCls)+'</select></div>'+
-        '<div class="ls-tr-fld"><label>Sex</label><select id="ls-tag-bsex"><option value="F">Female</option><option value="M">Male</option></select></div></div>'+
-      '<div class="ls-trsub" id="ls-tag-bulkhint">Tags sharing a number prefix create a range, e.g. GV-0601 \u2026 GV-0620.</div></div>')+
+      '<div class="ls-tr-row2"><div class="ls-tr-fld"><label>From tag</label><input type="text" id="ls-tag-from" oninput="lsTagBulkCount()" placeholder="GV-0601"></div><div class="ls-tr-fld"><label>To tag</label><input type="text" id="ls-tag-to" oninput="lsTagBulkCount()" placeholder="GV-0620"></div></div>'+
+      '<div class="ls-tr-fld"><label>Class for all</label><select id="ls-tag-bcls">'+_lsTagClassOpts(h.type, defCls)+'</select></div>'+
+      '<div class="ls-tr-row2"><div class="ls-tr-fld"><label>Females</label><input type="number" id="ls-tag-bfem" min="0" placeholder="0" oninput="lsTagBulkBal(\'fem\')"></div>'+
+        '<div class="ls-tr-fld"><label>Males</label><input type="number" id="ls-tag-bmale" min="0" placeholder="0" oninput="lsTagBulkBal(\'male\')"></div></div>'+
+      '<div class="ls-trsub" id="ls-tag-bulkhint">Enter a range like GV-0601 to GV-0620, then split it into females and males.</div></div>')+
     '<div class="lshmv-act"><button onclick="lsTagFormClose()">Cancel</button><button class="pri" onclick="lsTagSave()">'+(a?'Save':'Add tag')+'</button></div>';
 }
 function lsTagMode(m, el){ LS_TAG_FORM.mode=m; $('ls-tag-in').querySelectorAll('.ls-tagseg button').forEach(function(b){b.classList.remove('on');}); if(el) el.classList.add('on');
   var ob=$('ls-tag-onebox'), bb=$('ls-tag-bulkbox'); if(ob) ob.style.display=(m==='one'?'block':'none'); if(bb) bb.style.display=(m==='bulk'?'block':'none'); }
 function _lsTagSplitNum(tag){ var m=String(tag).match(/^(.*?)(\d+)$/); return m?{pre:m[1], num:parseInt(m[2],10), width:m[2].length}:null; }
+// Bulk range: how many tags the from/to span, and a live female/male splitter that always sums to the range.
+function _lsTagBulkN(){ var pf=_lsTagSplitNum((($('ls-tag-from')||{}).value||'').trim()), pt=_lsTagSplitNum((($('ls-tag-to')||{}).value||'').trim()); if(!pf||!pt||pf.pre!==pt.pre||pt.num<pf.num) return 0; return pt.num-pf.num+1; }
+function _lsTagBulkHint(n,f,m){ var h=$('ls-tag-bulkhint'); if(!h) return; h.textContent = n>0 ? (n+' tag'+(n===1?'':'s')+' in range — '+f+' female · '+m+' male.') : 'Enter a range like GV-0601 to GV-0620, then split it into females and males.'; }
+function lsTagBulkCount(){ var n=_lsTagBulkN(); var f=$('ls-tag-bfem'), m=$('ls-tag-bmale'); if(!f||!m) return;
+  if(n>0){ var fv=parseInt(f.value,10), mv=parseInt(m.value,10);
+    if(isNaN(fv)&&isNaN(mv)){ fv=n; mv=0; } else { if(isNaN(fv)) fv=(isNaN(mv)?n:Math.max(0,n-mv)); fv=Math.max(0,Math.min(fv,n)); mv=n-fv; }
+    f.value=fv; m.value=mv; _lsTagBulkHint(n,fv,mv);
+  } else { _lsTagBulkHint(0,0,0); } }
+function lsTagBulkBal(which){ var n=_lsTagBulkN(); var f=$('ls-tag-bfem'), m=$('ls-tag-bmale'); if(!f||!m) return; if(n<=0){ _lsTagBulkHint(0,0,0); return; }
+  if(which==='fem'){ var fv=parseInt(f.value,10); if(isNaN(fv))fv=0; fv=Math.max(0,Math.min(fv,n)); f.value=fv; m.value=n-fv; _lsTagBulkHint(n,fv,n-fv); }
+  else { var mv=parseInt(m.value,10); if(isNaN(mv))mv=0; mv=Math.max(0,Math.min(mv,n)); m.value=mv; f.value=n-mv; _lsTagBulkHint(n,n-mv,mv); } }
 function lsTagSave(){
   var h=ST_LS.herd[LS_TAG_FORM.herdIdx]; if(!h){ toast('Herd not found.','error'); return; }
   ST_LS.animals=ST_LS.animals||[];
@@ -15452,14 +15464,16 @@ function lsTagSave(){
     var pf=_lsTagSplitNum(from), pt=_lsTagSplitNum(to);
     if(!pf||!pt||pf.pre!==pt.pre||pt.num<pf.num){ toast('Use a range like GV-0601 to GV-0620.','error'); return; }
     if(pt.num-pf.num>200){ toast('Range too large (max 200).','error'); return; }
-    var cls=($('ls-tag-bcls')||{}).value, sex=($('ls-tag-bsex')||{}).value, added=0;
+    var cls=($('ls-tag-bcls')||{}).value, added=0;
+    var _N=pt.num-pf.num+1; var _fem=parseInt(($('ls-tag-bfem')||{}).value,10); if(isNaN(_fem)) _fem=_N; _fem=Math.max(0,Math.min(_fem,_N));
     for(var i=pf.num;i<=pt.num;i++){
       var tag=pf.pre+String(i).padStart(pf.width,'0');
       if((ST_LS.animals||[]).some(function(x){return x.herd===h.id&&x.tag===tag;})) continue;
-      ST_LS.animals.push({id:'an'+Date.now().toString(36)+i, herd:h.id, tag:tag, cls:cls, sex:sex});
+      var _sx=((i-pf.num)<_fem)?'F':'M';   // first N females in the range, then males
+      ST_LS.animals.push({id:'an'+Date.now().toString(36)+i, herd:h.id, tag:tag, cls:cls, sex:_sx});
       added++;
     }
-    toast(added+' tag'+(added===1?'':'s')+' added.','success');
+    toast(added+' tag'+(added===1?'':'s')+' added — '+_fem+' female, '+(_N-_fem)+' male.','success');
   } else {
     var t1=(($('ls-tag-tag')||{}).value||'').trim(); if(!t1){ toast('Tag number?','error'); return; }
     if((ST_LS.animals||[]).some(function(x){return x.herd===h.id&&x.tag===t1;})){ toast('That tag is already in this herd.','error'); return; }
@@ -15471,6 +15485,7 @@ function lsTagSave(){
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
   lsTagFormClose();
   if(typeof renderCamps==='function') renderCamps();
+  try{ if(BR_COWS && typeof renderBreeding==='function') renderBreeding(); }catch(e){}   // refresh the breeding cow list/record immediately (no lag)
 }
 async function lsTagDelete(animId){
   if(!(await appConfirm('Remove this tag? The animal stays in the herd count \u2014 only the individual record goes.'))) return;
@@ -17957,7 +17972,7 @@ function renderBreeding(){ var box=$('ls-view-breeding'); if(!box) return;
     ".br-form{background:#fff;border:1px solid var(--br);border-radius:14px;padding:16px 18px;margin-bottom:12px}.br-fr{margin-bottom:12px}.br-fr label{display:block;font-size:12px;font-weight:700;color:var(--t2);margin-bottom:5px}.br-fr input,.br-fr select{width:100%;box-sizing:border-box;font-size:14px;font-family:var(--fn);border:1px solid var(--br);border-radius:9px;padding:9px 11px;background:#fff;color:var(--ink)}.br-fr .hint{font-size:11px;color:var(--t4);margin-top:4px}.br-f2{display:grid;grid-template-columns:1fr 1fr;gap:11px}"+
     ".br-src{font-size:11px;color:var(--t4);line-height:1.5;margin-top:2px}"+
     ".brc-row{display:flex;align-items:center;gap:11px;padding:11px 4px;border-bottom:1px solid var(--br2);cursor:pointer}.brc-row:last-child{border-bottom:0}"+
-    ".brc-tag{width:40px;height:34px;border-radius:8px;background:var(--br2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--t3);flex:none}"+
+    ".brc-tag{min-width:54px;width:auto;padding:0 11px;height:34px;border-radius:8px;background:var(--br2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:var(--t3);flex:none;white-space:nowrap}"+
     ".brc-rk{width:24px;text-align:center;font-size:13px;font-weight:800;color:var(--t4);flex:none}"+
     ".brc-nm{font-size:13.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.brc-s{font-size:11px;color:var(--t4);margin-top:1px}"+
     ".brc-pill{font-size:10px;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap;flex:none}"+
@@ -17977,7 +17992,20 @@ function renderBreeding(){ var box=$('ls-view-breeding'); if(!box) return;
     ".brc-kid{display:flex;align-items:center;gap:10px;padding:9px 4px;border-bottom:1px solid var(--br2);font-size:12.5px;cursor:pointer}.brc-kid:last-child{border-bottom:0}"+
     ".brc-cull{background:#FDECEC;border:1px solid #F5C4C4;border-radius:11px;padding:12px 14px;margin-top:12px;font-size:12.5px;color:#7a2320;line-height:1.5}.brc-cull b{color:#C0392B}"+
     ".brc-filt{display:flex;gap:6px;margin-bottom:10px}"+
-    ".brwrap .chip{font-size:11.5px;font-weight:700;border-radius:999px;padding:6px 12px;background:#fff;border:1px solid var(--br);color:var(--t3);cursor:pointer}.brwrap .chip.on{background:var(--gd);border-color:var(--gd);color:#fff}";
+    ".brwrap .chip{font-size:11.5px;font-weight:700;border-radius:999px;padding:6px 12px;background:#fff;border:1px solid var(--br);color:var(--t3);cursor:pointer}.brwrap .chip.on{background:var(--gd);border-color:var(--gd);color:#fff}"+
+    ".brd{border:1px solid var(--gp);border-radius:16px;padding:15px 16px;margin-bottom:13px;background:#fbfdfb}"+
+    ".brd-top{display:flex;align-items:center;gap:9px;margin-bottom:12px}.brd-top .t{font-size:14.5px;font-weight:800;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.brd-top .bdg{margin-left:auto;font-size:10.5px;font-weight:800;color:var(--gd);background:var(--gb);border:1px solid var(--gp);border-radius:999px;padding:4px 10px;flex:none}"+
+    ".brd-hero{background:linear-gradient(150deg,#173a2c,#1b4332 60%,#245139);color:#fff;border-radius:12px;padding:13px 15px;margin-bottom:12px}.brd-hero .l{font-size:10px;text-transform:uppercase;letter-spacing:.07em;opacity:.72;font-weight:800}.brd-hero .big{font-size:30px;font-weight:800;line-height:1.05;letter-spacing:-.02em}.brd-hero .big small{font-size:12.5px;font-weight:700;opacity:.8}.brd-hero .cap{font-size:12px;opacity:.94;line-height:1.5;margin-top:7px}.brd-hero .cap b{font-weight:800}"+
+    ".brd-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:13px}@media(max-width:560px){.brd-kpis{grid-template-columns:1fr}}"+
+    ".brd-kpi{border:1px solid var(--br);border-radius:11px;padding:10px 12px;position:relative;overflow:hidden;background:#fff}.brd-kpi:before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px}.brd-kpi.g:before{background:var(--good)}.brd-kpi.w:before{background:var(--warn)}.brd-kpi.b:before{background:#c0392b}.brd-kpi .kl{font-size:11px;color:var(--t3);font-weight:700}.brd-kpi .kv{font-size:22px;font-weight:800;margin:2px 0 1px}.brd-kpi .kv small{font-size:12px;color:var(--t4);font-weight:700}.brd-kpi .kt{font-size:10.5px;font-weight:700;color:var(--t4)}.brd-kpi.g .kt{color:var(--good)}.brd-kpi.w .kt{color:var(--warn)}.brd-kpi.b .kt{color:#c0392b}"+
+    ".brd-sec{font-size:10.5px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin:0 0 8px}"+
+    ".brd-fun{display:flex;flex-direction:column;gap:7px;margin-bottom:13px}.brd-fr{display:flex;align-items:center;gap:10px}.brd-fr .fl{width:82px;font-size:11.5px;font-weight:700;color:var(--t2);flex:none}.brd-fr .bar{flex:1;height:20px;background:var(--br2);border-radius:6px;overflow:hidden}.brd-fr .bar i{display:block;height:100%;border-radius:6px}.brd-fr .fv{width:44px;text-align:right;font-size:12px;font-weight:800;flex:none}"+
+    ".brd-two{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:560px){.brd-two{grid-template-columns:1fr}}"+
+    ".brd-box{border:1px solid var(--br);border-radius:12px;padding:12px 13px;background:#fff}.brd-box .bh{display:flex;align-items:center;gap:7px;margin-bottom:3px}.brd-box .bh .bt{font-size:13px;font-weight:800}.brd-box .bh .bc{margin-left:auto;font-size:10px;font-weight:800;border-radius:999px;padding:3px 8px}.brd-box .bs{font-size:11px;color:var(--t4);line-height:1.45;margin-bottom:8px}"+
+    ".brd-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--br2)}.brd-row .tg{min-width:56px;text-align:center;font-size:11.5px;font-weight:800;color:var(--t3);background:var(--br2);border-radius:6px;padding:5px 7px;flex:none;white-space:nowrap}.brd-row .nm{flex:1;min-width:0}.brd-row .nm b{font-size:12.5px;font-weight:800}.brd-row .nm span{display:block;font-size:11px;color:var(--t3);margin-top:1px}"+
+    ".brd-pill{font-size:10px;font-weight:800;border-radius:999px;padding:3px 8px;white-space:nowrap;flex:none}.brd-money{font-size:11.5px;font-weight:800;color:#c0392b;white-space:nowrap;flex:none}"+
+    ".brd-empty{font-size:12px;color:var(--t3);line-height:1.55;background:var(--gb);border:1px solid var(--gp);border-radius:11px;padding:12px 14px}.brd-empty b{color:var(--gd);font-weight:800}"+
+    ".brd-foot{font-size:11px;color:var(--t4);line-height:1.5;margin-top:11px}";
     document.head.appendChild(st); }
 
   if(BR_FORM){ box.innerHTML='<div class="brwrap">'+brFormHTML()+'</div>'; return; }
@@ -18008,8 +18036,8 @@ function renderBreeding(){ var box=$('ls-view-breeding'); if(!box) return;
     h+='<div class="br-cull"><div class="t">💰 '+withEmpty.empty+' empty '+term.fem+' flagged after scanning</div><div class="s">'+esc(eh?lsHerdName(eh):'')+' scanned <b>'+withEmpty.empty+'</b> empty. At ~R6 500/yr grazing each, keeping them costs about <b>R'+_grpInt(cost)+'</b> for no '+term.single+'. Record the cull sale to take them off the books. <span class="br-b sec" style="display:inline-block;margin-top:8px" onclick="lsTab(\'register\')">Manage cull in Register →</span></div></div>';
   }
 
-  // group cards
-  herds.forEach(function(hd){ h+=brGroupCard(hd); });
+  // group cards — dairy herds get the fertility panel above their season card
+  herds.forEach(function(hd){ if(hd.type==='Dairy cattle') h+=brDairyPanel(hd); h+=brGroupCard(hd); });
   h+='</div>';
   box.innerHTML=h;
 }
@@ -18346,6 +18374,97 @@ function brSaveCowCalving(){ var a=_brCowAnim(); if(!a) return; var h=(ST_LS.her
       appConfirm('Tag the '+live+' new '+(live===1?term.single:term.young)+' from '+a.tag+'? Their dam links to '+a.tag+(sire?(' and '+term.sire+' '+sire):'')+' automatically.').then(function(ok){ if(ok){ LS_TAG_PREFILL={cls:(typeof lsYoungClass==='function'?lsYoungClass(h.type):''), dam:a.tag, sire:sire||''}; lsTagAddOpen(ST_LS.herd.indexOf(h)); } });
     }
   }catch(e){}
+}
+
+/* ═══════════ BREEDING Phase 2b — Dairy fertility layer (dairy herds only) ═══════════
+   Gated on h.type==='Dairy cattle'. Every figure is derived from the per-cow service→scan→calving
+   events (a.repro); nothing extra to capture. Two tunable constants (cost/day empty, ideal window)
+   default here and can later bind to Settings. Beef/sheep/goat herds never call this. */
+function _dairyCostDay(){ return (typeof ST!=='undefined'&&ST&&ST.dairyDayCost>0)?ST.dairyDayCost:55; }
+function _dairyOpenTarget(){ return (typeof ST!=='undefined'&&ST&&ST.dairyOpenTarget>0)?ST.dairyOpenTarget:100; }
+function _brDairyStats(h){
+  var femClass=lsBreedingClass(h.type); var gest=lsGestation(h.type); var target=_dairyOpenTarget(), costDay=_dairyCostDay();
+  var cows=lsHerdAnimals(h.id).filter(function(a){ return a.sex==='F' && (a.cls===femClass || !a.cls); });
+  var today=_brToday();
+  var services=0, conceptions=0, totalScans=0, servedCows=0, calvedCows=0, inCalfNow=0;
+  var openDays=[], intervals=[], dryList=[], openList=[];
+  cows.forEach(function(a){
+    var ev=(a.repro||[]).slice().filter(function(e){return e&&e.date;}).sort(function(x,y){return x.date<y.date?-1:(x.date>y.date?1:0);});
+    if(!ev.length) return;
+    var svc=ev.filter(function(e){return e.k==='service';});
+    var scans=ev.filter(function(e){return e.k==='scan';});
+    var incScans=scans.filter(function(e){return e.result==='in-calf';});
+    var calv=ev.filter(function(e){return e.k==='calving';}).map(function(e){return e.date;});
+    services+=svc.length; conceptions+=incScans.length; totalScans+=scans.length;
+    if(svc.length) servedCows++; if(calv.length) calvedCows++;
+    if(calv.length>=2){ var g=(new Date(calv[calv.length-1])-new Date(calv[calv.length-2]))/86400000; if(g>0&&g<800) intervals.push(g); }
+    // days empty (open): walk — an in-calf scan confirms the most recent service after the last calving
+    var lastCalv=null, lastSvc=null;
+    ev.forEach(function(e){ if(e.k==='calving'){ lastCalv=e.date; lastSvc=null; }
+      else if(e.k==='service') lastSvc=e.date;
+      else if(e.k==='scan'&&e.result==='in-calf'&&lastCalv&&lastSvc){ var d=(new Date(lastSvc)-new Date(lastCalv))/86400000; if(d>=0&&d<400) openDays.push(d); } });
+    var st=_brCowState(a,h);
+    if(st&&st.scan==='in-calf'&&!st.calvedDate){ inCalfNow++;
+      if(st.expected){ var dry=_brAddDays(st.expected,-60); var dtd=Math.round((new Date(dry+'T00:00:00')-today)/86400000); if(dtd<=14) dryList.push({a:a,expected:st.expected,dry:dry,days:dtd}); }
+    }
+    // empty too long: has calved, not confirmed in calf since, past the ideal window
+    if(calv.length){
+      var lastCalvDate=calv[calv.length-1];
+      var after=ev.filter(function(e){return e.date>lastCalvDate;});
+      var svcAfter=after.filter(function(e){return e.k==='service';});
+      var scanAfter=after.filter(function(e){return e.k==='scan';});
+      var lastScanAfter=scanAfter.length?scanAfter[scanAfter.length-1]:null;
+      var isInCalf=lastScanAfter&&lastScanAfter.result==='in-calf';
+      var daysOpen=Math.round((today-new Date(lastCalvDate+'T00:00:00'))/86400000);
+      if(!isInCalf && daysOpen>target){
+        var status=!svcAfter.length?'never served — serve her now':(!scanAfter.length?'served, needs a scan':'scanned not in calf — serve or cull');
+        openList.push({a:a,daysOpen:daysOpen,over:daysOpen-target,status:status,cost:Math.round((daysOpen-target)*costDay)});
+      }
+    }
+  });
+  var avg=function(arr){ return arr.length?Math.round(arr.reduce(function(s,x){return s+x;},0)/arr.length):null; };
+  dryList.sort(function(a,b){return a.days-b.days;}); openList.sort(function(a,b){return b.daysOpen-a.daysOpen;});
+  return { cows:cows.length, hasData:(services>0||totalScans>0||calvedCows>0),
+    daysEmpty:avg(openDays), interval:avg(intervals),
+    servesPerCalf:conceptions>0?Math.round(services/conceptions*10)/10:null,
+    inCalfPct:cows.length?Math.round(inCalfNow/cows.length*100):null,
+    servedCows:servedCows, calvedCows:calvedCows, inCalfNow:inCalfNow,
+    dryList:dryList, openList:openList, target:target, costDay:costDay };
+}
+function brDairyPanel(h){
+  var s=_brDairyStats(h);
+  var top='<div class="brd-top"><span style="font-size:17px">🥛</span><span class="t">Dairy fertility · '+esc(lsHerdName(h))+'</span><span class="bdg">Dairy herd</span></div>';
+  if(!s.cows || !s.hasData){
+    return '<div class="brd">'+top+'<div class="brd-empty">Tag your milking cows (from the group) and log each one’s <b>service → scan → calving</b> — this fertility view then works out your calving gap, days empty, dry-off list and the cows costing you money. Nothing extra to capture.</div></div>';
+  }
+  // hero — calving interval + money truth
+  var heroCost=s.openList.reduce(function(t,o){return t+o.cost;},0);
+  var cap = s.openList.length
+    ? 'A cow only pays when she’s back in calf and milking. <b>'+s.openList.length+' '+(s.openList.length===1?'cow has':'cows have')+' been empty too long</b> — that’s cost you <b>R'+_grpInt(heroCost)+'</b> so far, and it climbs <b>R'+s.costDay+' a day</b> for every cow still empty. Get them back in calf.'
+    : 'Your cows are cycling well — none stuck empty past '+s.target+' days. Keep serving on time and scanning early.';
+  var hero='<div class="brd-hero"><div class="l">How often your cows calve</div><div class="big">'+(s.interval!=null?s.interval:'—')+'<small> '+(s.interval!=null?'days apart':'not enough calvings yet')+'</small></div><div class="cap">'+cap+'</div></div>';
+  // KPI trio
+  var gEmpty=s.daysEmpty==null?'':(s.daysEmpty<=s.target?'g':(s.daysEmpty<=s.target+20?'w':'b'));
+  var gServe=s.servesPerCalf==null?'':(s.servesPerCalf<=2?'g':(s.servesPerCalf<=2.5?'w':'b'));
+  var gInc=s.inCalfPct==null?'':(s.inCalfPct>=70?'g':(s.inCalfPct>=50?'w':'b'));
+  function kpi(cls,label,val,note){ return '<div class="brd-kpi '+(cls||'')+'"><div class="kl">'+label+'</div><div class="kv">'+val+'</div><div class="kt">'+note+'</div></div>'; }
+  var kpis='<div class="brd-kpis">'+
+    kpi(gEmpty,'Days empty (avg)', s.daysEmpty==null?'—':(s.daysEmpty+'<small> d</small>'), s.daysEmpty==null?'log a calving + scan':(s.daysEmpty<=s.target?'✓ on target (under '+s.target+')':'▲ '+(s.daysEmpty-s.target)+' too long — aim under '+s.target))+
+    kpi(gServe,'Serves per calf', s.servesPerCalf==null?'—':s.servesPerCalf, s.servesPerCalf==null?'log serves + scans':(s.servesPerCalf<=2?'✓ good — under 2':'▲ high — aim under 2'))+
+    kpi(gInc,'In calf now', s.inCalfPct==null?'—':(s.inCalfPct+'<small>%</small>'), s.inCalfNow+' of '+s.cows+' cows')+
+  '</div>';
+  // funnel
+  var base=Math.max(s.cows,1);
+  function fr(label,n,shade){ var w=Math.max(4,Math.round(n/base*100)); return '<div class="brd-fr"><span class="fl">'+label+'</span><div class="bar"><i style="width:'+w+'%;background:'+shade+'"></i></div><span class="fv">'+n+'</span></div>'; }
+  var funnel='<div class="brd-sec">Where your cows are right now</div><div class="brd-fun">'+
+    fr('Cows',s.cows,'#2e7d4f')+fr('Served',s.servedCows,'#40916c')+fr('In calf',s.inCalfNow,'#63a380')+fr('Dry off due',s.dryList.length,'#8fc0a6')+'</div>';
+  // two action lists
+  var dryRows = s.dryList.length ? s.dryList.slice(0,6).map(function(d){ var pill=d.days<=0?'<span class="brd-pill now">Dry off now</span>':'<span class="brd-pill soon">In '+d.days+'d</span>'; return '<div class="brd-row"><span class="tg">'+esc(d.a.tag)+'</span><div class="nm"><b>'+esc(d.a.name||d.a.tag)+'</b><span>Calving '+_brDisp(d.expected)+' · in calf</span></div>'+pill+'</div>'; }).join('') : '<div class="brd-row" style="border:0;color:var(--t4);font-size:11.5px">No cows due to dry off in the next 2 weeks.</div>';
+  var dryBox='<div class="brd-box"><div class="bh"><span class="bt">Dry off soon</span>'+(s.dryList.length?'<span class="bc" style="color:var(--warn);background:#fbead4">'+s.dryList.length+'</span>':'')+'</div><div class="bs">Stop milking her about 2 months before she calves, so she rests and milks well next time.</div>'+dryRows+'</div>';
+  var openRows = s.openList.length ? s.openList.slice(0,6).map(function(o){ return '<div class="brd-row"><span class="tg">'+esc(o.a.tag)+'</span><div class="nm"><b>'+esc(o.a.name||o.a.tag)+'</b><span>Empty '+o.daysOpen+' days · '+o.over+' over · '+o.status+'</span></div><span class="brd-money">R'+_grpInt(o.cost)+'</span></div>'; }).join('') : '<div class="brd-row" style="border:0;color:var(--good);font-size:11.5px">✓ No cows empty past '+s.target+' days.</div>';
+  var openBox='<div class="brd-box"><div class="bh"><span class="bt">Empty too long</span>'+(s.openList.length?'<span class="bc" style="color:#c0392b;background:#fdecec">R'+_grpInt(heroCost)+'</span>':'')+'</div><div class="bs">Not back in calf yet. Each one costs R'+s.costDay+' a day until she is — sort these first.</div>'+openRows+'</div>';
+  var foot='<div class="brd-foot">Worked out from the services, scans and calvings you log on each cow. The R'+s.costDay+'/day and '+s.target+'-day window are the standard dairy figures (adjustable later in Settings).</div>';
+  return '<div class="brd">'+top+hero+kpis+funnel+'<div class="brd-two">'+dryBox+openBox+'</div>'+foot+'</div>';
 }
 
 /* ===== Livestock reports: SARS valuation + Medicine/vaccine audit ===== */
