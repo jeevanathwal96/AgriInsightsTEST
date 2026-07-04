@@ -5023,6 +5023,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <!-- Tabs -->
   <div class="tabs" style="margin-bottom:16px">
     <div class="tab on"  id="ls-tab-camps"     onclick="lsTab('camps')">My Animals</div>
+    <div class="tab"     id="ls-tab-breeding"  onclick="lsTab('breeding')">Breeding</div>
     <div class="tab"     id="ls-tab-health"    onclick="lsTab('health')">Health</div>
     <div class="tab"     id="ls-tab-register"  onclick="lsTab('register')">Register</div>
     <div class="tab"     id="ls-tab-insights"  onclick="lsTab('insights')">Insights</div>
@@ -5035,6 +5036,9 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <div id="ls-view-camps" style="display:none">
     <div id="ls-camps-list" style="display:flex;flex-direction:column;gap:0"></div>
   </div>
+
+  <!-- ── BREEDING & CALVING ── -->
+  <div id="ls-view-breeding" style="display:none"></div>
 
   <!-- ── HERD INSIGHTS ── -->
   <div id="ls-view-insights" style="display:none">
@@ -10516,7 +10520,7 @@ function clearAllToFresh() {
     if (typeof ST_ASSETS !== 'undefined') { E(ST_ASSETS,'assets'); ST_ASSETS.nextId = 1; }
     if (typeof ST_LOANS !== 'undefined') { ['loans','overdrafts','coopAccounts','archived'].forEach(function(k){ E(ST_LOANS,k); }); }
     if (typeof ST_WORK !== 'undefined') { ['workers','payRuns'].forEach(function(k){ E(ST_WORK,k); }); }
-    if (typeof ST_LS !== 'undefined') { ['camps','herd','animals','moves','treatments','health'].forEach(function(k){ E(ST_LS,k); }); }
+    if (typeof ST_LS !== 'undefined') { ['camps','herd','animals','moves','treatments','health','breedings'].forEach(function(k){ E(ST_LS,k); }); }
     if (typeof ST_FRUIT !== 'undefined') { ['blocks','pricing','sprayDiary','phi','harvest'].forEach(function(k){ E(ST_FRUIT,k); }); ST_FRUIT.comply=(typeof orComplyScaffold==='function'?orComplyScaffold():{}); }
     if (typeof ST_CROP !== 'undefined') { ['lands','events','inputs','compliance'].forEach(function(k){ E(ST_CROP,k); }); }
     if (typeof ST_PLAN !== 'undefined') {
@@ -14910,6 +14914,11 @@ var ST_LS = {
     {date:'28 Apr 2024', type:'Goats',      event:'Birth / new calf',    count:4,  desc:'4 kids born, all healthy',     cost:0,    supplier:''},
     {date:'20 Apr 2024', type:'All animals',event:'Dipping / dosing',    count:80, desc:'Tick control dip, whole farm', cost:3200, supplier:'AgriMed'}
   ],
+  breedings: [
+    {id:'br1',herd:1,season:'2024/25',sire:'GV-Bull-05',females:24,start:'2024-11-10',end:'2025-02-08',gestation:283,pdDate:'2025-05-10',inCalf:22,empty:2,born:22,stillborn:0,weaned:21,weanWeight:212,status:'weaned'},
+    {id:'br2',herd:1,season:'2025/26',sire:'GV-Bull-07',females:16,start:'2025-11-15',end:'2026-02-13',gestation:283,pdDate:'2026-05-14',inCalf:14,empty:2,born:0,stillborn:0,weaned:0,status:'pregnant'},
+    {id:'br3',herd:2,season:'2026 spring',sire:'Ram group',females:36,start:'2026-04-01',end:'2026-05-15',gestation:147,pdDate:'',inCalf:null,empty:null,born:0,stillborn:0,weaned:0,status:'breeding'}
+  ],
   filterHealth: ''
 };
 
@@ -14979,8 +14988,8 @@ function _layerBench(type){ var v=POULTRY_BENCH.variants[type]||{}; var b={}; fo
 function lsNextHerdId(){ var m=0; (ST_LS.herd||[]).forEach(function(h){ var n=parseInt(h.id,10); if(!isNaN(n)&&n>m) m=n; }); return m+1; }
 function lsTab(tab) {
   try { if(window.AI && AI.farm && AI.farm.active() && window.ST_LS){ AI.livestock.saveAll(ST_LS).catch(function(e){ console.error('Backend livestock save failed:', e); }); } } catch(e){}
-  var views  = ['camps','insights','register','health','plan','add'];
-  var labels = {overview:'Overview of your herd',camps:'Camps \u2014 what\u2019s grazing where',insights:'Herd makeup & productivity',register:'Stock reconciliation & SARS values',health:'Treatments & health \u2014 cost and compliance in one place',plan:'Plan the season ahead \u2014 keep, sell &amp; cash',add:'Add livestock to your herd'};
+  var views  = ['camps','breeding','insights','register','health','plan','add'];
+  var labels = {overview:'Overview of your herd',camps:'Camps \u2014 what\u2019s grazing where',breeding:'Breeding & calving \u2014 the number that pays the bills',insights:'Herd makeup & productivity',register:'Stock reconciliation & SARS values',health:'Treatments & health \u2014 cost and compliance in one place',plan:'Plan the season ahead \u2014 keep, sell &amp; cash',add:'Add livestock to your herd'};
   views.forEach(function(v){
     var view=$('ls-view-'+v), btn=$('ls-tab-'+v);
     if(view) view.style.display = v===tab?'':'none';
@@ -14989,6 +14998,7 @@ function lsTab(tab) {
   var sub=$('ls-tab-sub'); if(sub) sub.textContent=labels[tab]||'';
   if(tab==='move'){ lsMoveOpen(); return; }
   if(tab==='camps')     renderCamps();
+  if(tab==='breeding')  renderBreeding();
   if(tab==='insights')  renderHerdInsights();
   if(tab==='register')  renderStockRegister();
   if(tab==='health')    renderHealthMed();
@@ -17800,6 +17810,243 @@ function lsAnimalSafe(a){
   var act=(ST_LS.treatments||[]).filter(function(t){return t.tags&&t.tags.indexOf(a.tag)>=0&&lsTrActive(t);});
   if(!act.length) return null;
   return lsTrSafe(act.sort(function(x,y){return lsTrSafe(y)-lsTrSafe(x);})[0]);
+}
+
+/* ═══════════════ BREEDING & CALVING (reproduction) — Phase 1 ═══════════════
+   A layer over the existing moves ledger: calving writes a 'born' move (reuse
+   lsRecordMove) so Herd/Camps/Register/value/tax all stay in sync. Breeding
+   records add the reproductive context (season, expected dates, PD, KPIs). */
+var BR_FORM = null; // {kind:'season'|'pd'|'calving'|'weaning', herdId, brId}
+
+function lsGestation(type){ var b=animalBase(type); return b==='Cattle'?283:b==='Sheep'?147:b==='Goats'?150:b==='Pigs'?114:b==='Game'?240:250; }
+function lsWeanAge(type){ var b=animalBase(type); return b==='Cattle'?205:b==='Sheep'?120:b==='Goats'?110:b==='Pigs'?42:150; }
+function _brTerm(type){ var b=animalBase(type);
+  return b==='Sheep'?{ev:'Lambing',young:'lambs',single:'lamb',verb:'lamb',fem:'ewes',femSingle:'ewe',sire:'ram'}
+    :b==='Goats'?{ev:'Kidding',young:'kids',single:'kid',verb:'kid',fem:'does',femSingle:'doe',sire:'buck'}
+    :b==='Pigs'?{ev:'Farrowing',young:'piglets',single:'piglet',verb:'farrow',fem:'sows',femSingle:'sow',sire:'boar'}
+    :{ev:'Calving',young:'calves',single:'calf',verb:'calve',fem:'cows',femSingle:'cow',sire:'bull'}; }
+function lsBreedingHerds(){ return (ST_LS.herd||[]).filter(function(h){ return !h.planned && lsBreedingClass(h.type); }); }
+function lsHerdBreedings(id){ return (ST_LS.breedings||[]).filter(function(b){return b.herd===id;}).sort(function(a,b){return (a.start||'')<(b.start||'')?1:-1;}); }
+function _brFind(id){ return (ST_LS.breedings||[]).filter(function(b){return b.id===id;})[0]||null; }
+function _brToday(){ return (typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); }
+function _brTodayISO(){ return _brToday().toISOString().slice(0,10); }
+function _brAddDays(iso,days){ if(!iso) return ''; var d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+(days||0)); return d.toISOString().slice(0,10); }
+function _brExpectedFrom(b){ return b.start?_brAddDays(b.start, b.gestation||283):''; }
+function _brExpectedTo(b){ return b.end?_brAddDays(b.end, b.gestation||283):_brExpectedFrom(b); }
+function _brDisp(iso){ if(!iso) return '—'; try{ var d=new Date(iso+'T00:00:00'); var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var yr=(d.getFullYear()!==_brToday().getFullYear())?(' '+String(d.getFullYear()).slice(2)):''; return d.getDate()+' '+M[d.getMonth()]+yr; }catch(e){ return iso; } }
+function _brSeasonLabel(start){ try{ var d=new Date(start+'T00:00:00'); var y=d.getFullYear(); return (d.getMonth()>=6)?(y+'/'+String(y+1).slice(2)):(String(y-1)+'/'+String(y).slice(2)); }catch(e){ return 'Season'; } }
+function _brFemalesFromHerd(h){ if(!h) return 0; var bc=lsBreedingClass(h.type); var co=bc&&_lsClassObj(h,bc); if(co&&co.n) return co.n; return h.qty||0; }
+function _brFemales(b){ if(b.females!=null) return b.females; var h=(ST_LS.herd||[]).filter(function(x){return x.id===b.herd;})[0]; return _brFemalesFromHerd(h); }
+
+// current stage index across the 6-step cycle: 0 bull-in,1 bull-out,2 PD,3 pre-calving,4 calving,5 weaning
+function _brStageIdx(b){ var t=_brTodayISO(), ef=_brExpectedFrom(b);
+  if(b.weaned>0) return 5;
+  if(b.born>0) return 4;
+  if(ef && t>=ef) return 4;
+  if(ef && t>=_brAddDays(ef,-56)) return 3;
+  if(b.pdDate) return 3;
+  if(b.end && t>=b.end) return 2;
+  if(b.start && t>=b.start) return 1;
+  return 0; }
+function _brStatusChip(b){ var i=_brStageIdx(b);
+  if(b.weaned>0) return {t:'Weaned',bg:'var(--gb)',c:'var(--gd)'};
+  if(i===4) return {t:_brTerm(_brHerdType(b)).ev,bg:'#E9F5EE',c:'#2E7D4F'};
+  if(i===3) return {t:'In '+_brTerm(_brHerdType(b)).single,bg:'#E9F5EE',c:'#2E7D4F'};
+  if(i===2) return {t:'Scan due',bg:'#FBEAD4',c:'#B45309'};
+  if(i===1) return {t:'Season running',bg:'#EDE7F6',c:'#5B3E96'};
+  return {t:'Planned',bg:'var(--br2)',c:'var(--t3)'}; }
+function _brHerdType(b){ var h=(ST_LS.herd||[]).filter(function(x){return x.id===b.herd;})[0]; return h?h.type:'Beef cattle'; }
+
+// ── KPIs, aggregated across all breeding seasons (SA-correct: denominator = females exposed) ──
+function brKPIs(){ var brs=(ST_LS.breedings||[]);
+  var fW=0,wean=0,fC=0,born=0,fP=0,inCalf=0,mBorn=0,mLoss=0;
+  brs.forEach(function(b){ var fem=_brFemales(b);
+    if(b.weaned!=null&&b.weaned>0){ fW+=fem; wean+=b.weaned; }
+    if(b.born!=null&&b.born>0){ fC+=fem; born+=b.born; if(b.weaned!=null&&b.weaned>0){ mBorn+=b.born; mLoss+=Math.max(0,(b.stillborn||0)+(b.born-b.weaned)); } else { mBorn+=b.born; mLoss+=(b.stillborn||0); } }
+    if(b.pdDate&&b.inCalf!=null){ fP+=fem; inCalf+=b.inCalf; }
+  });
+  var icpVals=[]; lsBreedingHerds().forEach(function(h){ var ss=lsHerdBreedings(h.id).filter(function(b){return b.start;}).sort(function(a,b){return a.start<b.start?-1:1;}); for(var i=1;i<ss.length;i++){ var a=_brExpectedFrom(ss[i-1]),c=_brExpectedFrom(ss[i]); if(a&&c){ var g=(new Date(c)-new Date(a))/86400000; if(g>0&&g<1000) icpVals.push(g); } } });
+  var icp=icpVals.length?Math.round(icpVals.reduce(function(s,x){return s+x;},0)/icpVals.length):null;
+  return { weaning:fW?Math.round(wean/fW*100):null, calving:fC?Math.round(born/fC*100):null, inCalf:fP?Math.round(inCalf/fP*100):null, mortality:mBorn?Math.round(mLoss/mBorn*1000)/10:null, icp:icp, weanCount:wean, weanFemales:fW }; }
+function _brPill(kind){ return kind==='good'?'p-good':kind==='warn'?'p-warn':'p-bad'; }
+function _brWeanGrade(v){ return v==null?null:(v>=80?'good':v>=65?'warn':'bad'); }
+function _brCalvGrade(v){ return v==null?null:(v>=80?'good':v>=65?'warn':'bad'); }
+function _brInCalfGrade(v){ return v==null?null:(v>=90?'good':v>=80?'warn':'bad'); }
+function _brMortGrade(v){ return v==null?null:(v<3?'good':v<=8?'warn':'bad'); }
+function _brIcpGrade(v){ return v==null?null:(v<=400?'good':v<=430?'warn':'bad'); }
+
+function brCommit(){ try{ saveState&&saveState(); }catch(e){} try{ if(window.AI&&AI.farm&&AI.farm.active()&&window.ST_LS){ AI.livestock.saveAll(ST_LS).catch(function(e){ console.error('Backend livestock save failed:',e); }); } }catch(e){} }
+function brNewId(){ return 'br'+Date.now().toString(36)+Math.floor(Math.random()*1e3); }
+
+// ── Render ──
+function renderBreeding(){ var box=$('ls-view-breeding'); if(!box) return;
+  if(!document.getElementById('br-css')){ var st=document.createElement('style'); st.id='br-css'; st.textContent=
+    ".brwrap{--good:#2E7D4F;--warn:#B45309;--bad:#DC2626}"+
+    ".br-hero{background:linear-gradient(150deg,#173a2c,#1B4332 62%,#245139);color:#fff;border-radius:16px;padding:18px 20px;margin-bottom:14px}"+
+    ".br-hero .l{font-size:11px;text-transform:uppercase;letter-spacing:.07em;opacity:.72}.br-hero .big{font-size:40px;font-weight:800;line-height:1.03;margin:2px 0}.br-hero .cap{font-size:12.5px;opacity:.92;line-height:1.5}"+
+    ".br-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:15px}@media(max-width:640px){.br-kpis{grid-template-columns:repeat(2,1fr)}}"+
+    ".br-kpi{background:rgba(255,255,255,.10);border-radius:11px;padding:10px 12px}.br-kpi .k{font-size:10px;opacity:.75;text-transform:uppercase;letter-spacing:.03em}.br-kpi .v{font-size:20px;font-weight:800;margin-top:1px}.br-kpi .p{display:inline-block;font-size:9px;font-weight:800;border-radius:999px;padding:1px 7px;margin-top:4px}"+
+    ".p-good{background:#5FBE85;color:#0c3520}.p-warn{background:#E8A33D;color:#3d2606}.p-bad{background:#EF6B6B;color:#450f0f}"+
+    ".br-card{background:#fff;border:1px solid var(--br);border-radius:14px;padding:15px 16px;margin-bottom:12px}"+
+    ".br-h{font-size:13px;font-weight:800;color:var(--gd);margin:0 0 11px}"+
+    ".br-tl{display:flex;gap:5px;overflow-x:auto;padding-bottom:2px}.br-st{flex:1;min-width:92px;border-radius:10px;padding:9px 9px;border:1px solid var(--br);background:#FAFBFA}.br-st.done{background:var(--gb);border-color:var(--gp)}.br-st.now{background:#173a2c;border-color:#173a2c;color:#fff}"+
+    ".br-st .si{font-size:15px}.br-st .sn{font-size:11px;font-weight:800;margin-top:4px;line-height:1.15}.br-st .sd{font-size:10px;margin-top:2px;line-height:1.25;color:var(--t4)}.br-st.now .sd{color:#bfe6cf}.br-st.done .sd{color:var(--gd)}"+
+    ".br-next{margin-top:11px;background:#FFF3E0;border:1px solid #F5D9A8;border-left:4px solid #B45309;border-radius:0 9px 9px 0;padding:10px 13px;font-size:12px;color:#7a4a10;line-height:1.5}"+
+    ".br-grp{border:1px solid var(--br);border-radius:13px;padding:14px 15px;margin-bottom:11px;background:#fff}"+
+    ".br-gh{display:flex;align-items:center;gap:11px;margin-bottom:11px}.br-gi{width:38px;height:38px;border-radius:11px;background:var(--gb);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}"+
+    ".br-gt{font-size:14px;font-weight:800}.br-gs{font-size:11.5px;color:var(--t4);margin-top:1px}.br-gstat{margin-left:auto;font-size:10.5px;font-weight:800;border-radius:999px;padding:3px 10px}"+
+    ".br-gm{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:11px}@media(max-width:640px){.br-gm{grid-template-columns:repeat(2,1fr)}}"+
+    ".br-m{background:var(--br2);border-radius:9px;padding:8px 10px}.br-m .mk{font-size:9.5px;color:var(--t4);text-transform:uppercase;letter-spacing:.02em}.br-m .mv{font-size:14px;font-weight:800;margin-top:1px}"+
+    ".br-prog{height:7px;border-radius:5px;background:#EEF1EC;overflow:hidden;margin-bottom:11px}.br-prog>i{display:block;height:100%;background:linear-gradient(90deg,#40916C,#2E7D4F)}"+
+    ".br-acts{display:flex;gap:7px;flex-wrap:wrap}.br-b{font-size:12px;font-weight:700;border-radius:9px;padding:8px 13px;cursor:pointer;border:1px solid transparent;font-family:var(--fn)}.br-b.pri{color:#fff;background:var(--gd);border-color:var(--gd)}.br-b.sec{color:var(--gd);background:var(--gb);border-color:var(--gp)}.br-b.gh{color:var(--t2);background:var(--br2)}"+
+    ".br-cull{background:#FDECEC;border:1px solid #F5C4C4;border-radius:13px;padding:14px 16px;margin-bottom:12px}.br-cull .t{font-size:13px;font-weight:800;color:#9b1c1c}.br-cull .s{font-size:12px;color:#7a2020;line-height:1.55;margin-top:5px}"+
+    ".br-empty{background:#fff;border:1px dashed var(--gp);border-radius:14px;padding:22px 18px;text-align:center;margin-bottom:12px}.br-empty .e1{font-size:15px;font-weight:800;margin-bottom:5px}.br-empty .e2{font-size:12.5px;color:var(--t3);line-height:1.55;max-width:460px;margin:0 auto 12px}"+
+    ".br-form{background:#fff;border:1px solid var(--br);border-radius:14px;padding:16px 18px;margin-bottom:12px}.br-fr{margin-bottom:12px}.br-fr label{display:block;font-size:12px;font-weight:700;color:var(--t2);margin-bottom:5px}.br-fr input,.br-fr select{width:100%;box-sizing:border-box;font-size:14px;font-family:var(--fn);border:1px solid var(--br);border-radius:9px;padding:9px 11px;background:#fff;color:var(--ink)}.br-fr .hint{font-size:11px;color:var(--t4);margin-top:4px}.br-f2{display:grid;grid-template-columns:1fr 1fr;gap:11px}"+
+    ".br-src{font-size:11px;color:var(--t4);line-height:1.5;margin-top:2px}";
+    document.head.appendChild(st); }
+
+  if(BR_FORM){ box.innerHTML='<div class="brwrap">'+brFormHTML()+'</div>'; return; }
+
+  var herds=lsBreedingHerds();
+  var h='<div class="brwrap">';
+  if(!herds.length){ box.innerHTML='<div class="brwrap"><div class="br-empty"><div class="e1">🐄 Breeding &amp; calving</div><div class="e2">Add a breeding herd (cows, ewes or does) and this page tracks your seasons, pregnancy tests and calvings — and works out the number that pays the bills: calves weaned per female mated.</div><span class="br-b pri" style="display:inline-block" onclick="lsTab(\'add\')">+ Add a breeding herd</span></div></div>'; return; }
+
+  var k=brKPIs();
+  if(k.weaning!=null||k.calving!=null){
+    var head = k.weaning!=null?k.weaning:k.calving;
+    var lbl  = k.weaning!=null?'Calves &amp; lambs weaned per female mated':'Calving rate this season';
+    var cap  = k.weaning!=null?('You weaned <b>'+k.weanCount+'</b> from <b>'+k.weanFemales+'</b> females mated. '+(k.weaning>=80?'That’s at or above the SA target of 80% — money in the bank.':'The SA target is 80% — every extra 5% is roughly one more weaner per 20 females.')):'From females exposed to the bull/ram this season.';
+    function tile(name,v,suffix,grade){ var p=grade?('<span class="p '+_brPill(grade)+'">'+(grade==='good'?'good':grade==='warn'?'watch':'low')+'</span>'):''; return '<div class="br-kpi"><div class="k">'+name+'</div><div class="v">'+(v==null?'—':(v+(suffix||'')))+'</div>'+p+'</div>'; }
+    h+='<div class="br-hero"><div class="l">'+lbl+'</div><div class="big">'+(head==null?'—':head+'%')+'</div><div class="cap">'+cap+'</div>'+
+      '<div class="br-kpis">'+
+        tile('Calving %',k.calving,'%',_brCalvGrade(k.calving))+
+        tile('Inter-calving',k.icp,' d',_brIcpGrade(k.icp))+
+        tile('In-calf (scan)',k.inCalf,'%',_brInCalfGrade(k.inCalf))+
+        tile('Calf losses',k.mortality,'%',_brMortGrade(k.mortality))+
+      '</div></div>';
+  }
+
+  // empties cull nudge — latest scored season with empties
+  var withEmpty=(ST_LS.breedings||[]).filter(function(b){return b.pdDate&&b.empty>0&&!(b.weaned>0);}).sort(function(a,b){return (a.pdDate||'')<(b.pdDate||'')?1:-1;})[0];
+  if(withEmpty){ var eh=(ST_LS.herd||[]).filter(function(x){return x.id===withEmpty.herd;})[0]; var term=_brTerm(eh?eh.type:'Beef cattle'); var cost=withEmpty.empty*6500;
+    h+='<div class="br-cull"><div class="t">💰 '+withEmpty.empty+' empty '+term.fem+' flagged after scanning</div><div class="s">'+esc(eh?lsHerdName(eh):'')+' scanned <b>'+withEmpty.empty+'</b> empty. At ~R6 500/yr grazing each, keeping them costs about <b>R'+_grpInt(cost)+'</b> for no '+term.single+'. Record the cull sale to take them off the books. <span class="br-b sec" style="display:inline-block;margin-top:8px" onclick="lsTab(\'register\')">Manage cull in Register →</span></div></div>';
+  }
+
+  // group cards
+  herds.forEach(function(hd){ h+=brGroupCard(hd); });
+  h+='</div>';
+  box.innerHTML=h;
+}
+
+function brGroupCard(h){
+  var term=_brTerm(h.type); var seasons=lsHerdBreedings(h.id); var cur=seasons[0];
+  var icon=animalIcon(h.type);
+  var noSeason=(!cur || cur.weaned>0);
+  var chipHTML = noSeason
+    ? '<span class="br-gstat" style="background:var(--br2);color:var(--t3)">No active season</span>'
+    : (function(){ var c=_brStatusChip(cur); return '<span class="br-gstat" style="background:'+c.bg+';color:'+c.c+'">'+c.t+'</span>'; })();
+  var head='<div class="br-gh"><span class="br-gi">'+icon+'</span><div style="min-width:0"><div class="br-gt">'+esc(lsHerdName(h))+'</div><div class="br-gs">'+esc(h.breed||h.type)+(h.camp?(' · '+esc(h.camp)):'')+'</div></div>'+chipHTML+'</div>';
+  if(noSeason){
+    return '<div class="br-grp">'+head+'<div style="font-size:12.5px;color:var(--t3);margin-bottom:11px">'+(cur?('Last season weaned '+(cur.weaned||0)+' '+term.young+'. '):'')+'Start a new season when the '+term.sire+' goes in.</div><div class="br-acts"><span class="br-b pri" onclick="brOpenForm(\'season\','+h.id+')">🐂 Start a season ('+term.sire+' in)</span></div></div>';
+  }
+  var idx=_brStageIdx(cur); var fem=_brFemales(cur);
+  var inCalfTxt = cur.inCalf!=null?(cur.inCalf+' / '+fem):'not scanned';
+  var expTxt = _brExpectedFrom(cur)?(_brDisp(_brExpectedFrom(cur))+'–'+_brDisp(_brExpectedTo(cur))):'—';
+  var mets='<div class="br-gm">'+
+    '<div class="br-m"><div class="mk">'+term.fem+' mated</div><div class="mv">'+fem+'</div></div>'+
+    '<div class="br-m"><div class="mk">'+term.sire+' in–out</div><div class="mv" style="font-size:12px">'+_brDisp(cur.start)+'–'+(cur.end?_brDisp(cur.end):'now')+'</div></div>'+
+    '<div class="br-m"><div class="mk">Expected '+term.ev.toLowerCase()+'</div><div class="mv" style="font-size:12px">'+expTxt+'</div></div>'+
+    '<div class="br-m"><div class="mk">'+(cur.born>0?term.ev:'In '+term.single)+'</div><div class="mv">'+(cur.born>0?(cur.born+' born'):inCalfTxt)+'</div></div>'+
+  '</div>';
+  var pct=[15,33,50,70,88,100][idx]||10;
+  var prog='<div class="br-prog"><i style="width:'+pct+'%"></i></div>';
+  // timeline
+  var stages=[['🐂',term.sire.charAt(0).toUpperCase()+term.sire.slice(1)+' in',_brDisp(cur.start)],
+    ['✅',term.sire.charAt(0).toUpperCase()+term.sire.slice(1)+' out',cur.end?_brDisp(cur.end):'—'],
+    ['🔬','Scan (PD)',cur.pdDate?_brDisp(cur.pdDate):'~'+_brDisp(_brAddDays(cur.end,63))],
+    ['💉','Pre-'+term.ev.toLowerCase(),_brExpectedFrom(cur)?_brDisp(_brAddDays(_brExpectedFrom(cur),-42)):'—'],
+    ['🐄',term.ev,expTxt],
+    ['⚖️','Weaning',_brExpectedFrom(cur)?_brDisp(_brAddDays(_brExpectedFrom(cur),lsWeanAge(h.type))):'—']];
+  var tl='<div class="br-tl">'+stages.map(function(s,i){ var cl=i<idx?'done':(i===idx?'now':''); return '<div class="br-st '+cl+'"><div class="si">'+s[0]+'</div><div class="sn">'+s[1]+'</div><div class="sd">'+s[2]+'</div></div>'; }).join('')+'</div>';
+  var next=_brNextAction(cur,term);
+  // actions by stage
+  var acts='<div class="br-acts">';
+  if(idx>=1 && !cur.pdDate) acts+='<span class="br-b pri" onclick="brOpenForm(\'pd\','+h.id+',\''+cur.id+'\')">🔬 Record scan (PD)</span>';
+  if(idx>=3 || cur.born>0) acts+='<span class="br-b '+(cur.born>0?'sec':'pri')+'" onclick="brOpenForm(\'calving\','+h.id+',\''+cur.id+'\')">🐄 Record '+term.ev.toLowerCase()+'</span>';
+  if(cur.born>0) acts+='<span class="br-b pri" onclick="brOpenForm(\'weaning\','+h.id+',\''+cur.id+'\')">⚖️ Record weaning</span>';
+  if(idx<1 && !cur.end) acts+='<span class="br-b sec" onclick="brOpenForm(\'pd\','+h.id+',\''+cur.id+'\')">🔬 Record scan (PD)</span>';
+  acts+='<span class="br-b gh" onclick="brOpenForm(\'season\','+h.id+')">+ New season</span></div>';
+  return '<div class="br-grp">'+head+mets+prog+tl+(next?'<div class="br-next">'+next+'</div>':'')+'<div style="height:11px"></div>'+acts+'</div>';
+}
+
+function _brNextAction(b,term){ var i=_brStageIdx(b);
+  if(i===2) return '<b>Next — pregnancy test.</b> The '+term.sire+' is out, so every '+term.femSingle+' can be scanned in one session. Booking the vet now lets you cull empty '+term.fem+' before winter feed — an empty '+term.femSingle+' eats a full year of grazing for no '+term.single+'.';
+  if(i===3) return '<b>Next — pre-'+term.ev.toLowerCase()+'.</b> Booster vaccinations and a move to a clean '+term.ev.toLowerCase()+' camp in the last 6–8 weeks set up healthy '+term.young+'.';
+  if(i===4) return '<b>'+term.ev+' window is open.</b> Record each '+term.single+' as it drops — it updates your herd count and register automatically.';
+  if(i===1) return '<b>Season is running.</b> Note the day the '+term.sire+' comes out — it sets the scan date and tightens next year’s '+term.ev.toLowerCase()+'.';
+  return ''; }
+
+// ── Workflow forms ──
+function brOpenForm(kind,herdId,brId){ BR_FORM={kind:kind,herdId:herdId,brId:brId||null}; renderBreeding(); var c=$('content'); if(c) c.scrollTop=0; }
+function brCloseForm(){ BR_FORM=null; renderBreeding(); }
+function brFormHTML(){ var h=(ST_LS.herd||[]).filter(function(x){return x.id===BR_FORM.herdId;})[0]; if(!h){ BR_FORM=null; return ''; }
+  var term=_brTerm(h.type); var b=BR_FORM.brId?_brFind(BR_FORM.brId):null; var fem=b?_brFemales(b):_brFemalesFromHerd(h);
+  var top='<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span class="br-b gh" onclick="brCloseForm()">‹ Back</span><div style="font-size:15px;font-weight:800">'+esc(lsHerdName(h))+'</div></div>';
+  var today=_brTodayISO();
+  if(BR_FORM.kind==='season'){ return '<div class="br-form">'+top+
+    '<div class="br-h">🐂 Start a breeding season</div>'+
+    '<div class="br-fr"><label>Which '+term.sire+'(s)?</label><input id="br-f-sire" placeholder="e.g. GV-Bull-07 or Bull group"></div>'+
+    '<div class="br-f2"><div class="br-fr"><label>'+term.sire.charAt(0).toUpperCase()+term.sire.slice(1)+' went in</label><input id="br-f-start" type="date" value="'+today+'"></div>'+
+    '<div class="br-fr"><label>Season length</label><select id="br-f-len"><option value="60">60 days (tight)</option><option value="90" selected>90 days</option><option value="120">120 days</option></select></div></div>'+
+    '<div class="br-f2"><div class="br-fr"><label>'+term.fem.charAt(0).toUpperCase()+term.fem.slice(1)+' mated</label><input id="br-f-fem" type="number" value="'+fem+'"><div class="hint">from your '+term.fem+' count</div></div>'+
+    '<div class="br-fr"><label>Gestation (days)</label><input id="br-f-gest" type="number" value="'+lsGestation(h.type)+'"><div class="hint">SA default for '+animalBaseLabel(h.type).toLowerCase()+'</div></div></div>'+
+    '<div class="br-acts"><span class="br-b pri" onclick="brSaveSeason()">Save season</span><span class="br-b gh" onclick="brCloseForm()">Cancel</span></div>'+
+    '<div class="br-src">Expected '+term.ev.toLowerCase()+' is worked out as the '+term.sire+'-in and '+term.sire+'-out dates plus the gestation period.</div></div>'; }
+  if(BR_FORM.kind==='pd'){ if(!b) return top; return '<div class="br-form">'+top+
+    '<div class="br-h">🔬 Record pregnancy test (scan)</div>'+
+    '<div class="br-f2"><div class="br-fr"><label>Scan date</label><input id="br-f-pddate" type="date" value="'+(b.pdDate||today)+'"></div>'+
+    '<div class="br-fr"><label>In calf</label><input id="br-f-incalf" type="number" value="'+(b.inCalf!=null?b.inCalf:'')+'" placeholder="0"><div class="hint">of '+fem+' '+term.fem+' mated</div></div></div>'+
+    '<div class="br-acts"><span class="br-b pri" onclick="brSavePD()">Save scan</span><span class="br-b gh" onclick="brCloseForm()">Cancel</span></div>'+
+    '<div class="br-src">Empty '+term.fem+' are worked out automatically ('+term.fem+' mated − in calf) and flagged as cull candidates.</div></div>'; }
+  if(BR_FORM.kind==='calving'){ if(!b) return top; return '<div class="br-form">'+top+
+    '<div class="br-h">🐄 Record '+term.ev.toLowerCase()+'</div>'+
+    '<div class="br-f2"><div class="br-fr"><label>Date</label><input id="br-f-cdate" type="date" value="'+today+'"></div>'+
+    '<div class="br-fr"><label>Live '+term.young+'</label><input id="br-f-live" type="number" value="" placeholder="0"></div></div>'+
+    '<div class="br-fr"><label>Stillborn / died at birth</label><input id="br-f-still" type="number" value="0"></div>'+
+    '<div class="br-acts"><span class="br-b pri" onclick="brSaveCalving()">Save '+term.ev.toLowerCase()+'</span><span class="br-b gh" onclick="brCloseForm()">Cancel</span></div>'+
+    '<div class="br-src">Live '+term.young+' are added to your herd count and stock register automatically (a “born” movement). You can record more than once as '+term.young+' drop.</div></div>'; }
+  if(BR_FORM.kind==='weaning'){ if(!b) return top; return '<div class="br-form">'+top+
+    '<div class="br-h">⚖️ Record weaning</div>'+
+    '<div class="br-f2"><div class="br-fr"><label>Weaning date</label><input id="br-f-wdate" type="date" value="'+today+'"></div>'+
+    '<div class="br-fr"><label>'+term.young.charAt(0).toUpperCase()+term.young.slice(1)+' weaned</label><input id="br-f-wn" type="number" value="'+(b.born||'')+'" placeholder="0"></div></div>'+
+    '<div class="br-fr"><label>Average weaning weight (kg, optional)</label><input id="br-f-wt" type="number" value="'+(b.weanWeight||'')+'" placeholder="e.g. 205"></div>'+
+    '<div class="br-acts"><span class="br-b pri" onclick="brSaveWeaning()">Save weaning</span><span class="br-b gh" onclick="brCloseForm()">Cancel</span></div>'+
+    '<div class="br-src">Weaned '+term.young+' per '+term.femSingle+' mated is your bottom-line reproduction number.</div></div>'; }
+  return top;
+}
+function brSaveSeason(){ var h=(ST_LS.herd||[]).filter(function(x){return x.id===BR_FORM.herdId;})[0]; if(!h) return;
+  var start=(($('br-f-start')||{}).value)||''; if(!start){ try{toast&&toast('Enter the date the '+_brTerm(h.type).sire+' went in.','info');}catch(e){} return; }
+  var len=parseInt(($('br-f-len')||{}).value,10)||90; var fem=parseInt(($('br-f-fem')||{}).value,10); if(isNaN(fem)) fem=_brFemalesFromHerd(h);
+  var gest=parseInt(($('br-f-gest')||{}).value,10)||lsGestation(h.type);
+  var rec={id:brNewId(),herd:h.id,season:_brSeasonLabel(start),sire:(($('br-f-sire')||{}).value)||'',females:fem,start:start,end:_brAddDays(start,len),gestation:gest,pdDate:'',inCalf:null,empty:null,born:0,stillborn:0,weaned:0,status:'breeding'};
+  ST_LS.breedings=ST_LS.breedings||[]; ST_LS.breedings.unshift(rec); brCommit(); BR_FORM=null; renderBreeding();
+  try{ toast&&toast('Breeding season started.','success'); }catch(e){}
+}
+function brSavePD(){ var b=_brFind(BR_FORM.brId); if(!b) return; var fem=_brFemales(b);
+  var inc=parseInt(($('br-f-incalf')||{}).value,10); if(isNaN(inc)) inc=0; inc=Math.max(0,Math.min(inc,fem));
+  b.pdDate=(($('br-f-pddate')||{}).value)||_brTodayISO(); b.inCalf=inc; b.empty=Math.max(0,fem-inc); if(b.status==='breeding') b.status='pregnant';
+  brCommit(); BR_FORM=null; renderBreeding(); try{ toast&&toast('Scan recorded — '+inc+' in calf, '+b.empty+' empty.','success'); }catch(e){}
+}
+function brSaveCalving(){ var b=_brFind(BR_FORM.brId); if(!b) return; var term=_brTerm(_brHerdType(b));
+  var date=(($('br-f-cdate')||{}).value)||_brTodayISO(); var live=parseInt(($('br-f-live')||{}).value,10)||0; var still=parseInt(($('br-f-still')||{}).value,10)||0;
+  if(live<=0 && still<=0){ try{toast&&toast('Enter how many '+term.young+' were born.','info');}catch(e){} return; }
+  b.born=(b.born||0)+live; b.stillborn=(b.stillborn||0)+still; b.status='calving';
+  if(live>0 && typeof lsRecordMove==='function'){ lsRecordMove({herdId:b.herd,reason:'born',qty:live,date:date,note:live+' '+term.young+' · '+b.season}); }
+  brCommit(); BR_FORM=null; renderBreeding(); try{ toast&&toast(live+' '+term.young+' added to your herd.','success'); }catch(e){}
+}
+function brSaveWeaning(){ var b=_brFind(BR_FORM.brId); if(!b) return; var wn=parseInt(($('br-f-wn')||{}).value,10); if(isNaN(wn)) wn=0;
+  b.weaned=Math.max(0,wn); var wt=parseFloat(($('br-f-wt')||{}).value); if(!isNaN(wt)&&wt>0) b.weanWeight=wt; b.weanDate=(($('br-f-wdate')||{}).value)||_brTodayISO(); b.status='weaned';
+  brCommit(); BR_FORM=null; renderBreeding(); try{ toast&&toast('Weaning recorded.','success'); }catch(e){}
 }
 
 /* ===== Livestock reports: SARS valuation + Medicine/vaccine audit ===== */
@@ -29900,6 +30147,29 @@ function renderAIInsights(){
 // ============================================================
 function computeNotifications(){
   var n = [];
+  // ── Breeding & calving reminders (self-cancel once the action is logged) ──
+  try{
+    if(typeof ST_LS!=='undefined' && (ST_LS.breedings||[]).length && typeof _brStageIdx==='function'){
+      (ST_LS.breedings||[]).forEach(function(b){
+        if(b.weaned>0) return;
+        var h=(ST_LS.herd||[]).filter(function(x){return x.id===b.herd;})[0]; if(!h) return;
+        var term=_brTerm(h.type); var idx=_brStageIdx(b); var nm=lsHerdName(h);
+        if(idx===2 && !b.pdDate){
+          n.push({ color:'var(--or)', score:78, title:'Pregnancy test due — '+nm,
+            body:'The '+term.sire+' is out. Scan now to cull empty '+term.fem+' before winter feed.',
+            time:'This week', action:function(){ nav('livestock'); if(typeof lsTab==='function') lsTab('breeding'); } });
+        } else if(idx===3){
+          n.push({ color:'var(--gd)', score:72, title:term.ev+' approaching — '+nm,
+            body:'Expected from '+_brDisp(_brExpectedFrom(b))+'. Booster vaccinations and a clean '+term.ev.toLowerCase()+' camp now.',
+            time:'Upcoming', action:function(){ nav('livestock'); if(typeof lsTab==='function') lsTab('breeding'); } });
+        } else if(idx===4 && !(b.born>0)){
+          n.push({ color:'var(--gd)', score:80, title:term.ev+' window open — '+nm,
+            body:'Record each '+term.single+' as it drops — your herd count updates automatically.',
+            time:'Now', action:function(){ nav('livestock'); if(typeof lsTab==='function') lsTab('breeding'); } });
+        }
+      });
+    }
+  }catch(e){}
   var cm = getCurrentMonthKey(), pm = prevMonthKey(cm);
   var cur = txByMonth(cm), prv = txByMonth(pm);
   var curIn  = cur.filter(function(t){return t.type==='income' }).reduce(function(s,t){return s+t.amt;},0);

@@ -629,6 +629,9 @@
   function animalFromDb(r){ var a={ id:r.local_id, herd:_numIf(r.herd_local_id), tag:r.tag||'', sex:r.sex||'' }; if(r.name) a.name=r.name; if(r.breed) a.breed=r.breed; if(r.cls) a.cls=r.cls; return a; }
   function healthToDb(h,fid){ return { farm_id:fid, local_id:h.id?String(h.id):null, health_date:h.date||null, type:h.type||null, event:h.event||null, count:(h.count!=null)?parseInt(h.count,10):null, descr:h.desc||null, cost:(h.cost!=null)?Number(h.cost):null, supplier:h.supplier||null }; }
   function healthFromDb(r){ return { date:r.health_date||'', type:r.type||'', event:r.event||'', count:Number(r.count)||0, desc:r.descr||'', cost:Number(r.cost)||0, supplier:r.supplier||'' }; }
+  // Breeding & calving (reproduction). Table livestock_breedings — see livestock_breeding_schema.sql.
+  function breedingToDb(b,fid){ return { farm_id:fid, local_id:String(b.id), herd_local_id:(b.herd!=null)?String(b.herd):null, season:b.season||null, sire:b.sire||null, females:(b.females!=null)?parseInt(b.females,10):null, start_date:b.start||null, end_date:b.end||null, gestation:(b.gestation!=null)?parseInt(b.gestation,10):null, pd_date:b.pdDate||null, in_calf:(b.inCalf!=null)?parseInt(b.inCalf,10):null, empty:(b.empty!=null)?parseInt(b.empty,10):null, born:(b.born!=null)?parseInt(b.born,10):null, stillborn:(b.stillborn!=null)?parseInt(b.stillborn,10):null, weaned:(b.weaned!=null)?parseInt(b.weaned,10):null, wean_weight:(b.weanWeight!=null)?Number(b.weanWeight):null, wean_date:b.weanDate||null, status:b.status||null }; }
+  function breedingFromDb(r){ var b={ id:r.local_id, herd:_numIf(r.herd_local_id), season:r.season||'', sire:r.sire||'', females:(r.females!=null)?Number(r.females):null, start:r.start_date||'', end:r.end_date||'', gestation:Number(r.gestation)||283, pdDate:r.pd_date||'', inCalf:(r.in_calf!=null)?Number(r.in_calf):null, empty:(r.empty!=null)?Number(r.empty):null, born:Number(r.born)||0, stillborn:Number(r.stillborn)||0, weaned:(r.weaned!=null)?Number(r.weaned):0, status:r.status||'breeding' }; if(r.wean_weight!=null) b.weanWeight=Number(r.wean_weight); if(r.wean_date) b.weanDate=r.wean_date; return b; }
 
   load.livestock = async function(farmId){
     farmId = farmId || farm.active();
@@ -647,9 +650,14 @@
     (hc.data||[]).forEach(function(r){ (byHerd[r.herd_local_id]=byHerd[r.herd_local_id]||[]).push({k:r.class_key,n:Number(r.count)||0,v:Number(r.class_value)||0}); });
     var herds=(hd.data||[]).map(function(r){ var h=herdFromDb(r); var cs=byHerd[r.local_id]; if(cs&&cs.length) h.classes=cs; return h; });
     var benchmarks={}; (bm.data||[]).forEach(function(r){ benchmarks[r.bench_key]=Number(r.bench_value); });
+    // Breeding — queried separately & resiliently: a farm whose Supabase hasn't run the
+    // livestock_breeding migration must still load all its other livestock data.
+    var breedings=[];
+    try{ var bd=await client().from('livestock_breedings').select('*').eq('farm_id',farmId).order('created_at'); if(!bd.error) breedings=(bd.data||[]).map(breedingFromDb); }
+    catch(e){ /* table not migrated yet — ignore */ }
     return { camps:(cp.data||[]).map(campFromDb), herds:herds, benchmarks:benchmarks,
              moves:(mv.data||[]).map(moveFromDb), treatments:(tr.data||[]).map(treatFromDb),
-             animals:(an.data||[]).map(animalFromDb), health:(he.data||[]).map(healthFromDb) };
+             animals:(an.data||[]).map(animalFromDb), health:(he.data||[]).map(healthFromDb), breedings:breedings };
   };
 
   var _lsSnap=null;
@@ -657,7 +665,7 @@
     async saveAll(stls){
       if(!stls) return;
       const fid=farm.active(); if(!fid) return;
-      const snap=JSON.stringify({c:stls.camps,h:stls.herd,b:stls.benchmarks,m:stls.moves,t:stls.treatments,a:stls.animals});
+      const snap=JSON.stringify({c:stls.camps,h:stls.herd,b:stls.benchmarks,m:stls.moves,t:stls.treatments,a:stls.animals,br:stls.breedings});
       if(snap===_lsSnap) return;
       const camps=(stls.camps||[]), herds=(stls.herd||[]), bench=(stls.benchmarks||{});
       const moves=(stls.moves||[]), treats=(stls.treatments||[]), animals=(stls.animals||[]);
@@ -678,6 +686,10 @@
       if(moves.length){ const e=(await client().from('livestock_moves').upsert(moves.map(function(m){return moveToDb(m,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       if(treats.length){ const e=(await client().from('livestock_treatments').upsert(treats.map(function(t){return treatToDb(t,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       if(animals.length){ const e=(await client().from('animals').upsert(animals.map(function(a){return animalToDb(a,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      // Breeding — resilient: if the migration hasn't been run, keep the rest of the save working.
+      var breedings=(stls.breedings||[]);
+      if(breedings.length){ try{ const e=(await client().from('livestock_breedings').upsert(breedings.map(function(b){return breedingToDb(b,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+        catch(be){ console.warn('Breeding records not saved online yet — run livestock_breeding_schema.sql in Supabase. ('+(be&&be.message||be)+')'); } }
       _lsSnap=snap;
       return true;
     },
