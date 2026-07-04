@@ -2538,6 +2538,34 @@ body.simple-view #nav-budgets{display:none}
 .dz-tog:after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s}
 .dz-tog.on{background:var(--gd)}.dz-tog.on:after{left:21px}
 .dz-autosub{font-size:11.5px;color:var(--t3);line-height:1.45;margin-top:8px}
+.dz-sec{font-size:11px;font-weight:800;color:var(--gd);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 9px;padding-top:14px;border-top:1px solid var(--br2)}
+.dz-duewrap{margin-top:7px}
+.dz-due{border:1.5px solid var(--br);border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12px;font-weight:700;background:#fff;color:var(--t2);max-width:150px}
+details.dz-panel{border:1px solid var(--br);border-radius:12px;margin:12px 0 4px;background:#fff;overflow:hidden}
+details.dz-panel>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:11px 13px;font-size:13px;font-weight:800;color:var(--t2)}
+details.dz-panel>summary::-webkit-details-marker{display:none}
+details.dz-panel>summary .dz-psub{font-weight:600;color:var(--t4);font-size:10.5px}
+details.dz-panel>summary .dz-opt{font-size:10px;font-weight:800;color:var(--t4);background:#f4f6f3;border:1px solid var(--br);border-radius:999px;padding:3px 9px}
+details.dz-panel>summary .dz-chev{margin-left:auto;color:var(--t4);font-size:12px;transition:transform .15s}
+details.dz-panel[open]>summary .dz-chev{transform:rotate(180deg)}
+.dz-pbody{padding:0 13px 8px;border-top:1px solid var(--br2)}
+.dz-field{padding:11px 0;border-top:1px solid var(--br2)}.dz-field:first-child{border-top:0}
+.dz-ftop{display:flex;align-items:center;gap:10px}.dz-ftop .fi{width:24px;text-align:center;font-size:15px;flex:none}
+.dz-ftop .lbl{flex:1;min-width:0}.dz-ftop .lbl .h{font-size:12.5px;font-weight:800}.dz-ftop .lbl .s{font-size:10.5px;color:var(--t4);margin-top:1px}
+.dz-inp{border:1.5px solid var(--br);border-radius:8px;padding:7px 9px;font-family:inherit;font-size:12.5px;font-weight:700;background:#fff;color:var(--t2)}
+.dz-mstep{display:flex;align-items:center;border:1px solid var(--br);border-radius:8px;overflow:hidden;flex:none}
+.dz-mstep button{width:26px;height:30px;border:0;background:#fbfdfb;font-size:15px;font-weight:800;color:var(--gd);cursor:pointer}
+.dz-mstep .n{width:30px;text-align:center;font-size:13px;font-weight:800;border-left:1px solid var(--br);border-right:1px solid var(--br)}
+details.dz-wi{margin:8px 0 0 34px}
+details.dz-wi>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;color:var(--gd)}
+details.dz-wi>summary::-webkit-details-marker{display:none}
+details.dz-wi[open]>summary{margin-bottom:7px}
+.dz-exp{font-size:11.5px;color:var(--t3);line-height:1.55;background:var(--gb);border:1px solid var(--gp);border-radius:10px;padding:10px 12px}.dz-exp b{color:var(--gd);font-weight:800}
+.dz-tagseg{display:flex;gap:5px;background:#e7ede8;border-radius:9px;padding:4px;margin:9px 0 10px}
+.dz-tagseg div{flex:1;text-align:center;font-size:11.5px;font-weight:800;color:var(--t3);padding:8px 4px;border-radius:6px;cursor:pointer}
+.dz-tagseg div.on{background:#fff;color:var(--ink)}
+.dz-own{width:100%;border:1.5px solid var(--br);border-radius:9px;padding:9px 11px;font-family:inherit;font-size:12.5px;color:var(--t2);background:#fff;resize:vertical;min-height:74px;line-height:1.6}
+.dz-ownhint{font-size:10.5px;color:var(--t4);margin-top:6px;line-height:1.4}.dz-ownhint b{color:var(--gd);font-weight:800}
 .dz-pref{display:flex;align-items:center;gap:10px;margin-top:10px}.dz-pref label{font-size:10.5px;font-weight:800;color:var(--t3)}
 .dz-pref input{width:72px;border:1.5px solid var(--br);border-radius:9px;padding:8px 10px;font-family:inherit;font-size:14px;font-weight:800;text-align:center;background:#fff}
 .dz-pref .pv{font-size:11.5px;color:var(--gd);font-weight:700}
@@ -18314,7 +18342,7 @@ function _brCowState(a,h){
   var ev=(a&&a.repro)?a.repro.slice():[];
   if(!ev.length){   // no logged events — fall back to the lifecycle status seeded at dairy setup
     if(a&&a.status){
-      if(a.status==='in-calf'||a.status==='dry'){ var exp=_brAddDays(_brTodayISO(), a.status==='dry'?25:130); return {stage:2,servedDate:'',sire:'',method:'',scan:'in-calf',expected:exp,calvedDate:'',nCalvings:0,seeded:a.status}; }
+      if(a.status==='in-calf'||a.status==='dry'){ var exp = a.dueApprox ? (a.dueApprox+'-15') : _brAddDays(_brTodayISO(), a.status==='dry'?25:130); return {stage:2,servedDate:'',sire:'',method:'',scan:'in-calf',expected:exp,calvedDate:'',nCalvings:0,seeded:a.status}; }
       return {stage:0,servedDate:'',sire:'',method:'',scan:'',expected:'',calvedDate:'',nCalvings:0,seeded:a.status};
     }
     return null;
@@ -18435,9 +18463,10 @@ function _dairyCostDay(){ return (typeof ST!=='undefined'&&ST&&ST.dairyDayCost>0
 function _dairyOpenTarget(){ return (typeof ST!=='undefined'&&ST&&ST.dairyOpenTarget>0)?ST.dairyOpenTarget:100; }
 function _brDairyStats(h){
   var femClass=lsBreedingClass(h.type); var target=_dairyOpenTarget(), costDay=_dairyCostDay();
-  var all=lsHerdAnimals(h.id).filter(function(a){ return a.sex==='F' && (a.cls===femClass || !a.cls); });
-  var heifers=all.filter(function(a){return a.status==='heifer';}).length;
-  var cows=all.filter(function(a){return a.status!=='heifer';});   // the milking / breeding herd
+  var all=_dairyCows(h);
+  function _isHeifer(a){ return a.status==='heifer' || (a.cls==='heifers' && !a.status); }
+  var heifers=all.filter(_isHeifer).length;
+  var cows=all.filter(function(a){return !_isHeifer(a);});   // the milking / breeding herd
   var today=_brToday();
   var services=0, conceptions=0, totalScans=0, servedCows=0, calvedCows=0, inCalfNow=0, anyStatus=false;
   var openDays=[], intervals=[], dryList=[], openList=[];
@@ -18529,49 +18558,69 @@ var DZ=null;   // setup/sort sheet state
 var DZL=null;  // batch-log sheet state
 function dzClose(){ var bg=$('dz-bg'); if(bg) bg.classList.remove('on'); DZ=null; DZL=null; }
 function _dzShow(html){ var bg=$('dz-bg'); if(!bg) return; $('dz-in').innerHTML=html; bg.classList.add('on'); var c=$('dz-in'); if(c) c.scrollTop=0; }
-function _dairyCows(h){ var fc=lsBreedingClass(h.type); return lsHerdAnimals(h.id).filter(function(a){ return a.sex==='F' && (a.cls===fc || !a.cls); }); }
+function _dairyCows(h){ var fc=lsBreedingClass(h.type); return lsHerdAnimals(h.id).filter(function(a){ return a.sex==='F' && (a.cls===fc || a.cls==='heifers' || !a.cls); }); }
 function _dzCommit(){ try{ saveState&&saveState(); }catch(e){} try{ if(window.AI&&AI.farm&&AI.farm.active()&&window.ST_LS){ AI.livestock.saveAll(ST_LS).catch(function(e){console.error('Backend livestock save failed:',e);}); } }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){} }
 function _dzBackToBreeding(){ dzClose(); try{ nav&&nav('livestock'); }catch(e){} try{ lsTab('breeding'); }catch(e){ try{renderBreeding();}catch(e2){} } }
 
 /* ---- Setup / sort ---- */
 function dairySetupOpen(herdId){ var h=(ST_LS.herd||[]).filter(function(x){return x.id===herdId;})[0]; if(!h) return;
-  if(_dairyCows(h).length){ DZ={herdId:herdId, mode:'sort', sel:{}}; }
-  else { DZ={herdId:herdId, mode:'create', buckets:{incalf:0,open:0,dry:0,heifer:0}, autoNum:true, prefix:_dairyPrefix(h)}; }
+  DZ={ herdId:herdId, sel:{}, buckets:{incalf:0,open:0,dry:0,heifer:0,bull:0}, due:{incalf:'',dry:''}, tagMode:'auto', prefix:_dairyPrefix(h), ownTags:'', detail:{heiferYear:'',inCalfSire:'',firstCalvers:0}, uiOpen:{}, hasExisting:_dairyCows(h).length>0 };
   _dzShow(_dairySetupHtml(h));
 }
 function _dairyPrefix(h){ var n=(h.name||h.type||'').replace(/[^A-Za-z]/g,'').slice(0,1).toUpperCase(); return (n||'C')+'-'; }
 function _dzHerd(){ return (ST_LS.herd||[]).filter(function(x){return x.id===(DZ&&DZ.herdId);})[0]; }
 function _dzRefresh(){ var h=_dzHerd(); if(h) $('dz-in').innerHTML=_dairySetupHtml(h); }
-function _dairySetupHtml(h){
-  var top='<div class="lshmv-top"><div class="ttl"><span class="dic">🐄</span><div><h3>'+(DZ.mode==='sort'?'Sort your dairy cows':'Set up your dairy cows')+'</h3><small>'+esc(lsHerdName(h))+' · '+(h.qty||0)+' cows</small></div></div><button class="lshmv-x" onclick="dzClose()">×</button></div>';
-  return top+(DZ.mode==='sort'?_dairySortBody(h):_dairyCreateBody(h));
-}
-function _dzTotal(){ var b=DZ.buckets; return (b.incalf||0)+(b.open||0)+(b.dry||0)+(b.heifer||0); }
+function _dzMonthOpts(sel){ var d=_brToday(); var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var out='<option value="">around when?</option>'; for(var i=0;i<12;i++){ var m=d.getMonth()+i, yy=d.getFullYear()+Math.floor(m/12), mm=m%12, val=yy+'-'+String(mm+1).padStart(2,'0'); out+='<option value="'+val+'"'+(val===sel?' selected':'')+'>'+M[mm]+' '+yy+'</option>'; } return out; }
+function _dzTotal(){ var b=DZ.buckets; return (b.incalf||0)+(b.open||0)+(b.dry||0)+(b.heifer||0)+(b.bull||0); }
 function dzStep(k,d){ DZ.buckets[k]=Math.max(0,(DZ.buckets[k]||0)+d); _dzRefresh(); }
-function dzToggleAuto(){ DZ.autoNum=!DZ.autoNum; _dzRefresh(); }
 function dzPrefix(v){ DZ.prefix=v; }
-function _dairyCreateBody(h){
-  var b=DZ.buckets; var total=_dzTotal(); var qty=h.qty||0;
-  function bk(k,ic,title,sub){ return '<div class="dz-bk"><div class="dz-ic">'+ic+'</div><div class="dz-tx"><div class="h">'+title+'</div><div class="s">'+sub+'</div></div><div class="dz-step"><button onclick="dzStep(\''+k+'\',-1)">−</button><span class="n">'+(b[k]||0)+'</span><button onclick="dzStep(\''+k+'\',1)">+</button></div></div>'; }
-  var intro='<div class="dz-intro">Tell us roughly where your cows are now — your fertility view starts full. Rough numbers are fine, fix any cow later.</div>';
-  var prog='<div class="dz-prog"><div class="bar"><i style="width:'+(qty?Math.min(100,Math.round(total/qty*100)):0)+'%"></i></div><span class="lab">'+total+' <small>of '+qty+' sorted</small></span></div>';
-  var buckets=bk('incalf','🍼','In calf &amp; milking','Pregnant, still milked')+bk('open','🐄','Open — to be served','Milking, not back in calf')+bk('dry','💤','Dry — calving soon','Dried off, resting')+bk('heifer','🌱','Heifers — rearing','Not yet calved');
+function dzDue(k,v){ DZ.due[k]=v; }
+function dzTagMode(m){ DZ.tagMode=m; _dzRefresh(); }
+function dzOwnTags(v){ DZ.ownTags=v; }
+function dzDetail(k,v){ DZ.detail[k]=v; }
+function dzDetailStep(d){ DZ.detail.firstCalvers=Math.max(0,(DZ.detail.firstCalvers||0)+d); _dzRefresh(); }
+function dzUi(ev,k){ if(ev){ ev.preventDefault(); ev.stopPropagation(); } DZ.uiOpen=DZ.uiOpen||{}; DZ.uiOpen[k]=!DZ.uiOpen[k]; _dzRefresh(); }
+// Parse a farmer's own tag list — one per line / comma-separated, plus ranges like "GV-0610 to GV-0625".
+function _dzParseTags(str){ var out=[]; (str||'').split(/[\n,]+/).forEach(function(tok){ tok=tok.trim(); if(!tok) return; var m=tok.split(/\s+to\s+/i); if(m.length===2){ var pf=_lsTagSplitNum(m[0].trim()), pt=_lsTagSplitNum(m[1].trim()); if(pf&&pt&&pf.pre===pt.pre&&pt.num>=pf.num){ for(var i=pf.num;i<=pt.num&&(i-pf.num)<500;i++) out.push(pf.pre+String(i).padStart(pf.width,'0')); return; } } out.push(tok); }); return out; }
+function _dairySetupHtml(h){
+  var existing=_dairyCows(h).length; var total=_dzTotal(); var qty=h.qty||0; var placed=existing+total;
+  var top='<div class="lshmv-top"><div class="ttl"><span class="dic">🐄</span><div><h3>'+(DZ.hasExisting?'Sort your dairy cows':'Set up your dairy cows')+'</h3><small>'+esc(lsHerdName(h))+' · '+qty+' head</small></div></div><button class="lshmv-x" onclick="dzClose()">×</button></div>';
+  var intro='<div class="dz-intro">Tell us roughly where your animals are — your fertility view starts full. Rough numbers are fine, fix any one later.</div>';
+  var prog='<div class="dz-prog"><div class="bar"><i style="width:'+(qty?Math.min(100,Math.round(placed/qty*100)):0)+'%"></i></div><span class="lab">'+placed+' <small>of '+qty+' sorted</small></span></div>';
+  var act='<div class="lshmv-act"><button onclick="dzClose()">'+(DZ.hasExisting?'Done later':'Skip for now')+'</button><button class="pri" onclick="dairySetupSave()">Save'+(total?(' &amp; create '+total):'')+' →</button></div>';
+  return top+intro+prog+(DZ.hasExisting?_dairySortSection(h):'')+_dairyAddSection(h)+act;
+}
+function _dairyAddSection(h){
+  var b=DZ.buckets; var total=_dzTotal();
+  function bk(k,ic,title,sub,dueKey){ var due=dueKey?('<select class="dz-due" onchange="dzDue(\''+dueKey+'\',this.value)">'+_dzMonthOpts(DZ.due[dueKey])+'</select>'):''; return '<div class="dz-bk"><div class="dz-ic">'+ic+'</div><div class="dz-tx"><div class="h">'+title+'</div><div class="s">'+sub+'</div>'+(due?('<div class="dz-duewrap">📅 Calving '+due+'</div>'):'')+'</div><div class="dz-step"><button onclick="dzStep(\''+k+'\',-1)">−</button><span class="n">'+(b[k]||0)+'</span><button onclick="dzStep(\''+k+'\',1)">+</button></div></div>'; }
+  var hdr=DZ.hasExisting?'<div class="dz-sec">＋ Add more animals</div>':'';
+  var buckets=bk('incalf','🍼','In calf &amp; milking','Pregnant, still milked','incalf')+bk('open','🐄','Open — to be served','Milking, not back in calf')+bk('dry','💤','Dry — calving soon','Dried off, resting','dry')+bk('heifer','🌱','Heifers — rearing','Not yet calved')+bk('bull','🐂','Bulls / herd sires','Your males — used for sire lists');
+  var showCreate=(!DZ.hasExisting || total>0);
+  if(!showCreate) return hdr+buckets;
+  // Optional detail dropdown (collapsed) — plain labels + a "What's this?" explainer on each
+  function wi(k,text){ return '<details class="dz-wi"'+(DZ.uiOpen[k]?' open':'')+'><summary onclick="dzUi(event,\''+k+'\')">💡 What’s this?</summary><div class="dz-exp">'+text+'</div></details>'; }
+  var detail='<details class="dz-panel"'+(DZ.uiOpen.detail?' open':'')+'><summary onclick="dzUi(event,\'detail\')"><span style="font-size:15px">⚙️</span>Add more detail<span class="dz-psub">age · sire · first-calvers</span><span class="dz-opt">optional</span><span class="dz-chev">▾</span></summary><div class="dz-pbody">'+
+    '<div class="dz-field"><div class="dz-ftop"><span class="fi">🎂</span><div class="lbl"><div class="h">How old are your heifers?</div><div class="s">The year most were born</div></div><input class="dz-inp" style="width:78px" value="'+esc(DZ.detail.heiferYear||'')+'" placeholder="2024" oninput="dzDetail(\'heiferYear\',this.value)"></div>'+wi('wiAge','Your <b>heifers</b> are young females that haven’t had a calf yet. A rough birth year lets us <b>warn you if one is getting old without calving</b> — a sign she may not be falling pregnant.')+'</div>'+
+    '<div class="dz-field"><div class="dz-ftop"><span class="fi">🐂</span><div class="lbl"><div class="h">Which bull are the in-calf cows carrying?</div><div class="s">Bull tag or AI code</div></div><input class="dz-inp" style="width:118px" value="'+esc(DZ.detail.inCalfSire||'')+'" placeholder="AI · BON-774" oninput="dzDetail(\'inCalfSire\',this.value)"></div>'+wi('wiSire','The <b>bull or AI straw</b> your pregnant cows were mated to. We save it against their calves when they’re born, so their <b>family tree fills in by itself</b>.')+'</div>'+
+    '<div class="dz-field"><div class="dz-ftop"><span class="fi">🐄</span><div class="lbl"><div class="h">How many are first-calvers?</div><div class="s">The rest are counted as older cows</div></div><div class="dz-mstep"><button onclick="dzDetailStep(-1)">−</button><span class="n">'+(DZ.detail.firstCalvers||0)+'</span><button onclick="dzDetailStep(1)">+</button></div></div>'+wi('wiParity','A <b>first-calver</b> is a cow milking for the <b>first time</b> — she’s had just one calf. They give a little less milk and can take longer to fall pregnant, so the app <b>judges them by gentler targets</b>.')+'</div>'+
+  '</div></details>';
+  // Tag choice — number for me OR use my own
   var pre=esc(DZ.prefix||'C-'); var last=pre+String(Math.max(total,1)).padStart(3,'0');
-  var auto='<div class="dz-auto"><div class="dz-autohd"><span style="font-size:15px">🏷️</span><span class="h">Number my cows for me</span><span class="dz-tog'+(DZ.autoNum?' on':'')+'" onclick="dzToggleAuto()"></span></div>'+
-    (DZ.autoNum?('<div class="dz-autosub">Creates a record per cow, so your lists name names from day one. Rename any cow later.</div><div class="dz-pref"><label>Tag starts with</label><input id="dz-prefix" value="'+pre+'" oninput="dzPrefix(this.value)"><span class="pv">→ '+pre+'001 … '+last+'</span></div>'):'<div class="dz-autosub">Off — we’ll track the counts only. Tag cows individually whenever you like.</div>')+'</div>';
-  var act='<div class="lshmv-act"><button onclick="dzClose()">Skip for now</button><button class="pri" onclick="dairySetupSave()">Save'+(DZ.autoNum&&total?(' &amp; create '+total):'')+' →</button></div>';
-  return intro+prog+buckets+auto+act;
+  var tagseg='<div class="dz-tagseg"><div class="'+(DZ.tagMode==='auto'?'on':'')+'" onclick="dzTagMode(\'auto\')">Number them for me</div><div class="'+(DZ.tagMode==='own'?'on':'')+'" onclick="dzTagMode(\'own\')">I’ll use my own</div></div>';
+  var tagbody=(DZ.tagMode==='own')
+    ? '<textarea class="dz-own" placeholder="GV-0601, GV-0602&#10;GV-0610 to GV-0625&#10;Bessie, Klara" oninput="dzOwnTags(this.value)">'+esc(DZ.ownTags||'')+'</textarea><div class="dz-ownhint">One per line, commas, or a range like <b>GV-0610 to GV-0625</b>. Skips any tag you already use and tops up with numbers if short.</div>'
+    : '<div class="dz-pref"><label>Tag starts with</label><input id="dz-prefix" value="'+pre+'" oninput="dzPrefix(this.value)"><span class="pv">→ '+pre+'001 … '+last+'</span></div>';
+  var tags='<div class="dz-auto"><div class="dz-autohd"><span style="font-size:15px">🏷️</span><span class="h">How should we tag them?</span></div>'+tagseg+tagbody+'</div>';
+  return hdr+buckets+detail+tags;
 }
 function _dzStatusPill(s){ var m=s==='in-calf'?['calf','🍼 In calf']:s==='dry'?['dry','💤 Dry']:s==='heifer'?['heif','🌱 Heifer']:s==='open'?['open','🐄 Open']:s==='fresh'?['open','🍼 Fresh']:['unset','Not sorted']; return '<span class="dz-pill '+m[0]+'">'+m[1]+'</span>'; }
-function _dairySortBody(h){
-  var cows=_dairyCows(h); var unset=cows.filter(function(a){return !a.status;}).length;
-  var nsel=cows.filter(function(a){return DZ.sel[a.id];}).length;
-  var detect='<div class="dz-detect"><span class="ic">✅</span><div class="tx"><b>You already have '+cows.length+' cows here</b> — we’ll use those, nothing new is created. Tick a few and set them together, or set one at a time.</div></div>';
+function _dairySortSection(h){
+  var cows=_dairyCows(h); var unset=cows.filter(function(a){return !a.status;}).length; var nsel=cows.filter(function(a){return DZ.sel[a.id];}).length;
+  var detect='<div class="dz-detect"><span class="ic">✅</span><div class="tx"><b>You already have '+cows.length+' animals here</b> — we’ll use those, nothing new is created for them. Tick a few and set them together.</div></div>';
   var bulk='<div class="dz-bulk"><span class="sel">'+nsel+' selected</span><span class="ar">set to</span><button class="sb calf" onclick="dzSetSel(\'in-calf\')">🍼 In calf</button><button class="sb" onclick="dzSetSel(\'open\')">🐄 Open</button><button class="sb" onclick="dzSetSel(\'dry\')">💤 Dry</button><button class="sb" onclick="dzSetSel(\'heifer\')">🌱 Heifer</button></div>';
   var selall='<div class="dz-selall"><label><span class="cbx'+(nsel===cows.length&&cows.length?' on':'')+'" onclick="dzSelAll('+((nsel===cows.length&&cows.length)?'false':'true')+')">'+((nsel===cows.length&&cows.length)?'✓':'')+'</span> Select all '+cows.length+'</label><span class="rm">'+unset+' not sorted</span></div>';
   var rows=cows.map(function(a){ var sel=!!DZ.sel[a.id]; return '<div class="dz-row'+(sel?' sel':'')+'" onclick="dzSel(\''+esc(a.id)+'\')"><span class="cbx">'+(sel?'✓':'')+'</span><span class="ctag">'+esc(a.tag)+'</span><div class="nm"><b>'+esc(a.name||a.tag)+'</b></div>'+_dzStatusPill(a.status)+'</div>'; }).join('');
-  var act='<div class="lshmv-act"><button onclick="dzClose()">Done later</button><button class="pri" onclick="dairySetupSave()">Save →</button></div>';
-  return detect+bulk+selall+'<div class="dz-list">'+rows+'</div>'+act;
+  return detect+bulk+selall+'<div class="dz-list">'+rows+'</div>';
 }
 function dzSel(id){ DZ.sel[id]=!DZ.sel[id]; _dzRefresh(); }
 function dzSelAll(on){ var h=_dzHerd(); if(h) _dairyCows(h).forEach(function(a){ DZ.sel[a.id]=on; }); _dzRefresh(); }
@@ -18579,16 +18628,19 @@ function dzSetSel(status){ var h=_dzHerd(); if(!h) return; var n=0; _dairyCows(h
 function _dzStatusText(s){ return s==='in-calf'?'In calf':s==='dry'?'Dry':s==='heifer'?'Heifer':s==='open'?'Open':s==='fresh'?'Fresh':(s||'—'); }
 function dairySetupSave(){
   var h=_dzHerd(); if(!h){ dzClose(); return; }
-  if(DZ.mode==='sort'){ _dzCommit(); _dzBackToBreeding(); try{toast('Cows sorted.','success');}catch(e){} return; }
   var b=DZ.buckets, total=_dzTotal();
-  if(DZ.autoNum && total>0){
-    ST_LS.animals=ST_LS.animals||[]; var femCls=lsBreedingClass(h.type); var pre=(DZ.prefix||'C-');
-    var used=(ST_LS.animals||[]).filter(function(a){return a.herd===h.id;}).map(function(a){return a.tag;}); var start=1;
-    function nextTag(){ while(used.indexOf(pre+String(start).padStart(3,'0'))>=0) start++; var t=pre+String(start).padStart(3,'0'); used.push(t); start++; return t; }
-    var order=[['incalf','in-calf'],['open','open'],['dry','dry'],['heifer','heifer']], made=0;
-    order.forEach(function(o){ var n=b[o[0]]||0; for(var i=0;i<n;i++){ ST_LS.animals.push({id:'an'+Date.now().toString(36)+Math.floor(Math.random()*1e5)+made, herd:h.id, tag:nextTag(), cls:femCls, sex:'F', status:o[1]}); made++; } });
-    if(made && !h.track) h.track=true; try{toast(made+' cows set up.','success');}catch(e){}
-  } else { h.dairySeed={incalf:b.incalf||0, open:b.open||0, dry:b.dry||0, heifer:b.heifer||0}; try{toast('Saved.','success');}catch(e){} }
+  if(total>0){
+    ST_LS.animals=ST_LS.animals||[]; var pre=(DZ.prefix||'C-');
+    var used=(ST_LS.animals||[]).filter(function(a){return a.herd===h.id;}).map(function(a){return a.tag;});
+    var provided=(DZ.tagMode==='own')?_dzParseTags(DZ.ownTags):[]; var pIdx=0, start=1;
+    function nextTag(){ while(pIdx<provided.length){ var t=provided[pIdx++]; if(t && used.indexOf(t)<0){ used.push(t); return t; } } while(used.indexOf(pre+String(start).padStart(3,'0'))>=0) start++; var t2=pre+String(start).padStart(3,'0'); used.push(t2); start++; return t2; }
+    var femCls=lsBreedingClass(h.type), bullCls=lsSireClass(h.type)||'bulls', made=0, created=[];
+    var sire=(DZ.detail.inCalfSire||'').trim(), hy=(DZ.detail.heiferYear||'').trim();
+    function mk(n,cls,sex,status,due,dob,sr){ n=n||0; for(var i=0;i<n;i++){ var a={id:'an'+Date.now().toString(36)+Math.floor(Math.random()*1e5)+made, herd:h.id, tag:nextTag(), cls:cls, sex:sex}; if(status)a.status=status; if(due)a.dueApprox=due; if(dob)a.dob=dob; if(sr)a.sire=sr; ST_LS.animals.push(a); if(status==='in-calf'||status==='open'||status==='dry') created.push(a); made++; } }
+    mk(b.incalf,femCls,'F','in-calf',DZ.due.incalf,'',sire); mk(b.open,femCls,'F','open','','',''); mk(b.dry,femCls,'F','dry',DZ.due.dry,'',sire); mk(b.heifer,'heifers','F','heifer','',hy,''); mk(b.bull,bullCls,'M','','','','');
+    var fcN=Math.min(DZ.detail.firstCalvers||0, created.length); for(var j=0;j<fcN;j++) created[j].parity='first';
+    if(made && !h.track) h.track=true; try{toast(made+' animals set up.','success');}catch(e){}
+  } else { try{toast('Cows sorted.','success');}catch(e){} }
   _dzCommit(); _dzBackToBreeding();
 }
 
