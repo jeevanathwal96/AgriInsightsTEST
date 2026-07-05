@@ -5113,6 +5113,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
             <div><label>Interest rate (%)</label><input id="ast-rate" type="number" step="0.01" placeholder="0"/></div>
           </div>
           <div style="background:var(--gp);border-radius:var(--rs);padding:8px 11px;font-size:12px;font-weight:700;color:var(--gd);display:flex;justify-content:space-between"><span>Net value you own</span><span id="ast-net-val">R0</span></div>
+          <div id="ast-finance-linknote" style="display:none;margin-top:9px;font-size:11px;color:var(--t3);line-height:1.5;background:var(--bg);border:1px solid var(--br);border-radius:var(--rs);padding:8px 11px"></div>
         </div>
       </div>
       <!-- #5 Insurance -->
@@ -13757,10 +13758,17 @@ function lnAddHTML(){
      '<div class="ln-frow"><label>How much do you still owe?</label><input id="ln-f-balance" class="ln-inp" inputmode="numeric" placeholder="R 0"'+(L?av(L.balance):'')+'></div></div>';
   h+='<div class="ln-two"><div class="ln-frow"><label>Interest rate (% a year)</label><input id="ln-f-rate" class="ln-inp" inputmode="decimal" placeholder="e.g. 12.5"'+(L?av(L.rate):'')+'></div>'+
      '<div class="ln-frow"><label>What do you pay a month?</label><input id="ln-f-pay" class="ln-inp" inputmode="numeric" placeholder="R 0"'+(L?av(L.payment):'')+'></div></div>';
+  h+='<div class="ln-frow"><label>Which asset did this pay for? <small style="color:var(--t4);font-weight:600">optional \u2014 links this loan to something on your Assets page</small></label><select id="ln-f-asset" class="ln-inp">'+_lnAssetOptions(L?L.assetId:null)+'</select></div>';
   h+='<div class="ln-hint">You already list your loan payments under monthly expenses \u2014 once this is set up we count only the interest as a cost, so nothing is counted twice.</div>';
   h+=lnFFFormRow('loan',null);
   h+='<button class="ln-addbtn" onclick="lnSaveLoan()">'+(L?'Save changes':'Save loan')+'</button>'+(L?'<button class="ln-addbtn" style="background:#fff;color:var(--rd);border:1px solid var(--rp);margin-top:8px" onclick="lnDeleteFacility(\'loan\',\''+L.id+'\')">Remove this loan</button>':'')+'</div>';
   return h;
+}
+function _lnAssetOptions(sel){
+  var opts='<option value="">Not linked to a specific asset</option>';
+  var list=(typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)?ST_ASSETS.assets:[];
+  list.forEach(function(a){ opts+='<option value="'+a.id+'"'+(String(sel)===String(a.id)?' selected':'')+'>'+esc(a.name||('Asset '+a.id))+'</option>'; });
+  return opts;
 }
 function lnNum(id){ var e=$(id); if(!e) return 0; return parseFloat((e.value||'').replace(/[^0-9.]/g,''))||0; }
 var LN_LOAN_EDIT_ID=null;
@@ -13768,14 +13776,17 @@ function lnEditLoan(id){ LN_LOAN_EDIT_ID=id; LN_ADD_KIND='loan'; LN_OD_EDIT_ID=n
 function lnSaveLoan(){
   var name=($('ln-f-name')&&$('ln-f-name').value||'').trim()||'New loan';
   var editing = (typeof LN_LOAN_EDIT_ID!=='undefined' && LN_LOAN_EDIT_ID) ? lnLoan(LN_LOAN_EDIT_ID) : null;
+  var assetIdRaw=($('ln-f-asset')&&$('ln-f-asset').value)||'';
   var loan={ id: editing?editing.id:('ln'+(ST_LOANS.nextId++)), icon: editing?editing.icon:'\uD83C\uDFE6', name:name,
     lender:($('ln-f-lender')&&$('ln-f-lender').value)||'Other',
-    type:($('ln-f-type')&&$('ln-f-type').value)||'Loan', assetId: editing?editing.assetId:null,
+    type:($('ln-f-type')&&$('ln-f-type').value)||'Loan', assetId: assetIdRaw?parseInt(assetIdRaw,10):null,
     borrowed:lnNum('ln-f-borrowed'), balance:lnNum('ln-f-balance'), rate:lnNum('ln-f-rate'), payment:lnNum('ln-f-pay'), next: editing?editing.next:'next month' };
   if(!loan.borrowed) loan.borrowed=loan.balance;
   if(LN_FORM_FF && LN_FORM_FF.items && LN_FORM_FF.items.length) loan.fundsFor=LN_FORM_FF;
   else if(editing && editing.fundsFor) loan.fundsFor=editing.fundsFor;
   LN_FORM_FF=null;
+  // An asset can only be claimed by one loan \u2014 reassigning it here releases any other loan's claim.
+  if(loan.assetId!=null){ (ST_LOANS.loans||[]).forEach(function(l){ if(l.id!==loan.id && l.assetId===loan.assetId) l.assetId=null; }); }
   if(editing){
     for(var i=0;i<ST_LOANS.loans.length;i++){ if(ST_LOANS.loans[i].id===editing.id){ ST_LOANS.loans[i]=loan; break; } }
     LN_LOAN_EDIT_ID=null;
@@ -14294,9 +14305,10 @@ function openAddAsset() {
   var d = $('ast-date'); if(d) d.value = '';
   var c = $('ast-cat');  if(c) c.selectedIndex = 0;
   var dv = $('ast-depr-preview'); if(dv) dv.style.display = 'none';
-  ['ast-lender','ast-outstanding','ast-instalment','ast-rate','ast-insured','ast-insurer','ast-renewal'].forEach(function(id){ var e=$(id); if(e) e.value=''; });
-  var fc=$('ast-financed'); if(fc) fc.checked=false;
+  ['ast-lender','ast-outstanding','ast-instalment','ast-rate','ast-insured','ast-insurer','ast-renewal'].forEach(function(id){ var e=$(id); if(e){ e.value=''; e.readOnly=false; } });
+  var fc=$('ast-financed'); if(fc){ fc.checked=false; fc.disabled=false; }
   var ff=$('ast-finance-fields'); if(ff) ff.style.display='none';
+  var lnk=$('ast-finance-linknote'); if(lnk) lnk.style.display='none';
   var tn=$('ast-treat-note'); if(tn) tn.style.display='none';
   AST_DRAFT_DOCS=[]; astRenderDocThumbs(); setEl('ast-net-val', fmt(0));
   astSubtypeEdited=false; astPopulateSubtypes(); astInferAndSelectSubtype();
@@ -14318,16 +14330,26 @@ function openEditAsset(idx) {
   if(cat){ for(var i=0;i<cat.options.length;i++){ if(cat.options[i].value===a.cat||cat.options[i].text===a.cat){ cat.selectedIndex=i; break; } } }
   var dt = $('ast-depr-type');
   if(dt){ for(var j=0;j<dt.options.length;j++){ if(dt.options[j].value===a.deprType){ dt.selectedIndex=j; break; } } }
-  el=$('ast-financed'); if(el) el.checked = !!a.financed;
-  el=$('ast-lender'); if(el) el.value = a.lender||'';
-  el=$('ast-outstanding'); if(el) el.value = a.outstanding||'';
-  el=$('ast-instalment'); if(el) el.value = a.instalment||'';
-  if(typeof LN_loanForAsset==='function'){ var _ll=LN_loanForAsset(a.id); if(_ll){ var _eo=$('ast-outstanding'); if(_eo) _eo.value=_ll.balance||''; var _ei=$('ast-instalment'); if(_ei) _ei.value=_ll.payment||''; var _er=$('ast-rate'); if(_er) _er.value=_ll.rate||''; var _el=$('ast-lender'); if(_el) _el.value=_ll.lender||''; } }
-  el=$('ast-rate'); if(el) el.value = a.rate||'';
-  el=$('ast-insured'); if(el) el.value = a.insuredValue||'';
-  el=$('ast-insurer'); if(el) el.value = a.insurer||'';
-  el=$('ast-renewal'); if(el) el.value = a.renewalDate||'';
+  el=$('ast-financed'); if(el){ el.checked = !!a.financed; el.disabled=false; }
+  el=$('ast-lender'); if(el){ el.value = a.lender||''; el.readOnly=false; }
+  el=$('ast-outstanding'); if(el){ el.value = a.outstanding||''; el.readOnly=false; }
+  el=$('ast-instalment'); if(el){ el.value = a.instalment||''; el.readOnly=false; }
+  el=$('ast-rate'); if(el){ el.value = a.rate||''; el.readOnly=false; }
   var ffe=$('ast-finance-fields'); if(ffe) ffe.style.display = a.financed?'block':'none';
+  var _lnk=$('ast-finance-linknote');
+  var _ll=(typeof LN_loanForAsset==='function')?LN_loanForAsset(a.id):null;
+  if(_ll){
+    // A real linked loan is the source of truth — show its figures read-only rather than the asset's own
+    // (possibly stale) manual entry, and don't let unchecking here pretend to remove a link that lives on the loan.
+    var _fc=$('ast-financed'); if(_fc){ _fc.checked=true; _fc.disabled=true; }
+    ['ast-lender','ast-outstanding','ast-instalment','ast-rate'].forEach(function(id){ var e=$(id); if(e) e.readOnly=true; });
+    var _eo=$('ast-outstanding'); if(_eo) _eo.value=_ll.balance||'';
+    var _ei=$('ast-instalment'); if(_ei) _ei.value=_ll.payment||'';
+    var _er=$('ast-rate'); if(_er) _er.value=_ll.rate||'';
+    var _el=$('ast-lender'); if(_el) _el.value=_ll.lender||'';
+    if(ffe) ffe.style.display='block';
+    if(_lnk){ _lnk.style.display='block'; _lnk.innerHTML='🔗 Linked to the loan “'+esc(_ll.name||'')+'” in Loans &amp; Debt — these figures update automatically. To change or remove the link, edit the loan there.'; }
+  } else if(_lnk) _lnk.style.display='none';
   AST_DRAFT_DOCS = (a.docs||[]).slice(); astRenderDocThumbs();
   astPopulateSubtypes(); if(a.subtype){ var _ss=$('ast-subtype'); if(_ss) _ss.value=a.subtype; astSubtypeEdited=true; var _sc=$('ast-subtype-chip'); if(_sc) _sc.style.display='none'; astSubtypeNote(); } else { astSubtypeEdited=false; astInferAndSelectSubtype(); }
   astShowTreatNote(); astCalcNet();
