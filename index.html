@@ -4726,7 +4726,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
   </div>
 
-  <div class="acc-card" id="bank-pack" style="margin-top:14px;background:linear-gradient(135deg,#F0FAF4 0%,#FFF 100%);border:1px solid #D8F3DC;cursor:pointer" onclick="laOpenEntry()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();laOpenEntry();}">
+  <div class="acc-card" id="bank-pack" style="margin-top:14px;background:#F0FAF4;border:1px solid #B7E4C7;cursor:pointer" onclick="laOpenEntry()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();laOpenEntry();}">
     <div class="acc-card-hdr" style="cursor:pointer">
       <div style="width:38px;height:38px;border-radius:9px;background:#1B4332;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none">🏦</div>
       <div style="flex:1"><div style="font-size:14px;font-weight:800;color:#1B4332">Bankability Report</div><div style="font-size:11.5px;color:#6B7280;margin-top:2px">For a loan application · debt cover, collateral &amp; track record · ready for the bank</div></div>
@@ -5361,7 +5361,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 #la-bg .la-yr3 .c.tight{background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.45)}
 #la-bg .la-yr3 .c .k{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:rgba(255,255,255,.6)}
 #la-bg .la-yr3 .c .v{font-family:Georgia,serif;font-size:20px;font-weight:700;margin-top:2px}
-#la-bg .la-yr3 .c .tg{font-size:8px;font-weight:800;text-transform:uppercase;color:#FBE3A0;margin-top:1px}
+#la-bg .la-yr3 .c .lnst{font-size:8px;font-weight:800;text-transform:uppercase;color:#FBE3A0;background:transparent;padding:0;border:0;margin-top:1px}
 #la-bg .la-house{border:1px solid var(--br);border-radius:13px;padding:15px 17px;margin-bottom:14px;background:#fff}
 #la-bg .la-house-h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800}
 #la-bg .la-house-h .hic{width:26px;height:26px;border-radius:8px;background:var(--gb);color:var(--gd);display:flex;align-items:center;justify-content:center;flex:none}
@@ -12512,7 +12512,7 @@ function laRenderStep3(){
   document.getElementById('la-headroom').style.display='';
   var yr3=document.getElementById('la-yr3'),h='';
   ['Year 1','Year 2','Year 3'].forEach(function(lbl,i){ var isT=c.cov[i]===c.tight;
-    h+='<div class="c'+(isT?' tight':'')+'"><div class="k">'+lbl+'</div><div class="v">'+c.cov[i].toFixed(2)+'×</div>'+(isT?'<div class="tg">leanest</div>':'')+'</div>'; });
+    h+='<div class="c'+(isT?' tight':'')+'"><div class="k">'+lbl+'</div><div class="v">'+c.cov[i].toFixed(2)+'×</div>'+(isT?'<div class="lnst">leanest</div>':'')+'</div>'; });
   yr3.innerHTML=h;
   var v=document.getElementById('la-verdict'),t=document.getElementById('la-vtitle'),b=document.getElementById('la-vbody'),ic=document.getElementById('la-vic');
   var tick='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D8F3DC" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
@@ -12565,7 +12565,7 @@ function laShow(n){
   if(n===3){ laRenderStep3(); }
   var sc=document.getElementById('la-scroll'); if(sc) sc.scrollTop=0;
 }
-function laNext(){ if(LA.step<4){ laPersist(); laShow(LA.step+1); } }
+function laNext(){ if(LA.step<4){ laPersist(); laShow(LA.step+1); } else { laBuildReport(); } }
 function laBack(){ if(LA.step>1){ laShow(LA.step-1); } }
 function laBuildReport(){ laPersist(); closeAffordabilityFlow(); laStartReport(true); }
 
@@ -12573,6 +12573,7 @@ function laBuildReport(){ laPersist(); closeAffordabilityFlow(); laStartReport(t
 /* ════════════════ BANKABILITY REPORT + CHECK-YOUR-FIGURES (Stage 2) ════════════════ */
 var LA_REPORT_LOAN=true;
 function laRR(n){ n=Math.round(n||0); var neg=n<0; return (neg?'−R':'R')+_grpInt(Math.abs(n)); }
+function laCropValue(){ try{ var t=0; ((typeof ST_CROP!=='undefined'&&ST_CROP.crops)||[]).forEach(function(c){ if(c && c.ha>0 && c.yield>0){ t+=c.ha*c.yield*_cropPriceOf(c); } }); return Math.round(t); }catch(e){ return 0; } }
 function laRM(n){ var v=Math.round((n||0)/100000)/10; return 'R'+v.toFixed(1).replace(/\.0$/,'')+'m'; }
 
 // affordability compute straight from saved ST_LOANAPP (no DOM) — for the report's pro-forma
@@ -12636,7 +12637,7 @@ function laRenderCheckFigures(){
         '<div class="la-cf-sc"><div class="cl">Year before — costs</div><div class="la-cf-in"><span>R</span><input id="la-cf-b2c" inputmode="numeric" value="'+v(b2c)+'" onblur="laCFGrp(this)"></div></div></div>'+
       '</div></div>'+
     '<div class="la-cf-grp"><div class="la-cf-h est"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" stroke-width="2.3" stroke-linecap="round"><path d="M12 8v.5M12 11v5"/><circle cx="12" cy="12" r="9"/></svg>Please check these amounts</div>'+
-      '<div class="la-cf-item"><div class="la-cf-lbl">Crops in the field, today’s value <span class="la-cf-opt">counts as an asset</span></div><div class="la-cf-in"><span>R</span><input id="la-cf-crops" inputmode="numeric" value="'+v(est.crops||'')+'" placeholder="0" onblur="laCFGrp(this)"></div></div>'+
+      '<div class="la-cf-item"><div class="la-cf-lbl">Crops in the field, today’s value <span class="la-cf-opt">counts as an asset</span></div><div class="la-cf-in"><span>R</span><input id="la-cf-crops" inputmode="numeric" value="'+v(est.crops!=null?est.crops:(laCropValue()||''))+'" placeholder="0" onblur="laCFGrp(this)"></div></div>'+
       '<div class="la-cf-item"><div class="la-cf-lbl">Money owed to you <span class="la-cf-opt">grain not yet paid, co-op in credit</span></div><div class="la-cf-in"><span>R</span><input id="la-cf-debtors" inputmode="numeric" value="'+v(est.debtors||'')+'" placeholder="0" onblur="laCFGrp(this)"></div></div>'+
     '</div>'+
     '<div class="la-cf-note">Every number in your report is one of three things: <b>from your records</b>, <b>entered by you</b>, or <b>an amount you’ve checked</b> — so nothing reaches the bank unchecked.</div>';
@@ -12714,7 +12715,7 @@ function laReportHTML(withLoan){
     '.lar-rt .rt2{font-size:12px;font-weight:800;margin-top:5px}'+
     '.lar-rt .rs{font-size:10.5px;color:#6B7280;line-height:1.5;margin-top:2px}'+
     '.lar-comp{display:grid;grid-template-columns:1fr 1fr;gap:9px}'+
-    '.lar-cr{display:flex;gap:9px;align-items:flex-start;border:1px solid #E5E7EB;border-radius:10px;padding:10px 12px}'+
+    '.lar-cr{display:flex;gap:9px;align-items:center;border:1px solid #E5E7EB;border-radius:10px;padding:10px 12px}'+
     '.lar-cr .ci{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none}'+
     '.lar-cr .ci.ok{background:#D8F3DC;color:#1B4332}.lar-cr .ci.na{background:#F3F4F6;color:#9CA3AF}'+
     '.lar-cr .ct{font-size:12px;font-weight:800}.lar-cr .cs{font-size:10.5px;color:#6B7280;margin-top:1px;line-height:1.4}'+
