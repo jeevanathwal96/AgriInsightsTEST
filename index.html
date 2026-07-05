@@ -596,7 +596,20 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .ie-sort-ft .sum b{color:var(--t1);font-weight:800}
 .ie-sort-ft .btns{display:flex;gap:9px}
 .ie-sort-empty{text-align:center;color:var(--t3);font-size:13px;padding:34px 20px}
-@media(max-width:560px){.ie-srow{flex-wrap:wrap}.ie-sent select{min-width:130px}}
+/* custom in-modal enterprise picker (replaces the native <select> so the menu stays contained) */
+.ie-entbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;font-family:inherit;font-size:12px;font-weight:700;border:1.5px solid var(--br);border-radius:9px;padding:8px 10px;background:#fff;min-width:154px;max-width:210px;color:var(--t1);cursor:pointer;text-align:left}
+.ie-entbtn.guess{border-color:var(--apb);background:var(--ap)}
+.ie-entbtn.set{border-color:var(--gp);background:var(--gb)}
+.ie-entbtn .cv{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ie-entbtn .cr{font-size:9px;color:var(--t4);flex:none}
+.ie-sort-picker{position:fixed;display:none;background:#fff;border:1px solid var(--br);border-radius:11px;box-shadow:0 16px 36px rgba(0,0,0,.22);z-index:660;max-height:300px;overflow-y:auto;min-width:180px;padding:5px}
+.ie-sort-picker.on{display:block}
+.ie-pick-h{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--t4);padding:9px 12px 4px}
+.ie-pick-o{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--t1)}
+.ie-pick-o:hover{background:var(--gb)}
+.ie-pick-o.sel{color:var(--gd);font-weight:800}
+.ie-pick-o .ck{color:var(--gd);flex:none}
+@media(max-width:560px){.ie-srow{flex-wrap:wrap}.ie-entbtn{min-width:130px}}
 @media(max-width:640px){.ib-worth{max-width:none;flex-basis:100%;border-left:none;border-top:1px solid rgba(255,255,255,.2);padding-left:0;padding-top:8px;margin-top:2px}}
 
 .add-layout{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
@@ -11003,7 +11016,7 @@ function openSortModal(kind){
   ieSortRender();
   var bg=$('ie-sort-bg'); if(bg) bg.classList.add('on');
 }
-function closeSortModal(){ var bg=$('ie-sort-bg'); if(bg) bg.classList.remove('on'); }
+function closeSortModal(){ var bg=$('ie-sort-bg'); if(bg) bg.classList.remove('on'); if(typeof closeSortPicker==='function') closeSortPicker(); }
 function ieSortRender(){
   var kc=IE_SORT.kind==='income'?'inc':'exp';
   var listEl=$('ie-sort-list'); if(!listEl) return;
@@ -11012,12 +11025,13 @@ function ieSortRender(){
     var t=ST.txns[r.idx]||{};
     var state = r.ent ? ((r.ent===r.guess && !r.confident) ? 'guess' : 'set') : '';
     var badge = !r.ent ? '' : (state==='guess' ? '<span class="ie-sbadge guess">check</span>' : '<span class="ie-sbadge set">tagged</span>');
-    var opts = (typeof entOptions==='function') ? entOptions(r.ent||'') : '<option value="">Whole farm</option>';
+    var _er = r.ent ? ((typeof entResolve==='function')?entResolve(r.ent):null) : null;
+    var _cur = _er ? _er.label : 'Whole farm';
     return '<div class="ie-srow">'+
       '<div class="ie-scbx'+(r.sel?' on':'')+'" onclick="ieSortToggle('+i+')"></div>'+
       '<div class="ie-smid"><div class="ie-snm">'+esc(t.desc||'(no description)')+'</div><div class="ie-smeta"><span class="ie-scat">'+esc(t.cat||'')+'</span>'+esc(t.date||'')+'</div></div>'+
       '<div class="ie-samt '+kc+'">'+(IE_SORT.kind==='income'?'+':'−')+fmt(t.amt||0)+'</div>'+
-      '<div class="ie-sent">'+badge+'<select class="'+state+'" onchange="ieSortSetEnt('+i+',this.value)">'+opts+'</select></div>'+
+      '<div class="ie-sent">'+badge+'<button type="button" class="ie-entbtn '+state+'" onclick="ieSortOpenPicker('+i+',this)"><span class="cv">'+esc(_cur)+'</span><span class="cr">\u25be</span></button></div>'+
     '</div>';
   }).join('');
   // footer summary
@@ -11033,6 +11047,35 @@ function ieSortSetEnt(i, val){ if(IE_SORT.rows[i]){ IE_SORT.rows[i].ent=val; } i
 function ieSortToggle(i){ if(IE_SORT.rows[i]){ IE_SORT.rows[i].sel=!IE_SORT.rows[i].sel; } ieSortRender(); }
 function ieSortClearSel(){ IE_SORT.rows.forEach(function(r){ r.sel=false; }); ieSortRender(); }
 function ieSortBulkApply(){ var bs=$('ie-sort-bulk-sel'); var v=bs?bs.value:''; IE_SORT.rows.forEach(function(r){ if(r.sel){ r.ent=v; r.sel=false; } }); ieSortRender(); }
+var IE_SORT_PICK=-1;
+function _ieSortPickHTML(sel){
+  var list=(typeof entList==='function')?entList():[];
+  var h='<div class="ie-pick-o'+(!sel?' sel':'')+'" onclick="ieSortPick(\'\')">Whole farm'+(!sel?'<span class="ck">\u2713</span>':'')+'</div>';
+  [['crop','Crops'],['herd','Herds'],['orchard','Orchards']].forEach(function(g){
+    var items=list.filter(function(e){return e.kind===g[0];});
+    if(!items.length) return;
+    h+='<div class="ie-pick-h">'+g[1]+'</div>';
+    items.forEach(function(e){ var c=String(e.code).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      h+='<div class="ie-pick-o'+(e.code===sel?' sel':'')+'" onclick="ieSortPick(\''+c+'\')">'+esc(e.label)+(e.code===sel?'<span class="ck">\u2713</span>':'')+'</div>'; });
+  });
+  return h;
+}
+function ieSortOpenPicker(i, btn){
+  IE_SORT_PICK=i;
+  var p=$('ie-sort-picker'); if(!p||!IE_SORT.rows[i]) return;
+  p.innerHTML=_ieSortPickHTML(IE_SORT.rows[i].ent||'');
+  p.classList.add('on');
+  var r=btn.getBoundingClientRect();
+  var pw=p.offsetWidth, ph=p.offsetHeight;
+  var left=Math.min(Math.round(r.left), window.innerWidth-pw-8); if(left<8) left=8;
+  var top=(ph>(window.innerHeight-r.bottom) && r.top>ph) ? Math.round(r.top-ph-4) : Math.round(r.bottom+4);
+  p.style.left=left+'px'; p.style.top=top+'px'; p.style.minWidth=Math.max(180,Math.round(r.width))+'px';
+  if(!ieSortOpenPicker._wired){ ieSortOpenPicker._wired=true;
+    document.addEventListener('mousedown', function(ev){ var pk=$('ie-sort-picker'); if(pk && pk.classList.contains('on') && !ev.target.closest('#ie-sort-picker') && !ev.target.closest('.ie-entbtn')) closeSortPicker(); }, true);
+  }
+}
+function ieSortPick(code){ if(IE_SORT.rows[IE_SORT_PICK]) IE_SORT.rows[IE_SORT_PICK].ent=code; closeSortPicker(); ieSortRender(); }
+function closeSortPicker(){ var p=$('ie-sort-picker'); if(p) p.classList.remove('on'); IE_SORT_PICK=-1; }
 function ieSortSave(){
   var kind=IE_SORT.kind, changed=0;
   IE_SORT.rows.forEach(function(r){
@@ -36829,6 +36872,7 @@ function orExportPackout(){
       </div>
     </div>
   </div>
+  <div class="ie-sort-picker" id="ie-sort-picker"></div>
 </div>
 <div class="imp-bg" id="bank-imp-bg">
   <div class="imp-shell">
