@@ -28,7 +28,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=10"></script>
+<script src="ai-data.js?v=11"></script>
 <script src="ai-auth.js?v=11"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -18049,7 +18049,7 @@ function renderHerdCards() {
     var mp=MARKET_PRICES[animalBase(h.type)]; var mktPerHead=mp?Math.round(mp.price*(mp.avgKg||380)):null;
     var val=lsHasClasses(h)?lsHerdValueDerived(h):(lsHerdMarketVal(h)||(h.qty*h.sell));
     var comp=lsHerdCompliance(h.id);
-    var moves=lsHerdMoves(h.id);
+    var moves=lsHerdMovesFy(h.id);   // "this year" below must mean THIS tax year, not the herd's full history
     var inn=moves.filter(function(m){return m.reason==='born'||m.reason==='bought';}).reduce(function(s,m){return s+m.qty;},0);
     var out=moves.filter(function(m){return m.reason!=='born'&&m.reason!=='bought';}).reduce(function(s,m){return s+m.qty;},0);
     var opening=h.qty-inn+out;
@@ -18338,6 +18338,10 @@ function lsFyStartISO(){ var sm=ST.fyStartMonth||3, t=new Date(); var startY=(t.
 function _lsMoveISO(m){ if(/^\d{4}-\d{2}-\d{2}/.test(m.date||'')) return m.date.slice(0,10); var d=new Date(m.date); return isNaN(d)?'':d.toISOString().slice(0,10); }
 function lsMovesThisFy(pred){ var from=lsFyStartISO(); return (ST_LS.moves||[]).filter(function(m){ var iso=_lsMoveISO(m); return iso>=from && pred(m); }); }
 function lsHerdMoves(id){ return (ST_LS.moves||[]).filter(function(m){return m.herd===id;}); }
+// This herd's movements within the CURRENT tax year only (from lsFyStartISO()) — used for reconciliation/valuation
+// so "opening" means "at the start of this year", not "since the herd was created". Full-history views (the
+// per-herd movement drawer) intentionally use lsHerdMoves (all-time) instead.
+function lsHerdMovesFy(id){ var from=lsFyStartISO(); return (ST_LS.moves||[]).filter(function(m){ return m.herd===id && _lsMoveISO(m)>=from; }); }
 function lsHerdTreatments(id){ return (ST_LS.treatments||[]).filter(function(t){return t.herd===id;}).sort(function(a,b){return a.date<b.date?1:-1;}); }
 function lsTrSafe(t){ var d=new Date(t.date+'T00:00:00'); d.setDate(d.getDate()+Math.max(t.meat||0,t.milk||0)); return d; }
 function lsTrDaysLeft(t){ return Math.ceil((lsTrSafe(t)-LS_TODAY)/86400000); }
@@ -19383,9 +19387,65 @@ var SARS_STD = {
   'Chickens': {cls:'Poultry: Over 9 months', val:1}
 };
 function lsSarsClass(type){ var b=animalBase(type); return SARS_STD[b] || {cls:(type+' (value to agree with SARS)'), val:0}; }
+// Relative standard-value multipliers BY CLASS within a species, anchored to SARS_STD's base figure (that base is
+// the primary breeding-female class — e.g. "Cattle: Cows"). The First Schedule sets a distinct standard value per
+// classification (bulls/rams higher, calves/lambs lower), but this app previously tracked only one flat number per
+// species — so a mixed herd (cows+heifers+bulls+calves) was valued as if every head were a cow. These proportions
+// are typical, not gazetted figures — confirm the exact per-class rand values with your accountant/SARS.
+var SARS_CLASS_MULT = {
+  Cattle: {cows:1, heifers:0.75, steers:0.65, bulls:1.75, calves:0.35},
+  Sheep:  {ewes:1, rams:1.6, wethers:0.75, lambs:0.4},
+  Goats:  {does:1, bucks:1.5, kids:0.4},
+  Pigs:   {sows:1, boars:1.4, piglets:0.3}
+};
+function lsSarsClassValue(type, k){
+  var b=animalBase(type), base=(SARS_STD[b]||{val:0}).val;
+  var mult=(SARS_CLASS_MULT[b]||{})[k];
+  var val=(mult!=null)?Math.round(base*mult):base;
+  var meta=lsClassMeta(type,k);
+  return {k:k, label:(b+': '+(meta.label||k)), val:val};
+}
+// Deaths/losses THIS FY, broken out by class (only counts moves that carried a class tag).
+function _lsHerdClassDied(hm){ var out={}; hm.forEach(function(m){ if(m.reason==='died'||m.reason==='stolen'||m.reason==='missing'){ var k=m.cls||''; if(k) out[k]=(out[k]||0)+(m.qty||0); } }); return out; }
+// Single pass over every herd building both the farm-wide SARS totals AND a per-classification value table
+// (aggregated across herds — two Cattle herds' "cows" merge into one row, as SARS' own return would). Classless
+// mobs (and poultry, which has no LS_CLASSES breakdown) fall back to one row at the flat species standard value.
+function _lsSarsCompute(){
+  var herds=ST_LS.herd.filter(function(h){return !h.planned;});
+  var T={op:0,born:0,bought:0,sold:0,died:0,own:0,close:0,openV:0,closeV:0,sales:0,purch:0,cons:0,market:0};
+  var classAgg={}, recRows=[];
+  herds.forEach(function(h){
+    var hmFy=lsHerdMovesFy(h.id);
+    var r=lsReconHerd(h,{moves:hmFy});
+    var sc=lsSarsClass(h.type);
+    T.op+=r.opening; T.born+=r.born; T.bought+=r.bought; T.sold+=r.sold; T.died+=r.died; T.own+=r.own; T.close+=r.closing;
+    T.openV+=r.opening*sc.val;   // opening value: no per-class snapshot exists from last year, so kept at the flat rate
+    T.sales+=r.soldCash; T.purch+=r.purchCost; T.cons+=r.own*(h.buy||sc.val);
+    T.market+=(lsHerdMarketVal(h)||r.closing*(h.sell||0));
+    recRows.push({h:h, r:r, sc:sc});
+    if(lsHasClasses(h)){
+      var diedByCls=_lsHerdClassDied(hmFy);
+      (h.classes||[]).forEach(function(c){
+        if(!c.n) return;
+        var scv=lsSarsClassValue(h.type,c.k);
+        var key=animalBase(h.type)+'|'+c.k;
+        var row=classAgg[key]||(classAgg[key]={label:scv.label,val:scv.val,head:0,died:0});
+        row.head+=c.n; row.died+=(diedByCls[c.k]||0);
+      });
+    } else {
+      var key2=animalBase(h.type)+'|_all';
+      var row2=classAgg[key2]||(classAgg[key2]={label:sc.cls,val:sc.val,head:0,died:0});
+      row2.head+=r.closing; row2.died+=r.died;
+    }
+  });
+  T.closeV=Object.keys(classAgg).reduce(function(s,k){return s+classAgg[k].head*classAgg[k].val;},0);
+  return {herds:herds, T:T, classAgg:classAgg, recRows:recRows};
+}
 
-function lsReconHerd(h){
-  var hm = lsHerdMoves(h.id);
+// opts.moves lets a caller override the move list (e.g. the movement drawer walks full history); the default is
+// THIS TAX YEAR ONLY so "opening" means "at the start of the year" — the figure a Trading Statement must reconcile.
+function lsReconHerd(h, opts){
+  var hm = (opts && opts.moves) ? opts.moves : lsHerdMovesFy(h.id);
   function sum(p){ return hm.filter(p).reduce(function(s,m){return s+(m.qty||0);},0); }
   var born   = sum(function(m){return m.reason==='born';});
   var bought = sum(function(m){return m.reason==='bought';});
@@ -19475,18 +19535,13 @@ function lsCsvRow(arr){ return arr.map(function(x){ var s=String(x==null?'':x); 
 
 /* ---- Report 1: SARS livestock valuation & trading statement ---- */
 function openSarsLivestockReport(){
-  var herds = ST_LS.herd.filter(function(h){return !h.planned;});
-  var recRows='', valRows='';
-  var T={op:0,born:0,bought:0,sold:0,died:0,own:0,close:0,openV:0,closeV:0,sales:0,purch:0,cons:0,market:0};
-  herds.forEach(function(h){
-    var r=lsReconHerd(h); var sc=lsSarsClass(h.type);
-    var ov=r.opening*sc.val, cv=r.closing*sc.val;
-    T.op+=r.opening;T.born+=r.born;T.bought+=r.bought;T.sold+=r.sold;T.died+=r.died;T.own+=r.own;T.close+=r.closing;
-    T.openV+=ov;T.closeV+=cv;T.sales+=r.soldCash;T.purch+=r.purchCost;T.cons+=r.own*(h.buy||sc.val);
-    T.market+=(lsHerdMarketVal(h)||r.closing*(h.sell||0));
-    recRows+='<tr><td>'+escTxHtml(lsHerdName(h))+' <span style="color:#9ca3af;font-size:11px">('+escTxHtml(sc.cls)+')</span></td><td class="amt">'+r.opening+'</td><td class="amt">'+r.born+'</td><td class="amt">'+r.bought+'</td><td class="amt">'+r.sold+'</td><td class="amt">'+r.died+'</td><td class="amt">'+r.own+'</td><td class="amt">'+r.closing+'</td></tr>';
-    valRows+='<tr><td>'+escTxHtml(sc.cls)+'</td><td class="amt">'+sc.val+'</td><td class="amt">'+r.closing+'</td><td class="amt">'+r.died+'</td><td class="amt">'+lsRand(cv)+'</td></tr>';
-  });
+  var comp=_lsSarsCompute(); var herds=comp.herds, T=comp.T, classAgg=comp.classAgg;
+  var recRows = comp.recRows.map(function(x){ var h=x.h, r=x.r, sc=x.sc;
+    return '<tr><td>'+escTxHtml(lsHerdName(h))+' <span style="color:#9ca3af;font-size:11px">('+escTxHtml(sc.cls)+')</span></td><td class="amt">'+r.opening+'</td><td class="amt">'+r.born+'</td><td class="amt">'+r.bought+'</td><td class="amt">'+r.sold+'</td><td class="amt">'+r.died+'</td><td class="amt">'+r.own+'</td><td class="amt">'+r.closing+'</td></tr>';
+  }).join('');
+  var valRows = Object.keys(classAgg).map(function(k){ var c=classAgg[k];
+    return '<tr><td>'+escTxHtml(c.label)+'</td><td class="amt">'+c.val+'</td><td class="amt">'+c.head+'</td><td class="amt">'+c.died+'</td><td class="amt">'+lsRand(c.head*c.val)+'</td></tr>';
+  }).join('');
   var result = T.sales + T.closeV + T.cons - T.openV - T.purch;
   var html =
     '<h1>Livestock Trading Statement &amp; Valuation</h1>'+
@@ -19496,10 +19551,10 @@ function openSarsLivestockReport(){
     '<table><thead><tr><th>Class</th><th class="amt">Opening</th><th class="amt">Born</th><th class="amt">Bought</th><th class="amt">Sold</th><th class="amt">Died</th><th class="amt">Own use</th><th class="amt">Closing</th></tr></thead><tbody>'+recRows+'</tbody>'+
       '<tfoot><tr class="total"><td>Total head</td><td class="amt">'+T.op+'</td><td class="amt">'+T.born+'</td><td class="amt">'+T.bought+'</td><td class="amt">'+T.sold+'</td><td class="amt">'+T.died+'</td><td class="amt">'+T.own+'</td><td class="amt">'+T.close+'</td></tr></tfoot></table>'+
     '<h2>2 · Year-end valuation at SARS standard values</h2>'+
-    '<div class="lsr-lead">Fixed standard values per Government Notice R105/R1814 — not market value. Own values may be used within 20% of the standard, but bind you once chosen.</div>'+
+    '<div class="lsr-lead">Fixed standard values per Government Notice R105/R1814 — not market value. Own values may be used within 20% of the standard, but bind you once chosen. Valued per classification (cows, bulls, heifers, calves etc. each priced separately) using your herd’s recorded make-up — confirm the exact per-class rand figures with your accountant.</div>'+
     '<table><thead><tr><th>Standard classification</th><th class="amt">Std value (R/head)</th><th class="amt">Number on hand</th><th class="amt">Deaths in year</th><th class="amt">Total value</th></tr></thead><tbody>'+valRows+'</tbody>'+
       '<tfoot><tr class="total"><td colspan="4">TOTAL value of livestock on hand (closing stock)</td><td class="amt">'+lsRand(T.closeV)+'</td></tr></tfoot></table>'+
-    '<div class="lsr-note">Memo — economic / market value of the herd ≈ '+lsRand(T.market)+'. For your management only; it does not go on the SARS return.</div>'+
+    '<div class="lsr-note">Memo — economic / market value of the herd ≈ '+lsRand(T.market)+'. For your management only; it does not go on the SARS return. Opening stock value (below, section 3) uses last year’s flat per-species rate — no per-class snapshot is available from a prior year — while closing stock above is broken down by class.</div>'+
     '<h2>3 · Livestock result for your tax return</h2>'+
     '<table><tbody>'+
       '<tr><td>Livestock sales (proceeds)</td><td class="amt pos">+ '+lsRand(T.sales)+'</td></tr>'+
@@ -19523,10 +19578,10 @@ function openSarsLivestockReport(){
     '<div class="lsr-disc"><b>Not tax advice.</b> Compiled from your records to help you and your tax practitioner. Classification, any own-value election and the final return remain your responsibility. Please have it reviewed by a registered tax practitioner before submitting to SARS.</div>';
   var csv = lsCsvRow(['SARS Livestock Trading Statement & Valuation']) + lsCsvRow([FARM.name||'Farm','Year of assessment',lsYoaLabel()]) + lsCsvRow([]) +
     lsCsvRow(['Reconciliation (head)']) + lsCsvRow(['Class','Opening','Born','Bought','Sold','Died','Own use','Closing']);
-  herds.forEach(function(h){ var r=lsReconHerd(h); var sc=lsSarsClass(h.type); csv+=lsCsvRow([lsHerdName(h)+' ('+sc.cls+')',r.opening,r.born,r.bought,r.sold,r.died,r.own,r.closing]); });
+  comp.recRows.forEach(function(x){ var h=x.h,r=x.r,sc=x.sc; csv+=lsCsvRow([lsHerdName(h)+' ('+sc.cls+')',r.opening,r.born,r.bought,r.sold,r.died,r.own,r.closing]); });
   csv += lsCsvRow(['Total',T.op,T.born,T.bought,T.sold,T.died,T.own,T.close]) + lsCsvRow([]) +
-    lsCsvRow(['Valuation at standard values']) + lsCsvRow(['Class','Std value/head','On hand','Deaths','Total value']);
-  herds.forEach(function(h){ var r=lsReconHerd(h); var sc=lsSarsClass(h.type); csv+=lsCsvRow([sc.cls,sc.val,r.closing,r.died,r.closing*sc.val]); });
+    lsCsvRow(['Valuation at standard values (per classification)']) + lsCsvRow(['Class','Std value/head','On hand','Deaths','Total value']);
+  Object.keys(classAgg).forEach(function(k){ var c=classAgg[k]; csv+=lsCsvRow([c.label,c.val,c.head,c.died,c.head*c.val]); });
   csv += lsCsvRow(['TOTAL value of livestock on hand','','','',T.closeV]) + lsCsvRow([]) +
     lsCsvRow(['Livestock result']) +
     lsCsvRow(['Sales proceeds',T.sales]) + lsCsvRow(['Closing stock (std value)',T.closeV]) + lsCsvRow(['Consumption added back (cost)',T.cons]) +
@@ -19645,19 +19700,22 @@ function renderMedRegister(){
 function lsStatCard(v,l,s,col){ return '<div style="flex:1;min-width:120px;background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:12px 14px;box-shadow:var(--sh)"><div style="font-size:18px;font-weight:800;color:'+(col||'var(--t1)')+'">'+v+'</div><div style="font-size:12px;color:var(--t3);font-weight:600">'+l+'</div><div style="font-size:11px;color:var(--t3);margin-top:2px">'+s+'</div></div>'; }
 function renderStockRegister(){
   var herds=ST_LS.herd.filter(function(h){return !h.planned;}), moves=ST_LS.moves||[];
+  // Reconciliation/opening figures below are scoped to THIS TAX YEAR (movesFy) so "Opening" reconciles to the
+  // Trading Statement; the raw all-time `moves` is kept only for the "Recent movements" activity feed further down.
+  var movesFy=lsMovesThisFy(function(){return true;});
   function agg(arr,pred){ return arr.filter(pred).reduce(function(s,m){return s+m.qty;},0); }
-  var totBorn=agg(moves,function(m){return m.reason==='born';});
-  var totBought=agg(moves,function(m){return m.reason==='bought';});
+  var totBorn=agg(movesFy,function(m){return m.reason==='born';});
+  var totBought=agg(movesFy,function(m){return m.reason==='bought';});
   var totIn=totBorn+totBought;
-  var totSold=agg(moves,function(m){return m.reason==='sold';});
-  var totStolen=agg(moves,function(m){return m.reason==='stolen';});
-  var totMissing=agg(moves,function(m){return m.reason==='missing';});
-  var totNatDied=agg(moves,function(m){return m.reason==='died'||m.reason==='slaughter';});
+  var totSold=agg(movesFy,function(m){return m.reason==='sold';});
+  var totStolen=agg(movesFy,function(m){return m.reason==='stolen';});
+  var totMissing=agg(movesFy,function(m){return m.reason==='missing';});
+  var totNatDied=agg(movesFy,function(m){return m.reason==='died'||m.reason==='slaughter';});
   var totDied=totNatDied+totStolen+totMissing;
   var totOut=totSold+totDied;
   var closing=herds.reduce(function(s,h){return s+h.qty;},0);
   var opening=closing-totIn+totOut;
-  var cash=moves.filter(function(m){return m.reason==='sold';}).reduce(function(s,m){return s+(m.money||0);},0);
+  var cash=movesFy.filter(function(m){return m.reason==='sold';}).reduce(function(s,m){return s+(m.money||0);},0);
 
   // ── KPIs ──
   var kpi=$('ls-reg-kpi');
@@ -19759,10 +19817,10 @@ function renderStockRegister(){
     return '<div class="lsmv"><div class="lsmv-ic" style="background:'+meta[1]+'">'+meta[0]+'</div><div style="flex:1"><div style="font-size:13px;font-weight:700">'+meta[2]+' \u00b7 '+esc(lsHerdName(h))+'</div><div style="font-size:11.5px;color:var(--t3)">'+m.qty+' head \u00b7 '+lsFmtDate(new Date(m.date+'T00:00:00'))+(m.note?' \u00b7 '+esc(m.note):'')+(m.money?' \u00b7 \u2192 Money In R'+_grpInt(m.money):'')+'</div></div><span style="font-weight:800;color:'+(inn?'var(--gm)':'var(--rd)')+'">'+(inn?'+':'\u2212')+m.qty+'</span></div>';
   }).join('')+(msorted.length>8?'<div style="padding:10px 0;text-align:center;font-size:11.5px;color:var(--t3)">Showing latest 8 \u00b7 open a herd above for its full history</div>':''):'<div style="padding:14px;color:var(--t3);font-size:13px">No movements yet.</div>';
 
-  // ── SARS valuation ──
+  // ── SARS valuation ── (per classification — same total as the full report, see _lsSarsCompute)
   var sars=$('ls-reg-sars');
   if(sars){
-    var stdTotal=herds.reduce(function(s,h){var rr=lsReconHerd(h);return s+rr.closing*lsSarsClass(h.type).val;},0);
+    var stdTotal=_lsSarsCompute().T.closeV;
     sars.innerHTML='<div style="font-size:12.5px;color:var(--t2);line-height:1.55">At year-end your closing count &amp; value (at SARS standard values) feed your livestock return.</div><div style="margin-top:12px;border-top:1px solid var(--br2);padding-top:12px;display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--t3)">Closing stock</span><span style="font-weight:800">'+closing+' head</span></div><div style="display:flex;justify-content:space-between;font-size:13px;margin-top:6px"><span style="color:var(--t3)">Value (standard values)</span><span style="font-weight:800;color:var(--gd)">R '+stdTotal.toLocaleString('en-ZA')+'</span></div><div style="font-size:11px;color:var(--t4);margin-top:10px">Standard values are SARS\u2019 fixed per-class figures \u2014 your accountant confirms the final ones.</div>';
   }
 }
@@ -19781,7 +19839,7 @@ function lsHerdMovesOpen(herdId){
   var bg=$('ls-hmv-bg'); if(!bg) return;
   var META=lsMoveMeta();
   var ms=lsHerdMoves(herdId).slice().sort(function(a,b){return a.date<b.date?-1:1;}); // oldest first for running count
-  var rr=lsReconHerd(h);
+  var rr=lsReconHerd(h, {moves: ms});   // this drawer walks the FULL lifetime history, so its "opening" must be too
   var hin=rr.born+rr.bought+(rr.movedIn||0), hout=rr.sold+rr.died+rr.own+(rr.movedOut||0);
   var run=rr.opening; ms.forEach(function(m){ var inn=(m.reason==='born'||m.reason==='bought'||m.reason==='moved_in'); run+=(inn?m.qty:-m.qty); m._run=run; });
   // group by date, newest first

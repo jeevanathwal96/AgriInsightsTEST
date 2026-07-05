@@ -614,11 +614,21 @@
     camp:h.camp||null, camp_id:h.campId||null, track:!!h.track, planned:!!h.planned, qty:(h.qty!=null)?parseInt(h.qty,10):0,
     buy:(h.buy!=null&&h.buy!=='')?Number(h.buy):null, feed:(h.feed!=null&&h.feed!=='')?Number(h.feed):null,
     vet:(h.vet!=null&&h.vet!=='')?Number(h.vet):null, sell:(h.sell!=null&&h.sell!=='')?Number(h.sell):null,
-    months:(h.months!=null&&h.months!=='')?parseInt(h.months,10):null, notes:h.notes||null }; }
+    months:(h.months!=null&&h.months!=='')?parseInt(h.months,10):null, notes:h.notes||null,
+    ages:h.ages||null, removed:(h.removed!=null)?!!h.removed:null,
+    in_planning:(h.inPlanning!=null)?!!h.inPlanning:null, plan_head:(h.planHead!=null)?parseInt(h.planHead,10):null,
+    plan_month:h.planMonth||null, plan_classes:(h.planClasses&&h.planClasses.length)?h.planClasses:null }; }
   function herdFromDb(r){ var h={ id:_numIf(r.local_id), type:r.type||'', name:r.name||'', qty:Number(r.qty)||0,
     buy:Number(r.buy)||0, feed:Number(r.feed)||0, vet:Number(r.vet)||0, sell:Number(r.sell)||0,
     months:(r.months!=null)?Number(r.months):0, notes:r.notes||'', camp:r.camp||'', campId:r.camp_id||'', track:!!r.track };
-    if(r.planned) h.planned=true; if(r.breed) h.breed=r.breed; return h; }
+    if(r.planned) h.planned=true; if(r.breed) h.breed=r.breed;
+    if(r.ages){ try{ h.ages=(typeof r.ages==='string'?JSON.parse(r.ages):r.ages); }catch(e){} }
+    if(r.removed) h.removed=true;
+    if(r.in_planning) h.inPlanning=true;
+    if(r.plan_head!=null) h.planHead=Number(r.plan_head);
+    if(r.plan_month) h.planMonth=r.plan_month;
+    if(r.plan_classes){ try{ h.planClasses=(typeof r.plan_classes==='string'?JSON.parse(r.plan_classes):r.plan_classes); }catch(e){} }
+    return h; }
   function classRows(h,fid){ return (h.classes||[]).map(function(c){ return { farm_id:fid, herd_local_id:String(h.id), class_key:c.k, count:(c.n!=null)?parseInt(c.n,10):0, class_value:(c.v!=null)?Number(c.v):0 }; }); }
   // 3a-ii — moves / treatments / animals (set-sync, append-only) + health (per-row)
   function moveToDb(m,fid){ return { farm_id:fid, local_id:String(m.id), herd_local_id:(m.herd!=null)?String(m.herd):null, reason:m.reason||null, qty:(m.qty!=null)?parseInt(m.qty,10):null, move_date:m.date||null, note:m.note||null, money:(m.money!=null)?Number(m.money):null, cls:m.cls||null, to_cls:m.toCls||null }; }
@@ -670,7 +680,17 @@
       const camps=(stls.camps||[]), herds=(stls.herd||[]), bench=(stls.benchmarks||{});
       const moves=(stls.moves||[]), treats=(stls.treatments||[]), animals=(stls.animals||[]);
       if(camps.length){ const e=(await client().from('livestock_camps').upsert(camps.map(function(c){return campToDb(c,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
-      if(herds.length){ const e=(await client().from('herds').upsert(herds.map(function(h){return herdToDb(h,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      if(herds.length){
+        var hrows=herds.map(function(h){return herdToDb(h,fid);});
+        var he=(await client().from('herds').upsert(hrows,{onConflict:'farm_id,local_id'})).error;
+        if(he){
+          // Likely the ages/removed/planning columns aren't migrated yet — retry without them so the base herd still syncs.
+          var hstripped=hrows.map(function(r){ var c={}; for(var k in r){ if(k!=='ages'&&k!=='removed'&&k!=='in_planning'&&k!=='plan_head'&&k!=='plan_month'&&k!=='plan_classes') c[k]=r[k]; } return c; });
+          const he2=(await client().from('herds').upsert(hstripped,{onConflict:'farm_id,local_id'})).error;
+          if(he2) throw he2;
+          console.warn('Herd age-bands/removed/planning fields not saved online yet — run the herds alter-table in livestock_breeding_schema.sql.');
+        }
+      }
       var allClasses=[]; herds.forEach(function(h){ allClasses=allClasses.concat(classRows(h,fid)); });
       if(allClasses.length){ const e=(await client().from('herd_classes').upsert(allClasses,{onConflict:'farm_id,herd_local_id,class_key'})).error; if(e) throw e; }
       for(const h of herds){ var keys=(h.classes||[]).map(function(c){return c.k;});
@@ -689,11 +709,20 @@
         var arows=animals.map(function(a){return animalToDb(a,fid);});
         var ae=(await client().from('animals').upsert(arows,{onConflict:'farm_id,local_id'})).error;
         if(ae){
-          // Likely the Phase-2a/2b dob/dam/sire/repro columns aren't migrated yet — retry without them so the base animal still syncs.
-          var stripped=arows.map(function(r){ var c={}; for(var k in r){ if(k!=='dob'&&k!=='dam'&&k!=='sire'&&k!=='repro'&&k!=='status'&&k!=='due_approx'&&k!=='parity'&&k!=='weight') c[k]=r[k]; } return c; });
-          const e2=(await client().from('animals').upsert(stripped,{onConflict:'farm_id,local_id'})).error;
-          if(e2) throw e2;
-          console.warn('Animal pedigree/repro (dob/dam/sire/repro) not saved online yet — run the animals alter-table in livestock_breeding_schema.sql.');
+          // Cascading retry so an un-migrated NEWER column never throws away an OLDER one that already syncs fine.
+          // Tier 2 = "Dairy fast-start" (status/due_approx/parity/weight) — the newest additions, most likely absent.
+          // Tier 3 = also drop Phase-2a/2b pedigree/repro (dob/dam/sire/repro) — for a farm with no migrations at all.
+          function stripKeys(rows,keys){ return rows.map(function(r){ var c={}; for(var k in r){ if(keys.indexOf(k)<0) c[k]=r[k]; } return c; }); }
+          var TIER2=['status','due_approx','parity','weight'];
+          var TIER3=['dob','dam','sire','repro'].concat(TIER2);
+          var e2=(await client().from('animals').upsert(stripKeys(arows,TIER2),{onConflict:'farm_id,local_id'})).error;
+          if(!e2){
+            console.warn('Animal weight/dairy-status fields (status/due_approx/parity/weight) not saved online yet — run the newest animals alter-table in livestock_breeding_schema.sql.');
+          } else {
+            const e3=(await client().from('animals').upsert(stripKeys(arows,TIER3),{onConflict:'farm_id,local_id'})).error;
+            if(e3) throw e3;
+            console.warn('Animal pedigree/repro/weight (dob/dam/sire/repro/status/due_approx/parity/weight) not saved online yet — run the animals alter-table in livestock_breeding_schema.sql.');
+          }
         }
       }
       // Breeding — resilient: if the migration hasn't been run, keep the rest of the save working.
