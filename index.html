@@ -559,7 +559,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .ie-nudge .nt b{font-weight:800}
 .ie-nudge .ng{font-size:12px;font-weight:800;color:var(--am);flex:none}
 /* Sort-untagged modal */
-.ie-sort-bg{display:none;position:fixed;inset:0;background:rgba(15,40,28,.55);z-index:640;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.ie-sort-bg{display:none;position:fixed;inset:0;background:rgba(15,40,28,.55);z-index:640;align-items:center;justify-content:center;padding:40px 16px;overflow-y:auto}
 .ie-sort-bg.on{display:flex}
 .ie-sort{background:#fff;border-radius:16px;width:100%;max-width:620px;box-shadow:0 24px 50px -12px rgba(0,0,0,.28);overflow:hidden;font-family:var(--fn)}
 .ie-sort-hd{display:flex;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--br2)}
@@ -12501,9 +12501,14 @@ function entList(){
     if(_seenCrop[l.crop]) return; _seenCrop[l.crop]=1;
     out.push({code:'crop:'+l.crop, label:l.crop, kind:'crop', icon:(typeof _pfCropIcon==='function'?_pfCropIcon(l.crop):'\uD83C\uDF31')});
   }); }catch(e){}
-  try{ ((typeof ST_LS!=='undefined'&&ST_LS&&ST_LS.herd)||[]).forEach(function(h){
-    if(h && !h.planned && (h.qty||0)>0) out.push({code:'ls:'+h.id, label:(h.name||h.type||'Herd'), kind:'herd', icon:(typeof _pfLiveIcon==='function'?_pfLiveIcon(h.type||h.name):'\uD83D\uDC04')});
-  }); }catch(e){}
+  try{ var _hd=((typeof ST_LS!=='undefined'&&ST_LS&&ST_LS.herd)||[]).filter(function(h){return h && !h.planned && (h.qty||0)>0;});
+    var _hlc={}; _hd.forEach(function(h){ var b=(h.name||h.type||'Herd'); _hlc[b]=(_hlc[b]||0)+1; });
+    var _hli={};
+    _hd.forEach(function(h){ var b=(h.name||h.type||'Herd'), lab=b;
+      if(_hlc[b]>1){ _hli[b]=(_hli[b]||0)+1; lab=b+(h.camp?' \u00b7 '+h.camp:'')+' ('+_hli[b]+')'; }
+      out.push({code:'ls:'+h.id, label:lab, kind:'herd', icon:(typeof _pfLiveIcon==='function'?_pfLiveIcon(h.type||h.name):'\uD83D\uDC04')});
+    });
+  }catch(e){}
   try{ ((typeof ST_FRUIT!=='undefined'&&ST_FRUIT&&ST_FRUIT.blocks)||[]).forEach(function(b){
     if(b && !b.plan && !b.removed) out.push({code:'or:'+b.id, label:(b.name||'Block'), kind:'orchard', icon:(b.icon||'\uD83C\uDF4A')});
   }); }catch(e){}
