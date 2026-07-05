@@ -4726,6 +4726,14 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
   </div>
 
+  <div class="acc-card" id="bank-pack" style="margin-top:14px;background:linear-gradient(135deg,#F0FAF4 0%,#FFF 100%);border:1px solid #D8F3DC;cursor:pointer" onclick="laOpenEntry()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();laOpenEntry();}">
+    <div class="acc-card-hdr" style="cursor:pointer">
+      <div style="width:38px;height:38px;border-radius:9px;background:#1B4332;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none">🏦</div>
+      <div style="flex:1"><div style="font-size:14px;font-weight:800;color:#1B4332">Bankability Report</div><div style="font-size:11.5px;color:#6B7280;margin-top:2px">For a loan application · debt cover, collateral &amp; track record · ready for the bank</div></div>
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#9CA3AF" stroke-width="2" style="flex:none"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+  </div>
+
   <div class="ai-sec" style="margin-bottom:18px;margin-top:18px">
     <div class="ai-hdr"><div class="ai-title"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="var(--gd)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Insights</div></div>
     <div class="ai-grid" id="ai-insights-grid">
@@ -4953,7 +4961,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div class="page-sub">Track what you own, its current value and what you can write off for tax.</div>
     </div>
     <div style="display:flex;gap:8px">
-      <button id="ast-lender-btn" onclick="astExportLenderPack()" style="display:flex;align-items:center;gap:5px;background:var(--gd);border:1.5px solid var(--gd);border-radius:var(--rs);padding:8px 14px;font-size:13px;font-weight:600;color:#fff;cursor:pointer">
+      <button id="ast-lender-btn" onclick="laOpenEntry()" style="display:flex;align-items:center;gap:5px;background:var(--gd);border:1.5px solid var(--gd);border-radius:var(--rs);padding:8px 14px;font-size:13px;font-weight:600;color:#fff;cursor:pointer">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/></svg>
         Lender pack
       </button>
@@ -5160,6 +5168,377 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
   </div>
 
+</div>
+
+<style>
+#la-cf-bg .la-sheet,#la-rep-bg .la-sheet{max-width:640px;width:100%;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.28);overflow:hidden;font-family:var(--fn);display:flex;flex-direction:column;max-height:92vh}
+#la-rep-bg .la-sheet{max-width:820px}
+#la-cf-bg .la-hd,#la-rep-bg .la-hd{padding:18px 22px 14px;border-bottom:1px solid var(--br2);flex:none;position:relative}
+#la-cf-bg .la-hd .t,#la-rep-bg .la-hd .t{font-size:18px;font-weight:800}
+#la-cf-bg .la-hd .s{font-size:12px;color:var(--t3);line-height:1.5;margin-top:3px;max-width:92%}
+#la-cf-bg .la-x,#la-rep-bg .la-x{position:absolute;top:14px;right:16px;width:30px;height:30px;border:none;background:rgba(0,0,0,.05);border-radius:8px;font-size:18px;color:var(--t3);cursor:pointer}
+#la-cf-bg .la-scroll,#la-rep-bg .la-scroll{overflow-y:auto;flex:1;padding:16px 22px}
+#la-rep-bg .la-scroll{background:#F9FAFB}
+#la-cf-bg .la-nav{padding:14px 22px 20px;display:flex;gap:10px;border-top:1px solid var(--br2);flex:none}
+#la-cf-bg .la-btn{border-radius:11px;padding:13px;font-size:14px;font-weight:800;font-family:var(--fn);cursor:pointer;border:1px solid transparent}
+#la-cf-bg .la-btn.pri{flex:1;background:var(--gd);color:#fff}
+#la-cf-bg .la-btn.sec{background:#fff;color:var(--t3);border-color:var(--br);padding:13px 18px}
+.la-cf-grp{margin-bottom:18px}
+.la-cf-h{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:9px;display:flex;align-items:center;gap:7px}
+.la-cf-h.rec{color:#1e5bb0}.la-cf-h.you{color:var(--am)}.la-cf-h.est{color:var(--gm)}
+.la-cf-rec{background:var(--gb);border:1px solid var(--gp);border-radius:11px;padding:12px 14px;font-size:12px;color:var(--gd);line-height:1.55}
+.la-cf-item{border:1px solid var(--br);border-radius:11px;padding:12px 14px;margin-bottom:10px}
+.la-cf-lbl{font-size:12.5px;font-weight:800}
+.la-cf-opt{font-weight:600;color:var(--t4);font-size:10.5px}
+.la-cf-sub{font-size:10.5px;color:var(--t3);line-height:1.5;margin-top:2px;margin-bottom:8px}
+.la-cf-in{position:relative;max-width:240px}
+.la-cf-in span{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:800;color:var(--t3)}
+.la-cf-in input{width:100%;font-family:Georgia,serif;font-weight:700;font-size:14px;border:1.5px solid var(--br);border-radius:9px;padding:9px 11px 9px 26px;outline:none}
+.la-cf-in input:focus{border-color:var(--gl);box-shadow:0 0 0 3px rgba(64,145,108,.14)}
+.la-cf-seas{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:8px}
+.la-cf-seas .cl{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--t4);margin-bottom:4px}
+.la-cf-seas .la-cf-in{max-width:none}
+.la-cf-note{font-size:11px;color:var(--t3);line-height:1.55;background:var(--br2);border-radius:10px;padding:11px 13px}
+.la-cf-note b{color:var(--t1)}
+</style>
+<div class="imp-bg" id="la-cf-bg" onclick="laCFBackdrop(event)">
+  <div class="la-sheet" onclick="event.stopPropagation()">
+    <div class="la-hd"><button class="la-x" onclick="laCFClose()" aria-label="Close">&times;</button>
+      <div class="t">Let's check your figures</div>
+      <div class="s">A bank report is only as strong as what's behind it. Add what we're missing, and check anything we've estimated.</div></div>
+    <div class="la-scroll" id="la-cf-body"></div>
+    <div class="la-nav"><button class="la-btn sec" onclick="laCFClose()">Cancel</button><button class="la-btn pri" onclick="laCFBuild()">Build my report →</button></div>
+  </div>
+</div>
+<div class="imp-bg" id="la-rep-bg" onclick="laRepBackdrop(event)">
+  <div class="la-sheet" onclick="event.stopPropagation()">
+    <div class="la-scroll" id="la-rep-scroll"><div id="la-rep-body"></div></div>
+  </div>
+</div>
+
+<style>
+#la-entry-bg .la-sheet{max-width:560px;width:100%;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.28);overflow:hidden;font-family:var(--fn);max-height:92vh;overflow-y:auto;position:relative}
+#la-entry-bg .la-x{position:absolute;top:14px;right:16px;width:30px;height:30px;border:none;background:rgba(0,0,0,.05);border-radius:8px;font-size:18px;color:var(--t3);cursor:pointer;z-index:2}
+#la-entry-bg .eh{padding:22px 24px 4px}
+#la-entry-bg .eh .ic{width:40px;height:40px;border-radius:11px;background:var(--gb);color:var(--gd);display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+#la-entry-bg .eh .t{font-size:20px;font-weight:800;margin-bottom:5px}
+#la-entry-bg .eh .s{font-size:12.5px;color:var(--t3);line-height:1.55}
+#la-entry-bg .eb{padding:16px 24px 8px}
+.la-pick{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:1.5px solid var(--br);border-radius:13px;padding:15px 16px;margin-bottom:11px;cursor:pointer;background:#fff;transition:all .14s;font-family:var(--fn)}
+.la-pick:hover{border-color:var(--gl);box-shadow:var(--sh);transform:translateY(-1px)}
+.la-pick.primary{border-color:var(--gp);background:var(--gb)}.la-pick.primary:hover{border-color:var(--gl)}
+.la-pick .pic{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex:none}
+.la-pick .pic.g{background:var(--gd);color:#fff}.la-pick .pic.b{background:var(--bp);color:#1e5bb0}
+.la-pick .pt{flex:1;min-width:0}.la-pick .pt .h{font-size:14px;font-weight:800}
+.la-pick .pt .d{font-size:11.5px;color:var(--t3);line-height:1.5;margin-top:3px}
+.la-pick .chev{color:var(--t4);flex:none}
+.la-saved{border:1.5px solid var(--gp);background:var(--gb);border-radius:13px;padding:16px 18px;margin-bottom:14px}
+.la-saved .sh{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--gm)}
+.la-saved .sr{margin:6px 0 3px}.la-saved .sr .amt{font-family:Georgia,serif;font-size:24px;font-weight:700;color:var(--gd)}.la-saved .sr .meta{font-size:12px;color:var(--gm);font-weight:700}
+.la-saved .btns{display:flex;gap:9px;margin-top:14px}
+.la-sbtn{border-radius:10px;padding:11px 15px;font-size:13px;font-weight:800;font-family:var(--fn);cursor:pointer;border:1px solid transparent}
+.la-sbtn.pri{flex:1;background:var(--gd);color:#fff}.la-sbtn.sec{background:#fff;color:var(--gd);border-color:var(--gp)}
+.la-orline{display:flex;align-items:center;gap:12px;margin:16px 2px 12px;color:var(--t4);font-size:11px;font-weight:700}
+.la-orline::before,.la-orline::after{content:"";flex:1;height:1px;background:var(--br)}
+#la-entry-bg .ef{padding:2px 24px 22px}
+#la-entry-bg .efn{display:flex;gap:9px;align-items:flex-start;font-size:11px;color:var(--t3);line-height:1.55;background:var(--br2);border-radius:10px;padding:11px 13px}
+#la-entry-bg .efn b{color:var(--t1)}
+</style>
+<div class="imp-bg" id="la-entry-bg" onclick="laEntryBackdrop(event)">
+  <div class="la-sheet" onclick="event.stopPropagation()">
+    <button class="la-x" onclick="laEntryClose()" aria-label="Close">&times;</button>
+    <div class="eh">
+      <div class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M4 21V10l8-6 8 6v11M9 21v-6h6v6"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg></div>
+      <div class="t">Bankability Report</div>
+      <div class="s" id="la-entry-sub">A lender-ready summary of your farm's finances, built from your records. First — what do you need it for?</div>
+    </div>
+    <div id="la-entry-new">
+      <div class="eb">
+        <button class="la-pick primary" onclick="laEntryLoan()">
+          <span class="pic g"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V10l7-4 7 4v11"/><path d="M9 21v-5h6v5"/><path d="M4 10h16"/></svg></span>
+          <span class="pt"><span class="h">I'm applying for finance</span><span class="d">We'll check what you can afford first, then build the full report — your loan request and whether the farm can service it.</span></span>
+          <span class="chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
+        <button class="la-pick" onclick="laEntryStanding()">
+          <span class="pic b"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8M8 17h5"/></svg></span>
+          <span class="pt"><span class="h">Just my farm's financial position</span><span class="d">Net worth, track record and the key ratios — no specific loan. Good for an accountant, a landlord, or supplier credit.</span></span>
+          <span class="chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
+      </div>
+    </div>
+    <div id="la-entry-saved" style="display:none">
+      <div class="eb">
+        <div class="la-saved">
+          <div class="sh">Pick up where you left off</div>
+          <div class="sr" id="la-entry-savedline"></div>
+          <div class="btns"><button class="la-sbtn pri" onclick="laEntrySavedBuild()">Build the report →</button><button class="la-sbtn sec" onclick="laEntryLoan()">Change the loan</button></div>
+        </div>
+        <div class="la-orline">or</div>
+        <button class="la-pick" onclick="laEntryLoan()">
+          <span class="pic g"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></span>
+          <span class="pt"><span class="h">Model a different loan</span><span class="d">Start a fresh affordability check for another amount or purpose.</span></span>
+          <span class="chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
+        <button class="la-pick" onclick="laEntryStanding()">
+          <span class="pic b"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8M8 17h5"/></svg></span>
+          <span class="pt"><span class="h">Financial position only (no loan)</span><span class="d">Net worth, track record and ratios — without any loan request.</span></span>
+          <span class="chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></span>
+        </button>
+      </div>
+    </div>
+    <div class="ef"><div class="efn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg><div>Either way, every figure comes from <b>your records</b> or is <b>confirmed by you</b> before anything is shared — no made-up numbers reach the bank.</div></div></div>
+  </div>
+</div>
+
+<style>
+#la-bg .la-sheet{max-width:600px;width:100%;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.28);overflow:hidden;font-family:var(--fn);display:flex;flex-direction:column;max-height:92vh}
+#la-bg .la-prog{display:flex;padding:14px 20px;gap:6px;border-bottom:1px solid var(--br2);background:#fcfdfc;flex:none}
+#la-bg .la-prog .p{flex:1;text-align:center}
+#la-bg .la-prog .p .bar{height:4px;border-radius:3px;background:var(--br)}
+#la-bg .la-prog .p.on .bar,#la-bg .la-prog .p.done .bar{background:var(--gd)}
+#la-bg .la-prog .p .lb{font-size:9.5px;font-weight:800;color:var(--t4);margin-top:5px;text-transform:uppercase;letter-spacing:.03em}
+#la-bg .la-prog .p.on .lb{color:var(--gd)}#la-bg .la-prog .p.done .lb{color:var(--gl)}
+#la-bg .la-x{position:absolute;top:12px;right:14px;width:30px;height:30px;border:none;background:rgba(0,0,0,.05);border-radius:8px;font-size:18px;color:var(--t3);cursor:pointer;z-index:3}
+#la-bg .la-scroll{overflow-y:auto;flex:1;position:relative}
+#la-bg .la-step{display:none;padding:20px 22px 6px}
+#la-bg .la-step.on{display:block}
+#la-bg .la-sh{font-size:19px;font-weight:800;margin:0 0 4px}
+#la-bg .la-sub{font-size:12.5px;color:var(--t3);line-height:1.55;margin-bottom:16px}
+#la-bg .satag{display:inline-flex;align-items:center;gap:5px;font-size:9.5px;font-weight:800;color:var(--gm);background:var(--gb);border:1px solid var(--gp);border-radius:999px;padding:3px 9px}
+#la-bg .la-fld{margin-bottom:16px}
+#la-bg .la-fld>label{display:block;font-size:13px;font-weight:800;margin-bottom:3px}
+#la-bg .la-hint{font-size:11px;color:var(--t4);margin-bottom:8px;line-height:1.45}
+#la-bg .la-in{position:relative}
+#la-bg .la-in .pfx{position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;font-weight:800;color:var(--t3);pointer-events:none}
+#la-bg .la-in .sfx{position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:14px;font-weight:800;color:var(--t3);pointer-events:none}
+#la-bg input.la-big{width:100%;font-family:Georgia,serif;font-size:22px;font-weight:700;border:1.5px solid var(--br);border-radius:10px;padding:12px 14px 12px 34px;color:var(--t1);outline:none}
+#la-bg input.la-big:focus{border-color:var(--gl);box-shadow:0 0 0 3px rgba(64,145,108,.14)}
+#la-bg input.la-txt,#la-bg select.la-txt{width:100%;font-family:var(--fn);font-size:14px;border:1.5px solid var(--br);border-radius:10px;padding:11px 13px;color:var(--t1);outline:none;background:#fff}
+#la-bg input.la-txt:focus,#la-bg select.la-txt:focus{border-color:var(--gl);box-shadow:0 0 0 3px rgba(64,145,108,.14)}
+#la-bg .la-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+#la-bg .la-row2>div{display:flex;flex-direction:column}
+#la-bg .la-row2>div>label{min-height:32px;margin-bottom:6px}
+#la-bg .la-row2>div>.la-in,#la-bg .la-row2>div>select.la-txt{margin-top:auto}
+#la-bg .la-chips{display:flex;flex-wrap:wrap;gap:7px}
+#la-bg .la-chip{font-size:12px;font-weight:700;color:var(--t3);background:#fff;border:1.5px solid var(--br);border-radius:999px;padding:7px 12px;cursor:pointer;transition:all .12s}
+#la-bg .la-chip:hover{border-color:var(--gl)}
+#la-bg .la-chip.on{background:var(--gd);color:#fff;border-color:var(--gd)}
+#la-bg .la-seg{display:flex;border:1.5px solid var(--br);border-radius:10px;overflow:hidden;margin-bottom:16px}
+#la-bg .la-seg-o{flex:1;text-align:center;font-size:12.5px;font-weight:700;color:var(--t3);padding:10px 8px;cursor:pointer}
+#la-bg .la-seg-o.on{background:var(--gd);color:#fff}
+#la-bg .la-src{border:1px solid var(--br);border-radius:12px;padding:13px 15px;margin-bottom:14px;background:#fcfdfc}
+#la-bg .la-src .l{font-size:12px;font-weight:800}
+#la-bg .la-srcv{font-size:16px;font-weight:800;color:var(--t1);margin-top:4px}
+#la-bg .la-srcn{font-size:10.5px;color:var(--t4);line-height:1.5;margin-top:5px}#la-bg .la-srcn b{color:var(--t3)}
+#la-bg .la-tag{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:5px}
+#la-bg .la-tag.sa{background:var(--gb);color:var(--gm)}#la-bg .la-tag.rec{background:var(--bp);color:#1e5bb0}
+#la-bg .la-ask{background:var(--ap);border:1px solid #F3D9A6;border-radius:12px;padding:14px 15px;margin-bottom:14px}
+#la-bg .la-ask.plain{background:#fff;border-color:var(--br)}
+#la-bg .la-ask-h{font-size:12.5px;font-weight:800;color:var(--am);display:flex;align-items:center;gap:7px}
+#la-bg .la-ask.plain .la-ask-h{color:var(--t1)}
+#la-bg .la-ask-q{font-size:12px;color:#7a4a10;line-height:1.5;margin:4px 0 10px}
+#la-bg .la-ask.plain .la-ask-q{color:var(--t3)}
+#la-bg .la-yrrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;align-items:end}
+#la-bg .la-yrrow .yl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--t4);margin-bottom:4px;display:flex;align-items:center;gap:5px;min-height:16px}
+#la-bg .la-yrrow .yl .rc{font-size:8px;background:var(--bp);color:#1e5bb0;padding:1px 4px;border-radius:3px}
+#la-bg .la-yrrow .la-in .pfx{font-size:12px;left:10px}
+#la-bg .la-yrrow input.la-txt{padding:9px 9px 9px 24px;font-size:13px}
+#la-bg .fi{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--br);color:var(--t3);font-size:9px;font-weight:800;font-style:italic;cursor:pointer;margin-left:5px;vertical-align:middle;font-family:Georgia,serif}
+#la-bg .fi:hover{background:var(--gp);color:var(--gd)}
+#la-bg .finfo{display:none;font-size:10.5px;color:var(--gm);line-height:1.45;margin-top:6px;padding:8px 10px;background:var(--gb);border:1px solid var(--gp);border-radius:8px}
+#la-bg .finfo.open{display:block}
+#la-bg .la-verdict{border-radius:14px;padding:18px 20px;color:#fff;margin-bottom:14px}
+#la-bg .la-verdict.ok{background:linear-gradient(135deg,#1B4332,#2D6A4F)}
+#la-bg .la-verdict.tight{background:linear-gradient(135deg,#8a5a12,#B45309)}
+#la-bg .la-vh{display:flex;align-items:center;gap:10px}
+#la-bg .la-vic{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.16);display:flex;align-items:center;justify-content:center;flex:none}
+#la-bg .la-vt{font-size:17px;font-weight:800}
+#la-bg .la-vlens{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.5);margin-left:auto}
+#la-bg .la-vs{font-size:12px;color:rgba(255,255,255,.85);line-height:1.55;margin-top:9px}#la-bg .la-vs b{color:#fff}
+#la-bg .la-vexplain{font-size:10.5px;color:rgba(255,255,255,.72);line-height:1.5;margin-top:11px}#la-bg .la-vexplain b{color:#fff;font-weight:800}
+#la-bg .la-yr3{display:flex;gap:9px;margin-top:14px}
+#la-bg .la-yr3 .c{flex:1;background:rgba(255,255,255,.09);border-radius:10px;padding:9px 10px}
+#la-bg .la-yr3 .c.tight{background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.45)}
+#la-bg .la-yr3 .c .k{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:rgba(255,255,255,.6)}
+#la-bg .la-yr3 .c .v{font-family:Georgia,serif;font-size:20px;font-weight:700;margin-top:2px}
+#la-bg .la-yr3 .c .tg{font-size:8px;font-weight:800;text-transform:uppercase;color:#FBE3A0;margin-top:1px}
+#la-bg .la-house{border:1px solid var(--br);border-radius:13px;padding:15px 17px;margin-bottom:14px;background:#fff}
+#la-bg .la-house-h{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800}
+#la-bg .la-house-h .hic{width:26px;height:26px;border-radius:8px;background:var(--gb);color:var(--gd);display:flex;align-items:center;justify-content:center;flex:none}
+#la-bg .la-house-flow{margin-top:11px}
+#la-bg .la-house-flow .r{display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:6px 0;border-bottom:1px solid var(--br2)}
+#la-bg .la-house-flow .r:last-child{border-bottom:0}
+#la-bg .la-house-flow .r .l{color:var(--t2);flex:1;min-width:0;padding-right:10px}
+#la-bg .la-house-flow .r .a{font-weight:700;font-variant-numeric:tabular-nums;flex:none;text-align:right;min-width:104px}
+#la-bg .la-house-flow .r.sub{border-top:1.5px solid var(--br);margin-top:4px;padding-top:8px}
+#la-bg .la-house-flow .r.sub .l{font-weight:800}
+#la-bg .la-stag{font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 6px;border-radius:4px;margin-left:7px;vertical-align:middle}
+#la-bg .la-stag.rec{background:var(--bp);color:#1e5bb0}#la-bg .la-stag.you{background:var(--op);color:var(--or)}
+#la-bg .la-surplus{margin-top:11px;border-radius:11px;padding:12px 14px;display:flex;align-items:center;gap:11px}
+#la-bg .la-surplus.pos{background:var(--gb);border:1px solid var(--gp)}
+#la-bg .la-surplus.neg{background:var(--ap);border:1px solid #F3D9A6}
+#la-bg .la-surplus .si{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none}
+#la-bg .la-surplus.pos .si{background:var(--gp);color:var(--gd)}#la-bg .la-surplus.neg .si{background:#F6D488;color:var(--am)}
+#la-bg .la-surplus .st{font-size:12.5px;font-weight:800}#la-bg .la-surplus.pos .st{color:var(--gd)}#la-bg .la-surplus.neg .st{color:var(--am)}
+#la-bg .la-surplus .ss{font-size:11px;line-height:1.5;margin-top:2px}#la-bg .la-surplus.pos .ss{color:var(--gm)}#la-bg .la-surplus.neg .ss{color:#7a4a10}
+#la-bg .la-stress{background:#fff;border:1px solid var(--br);border-radius:11px;padding:12px 14px;margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
+#la-bg .la-stress .xi{width:26px;height:26px;border-radius:8px;background:var(--bp);color:#1e5bb0;display:flex;align-items:center;justify-content:center;flex:none}
+#la-bg .la-stress .xt{font-size:12px;color:var(--t2);line-height:1.5}#la-bg .la-stress .xt b{color:var(--t1);font-weight:800}
+#la-bg .la-headroom{background:var(--gb);border:1px solid var(--gp);border-radius:12px;padding:13px 15px;margin-bottom:14px}
+#la-bg .la-headroom .hk{font-size:11px;font-weight:800;color:var(--gm);text-transform:uppercase;letter-spacing:.04em}
+#la-bg .la-headroom .hv{font-family:Georgia,serif;font-size:21px;font-weight:700;color:var(--gd);margin:3px 0}
+#la-bg .la-headroom .hn{font-size:11px;color:var(--gm);line-height:1.5}
+#la-bg .la-lever{display:flex;gap:9px;align-items:flex-start;background:#fff;border:1px solid var(--br);border-radius:11px;padding:11px 13px;margin-bottom:9px}
+#la-bg .la-lever .li{width:24px;height:24px;border-radius:7px;background:var(--gb);color:var(--gd);display:flex;align-items:center;justify-content:center;flex:none}
+#la-bg .la-lever .lt{font-size:12px;color:var(--t2);line-height:1.5}#la-bg .la-lever .lt b{color:var(--t1);font-weight:800}
+#la-bg .la-report{border:1px solid var(--gp);background:var(--gb);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+#la-bg .la-report .rt{font-size:15px;font-weight:800;color:var(--gd)}
+#la-bg .la-report .rs{font-size:12px;color:var(--gm);line-height:1.55;margin:6px 0 12px}
+#la-bg .la-report ul{list-style:none;padding:0;margin:0}
+#la-bg .la-report li{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--gd);padding:5px 0}
+#la-bg .la-report li .tg{margin-left:auto;font-size:9px;font-weight:800;text-transform:uppercase;padding:2px 6px;border-radius:4px}
+#la-bg .la-report li .tg.rec{background:#fff;color:var(--gl);border:1px solid var(--gp)}#la-bg .la-report li .tg.you{background:var(--op);color:var(--or)}
+#la-bg .la-foot{font-size:10px;color:var(--t4);line-height:1.55;padding:0 2px 4px}
+#la-bg .la-nav{padding:14px 22px 20px;display:flex;gap:10px;border-top:1px solid var(--br2);flex:none}
+#la-bg .la-btn{border-radius:11px;padding:13px;font-size:14px;font-weight:800;font-family:var(--fn);cursor:pointer;border:1px solid transparent}
+#la-bg .la-btn.pri{flex:1;background:var(--gd);color:#fff}
+#la-bg .la-btn.sec{background:#fff;color:var(--t3);border-color:var(--br);padding:13px 18px}
+.ln-card.la-entry{display:flex;align-items:center;justify-content:space-between;gap:14px;cursor:pointer;background:linear-gradient(135deg,#F0FAF4,#fff);border-color:var(--gp);transition:all .14s}
+.ln-card.la-entry:hover{border-color:var(--gl);box-shadow:var(--shm);transform:translateY(-1px)}
+.la-entry-l{display:flex;align-items:center;gap:13px}
+.la-entry-ic{width:42px;height:42px;border-radius:11px;background:var(--gd);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
+.la-entry-t{font-size:15px;font-weight:800;color:var(--gd)}
+.la-entry-s{font-size:12px;color:var(--gm);margin-top:2px;line-height:1.45}
+.la-entry-go{color:var(--gl);flex:none}
+</style>
+<div class="imp-bg" id="la-bg" onclick="laBackdrop(event)">
+  <div class="la-sheet" onclick="event.stopPropagation()">
+    <button class="la-x" onclick="closeAffordabilityFlow()" aria-label="Close">&times;</button>
+    <div class="la-prog">
+      <div class="p on" data-s="1"><div class="bar"></div><div class="lb">Model it</div></div>
+      <div class="p" data-s="2"><div class="bar"></div><div class="lb">Your income</div></div>
+      <div class="p" data-s="3"><div class="bar"></div><div class="lb">Afford it?</div></div>
+      <div class="p" data-s="4"><div class="bar"></div><div class="lb">Report</div></div>
+    </div>
+    <div class="la-scroll" id="la-scroll">
+
+      <div class="la-step on" data-step="1">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:10px"><h2 class="la-sh" style="margin:0">Can you afford a loan?</h2><span class="satag">SA rates · prime <span id="la-primetag"></span>%</span></div>
+        <div class="la-sub">Model any loan and see straight away whether the farm — and the family — can carry it, before you go to the bank.</div>
+        <div class="la-seg" id="la-modeseg">
+          <div class="la-seg-o on" data-m="amount" onclick="laMode(this,'amount')">I know the amount</div>
+          <div class="la-seg-o" data-m="max" onclick="laMode(this,'max')">Work out what I can afford</div>
+        </div>
+        <div class="la-fld" id="la-amtfld">
+          <label>How much do you need?</label>
+          <div class="la-in"><span class="pfx">R</span><input class="la-big" id="la-amt" inputmode="numeric" placeholder="0" onblur="laGrp(this)"></div>
+        </div>
+        <div class="la-fld">
+          <label>What's it for?</label>
+          <div class="la-hint">This sets a starting rate — better security means a smaller margin over prime.</div>
+          <div class="la-chips" id="la-chips">
+            <span class="la-chip" data-p="Land" onclick="laPurpose(this,'Land',1.25)">🌍 Land</span>
+            <span class="la-chip" data-p="Machinery" onclick="laPurpose(this,'Machinery',2.25)">🚜 Machinery</span>
+            <span class="la-chip" data-p="Irrigation" onclick="laPurpose(this,'Irrigation',2.0)">💧 Irrigation</span>
+            <span class="la-chip" data-p="Buildings" onclick="laPurpose(this,'Buildings',2.0)">🏚 Buildings</span>
+            <span class="la-chip" data-p="Season inputs" onclick="laPurpose(this,'Season inputs',3.25)">🌾 Season inputs</span>
+            <span class="la-chip" data-p="Livestock" onclick="laPurpose(this,'Livestock',2.75)">🐄 Livestock</span>
+          </div>
+        </div>
+        <div class="la-fld">
+          <div class="la-row2">
+            <div><label>Over how many years?</label>
+              <select class="la-txt" id="la-term"><option value="3">3 years</option><option value="5">5 years</option><option value="7">7 years</option><option value="10">10 years</option><option value="15">15 years</option><option value="20">20 years</option></select></div>
+            <div><label>Interest rate <span class="la-tag sa" style="vertical-align:middle">editable</span></label>
+              <div class="la-in"><input class="la-txt" id="la-rate" inputmode="decimal" style="font-family:Georgia,serif;font-weight:700"><span class="sfx">%</span></div></div>
+          </div>
+          <div class="la-hint" id="la-ratehint" style="margin-top:7px"></div>
+        </div>
+      </div>
+
+      <div class="la-step" data-step="2">
+        <h2 class="la-sh">Let's use your real numbers</h2>
+        <div class="la-sub">We start from your records — but you own every forward figure, so nothing is assumed. Change anything that doesn't look right.</div>
+        <div class="la-ask plain">
+          <div class="la-ask-h">Your net farm income, per season</div>
+          <div class="la-ask-q">This year comes from your records. Pick what you expect next — or type each season. Every figure is yours to change.</div>
+          <div class="la-chips" id="la-forward" style="margin-bottom:2px">
+            <span class="la-chip on" onclick="laFwd(this,1.0)">Same each year</span>
+            <span class="la-chip" onclick="laFwd(this,1.08)">A bit higher</span>
+            <span class="la-chip" onclick="laFwd(this,0.92)">A bit lower</span>
+          </div>
+          <div class="la-yrrow" style="margin-top:11px">
+            <div><div class="yl">This year <span class="rc">records</span></div><div class="la-in"><span class="pfx">R</span><input class="la-txt" id="la-y1" inputmode="numeric" onblur="laGrp(this)"></div></div>
+            <div><div class="yl">Year 2</div><div class="la-in"><span class="pfx">R</span><input class="la-txt" id="la-y2" inputmode="numeric" onblur="laGrp(this)"></div></div>
+            <div><div class="yl">Year 3</div><div class="la-in"><span class="pfx">R</span><input class="la-txt" id="la-y3" inputmode="numeric" onblur="laGrp(this)"></div></div>
+          </div>
+          <div class="la-srcn" style="margin-top:8px">Income after running costs, before tax and loan repayments. We check the loan against your <b>leanest</b> of these three seasons.</div>
+        </div>
+        <div class="la-ask">
+          <div class="la-ask-h"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.3" stroke-linecap="round"><path d="M12 2v20M5 12h14"/></svg>Will this loan bring in extra income?</div>
+          <div class="la-ask-q" id="la-incq"></div>
+          <div class="la-row2">
+            <div><label style="font-size:11.5px;font-weight:700;color:#7a4a10">Extra per year</label><div class="la-in"><span class="pfx" style="font-size:13px">R</span><input class="la-txt" id="la-inc" style="padding-left:28px" inputmode="numeric" onblur="laGrp(this)"></div></div>
+            <div><label style="font-size:11.5px;font-weight:700;color:#7a4a10">Starts producing</label><select class="la-txt" id="la-incfrom"><option value="1">Year 1</option><option value="2">Year 2</option><option value="3">Year 3</option></select></div>
+          </div>
+        </div>
+        <div class="la-ask plain">
+          <div class="la-ask-h"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" stroke-width="2.3" stroke-linecap="round"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/></svg>What the farm has to cover first</div>
+          <div class="la-ask-q">You repay a loan from what's left <b>after</b> tax and what your family lives on. This is the honest test.</div>
+          <div class="la-row2">
+            <div><label style="font-size:11.5px;font-weight:700;color:var(--t2)">What your family lives on / month<span class="fi" onclick="laInfo('la-i-draw')">i</span></label><div class="la-in"><span class="pfx" style="font-size:13px">R</span><input class="la-txt" id="la-draw" style="padding-left:28px" inputmode="numeric" onblur="laGrp(this)"></div><div class="finfo" id="la-i-draw">Food, school fees, the home bond — what you draw out of the farm to live on.</div></div>
+            <div><label style="font-size:11.5px;font-weight:700;color:var(--t2)">Money from outside the farm / year <span style="font-weight:600;color:var(--t4)">opt.</span><span class="fi" onclick="laInfo('la-i-off')">i</span></label><div class="la-in"><span class="pfx" style="font-size:13px">R</span><input class="la-txt" id="la-off" style="padding-left:28px" inputmode="numeric" onblur="laGrp(this)"></div><div class="finfo" id="la-i-off">A partner's salary, rent you receive, a pension — steady money from off the farm. Leave blank if none.</div></div>
+          </div>
+          <div class="la-srcn" style="margin-top:8px"><span class="la-tag rec" style="margin-right:5px">records</span>Income tax is pulled from your Tax &amp; SARS figures — we take it off automatically, so you don't have to.</div>
+        </div>
+      </div>
+
+      <div class="la-step" data-step="3">
+        <h2 class="la-sh">Can you afford it?</h2>
+        <div class="la-sub">Two simple checks: will the bank say yes, and will there be money left over for you?</div>
+        <div class="la-verdict ok" id="la-verdict">
+          <div class="la-vh"><span class="la-vic" id="la-vic"></span><span class="la-vt" id="la-vtitle"></span><span class="la-vlens">The bank's check</span></div>
+          <div class="la-vs" id="la-vbody"></div>
+          <div class="la-yr3" id="la-yr3"></div>
+          <div class="la-vexplain">A figure like <b>1.30×</b> just means the farm earns <b>R1.30</b> for every R1 the loans cost that year. Banks like to see at least <b>1.25×</b> (R1.25 for every R1).</div>
+        </div>
+        <div class="la-house">
+          <div class="la-house-h"><span class="hic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1B4332" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6"/></svg></span>What's actually left for you<span style="margin-left:auto;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--t4)" id="la-hyr">leanest year</span></div>
+          <div class="la-house-flow" id="la-houseflow"></div>
+          <div class="la-surplus pos" id="la-surplus"></div>
+        </div>
+        <div class="la-stress" id="la-stress"></div>
+        <div class="la-headroom" id="la-headroom">
+          <div class="hk">The most you can safely borrow</div>
+          <div class="hv" id="la-hroom">—</div>
+          <div class="hn">The biggest loan you could take at this term and rate and still earn at least R1.25 for every R1 of repayments — measured on your leanest season, before any new income helps.</div>
+        </div>
+        <div id="la-levers"></div>
+        <div class="la-foot">Estimates to help you plan, using the current SA prime rate and the income-to-repayments level SA agri lenders (Land Bank, ABSA, Standard Bank, Nedbank, FNB) typically look for. Tax, existing loans and income come from your records; living costs, outside income and forward seasons are yours. Your bank prices to your own risk and security. Not a credit decision or an offer to lend.</div>
+      </div>
+
+      <div class="la-step" data-step="4">
+        <h2 class="la-sh">Take it to your bank</h2>
+        <div class="la-sub">Everything you just entered — plus your records — becomes a lender-ready Bankability Report. Nothing is typed twice.</div>
+        <div class="la-report">
+          <div class="rt">Bankability Report</div>
+          <div class="rs">A one-pack credit summary a loan officer can act on, assembled from what you already have.</div>
+          <ul>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Your loan request &amp; pro-forma cover<span class="tg you">you entered</span></li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Debt serviceability &amp; stress test<span class="tg rec">from records</span></li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Existing debt, cash-flow &amp; collateral<span class="tg rec">from records</span></li>
+            <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Track record, balance sheet &amp; SARS standing<span class="tg rec">from records</span></li>
+          </ul>
+        </div>
+        <div class="la-foot">You'll preview every figure and its source before anything downloads or is shared — you stay in control of what the bank sees.</div>
+      </div>
+
+    </div>
+    <div class="la-nav">
+      <button class="la-btn sec" id="la-back" style="display:none" onclick="laBack()">Back</button>
+      <button class="la-btn pri" id="la-next" onclick="laNext()">Check my income →</button>
+    </div>
+  </div>
 </div>
 
 <!-- ===== LIVESTOCK ===== -->
@@ -6726,6 +7105,7 @@ function saveState() {
       ST: (typeof ST !== 'undefined') ? ST : null,
       ST_ASSETS: (typeof ST_ASSETS !== 'undefined') ? ST_ASSETS : null,
       ST_LOANS: (typeof ST_LOANS !== 'undefined') ? ST_LOANS : null,
+      ST_LOANAPP: (typeof ST_LOANAPP !== 'undefined') ? ST_LOANAPP : null,
       ST_LS: (typeof ST_LS !== 'undefined') ? ST_LS : null,
       ST_WORK: (typeof ST_WORK !== 'undefined') ? ST_WORK : null,
       ST_CROP: (typeof ST_CROP !== 'undefined') ? ST_CROP : null,
@@ -6826,6 +7206,9 @@ function loadState() {
     }
     if (snap.ST_LOANS && typeof ST_LOANS !== 'undefined') {
       for (var kL in snap.ST_LOANS) { if (Object.prototype.hasOwnProperty.call(snap.ST_LOANS,kL)) ST_LOANS[kL] = snap.ST_LOANS[kL]; }
+    }
+    if (snap.ST_LOANAPP && typeof ST_LOANAPP !== 'undefined') {
+      for (var kLA in snap.ST_LOANAPP) { if (Object.prototype.hasOwnProperty.call(snap.ST_LOANAPP,kLA)) ST_LOANAPP[kLA] = snap.ST_LOANAPP[kLA]; }
     }
     if (snap.ST_LS && typeof ST_LS !== 'undefined') {
       for (var k3 in snap.ST_LS) { if (Object.prototype.hasOwnProperty.call(snap.ST_LS,k3)) ST_LS[k3] = snap.ST_LS[k3]; }
@@ -11895,6 +12278,15 @@ var ST_LOANS = {
   ],
   activeTab:'glance', nextId:1, nextOdId:2, nextCoId:2, confirmed:{month:null, paid:{}}, archived:[]
 };
+// Loan affordability + Bankability Report state — the ONE thing the farmer enters (their loan
+// request + forward income view + household costs), plus estimates they confirm and past seasons
+// they add. Everything else derives from records. Persists via saveState/loadState (localStorage);
+// degrades gracefully with no backend wiring.
+var ST_LOANAPP = {
+  req: { mode:'amount', amount:null, purpose:'', margin:null, term:null, rate:null, addedIncome:null, addedFrom:null },
+  income: { y1:null, y2:null, y3:null, drawMo:null, off:null },
+  estimates: {}, track: [], savedAt: null
+};
 var LN_ASSETS_FALLBACK = 13300000;
 function LN_assetsTotal(){ try{ var t=0; (ST_ASSETS.assets||[]).forEach(function(a){ t+=a.price||0; }); return t||LN_ASSETS_FALLBACK; }catch(e){ return LN_ASSETS_FALLBACK; } }
 function LN_intM(l){ return Math.round((l.balance||0)*(l.rate||0)/100/12); }
@@ -11986,6 +12378,523 @@ function renderLoans(){
 }
 function lnTab(t){ if(t==='add'){ LN_ADD_KIND='loan'; LN_OD_EDIT_ID=null; LN_CO_EDIT_ID=null; LN_FORM_FF=null; LN_LOAN_EDIT_ID=null; } ST_LOANS.activeTab=t; renderLoans(); }
 
+
+/* ════════════════════ LOAN AFFORDABILITY + BANKABILITY (Stage 1) ════════════════════
+   A farmer models a loan → sees, in plain money, whether the farm AND the household can
+   carry it (SA-market rates, tightest-of-3-seasons test) → the same inputs will feed the
+   Bankability Report (Stage 2). Reads real engines; assumes nothing it can ask for. */
+var LA_MARGINS={'Land':1.25,'Machinery':2.25,'Irrigation':2.0,'Buildings':2.0,'Season inputs':3.25,'Livestock':2.75};
+var LA_INCPURP={
+  'Land':{adds:true,hint:'More land means more to plant or graze. Estimate what it will add once it’s in production.'},
+  'Irrigation':{adds:true,hint:'Irrigation lifts and steadies your yields — often the difference in a dry year. Estimate the extra once it’s running.'},
+  'Livestock':{adds:true,hint:'More animals means more to sell. Estimate the extra once the herd or flock builds up.'},
+  'Machinery':{adds:false,hint:'Most machines replace what you already run rather than add income. Leave this at zero — unless it lets you farm more land or take on contracting work.'},
+  'Buildings':{adds:false,hint:'A shed or building rarely earns on its own. Leave this at zero — unless you’ll rent it out, or it lets you store and sell at better prices.'},
+  'Season inputs':{adds:false,hint:'Season inputs pay for the crop you already expect — that income is already in your farm figures. Leave this at zero so it isn’t counted twice.'}
+};
+var LA_DMIN=1.25, LA_DGOOD=1.5;
+var LA=null;
+function laPrime(){ try{ return (STATUTORY&&STATUTORY.primeRate&&STATUTORY.primeRate.value)||10.5; }catch(e){ return 10.5; } }
+function laSuggestRate(p){ var m=LA_MARGINS[p]; if(m==null) m=2.5; return Math.round((laPrime()+m)*100)/100; }
+function laPmt(P,rp,y){ var r=rp/100/12,n=y*12; if(!(P>0)||!(y>0)) return 0; if(r<=0) return P/n; return P*r/(1-Math.pow(1+r,-n)); }
+function laFarmIncome(){ try{ var e=taxProvEstimate(); return Math.max(0,Math.round((e&&e.annualProfit)||0)); }catch(err){ return 0; } }
+function laExistingService(){ try{ return Math.round((LN_monthlyPay()||0)*12); }catch(e){ return 0; } }
+function laTaxOn(profit){ try{ var ent=(typeof ST!=='undefined'&&ST.entityType)||'sole'; return Math.round(calcAnnualIncomeTax(Math.max(0,profit),ent)||0); }catch(e){ return Math.round(Math.max(0,profit)*0.2); } }
+function laMaxLoan(noi,rp,y){ var ms=noi/LA_DMIN-laExistingService(); if(ms<=0) return 0; var r=rp/100/12,n=y*12,mo=ms/12; var P=r<=0?mo*n:mo*(1-Math.pow(1+r,-n))/r; return Math.max(0,Math.floor(P/50000)*50000); }
+function laNum(v){ return parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,''))||0; }
+function laR(n){ n=Math.round(n); var neg=n<0; return (neg?'−R':'R')+_grpInt(Math.abs(n)); }
+function laM(n){ var v=Math.round(n/100000)/10; return 'R'+v.toFixed(1).replace(/\.0$/,'')+'m'; }
+function laGrp(el){ var v=laNum(el.value); el.value=v?_grpInt(v):''; }
+
+function laEntryCardHTML(){
+  return '<div class="ln-card la-entry" onclick="openAffordabilityFlow()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'){openAffordabilityFlow();}">'+
+    '<div class="la-entry-l"><div class="la-entry-ic">🏦</div><div><div class="la-entry-t">Thinking of borrowing?</div><div class="la-entry-s">See what you can afford — and get a bank-ready report — in a few minutes.</div></div></div>'+
+    '<div class="la-entry-go"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div></div>';
+}
+
+function openAffordabilityFlow(){
+  var r=(ST_LOANAPP&&ST_LOANAPP.req)||{}, inc=(ST_LOANAPP&&ST_LOANAPP.income)||{};
+  var fy=(inc.y1!=null?inc.y1:laFarmIncome());
+  var pur=r.purpose||'';
+  LA={ step:1, mode:r.mode||'amount', amount:(r.amount!=null?r.amount:null),
+    purpose:pur, margin:(r.margin!=null?r.margin:2.5), term:(r.term||7),
+    rate:(r.rate!=null?r.rate:laSuggestRate(pur)),
+    addedIncome:(r.addedIncome!=null?r.addedIncome:0), addedFrom:(r.addedFrom||2),
+    y1:fy, y2:(inc.y2!=null?inc.y2:fy), y3:(inc.y3!=null?inc.y3:fy),
+    drawMo:(inc.drawMo!=null?inc.drawMo:0), off:(inc.off!=null?inc.off:0),
+    lastSug:laSuggestRate(pur), lastIncPurpose:pur };
+  laSeedInputs();
+  var bg=document.getElementById('la-bg'); if(bg) bg.classList.add('on');
+  laShow(1);
+}
+function closeAffordabilityFlow(){ var bg=document.getElementById('la-bg'); if(bg) bg.classList.remove('on'); }
+function laBackdrop(ev){ if(ev&&ev.target&&ev.target.id==='la-bg') closeAffordabilityFlow(); }
+
+function laSeedInputs(){
+  var set=function(id,v){ var e=document.getElementById(id); if(e) e.value=v; };
+  var pt=document.getElementById('la-primetag'); if(pt) pt.textContent=laPrime();
+  set('la-amt', LA.amount?_grpInt(LA.amount):'');
+  set('la-term', String(LA.term));
+  set('la-rate', String(LA.rate));
+  set('la-y1', _grpInt(LA.y1)); set('la-y2', _grpInt(LA.y2)); set('la-y3', _grpInt(LA.y3));
+  set('la-inc', LA.addedIncome?_grpInt(LA.addedIncome):'0');
+  set('la-incfrom', String(LA.addedFrom));
+  set('la-draw', LA.drawMo?_grpInt(LA.drawMo):'0');
+  set('la-off', LA.off?_grpInt(LA.off):'0');
+  // mode segments
+  document.querySelectorAll('#la-modeseg .la-seg-o').forEach(function(o){ o.classList.toggle('on', o.getAttribute('data-m')===LA.mode); });
+  document.getElementById('la-amtfld').style.display = LA.mode==='max'?'none':'block';
+  // purpose chips
+  document.querySelectorAll('#la-chips .la-chip').forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-p')===LA.purpose); });
+}
+
+function laRead(){
+  LA.amount=laNum(document.getElementById('la-amt').value);
+  LA.term=laNum(document.getElementById('la-term').value)||7;
+  LA.rate=laNum(document.getElementById('la-rate').value);
+  LA.y1=laNum(document.getElementById('la-y1').value);
+  LA.y2=laNum(document.getElementById('la-y2').value);
+  LA.y3=laNum(document.getElementById('la-y3').value);
+  LA.addedIncome=laNum(document.getElementById('la-inc').value);
+  LA.addedFrom=laNum(document.getElementById('la-incfrom').value)||1;
+  LA.drawMo=laNum(document.getElementById('la-draw').value);
+  LA.off=laNum(document.getElementById('la-off').value);
+}
+function laPersist(){
+  laRead();
+  ST_LOANAPP.req={mode:LA.mode,amount:LA.amount,purpose:LA.purpose,margin:LA.margin,term:LA.term,rate:LA.rate,addedIncome:LA.addedIncome,addedFrom:LA.addedFrom};
+  ST_LOANAPP.income={y1:LA.y1,y2:LA.y2,y3:LA.y3,drawMo:LA.drawMo,off:LA.off};
+  try{ ST_LOANAPP.savedAt=new Date().toISOString(); }catch(e){}
+  try{ saveState&&saveState(); }catch(e){}
+}
+
+function laMode(el,m){ document.querySelectorAll('#la-modeseg .la-seg-o').forEach(function(o){o.classList.remove('on');}); el.classList.add('on'); LA.mode=m; document.getElementById('la-amtfld').style.display=m==='max'?'none':'block'; }
+function laPurpose(el,p,margin){ document.querySelectorAll('#la-chips .la-chip').forEach(function(c){c.classList.remove('on');}); el.classList.add('on'); LA.margin=margin; LA.purpose=p; var rt=document.getElementById('la-rate'); if(rt && Math.abs(laNum(rt.value)-LA.lastSug)<0.01){ rt.value=String(laSuggestRate(p)); } LA.lastSug=laSuggestRate(p); laRateHint(); }
+function laFwd(el,f){ document.querySelectorAll('#la-forward .la-chip').forEach(function(c){c.classList.remove('on');}); el.classList.add('on'); var y1=laNum(document.getElementById('la-y1').value); document.getElementById('la-y2').value=_grpInt(Math.round(y1*f)); document.getElementById('la-y3').value=_grpInt(Math.round(y1*f*f)); }
+function laInfo(id){ var e=document.getElementById(id); if(e) e.classList.toggle('open'); }
+function laRateHint(){ var h=document.getElementById('la-ratehint'); if(!h) return; var p=LA.purpose||'this'; h.innerHTML='Starting point: SA prime <b style="color:var(--t3)">'+laPrime()+'%</b> + '+(LA_MARGINS[LA.purpose]!=null?LA_MARGINS[LA.purpose]:2.5).toFixed(1).replace(/\.0$/,'')+'% for '+p.toLowerCase()+' ≈ '+laSuggestRate(LA.purpose).toFixed(2).replace(/\.?0+$/,'')+'%. Change it to whatever your bank has quoted — SA agri loans run about 11%–14%.'; }
+
+function laRenderStep2(){
+  var cfg=LA_INCPURP[LA.purpose]||{adds:false,hint:'Only what the thing you’re buying will add. Not sure? Leave it at zero — we’ll show you can cover it anyway.'};
+  var q=document.getElementById('la-incq'); if(q) q.textContent=cfg.hint;
+  if(LA.purpose!==LA.lastIncPurpose){ document.getElementById('la-inc').value='0'; LA.lastIncPurpose=LA.purpose; }
+}
+
+function laCompute(){
+  laRead();
+  var r=LA.rate;
+  var amount = LA.mode==='max' ? laMaxLoan(Math.min(LA.y1,LA.y2,LA.y3),r,LA.term) : LA.amount;
+  var mo=laPmt(amount,r,LA.term), newAnnual=mo*12, exist=laExistingService(), totalAfter=exist+newAnnual;
+  var yr=[LA.y1,LA.y2,LA.y3];
+  var opInc=function(y){ return yr[y-1]+(y>=LA.addedFrom?LA.addedIncome:0); };
+  var cov=[1,2,3].map(function(y){ return totalAfter>0?opInc(y)/totalAfter:0; });
+  var tight=Math.min(cov[0],cov[1],cov[2]);
+  var tightY=cov.indexOf(tight)+1;
+  var op=opInc(tightY), tax=laTaxOn(op), free=op-tax-LA.drawMo*12+LA.off, surplus=free-totalAfter;
+  return {amount:amount,mo:mo,newAnnual:newAnnual,exist:exist,totalAfter:totalAfter,cov:cov,tight:tight,tightY:tightY,
+    op:op,tax:tax,draw:LA.drawMo*12,off:LA.off,free:free,surplus:surplus,rate:r,
+    ceiling:laMaxLoan(Math.min(LA.y1,LA.y2,LA.y3),r,LA.term)};
+}
+
+function laRenderStep3(){
+  var c=laCompute();
+  if(!(c.amount>0)){
+    document.getElementById('la-vtitle').textContent='Add an amount first';
+    document.getElementById('la-vbody').innerHTML='Go back and enter how much you need — then we’ll show whether the farm can carry it.';
+    document.getElementById('la-yr3').innerHTML=''; document.getElementById('la-houseflow').innerHTML='';
+    document.getElementById('la-surplus').style.display='none'; document.getElementById('la-stress').style.display='none';
+    document.getElementById('la-headroom').style.display='none'; document.getElementById('la-levers').innerHTML='';
+    document.getElementById('la-verdict').className='la-verdict tight';
+    document.getElementById('la-vic').innerHTML='';
+    return;
+  }
+  document.getElementById('la-surplus').style.display=''; document.getElementById('la-stress').style.display='';
+  document.getElementById('la-headroom').style.display='';
+  var yr3=document.getElementById('la-yr3'),h='';
+  ['Year 1','Year 2','Year 3'].forEach(function(lbl,i){ var isT=c.cov[i]===c.tight;
+    h+='<div class="c'+(isT?' tight':'')+'"><div class="k">'+lbl+'</div><div class="v">'+c.cov[i].toFixed(2)+'×</div>'+(isT?'<div class="tg">leanest</div>':'')+'</div>'; });
+  yr3.innerHTML=h;
+  var v=document.getElementById('la-verdict'),t=document.getElementById('la-vtitle'),b=document.getElementById('la-vbody'),ic=document.getElementById('la-vic');
+  var tick='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D8F3DC" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  var warn='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FBE3A0" stroke-width="2.4" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg>';
+  var amt=laM(c.amount), later=Math.min(c.cov[1],c.cov[2]);
+  if(c.tight>=LA_DGOOD){ v.className='la-verdict ok'; ic.innerHTML=tick; t.textContent='Yes — comfortably'; b.innerHTML='At <b>'+amt+'</b> over '+LA.term+' years, even your leanest season earns about <b>R'+c.tight.toFixed(2)+'</b> for every R1 the loans cost — comfortably above the R1.25 banks want.'; }
+  else if(c.tight>=LA_DMIN){ v.className='la-verdict ok'; ic.innerHTML=tick; t.textContent='Yes — you can carry it'; b.innerHTML='At <b>'+amt+'</b> over '+LA.term+' years, your leanest season still earns <b>R'+c.tight.toFixed(2)+'</b> for every R1 the loans cost — above the R1.25 banks look for.'; }
+  else if(c.cov[0]<LA_DMIN && later>=LA_DMIN){ v.className='la-verdict tight'; ic.innerHTML=warn; t.textContent='Tight until it’s producing'; b.innerHTML='In year one the farm earns just <b>R'+c.cov[0].toFixed(2)+'</b> for every R1 the loans cost — under the R1.25 mark — rising to <b>R'+later.toFixed(2)+'</b> once the new income comes in.'; }
+  else { v.className='la-verdict tight'; ic.innerHTML=warn; t.textContent='This would stretch you'; b.innerHTML='Your leanest season drops to <b>R'+c.tight.toFixed(2)+'</b> for every R1 the loans cost — below the R1.25 banks want. Ease it with the options below.'; }
+
+  document.getElementById('la-hyr').textContent='year '+c.tightY;
+  var hf=document.getElementById('la-houseflow');
+  hf.innerHTML=
+    '<div class="r"><span class="l">What the farm earns (year '+c.tightY+')<span class="la-stag rec">records</span></span><span class="a">'+laR(c.op)+'</span></div>'+
+    '<div class="r"><span class="l">− Tax to SARS<span class="la-stag rec">records</span></span><span class="a">'+laR(-c.tax)+'</span></div>'+
+    '<div class="r"><span class="l">− What your family lives on<span class="la-stag you">you told us</span></span><span class="a">'+laR(-c.draw)+'</span></div>'+
+    (c.off>0?'<div class="r"><span class="l">+ Money from outside the farm<span class="la-stag you">you told us</span></span><span class="a">'+laR(c.off)+'</span></div>':'')+
+    '<div class="r sub"><span class="l">Left to pay loans</span><span class="a">'+laR(c.free)+'</span></div>'+
+    '<div class="r"><span class="l">− Loan repayments</span><span class="a">'+laR(-c.totalAfter)+'</span></div>';
+  var sp=document.getElementById('la-surplus');
+  if(c.surplus>=0){ sp.className='la-surplus pos';
+    sp.innerHTML='<span class="si"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1B4332" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span><div><div class="st">Leaves '+laR(c.surplus)+' a year in your pocket</div><div class="ss">After tax, your family’s living, and every loan — you’re still ahead in your leanest season.</div></div>'; }
+  else { sp.className='la-surplus neg';
+    sp.innerHTML='<span class="si"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.4" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg></span><div><div class="st">Short by '+laR(-c.surplus)+' in year '+c.tightY+'</div><div class="ss">The bank would still say yes, but once tax and your family’s living come off, this season comes up short — you’d dip into savings or an overdraft to get through it. The options below can ease it.</div></div>'; }
+
+  var sr=LA.rate+2, moS=laPmt(c.amount,sr,LA.term), totS=c.exist+moS*12, tightS=totS>0?Math.min(LA.y1,LA.y2,LA.y3)/totS:0;
+  document.getElementById('la-stress').innerHTML='<span class="xi"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1e5bb0" stroke-width="2.3" stroke-linecap="round"><path d="M12 2v6M12 22a8 8 0 108-8"/></svg></span><span class="xt"><b>If interest rates go up 2%</b> (to '+sr.toFixed(2).replace(/\.?0+$/,'')+'%), your leanest season would earn <b>R'+tightS.toFixed(2)+'</b> for every R1 the loans cost'+(tightS>=LA_DMIN?' — still above the R1.25 banks want. You’d cope with a rate rise.':' — just under the R1.25 banks want. Worth watching if rates climb.')+'</span>';
+
+  document.getElementById('la-hroom').textContent='about '+laM(c.ceiling);
+  var lv=document.getElementById('la-levers'),lh='';
+  if(c.tight<LA_DGOOD || c.surplus<0){
+    var longer=Math.min(LA.term+(LA.term<10?3:5),20);
+    var moL=laPmt(c.amount,c.rate,longer), dL=totalAfterCoverHelper(c,moL);
+    lh+='<div class="la-lever"><span class="li"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1B4332" stroke-width="2.3" stroke-linecap="round"><path d="M3 12h18M15 6l6 6-6 6"/></svg></span><span class="lt">Stretch to <b>'+longer+' years</b> → repayments drop to <b>'+laR(moL)+'/mo</b>, and your leanest season rises to <b>R'+dL.toFixed(2)+'</b> for every R1 owed.</span></div>';
+    if(c.ceiling<c.amount && c.ceiling>0){ lh+='<div class="la-lever"><span class="li"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1B4332" stroke-width="2.3" stroke-linecap="round"><path d="M5 12h14"/></svg></span><span class="lt">Borrow up to <b>'+laM(c.ceiling)+'</b> instead to stay comfortable on your leanest season.</span></div>'; }
+  }
+  lv.innerHTML=lh;
+}
+function totalAfterCoverHelper(c,moL){ var t=c.exist+moL*12; return t>0?Math.min(LA.y1,LA.y2,LA.y3)/t:0; }
+
+function laShow(n){
+  LA.step=n;
+  document.querySelectorAll('#la-bg .la-step').forEach(function(st){ st.classList.toggle('on', laNum(st.getAttribute('data-step'))===n); });
+  document.querySelectorAll('#la-bg .la-prog .p').forEach(function(p){ var s=laNum(p.getAttribute('data-s')); p.classList.toggle('on',s===n); p.classList.toggle('done',s<n); });
+  document.getElementById('la-back').style.display=n>1?'block':'none';
+  var nx=document.getElementById('la-next');
+  nx.textContent = n===1?'Check my income →' : n===2?'See if I can afford it →' : n===3?'Turn this into a bank report →' : 'Build my report';
+  if(n===1){ laRateHint(); }
+  if(n===2){ laRenderStep2(); }
+  if(n===3){ laRenderStep3(); }
+  var sc=document.getElementById('la-scroll'); if(sc) sc.scrollTop=0;
+}
+function laNext(){ if(LA.step<4){ laPersist(); laShow(LA.step+1); } }
+function laBack(){ if(LA.step>1){ laShow(LA.step-1); } }
+function laBuildReport(){ laPersist(); closeAffordabilityFlow(); laStartReport(true); }
+
+
+/* ════════════════ BANKABILITY REPORT + CHECK-YOUR-FIGURES (Stage 2) ════════════════ */
+var LA_REPORT_LOAN=true;
+function laRR(n){ n=Math.round(n||0); var neg=n<0; return (neg?'−R':'R')+_grpInt(Math.abs(n)); }
+function laRM(n){ var v=Math.round((n||0)/100000)/10; return 'R'+v.toFixed(1).replace(/\.0$/,'')+'m'; }
+
+// affordability compute straight from saved ST_LOANAPP (no DOM) — for the report's pro-forma
+function laStoredInputs(){
+  var req=(ST_LOANAPP&&ST_LOANAPP.req)||{}, inc=(ST_LOANAPP&&ST_LOANAPP.income)||{};
+  var fy=(inc.y1!=null?inc.y1:laFarmIncome());
+  return { amount:req.amount||0, rate:(req.rate!=null?req.rate:laSuggestRate(req.purpose||'')), term:req.term||7,
+    purpose:req.purpose||'', mode:req.mode||'amount', addedIncome:req.addedIncome||0, addedFrom:req.addedFrom||1,
+    y1:fy, y2:(inc.y2!=null?inc.y2:fy), y3:(inc.y3!=null?inc.y3:fy),
+    drawMo:(inc.drawMo!=null?inc.drawMo:0), off:(inc.off!=null?inc.off:0) };
+}
+function laComputeStored(){
+  var s=laStoredInputs(), r=s.rate;
+  var amount=s.mode==='max'?laMaxLoan(Math.min(s.y1,s.y2,s.y3),r,s.term):s.amount;
+  var mo=laPmt(amount,r,s.term), newAnnual=mo*12, exist=laExistingService(), totalAfter=exist+newAnnual;
+  var yr=[s.y1,s.y2,s.y3];
+  var op=function(y){ return yr[y-1]+(y>=s.addedFrom?s.addedIncome:0); };
+  var cov=[1,2,3].map(function(y){ return totalAfter>0?op(y)/totalAfter:0; });
+  var tight=Math.min(cov[0],cov[1],cov[2]), tightY=cov.indexOf(tight)+1;
+  var oi=op(tightY), tax=laTaxOn(oi);
+  return {inp:s,amount:amount,mo:mo,newAnnual:newAnnual,exist:exist,totalAfter:totalAfter,cov:cov,tight:tight,tightY:tightY,op:oi,tax:tax,rate:r,
+    ceiling:laMaxLoan(Math.min(s.y1,s.y2,s.y3),r,s.term)};
+}
+
+// ── CHECK YOUR FIGURES ────────────────────────────────────────────────────────
+function laStartReport(withLoan){ LA_REPORT_LOAN=!!withLoan; laRenderCheckFigures(); var bg=document.getElementById('la-cf-bg'); if(bg) bg.classList.add('on'); }
+function laCFClose(){ var bg=document.getElementById('la-cf-bg'); if(bg) bg.classList.remove('on'); }
+function laCFBackdrop(ev){ if(ev&&ev.target&&ev.target.id==='la-cf-bg') laCFClose(); }
+function laCFVal(id){ var e=document.getElementById(id); return e?(parseFloat(String(e.value).replace(/[^0-9.]/g,''))||0):0; }
+function laCFGrp(el){ var v=(parseFloat(String(el.value).replace(/[^0-9.]/g,''))||0); el.value=v?_grpInt(v):''; }
+function laCFPersist(){
+  var cash=laCFVal('la-cf-cash'); if(document.getElementById('la-cf-cash') && document.getElementById('la-cf-cash').value!=='') ST.bankBalance=cash;
+  ST_LOANAPP.estimates=ST_LOANAPP.estimates||{};
+  ST_LOANAPP.estimates.crops=laCFVal('la-cf-crops');
+  ST_LOANAPP.estimates.debtors=laCFVal('la-cf-debtors');
+  ST_LOANAPP.track=ST_LOANAPP.track||{};
+  ST_LOANAPP.track.back1={income:laCFVal('la-cf-b1i'),costs:laCFVal('la-cf-b1c')};
+  ST_LOANAPP.track.back2={income:laCFVal('la-cf-b2i'),costs:laCFVal('la-cf-b2c')};
+  try{ saveState&&saveState(); }catch(e){}
+}
+function laCFBuild(){ laCFPersist(); laCFClose(); laShowReport(LA_REPORT_LOAN); }
+function laRenderCheckFigures(){
+  var body=document.getElementById('la-cf-body'); if(!body) return;
+  var est=(ST_LOANAPP.estimates)||{}, tr=(ST_LOANAPP.track)||{};
+  var cash=(typeof ST!=='undefined'&&typeof ST.bankBalance==='number')?ST.bankBalance:'';
+  var b1=tr.back1||{}, b2=tr.back2||{};
+  // pre-fill past seasons from records where available
+  var t1={},t2={}; try{ t1=_taxFYProfit(-1)||{}; }catch(e){} try{ t2=_taxFYProfit(-2)||{}; }catch(e){}
+  var b1i=(b1.income!=null?b1.income:(t1.income>0?t1.income:'')), b1c=(b1.costs!=null?b1.costs:(t1.income>0?t1.expenses:''));
+  var b2i=(b2.income!=null?b2.income:(t2.income>0?t2.income:'')), b2c=(b2.costs!=null?b2.costs:(t2.income>0?t2.expenses:''));
+  var v=function(x){ return (x===''||x==null)?'':_grpInt(x); };
+  body.innerHTML=
+    '<div class="la-cf-grp"><div class="la-cf-h rec"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1e5bb0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Ready from your records</div>'+
+      '<div class="la-cf-rec"><b>Pulled in automatically</b> — your loans, this year’s income &amp; costs, tax, land &amp; machinery, and livestock value. Nothing to re-enter.</div></div>'+
+    '<div class="la-cf-grp"><div class="la-cf-h you"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>We need these from you</div>'+
+      '<div class="la-cf-item"><div class="la-cf-lbl">Money in the bank right now</div><div class="la-cf-sub">The report starts your cash-flow from here. A rough figure is fine.</div><div class="la-cf-in"><span>R</span><input id="la-cf-cash" inputmode="numeric" value="'+v(cash)+'" placeholder="0" onblur="laCFGrp(this)"></div></div>'+
+      '<div class="la-cf-item"><div class="la-cf-lbl">Your past 2 seasons <span class="la-cf-opt">for a track record</span></div><div class="la-cf-sub">So the report shows history, not just this year. Round figures from old records are fine — leave blank if you’re new to farming.</div>'+
+        '<div class="la-cf-seas"><div class="la-cf-sc"><div class="cl">Last year — income</div><div class="la-cf-in"><span>R</span><input id="la-cf-b1i" inputmode="numeric" value="'+v(b1i)+'" onblur="laCFGrp(this)"></div></div>'+
+        '<div class="la-cf-sc"><div class="cl">Last year — costs</div><div class="la-cf-in"><span>R</span><input id="la-cf-b1c" inputmode="numeric" value="'+v(b1c)+'" onblur="laCFGrp(this)"></div></div></div>'+
+        '<div class="la-cf-seas"><div class="la-cf-sc"><div class="cl">Year before — income</div><div class="la-cf-in"><span>R</span><input id="la-cf-b2i" inputmode="numeric" value="'+v(b2i)+'" onblur="laCFGrp(this)"></div></div>'+
+        '<div class="la-cf-sc"><div class="cl">Year before — costs</div><div class="la-cf-in"><span>R</span><input id="la-cf-b2c" inputmode="numeric" value="'+v(b2c)+'" onblur="laCFGrp(this)"></div></div></div>'+
+      '</div></div>'+
+    '<div class="la-cf-grp"><div class="la-cf-h est"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" stroke-width="2.3" stroke-linecap="round"><path d="M12 8v.5M12 11v5"/><circle cx="12" cy="12" r="9"/></svg>Please check these amounts</div>'+
+      '<div class="la-cf-item"><div class="la-cf-lbl">Crops in the field, today’s value <span class="la-cf-opt">counts as an asset</span></div><div class="la-cf-in"><span>R</span><input id="la-cf-crops" inputmode="numeric" value="'+v(est.crops||'')+'" placeholder="0" onblur="laCFGrp(this)"></div></div>'+
+      '<div class="la-cf-item"><div class="la-cf-lbl">Money owed to you <span class="la-cf-opt">grain not yet paid, co-op in credit</span></div><div class="la-cf-in"><span>R</span><input id="la-cf-debtors" inputmode="numeric" value="'+v(est.debtors||'')+'" placeholder="0" onblur="laCFGrp(this)"></div></div>'+
+    '</div>'+
+    '<div class="la-cf-note">Every number in your report is one of three things: <b>from your records</b>, <b>entered by you</b>, or <b>an amount you’ve checked</b> — so nothing reaches the bank unchecked.</div>';
+}
+
+// ── THE BANKABILITY REPORT DOCUMENT ───────────────────────────────────────────
+function laShowReport(withLoan){ LA_REPORT_LOAN=!!withLoan; var b=document.getElementById('la-rep-body'); if(b) b.innerHTML=laReportHTML(withLoan); var bg=document.getElementById('la-rep-bg'); if(bg) bg.classList.add('on'); var sc=document.getElementById('la-rep-scroll'); if(sc) sc.scrollTop=0; }
+function laRepClose(){ var bg=document.getElementById('la-rep-bg'); if(bg) bg.classList.remove('on'); }
+function laRepBackdrop(ev){ if(ev&&ev.target&&ev.target.id==='la-rep-bg') laRepClose(); }
+function laRepPrint(){ try{ printWindow('Bankability Report — '+((typeof FARM!=='undefined'&&FARM.name)||'Farm'), laReportHTML(LA_REPORT_LOAN)); }catch(e){ toast('Could not open the print view','error'); } }
+
+function laReportHTML(withLoan){
+  var farm=(typeof FARM!=='undefined'&&FARM.name)||'Your farm';
+  var owner=(typeof FARM!=='undefined'&&FARM.owner)||'';
+  var entMap={sole:'Sole proprietor',company:'Company',trust:'Trust',sbc:'Small business corp'};
+  var ent=entMap[(typeof ST!=='undefined'&&ST.entityType)||'sole']||'Sole proprietor';
+  var today=''; try{ today=new Date().toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'}); }catch(e){}
+  var farmIncome=laFarmIncome();
+  // collateral + balance sheet inputs
+  var al={rows:[],tV:0,tO:0,net:0}; try{ al=astLenderData(); }catch(e){}
+  var herd=0,herdHead=0,classAgg={}; try{ var ls=_lsSarsCompute(); herd=ls.T.closeV||ls.T.market||0; herdHead=ls.T.close||0; classAgg=ls.classAgg||{}; }catch(e){}
+  var cash=(typeof ST!=='undefined'&&typeof ST.bankBalance==='number')?ST.bankBalance:0;
+  var est=(ST_LOANAPP.estimates)||{}; var crops=est.crops||0, debtors=est.debtors||0;
+  var currentAssets=cash+crops+debtors;
+  var fixedVal=al.tV;
+  var totalAssets=fixedVal+herd+currentAssets;
+  var totalLiab=0; try{ totalLiab=LN_totalOwed(); }catch(e){}
+  var netWorth=totalAssets-totalLiab;
+  var equityPct=totalAssets>0?Math.round(netWorth/totalAssets*100):0;
+  var odUsed=0,coUsed=0; try{ odUsed=LN_odUsedTotal(); }catch(e){} try{ coUsed=LN_coUsedTotal(); }catch(e){}
+  var shortLiab=odUsed+coUsed;
+  var currentRatio=shortLiab>0?(currentAssets/shortLiab):null;
+  var annInt=0; try{ annInt=LN_annualInterest(); }catch(e){}
+  var intCover=annInt>0?(farmIncome/annInt):null;
+  var roa=totalAssets>0?Math.round(farmIncome/totalAssets*100):0;
+
+  var H=[];
+  H.push('<style>'+
+    '.lar{font-family:'+"'Plus Jakarta Sans',system-ui,sans-serif"+';color:#111827}'+
+    '.lar-hd{background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;padding:22px 26px;border-radius:14px;margin-bottom:20px}'+
+    '.lar-hd .k{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.6)}'+
+    '.lar-hd .t{font-size:22px;font-weight:800;margin:6px 0 5px}'+
+    '.lar-hd .m{font-size:11.5px;color:rgba(255,255,255,.82);line-height:1.6}'+
+    '.lar-sec{margin-bottom:24px}'+
+    '.lar-sh{display:flex;align-items:center;gap:8px;margin-bottom:11px}'+
+    '.lar-sh .n{width:21px;height:21px;border-radius:6px;background:#1B4332;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}'+
+    '.lar-sh h3{font-size:14px;font-weight:800;margin:0}'+
+    '.lar-verdict{display:flex;gap:12px;align-items:center;background:#F0FAF4;border:1px solid #D8F3DC;border-radius:12px;padding:14px 16px;margin-bottom:16px}'+
+    '.lar-verdict.warn{background:#FFF8E6;border-color:#F3D9A6}'+
+    '.lar-verdict .ic{width:34px;height:34px;border-radius:10px;background:#1B4332;color:#fff;display:flex;align-items:center;justify-content:center;flex:none}'+
+    '.lar-verdict.warn .ic{background:#B45309}'+
+    '.lar-verdict .vt{font-size:14px;font-weight:800;color:#1B4332}.lar-verdict.warn .vt{color:#B45309}'+
+    '.lar-verdict .vs{font-size:11.5px;color:#2D6A4F;margin-top:2px;line-height:1.5}.lar-verdict.warn .vs{color:#7a4a10}'+
+    '.lar-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px}'+
+    '.lar-tile{border:1px solid #E5E7EB;border-radius:11px;padding:12px 13px}'+
+    '.lar-tile .tl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#9CA3AF}'+
+    '.lar-tile .tv{font-family:Georgia,serif;font-size:22px;font-weight:700;margin-top:5px;color:#1B4332}'+
+    '.lar-tile .th{font-size:10px;color:#6B7280;margin-top:4px;line-height:1.4}'+
+    '.lar-tbl{width:100%;border-collapse:collapse;font-size:12px}'+
+    '.lar-tbl th{text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#9CA3AF;padding:8px 10px;border-bottom:1.5px solid #E5E7EB;background:#f9fafb;white-space:nowrap}'+
+    '.lar-tbl th:first-child{text-align:left}'+
+    '.lar-tbl td{padding:8px 10px;border-bottom:1px solid #F3F4F6;color:#374151;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}'+
+    '.lar-tbl td:first-child{text-align:left;color:#111827}'+
+    '.lar-tbl tr.tot td{border-top:1.5px solid #E5E7EB;border-bottom:0;font-weight:800;background:#fbfcfb}'+
+    '.lar-tbl tr.now td{background:#F0FAF4;color:#1B4332}'+
+    '.lar-wrap{overflow-x:auto;border:1px solid #E5E7EB;border-radius:11px}'+
+    '.lar-bs{display:grid;grid-template-columns:1fr 1fr;gap:12px}'+
+    '.lar-net{margin-top:12px;background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;border-radius:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}'+
+    '.lar-net .nl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.65)}'+
+    '.lar-net .nv{font-family:Georgia,serif;font-size:26px;font-weight:700;line-height:1;margin-top:3px}'+
+    '.lar-net .nr{font-size:11px;color:rgba(255,255,255,.82);text-align:right;line-height:1.6}'+
+    '.lar-ratios{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}'+
+    '.lar-rt{border:1px solid #E5E7EB;border-radius:11px;padding:12px 14px}'+
+    '.lar-rt .rv{font-family:Georgia,serif;font-size:22px;font-weight:700;color:#1B4332}'+
+    '.lar-rt .rt2{font-size:12px;font-weight:800;margin-top:5px}'+
+    '.lar-rt .rs{font-size:10.5px;color:#6B7280;line-height:1.5;margin-top:2px}'+
+    '.lar-comp{display:grid;grid-template-columns:1fr 1fr;gap:9px}'+
+    '.lar-cr{display:flex;gap:9px;align-items:flex-start;border:1px solid #E5E7EB;border-radius:10px;padding:10px 12px}'+
+    '.lar-cr .ci{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none}'+
+    '.lar-cr .ci.ok{background:#D8F3DC;color:#1B4332}.lar-cr .ci.na{background:#F3F4F6;color:#9CA3AF}'+
+    '.lar-cr .ct{font-size:12px;font-weight:800}.lar-cr .cs{font-size:10.5px;color:#6B7280;margin-top:1px;line-height:1.4}'+
+    '.lar-foot{font-size:10px;color:#9CA3AF;line-height:1.6;border-top:1px solid #F3F4F6;padding-top:12px;margin-top:6px}'+
+    '@media print{.lar-noprint{display:none!important}}'+
+    '</style>');
+
+  H.push('<div class="lar">');
+  // print bar
+  H.push('<div class="lar-noprint" style="display:flex;gap:9px;margin-bottom:16px">'+
+    '<button onclick="laRepPrint()" style="flex:1;border:none;border-radius:10px;padding:12px;background:#1B4332;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">⬇ Print / Save as PDF</button>'+
+    '<button onclick="laRepClose()" style="border:1px solid #E5E7EB;border-radius:10px;padding:12px 16px;background:#fff;color:#6B7280;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">Close</button></div>');
+
+  // header
+  H.push('<div class="lar-hd"><div class="k">Bankability Report'+(withLoan?'':' · financial standing')+'</div>'+
+    '<div class="t">'+esc(farm)+'</div>'+
+    '<div class="m">'+(owner?esc(owner)+' · ':'')+ent+' &nbsp;·&nbsp; prepared for a finance application &nbsp;·&nbsp; '+today+'</div></div>');
+
+  var secN=0;
+  function sec(title,sub){ secN++; return '<div class="lar-sh"><span class="n">'+secN+'</span><h3>'+title+'</h3></div>'; }
+
+  // ── LOAN REQUEST + PRO-FORMA (only with loan) ──
+  if(withLoan){
+    var c=laComputeStored();
+    if(c.amount>0){
+      var comfy=c.tight>=1.5, ok=c.tight>=1.25;
+      H.push('<div class="lar-sec">'+sec('The finance request')+
+        '<div class="lar-verdict'+(ok?'':' warn')+'"><div class="ic">'+(ok?'✓':'!')+'</div><div>'+
+          '<div class="vt">'+(comfy?'Comfortably serviceable':(ok?'Serviceable':'Tight — see cover below'))+'</div>'+
+          '<div class="vs">Requesting <b>'+laRM(c.amount)+'</b> over '+c.inp.term+' years'+(c.inp.purpose?' for '+esc(c.inp.purpose.toLowerCase()):'')+'. Even the leanest of the next three seasons earns <b>R'+c.tight.toFixed(2)+'</b> for every R1 the loans cost.</div>'+
+        '</div></div>'+
+        '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Per year</th><th>Now</th><th>After this loan</th></tr></thead><tbody>'+
+          '<tr><td>Net farm income (before debt)</td><td>'+laRR(c.op)+'</td><td>'+laRR(c.op)+'</td></tr>'+
+          '<tr><td>Loan repayments</td><td>'+laRR(c.exist)+'</td><td>'+laRR(c.totalAfter)+'</td></tr>'+
+          '<tr class="tot"><td>Cover (per R1 of repayments)</td><td>R'+(c.exist>0?(c.op/c.exist).toFixed(2):'—')+'</td><td>R'+(c.totalAfter>0?(c.op/c.totalAfter).toFixed(2):'—')+'</td></tr>'+
+        '</tbody></table></div>'+
+        '<div class="lar-foot" style="border:0;padding-top:8px">Repayment estimated at '+c.rate+'% (SA prime '+laPrime()+'% + margin). Lenders look for at least R1.25 of income per R1 of repayments.</div>'+
+      '</div>');
+    }
+  }
+
+  // ── EXISTING DEBT ──
+  var loans=(typeof ST_LOANS!=='undefined'&&ST_LOANS.loans)||[];
+  if(loans.length || odUsed || coUsed){
+    var rowsD=loans.map(function(l){
+      var po=''; try{ var p=LN_payoff(l); po=(p&&p.amortises&&p.date)?p.date.toLocaleDateString('en-ZA',{month:'short',year:'numeric'}):(p&&!p.amortises?'—':''); }catch(e){}
+      return '<tr><td>'+esc(l.name||'Loan')+'</td><td style="text-align:left">'+esc(l.lender||'')+'</td><td>'+laRR(l.balance)+'</td><td>'+((l.rate||0))+'%</td><td>'+laRR(l.payment)+'</td><td style="text-align:left">'+po+'</td></tr>';
+    }).join('');
+    if(odUsed) rowsD+='<tr><td>Overdraft</td><td style="text-align:left">Revolving</td><td>'+laRR(odUsed)+'</td><td>—</td><td>—</td><td style="text-align:left">Revolving</td></tr>';
+    if(coUsed) rowsD+='<tr><td>Co-op account</td><td style="text-align:left">Revolving</td><td>'+laRR(coUsed)+'</td><td>—</td><td>—</td><td style="text-align:left">Revolving</td></tr>';
+    var mp=0; try{ mp=LN_monthlyPay(); }catch(e){}
+    H.push('<div class="lar-sec">'+sec('Existing debt')+
+      '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Facility</th><th style="text-align:left">Lender</th><th>Balance</th><th>Rate</th><th>Monthly</th><th style="text-align:left">Paid off</th></tr></thead><tbody>'+rowsD+
+      '<tr class="tot"><td>Total debt</td><td></td><td>'+laRR(totalLiab)+'</td><td></td><td>'+laRR(mp)+'</td><td></td></tr>'+
+      '</tbody></table></div></div>');
+  }
+
+  // ── CASH FLOW ──
+  try{
+    var months=(typeof buildCfForecast==='function')?buildCfForecast(12):[];
+    if(months && months.length){
+      var minB=months[0].balance, minI=0;
+      months.forEach(function(m,i){ if(m.balance<minB){ minB=m.balance; minI=i; } });
+      var cells=months.map(function(m){ return '<td>'+laRR(m.balance)+'</td>'; }).join('');
+      var heads=months.map(function(m){ return '<th>'+esc((m.name||m.label||'').slice(0,3))+'</th>'; }).join('');
+      H.push('<div class="lar-sec">'+sec('Cash through the year')+
+        '<div class="lar-verdict'+(minB<0?' warn':'')+'"><div class="ic">'+(minB<0?'!':'✓')+'</div><div>'+
+          '<div class="vt">'+(minB<0?'Cash runs short in '+esc(months[minI].name||'')+'':'Cash stays positive all year')+'</div>'+
+          '<div class="vs">Leanest month is <b>'+esc(months[minI].name||months[minI].label||'')+'</b> at about <b>'+laRR(minB)+'</b>. Opening balance '+laRR(cash)+'.</div></div></div>'+
+        '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Month</th>'+heads+'</tr></thead><tbody><tr><td>Cash on hand</td>'+cells+'</tr></tbody></table></div></div>');
+    }
+  }catch(e){}
+
+  // ── COLLATERAL ──
+  var arows=al.rows.filter(function(r){ return !r.noAsset; }).map(function(r){ return '<tr><td>'+esc(r.cat)+'</td><td>'+laRR(r.val)+'</td><td>'+(r.owed?laRR(r.owed):'—')+'</td><td>'+laRR(r.eq)+'</td></tr>'; }).join('');
+  var clsRows=Object.keys(classAgg).map(function(k){ var g=classAgg[k]; return {label:g.label||k, head:g.head||0, val:g.val||0}; }).filter(function(x){ return x.head>0; });
+  if(arows || herd>0){
+    H.push('<div class="lar-sec">'+sec('Security behind the debt')+
+      '<div class="lar-wrap" style="margin-bottom:10px"><table class="lar-tbl"><thead><tr><th>Fixed assets</th><th>Value</th><th>Finance owed</th><th>Net equity</th></tr></thead><tbody>'+arows+
+        '<tr class="tot"><td>Fixed-asset equity</td><td>'+laRR(al.tV)+'</td><td>'+laRR(al.tO)+'</td><td>'+laRR(al.tV-al.tO)+'</td></tr>'+
+      '</tbody></table></div>');
+    if(herd>0){
+      var lr=clsRows.map(function(x){ return '<tr><td>'+esc(x.label)+'</td><td>'+x.head+'</td><td>'+laRR(x.val)+'</td></tr>'; }).join('');
+      H.push('<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Livestock (year-end value)</th><th>Head</th><th>Value</th></tr></thead><tbody>'+lr+
+        '<tr class="tot"><td>Herd value</td><td>'+herdHead+'</td><td>'+laRR(herd)+'</td></tr></tbody></table></div>');
+    }
+    H.push('</div>');
+  }
+
+  // ── TRACK RECORD ──
+  (function(){
+    var tr=(ST_LOANAPP.track)||{};
+    var cols=[];
+    function pushCol(lbl, entered, off, now){
+      if(entered && (entered.income||entered.costs)){ cols.push({lbl:lbl,inc:entered.income||0,cost:entered.costs||0,now:now}); return; }
+      var t=null; try{ t=_taxFYProfit(off); }catch(e){}
+      if(t && (t.income>0||now)){ cols.push({lbl:lbl,inc:t.income||0,cost:t.expenses||0,now:now}); }
+    }
+    pushCol('Year before', tr.back2, -2, false);
+    pushCol('Last year', tr.back1, -1, false);
+    pushCol('This year', null, 0, true);
+    if(cols.length>=2){
+      var heads=cols.map(function(c){ return '<th'+(c.now?' style="color:#1B4332"':'')+'>'+c.lbl+'</th>'; }).join('');
+      var incR='<tr><td>Income</td>'+cols.map(function(c){ return '<td'+(c.now?' style="background:#F0FAF4;color:#1B4332"':'')+'>'+laRR(c.inc)+'</td>'; }).join('')+'</tr>';
+      var costR='<tr><td>Running costs</td>'+cols.map(function(c){ return '<td'+(c.now?' style="background:#F0FAF4;color:#1B4332"':'')+'>'+laRR(c.cost)+'</td>'; }).join('')+'</tr>';
+      var netR='<tr class="tot"><td>Net farm profit</td>'+cols.map(function(c){ return '<td'+(c.now?' style="background:#F0FAF4;color:#1B4332"':'')+'>'+laRR(c.inc-c.cost)+'</td>'; }).join('')+'</tr>';
+      var avg=Math.round(cols.reduce(function(a,c){return a+(c.inc-c.cost);},0)/cols.length);
+      H.push('<div class="lar-sec">'+sec('Track record')+
+        '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Per season</th>'+heads+'</tr></thead><tbody>'+incR+costR+netR+'</tbody></table></div>'+
+        '<div class="lar-foot" style="border:0;padding-top:8px">Net profit has averaged <b>'+laRR(avg)+' a year</b> across these seasons — the forecast is grounded in the record.</div></div>');
+    }
+  })();
+
+  // ── BALANCE SHEET ──
+  H.push('<div class="lar-sec">'+sec('What the farm owns and owes')+
+    '<div class="lar-bs">'+
+      '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>What you own</th><th>Value</th></tr></thead><tbody>'+
+        '<tr><td>Land, machinery &amp; equipment</td><td>'+laRR(fixedVal)+'</td></tr>'+
+        (herd>0?'<tr><td>Livestock</td><td>'+laRR(herd)+'</td></tr>':'')+
+        (crops>0?'<tr><td>Growing crops &amp; inputs</td><td>'+laRR(crops)+'</td></tr>':'')+
+        ((cash+debtors)>0?'<tr><td>Cash &amp; money owed to you</td><td>'+laRR(cash+debtors)+'</td></tr>':'')+
+        '<tr class="tot"><td>Total owned</td><td>'+laRR(totalAssets)+'</td></tr>'+
+      '</tbody></table></div>'+
+      '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>What you owe</th><th>Balance</th></tr></thead><tbody>'+
+        '<tr><td>Loans</td><td>'+laRR(totalLiab-shortLiab)+'</td></tr>'+
+        (shortLiab>0?'<tr><td>Overdraft &amp; co-op accounts</td><td>'+laRR(shortLiab)+'</td></tr>':'')+
+        '<tr class="tot"><td>Total owed</td><td>'+laRR(totalLiab)+'</td></tr>'+
+      '</tbody></table></div>'+
+    '</div>'+
+    '<div class="lar-net"><div><div class="nl">What the farm is worth to you (net worth)</div><div class="nv">'+laRR(netWorth)+'</div></div>'+
+      '<div class="nr">Everything owned '+laRR(totalAssets)+'<br>less everything owed '+laRR(totalLiab)+'</div></div>'+
+  '</div>');
+
+  // ── RATIOS ──
+  H.push('<div class="lar-sec">'+sec('The health checks a lender runs')+
+    '<div class="lar-ratios">'+
+      '<div class="lar-rt"><div class="rv">'+equityPct+'%</div><div class="rt2">How much of the farm you own</div><div class="rs">You owe about R'+(100-equityPct)+' for every R100 the farm is worth — most of it is yours.</div></div>'+
+      (currentRatio!=null?'<div class="lar-rt"><div class="rv">'+currentRatio.toFixed(1)+'</div><div class="rt2">Can you cover the year ahead</div><div class="rs">About R'+currentRatio.toFixed(2)+' of cash and near-cash for every R1 due soon.</div></div>':'')+
+      (intCover!=null?'<div class="lar-rt"><div class="rv">'+intCover.toFixed(1)+'×</div><div class="rt2">Income against interest</div><div class="rs">The farm earns about '+intCover.toFixed(1)+' times the interest it pays.</div></div>':'')+
+      '<div class="lar-rt"><div class="rv">'+roa+'%</div><div class="rt2">What the farm earns on its value</div><div class="rs">The farm returns about '+roa+'% a year on what it’s worth.</div></div>'+
+    '</div></div>');
+
+  // ── SARS COMPLIANCE ──
+  (function(){
+    var items=[];
+    var pe=null; try{ pe=taxProvEstimate(); }catch(e){}
+    if(pe){ items.push({ok:true,t:'Income tax on track',s:ent+' · provisional estimate '+laRR(pe.annualTax||0)+'/yr'+((pe.next&&pe.next.lbl)?' · next '+pe.next.lbl:'')}); }
+    var vat=null; try{ vat=taxVatPosition(); }catch(e){}
+    if(vat){ items.push({ok:true,t:'VAT registered & current',s:'This cycle '+laRR(vat.owe)+' · filed on the VAT201'}); }
+    var ws=null; try{ ws=taxWorkerSnapshot(); }catch(e){}
+    if(ws){ items.push({ok:ws.allOk,t:'Payroll'+(ws.allOk?' compliant':' — check wages'),s:ws.count+' worker'+(ws.count===1?'':'s')+(ws.allOk?' · all at or above minimum wage':' · some below minimum wage')+' · EMP201 monthly'}); }
+    items.push({ok:true,t:'Records kept in AgriInsights',s:'Bank-reconciled income, costs and assets'});
+    var cr=items.map(function(it){ return '<div class="lar-cr"><div class="ci '+(it.ok?'ok':'na')+'">'+(it.ok?'✓':'!')+'</div><div><div class="ct">'+it.t+'</div><div class="cs">'+it.s+'</div></div></div>'; }).join('');
+    H.push('<div class="lar-sec">'+sec('SARS & compliance')+'<div class="lar-comp">'+cr+'</div></div>');
+  })();
+
+  H.push('<div class="lar-foot">Prepared from AgriInsights records on '+today+'. Figures are management estimates compiled to support a credit assessment — to be confirmed against audited financial statements and source documents. Not a guarantee of the farm’s financial position or a commitment to lend.</div>');
+  H.push('</div>');
+  return H.join('');
+}
+
+
+/* ════════════════ ENTRY CHOOSER — the front door from Reports / Assets (Stage 3) ════════════════ */
+function laOpenEntry(){
+  var saved=!!(ST_LOANAPP&&ST_LOANAPP.req&&ST_LOANAPP.req.amount>0);
+  var en=document.getElementById('la-entry-new'), es=document.getElementById('la-entry-saved');
+  if(en) en.style.display=saved?'none':'block';
+  if(es) es.style.display=saved?'block':'none';
+  var sub=document.getElementById('la-entry-sub');
+  if(sub) sub.textContent=saved?"A lender-ready summary of your farm's finances. Carry on with your saved loan, or choose another way."
+    :"A lender-ready summary of your farm's finances, built from your records. First — what do you need it for?";
+  if(saved){ var r=ST_LOANAPP.req||{}, el=document.getElementById('la-entry-savedline'); if(el) el.innerHTML='<span class="amt">'+laM(r.amount)+'</span> <span class="meta">· '+(r.purpose?esc(r.purpose):'loan')+' · over '+(r.term||7)+' years</span>'; }
+  var bg=document.getElementById('la-entry-bg'); if(bg) bg.classList.add('on');
+}
+function laEntryClose(){ var bg=document.getElementById('la-entry-bg'); if(bg) bg.classList.remove('on'); }
+function laEntryBackdrop(ev){ if(ev&&ev.target&&ev.target.id==='la-entry-bg') laEntryClose(); }
+function laEntryLoan(){ laEntryClose(); openAffordabilityFlow(); }
+function laEntryStanding(){ laEntryClose(); laStartReport(false); }
+function laEntrySavedBuild(){ laEntryClose(); laStartReport(true); }
+
 function lnGlanceHTML(){
   var owed=LN_totalOwed(), eq=LN_equityPct(), pay=LN_monthlyPay(), intMo=LN_monthlyInterest(), capMo=pay-intMo, intYr=LN_annualInterest();
   var ODS=ST_LOANS.overdrafts||[]; var odLimit=0, odUsed=0; ODS.forEach(function(o){ odLimit+=o.limit||0; odUsed+=o.used||0; });
@@ -11998,6 +12907,7 @@ function lnGlanceHTML(){
   else if(coUsed>0) drawnNote='Includes '+LN_Rk(coUsed)+' on your co-op account'+(COS.length>1?'s':'')+'.';
   var maxBal=0; ST_LOANS.loans.forEach(function(l){ if(l.balance>maxBal) maxBal=l.balance; });
   var h='';
+  h+=laEntryCardHTML();
   /* 1. What you owe */
   h+='<div class="ln-hero" id="ln-hero"><div class="ln-hl">What you owe</div><div class="ln-hv">'+LN_Rk(owed)+'</div>'+
      '<div class="ln-hsub">'+eq+'% of the farm is already yours \u2014 only '+(Math.round((100-eq)*10)/10)+'% is still owed.'+(drawnNote?'<br><span style="color:#bfe6cc;font-size:11.5px">'+drawnNote+'</span>':'')+'</div>'+
@@ -15174,6 +16084,7 @@ function animalOptions(selected){ var html='',cur=null; SA_ANIMALS.forEach(funct
  * are tax FORMULAS reserved for specialist review. These are published constants.
  * ========================================================================== */
 var STATUTORY = {
+  primeRate:    { value: 10.5,  effectiveFrom:'2026-05-28', asOf:'2026-07', source:'SARB repo 7.00% + 3.5% spread (prime 10.5%, eff 28 May 2026)' },
   nmwRate:      { value: 30.23, effectiveFrom:'2026-03-01', asOf:'2026-06', source:'DEL gazette 54075 (3 Feb 2026); farm workers paid at NMW' },
   hoursWeek:    { value: 45,    effectiveFrom:'',           asOf:'2026-06', source:'BCEA ordinary-hours standard' },
   hoursDay:     { value: 8,     effectiveFrom:'',           asOf:'2026-06', source:'BCEA ordinary-hours standard (5-day week)' },
@@ -18071,7 +18982,7 @@ function renderHerdCards() {
       var arows=anims.map(function(a){ var s=lsAnimalSafe(a);
         return '<div class="lsar"><div class="lstag">'+a.tag+'</div><div style="flex:1"><div style="font-size:13px;font-weight:700">'+(a.name||a.tag)+'</div><div style="font-size:11px;color:var(--t3)">'+[(a.sex==='M'?'Male':a.sex==='F'?'Female':''),a.breed].filter(Boolean).join(' \u00b7 ')+'</div></div>'+(s?'<span class="cc cc-wd">\u26d4 safe '+lsFmtDate(s)+'</span>':'<span class="cc cc-ok">\u2713 Clear</span>')+'</div>';
       }).join('');
-      ind='<div class="lsind"><div class="lsind-h"><span>Individual animals \u00b7 '+anims.length+' tagged</span><span class="lk" onclick="event.stopPropagation();toast(\'Animal tagging is coming soon \u2014 for now, keep tag numbers in the group notes.\',\'info\')">+ Tag animal</span></div>'+(arows||'<div style="font-size:12px;color:var(--t3)">None tagged yet.</div>')+'</div>';
+      ind='<div class="lsind"><div class="lsind-h"><span>Individual animals \u00b7 '+anims.length+' tagged</span><span class="lk" onclick="event.stopPropagation();lsTagAddOpen('+idx+')">+ Tag animal</span></div>'+(arows||'<div style="font-size:12px;color:var(--t3)">None tagged yet.</div>')+'</div>';
     }
     var stock='<div class="lsstock">\ud83d\udccb Stock this year: <b>'+opening+' \u2192 '+h.qty+'</b>'+(inn?' \u00b7 +'+inn+' in':'')+(out?' \u00b7 \u2212'+out+' out':'')+' <span class="lk" onclick="event.stopPropagation();lsTab(\'register\')">Stock register \u203a</span></div>';
     var edit='<button class="btn-sec" style="margin-top:12px;padding:6px 14px;font-size:12px" onclick="event.stopPropagation();openEditHerd('+idx+')">Edit herd</button>';
