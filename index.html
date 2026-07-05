@@ -522,11 +522,33 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .tb{background:var(--bp);color:var(--bl)}.tr{background:var(--rp);color:var(--rd)}
 .tgr{background:var(--br2);color:var(--t3)}.tp{background:var(--pp);color:var(--pu)}
 
-.inc-banner{border-radius:var(--rl);overflow:hidden;position:relative;height:150px;margin-bottom:20px}
-.ib-ov{position:absolute;bottom:0;left:0;right:0;padding:18px 22px;background:linear-gradient(to top,rgba(0,0,0,.55),transparent)}
+.inc-banner{border-radius:var(--rl);overflow:hidden;position:relative;min-height:150px;margin-bottom:20px}
+.ib-ov{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:20px 22px;min-height:150px}
 .ib-sub{font-size:12px;color:rgba(255,255,255,.8)}
 .ib-val{font-size:26px;font-weight:800;color:#fff}
 .ib-chg{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.2);border-radius:20px;padding:3px 10px;font-size:11px;color:#fff;margin-top:5px}
+/* merged-hero "Worth knowing" panel (A) */
+.ib-left{position:relative}
+.ib-worth{flex:1;min-width:230px;max-width:52%;border-left:1px solid rgba(255,255,255,.20);padding-left:20px;text-shadow:0 1px 2px rgba(0,0,0,.28)}
+.ib-worth .wh{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:rgba(255,255,255,.72);margin-bottom:2px}
+.ib-wrow{display:flex;gap:9px;align-items:flex-start;padding:6px 0;border-top:1px solid rgba(255,255,255,.14)}
+.ib-wrow:first-of-type{border-top:none}
+.ib-wrow .wi{font-size:13px;line-height:1.3;flex:none}
+.ib-wrow .wt{font-size:11.5px;line-height:1.4;color:#fff;font-weight:600}
+.ib-wrow .wt b{font-weight:800}
+.ib-wrow .wt .fig{font-weight:800;color:#FFE08A}
+/* enterprise toggle (B) + untagged nudge */
+.ie-seg{display:inline-flex;background:rgba(0,0,0,.04);border:1px solid var(--br);border-radius:9px;padding:3px}
+.ie-seg button{border:none;background:none;font-family:inherit;font-size:11px;font-weight:800;color:var(--t3);padding:6px 11px;border-radius:6px;cursor:pointer}
+.ie-seg button.on{background:var(--gd);color:#fff}
+.ie-nudge{display:flex;align-items:center;gap:11px;margin-top:14px;background:var(--ap);border:1px solid #F3D9A6;border-radius:11px;padding:11px 14px;cursor:pointer}
+.ie-nudge.ok{background:var(--gb);border-color:var(--gp);cursor:default}
+.ie-nudge .ni{width:26px;height:26px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none;font-size:14px}
+.ie-nudge .nt{flex:1;font-size:11.5px;color:#7a4a10;line-height:1.45}
+.ie-nudge.ok .nt{color:var(--gm)}
+.ie-nudge .nt b{font-weight:800}
+.ie-nudge .ng{font-size:12px;font-weight:800;color:var(--am);flex:none}
+@media(max-width:640px){.ib-worth{max-width:none;flex-basis:100%;border-left:none;border-top:1px solid rgba(255,255,255,.2);padding-left:0;padding-top:8px;margin-top:2px}}
 
 .add-layout{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
 .add-form{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:22px;box-shadow:var(--sh)}
@@ -4117,7 +4139,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   </div>
   <div class="inc-banner" style="background:linear-gradient(135deg,var(--gd),var(--gl))">
     <div class="hero-ov"></div>
-    <div class="ib-ov"><div class="ib-sub">This Month's Income</div><div class="ib-val" id="inc-banner-val">R1 328 750</div><div><span class="ib-chg">↑ 16% vs last month</span></div></div>
+    <div class="ib-ov"><div class="ib-left"><div class="ib-sub">This Month's Income</div><div class="ib-val" id="inc-banner-val">R1 328 750</div><div><span class="ib-chg">↑ 16% vs last month</span></div></div><div class="ib-worth" id="inc-worth" style="display:none"></div></div>
   </div>
 
   <!-- INCOME TARGET BAR -->
@@ -4168,9 +4190,12 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   </div>
   <div class="two-col" style="margin-bottom:18px">
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="chart-title" style="margin:0">Income by Source</div>
-        <span style="font-size:11px;color:var(--t3);font-weight:600" id="inc-bysource-period">Last 6 Months</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+        <div class="chart-title" style="margin:0" id="inc-bd-title">Income by Source</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:11px;color:var(--t3);font-weight:600" id="inc-bysource-period">Last 6 Months</span>
+          <div class="ie-seg" id="inc-seg-wrap"><button id="inc-seg-cat" class="on" onclick="ieSetView('income','cat')">Whole farm</button><button id="inc-seg-ent" onclick="ieSetView('income','ent')">By enterprise</button></div>
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:16px">
         <div style="position:relative;width:130px;height:130px;flex-shrink:0"><canvas id="incSourceDonut"></canvas></div>
@@ -4178,6 +4203,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div style="color:var(--t4);font-size:12px;text-align:center;padding:16px">Loading...</div>
         </div>
       </div>
+      <div id="inc-ent-nudge"></div>
     </div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:14px;font-weight:700">Recent Income</div><div class="view-all" style="margin:0" onclick="nav('transactions')">View all</div></div>
@@ -4315,9 +4341,12 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <div class="inc-banner" style="background:linear-gradient(135deg,var(--rd),#C0392B)">
     <div class="hero-ov"></div>
     <div class="ib-ov">
+      <div class="ib-left">
       <div class="ib-sub">This Month's Expenses</div>
       <div class="ib-val" id="exp-banner-val">R1 043 320</div>
       <div><span class="ib-chg" style="background:rgba(255,255,255,.2)">↑ 9% vs last month</span></div>
+      </div>
+      <div class="ib-worth" id="exp-worth" style="display:none"></div>
     </div>
   </div>
 
@@ -4372,9 +4401,12 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div class="chart-totals" id="exp-totals" style="grid-template-columns:repeat(3,1fr)"></div>
     </div>
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="chart-title" style="margin:0">Expenses by Category</div>
-        <span style="font-size:11px;color:var(--t3);font-weight:600" id="exp-bycat-period">Last 6 Months</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+        <div class="chart-title" style="margin:0" id="exp-bd-title">Expenses by Category</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:11px;color:var(--t3);font-weight:600" id="exp-bycat-period">Last 6 Months</span>
+          <div class="ie-seg" id="exp-seg-wrap"><button id="exp-seg-cat" class="on" onclick="ieSetView('expense','cat')">Whole farm</button><button id="exp-seg-ent" onclick="ieSetView('expense','ent')">By enterprise</button></div>
+        </div>
       </div>
       <div style="display:flex;align-items:center;gap:16px">
         <div style="position:relative;width:130px;height:130px;flex-shrink:0"><canvas id="expDonut"></canvas></div>
@@ -4382,6 +4414,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div style="color:var(--t4);font-size:12px;text-align:center;padding:16px">Loading...</div>
         </div>
       </div>
+      <div id="exp-ent-nudge"></div>
     </div>
   </div>
 
@@ -10409,7 +10442,9 @@ var prevInc  = Rp.income  - R.income;
   setEl('inc-chg-best', bm.label || '\u2014');
 
 filterIncomeTx && filterIncomeTx();
+  _ieSetupToggle && _ieSetupToggle('income');
   renderIncBySource && renderIncBySource();
+  _ieRenderWorth && _ieRenderWorth('income');
 }
 function updateExpPage() {
   var p  = ST.expPeriod || '6';
@@ -10473,7 +10508,9 @@ var expCats = {};
   setEl('exp-metric-halbl',  lbl + ' · ' + ha.toLocaleString('en-ZA') + ' ha');
 
   filterExpTx && filterExpTx();
+  _ieSetupToggle && _ieSetupToggle('expense');
   renderExpByCat && renderExpByCat();
+  _ieRenderWorth && _ieRenderWorth('expense');
 }
 
 function renderIncBySourcePeriod(months) {
@@ -10486,6 +10523,9 @@ renderIncBySource && renderIncBySource();
 // ============================================================
 function renderExpByCat() {
   var el = $('exp-by-cat'); if (!el) return;
+  if(typeof IE_VIEW!=='undefined' && IE_VIEW.expense==='ent'){ ieRenderEnterprise('expense'); return; }
+  setEl('exp-bd-title','Expenses by Category');
+  var _expNu=$('exp-ent-nudge'); if(_expNu) _expNu.innerHTML='';
 
 var COLORS = (typeof EXP_CAT_COLORS !== 'undefined' && EXP_CAT_COLORS) ? EXP_CAT_COLORS : {};
   var FALLBACK = ['#EF4444','#2D6A4F','#F5A623','#3B82F6','#9CA3AF','#7C3AED','#0891B2','#D97706','#EA580C','#6B7280','#9333EA','#64748B'];
@@ -10566,6 +10606,191 @@ var canvas = $('expDonut');
       }
     });
   }
+}
+
+// ============================================================
+// Income/Expenses insight strip (A) + enterprise breakdown toggle (B)
+// Both derive entirely from ST.txns + enterprise tags already captured — no new
+// data entry. Insights are always framed on the CURRENT month/season, regardless
+// of the chart period pill; the enterprise breakdown follows the donut's period.
+// ============================================================
+var IE_VIEW = {income:'cat', expense:'cat'};
+var IE_ENT_COLORS = ['#1B4332','#2D6A4F','#40916C','#74A892','#8FBF9F','#A7C957','#C4B454','#D8B26E'];
+var _IE_MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var _IE_MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+
+function _ieK(n){ n=Math.round(Math.abs(n));
+  if(n>=1e6){ var m=n/1e6; return 'R'+(m>=10?m.toFixed(1):m.toFixed(2)).replace(/\.?0+$/,'')+'m'; }
+  if(n>=1000){ return 'R'+Math.round(n/1000)+'k'; }
+  return 'R'+n; }
+function _ieLabelOf(t){ var d=parseDate(t.date); if(!d) return ''; return _IE_MO[d.m]+' '+d.y; }
+function _ieShiftLabel(label, deltaMonths){ var p=String(label).split(' '); var mo=_IE_MN[p[0]]; var y=parseInt(p[1],10);
+  if(mo===undefined||isNaN(y)) return label; var tot=mo+deltaMonths; var ny=y+Math.floor(tot/12); var nm=((tot%12)+12)%12; return _IE_MO[nm]+' '+ny; }
+function _ieCats(label, type){ var o={}; (ST.txns||[]).forEach(function(t){ if(t.type!==type) return; if(_ieLabelOf(t)!==label) return; o[t.cat]=(o[t.cat]||0)+t.amt; }); return o; }
+function _ieTotal(label, type){ var s=0; (ST.txns||[]).forEach(function(t){ if(t.type!==type) return; if(_ieLabelOf(t)!==label) return; s+=t.amt; }); return s; }
+function _ieNowFY(){ var pl=(currentPeriodLabel()).split(' '); var fyStart=(ST.fyStartMonth||3)-1;
+  var nowM=_IE_MN[pl[0]]!==undefined?_IE_MN[pl[0]]:4, nowY=parseInt(pl[1],10)||2024;
+  return {fyStart:fyStart, nowM:nowM, nowY:nowY, curFY:(nowM>=fyStart)?nowY:nowY-1, elapsed:((nowM-fyStart)%12+12)%12}; }
+function _ieSeasonToDate(offsetYears, type){ var f=_ieNowFY(); var targetFY=f.curFY-offsetYears, s=0;
+  (ST.txns||[]).forEach(function(t){ if(t.type!==type) return; var d=parseDate(t.date); if(!d) return;
+    var fyY=(d.m>=f.fyStart)?d.y:d.y-1; if(fyY!==targetFY) return; var idx=((d.m-f.fyStart)%12+12)%12; if(idx>f.elapsed) return; s+=t.amt; });
+  return s; }
+function _ieInCurFY(t){ var f=_ieNowFY(); var d=parseDate(t.date); if(!d) return false; var fyY=(d.m>=f.fyStart)?d.y:d.y-1; return fyY===f.curFY; }
+function _ieCatIcon(cat){ var c=String(cat||'').toLowerCase();
+  if(/fuel|diesel|oil/.test(c)) return '⛽';
+  if(/fertilis|seed|planting/.test(c)) return '🌱';
+  if(/feed|vet|animal|livestock/.test(c)) return '🐄';
+  if(/labour|wage/.test(c)) return '👷';
+  if(/machin|repair/.test(c)) return '🔧';
+  if(/water|irrig/.test(c)) return '💧';
+  if(/crop protec|herbic|pestic|insur/.test(c)) return '🛡️';
+  return '📊'; }
+function _ieShort(str){ str=String(str||''); return str.length>30?str.slice(0,28)+'…':str; }
+function _ieEntSize(code){ if(!code) return '';
+  var m=/^crop:(.+)$/.exec(code); if(m){ var ha=0; ((typeof ST_CROP!=='undefined'&&ST_CROP&&ST_CROP.lands)||[]).forEach(function(l){ if(l.crop===m[1]) ha+=(l.area||0); }); return ha>0?(Math.round(ha)+' ha'):''; }
+  var l2=/^ls:(.+)$/.exec(code); if(l2){ var h=((typeof ST_LS!=='undefined'&&ST_LS&&ST_LS.herd)||[]).filter(function(x){return String(x.id)===l2[1];})[0]; return (h&&h.qty)?(h.qty+' head'):''; }
+  var o=/^or:(.+)$/.exec(code); if(o){ var b=((typeof ST_FRUIT!=='undefined'&&ST_FRUIT&&ST_FRUIT.blocks)||[]).filter(function(x){return String(x.id)===o[1];})[0]; return (b&&b.ha)?(b.ha+' ha'):''; }
+  return ''; }
+
+// ── The insight engine: up to 3 farming-aware, plain-language insights ──
+function ieInsights(kind){
+  var type=kind, out=[];
+  var cur=currentPeriodLabel();
+  var curTotal=_ieTotal(cur, type);
+  if(curTotal<=0) return out;
+  var lyLabel=_ieShiftLabel(cur, -12), lyTotal=_ieTotal(lyLabel, type), haveLY=lyTotal>0;
+  var curCats=_ieCats(cur, type);
+
+  // 1) INCOME — biggest single sale this season
+  if(type==='income'){
+    var big=null; (ST.txns||[]).forEach(function(t){ if(t.type==='income' && _ieInCurFY(t) && (!big||t.amt>big.amt)) big=t; });
+    if(big && big.amt>0){
+      out.push({type:'pace', icon:'🌾',
+        text:'Your <b>biggest sale this season</b> — <span class="fig">'+_ieK(big.amt)+'</span>'+(big.desc?' ('+esc(_ieShort(big.desc))+')':'')+'.',
+        basis:'largest sale this season'});
+    }
+  }
+
+  // 2) Biggest mover — vs same month last year, else vs 3-month average
+  var mover=null, moverBasis='';
+  if(haveLY){
+    var lyCats=_ieCats(lyLabel, type);
+    Object.keys(curCats).forEach(function(cat){ var delta=(curCats[cat]||0)-(lyCats[cat]||0); if(delta>0 && (!mover||delta>mover.delta)) mover={cat:cat, delta:delta, amt:curCats[cat]}; });
+    moverBasis='vs same month last year';
+    if(mover){ var base=(lyCats[mover.cat]||0); if(!(mover.delta>=5000 && (base===0||mover.delta/base>=0.15))) mover=null; else mover.base=base; }
+  } else {
+    var avg={}; for(var k=1;k<=3;k++){ var cc=_ieCats(_ieShiftLabel(cur,-k), type); Object.keys(cc).forEach(function(c){ avg[c]=(avg[c]||0)+cc[c]/3; }); }
+    Object.keys(curCats).forEach(function(cat){ var delta=(curCats[cat]||0)-(avg[cat]||0); if(delta>0 && (!mover||delta>mover.delta)) mover={cat:cat, delta:delta, amt:curCats[cat]}; });
+    moverBasis='vs your 3-month average';
+    if(mover){ var base2=(avg[mover.cat]||0); if(!(mover.delta>=5000 && (base2===0||mover.delta/base2>=0.15))) mover=null; else mover.base=base2; }
+  }
+  if(mover){ var _mtext;
+    if((mover.base||0)>0){ _mtext=esc(mover.cat)+' is your <b>biggest jump</b> — <span class="fig">'+_ieK(mover.amt)+'</span>, up <span class="fig">'+_ieK(mover.delta)+'</span>.'; }
+    else { _mtext=esc(mover.cat)+' is <b>new this month</b> — <span class="fig">'+_ieK(mover.amt)+'</span>, nothing '+(moverBasis.indexOf('year')>=0?'in the same month last year':'in your recent months')+'.'; }
+    out.push({type:'mover', icon:_ieCatIcon(mover.cat), text:_mtext, basis:moverBasis}); }
+
+  // 3) EXPENSE — seasonal-normal context, DYNAMIC to the farm's own spend pattern:
+  //    surface whichever recurring cost group is a big share NOW and was a big share
+  //    the same month LAST YEAR (proves a real seasonal peak, not an anomaly). Crop
+  //    farms trip the fertiliser/seed group, livestock farms the feed/health group,
+  //    and anything else falls back to its own dominant recurring category.
+  if(type==='expense' && haveLY){
+    var lyCats2=_ieCats(lyLabel, type);
+    function _grpShare(cats,total,re){ var s=0; Object.keys(cats).forEach(function(c){ if(re.test(String(c).toLowerCase())) s+=cats[c]; }); return total>0?s/total:0; }
+    var _SEASGRP=[
+      {re:/fertilis|seed|planting|crop protec/, icon:'🌱', label:'fertiliser &amp; seed'},
+      {re:/feed|vet|lick|dip|\bdos|animal health/, icon:'🐄', label:'feed &amp; animal health'}
+    ];
+    var _best=null;
+    _SEASGRP.forEach(function(g){ var shN=_grpShare(curCats,curTotal,g.re), shL=_grpShare(lyCats2,lyTotal,g.re);
+      if(shN>=0.30 && shL>=0.25 && (!_best||shN>_best.shN)) _best={icon:g.icon, label:g.label, shN:shN}; });
+    if(_best){ out.push({type:'season', icon:_best.icon,
+      text:'Spend is high, but <b>normal for this month</b> — '+_best.label+' are <span class="fig">'+Math.round(_best.shN*100)+'%</span> of it, just as a year ago.', basis:'seasonal pattern'}); }
+  }
+
+  // 4) Season-to-date pace vs last season
+  var std=_ieSeasonToDate(0, type), stdLast=_ieSeasonToDate(1, type);
+  if(stdLast>0){ var pctp=Math.round((std-stdLast)/stdLast*100);
+    if(Math.abs(pctp)<=200){ var dir=pctp>=0?'above':'below';
+      out.push({type:'pace', icon:'📊',
+        text:'Season-to-date '+(type==='income'?'income is ':'you’ve spent ')+'<span class="fig">'+_ieK(std)+'</span>, tracking <span class="fig">'+Math.abs(pctp)+'%</span> '+dir+' last season.', basis:'season-to-date vs last season'}); } }
+
+  // 5) INCOME — enterprise spread (diversification), counted over the season
+  if(type==='income'){ var seen={}; (ST.txns||[]).forEach(function(t){ if(t.type==='income' && t.ent && _ieInCurFY(t)) seen[t.ent]=1; });
+    var nEnt=0; for(var kk in seen){ if(seen.hasOwnProperty(kk)) nEnt++; }
+    if(nEnt>=2){ out.push({type:'season', icon:'🐄', text:'Your income <b>isn’t leaning on one enterprise</b> — it’s spread across '+nEnt+' this season.', basis:'spread across enterprises'}); } }
+
+  return out.slice(0,3);
+}
+
+function _ieRenderWorth(kind){
+  var el=$(kind==='income'?'inc-worth':'exp-worth'); if(!el) return;
+  var ins=[]; try{ ins=ieInsights(kind); }catch(e){ ins=[]; }
+  if(!ins.length){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='';
+  el.innerHTML='<div class="wh">Worth knowing</div>'+ins.map(function(d){
+    return '<div class="ib-wrow"><span class="wi">'+d.icon+'</span><span class="wt">'+d.text+'</span></div>'; }).join('');
+}
+
+// ── Enterprise re-aggregation (B): honest shared-vs-untagged split ──
+function ieByEnterprise(kind){
+  var type=kind;
+  var n=parseInt((kind==='income'?(ST.incPeriod||'6'):(ST.expPeriod||'6')),10)||6;
+  var pp=(currentPeriodLabel()).split(' '); var cm=_IE_MN[pp[0]]!==undefined?_IE_MN[pp[0]]:4, cy=parseInt(pp[1],10)||2024;
+  var pm=[]; for(var i=n-1;i>=0;i--){ var mo=((cm-i)%12+12)%12; var yr=cy+Math.floor((cm-i)/12); if(cm-i<0) yr=cy-1; pm.push(_IE_MO[mo]+' '+yr); }
+  var g={}, order=[], shared=0, untag=0;
+  (ST.txns||[]).forEach(function(t){ if(t.type!==type) return; var d=parseDate(t.date); if(!d) return;
+    if(pm.indexOf(_IE_MO[d.m]+' '+d.y)<0) return;
+    if(t.ent){ if(g[t.ent]===undefined){ g[t.ent]=0; order.push(t.ent); } g[t.ent]+=t.amt; }
+    else if(typeof entKindForCat==='function' && entKindForCat(t.cat)){ untag+=t.amt; }
+    else { shared+=t.amt; } });
+  var rows=order.map(function(code){ var r=(typeof entResolve==='function'&&entResolve(code))||{label:code,icon:''}; return {code:code, label:r.label, icon:r.icon, size:_ieEntSize(code), amt:g[code], special:null}; });
+  rows.sort(function(a,b){ return b.amt-a.amt; });
+  rows.forEach(function(r,i){ r.color=IE_ENT_COLORS[i%IE_ENT_COLORS.length]; });
+  if(shared>0) rows.push({code:'__shared__', label:'Shared / whole farm', icon:'🏡', size:'', amt:shared, special:'shared', color:'#9CB4A6'});
+  if(untag>0) rows.push({code:'__untag__', label:'Not tagged yet', icon:'🏷️', size:'taggable — needs sorting', amt:untag, special:'untag', color:'#E0A82E'});
+  var total=rows.reduce(function(s,r){return s+r.amt;},0);
+  return {rows:rows, total:total, untagTotal:untag, sharedTotal:shared};
+}
+
+function ieRenderEnterprise(kind){
+  var cfg = kind==='income'
+    ? {el:'inc-by-source', canvas:'incSourceDonut', chart:'incSrc', title:'inc-bd-title', titleTxt:'Income by Enterprise', nudge:'inc-ent-nudge', word:'sale'}
+    : {el:'exp-by-cat', canvas:'expDonut', chart:'expD', title:'exp-bd-title', titleTxt:'Expenses by Enterprise', nudge:'exp-ent-nudge', word:'cost'};
+  var el=$(cfg.el); if(!el) return;
+  setEl(cfg.title, cfg.titleTxt);
+  var agg=ieByEnterprise(kind), total=agg.total;
+  var nu=$(cfg.nudge);
+  if(!agg.rows.length || total<=0){
+    el.innerHTML='<div style="color:var(--t4);font-size:13px;text-align:center;padding:20px 0">Nothing recorded in this period.</div>';
+    if($(cfg.canvas)) destroyChart(cfg.chart); if(nu) nu.innerHTML=''; return;
+  }
+  el.innerHTML=agg.rows.map(function(r){ var pct=total>0?Math.round(r.amt/total*100):0;
+    var lblStyle=r.special==='untag'?'color:var(--am)':'';
+    return '<div class="rl-row"><div class="rl-left"><div class="leg-dot" style="background:'+r.color+';border-radius:3px;width:12px;height:12px"></div><span style="'+lblStyle+'">'+esc(r.label)+(r.size?' <span style="color:var(--t4);font-size:11px">· '+esc(r.size)+'</span>':'')+'</span></div><div><strong>'+fmt(r.amt)+'</strong> <span style="font-size:11px;color:var(--t3)">'+pct+'%</span></div></div>'; }).join('');
+  var canvas=$(cfg.canvas);
+  if(canvas && typeof Chart!=='undefined'){ try{ destroyChart(cfg.chart); ST.charts[cfg.chart]=new Chart(canvas,{type:'doughnut',data:{datasets:[{data:agg.rows.map(function(r){return r.amt;}),backgroundColor:agg.rows.map(function(r){return r.color;}),borderWidth:0,cutout:'72%'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}}); }catch(e){} }
+  if(nu){ if(agg.untagTotal>0){
+      nu.innerHTML='<div class="ie-nudge" onclick="nav(\'transactions\')"><div class="ni">🏷️</div><div class="nt"><b>'+fmt(agg.untagTotal)+'</b> is taggable but not linked to a crop or herd yet — shown above so the total still adds up. <b>Tap to sort it.</b></div><div class="ng">Sort ›</div></div>';
+    } else {
+      nu.innerHTML='<div class="ie-nudge ok"><div class="ni">✅</div><div class="nt">Every '+cfg.word+' this period is tagged to an enterprise — nothing to sort.</div></div>'; } }
+}
+
+function _ieSetupToggle(kind){
+  var pre=kind==='income'?'inc':'exp';
+  var hasEnt=false; try{ hasEnt=(typeof entList==='function') && entList().length>0; }catch(e){}
+  if(!hasEnt && IE_VIEW[kind]==='ent') IE_VIEW[kind]='cat';
+  var wrap=$(pre+'-seg-wrap'), bc=$(pre+'-seg-cat'), be=$(pre+'-seg-ent');
+  if(wrap) wrap.style.display=hasEnt?'':'none';
+  if(bc) bc.className=(IE_VIEW[kind]==='cat'?'on':'');
+  if(be) be.className=(IE_VIEW[kind]==='ent'?'on':'');
+}
+function ieSetView(kind, mode){
+  IE_VIEW[kind]=mode;
+  var pre=kind==='income'?'inc':'exp';
+  var bc=$(pre+'-seg-cat'), be=$(pre+'-seg-ent');
+  if(bc) bc.className=(mode==='cat'?'on':''); if(be) be.className=(mode==='ent'?'on':'');
+  if(kind==='income') renderIncBySource(); else renderExpByCat();
 }
 
 function setIncPeriod(p) {
@@ -25048,6 +25273,9 @@ function mktDetailBackdrop(e){ if(e && e.target && e.target.id==='mkt-detail-mod
 // ── Income by source (income page — donut chart) ─────────────
 function renderIncBySource() {
   var el = $('inc-by-source'); if (!el) return;
+  if(typeof IE_VIEW!=='undefined' && IE_VIEW.income==='ent'){ ieRenderEnterprise('income'); return; }
+  setEl('inc-bd-title','Income by Source');
+  var _incNu=$('inc-ent-nudge'); if(_incNu) _incNu.innerHTML='';
 
   var INC_COLORS = ['#1B4332','#D97706','#3B82F6','#7C3AED','#0891B2','#059669','#9CA3AF'];
 
