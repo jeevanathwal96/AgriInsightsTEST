@@ -4259,7 +4259,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div><label>Payment Method</label><select id="ai-method"><option>Bank Deposit</option><option>Cash</option><option>EFT</option></select></div>
           <div><label>Reference / Notes (optional)</label><input id="ai-ref" placeholder="Invoice number or notes"/></div>
         </div>
-        <div style="margin-bottom:12px"><label>For which enterprise? (optional)</label><select id="ai-ent"><option value="">Whole farm</option></select><div style="font-size:11px;color:var(--t4);margin-top:4px">Leave on &ldquo;Whole farm&rdquo; for general income. <span style="color:var(--gm);cursor:pointer;font-weight:700" onclick="nav('livestock')">Other animals not listed? Add them in Livestock first.</span></div></div>
+        <div style="margin-bottom:12px"><label>For which enterprise? (optional) <span id="ai-ent-badge" style="display:none"></span></label><select id="ai-ent" onchange="ST._aiEntManual=true;_entBadgeSet('ai-ent-badge','none')"><option value="">Whole farm</option></select><div id="ai-ent-hint" style="font-size:11px;color:var(--t4);margin-top:4px">Leave on &ldquo;Whole farm&rdquo; for general income. <span style="color:var(--gm);cursor:pointer;font-weight:700" onclick="nav('livestock')">Other animals not listed? Add them in Livestock first.</span></div></div>
         <div class="form-step">5. Attach document (optional)</div>
         <div id="ai-upload" class="upload-zone" onclick="document.getElementById('ai-file').click()" ondragover="dzOver(event,'ai-upload')" ondragleave="dzLeave('ai-upload')" ondrop="dzDrop(event,'ai-file','ai-upload','ai-preview')">
           <input type="file" id="ai-file" accept="image/*,.pdf" style="display:none" onchange="dzSelect(this,'ai-upload','ai-preview')"/>
@@ -4456,7 +4456,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <div class="form-step">2. Expense details</div>
         <div class="fg2"><div><label>Description</label><input id="ae-desc" placeholder="e.g. Urea Fertiliser (2 ton)" oninput="updateExpSummary()"/></div><div><label>Date Paid</label><input id="ae-date" type="date" oninput="updateExpSummary()"/></div></div>
         <div style="margin-bottom:12px"><label>Supplier / Payee (optional)</label><input id="ae-supplier" placeholder="Supplier name"/></div>
-        <div style="margin-bottom:12px"><label>For which enterprise? (optional)</label><select id="ae-ent"><option value="">Whole farm</option></select><div style="font-size:11px;color:var(--t4);margin-top:4px">Leave on &ldquo;Whole farm&rdquo; for shared costs like diesel. <span style="color:var(--gm);cursor:pointer;font-weight:700" onclick="nav('livestock')">Other animals not listed? Add them in Livestock first.</span></div></div>
+        <div style="margin-bottom:12px"><label>For which enterprise? (optional) <span id="ae-ent-badge" style="display:none"></span></label><select id="ae-ent" onchange="ST._aeEntManual=true;_entBadgeSet('ae-ent-badge','none')"><option value="">Whole farm</option></select><div id="ae-ent-hint" style="font-size:11px;color:var(--t4);margin-top:4px">Leave on &ldquo;Whole farm&rdquo; for shared costs like diesel. <span style="color:var(--gm);cursor:pointer;font-weight:700" onclick="nav('livestock')">Other animals not listed? Add them in Livestock first.</span></div></div>
         <div class="fg3">
           <div><label>Amount (R)</label><input id="ae-amount" type="number" placeholder="0" oninput="updateExpSummary();if(typeof aeCoopImpact==='function')aeCoopImpact()"/></div>
           <div><label>Quantity (optional)</label><input id="ae-qty" type="number" placeholder="Qty"/></div>
@@ -4726,7 +4726,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
   </div>
 
-  <div class="acc-card" id="bank-pack" style="margin-top:14px;background:#F0FAF4;border:1px solid #B7E4C7;cursor:pointer" onclick="laOpenEntry()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();laOpenEntry();}">
+  <div class="acc-card collapsible" id="bank-pack" style="margin-top:14px;background:#F0FAF4;border:1px solid #B7E4C7;cursor:pointer" onclick="laOpenEntry()" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();laOpenEntry();}">
     <div class="acc-card-hdr" style="cursor:pointer">
       <div style="width:38px;height:38px;border-radius:9px;background:#1B4332;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none">🏦</div>
       <div style="flex:1"><div style="font-size:14px;font-weight:800;color:#1B4332">Bankability Report</div><div style="font-size:11.5px;color:#6B7280;margin-top:2px">For a loan application · debt cover, collateral &amp; track record · ready for the bank</div></div>
@@ -5199,7 +5199,13 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 .la-cf-seas .cl{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--t4);margin-bottom:4px}
 .la-cf-seas .la-cf-in{max-width:none}
 .la-cf-note{font-size:11px;color:var(--t3);line-height:1.55;background:var(--br2);border-radius:10px;padding:11px 13px}
+.la-cf-ta{width:100%;font-family:var(--fn);font-size:12.5px;border:1.5px solid var(--br);border-radius:9px;padding:9px 11px;outline:none;resize:vertical;min-height:52px}
+.la-cf-ta:focus{border-color:var(--gl);box-shadow:0 0 0 3px rgba(64,145,108,.14)}
+.la-cf-row2{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:9px}
 .la-cf-note b{color:var(--t1)}
+.la-cf-warn{display:flex;gap:8px;align-items:flex-start;background:var(--ap);border:1px solid #F3D9A6;border-radius:9px;padding:9px 11px;margin-top:10px;font-size:11px;color:#7a4a10;line-height:1.5}
+.la-cf-warn svg{flex:none;margin-top:1px}
+.la-cf-warn b{color:#7a4a10;font-weight:800}
 </style>
 <div class="imp-bg" id="la-cf-bg" onclick="laCFBackdrop(event)">
   <div class="la-sheet" onclick="event.stopPropagation()">
@@ -9074,6 +9080,9 @@ function _pfTaggedLabourTotal(){
   try{ if(typeof _pfOrchardEnts==='function') _pfOrchardEnts().forEach(function(e){ t+=wkEnterpriseLabour('or:'+e.id); }); }catch(e){}
   return Math.round(t);
 }
+// Sum of real EXPENSE transactions tagged to an enterprise (excludes labour — that is added via wkEnterpriseLabour).
+function entTaggedCost(code){ if(!code) return 0; var t=0; try{ (ST.txns||[]).forEach(function(x){ if(x && x.ent===code && x.type==='expense' && x.cat!=='Labour & Wages' && x.cat!=='Labour'){ t+=x.amt||0; } }); }catch(e){} return Math.round(t); }
+function _pfSrcBadge(pct){ pct=pct||0; if(pct>=66) return '<span class="pf-src real">Real costs</span>'; if(pct>0) return '<span class="pf-src part">Part real</span>'; return '<span class="pf-src budget">Budget cost</span>'; }
 function _pfCropEnts(){
   if(typeof entOn==="function" && !entOn("crops")) return [];
   var by={},order=[];
@@ -9081,17 +9090,24 @@ function _pfCropEnts(){
     if(!l.crop) return; if(l.stage==='planned'||l.stage==='fallow') return;
     var price=(ST_CROP.prices&&ST_CROP.prices[l.crop])||0;
     var yld=l.actualYield||l.targetYield||0, area=l.area||0;
-    if(!by[l.crop]){ by[l.crop]={crop:l.crop,area:0,tons:0,income:0,cost:0,price:price}; order.push(l.crop); }
-    var e=by[l.crop]; e.area+=area; e.tons+=area*yld; e.income+=area*yld*price; e.cost+=area*(l.inputPerHa||0);
+    if(!by[l.crop]){ by[l.crop]={crop:l.crop,area:0,tons:0,income:0,cost:0,budgetCost:0,price:price}; order.push(l.crop); }
+    var e=by[l.crop]; e.area+=area; e.tons+=area*yld; e.income+=area*yld*price; e.budgetCost+=area*(l.inputPerHa||0);
   });
-  return order.map(function(c){ var e=by[c]; e.labour=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('crop:'+c):0; e.cost+=e.labour; e.gm=e.income-e.cost; e.gmHa=e.area?Math.round(e.gm/e.area):0; e.cop=e.tons?Math.round(e.cost/e.tons):0; e.icon=_pfCropIcon(c); e.finance=(typeof LN_cropFinance==='function')?LN_cropFinance(c):0; return e; });
+  return order.map(function(c){ var e=by[c]; e.labour=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('crop:'+c):0; e.taggedCost=entTaggedCost('crop:'+c); var effInput=Math.max(e.taggedCost, e.budgetCost||0); e.sourcePct=(effInput>0)?Math.min(100,Math.round(e.taggedCost/effInput*100)):0; e.cost=effInput+e.labour; e.gm=e.income-e.cost; e.gmHa=e.area?Math.round(e.gm/e.area):0; e.cop=e.tons?Math.round(e.cost/e.tons):0; e.icon=_pfCropIcon(c); e.finance=(typeof LN_cropFinance==='function')?LN_cropFinance(c):0; return e; });
 }
 function _pfLiveEnts(){
   if(typeof entOn==="function" && !entOn("livestock")) return [];
   return (ST_LS&&ST_LS.herd||[]).filter(function(h){ return !h.planned && (h.qty||0)>0; }).map(function(h){
-    var costHead=(h.buy||0)+((h.feed||0)+(h.vet||0))*(h.months||0);
-    var marginHead=(h.sell||0)-costHead, lab=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('ls:'+h.id):0, gmProd=marginHead*(h.qty||0), gm=gmProd-lab, lsu=(h.qty||0)*_pfLsu(h.type||h.name||'');
-    return {id:h.id, name:h.name||h.type||'Herd', type:h.type||'', qty:h.qty||0, feed:h.feed||0, vet:h.vet||0, costHead:costHead, sellHead:h.sell||0, marginHead:marginHead, gm:gm, gmProd:gmProd, labour:lab, lsu:lsu, gmLsu:lsu?Math.round(gm/lsu):0, feed:h.feed||0, vet:h.vet||0, buy:h.buy||0, months:h.months||0, icon:_pfLiveIcon(h.type||h.name||''), finance:(typeof LN_liveFinance==='function')?LN_liveFinance(h.id):0};
+    var qty=h.qty||0;
+    var modelCost=((h.buy||0)+((h.feed||0)+(h.vet||0))*(h.months||0))*qty;
+    var taggedCost=entTaggedCost('ls:'+h.id);
+    var effCost=Math.max(taggedCost, modelCost);
+    var income=(h.sell||0)*qty;
+    var lab=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('ls:'+h.id):0;
+    var gmProd=income-effCost, gm=gmProd-lab;
+    var costHead=qty?Math.round(effCost/qty):0, marginHead=(h.sell||0)-costHead;
+    var lsu=qty*_pfLsu(h.type||h.name||''), sourcePct=(effCost>0)?Math.min(100,Math.round(taggedCost/effCost*100)):0;
+    return {id:h.id, name:h.name||h.type||'Herd', type:h.type||'', qty:qty, costHead:costHead, sellHead:h.sell||0, marginHead:marginHead, gm:gm, gmProd:gmProd, labour:lab, lsu:lsu, gmLsu:lsu?Math.round(gm/lsu):0, feed:h.feed||0, vet:h.vet||0, buy:h.buy||0, months:h.months||0, taggedCost:taggedCost, modelCost:modelCost, sourcePct:sourcePct, icon:_pfLiveIcon(h.type||h.name||''), finance:(typeof LN_liveFinance==='function')?LN_liveFinance(h.id):0};
   });
 }
 function _pfOverheads(){ var t=0; (ST.recurring||[]).forEach(function(r){ if(r.type!=='expense') return; if(r.category==='Loan Repayments') return; var a=r.amt||0; if(r.freq==='monthly') t+=a*12; else if(r.freq==='specific') t+=a*(((r.months||[]).length)||1); else if(r.freq==='annual'||r.freq==='yearly') t+=a; else t+=a*12; }); if(typeof LN_annualInterest==='function') t+=LN_annualInterest(); if(typeof _pfTaggedLabourTotal==='function') t-=_pfTaggedLabourTotal(); return Math.round(Math.max(0,t)); }
@@ -9765,7 +9781,7 @@ function renderProfit(){
   var totalGM=0; crops.forEach(function(c){totalGM+=c.gm;}); live.forEach(function(l){totalGM+=l.gm;}); orch.forEach(function(o){totalGM+=o.gm;});
   var profit=totalGM-overheads;
 
-  var html='<div class="pf-tabs">'+
+  var html='<style>.pf-src{display:inline-block;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 6px;border-radius:5px;margin-left:4px;vertical-align:middle}.pf-src.real{background:#EAF3E4;color:#2E7D4F}.pf-src.part{background:#FFF8E6;color:#B45309}.pf-src.budget{background:#F3F4F6;color:#6B7280}.pf-srcleg{font-size:10px;color:var(--t4);margin-top:8px;line-height:1.5}</style><div class="pf-tabs">'+
     '<button id="pf-tabbtn-glance" class="'+(PF_TAB==='glance'?'on':'')+'" onclick="pfTab(\'glance\')">At a glance</button>'+
     '<button id="pf-tabbtn-details" class="'+(PF_TAB==='details'?'on':'')+'" onclick="pfTab(\'details\')">Details</button>'+
     '<button id="pf-tabbtn-whatif" class="'+(PF_TAB==='whatif'?'on':'')+'" onclick="pfTab(\'whatif\')">What-if</button>'+
@@ -9787,17 +9803,17 @@ function renderProfit(){
   '</div>';
   if(sc.length){
     var cmax=Math.max.apply(null,sc.map(function(c){return c.gmHa;}).concat(1));
-    html+='<div class="pf-card"><div class="pf-ct">Which crop pays best?</div><div class="pf-cw">Gross margin per hectare \u2014 income minus the costs that belong to that crop.</div>';
+    html+='<div class="pf-card"><div class="pf-ct">Which crop pays best?</div><div class="pf-cw">Gross margin per hectare \u2014 income minus the costs that belong to that crop.</div><div class="pf-srcleg"><b style="color:#2E7D4F">Real costs</b> = built from actual spend you tagged to the crop · <b style="color:#6B7280">Budget cost</b> = from your planting budget until you tag real purchases.</div>';
     sc.forEach(function(c,ci){ var pct=Math.max(4,Math.round(c.gmHa/cmax*100)); var col=c.gmHa>=cmax*0.66?'#40916C':(c.gmHa>=cmax*0.4?'#E07B2A':'#C8962C');
-      html+='<div class="pf-bar tap" onclick="pfGo(\'crop\','+ci+')"><div class="pf-bh"><div class="n">'+c.icon+' '+esc(c.crop)+' <small style="color:var(--t4);font-weight:600;font-size:10.5px">\u00b7 '+c.area+' ha</small></div><div class="v">'+fmt(c.gmHa)+'<small>/ha</small> \u00b7 '+_pfK(c.gm)+' <span class="pf-chev">\u203A</span></div></div><div class="pf-tk"><div class="pf-fl" style="width:'+pct+'%;background:'+col+'"></div></div></div>';
+      html+='<div class="pf-bar tap" onclick="pfGo(\'crop\','+ci+')"><div class="pf-bh"><div class="n">'+c.icon+' '+esc(c.crop)+' <small style="color:var(--t4);font-weight:600;font-size:10.5px">\u00b7 '+c.area+' ha</small> '+_pfSrcBadge(c.sourcePct)+'</div><div class="v">'+fmt(c.gmHa)+'<small>/ha</small> \u00b7 '+_pfK(c.gm)+' <span class="pf-chev">\u203A</span></div></div><div class="pf-tk"><div class="pf-fl" style="width:'+pct+'%;background:'+col+'"></div></div></div>';
     });
     html+='<div class="pf-godrill">Tap a crop to see its details</div></div>';
   }
   if(sl.length){
     var lmax=Math.max.apply(null,sl.map(function(l){return l.gmLsu;}).concat(1));
-    html+='<div class="pf-card"><div class="pf-ct">Which herd pays best?</div><div class="pf-cw">Gross margin per grazing unit (LSU) \u2014 a fair way to compare cattle, sheep &amp; goats on the same veld.</div>';
+    html+='<div class="pf-card"><div class="pf-ct">Which herd pays best?</div><div class="pf-cw">Gross margin per grazing unit (LSU) \u2014 a fair way to compare cattle, sheep &amp; goats on the same veld.</div><div class="pf-srcleg"><b style="color:#2E7D4F">Real costs</b> = built from actual spend you tagged to the herd · <b style="color:#6B7280">Budget cost</b> = from the herd’s feed &amp; vet figures until you tag real bills.</div>';
     sl.forEach(function(l,ci){ var pct=Math.max(4,Math.round(l.gmLsu/lmax*100)); var col=l.gmLsu>=lmax*0.66?'#40916C':(l.gmLsu>=lmax*0.4?'#E07B2A':'#C8962C');
-      html+='<div class="pf-bar tap" onclick="pfGo(\'live\','+ci+')"><div class="pf-bh"><div class="n">'+l.icon+' '+esc(l.name)+' <small style="color:var(--t4);font-weight:600;font-size:10.5px">\u00b7 '+l.qty+' head</small></div><div class="v">'+fmt(l.gmLsu)+'<small>/LSU</small> \u00b7 '+_pfK(l.gm)+' <span class="pf-chev">\u203A</span></div></div><div class="pf-tk"><div class="pf-fl" style="width:'+pct+'%;background:'+col+'"></div></div></div>';
+      html+='<div class="pf-bar tap" onclick="pfGo(\'live\','+ci+')"><div class="pf-bh"><div class="n">'+l.icon+' '+esc(l.name)+' <small style="color:var(--t4);font-weight:600;font-size:10.5px">\u00b7 '+l.qty+' head</small> '+_pfSrcBadge(l.sourcePct)+'</div><div class="v">'+fmt(l.gmLsu)+'<small>/LSU</small> \u00b7 '+_pfK(l.gm)+' <span class="pf-chev">\u203A</span></div></div><div class="pf-tk"><div class="pf-fl" style="width:'+pct+'%;background:'+col+'"></div></div></div>';
     });
     html+='<div class="pf-note">LSU = one standard grazing animal (a 450 kg ox \u2248 1, a ewe \u2248 0.16).</div><div class="pf-godrill">Tap a herd to see its details</div></div>';
   }
@@ -11458,7 +11474,7 @@ function nav(id) {
     var spv=$('set-province'); if(spv && ST.province) spv.value = ST.province;
     if (typeof syncSettingsHeader==='function') syncSettingsHeader();
   }
-  if (id === 'add-income')  { var d=$('ai-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; var ie=$('ai-ent'); if(ie) ie.innerHTML=entOptions(''); }
+  if (id === 'add-income')  { var d=$('ai-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; var ie=$('ai-ent'); if(ie) ie.innerHTML=entOptions(''); ST._aiEntManual=false; if(typeof aiApplyEntDefault==='function') aiApplyEntDefault(ST.saleType||'Crops'); }
   if (id === 'add-expense') { var d=$('ae-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; }
   if (typeof langSync === 'function') langSync();
   }, 60);
@@ -11766,6 +11782,7 @@ var SALE_CFG = {
 function setSaleType(t) {
   ST.saleType = t;
   document.querySelectorAll('.tc[data-st]').forEach(function(c){ c.classList.toggle('on', c.dataset.st === t); });
+  if(typeof aiApplyEntDefault==='function') aiApplyEntDefault(t);
   var c = SALE_CFG[t] || SALE_CFG.Crops;
   var dl = $('ai-desc-lbl');    if (dl) dl.textContent = 'Description';
   var di = $('ai-desc');        if (di) { di.placeholder = c.desc; di.value = ''; }
@@ -12017,6 +12034,48 @@ function entResolve(code){
   for(var i=0;i<list.length;i++){ if(list[i].code===code) return list[i]; }
   return {code:code, label:'(removed)', kind:'', icon:''};   // record since deleted
 }
+// ── Smart enterprise defaults (Phase 1) ─────────────────────────────────────
+// A category is only auto-tagged when it's a strong signal for one kind of enterprise;
+// everything else stays "Whole farm". Single crop/herd -> auto; several -> best guess.
+function entKindForCat(cat){
+  if(!cat) return null; var c=String(cat).toLowerCase();
+  if(/fertilis|seed|crop protection|herbicid|pesticid|crop sale|^crops?$/.test(c)) return 'crop';
+  if(/vet|animal feed|livestock|\bfeed\b|\bdip\b|dos|lick/.test(c)) return 'herd';
+  if(/fruit|orchard/.test(c)) return 'orchard';
+  return null;
+}
+function entSmartDefault(cat){
+  var kind=entKindForCat(cat);
+  if(!kind) return {code:'', confident:true};
+  var items=[]; try{ items=entList().filter(function(e){return e.kind===kind;}); }catch(e){}
+  if(!items.length) return {code:'', confident:true};
+  if(items.length===1) return {code:items[0].code, confident:true};
+  var recent=null;
+  try{ var codes={}; items.forEach(function(e){codes[e.code]=1;});
+    var tx=(typeof ST!=='undefined'&&ST.txns)||[];
+    for(var i=0;i<tx.length;i++){ if(tx[i] && tx[i].ent && codes[tx[i].ent]){ recent=tx[i].ent; break; } } }catch(e){}
+  return {code:recent||items[0].code, confident:false};
+}
+function _entBadgeSet(badgeId, kind){
+  var b=document.getElementById(badgeId); if(!b) return;
+  if(kind==='auto'){ b.textContent='auto-selected'; b.style.cssText='display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;background:var(--gd);color:#fff;padding:2px 8px;border-radius:999px;margin-left:5px'; }
+  else if(kind==='guess'){ b.textContent='best guess — check it'; b.style.cssText='display:inline-block;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;background:var(--ap);color:var(--am);padding:2px 8px;border-radius:999px;margin-left:5px'; }
+  else { b.style.display='none'; b.textContent=''; }
+}
+function aeApplyEntDefault(cat){
+  var sel=$('ae-ent'); if(!sel) return;
+  if(sel.options.length<=1) sel.innerHTML=entOptions('');
+  if(ST._aeEntManual) return;
+  var d=entSmartDefault(cat); sel.value=d.code;
+  _entBadgeSet('ae-ent-badge', d.code? (d.confident?'auto':'guess') : 'none');
+}
+function aiApplyEntDefault(saleType){
+  var sel=$('ai-ent'); if(!sel) return;
+  if(sel.options.length<=1) sel.innerHTML=entOptions('');
+  if(ST._aiEntManual) return;
+  var d=entSmartDefault(saleType); sel.value=d.code;
+  _entBadgeSet('ai-ent-badge', d.code? (d.confident?'auto':'guess') : 'none');
+}
 function entOptions(sel){
   var list=entList();
   function grp(kind,label){
@@ -12039,13 +12098,14 @@ function aeFillEnt(){
   var sel=$('ae-ent'); if(!sel) return;
   sel.innerHTML=entOptions(''); sel.value='';
 }
-function openAddExpense() { nav('add-expense'); setTimeout(function(){ var d=$('ae-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; if(typeof setExpFreq==='function') setExpFreq('One-off'); aeFillEnt(); },80); }
+function openAddExpense() { nav('add-expense'); setTimeout(function(){ var d=$('ae-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; if(typeof setExpFreq==='function') setExpFreq('One-off'); ST._aeEntManual=false; aeFillEnt(); if(typeof aeApplyEntDefault==='function') aeApplyEntDefault(ST.expType||'Seeds & Planting'); },80); }
 
 function setExpType(t) {
   ST.expType = t;
   document.querySelectorAll('.tc[data-et]').forEach(function(c){ c.classList.toggle('on', c.dataset.et === t); });
   var ec = $('es-cat'); if (ec) ec.textContent = t;
   updateExpSummary();
+  if(typeof aeApplyEntDefault==='function') aeApplyEntDefault(t);
 }
 
 function setExpFreq(f) {
@@ -12539,7 +12599,7 @@ function laRenderStep3(){
     sp.innerHTML='<span class="si"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.4" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg></span><div><div class="st">Short by '+laR(-c.surplus)+' in year '+c.tightY+'</div><div class="ss">The bank would still say yes, but once tax and your family’s living come off, this season comes up short — you’d dip into savings or an overdraft to get through it. The options below can ease it.</div></div>'; }
 
   var sr=LA.rate+2, moS=laPmt(c.amount,sr,LA.term), totS=c.exist+moS*12, tightS=totS>0?Math.min(LA.y1,LA.y2,LA.y3)/totS:0;
-  document.getElementById('la-stress').innerHTML='<span class="xi"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1e5bb0" stroke-width="2.3" stroke-linecap="round"><path d="M12 2v6M12 22a8 8 0 108-8"/></svg></span><span class="xt"><b>If interest rates go up 2%</b> (to '+sr.toFixed(2).replace(/\.?0+$/,'')+'%), your leanest season would earn <b>R'+tightS.toFixed(2)+'</b> for every R1 the loans cost'+(tightS>=LA_DMIN?' — still above the R1.25 banks want. You’d cope with a rate rise.':' — just under the R1.25 banks want. Worth watching if rates climb.')+'</span>';
+  document.getElementById('la-stress').innerHTML='<span class="xi"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1e5bb0" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></span><span class="xt"><b>If interest rates go up 2%</b> (to '+sr.toFixed(2).replace(/\.?0+$/,'')+'%), your leanest season would earn <b>R'+tightS.toFixed(2)+'</b> for every R1 the loans cost'+(tightS>=LA_DMIN?' — still above the R1.25 banks want. You’d cope with a rate rise.':' — just under the R1.25 banks want. Worth watching if rates climb.')+'</span>';
 
   document.getElementById('la-hroom').textContent='about '+laM(c.ceiling);
   var lv=document.getElementById('la-levers'),lh='';
@@ -12604,6 +12664,7 @@ function laCFClose(){ var bg=document.getElementById('la-cf-bg'); if(bg) bg.clas
 function laCFBackdrop(ev){ if(ev&&ev.target&&ev.target.id==='la-cf-bg') laCFClose(); }
 function laCFVal(id){ var e=document.getElementById(id); return e?(parseFloat(String(e.value).replace(/[^0-9.]/g,''))||0):0; }
 function laCFGrp(el){ var v=(parseFloat(String(el.value).replace(/[^0-9.]/g,''))||0); el.value=v?_grpInt(v):''; }
+function laCFLWCheck(){ var ids=['la-cf-ownedha','la-cf-leasedha','la-cf-tenure','la-cf-water']; var any=ids.some(function(id){ var e=document.getElementById(id); return e && String(e.value||'').trim()!==''; }); var w=document.getElementById('la-cf-lw-warn'); if(w) w.style.display=any?'none':'flex'; }
 function laCFPersist(){
   var cash=laCFVal('la-cf-cash'); if(document.getElementById('la-cf-cash') && document.getElementById('la-cf-cash').value!=='') ST.bankBalance=cash;
   ST_LOANAPP.estimates=ST_LOANAPP.estimates||{};
@@ -12612,12 +12673,17 @@ function laCFPersist(){
   ST_LOANAPP.track=ST_LOANAPP.track||{};
   ST_LOANAPP.track.back1={income:laCFVal('la-cf-b1i'),costs:laCFVal('la-cf-b1c')};
   ST_LOANAPP.track.back2={income:laCFVal('la-cf-b2i'),costs:laCFVal('la-cf-b2c')};
+  ST_LOANAPP.landWater=ST_LOANAPP.landWater||{};
+  ST_LOANAPP.landWater.ownedHa=laCFVal('la-cf-ownedha');
+  ST_LOANAPP.landWater.leasedHa=laCFVal('la-cf-leasedha');
+  var tenureEl=document.getElementById('la-cf-tenure'); if(tenureEl) ST_LOANAPP.landWater.tenure=tenureEl.value.trim();
+  var waterEl=document.getElementById('la-cf-water'); if(waterEl) ST_LOANAPP.landWater.water=waterEl.value.trim();
   try{ saveState&&saveState(); }catch(e){}
 }
 function laCFBuild(){ laCFPersist(); laCFClose(); laShowReport(LA_REPORT_LOAN); }
 function laRenderCheckFigures(){
   var body=document.getElementById('la-cf-body'); if(!body) return;
-  var est=(ST_LOANAPP.estimates)||{}, tr=(ST_LOANAPP.track)||{};
+  var est=(ST_LOANAPP.estimates)||{}, tr=(ST_LOANAPP.track)||{}, lw=(ST_LOANAPP.landWater)||{};
   var cash=(typeof ST!=='undefined'&&typeof ST.bankBalance==='number')?ST.bankBalance:'';
   var b1=tr.back1||{}, b2=tr.back2||{};
   // pre-fill past seasons from records where available
@@ -12636,6 +12702,13 @@ function laRenderCheckFigures(){
         '<div class="la-cf-seas"><div class="la-cf-sc"><div class="cl">Year before — income</div><div class="la-cf-in"><span>R</span><input id="la-cf-b2i" inputmode="numeric" value="'+v(b2i)+'" onblur="laCFGrp(this)"></div></div>'+
         '<div class="la-cf-sc"><div class="cl">Year before — costs</div><div class="la-cf-in"><span>R</span><input id="la-cf-b2c" inputmode="numeric" value="'+v(b2c)+'" onblur="laCFGrp(this)"></div></div></div>'+
       '</div></div>'+
+      '<div class="la-cf-item"><div class="la-cf-lbl">Land &amp; water rights <span class="la-cf-opt">a lender always asks for this</span></div><div class="la-cf-sub">The app can\'t verify title deeds or water licenses — this is what you tell your lender directly. Leave blank to skip this section in the report.</div>'+
+        '<div class="la-cf-row2"><div><div class="cl" style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--t4);margin-bottom:4px">Land you own (ha)</div><div class="la-cf-in"><input id="la-cf-ownedha" inputmode="numeric" value="'+v(lw.ownedHa!=null?lw.ownedHa:((typeof FARM!=='undefined'&&FARM.ha>0)?FARM.ha:''))+'" placeholder="0" onblur="laCFGrp(this);laCFLWCheck()"></div></div>'+
+        '<div><div class="cl" style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--t4);margin-bottom:4px">Land you lease (ha)</div><div class="la-cf-in"><input id="la-cf-leasedha" inputmode="numeric" value="'+v(lw.leasedHa||'')+'" placeholder="0" onblur="laCFGrp(this);laCFLWCheck()"></div></div></div>'+
+        '<div style="margin-bottom:9px"><div class="cl" style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--t4);margin-bottom:4px">Tenure details</div><textarea class="la-cf-ta" id="la-cf-tenure" oninput="laCFLWCheck()" placeholder="Title deed number, portions, district...">'+esc(lw.tenure||'')+'</textarea></div>'+
+        '<div><div class="cl" style="font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--t4);margin-bottom:4px">Water rights</div><textarea class="la-cf-ta" id="la-cf-water" oninput="laCFLWCheck()" placeholder="e.g. Registered - 480 000 m\u00b3/yr, Wilge River scheme, or &#39;Rain-fed, no irrigation registration&#39;">'+esc(lw.water||'')+'</textarea></div>'+
+        '<div class="la-cf-warn" id="la-cf-lw-warn" style="display:'+((lw.ownedHa||lw.leasedHa||lw.tenure||lw.water)?'none':'flex')+'"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.3" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg><span>Left blank — <b>this section will be missing from your report</b>. That\'s fine if you\'d rather add it later, but a lender will likely ask for it.</span></div>'+
+      '</div>'+
     '<div class="la-cf-grp"><div class="la-cf-h est"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" stroke-width="2.3" stroke-linecap="round"><path d="M12 8v.5M12 11v5"/><circle cx="12" cy="12" r="9"/></svg>Please check these amounts</div>'+
       '<div class="la-cf-item"><div class="la-cf-lbl">Crops in the field, today’s value <span class="la-cf-opt">counts as an asset</span></div><div class="la-cf-in"><span>R</span><input id="la-cf-crops" inputmode="numeric" value="'+v(est.crops!=null?est.crops:(laCropValue()||''))+'" placeholder="0" onblur="laCFGrp(this)"></div></div>'+
       '<div class="la-cf-item"><div class="la-cf-lbl">Money owed to you <span class="la-cf-opt">grain not yet paid, co-op in credit</span></div><div class="la-cf-in"><span>R</span><input id="la-cf-debtors" inputmode="numeric" value="'+v(est.debtors||'')+'" placeholder="0" onblur="laCFGrp(this)"></div></div>'+
@@ -12675,204 +12748,302 @@ function laReportHTML(withLoan){
   var roa=totalAssets>0?Math.round(farmIncome/totalAssets*100):0;
 
   var H=[];
+  // ── professional-rework derived values ──
+  var fy=(typeof getCurrentFY==='function')?getCurrentFY():((new Date()).getFullYear());
+  var fyLabel=fy+'/'+String(fy+1).slice(-2), fyRange='1 Mar '+fy+' – 28 Feb '+(fy+1);
+  var debtAssetPct=totalAssets>0?Math.round(totalLiab/totalAssets*100):0;
+  var secCover=totalLiab>0?((al.net+herd)/totalLiab):null;
+  var LC=null; if(withLoan){ try{ LC=laComputeStored(); }catch(e){} }
+  var hasLoan = !!(withLoan && LC && LC.amount>0);
+  var cfMonths=[]; try{ cfMonths=buildCfForecast(12)||[]; }catch(e){}
+  var cfMin=null, cfMinName=''; cfMonths.forEach(function(m){ if(cfMin===null||m.balance<cfMin){ cfMin=m.balance; cfMinName=m.name||m.label||''; } });
+  var cfPositive=(cfMin===null)?true:(cfMin>=0);
+  // enterprise income (real revenue attribution — no tagging needed)
+  var entInc=[];
+  try{ (_pfCropEnts()||[]).forEach(function(e){ if(e.income>0) entInc.push({label:e.crop, size:(e.area||0)+' ha', income:Math.round(e.income)}); }); }catch(e){}
+  try{ (_pfLiveEnts()||[]).forEach(function(l){ var inc=(l.sellHead||0)*(l.qty||0); if(inc>0) entInc.push({label:l.name, size:(l.qty||0)+' head', income:Math.round(inc)}); }); }catch(e){}
+  try{ (_pfOrchardEnts()||[]).forEach(function(o){ if((o.moneyBack||0)>0) entInc.push({label:o.name, size:(o.area||0)+' ha', income:Math.round(o.moneyBack)}); }); }catch(e){}
+  entInc.sort(function(a,b){return b.income-a.income;});
+  var entTotal=entInc.reduce(function(a,x){return a+x.income;},0);
+
   H.push('<style>'+
     '.lar{font-family:'+"'Plus Jakarta Sans',system-ui,sans-serif"+';color:#111827}'+
-    '.lar-hd{background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;padding:22px 26px;border-radius:14px;margin-bottom:20px}'+
-    '.lar-hd .k{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.6)}'+
-    '.lar-hd .t{font-size:22px;font-weight:800;margin:6px 0 5px}'+
-    '.lar-hd .m{font-size:11.5px;color:rgba(255,255,255,.82);line-height:1.6}'+
-    '.lar-sec{margin-bottom:24px}'+
-    '.lar-sh{display:flex;align-items:center;gap:8px;margin-bottom:11px}'+
-    '.lar-sh .n{width:21px;height:21px;border-radius:6px;background:#1B4332;color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center}'+
-    '.lar-sh h3{font-size:14px;font-weight:800;margin:0}'+
-    '.lar-verdict{display:flex;gap:12px;align-items:center;background:#F0FAF4;border:1px solid #D8F3DC;border-radius:12px;padding:14px 16px;margin-bottom:16px}'+
-    '.lar-verdict.warn{background:#FFF8E6;border-color:#F3D9A6}'+
-    '.lar-verdict .ic{width:34px;height:34px;border-radius:10px;background:#1B4332;color:#fff;display:flex;align-items:center;justify-content:center;flex:none}'+
-    '.lar-verdict.warn .ic{background:#B45309}'+
-    '.lar-verdict .vt{font-size:14px;font-weight:800;color:#1B4332}.lar-verdict.warn .vt{color:#B45309}'+
-    '.lar-verdict .vs{font-size:11.5px;color:#2D6A4F;margin-top:2px;line-height:1.5}.lar-verdict.warn .vs{color:#7a4a10}'+
-    '.lar-tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:6px}'+
-    '.lar-tile{border:1px solid #E5E7EB;border-radius:11px;padding:12px 13px}'+
-    '.lar-tile .tl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#9CA3AF}'+
-    '.lar-tile .tv{font-family:Georgia,serif;font-size:22px;font-weight:700;margin-top:5px;color:#1B4332}'+
-    '.lar-tile .th{font-size:10px;color:#6B7280;margin-top:4px;line-height:1.4}'+
-    '.lar-tbl{width:100%;border-collapse:collapse;font-size:12px}'+
-    '.lar-tbl th{text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#9CA3AF;padding:8px 10px;border-bottom:1.5px solid #E5E7EB;background:#f9fafb;white-space:nowrap}'+
+    '.lar-hd{background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;padding:24px 30px;border-radius:14px;margin-bottom:22px}'+
+    '.lar-hd .k{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.6)}'+
+    '.lar-hd .t{font-size:23px;font-weight:800;margin:7px 0 4px;letter-spacing:-.01em}'+
+    '.lar-hd .sub{font-size:12px;color:rgba(255,255,255,.85)}'+
+    '.lar-hdm{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:16px;border-top:1px solid rgba(255,255,255,.15);padding-top:14px}'+
+    '.lar-hdm .mk{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.55)}'+
+    '.lar-hdm .mv{font-size:11px;font-weight:700;margin-top:3px;line-height:1.4}'+
+    '.lar-exec{border:1px solid #E5E7EB;border-radius:12px;overflow:hidden;margin-bottom:26px}'+
+    '.lar-exec-h{background:#f7f9f6;padding:9px 16px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#1B4332;border-bottom:1px solid #E5E7EB}'+
+    '.lar-exec-g{display:grid;grid-template-columns:repeat(4,1fr)}'+
+    '.lar-exec-c{padding:13px 16px;border-right:1px solid #F3F4F6;border-top:1px solid #F3F4F6}'+
+    '.lar-exec-c .l{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#9CA3AF}'+
+    '.lar-exec-c .v{font-family:Georgia,serif;font-size:18px;font-weight:700;color:#1B4332;margin-top:4px;line-height:1.05}'+
+    '.lar-exec-c .s{font-size:10px;color:#6B7280;margin-top:3px}'+
+    '.lar-sec{margin-bottom:26px}'+
+    '.lar-sh{display:flex;align-items:baseline;gap:9px;margin-bottom:2px}'+
+    '.lar-sh .n{font-size:11px;font-weight:800;color:#40916C;font-variant-numeric:tabular-nums}'+
+    '.lar-sh h3{font-size:15px;font-weight:800;margin:0}'+
+    '.lar-sub{font-size:11px;color:#9CA3AF;margin:0 0 12px;padding-left:20px;line-height:1.5}'+
+    '.lar-tbl{width:100%;border-collapse:collapse;font-size:12.5px}'+
+    '.lar-tbl th{text-align:right;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#9CA3AF;padding:8px 11px;border-bottom:1.5px solid #E5E7EB;white-space:nowrap}'+
     '.lar-tbl th:first-child{text-align:left}'+
-    '.lar-tbl td{padding:8px 10px;border-bottom:1px solid #F3F4F6;color:#374151;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}'+
+    '.lar-tbl td{padding:9px 11px;border-bottom:1px solid #F3F4F6;color:#374151;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}'+
     '.lar-tbl td:first-child{text-align:left;color:#111827}'+
-    '.lar-tbl tr.tot td{border-top:1.5px solid #E5E7EB;border-bottom:0;font-weight:800;background:#fbfcfb}'+
-    '.lar-tbl tr.now td{background:#F0FAF4;color:#1B4332}'+
-    '.lar-wrap{overflow-x:auto;border:1px solid #E5E7EB;border-radius:11px}'+
-    '.lar-bs{display:grid;grid-template-columns:1fr 1fr;gap:12px}'+
-    '.lar-net{margin-top:12px;background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;border-radius:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}'+
-    '.lar-net .nl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.65)}'+
-    '.lar-net .nv{font-family:Georgia,serif;font-size:26px;font-weight:700;line-height:1;margin-top:3px}'+
-    '.lar-net .nr{font-size:11px;color:rgba(255,255,255,.82);text-align:right;line-height:1.6}'+
-    '.lar-ratios{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}'+
-    '.lar-rt{border:1px solid #E5E7EB;border-radius:11px;padding:12px 14px}'+
-    '.lar-rt .rv{font-family:Georgia,serif;font-size:22px;font-weight:700;color:#1B4332}'+
-    '.lar-rt .rt2{font-size:12px;font-weight:800;margin-top:5px}'+
-    '.lar-rt .rs{font-size:10.5px;color:#6B7280;line-height:1.5;margin-top:2px}'+
+    '.lar-tbl td.l2{text-align:left;font-weight:600;color:#6B7280}'+
+    '.lar-tbl tr.tot td{border-top:1.5px solid #E5E7EB;border-bottom:0;font-weight:800;color:#111827}'+
+    '.lar-tbl tr.tot td.g{color:#1B4332}'+
+    '.lar-wrap{overflow-x:auto;border:1px solid #E5E7EB;border-radius:11px;margin-bottom:10px}'+
+    '.lar-note{font-size:11px;color:#6B7280;line-height:1.55;border-left:2px solid #D8F3DC;padding-left:11px;margin-top:2px}'+
+    '.lar-dl{display:grid;grid-template-columns:1fr 1fr;border:1px solid #E5E7EB;border-radius:11px;overflow:hidden;margin-bottom:10px}'+
+    '.lar-dl .r{padding:11px 14px;border-top:1px solid #F3F4F6;border-right:1px solid #F3F4F6}'+
+    '.lar-dl .r .k{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#9CA3AF}'+
+    '.lar-dl .r .v{font-size:12.5px;font-weight:700;color:#111827;margin-top:3px;line-height:1.4}'+
+    '.lar-bs{display:grid;grid-template-columns:1fr 1fr;gap:14px}'+
+    '.lar-net{margin-top:12px;border:1px solid #D8F3DC;background:#F0FAF4;border-radius:11px;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}'+
+    '.lar-net .nl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#2D6A4F}'+
+    '.lar-net .nv{font-family:Georgia,serif;font-size:24px;font-weight:700;color:#1B4332;line-height:1;margin-top:3px}'+
+    '.lar-net .nr{font-size:11px;color:#2D6A4F;text-align:right;line-height:1.6}'+
     '.lar-comp{display:grid;grid-template-columns:1fr 1fr;gap:9px}'+
-    '.lar-cr{display:flex;gap:9px;align-items:center;border:1px solid #E5E7EB;border-radius:10px;padding:10px 12px}'+
-    '.lar-cr .ci{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none}'+
-    '.lar-cr .ci.ok{background:#D8F3DC;color:#1B4332}.lar-cr .ci.na{background:#F3F4F6;color:#9CA3AF}'+
+    '.lar-cr{display:flex;gap:9px;align-items:center;border:1px solid #E5E7EB;border-radius:9px;padding:10px 12px}'+
+    '.lar-cr .ci{width:20px;height:20px;border-radius:5px;background:#F0FAF4;color:#1B4332;display:flex;align-items:center;justify-content:center;flex:none}'+
+    '.lar-cr .ci.wait{background:#FFF8E6;color:#B45309}'+
     '.lar-cr .ct{font-size:12px;font-weight:800}.lar-cr .cs{font-size:10.5px;color:#6B7280;margin-top:1px;line-height:1.4}'+
-    '.lar-foot{font-size:10px;color:#9CA3AF;line-height:1.6;border-top:1px solid #F3F4F6;padding-top:12px;margin-top:6px}'+
+    '.lar-docgrp{margin-bottom:12px}.lar-docgrp-h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#9CA3AF;margin-bottom:6px}'+
+    '.lar-docrow{display:flex;gap:9px;align-items:flex-start;padding:6px 0;border-top:1px solid #F3F4F6;font-size:12px;color:#374151;font-weight:600}'+
+    '.lar-docrow:first-child{border-top:0}.lar-doccb{width:15px;height:15px;border:1.5px solid #E5E7EB;border-radius:4px;flex:none;margin-top:1px}'+
+    '.lar-appx{border:1px solid #E5E7EB;border-radius:12px;background:#fff;margin-bottom:24px;overflow:hidden}'+
+    '.lar-appx summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:9px;padding:13px 16px}'+
+    '.lar-appx summary::-webkit-details-marker{display:none}'+
+    '.lar-appx .at{font-size:13px;font-weight:800;color:#111827}.lar-appx .as{font-size:10.5px;color:#6B7280;margin-top:1px}'+
+    '.lar-appx .achev{margin-left:auto;color:#9CA3AF;transition:transform .2s}.lar-appx[open] .achev{transform:rotate(180deg)}'+
+    '.lar-appx-body{padding:2px 16px 16px}.lar-appx-sub{margin-bottom:16px}'+
+    '.lar-appx-sh{font-size:11.5px;font-weight:800;color:#374151;margin-bottom:8px}'+
+    '.lar-foot{font-size:10px;color:#9CA3AF;line-height:1.6;border-top:1px solid #F3F4F6;padding-top:14px;margin-top:8px}'+
     '@media print{.lar-noprint{display:none!important}}'+
     '</style>');
 
   H.push('<div class="lar">');
-  // print bar
   H.push('<div class="lar-noprint" style="display:flex;gap:9px;margin-bottom:16px">'+
-    '<button onclick="laRepPrint()" style="flex:1;border:none;border-radius:10px;padding:12px;background:#1B4332;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">⬇ Print / Save as PDF</button>'+
+    '<button onclick="laRepPrint()" style="flex:1;border:none;border-radius:10px;padding:12px;background:#1B4332;color:#fff;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">Print / Save as PDF</button>'+
     '<button onclick="laRepClose()" style="border:1px solid #E5E7EB;border-radius:10px;padding:12px 16px;background:#fff;color:#6B7280;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">Close</button></div>');
 
-  // header
-  H.push('<div class="lar-hd"><div class="k">Bankability Report'+(withLoan?'':' · financial standing')+'</div>'+
+  // ── cover ──
+  H.push('<div class="lar-hd"><div class="k">Bankability Report'+(withLoan?' · prepared for a finance application':' · financial standing')+'</div>'+
     '<div class="t">'+esc(farm)+'</div>'+
-    '<div class="m">'+(owner?esc(owner)+' · ':'')+ent+' &nbsp;·&nbsp; prepared for a finance application &nbsp;·&nbsp; '+today+'</div></div>');
+    '<div class="sub">A credit-assessment summary compiled from the farm’s financial records.</div>'+
+    '<div class="lar-hdm">'+
+      '<div><div class="mk">Entity</div><div class="mv">'+ent+'</div></div>'+
+      '<div><div class="mk">Reporting period</div><div class="mv">'+fyLabel+' season<br>'+fyRange+'</div></div>'+
+      '<div><div class="mk">Prepared by</div><div class="mv">'+(owner?esc(owner):'The applicant')+'<br>via AgriInsights</div></div>'+
+      '<div><div class="mk">Date</div><div class="mv">'+today+'</div></div>'+
+    '</div></div>');
 
-  var secN=0;
-  function sec(title,sub){ secN++; return '<div class="lar-sh"><span class="n">'+secN+'</span><h3>'+title+'</h3></div>'; }
+  // ── executive summary (factual) ──
+  var execCells='';
+  if(hasLoan){ var dscrAfter=LC.totalAfter>0?(farmIncome/LC.totalAfter):0; execCells+='<div class="lar-exec-c"><div class="l">Facility requested</div><div class="v">'+laRR(LC.amount)+'</div><div class="s">'+LC.inp.term+'-year term</div></div>'+
+    '<div class="lar-exec-c"><div class="l">Debt service cover</div><div class="v">'+dscrAfter.toFixed(2)+'×</div><div class="s">after facility, current income</div></div>'; }
+  execCells+='<div class="lar-exec-c"><div class="l">Net worth</div><div class="v">'+laRR(netWorth)+'</div><div class="s">'+equityPct+'% equity</div></div>'+
+    '<div class="lar-exec-c"><div class="l">Cash-flow position</div><div class="v">'+(cfPositive?'Positive':'Shortfall')+'</div><div class="s">'+(cfPositive?'across the 12-month forecast':'in '+esc(cfMinName))+'</div></div>';
+  H.push('<div class="lar-exec"><div class="lar-exec-h">Summary of key figures</div><div class="lar-exec-g">'+execCells+'</div></div>');
 
-  // ── LOAN REQUEST + PRO-FORMA (only with loan) ──
-  if(withLoan){
-    var c=laComputeStored();
-    if(c.amount>0){
-      var comfy=c.tight>=1.5, ok=c.tight>=1.25;
-      H.push('<div class="lar-sec">'+sec('The finance request')+
-        '<div class="lar-verdict'+(ok?'':' warn')+'"><div class="ic">'+(ok?'✓':'!')+'</div><div>'+
-          '<div class="vt">'+(comfy?'Comfortably serviceable':(ok?'Serviceable':'Tight — see cover below'))+'</div>'+
-          '<div class="vs">Requesting <b>'+laRM(c.amount)+'</b> over '+c.inp.term+' years'+(c.inp.purpose?' for '+esc(c.inp.purpose.toLowerCase()):'')+'. Even the leanest of the next three seasons earns <b>R'+c.tight.toFixed(2)+'</b> for every R1 the loans cost.</div>'+
-        '</div></div>'+
-        '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Per year</th><th>Now</th><th>After this loan</th></tr></thead><tbody>'+
-          '<tr><td>Net farm income (before debt)</td><td>'+laRR(c.op)+'</td><td>'+laRR(c.op)+'</td></tr>'+
-          '<tr><td>Loan repayments</td><td>'+laRR(c.exist)+'</td><td>'+laRR(c.totalAfter)+'</td></tr>'+
-          '<tr class="tot"><td>Cover (per R1 of repayments)</td><td>R'+(c.exist>0?(c.op/c.exist).toFixed(2):'—')+'</td><td>R'+(c.totalAfter>0?(c.op/c.totalAfter).toFixed(2):'—')+'</td></tr>'+
-        '</tbody></table></div>'+
-        '<div class="lar-foot" style="border:0;padding-top:8px">Repayment estimated at '+c.rate+'% (SA prime '+laPrime()+'% + margin). Lenders look for at least R1.25 of income per R1 of repayments.</div>'+
-      '</div>');
-    }
+  var N=0;
+  function sh(title,sub){ N++; return '<div class="lar-sh"><span class="n">'+N+'.</span><h3>'+title+'</h3></div>'+(sub?'<div class="lar-sub">'+sub+'</div>':''); }
+
+  // 1. finance request
+  if(hasLoan){
+    var dscrNow=LC.exist>0?(farmIncome/LC.exist):0, dscrAf=LC.totalAfter>0?(farmIncome/LC.totalAfter):0;
+    H.push('<div class="lar-sec">'+sh('The finance request','What is being applied for, and the effect on debt serviceability.')+
+      '<div class="lar-dl">'+
+        '<div class="r"><div class="k">Amount requested</div><div class="v">'+laRR(LC.amount)+'</div></div>'+
+        '<div class="r"><div class="k">Term</div><div class="v">'+LC.inp.term+' years</div></div>'+
+        (LC.inp.purpose?'<div class="r" style="grid-column:1/-1"><div class="k">Purpose</div><div class="v">'+esc(LC.inp.purpose)+'</div></div>':'')+
+        '<div class="r" style="grid-column:1/-1"><div class="k">Indicative repayment</div><div class="v">'+laRR(LC.mo)+' / month at '+LC.rate+'% (prime + margin)</div></div>'+
+      '</div>'+
+      '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Per annum</th><th>Current</th><th>After facility</th></tr></thead><tbody>'+
+        '<tr><td>Net operating income (before debt)</td><td>'+laRR(farmIncome)+'</td><td>'+laRR(farmIncome)+'</td></tr>'+
+        '<tr><td>Annual debt service</td><td>'+laRR(LC.exist)+'</td><td>'+laRR(LC.totalAfter)+'</td></tr>'+
+        '<tr class="tot"><td>Debt service cover (DSCR)</td><td>'+dscrNow.toFixed(2)+'×</td><td class="g">'+dscrAf.toFixed(2)+'×</td></tr>'+
+      '</tbody></table></div>'+
+      '<div class="lar-note">Cover shown on current income only'+((LC.tight&&LC.tight>dscrAf)?'; with the income the facility is expected to generate, cover improves to '+LC.tight.toFixed(2)+'×':'')+'. Repayment estimated at prime + margin; the final rate is set by the lender. Lenders typically require a DSCR of at least 1.25×.</div>'+
+    '</div>');
   }
 
-  // ── EXISTING DEBT ──
+  // 2. existing debt
   var loans=(typeof ST_LOANS!=='undefined'&&ST_LOANS.loans)||[];
   if(loans.length || odUsed || coUsed){
     var rowsD=loans.map(function(l){
       var po=''; try{ var p=LN_payoff(l); po=(p&&p.amortises&&p.date)?p.date.toLocaleDateString('en-ZA',{month:'short',year:'numeric'}):(p&&!p.amortises?'—':''); }catch(e){}
-      return '<tr><td>'+esc(l.name||'Loan')+'</td><td style="text-align:left">'+esc(l.lender||'')+'</td><td>'+laRR(l.balance)+'</td><td>'+((l.rate||0))+'%</td><td>'+laRR(l.payment)+'</td><td style="text-align:left">'+po+'</td></tr>';
+      return '<tr><td>'+esc(l.name||'Loan')+'</td><td class="l2">'+esc(l.lender||'')+'</td><td>'+laRR(l.balance)+'</td><td>'+((l.rate||0).toFixed(2))+'%</td><td>'+laRR(l.payment)+'</td><td class="l2">'+po+'</td></tr>';
     }).join('');
-    if(odUsed) rowsD+='<tr><td>Overdraft</td><td style="text-align:left">Revolving</td><td>'+laRR(odUsed)+'</td><td>—</td><td>—</td><td style="text-align:left">Revolving</td></tr>';
-    if(coUsed) rowsD+='<tr><td>Co-op account</td><td style="text-align:left">Revolving</td><td>'+laRR(coUsed)+'</td><td>—</td><td>—</td><td style="text-align:left">Revolving</td></tr>';
+    if(odUsed) rowsD+='<tr><td>Production overdraft</td><td class="l2">Revolving</td><td>'+laRR(odUsed)+'</td><td>—</td><td>—</td><td class="l2">Revolving</td></tr>';
+    if(coUsed) rowsD+='<tr><td>Co-op account</td><td class="l2">Revolving</td><td>'+laRR(coUsed)+'</td><td>—</td><td>—</td><td class="l2">Revolving</td></tr>';
     var mp=0; try{ mp=LN_monthlyPay(); }catch(e){}
-    H.push('<div class="lar-sec">'+sec('Existing debt')+
-      '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Facility</th><th style="text-align:left">Lender</th><th>Balance</th><th>Rate</th><th>Monthly</th><th style="text-align:left">Paid off</th></tr></thead><tbody>'+rowsD+
-      '<tr class="tot"><td>Total debt</td><td></td><td>'+laRR(totalLiab)+'</td><td></td><td>'+laRR(mp)+'</td><td></td></tr>'+
-      '</tbody></table></div></div>');
+    H.push('<div class="lar-sec">'+sh('Existing debt &amp; facilities','Current borrowings, their cost and repayment terms.')+
+      '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Facility</th><th class="l2">Lender</th><th>Balance</th><th>Rate</th><th>Monthly</th><th class="l2">Settles</th></tr></thead><tbody>'+rowsD+
+      '<tr class="tot"><td>Total debt</td><td></td><td>'+laRR(totalLiab)+'</td><td></td><td>'+laRR(mp)+'</td><td></td></tr></tbody></table></div></div>');
   }
 
-  // ── CASH FLOW ──
-  try{
-    var months=(typeof buildCfForecast==='function')?buildCfForecast(12):[];
-    if(months && months.length){
-      var minB=months[0].balance, minI=0;
-      months.forEach(function(m,i){ if(m.balance<minB){ minB=m.balance; minI=i; } });
-      var cells=months.map(function(m){ return '<td>'+laRR(m.balance)+'</td>'; }).join('');
-      var heads=months.map(function(m){ return '<th>'+esc((m.name||m.label||'').slice(0,3))+'</th>'; }).join('');
-      H.push('<div class="lar-sec">'+sec('Cash through the year')+
-        '<div class="lar-verdict'+(minB<0?' warn':'')+'"><div class="ic">'+(minB<0?'!':'✓')+'</div><div>'+
-          '<div class="vt">'+(minB<0?'Cash runs short in '+esc(months[minI].name||'')+'':'Cash stays positive all year')+'</div>'+
-          '<div class="vs">Leanest month is <b>'+esc(months[minI].name||months[minI].label||'')+'</b> at about <b>'+laRR(minB)+'</b>. Opening balance '+laRR(cash)+'.</div></div></div>'+
-        '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Month</th>'+heads+'</tr></thead><tbody><tr><td>Cash on hand</td>'+cells+'</tr></tbody></table></div></div>');
-    }
-  }catch(e){}
+  // 3. cash flow forecast (12 months, R'000)
+  if(cfMonths.length){
+    var heads=cfMonths.map(function(m){ return '<th>'+esc((m.name||m.label||'').slice(0,3))+'</th>'; }).join('');
+    var cells=cfMonths.map(function(m){ return '<td>'+_grpInt(Math.round((m.balance||0)/1000))+'</td>'; }).join('');
+    H.push('<div class="lar-sec">'+sh('Cash flow forecast (12 months)','Projected closing cash on hand for each month of the season ahead.')+
+      '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Month</th>'+heads+'</tr></thead><tbody><tr><td>Closing cash (R’000)</td>'+cells+'</tr></tbody></table></div>'+
+      '<div class="lar-note">Opening balance '+laRR(cash)+'. Lowest projected month is '+esc(cfMinName)+' at approximately '+laRR(cfMin)+'; the forecast '+(cfPositive?'remains positive throughout the period':'shows a shortfall requiring bridging finance')+'.</div></div>');
+  }
 
-  // ── COLLATERAL ──
+  // 4. collateral & security
   var arows=al.rows.filter(function(r){ return !r.noAsset; }).map(function(r){ return '<tr><td>'+esc(r.cat)+'</td><td>'+laRR(r.val)+'</td><td>'+(r.owed?laRR(r.owed):'—')+'</td><td>'+laRR(r.eq)+'</td></tr>'; }).join('');
   var clsRows=Object.keys(classAgg).map(function(k){ var g=classAgg[k]; return {label:g.label||k, head:g.head||0, val:g.val||0}; }).filter(function(x){ return x.head>0; });
   if(arows || herd>0){
-    H.push('<div class="lar-sec">'+sec('Security behind the debt')+
-      '<div class="lar-wrap" style="margin-bottom:10px"><table class="lar-tbl"><thead><tr><th>Fixed assets</th><th>Value</th><th>Finance owed</th><th>Net equity</th></tr></thead><tbody>'+arows+
-        '<tr class="tot"><td>Fixed-asset equity</td><td>'+laRR(al.tV)+'</td><td>'+laRR(al.tO)+'</td><td>'+laRR(al.tV-al.tO)+'</td></tr>'+
-      '</tbody></table></div>');
+    H.push('<div class="lar-sec">'+sh('Collateral &amp; security','Fixed assets and livestock available as security, net of existing finance.')+
+      '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Fixed assets</th><th>Value</th><th>Finance owed</th><th>Net equity</th></tr></thead><tbody>'+arows+
+        '<tr class="tot"><td>Fixed-asset equity</td><td>'+laRR(al.tV)+'</td><td>'+laRR(al.tO)+'</td><td class="g">'+laRR(al.tV-al.tO)+'</td></tr></tbody></table></div>');
     if(herd>0){
       var lr=clsRows.map(function(x){ return '<tr><td>'+esc(x.label)+'</td><td>'+x.head+'</td><td>'+laRR(x.val)+'</td></tr>'; }).join('');
       H.push('<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Livestock (year-end value)</th><th>Head</th><th>Value</th></tr></thead><tbody>'+lr+
-        '<tr class="tot"><td>Herd value</td><td>'+herdHead+'</td><td>'+laRR(herd)+'</td></tr></tbody></table></div>');
+        '<tr class="tot"><td>Herd value</td><td>'+herdHead+'</td><td class="g">'+laRR(herd)+'</td></tr></tbody></table></div>');
     }
+    if(secCover!=null) H.push('<div class="lar-note">Total security available '+laRR(al.net+herd)+' against total debt of '+laRR(totalLiab)+' — a security cover of '+secCover.toFixed(2)+'×.</div>');
     H.push('</div>');
   }
 
-  // ── TRACK RECORD ──
+  // 5. track record
   (function(){
-    var tr=(ST_LOANAPP.track)||{};
-    var cols=[];
+    var tr=(ST_LOANAPP.track)||{}, cols=[];
     function pushCol(lbl, entered, off, now){
       if(entered && (entered.income||entered.costs)){ cols.push({lbl:lbl,inc:entered.income||0,cost:entered.costs||0,now:now}); return; }
       var t=null; try{ t=_taxFYProfit(off); }catch(e){}
       if(t && (t.income>0||now)){ cols.push({lbl:lbl,inc:t.income||0,cost:t.expenses||0,now:now}); }
     }
-    pushCol('Year before', tr.back2, -2, false);
-    pushCol('Last year', tr.back1, -1, false);
-    pushCol('This year', null, 0, true);
+    pushCol((fy-2)+'/'+String(fy-1).slice(-2), tr.back2, -2, false);
+    pushCol((fy-1)+'/'+String(fy).slice(-2), tr.back1, -1, false);
+    pushCol(fyLabel, null, 0, true);
     if(cols.length>=2){
-      var heads=cols.map(function(c){ return '<th'+(c.now?' style="color:#1B4332"':'')+'>'+c.lbl+'</th>'; }).join('');
-      var incR='<tr><td>Income</td>'+cols.map(function(c){ return '<td'+(c.now?' style="background:#F0FAF4;color:#1B4332"':'')+'>'+laRR(c.inc)+'</td>'; }).join('')+'</tr>';
-      var costR='<tr><td>Running costs</td>'+cols.map(function(c){ return '<td'+(c.now?' style="background:#F0FAF4;color:#1B4332"':'')+'>'+laRR(c.cost)+'</td>'; }).join('')+'</tr>';
-      var netR='<tr class="tot"><td>Net farm profit</td>'+cols.map(function(c){ return '<td'+(c.now?' style="background:#F0FAF4;color:#1B4332"':'')+'>'+laRR(c.inc-c.cost)+'</td>'; }).join('')+'</tr>';
+      var heads=cols.map(function(c){ return '<th>'+c.lbl+'</th>'; }).join('');
+      var incR='<tr><td>Gross income</td>'+cols.map(function(c){ return '<td>'+laRR(c.inc)+'</td>'; }).join('')+'</tr>';
+      var costR='<tr><td>Operating costs</td>'+cols.map(function(c){ return '<td>'+laRR(c.cost)+'</td>'; }).join('')+'</tr>';
+      var netR='<tr class="tot"><td>Net farm profit</td>'+cols.map(function(c){ return '<td'+(c.now?' class="g"':'')+'>'+laRR(c.inc-c.cost)+'</td>'; }).join('')+'</tr>';
       var avg=Math.round(cols.reduce(function(a,c){return a+(c.inc-c.cost);},0)/cols.length);
-      H.push('<div class="lar-sec">'+sec('Track record')+
+      H.push('<div class="lar-sec">'+sh('Track record','Recorded financial performance over the past three seasons.')+
         '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Per season</th>'+heads+'</tr></thead><tbody>'+incR+costR+netR+'</tbody></table></div>'+
-        '<div class="lar-foot" style="border:0;padding-top:8px">Net profit has averaged <b>'+laRR(avg)+' a year</b> across these seasons — the forecast is grounded in the record.</div></div>');
+        '<div class="lar-note">Net profit has averaged '+laRR(avg)+' per annum over these seasons; the current-year figure is consistent with the recorded trend.</div></div>');
     }
   })();
 
-  // ── BALANCE SHEET ──
-  H.push('<div class="lar-sec">'+sec('What the farm owns and owes')+
+  // 6. income by enterprise
+  if(entInc.length>=2 && entTotal>0){
+    var ir=entInc.map(function(x){ var pct=Math.round(x.income/entTotal*100); return '<tr><td>'+esc(x.label)+'</td><td class="l2">'+esc(x.size)+'</td><td>'+laRR(x.income)+'</td><td>'+pct+'%</td></tr>'; }).join('');
+    H.push('<div class="lar-sec">'+sh('Income by enterprise','Distribution of farm income across enterprises — a measure of concentration risk.')+
+      '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Enterprise</th><th class="l2">Size</th><th>Income</th><th>Share</th></tr></thead><tbody>'+ir+
+        '<tr class="tot"><td>Whole farm</td><td></td><td>'+laRR(entTotal)+'</td><td>100%</td></tr></tbody></table></div>'+
+      '<div class="lar-note">Income spread across '+entInc.length+' enterprises. Figures are attributed from recorded yields, prices and livestock values, and exclude one-off and non-farming income.</div></div>');
+  }
+
+  // 7. land & water rights
+  (function(){
+    var lw=(ST_LOANAPP.landWater)||{};
+    if(!(lw.ownedHa||lw.leasedHa||lw.tenure||lw.water)) return;
+    H.push('<div class="lar-sec">'+sh('Land &amp; water rights','Tenure and registered water use (applicant-provided; to be verified against source documents).')+
+      '<div class="lar-dl">'+
+        '<div class="r"><div class="k">Land owned</div><div class="v">'+(lw.ownedHa?_grpInt(lw.ownedHa)+' ha':'—')+(lw.tenure?' — '+esc(lw.tenure):'')+'</div></div>'+
+        '<div class="r"><div class="k">Land leased</div><div class="v">'+(lw.leasedHa?_grpInt(lw.leasedHa)+' ha':'None')+'</div></div>'+
+        '<div class="r" style="grid-column:1/-1"><div class="k">Registered water use</div><div class="v">'+(lw.water?esc(lw.water):'Not recorded')+'</div></div>'+
+      '</div>'+
+      '<div class="lar-note">Attach the title deed / lease and water use licence to the application (see documents checklist).</div></div>');
+  })();
+
+  // 8. statement of financial position
+  H.push('<div class="lar-sec">'+sh('Statement of financial position','Assets, liabilities and net worth as at the reporting date.')+
     '<div class="lar-bs">'+
-      '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>What you own</th><th>Value</th></tr></thead><tbody>'+
+      '<div class="lar-wrap" style="margin-bottom:0"><table class="lar-tbl"><thead><tr><th>Assets</th><th>Value</th></tr></thead><tbody>'+
         '<tr><td>Land, machinery &amp; equipment</td><td>'+laRR(fixedVal)+'</td></tr>'+
         (herd>0?'<tr><td>Livestock</td><td>'+laRR(herd)+'</td></tr>':'')+
         (crops>0?'<tr><td>Growing crops &amp; inputs</td><td>'+laRR(crops)+'</td></tr>':'')+
-        ((cash+debtors)>0?'<tr><td>Cash &amp; money owed to you</td><td>'+laRR(cash+debtors)+'</td></tr>':'')+
-        '<tr class="tot"><td>Total owned</td><td>'+laRR(totalAssets)+'</td></tr>'+
-      '</tbody></table></div>'+
-      '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>What you owe</th><th>Balance</th></tr></thead><tbody>'+
-        '<tr><td>Loans</td><td>'+laRR(totalLiab-shortLiab)+'</td></tr>'+
+        ((cash+debtors)>0?'<tr><td>Cash &amp; receivables</td><td>'+laRR(cash+debtors)+'</td></tr>':'')+
+        '<tr class="tot"><td>Total assets</td><td>'+laRR(totalAssets)+'</td></tr></tbody></table></div>'+
+      '<div class="lar-wrap" style="margin-bottom:0"><table class="lar-tbl"><thead><tr><th>Liabilities</th><th>Balance</th></tr></thead><tbody>'+
+        '<tr><td>Long-term loans</td><td>'+laRR(totalLiab-shortLiab)+'</td></tr>'+
         (shortLiab>0?'<tr><td>Overdraft &amp; co-op accounts</td><td>'+laRR(shortLiab)+'</td></tr>':'')+
-        '<tr class="tot"><td>Total owed</td><td>'+laRR(totalLiab)+'</td></tr>'+
-      '</tbody></table></div>'+
+        '<tr class="tot"><td>Total liabilities</td><td>'+laRR(totalLiab)+'</td></tr></tbody></table></div>'+
     '</div>'+
-    '<div class="lar-net"><div><div class="nl">What the farm is worth to you (net worth)</div><div class="nv">'+laRR(netWorth)+'</div></div>'+
-      '<div class="nr">Everything owned '+laRR(totalAssets)+'<br>less everything owed '+laRR(totalLiab)+'</div></div>'+
-  '</div>');
+    '<div class="lar-net"><div><div class="nl">Net worth (equity)</div><div class="nv">'+laRR(netWorth)+'</div></div>'+
+      '<div class="nr">Total assets '+laRR(totalAssets)+'<br>less total liabilities '+laRR(totalLiab)+'</div></div></div>');
 
-  // ── RATIOS ──
-  H.push('<div class="lar-sec">'+sec('The health checks a lender runs')+
-    '<div class="lar-ratios">'+
-      '<div class="lar-rt"><div class="rv">'+equityPct+'%</div><div class="rt2">How much of the farm you own</div><div class="rs">You owe about R'+(100-equityPct)+' for every R100 the farm is worth — most of it is yours.</div></div>'+
-      (currentRatio!=null?'<div class="lar-rt"><div class="rv">'+currentRatio.toFixed(1)+'</div><div class="rt2">Can you cover the year ahead</div><div class="rs">About R'+currentRatio.toFixed(2)+' of cash and near-cash for every R1 due soon.</div></div>':'')+
-      (intCover!=null?'<div class="lar-rt"><div class="rv">'+intCover.toFixed(1)+'×</div><div class="rt2">Income against interest</div><div class="rs">The farm earns about '+intCover.toFixed(1)+' times the interest it pays.</div></div>':'')+
-      '<div class="lar-rt"><div class="rv">'+roa+'%</div><div class="rt2">What the farm earns on its value</div><div class="rs">The farm returns about '+roa+'% a year on what it’s worth.</div></div>'+
-    '</div></div>');
+  // 9. financial ratios
+  var ratioRows='<tr><td>Equity ratio</td><td class="l2">Net worth ÷ total assets</td><td>'+equityPct+'%</td></tr>'+
+    '<tr><td>Debt-to-asset ratio</td><td class="l2">Total liabilities ÷ total assets</td><td>'+debtAssetPct+'%</td></tr>'+
+    (currentRatio!=null?'<tr><td>Current ratio</td><td class="l2">Current assets ÷ current liabilities</td><td>'+currentRatio.toFixed(1)+'</td></tr>':'')+
+    (intCover!=null?'<tr><td>Interest cover</td><td class="l2">Operating income ÷ interest</td><td>'+intCover.toFixed(1)+'×</td></tr>':'')+
+    '<tr><td>Return on assets</td><td class="l2">Operating income ÷ total assets</td><td>'+roa+'%</td></tr>';
+  H.push('<div class="lar-sec">'+sh('Financial ratios','Standard solvency, liquidity and return measures.')+
+    '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Ratio</th><th class="l2">Basis</th><th>Value</th></tr></thead><tbody>'+ratioRows+'</tbody></table></div></div>');
 
-  // ── SARS COMPLIANCE ──
+  // 10. SARS & compliance
   (function(){
     var items=[];
     var pe=null; try{ pe=taxProvEstimate(); }catch(e){}
-    if(pe){ items.push({ok:true,t:'Income tax on track',s:ent+' · provisional estimate '+laRR(pe.annualTax||0)+'/yr'+((pe.next&&pe.next.lbl)?' · next '+pe.next.lbl:'')}); }
+    if(pe){ items.push({ok:true,t:'Income tax',s:ent+' · provisional taxpayer · estimate '+laRR(pe.annualTax||0)+'/yr'}); }
     var vat=null; try{ vat=taxVatPosition(); }catch(e){}
-    if(vat){ items.push({ok:true,t:'VAT registered & current',s:'This cycle '+laRR(vat.owe)+' · filed on the VAT201'}); }
+    if(vat){ items.push({ok:true,t:'VAT',s:'Registered · current cycle '+laRR(vat.owe)+' · VAT201 filed'}); }
     var ws=null; try{ ws=taxWorkerSnapshot(); }catch(e){}
-    if(ws){ items.push({ok:ws.allOk,t:'Payroll'+(ws.allOk?' compliant':' — check wages'),s:ws.count+' worker'+(ws.count===1?'':'s')+(ws.allOk?' · all at or above minimum wage':' · some below minimum wage')+' · EMP201 monthly'}); }
-    items.push({ok:true,t:'Records kept in AgriInsights',s:'Bank-reconciled income, costs and assets'});
-    var cr=items.map(function(it){ return '<div class="lar-cr"><div class="ci '+(it.ok?'ok':'na')+'">'+(it.ok?'✓':'!')+'</div><div><div class="ct">'+it.t+'</div><div class="cs">'+it.s+'</div></div></div>'; }).join('');
-    H.push('<div class="lar-sec">'+sec('SARS & compliance')+'<div class="lar-comp">'+cr+'</div></div>');
+    if(ws){ items.push({ok:ws.allOk,t:'Payroll',s:ws.count+' worker'+(ws.count===1?'':'s')+(ws.allOk?' · at or above minimum wage':' · some below minimum wage')+' · EMP201 monthly'}); }
+    if(pe && pe.next && pe.next.lbl){ items.push({ok:false,t:'Provisional tax due',s:pe.next.per+' payment '+laRR(pe.provPayment||0)+' due '+pe.next.lbl}); }
+    var cr=items.map(function(it){ return '<div class="lar-cr"><div class="ci '+(it.ok?'':'wait')+'">'+(it.ok?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>':'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>')+'</div><div><div class="ct">'+it.t+'</div><div class="cs">'+it.s+'</div></div></div>'; }).join('');
+    if(items.length) H.push('<div class="lar-sec">'+sh('SARS &amp; compliance','Tax and statutory standing.')+'<div class="lar-comp">'+cr+'</div></div>');
   })();
 
-  H.push('<div class="lar-foot">Prepared from AgriInsights records on '+today+'. Figures are management estimates compiled to support a credit assessment — to be confirmed against audited financial statements and source documents. Not a guarantee of the farm’s financial position or a commitment to lend.</div>');
+  // 11. documents to attach
+  H.push('<div class="lar-sec">'+sh('Documents to attach','Supporting documents required by the lender, to accompany this report.')+
+    '<div class="lar-docgrp"><div class="lar-docgrp-h">Identity &amp; compliance</div>'+
+      '<div class="lar-docrow"><span class="lar-doccb"></span>Certified ID copies (all applicants / directors)</div>'+
+      '<div class="lar-docrow"><span class="lar-doccb"></span>SARS tax clearance certificate or TCS PIN</div>'+
+      '<div class="lar-docrow"><span class="lar-doccb"></span>ITC (credit bureau) clearance certificate</div></div>'+
+    '<div class="lar-docgrp"><div class="lar-docgrp-h">Land &amp; security</div>'+
+      '<div class="lar-docrow"><span class="lar-doccb"></span>Title deed or lease agreement</div>'+
+      '<div class="lar-docrow"><span class="lar-doccb"></span>Water use licence / rights documentation</div>'+
+      '<div class="lar-docrow"><span class="lar-doccb"></span>Insurance quotations for assets to be financed</div></div>'+
+    '<div class="lar-docgrp"><div class="lar-docgrp-h">Personal &amp; other</div>'+
+      '<div class="lar-docrow"><span class="lar-doccb"></span>Personal statement of assets &amp; liabilities (all sureties)</div>'+
+      '<div class="lar-docrow"><span class="lar-doccb"></span>Curriculum vitae / farming background</div></div></div>');
+
+  // 12. appendix (real detail)
+  (function(){
+    var appxParts=[];
+    if(loans.length){
+      var thisYr=(new Date()).getFullYear(), offsets=[1,2,3,5];
+      var rowsA=loans.map(function(l){
+        var p=null; try{ p=LN_payoff(l); }catch(e){}
+        var cells=offsets.map(function(off){ if(!p||!p.amortises||!p.yearEnds) return '<td>—</td>'; var ye=p.yearEnds.filter(function(x){return x.year===thisYr+off;})[0]; return '<td>'+(ye?laRR(ye.balance):(off===1&&p.months<12?'Settled':'—'))+'</td>'; }).join('');
+        var po='—'; try{ po=(p&&p.amortises&&p.date)?p.date.toLocaleDateString('en-ZA',{month:'short',year:'numeric'}):(p&&!p.amortises?'Not amortising':'—'); }catch(e){}
+        return '<tr><td>'+esc(l.name||'Loan')+'</td>'+cells+'<td class="l2">'+po+'</td></tr>';
+      }).join('');
+      appxParts.push('<div class="lar-appx-sub"><div class="lar-appx-sh">A · Loan amortisation — closing balance by year-end</div>'+
+        '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Facility</th><th>Year 1</th><th>Year 2</th><th>Year 3</th><th>Year 5</th><th class="l2">Settles</th></tr></thead><tbody>'+rowsA+'</tbody></table></div></div>');
+    }
+    if(cfMonths.length){
+      var rowsB=cfMonths.map(function(m){ var net=(m.income||0)-(m.expenses||0); return '<tr><td>'+esc(m.name||m.label||'')+'</td><td>'+laRR(m.income||0)+'</td><td>'+laRR(m.expenses||0)+'</td><td>'+laRR(net)+'</td><td>'+laRR(m.balance)+'</td></tr>'; }).join('');
+      appxParts.push('<div class="lar-appx-sub"><div class="lar-appx-sh">B · Monthly cash-flow detail</div>'+
+        '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Month</th><th>Income</th><th>Expenses</th><th>Net</th><th>Closing balance</th></tr></thead><tbody>'+rowsB+'</tbody></table></div></div>');
+    }
+    try{
+      var allA=(typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[];
+      if(allA.length){ var tV2=0,tO2=0;
+        var rowsC=allA.map(function(a){ var val=a.insuredValue||a.price||0, owed=0; try{ owed=assetOwed(a); }catch(e){} tV2+=val; tO2+=owed; return '<tr><td>'+esc(a.name||'Asset')+'</td><td class="l2">'+esc(a.cat||'')+'</td><td>'+laRR(val)+'</td><td>'+(owed?laRR(owed):'—')+'</td><td>'+laRR(val-owed)+'</td></tr>'; }).join('');
+        appxParts.push('<div class="lar-appx-sub"><div class="lar-appx-sh">C · Full asset register</div>'+
+          '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Asset</th><th class="l2">Category</th><th>Value</th><th>Finance owed</th><th>Net equity</th></tr></thead><tbody>'+rowsC+
+            '<tr class="tot"><td>Total</td><td></td><td>'+laRR(tV2)+'</td><td>'+laRR(tO2)+'</td><td class="g">'+laRR(tV2-tO2)+'</td></tr></tbody></table></div></div>');
+      }
+    }catch(e){}
+    if(appxParts.length){
+      H.push('<details class="lar-appx" open><summary><div><div class="at">Appendix — supporting detail</div><div class="as">Loan amortisation, monthly cash-flow detail, and the full itemised asset register</div></div><span class="achev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span></summary><div class="lar-appx-body">'+appxParts.join('')+'</div></details>');
+    }
+  })();
+
+  H.push('<div class="lar-foot">Prepared from AgriInsights records on '+today+' for the '+fyLabel+' financial year. Figures are management estimates compiled to support a credit assessment and should be confirmed against audited financial statements and source documents. This report is not a guarantee of the farm’s financial position or a commitment to lend.</div>');
   H.push('</div>');
   return H.join('');
 }
@@ -34351,6 +34522,7 @@ function bankRenderPreview(){
   var thBal = document.getElementById('bank-imp-th-bal'); if(thBal) thBal.style.display = hasBal ? '' : 'none';
   tbody.innerHTML = rows.map(function(r, i){
     var inc = r.type==='income';
+    if(r.ent===undefined){ var _ed=(typeof entSmartDefault==='function')?entSmartDefault(r.cat):{code:'',confident:true}; r.ent=_ed.code; r._entGuess=(_ed.code!==''&&!_ed.confident); }
     return '<tr id="bank-row-'+i+'" class="'+(r.include?'':'imp-skip')+'">' +
       '<td><input class="imp-prev-chk" type="checkbox" '+(r.include?'checked':'')+' onchange="bankToggleRow('+i+',this.checked)"/></td>' +
       '<td class="imp-date"><input class="imp-edit imp-edit-dt" value="'+bankEscAttr(r.date)+'" oninput="bankSetDate('+i+',this.value)"/></td>' +
@@ -34358,6 +34530,7 @@ function bankRenderPreview(){
       '<td><select onchange="bankSetCat('+i+',this.value)">' +
         cats.map(function(c){ return '<option '+(c===r.cat?'selected':'')+'>'+c+'</option>'; }).join('') +
       '</select></td>' +
+      '<td class="imp-ent-cell"><input type="checkbox" class="imp-entpick" '+(r._entSel?'checked':'')+' onchange="bankEntSelToggle('+i+',this.checked)"><select class="imp-entsel'+(r._entGuess?' guess':'')+'" onchange="bankSetEnt('+i+',this.value)">'+((typeof entOptions==='function')?entOptions(r.ent||''):'<option value="">Whole farm</option>')+'</select></td>' +
       '<td class="imp-amt-cell"><div class="imp-amt">' +
         '<button type="button" class="imp-sgn '+(inc?'in':'out')+'" onclick="bankFlipDir('+i+')" title="Tap to switch this row between money in and money out" aria-label="Toggle money in or out">'+(inc?'+':'\u2212')+'</button>' +
         '<input class="imp-num '+(inc?'in':'out')+'" inputmode="decimal" value="'+bankAmtGrouped(r.amt)+'" onfocus="bankAmtFocus('+i+',this)" oninput="bankSetAmt('+i+',this.value)" onblur="bankAmtBlur('+i+',this)"/>' +
@@ -34427,7 +34600,13 @@ function bankRecompute(){
   }
   bankRenderRecon(); bankUpdateSummary();
 }
-function bankSetCat(i, c){ BANK.parsed[i].cat = c; }
+function bankSetCat(i, c){ var r=BANK.parsed[i]; if(!r) return; r.cat = c; if(!r._entManual && typeof entSmartDefault==='function'){ var d=entSmartDefault(c); r.ent=d.code; r._entGuess=(d.code!==''&&!d.confident); bankRefreshEntCell(i); } }
+function bankSetEnt(i, v){ var r=BANK.parsed[i]; if(!r) return; r.ent=v; r._entManual=true; r._entGuess=false; var tr=document.getElementById('bank-row-'+i); if(tr){ var sel=tr.querySelector('.imp-entsel'); if(sel) sel.classList.remove('guess'); } }
+function bankRefreshEntCell(i){ var r=BANK.parsed[i], tr=document.getElementById('bank-row-'+i); if(!r||!tr) return; var sel=tr.querySelector('.imp-entsel'); if(sel){ sel.innerHTML=(typeof entOptions==='function')?entOptions(r.ent||''):''; sel.classList.toggle('guess', !!r._entGuess); } }
+function bankEntSelToggle(i,on){ var r=BANK.parsed[i]; if(r) r._entSel=on; var tr=document.getElementById('bank-row-'+i); if(tr) tr.classList.toggle('imp-entrow-sel',on); bankEntBulkBar(); }
+function bankEntSelAll(on){ (BANK.parsed||[]).forEach(function(r,i){ r._entSel=on; var cb=document.querySelector('#bank-row-'+i+' .imp-entpick'); if(cb) cb.checked=on; var tr=document.getElementById('bank-row-'+i); if(tr) tr.classList.toggle('imp-entrow-sel',on); }); var all=document.getElementById('bank-imp-entall'); if(all) all.checked=on; bankEntBulkBar(); }
+function bankEntBulkBar(){ var n=(BANK.parsed||[]).filter(function(r){return r._entSel;}).length; var bar=document.getElementById('bank-imp-entbulk'), lbl=document.getElementById('bank-imp-entbulk-lbl'), hint=document.getElementById('bank-imp-enttools-hint'); if(!bar) return; if(n>=1){ bar.style.display='flex'; if(hint) hint.style.display='none'; if(lbl) lbl.textContent=n+' selected'; var bs=document.getElementById('bank-imp-entbulk-sel'); if(bs && bs.options.length<=1 && typeof entOptions==='function') bs.innerHTML=entOptions(''); } else { bar.style.display='none'; if(hint) hint.style.display='block'; } }
+function bankEntBulkApply(){ var bs=document.getElementById('bank-imp-entbulk-sel'); var v=bs?bs.value:''; (BANK.parsed||[]).forEach(function(r,i){ if(r._entSel){ r.ent=v; r._entManual=true; r._entGuess=false; r._entSel=false; bankRefreshEntCell(i); var cb=document.querySelector('#bank-row-'+i+' .imp-entpick'); if(cb) cb.checked=false; var tr=document.getElementById('bank-row-'+i); if(tr) tr.classList.remove('imp-entrow-sel'); } }); var all=document.getElementById('bank-imp-entall'); if(all) all.checked=false; bankEntBulkBar(); }
 
 // ════════════════════════════════════════════════════════════════════
 //  IMPORT BATCHES — every import is one reversible, attributable batch.
@@ -34579,6 +34758,7 @@ function bankCommitImport(){
     if(impIsDuplicate(r.date, r.amt, r.desc)){ dupes++; return; }
     var t={ date: r.date, desc: r.desc, cat: r.cat, type: r.type, amt: r.amt,
       method: r.type === 'income' ? 'Bank Deposit' : 'Bank Debit', source:'Bank import' };
+    if(r.ent) t.ent=r.ent;
     ST.txns.unshift(t); added.push(t);
   });
   if(added.length){
@@ -36156,7 +36336,29 @@ function orExportPackout(){
         <div class="imp-step-hs">We've filled in each transaction for you. Tap any field to change it — and tap the green <b style="color:var(--gm)">+</b> or red <b style="color:var(--rd)">−</b> beside an amount to switch a row between <b>money in</b> and <b>money out</b>. Uncheck anything you don't want to import.</div>
         <div class="imp-recon" id="bank-imp-recon" style="display:none"></div>
         <div class="imp-summary" id="bank-imp-summary"></div>
-        <div class="imp-prev-wrap"><table class="imp-prev-tbl" id="bank-imp-tbl"><thead><tr><th style="width:24px"></th><th style="width:78px">Date</th><th>Description</th><th style="width:130px">Category</th><th style="width:132px;text-align:right">Amount</th><th id="bank-imp-th-bal" class="r" style="width:104px;text-align:right">Balance</th></tr></thead><tbody id="bank-imp-tbody"></tbody></table></div>
+        <style>
+        .imp-ent-cell{white-space:nowrap}.imp-entpick{margin-right:6px;vertical-align:middle}
+        .imp-entsel{font-size:11.5px;font-weight:700;padding:5px 6px;border:1.5px solid var(--br);border-radius:7px;background:#fff;max-width:150px;font-family:var(--fn)}
+        .imp-entsel.guess{border-color:var(--am);background:var(--ap)}
+        tr.imp-entrow-sel td{background:var(--gb)}
+        .imp-enttools{margin:2px 0 10px}
+        .imp-enttools-hint{font-size:11px;color:var(--t3);line-height:1.45}.imp-enttools-hint b{color:var(--gd)}
+        .imp-entbulk{display:flex;align-items:center;gap:9px;background:var(--gb);border:1px solid var(--gp);border-radius:10px;padding:8px 11px}
+        .imp-entbulk .lbl{font-size:12px;font-weight:800;color:var(--gd);white-space:nowrap}
+        .imp-entbulk select{flex:1;font-size:12px;font-weight:700;padding:6px 8px;border:1.5px solid var(--gp);border-radius:7px;background:#fff;font-family:var(--fn);min-width:0}
+        .imp-entbulk button{font-size:11.5px;font-weight:800;background:var(--gd);color:#fff;border:none;border-radius:7px;padding:7px 11px;cursor:pointer;font-family:var(--fn);white-space:nowrap}
+        .imp-entbulk button.ghost{background:#fff;color:var(--t3);border:1px solid var(--br)}
+        </style>
+        <div class="imp-enttools">
+          <div class="imp-enttools-hint" id="bank-imp-enttools-hint">Costs are auto-tagged to a crop or herd where we're confident — check the <b>Enterprise</b> column and change any that are wrong. Tick rows to change several at once.</div>
+          <div class="imp-entbulk" id="bank-imp-entbulk" style="display:none">
+            <span class="lbl" id="bank-imp-entbulk-lbl">0 selected</span>
+            <select id="bank-imp-entbulk-sel"><option value="">Whole farm</option></select>
+            <button type="button" onclick="bankEntBulkApply()">Apply to selected</button>
+            <button type="button" class="ghost" onclick="bankEntSelAll(false)">Clear</button>
+          </div>
+        </div>
+        <div class="imp-prev-wrap"><table class="imp-prev-tbl" id="bank-imp-tbl"><thead><tr><th style="width:24px"></th><th style="width:78px">Date</th><th>Description</th><th style="width:130px">Category</th><th style="width:172px">Enterprise <input type="checkbox" id="bank-imp-entall" onchange="bankEntSelAll(this.checked)" title="Select all rows" style="vertical-align:middle;margin-left:3px"></th><th style="width:132px;text-align:right">Amount</th><th id="bank-imp-th-bal" class="r" style="width:104px;text-align:right">Balance</th></tr></thead><tbody id="bank-imp-tbody"></tbody></table></div>
       </div>
     </div>
     <div class="imp-foot">
