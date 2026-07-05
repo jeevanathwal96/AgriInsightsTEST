@@ -903,6 +903,25 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 
 .sep{border:none;border-top:1px solid var(--br);margin:16px 0}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+/* consistent breakdown row: equal-height cells, donut+list fills the cell (B/companion) */
+.ie-brk{align-items:stretch}
+.ie-brk > .card{display:flex;flex-direction:column}
+.ie-bd-body{flex:1;display:flex;align-items:center;gap:16px}
+.ie-donutwrap{position:relative;flex-shrink:0;width:130px;height:130px}
+.ie-comp-sub{font-size:11.5px;color:var(--t3);margin:-2px 0 8px;line-height:1.4}
+.ie-comp-list{flex:1}
+.ie-comp-row{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--br2);cursor:pointer}
+.ie-comp-row:last-child{border:none}
+.ie-comp-badge{width:22px;height:22px;border-radius:7px;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+.ie-comp-badge.exp{background:var(--rp);color:var(--rd)}
+.ie-comp-badge.inc{background:var(--gb);color:var(--gm)}
+.ie-comp-mid{flex:1;min-width:0}
+.ie-comp-nm{font-size:12.5px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ie-comp-meta{font-size:10.5px;color:var(--t4);font-weight:600;margin-top:1px}
+.ie-comp-amt{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;flex:none}
+.ie-comp-amt.exp{color:var(--rd)}.ie-comp-amt.inc{color:var(--gm)}
+.ie-comp-foot{font-size:10.5px;color:var(--t4);margin-top:10px;line-height:1.5}
+.ie-comp-empty{color:var(--t4);font-size:12.5px;text-align:center;padding:22px 0}
 .sec-title{font-size:11px;font-weight:700;color:var(--t4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
 .add-btn-dash{border:1.5px dashed var(--br);border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;color:var(--t3);display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;width:100%;margin-top:7px;background:#fff;transition:all .15s}
 .add-btn-dash:hover{border-color:var(--gl);color:var(--gd);background:var(--gb)}
@@ -4188,7 +4207,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   </div>
     <div class="chart-totals" id="inc-totals" style="grid-template-columns:repeat(3,1fr)"></div>
   </div>
-  <div class="two-col" style="margin-bottom:18px">
+  <div class="two-col ie-brk" style="margin-bottom:18px">
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
         <div class="chart-title" style="margin:0" id="inc-bd-title">Income by Source</div>
@@ -4197,8 +4216,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div class="ie-seg" id="inc-seg-wrap"><button id="inc-seg-cat" class="on" onclick="ieSetView('income','cat')">Whole farm</button><button id="inc-seg-ent" onclick="ieSetView('income','ent')">By enterprise</button></div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:16px">
-        <div style="position:relative;width:130px;height:130px;flex-shrink:0"><canvas id="incSourceDonut"></canvas></div>
+      <div class="ie-bd-body">
+        <div class="ie-donutwrap" id="inc-donutwrap"><canvas id="incSourceDonut"></canvas></div>
         <div style="flex:1" id="inc-by-source">
           <div style="color:var(--t4);font-size:12px;text-align:center;padding:16px">Loading...</div>
         </div>
@@ -4206,8 +4225,13 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div id="inc-ent-nudge"></div>
     </div>
     <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:14px;font-weight:700">Recent Income</div><div class="view-all" style="margin:0" onclick="nav('transactions')">View all</div></div>
-      <div id="recent-income-list"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+        <div class="chart-title" style="margin:0" id="inc-comp-title">Biggest sales</div>
+        <div class="ie-seg"><button id="inc-comp-big" class="on" onclick="ieCompanionSetMode('income','big')">Biggest</button><button id="inc-comp-recent" onclick="ieCompanionSetMode('income','recent')">Recent</button></div>
+      </div>
+      <div class="ie-comp-sub" id="inc-comp-sub"></div>
+      <div class="ie-comp-list" id="inc-companion"></div>
+      <div class="ie-comp-foot" id="inc-comp-foot"></div>
     </div>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
@@ -4377,9 +4401,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="mc"><div class="mc-icon o"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="mc-lbl">Expenses per Hectare</div><div class="mc-val o" id="exp-metric-ha">—</div><div class="mc-chg" style="color:var(--t3)" id="exp-metric-halbl">—</div></div>
   </div>
 
-  <!-- CHART + DONUT -->
-  <div class="two-col" style="margin-bottom:18px">
-    <div class="chart-sec" style="margin:0">
+  <!-- CHART (full width) -->
+  <div class="chart-sec" style="margin:0 0 18px">
       <div class="chart-hdr">
         <div>
           <div class="chart-title" id="exp-chart-title">Expense Overview — Last 6 Months</div>
@@ -4399,7 +4422,9 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div id="exp-drawer"><div class="drawer-inner" id="exp-drawer-inner"></div></div>
     </div>
       <div class="chart-totals" id="exp-totals" style="grid-template-columns:repeat(3,1fr)"></div>
-    </div>
+  </div>
+  <!-- BREAKDOWN + COMPANION (equal-height two-col) -->
+  <div class="two-col ie-brk" style="margin-bottom:18px">
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
         <div class="chart-title" style="margin:0" id="exp-bd-title">Expenses by Category</div>
@@ -4408,13 +4433,22 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div class="ie-seg" id="exp-seg-wrap"><button id="exp-seg-cat" class="on" onclick="ieSetView('expense','cat')">Whole farm</button><button id="exp-seg-ent" onclick="ieSetView('expense','ent')">By enterprise</button></div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:16px">
-        <div style="position:relative;width:130px;height:130px;flex-shrink:0"><canvas id="expDonut"></canvas></div>
+      <div class="ie-bd-body">
+        <div class="ie-donutwrap" id="exp-donutwrap"><canvas id="expDonut"></canvas></div>
         <div style="flex:1" id="exp-by-cat">
           <div style="color:var(--t4);font-size:12px;text-align:center;padding:16px">Loading...</div>
         </div>
       </div>
       <div id="exp-ent-nudge"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+        <div class="chart-title" style="margin:0" id="exp-comp-title">Biggest expenses</div>
+        <div class="ie-seg"><button id="exp-comp-big" class="on" onclick="ieCompanionSetMode('expense','big')">Biggest</button><button id="exp-comp-recent" onclick="ieCompanionSetMode('expense','recent')">Recent</button></div>
+      </div>
+      <div class="ie-comp-sub" id="exp-comp-sub"></div>
+      <div class="ie-comp-list" id="exp-companion"></div>
+      <div class="ie-comp-foot" id="exp-comp-foot"></div>
     </div>
   </div>
 
@@ -10445,6 +10479,7 @@ filterIncomeTx && filterIncomeTx();
   _ieSetupToggle && _ieSetupToggle('income');
   renderIncBySource && renderIncBySource();
   _ieRenderWorth && _ieRenderWorth('income');
+  ieCompanion && ieCompanion('income');
 }
 function updateExpPage() {
   var p  = ST.expPeriod || '6';
@@ -10511,6 +10546,7 @@ var expCats = {};
   _ieSetupToggle && _ieSetupToggle('expense');
   renderExpByCat && renderExpByCat();
   _ieRenderWorth && _ieRenderWorth('expense');
+  ieCompanion && ieCompanion('expense');
 }
 
 function renderIncBySourcePeriod(months) {
@@ -10586,7 +10622,8 @@ el.innerHTML = sorted.map(function(cat, i) {
     '</div>';
   }).join('');
 
-var canvas = $('expDonut');
+_ieSizeDonut('expense', sorted.length);
+  var canvas = $('expDonut');
   if (canvas) {
     destroyChart('expD');
     ST.charts['expD'] = new Chart(canvas, {
@@ -10768,6 +10805,7 @@ function ieRenderEnterprise(kind){
   el.innerHTML=agg.rows.map(function(r){ var pct=total>0?Math.round(r.amt/total*100):0;
     var lblStyle=r.special==='untag'?'color:var(--am)':'';
     return '<div class="rl-row"><div class="rl-left"><div class="leg-dot" style="background:'+r.color+';border-radius:3px;width:12px;height:12px"></div><span style="'+lblStyle+'">'+esc(r.label)+(r.size?' <span style="color:var(--t4);font-size:11px">· '+esc(r.size)+'</span>':'')+'</span></div><div><strong>'+fmt(r.amt)+'</strong> <span style="font-size:11px;color:var(--t3)">'+pct+'%</span></div></div>'; }).join('');
+  _ieSizeDonut(kind, agg.rows.length);
   var canvas=$(cfg.canvas);
   if(canvas && typeof Chart!=='undefined'){ try{ destroyChart(cfg.chart); ST.charts[cfg.chart]=new Chart(canvas,{type:'doughnut',data:{datasets:[{data:agg.rows.map(function(r){return r.amt;}),backgroundColor:agg.rows.map(function(r){return r.color;}),borderWidth:0,cutout:'72%'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}}); }catch(e){} }
   if(nu){ if(agg.untagTotal>0){
@@ -10791,6 +10829,68 @@ function ieSetView(kind, mode){
   var bc=$(pre+'-seg-cat'), be=$(pre+'-seg-ent');
   if(bc) bc.className=(mode==='cat'?'on':''); if(be) be.className=(mode==='ent'?'on':'');
   if(kind==='income') renderIncBySource(); else renderExpByCat();
+}
+
+// ── Dynamic donut size: circle grows with the number of legend rows so the donut
+//    and list stay balanced and fill the (equal-height) breakdown card. 120–190px.
+function _ieSizeDonut(kind, rowCount){
+  var w=$( (kind==='income'?'inc':'exp') + '-donutwrap' ); if(!w) return;
+  var size=Math.max(120, Math.min(190, (rowCount||0)*37));
+  w.style.width=size+'px'; w.style.height=size+'px';
+  try{ var ch=ST.charts && ST.charts[kind==='income'?'incSrc':'expD']; if(ch && ch.resize) ch.resize(); }catch(e){}
+}
+
+// ── Companion tile (Biggest / Recent), consistent on both pages ──────────────
+function _ieCompMonths(kind){
+  var n=parseInt((kind==='income'?(ST.incPeriod||'6'):(ST.expPeriod||'6')),10)||6;
+  var pp=(currentPeriodLabel()).split(' '); var cm=_IE_MN[pp[0]]!==undefined?_IE_MN[pp[0]]:4, cy=parseInt(pp[1],10)||2024;
+  var pm=[]; for(var i=n-1;i>=0;i--){ var mo=((cm-i)%12+12)%12; var yr=cy+Math.floor((cm-i)/12); if(cm-i<0) yr=cy-1; pm.push(_IE_MO[mo]+' '+yr); }
+  return pm;
+}
+function _ieTopTxns(kind, mode, count){
+  var pm=_ieCompMonths(kind), out=[];
+  (ST.txns||[]).forEach(function(t,idx){
+    if(t.type!==kind) return; var d=parseDate(t.date); if(!d) return;
+    if(pm.indexOf(_IE_MO[d.m]+' '+d.y)<0) return;
+    out.push({t:t, idx:idx, key:d.y*10000+d.m*100+(d.d||1)});
+  });
+  if(mode==='recent') out.sort(function(a,b){ return b.key-a.key || a.idx-b.idx; });
+  else out.sort(function(a,b){ return (b.t.amt||0)-(a.t.amt||0); });
+  return out.slice(0,count||5);
+}
+function ieCompanion(kind){
+  var pre=kind==='income'?'inc':'exp';
+  var listEl=$(pre+'-companion'); if(!listEl) return;
+  if(!ST.ieTileMode) ST.ieTileMode={income:'big',expense:'big'};
+  var mode=ST.ieTileMode[kind]||'big';
+  var rows=_ieTopTxns(kind, mode, 5);
+  var noun=kind==='expense'?'expenses':'sales';
+  // header + copy
+  setEl(pre+'-comp-title', mode==='big' ? ('Biggest '+noun) : ('Recent '+(kind==='expense'?'expenses':'income')));
+  setEl(pre+'-comp-sub', mode==='big'
+    ? ('Your largest single '+noun+' this period — where the big money '+(kind==='expense'?'went':'came from')+'.')
+    : ('Your most recent '+(kind==='expense'?'costs':'sales')+' — a quick running feed.'));
+  setEl(pre+'-comp-foot', mode==='big'
+    ? 'The breakdown shows the mix; this shows the standouts. Tap a row to open it.'
+    : 'Latest first. Tap a row to open it.');
+  var bB=$(pre+'-comp-big'), bR=$(pre+'-comp-recent');
+  if(bB) bB.className=(mode==='big'?'on':''); if(bR) bR.className=(mode==='recent'?'on':'');
+  if(!rows.length){ listEl.innerHTML='<div class="ie-comp-empty">No '+noun+' recorded in this period.</div>'; return; }
+  var sign=kind==='expense'?'−':'+', kc=kind==='expense'?'exp':'inc';
+  listEl.innerHTML=rows.map(function(r,i){
+    var t=r.t, badge=(mode==='big')?(i+1):(kind==='expense'?'↓':'↑');
+    var meta=(mode==='big')?(esc(t.cat||'')+' · '+esc(t.date||'')):(esc(t.date||'')+' · '+esc(t.cat||''));
+    return '<div class="ie-comp-row" onclick="openTxnDetail('+r.idx+')">'+
+      '<div class="ie-comp-badge '+kc+'">'+badge+'</div>'+
+      '<div class="ie-comp-mid"><div class="ie-comp-nm">'+esc(t.desc||'(no description)')+'</div><div class="ie-comp-meta">'+meta+'</div></div>'+
+      '<div class="ie-comp-amt '+kc+'">'+sign+fmt(t.amt||0)+'</div></div>';
+  }).join('');
+}
+function ieCompanionSetMode(kind, mode){
+  if(!ST.ieTileMode) ST.ieTileMode={income:'big',expense:'big'};
+  ST.ieTileMode[kind]=mode;
+  try{ saveState&&saveState(); }catch(e){}
+  ieCompanion(kind);
 }
 
 function setIncPeriod(p) {
@@ -25335,7 +25435,8 @@ el.innerHTML = sorted.map(function(cat, i) {
     '</div>';
   }).join('');
 
-var canvas = $('incSourceDonut');
+_ieSizeDonut('income', sorted.length);
+  var canvas = $('incSourceDonut');
   if (canvas) {
     destroyChart('incSrc');
     ST.charts['incSrc'] = new Chart(canvas, {
