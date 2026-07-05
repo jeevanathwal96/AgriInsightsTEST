@@ -126,6 +126,16 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .drop-item{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;cursor:pointer;font-size:13px;font-weight:500;border-bottom:1px solid var(--br2)}
 .drop-item:last-child{border:none}
 .drop-item:hover{background:var(--bg)}
+/* header Import/Export menus (reuse .drop show-hide + outside-click auto-close) */
+.hdr-dropwrap{position:relative;display:inline-block}
+.drop.hdr-drop{right:auto;left:0;min-width:266px}
+.hdr-mi{display:flex;gap:11px;align-items:flex-start;padding:11px 14px;cursor:pointer;border-bottom:1px solid var(--br2)}
+.hdr-mi:last-child{border:none}.hdr-mi:hover{background:var(--gb)}
+.hdr-mi-ic{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex:none;background:var(--br2)}
+.hdr-mi-ic.bank{background:#EAF1FB}.hdr-mi-ic.coop{background:var(--gb)}.hdr-mi-ic.wa{background:#E9FBF0}
+.hdr-mi-t{font-size:13px;font-weight:800;color:var(--t1)}
+.hdr-mi-s{font-size:11px;color:var(--t3);margin-top:1px;line-height:1.4}
+.hdr-caret{font-size:10px;color:var(--t4)}
 .lang-check{background:var(--gd);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
 
 .card{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:20px;box-shadow:var(--sh)}
@@ -4176,16 +4186,23 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <div class="page-hdr" style="flex-wrap:wrap;gap:10px">
     <div><div class="page-title">Income</div><div class="page-sub">Track all money your farm has received.</div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button onclick="shareWhatsApp()" style="display:flex;align-items:center;gap:5px;background:#25D366;color:#fff;border:none;border-radius:var(--rs);padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer" title="Share via WhatsApp">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.997 2C6.477 2 2 6.48 2 12.017c0 1.99.584 3.842 1.595 5.396L2 22l4.739-1.569A9.953 9.953 0 0011.997 22C17.522 22 22 17.52 22 11.983 22 6.48 17.522 2 11.997 2z"/></svg>
-        WhatsApp
-      </button>
-      <button class="btn-sec" onclick="openCoopImport()" title="Import co-op settlement statement">↑ Import settlement</button>
-      <button class="btn-sec" onclick="openAddIncome('other')">+ Add Income</button>
-      <button class="btn-pri" onclick="openAddIncome('sale')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="white" stroke-width="2"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/></svg>
-        Record Sale
-      </button>
+      <button class="btn-pri" onclick="openAddIncome('sale')">+ Add Income</button>
+      <div class="hdr-dropwrap">
+        <button class="btn-sec" onclick="toggleDrop('inc-import-drop')" title="Import bank statement or co-op settlement">↑ Import <span class="hdr-caret">▾</span></button>
+        <div class="drop hdr-drop" id="inc-import-drop">
+          <div class="hdr-mi" onclick="openBankImport();closeDrop('inc-import-drop')"><div class="hdr-mi-ic bank">🏦</div><div><div class="hdr-mi-t">Bank statement</div><div class="hdr-mi-s">CSV or PDF from your online banking</div></div></div>
+          <div class="hdr-mi" onclick="openCoopImport();closeDrop('inc-import-drop')"><div class="hdr-mi-ic coop">🌾</div><div><div class="hdr-mi-t">Co-op settlement</div><div class="hdr-mi-s">Delivery lines from SENWES, VKB, Afgri, NWK</div></div></div>
+        </div>
+      </div>
+      <div class="hdr-dropwrap">
+        <button class="btn-sec" onclick="toggleDrop('inc-export-drop')" title="Export or share">⤓ Export <span class="hdr-caret">▾</span></button>
+        <div class="drop hdr-drop" id="inc-export-drop">
+          <div class="hdr-mi" onclick="previewStatement('ie');closeDrop('inc-export-drop')"><div class="hdr-mi-ic">👁</div><div><div class="hdr-mi-t">Preview on screen</div><div class="hdr-mi-s">See the income &amp; expenses statement first</div></div></div>
+          <div class="hdr-mi" onclick="openStatement('ie');closeDrop('inc-export-drop')"><div class="hdr-mi-ic">📄</div><div><div class="hdr-mi-t">Print / Save as PDF</div><div class="hdr-mi-s">A printable statement for the period</div></div></div>
+          <div class="hdr-mi" onclick="exportIECsv();closeDrop('inc-export-drop')"><div class="hdr-mi-ic">📊</div><div><div class="hdr-mi-t">Spreadsheet (CSV)</div><div class="hdr-mi-s">Every transaction, for Excel / your accountant</div></div></div>
+          <div class="hdr-mi" onclick="shareWhatsApp();closeDrop('inc-export-drop')"><div class="hdr-mi-ic wa">💬</div><div><div class="hdr-mi-t">Share on WhatsApp</div><div class="hdr-mi-s">A quick income &amp; profit summary</div></div></div>
+        </div>
+      </div>
       <div id="inc-demo-btn-wrap" style="display:flex;align-items:center;gap:0;border-radius:var(--rs);overflow:hidden;border:1.5px solid var(--gp)">
         <button onclick="demoStart('income')" style="display:flex;align-items:center;gap:6px;background:var(--gb);border:none;padding:7px 12px;font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;font-family:inherit">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -4391,6 +4408,22 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         Upload Receipt
       </button>
       <button class="btn-pri" onclick="openAddExpense()">+ Add Expense</button>
+      <div class="hdr-dropwrap">
+        <button class="btn-sec" onclick="toggleDrop('exp-import-drop')" title="Import bank statement or co-op settlement">↑ Import <span class="hdr-caret">▾</span></button>
+        <div class="drop hdr-drop" id="exp-import-drop">
+          <div class="hdr-mi" onclick="openBankImport();closeDrop('exp-import-drop')"><div class="hdr-mi-ic bank">🏦</div><div><div class="hdr-mi-t">Bank statement</div><div class="hdr-mi-s">CSV or PDF from your online banking</div></div></div>
+          <div class="hdr-mi" onclick="openCoopImport();closeDrop('exp-import-drop')"><div class="hdr-mi-ic coop">🌾</div><div><div class="hdr-mi-t">Co-op settlement</div><div class="hdr-mi-s">Delivery lines from SENWES, VKB, Afgri, NWK</div></div></div>
+        </div>
+      </div>
+      <div class="hdr-dropwrap">
+        <button class="btn-sec" onclick="toggleDrop('exp-export-drop')" title="Export or share">⤓ Export <span class="hdr-caret">▾</span></button>
+        <div class="drop hdr-drop" id="exp-export-drop">
+          <div class="hdr-mi" onclick="previewStatement('ie');closeDrop('exp-export-drop')"><div class="hdr-mi-ic">👁</div><div><div class="hdr-mi-t">Preview on screen</div><div class="hdr-mi-s">See the income &amp; expenses statement first</div></div></div>
+          <div class="hdr-mi" onclick="openStatement('ie');closeDrop('exp-export-drop')"><div class="hdr-mi-ic">📄</div><div><div class="hdr-mi-t">Print / Save as PDF</div><div class="hdr-mi-s">A printable statement for the period</div></div></div>
+          <div class="hdr-mi" onclick="exportIECsv();closeDrop('exp-export-drop')"><div class="hdr-mi-ic">📊</div><div><div class="hdr-mi-t">Spreadsheet (CSV)</div><div class="hdr-mi-s">Every transaction, for Excel / your accountant</div></div></div>
+          <div class="hdr-mi" onclick="shareWhatsApp();closeDrop('exp-export-drop')"><div class="hdr-mi-ic wa">💬</div><div><div class="hdr-mi-t">Share on WhatsApp</div><div class="hdr-mi-s">A quick income &amp; profit summary</div></div></div>
+        </div>
+      </div>
       <div id="exp-demo-btn-wrap" style="display:flex;align-items:center;gap:0;border-radius:var(--rs);overflow:hidden;border:1.5px solid #FECACA">
         <button onclick="demoStart('expense')" style="display:flex;align-items:center;gap:6px;background:var(--rp);border:none;padding:7px 12px;font-size:12px;font-weight:700;color:var(--rd);cursor:pointer;font-family:inherit">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -30057,6 +30090,18 @@ function shareWhatsApp() {
   var period = (typeof getPeriodLabel === 'function') ? getPeriodLabel() : 'May 2024';
   var farm   = (typeof FARM !== 'undefined') ? FARM.name : 'Doringkloof Boerdery';
   var nl = '%0A';
+  // Real profit vs last month (was hardcoded \u219118%). Omit the line when there's no
+  // prior month to compare against, rather than show a made-up figure.
+  var vsLine = '';
+  try {
+    var _cm = currentPeriodLabel();
+    var _pm = (typeof prevMonthLabel === 'function') ? prevMonthLabel(_cm) : null;
+    var _cp = txSummary(_cm).profit, _pp = _pm ? txSummary(_pm).profit : 0;
+    if (_pm && _pp > 0) {
+      var _pc = Math.round((_cp - _pp) / Math.abs(_pp) * 100);
+      if (Math.abs(_pc) <= 999) vsLine = '*Profit vs last month:* ' + (_pc >= 0 ? '\u2191 ' : '\u2193 ') + Math.abs(_pc) + '%' + nl;
+    }
+  } catch (e) {}
   var msg = '*AgriInsights Farm Report*' + nl +
     farm + ' | ' + period + nl + nl +
     '\uD83D\uDCB0 *Income:* R ' + Math.round(R.totalIncome).toLocaleString('en-ZA') + nl +
@@ -30064,7 +30109,7 @@ function shareWhatsApp() {
     '\u2705 *Net Profit:* R ' + Math.round(R.netProfitAT).toLocaleString('en-ZA') + nl +
     '\uD83D\uDCCA *Net Margin:* ' + R.netMargin + '%' + nl + nl +
     '*Top expense:* ' + topExpCat().cat + nl +
-    '*Profit vs last month:* ↑ 18%' + nl + nl +
+    vsLine + nl +
     '_Sent from AgriInsights_';
   var url = 'https://wa.me/?text=' + msg;
   window.open(url, '_blank');
