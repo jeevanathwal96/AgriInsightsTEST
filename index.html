@@ -548,6 +548,45 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .ie-nudge.ok .nt{color:var(--gm)}
 .ie-nudge .nt b{font-weight:800}
 .ie-nudge .ng{font-size:12px;font-weight:800;color:var(--am);flex:none}
+/* Sort-untagged modal */
+.ie-sort-bg{display:none;position:fixed;inset:0;background:rgba(15,40,28,.55);z-index:640;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+.ie-sort-bg.on{display:flex}
+.ie-sort{background:#fff;border-radius:16px;width:100%;max-width:620px;box-shadow:0 24px 50px -12px rgba(0,0,0,.28);overflow:hidden;font-family:var(--fn)}
+.ie-sort-hd{display:flex;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--br2)}
+.ie-sort-hd .ic{width:38px;height:38px;border-radius:11px;background:var(--ap);display:flex;align-items:center;justify-content:center;font-size:18px;flex:none}
+.ie-sort-hd .t{font-size:16px;font-weight:800}
+.ie-sort-hd .s{font-size:12px;color:var(--t3);margin-top:2px;line-height:1.5}
+.ie-sort-hd .x{margin-left:auto;width:30px;height:30px;border:none;background:var(--bg);border-radius:8px;font-size:18px;color:var(--t3);cursor:pointer;flex:none}
+.ie-sort-bulk{display:flex;align-items:center;gap:9px;padding:10px 20px;background:var(--gb);border-bottom:1px solid var(--gp);font-size:12px;flex-wrap:wrap}
+.ie-sort-bulk .lbl{font-weight:800;color:var(--gd)}
+.ie-sort-bulk select{font-family:inherit;font-size:12px;font-weight:600;border:1px solid var(--br);border-radius:8px;padding:6px 9px;background:#fff}
+.ie-sort-bulk button{border:none;background:var(--gd);color:#fff;font-family:inherit;font-size:11.5px;font-weight:800;padding:7px 12px;border-radius:8px;cursor:pointer}
+.ie-sort-bulk .clear{background:none;color:var(--t3);font-weight:700}
+.ie-sort-list{max-height:56vh;overflow-y:auto}
+.ie-srow{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--br2)}
+.ie-srow:last-child{border:none}
+.ie-scbx{width:18px;height:18px;border-radius:5px;border:1.6px solid var(--br);flex:none;cursor:pointer;position:relative;background:#fff}
+.ie-scbx.on{background:var(--gd);border-color:var(--gd)}
+.ie-scbx.on:after{content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ie-smid{flex:1;min-width:0}
+.ie-snm{font-size:13px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ie-smeta{font-size:10.5px;color:var(--t4);font-weight:600;margin-top:2px;display:flex;align-items:center;gap:7px}
+.ie-scat{background:var(--br2);color:var(--t3);border-radius:5px;padding:2px 7px;font-weight:700}
+.ie-samt{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;flex:none;width:92px;text-align:right}
+.ie-samt.exp{color:var(--rd)}.ie-samt.inc{color:var(--gm)}
+.ie-sent{flex:none;position:relative}
+.ie-sent select{font-family:inherit;font-size:12px;font-weight:700;border:1.5px solid var(--br);border-radius:9px;padding:8px 10px;background:#fff;min-width:150px;color:var(--t1)}
+.ie-sent select.guess{border-color:var(--apb);background:var(--ap)}
+.ie-sent select.set{border-color:var(--gp);background:var(--gb)}
+.ie-sbadge{position:absolute;top:-8px;left:9px;font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:1px 6px;border-radius:999px}
+.ie-sbadge.guess{background:var(--ap);color:var(--am);border:1px solid var(--apb)}
+.ie-sbadge.set{background:var(--gb);color:var(--gm);border:1px solid var(--gp)}
+.ie-sort-ft{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;border-top:1px solid var(--br2);flex-wrap:wrap}
+.ie-sort-ft .sum{font-size:12px;color:var(--t3);font-weight:600}
+.ie-sort-ft .sum b{color:var(--t1);font-weight:800}
+.ie-sort-ft .btns{display:flex;gap:9px}
+.ie-sort-empty{text-align:center;color:var(--t3);font-size:13px;padding:34px 20px}
+@media(max-width:560px){.ie-srow{flex-wrap:wrap}.ie-sent select{min-width:130px}}
 @media(max-width:640px){.ib-worth{max-width:none;flex-basis:100%;border-left:none;border-top:1px solid rgba(255,255,255,.2);padding-left:0;padding-top:8px;margin-top:2px}}
 
 .add-layout{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
@@ -10690,9 +10729,18 @@ function _ieEntSize(code){ if(!code) return '';
   return ''; }
 
 // ── The insight engine: up to 3 farming-aware, plain-language insights ──
+// The current calendar month may be empty (early in the month, or before this
+// month's entries) — fall back to the most recent month that actually has data
+// of this type so the insight panel stays useful. [] only for a truly empty farm.
+function _ieLatestActiveMonth(kind){
+  var now=currentPeriodLabel();
+  if(_ieTotal(now, kind)>0) return now;
+  for(var k=1;k<=13;k++){ var lab=_ieShiftLabel(now,-k); if(_ieTotal(lab, kind)>0) return lab; }
+  return now;
+}
 function ieInsights(kind){
   var type=kind, out=[];
-  var cur=currentPeriodLabel();
+  var cur=_ieLatestActiveMonth(kind);
   var curTotal=_ieTotal(cur, type);
   if(curTotal<=0) return out;
   var lyLabel=_ieShiftLabel(cur, -12), lyTotal=_ieTotal(lyLabel, type), haveLY=lyTotal>0;
@@ -10765,7 +10813,11 @@ function _ieRenderWorth(kind){
   var ins=[]; try{ ins=ieInsights(kind); }catch(e){ ins=[]; }
   if(!ins.length){ el.style.display='none'; el.innerHTML=''; return; }
   el.style.display='';
-  el.innerHTML='<div class="wh">Worth knowing</div>'+ins.map(function(d){
+  // If the insights aren't for the current calendar month (that month had no data
+  // yet), name the month so it's transparent this isn't "this month".
+  var lbl='Worth knowing';
+  try{ var act=_ieLatestActiveMonth(kind); if(act!==currentPeriodLabel()) lbl='Worth knowing · '+act.split(' ')[0]; }catch(e){}
+  el.innerHTML='<div class="wh">'+lbl+'</div>'+ins.map(function(d){
     return '<div class="ib-wrow"><span class="wi">'+d.icon+'</span><span class="wt">'+d.text+'</span></div>'; }).join('');
 }
 
@@ -10809,7 +10861,7 @@ function ieRenderEnterprise(kind){
   var canvas=$(cfg.canvas);
   if(canvas && typeof Chart!=='undefined'){ try{ destroyChart(cfg.chart); ST.charts[cfg.chart]=new Chart(canvas,{type:'doughnut',data:{datasets:[{data:agg.rows.map(function(r){return r.amt;}),backgroundColor:agg.rows.map(function(r){return r.color;}),borderWidth:0,cutout:'72%'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}}); }catch(e){} }
   if(nu){ if(agg.untagTotal>0){
-      nu.innerHTML='<div class="ie-nudge" onclick="nav(\'transactions\')"><div class="ni">🏷️</div><div class="nt"><b>'+fmt(agg.untagTotal)+'</b> is taggable but not linked to a crop or herd yet — shown above so the total still adds up. <b>Tap to sort it.</b></div><div class="ng">Sort ›</div></div>';
+      nu.innerHTML='<div class="ie-nudge" onclick="openSortModal(\''+kind+'\')"><div class="ni">🏷️</div><div class="nt"><b>'+fmt(agg.untagTotal)+'</b> is taggable but not linked to a crop or herd yet — shown above so the total still adds up. <b>Tap to sort it.</b></div><div class="ng">Sort ›</div></div>';
     } else {
       nu.innerHTML='<div class="ie-nudge ok"><div class="ni">✅</div><div class="nt">Every '+cfg.word+' this period is tagged to an enterprise — nothing to sort.</div></div>'; } }
 }
@@ -10891,6 +10943,76 @@ function ieCompanionSetMode(kind, mode){
   ST.ieTileMode[kind]=mode;
   try{ saveState&&saveState(); }catch(e){}
   ieCompanion(kind);
+}
+
+// ── Sort untagged transactions: a focused editable list to tag taggable-but-
+//    untagged costs/sales to a crop or herd. Staged in IE_SORT until Save so
+//    Cancel is a true no-op. Reuses entOptions / entSmartDefault / txnUpdateThrough.
+var IE_SORT={kind:null, rows:[]};
+function _ieUntaggedTxns(kind){
+  var n=parseInt((kind==='income'?(ST.incPeriod||'6'):(ST.expPeriod||'6')),10)||6;
+  var pp=(currentPeriodLabel()).split(' '); var cm=_IE_MN[pp[0]]!==undefined?_IE_MN[pp[0]]:4, cy=parseInt(pp[1],10)||2024;
+  var pm=[]; for(var i=n-1;i>=0;i--){ var mo=((cm-i)%12+12)%12; var yr=cy+Math.floor((cm-i)/12); if(cm-i<0) yr=cy-1; pm.push(_IE_MO[mo]+' '+yr); }
+  var out=[];
+  (ST.txns||[]).forEach(function(t,idx){ if(t.type!==kind) return; var d=parseDate(t.date); if(!d) return;
+    if(pm.indexOf(_IE_MO[d.m]+' '+d.y)<0) return;
+    if(!t.ent && typeof entKindForCat==='function' && entKindForCat(t.cat)) out.push({t:t, idx:idx}); });
+  return out;
+}
+function openSortModal(kind){
+  IE_SORT={kind:kind, rows:[]};
+  _ieUntaggedTxns(kind).forEach(function(r){
+    var g={code:'',confident:true}; try{ g=entSmartDefault(r.t.cat)||g; }catch(e){}
+    IE_SORT.rows.push({idx:r.idx, ent:g.code||'', guess:g.code||'', confident:!!g.confident, sel:false});
+  });
+  setEl('ie-sort-title', kind==='income'?'Sort your untagged sales':'Sort your untagged costs');
+  var bs=$('ie-sort-bulk-sel'); if(bs && typeof entOptions==='function') bs.innerHTML=entOptions('');
+  ieSortRender();
+  var bg=$('ie-sort-bg'); if(bg) bg.classList.add('on');
+}
+function closeSortModal(){ var bg=$('ie-sort-bg'); if(bg) bg.classList.remove('on'); }
+function ieSortRender(){
+  var kc=IE_SORT.kind==='income'?'inc':'exp';
+  var listEl=$('ie-sort-list'); if(!listEl) return;
+  if(!IE_SORT.rows.length){ listEl.innerHTML='<div class="ie-sort-empty">Nothing to sort — every taggable '+(IE_SORT.kind==='income'?'sale':'cost')+' in this period is already linked to a crop or herd. 👍</div>'; setEl('ie-sort-sum',''); var b0=$('ie-sort-bulk'); if(b0) b0.style.display='none'; return; }
+  listEl.innerHTML=IE_SORT.rows.map(function(r,i){
+    var t=ST.txns[r.idx]||{};
+    var state = r.ent ? ((r.ent===r.guess && !r.confident) ? 'guess' : 'set') : '';
+    var badge = !r.ent ? '' : (state==='guess' ? '<span class="ie-sbadge guess">check</span>' : '<span class="ie-sbadge set">tagged</span>');
+    var opts = (typeof entOptions==='function') ? entOptions(r.ent||'') : '<option value="">Whole farm</option>';
+    return '<div class="ie-srow">'+
+      '<div class="ie-scbx'+(r.sel?' on':'')+'" onclick="ieSortToggle('+i+')"></div>'+
+      '<div class="ie-smid"><div class="ie-snm">'+esc(t.desc||'(no description)')+'</div><div class="ie-smeta"><span class="ie-scat">'+esc(t.cat||'')+'</span>'+esc(t.date||'')+'</div></div>'+
+      '<div class="ie-samt '+kc+'">'+(IE_SORT.kind==='income'?'+':'−')+fmt(t.amt||0)+'</div>'+
+      '<div class="ie-sent">'+badge+'<select class="'+state+'" onchange="ieSortSetEnt('+i+',this.value)">'+opts+'</select></div>'+
+    '</div>';
+  }).join('');
+  // footer summary
+  var done=IE_SORT.rows.filter(function(r){return r.ent;}).length;
+  var left=IE_SORT.rows.filter(function(r){return !r.ent;}).reduce(function(a,r){return a+((ST.txns[r.idx]||{}).amt||0);},0);
+  var _sumEl=$('ie-sort-sum'); if(_sumEl) _sumEl.innerHTML='<b>'+done+'</b> of <b>'+IE_SORT.rows.length+'</b> tagged'+(left>0?(' · <b>'+fmt(left)+'</b> still to sort'):'');
+  // bulk bar
+  var nSel=IE_SORT.rows.filter(function(r){return r.sel;}).length;
+  var bulk=$('ie-sort-bulk');
+  if(bulk){ if(nSel){ bulk.style.display='flex'; setEl('ie-sort-bulk-lbl', nSel+' selected'); } else bulk.style.display='none'; }
+}
+function ieSortSetEnt(i, val){ if(IE_SORT.rows[i]){ IE_SORT.rows[i].ent=val; } ieSortRender(); }
+function ieSortToggle(i){ if(IE_SORT.rows[i]){ IE_SORT.rows[i].sel=!IE_SORT.rows[i].sel; } ieSortRender(); }
+function ieSortClearSel(){ IE_SORT.rows.forEach(function(r){ r.sel=false; }); ieSortRender(); }
+function ieSortBulkApply(){ var bs=$('ie-sort-bulk-sel'); var v=bs?bs.value:''; IE_SORT.rows.forEach(function(r){ if(r.sel){ r.ent=v; r.sel=false; } }); ieSortRender(); }
+function ieSortSave(){
+  var kind=IE_SORT.kind, changed=0;
+  IE_SORT.rows.forEach(function(r){
+    var t=ST.txns[r.idx]; if(!t) return;
+    var newEnt=r.ent||undefined, cur=t.ent||undefined;
+    if(newEnt!==cur){ t.ent=newEnt; changed++; try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(t); }catch(e){} }
+  });
+  try{ saveState&&saveState(); }catch(e){}
+  closeSortModal();
+  if(changed){ try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
+    try{ if(kind==='income'&&typeof updateIncPage==='function') updateIncPage(); else if(typeof updateExpPage==='function') updateExpPage(); }catch(e){}
+    try{ toast('Tagged '+changed+' '+(kind==='income'?'sale':'cost')+(changed===1?'':'s'),'success'); }catch(e){}
+  }
 }
 
 function setIncPeriod(p) {
@@ -36630,6 +36752,34 @@ function orExportPackout(){
   </div>
 </div>
 
+<!-- Sort untagged transactions modal -->
+<div class="ie-sort-bg" id="ie-sort-bg" onclick="if(event.target===this)closeSortModal()">
+  <div class="ie-sort">
+    <div class="ie-sort-hd">
+      <div class="ic">🏷️</div>
+      <div>
+        <div class="t" id="ie-sort-title">Sort your untagged costs</div>
+        <div class="s">Link each to the crop or herd it belongs to, so your enterprise breakdown is exact. We’ve suggested where we can — just check them.</div>
+      </div>
+      <button class="x" onclick="closeSortModal()">&times;</button>
+    </div>
+    <div class="ie-sort-bulk" id="ie-sort-bulk" style="display:none">
+      <span class="lbl" id="ie-sort-bulk-lbl">0 selected</span>
+      <span style="color:var(--t3)">tag all as</span>
+      <select id="ie-sort-bulk-sel"><option value="">Whole farm</option></select>
+      <button onclick="ieSortBulkApply()">Apply</button>
+      <button class="clear" onclick="ieSortClearSel()">Clear</button>
+    </div>
+    <div class="ie-sort-list" id="ie-sort-list"></div>
+    <div class="ie-sort-ft">
+      <div class="sum" id="ie-sort-sum"></div>
+      <div class="btns">
+        <button class="btn-sec" onclick="closeSortModal()">Cancel</button>
+        <button class="btn-pri" onclick="ieSortSave()">Save tags</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="imp-bg" id="bank-imp-bg">
   <div class="imp-shell">
     <div class="imp-hdr">
