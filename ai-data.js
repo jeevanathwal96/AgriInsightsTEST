@@ -11,7 +11,7 @@
  *   2. Fill in the two constants below from Supabase → Settings → API.
  *      (The anon key is safe in the client — RLS protects the data.)
  *   3. In Supabase: enable Email auth (Authentication → Providers) and create
- *      a private Storage bucket named 'attachments'.
+ *      a private Storage bucket named 'Attachments' (case-sensitive — must match STORAGE_BUCKET below).
  * ----------------------------------------------------------------------------
  * INTEGRATION (how it slots into index.html)
  *   - On app start, after the user is signed in and a farm is active:

@@ -3570,7 +3570,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div style="font-size:13px;color:var(--t3);margin-bottom:12px">No internet? Copy this text and send it as an SMS to your own number — you can re-enter it later when you are back online.</div>
     <textarea id="sms-text" rows="5" style="width:100%;border:1.5px solid var(--br);border-radius:var(--rs);padding:10px;font-size:12px;font-family:monospace;resize:none;background:var(--bg)" readonly></textarea>
     <div style="display:flex;gap:10px;margin-top:12px">
-      <button onclick="var t=$('sms-text');t.select();document.execCommand('copy');toast('Copied!','success')" class="btn-sec" style="flex:1;justify-content:center">Copy Text</button>
+      <button onclick="smsCopyText()" class="btn-sec" style="flex:1;justify-content:center">Copy Text</button>
       <button onclick="closeSmsModal()" class="btn-pri" style="flex:1;justify-content:center">Done</button>
     </div>
     <div style="margin-top:10px;font-size:11px;color:var(--t4);text-align:center">All transactions are also saved on this device and will sync automatically when you reconnect.</div>
@@ -3896,7 +3896,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
   </div>
   <div class="sb-foot">
-    <div class="offline"><div class="ot" data-t="offline.title"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.3 7.8C2.5 6.6 4 5.7 5.7 5.2"/><path d="M22.6 7.8C21.4 6.6 19.9 5.7 18.2 5.2"/><path d="M12 12a2 2 0 100 4 2 2 0 000-4z"/><path d="M5 12.5C6.3 11 8.4 10 12 10s5.7 1 7 2.5"/></svg>Offline Mode</div><div class="os" data-t="offline.sub">Working offline. Data syncs when online.</div></div>
+    <div class="offline"><div class="ot"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.3 7.8C2.5 6.6 4 5.7 5.7 5.2"/><path d="M22.6 7.8C21.4 6.6 19.9 5.7 18.2 5.2"/><path d="M12 12a2 2 0 100 4 2 2 0 000-4z"/><path d="M5 12.5C6.3 11 8.4 10 12 10s5.7 1 7 2.5"/></svg><span data-t="offline.title">Offline Mode</span></div><div class="os" data-t="offline.sub">Working offline. Data syncs when online.</div></div>
     <div class="contact-card"><div class="contact-bar"><svg viewBox="0 0 40 24" width="60" style="opacity:.3"><circle cx="14" cy="12" r="8" fill="white"/><rect x="24" y="7" width="14" height="10" rx="3" fill="white"/></svg></div><div class="contact-body"><div class="ct">Need help?</div><div class="cs">Talk to a real person who understands farming.</div><div class="btn-contact" onclick="toast('Opening support...','info')">Contact Support</div></div></div>
   </div>
 </aside>
@@ -6181,13 +6181,13 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <div class="or-frow" id="or-cell-trees"><label class="or-flbl"><span id="or-lbl-count">Trees</span></label><input class="or-finp" id="or-f-trees" placeholder="e.g. 6930"></div>
         <div class="or-frow" id="or-cell-space"><label class="or-flbl" data-t="or.add.spacing">Spacing</label><input class="or-finp" id="or-f-space" placeholder="e.g. 4m x 2m"></div>
       </div>
-      <div class="or-frow" id="or-row-root"><label class="or-flbl" data-t="or.add.root">Rootstock <span class="or-fh">what the tree is grafted onto</span></label><input class="or-finp" id="or-f-root" placeholder="e.g. Carrizo"></div>
-      <div class="or-frow" id="or-row-carton"><label class="or-flbl" data-t="or.add.carton">Carton size <span class="or-fh">how your fruit is packed</span> <span class="or-what" onclick="orToggleWhat('or-w-carton')">What's a carton?</span></label>
+      <div class="or-frow" id="or-row-root"><label class="or-flbl"><span data-t="or.add.root">Rootstock</span> <span class="or-fh">what the tree is grafted onto</span></label><input class="or-finp" id="or-f-root" placeholder="e.g. Carrizo"></div>
+      <div class="or-frow" id="or-row-carton"><label class="or-flbl"><span data-t="or.add.carton">Carton size</span> <span class="or-fh">how your fruit is packed</span> <span class="or-what" onclick="orToggleWhat('or-w-carton')">What's a carton?</span></label>
         <div class="or-whatbox" id="or-w-carton" style="display:none"><b>A carton is the standard box your fruit is packed and sold in.</b> Citrus is usually 15 kg, apples 12.5 kg, avocados 4 kg — but your packhouse may pack a different size, so set what you actually use.</div>
         <select class="or-finp" id="or-f-carton" onchange="orCartonAddChange()"></select>
         <input class="or-finp" id="or-f-carton-custom" placeholder="Carton weight in kg" inputmode="decimal" style="display:none;margin-top:8px">
       </div>
-      <div class="or-frow" id="or-row-estab"><label class="or-flbl" data-t="or.add.estab">What it cost to establish <span class="or-fh">for your yearly tax write-off</span></label><input class="or-finp" id="or-f-estab" placeholder="R 4,100,000"></div>
+      <div class="or-frow" id="or-row-estab"><label class="or-flbl"><span data-t="or.add.estab">What it cost to establish</span> <span class="or-fh">for your yearly tax write-off</span></label><input class="or-finp" id="or-f-estab" placeholder="R 4,100,000"></div>
       <div class="or-frow"><label class="or-flbl" id="or-lbl-yield"><span data-t="or.add.yield">Target yield once mature </span><span class="or-fh">tons</span></label><input class="or-finp" id="or-f-yield" placeholder="e.g. 868"></div>
       <button class="btn-pri" onclick="orSaveBlock()" data-t="or.add.save">Save block</button>
     </div>
@@ -7283,7 +7283,7 @@ function saveState() {
     if (syncEl) {
       try {
         var t = new Date(LAST_SAVED_AT);
-        syncEl.textContent = 'Saved ' + t.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
+        syncEl.textContent = (typeof ST!=='undefined'&&ST.lang==='af'?'Gestoor ':'Saved ') + t.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit'});
       } catch(e){}
     }
     _saveOk();
@@ -7540,6 +7540,17 @@ function migrateDemoData() {
       var ago = (t.id && tAgo[t.id] != null) ? tAgo[t.id] : 30;
       var dt = new Date(APP_TODAY.getTime() - ago*24*3600*1000);
       t.date = dt.toISOString().slice(0,10);
+    });
+  }
+  // Shift seeded per-cow breeding events by the SAME month-shift applied to txns, so the dairy
+  // fertility panel + calving-block render current (expected = service + gestation).
+  if (typeof _shift !== 'undefined' && _shift !== 0 &&
+      typeof ST_LS !== 'undefined' && ST_LS.animals && ST_LS.animals.length) {
+    ST_LS.animals.forEach(function(a){
+      if (!a || !a.repro || !a.repro.length) return;
+      a.repro.forEach(function(e){
+        if (e && /^\d{4}-\d{2}-\d{2}$/.test(e.date||'')) e.date = shiftTxnMonths(e.date, _shift);
+      });
     });
   }
 }
@@ -8481,7 +8492,7 @@ function cropRenderCompliance(){
     var logBtn = cropComplianceCadence(it.id) ? '<button onclick="event.stopPropagation();cropOpenComplianceLog(\''+it.id+'\')" style="margin-top:10px;font-size:11.5px;font-weight:700;background:var(--gb);border:1px solid var(--gp);color:var(--gd);border-radius:8px;padding:6px 11px;cursor:pointer">\uD83D\uDDD3\uFE0F Log a check / upload photo</button>' : '';
     return '<div class="crop-citem" onclick="cropOpenCompliance(\''+it.id+'\')" style="cursor:pointer">'+
       '<div class="ch"><span class="cstat '+dot+'"></span><div class="ct">'+it.t+'<div class="law">'+it.law+'</div></div>'+dueBadge+'</div>'+
-      '<div class="cd">'+it.desc+'</div><div class="crop-kv2">'+kv+'</div>'+logBtn+'</div>';
+      '<div class="cd">'+esc(it.desc)+'</div><div class="crop-kv2">'+kv+'</div>'+logBtn+'</div>';
   }).join('');
   if(!tracked.length) items='<div class="crop-infonote" style="margin:0">You haven\u2019t chosen any areas to track yet. Tap \u201cChoose what to track\u201d below to start.</div>';
   el.innerHTML=toggle+
@@ -8646,7 +8657,7 @@ function cropRenderComplianceModal(){
       '<div style="font-size:12px;font-weight:800;color:'+statusCol+'">'+statusTxt+'</div>'+
       '<div style="font-size:11.5px;color:var(--t3);margin-top:2px">'+it.law+'</div></div>'+
     dueBox+
-    '<div style="font-size:12.5px;color:var(--t2);line-height:1.5;margin-bottom:14px">'+it.desc+'</div>'+
+    '<div style="font-size:12.5px;color:var(--t2);line-height:1.5;margin-bottom:14px">'+esc(it.desc)+'</div>'+
     '<div class="crop-sec-h" style="margin:0 0 8px">Current</div><div style="margin-bottom:16px">'+kv+'</div>'+
     '<div class="crop-sec-h" style="margin:0 0 8px">Your records</div>'+fields+
     '<button onclick="cropSaveCompliance()" style="width:100%;margin-top:4px;padding:10px;border-radius:9px;font-weight:700;font-size:13px;border:1px solid var(--gp);background:var(--gb);color:var(--gd);cursor:pointer">Save records</button>'+
@@ -10117,83 +10128,358 @@ recurring: [
   },
   charts: {},
   txns: [
-    // ─ NEW: realistic harvest-month operating costs and additional deliveries ─
-    {date:'30 May 2024',desc:'Accountant retainer (Maritz Botha CA(SA))',cat:'Admin',type:'expense',amt:6200,method:'Bank Debit'},
-    {date:'29 May 2024',desc:'Workshop spares & consumables',cat:'Machinery & Repairs',type:'expense',amt:14500,method:'Bank Debit'},
-    {date:'28 May 2024',desc:'Cattle dipping & vaccine (vet)',cat:'Veterinary',type:'expense',amt:18200,method:'Bank Debit',receipt:{name:'vet-invoice-2271.svg',kind:'image',size:'14 KB',added:'28 May 2024',url:'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzg0IiB2aWV3Qm94PSIwIDAgMzAwIDM4NCI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzODQiIGZpbGw9IiNmZmZmZmYiLz48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjU4IiBmaWxsPSIjMkQ2QTRGIi8+PHRleHQgeD0iMTgiIHk9IjI2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTUiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjZmZmZmZmIj5NQVJJVFpCVVJHIFZFVDwvdGV4dD48dGV4dCB4PSIxOCIgeT0iNDQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iI0Q4RjNEQyI+QW5pbWFsIEhlYWx0aCBTZXJ2aWNlcyAgVGF4IEludm9pY2U8L3RleHQ+PHRleHQgeD0iMTgiIHk9Ijg0IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM2QjcyODAiPkludm9pY2UgTm86IElOVi0yMjcxPC90ZXh0Pjx0ZXh0IHg9IjE4IiB5PSIxMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzZCNzI4MCI+RGF0ZTogMjggTWF5IDIwMjQ8L3RleHQ+PHRleHQgeD0iMTgiIHk9IjExNiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjNkI3MjgwIj5WQVQgTm86IDQ4MjAxMTY1OTc8L3RleHQ+PGxpbmUgeDE9IjE4IiB5MT0iMTMwIiB4Mj0iMjgyIiB5Mj0iMTMwIiBzdHJva2U9IiNFNUU3RUIiLz48dGV4dCB4PSIxOCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTAiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMTExODI3Ij5EZXNjcmlwdGlvbjwvdGV4dD48dGV4dCB4PSIyODIiIHk9IjE1MCIgdGV4dC1hbmNob3I9ImVuZCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iIzExMTgyNyI+QW1vdW50PC90ZXh0Pjx0ZXh0IHg9IjE4IiB5PSIxNzQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzM3NDE1MSI+Q2F0dGxlIGRpcCAtIHBsdW5nZSAoMTIwIGhlYWQpPC90ZXh0Pjx0ZXh0IHg9IjI4MiIgeT0iMTc0IiB0ZXh0LWFuY2hvcj0iZW5kIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiMzNzQxNTEiPlIgNyAyMDA8L3RleHQ+PHRleHQgeD0iMTgiIHk9IjE5NCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMzc0MTUxIj5MdW1weSBza2luIHZhY2NpbmUgKGRvc2VzKTwvdGV4dD48dGV4dCB4PSIyODIiIHk9IjE5NCIgdGV4dC1hbmNob3I9ImVuZCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMzc0MTUxIj5SIDYgODAwPC90ZXh0Pjx0ZXh0IHg9IjE4IiB5PSIyMTQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzM3NDE1MSI+TXVsdGltaW4gKyBjYWxsLW91dCBmZWU8L3RleHQ+PHRleHQgeD0iMjgyIiB5PSIyMTQiIHRleHQtYW5jaG9yPSJlbmQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzM3NDE1MSI+UiA0IDIwMDwvdGV4dD48bGluZSB4MT0iMTgiIHkxPSIyMzAiIHgyPSIyODIiIHkyPSIyMzAiIHN0cm9rZT0iI0U1RTdFQiIvPjx0ZXh0IHg9IjE4IiB5PSIyNTIiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzZCNzI4MCI+U3VidG90YWw8L3RleHQ+PHRleHQgeD0iMjgyIiB5PSIyNTIiIHRleHQtYW5jaG9yPSJlbmQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzM3NDE1MSI+UiAxOCAyMDA8L3RleHQ+PHJlY3QgeD0iMTgiIHk9IjI2NiIgd2lkdGg9IjI2NCIgaGVpZ2h0PSIzMCIgZmlsbD0iI0YwRkFGNCIvPjx0ZXh0IHg9IjI2IiB5PSIyODYiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMxQjQzMzIiPlRPVEFMIERVRTwvdGV4dD48dGV4dCB4PSIyNzQiIHk9IjI4NiIgdGV4dC1hbmNob3I9ImVuZCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEzIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iIzFCNDMzMiI+UiAxOCAyMDA8L3RleHQ+PHRleHQgeD0iMTgiIHk9IjMzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjkiIGZpbGw9IiM5Q0EzQUYiPldpdGhkcmF3YWwgcGVyaW9kIGFwcGxpZXMgLSBzZWUgcHJvZHVjdCBsYWJlbHMuPC90ZXh0Pjx0ZXh0IHg9IjE4IiB5PSIzNDYiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI5IiBmaWxsPSIjOUNBM0FGIj5UaGFuayB5b3UgZm9yIHlvdXIgYnVzaW5lc3MuPC90ZXh0Pjwvc3ZnPg=='}},
-    {date:'28 May 2024',desc:'Winter lick blocks (cattle)',cat:'Animal Feed',type:'expense',amt:24500,method:'Bank Debit',ent:'ls:1'},
-    {date:'27 May 2024',desc:'Sasol fuel card - workers vehicles',cat:'Fuel & Oil',type:'expense',amt:9800,method:'Fuel Card'},
-    {date:'24 May 2024',desc:'Yellow maize - 38 tons (Afgri spot)',cat:'Crop Sales',type:'income',amt:108870,method:'Bank Deposit'},
-    {date:'22 May 2024',desc:'Seasonal workers (4 days)',cat:'Labour & Wages',type:'expense',amt:12800,method:'Cash'},
-    {date:'21 May 2024',desc:'KCL potash fertiliser (3 ton)',cat:'Fertiliser',type:'expense',amt:32000,method:'Bank Debit',ent:'or:f6'},
-    {date:'17 May 2024',desc:'Sunflower - 22 tons (Senwes)',cat:'Crop Sales',type:'income',amt:180400,method:'Bank Deposit'},
-    {date:'16 May 2024',desc:'Seasonal workers (4 days)',cat:'Labour & Wages',type:'expense',amt:12800,method:'Cash'},
-    {date:'14 May 2024',desc:'LAN top-dressing fertiliser (5 ton)',cat:'Fertiliser',type:'expense',amt:48500,method:'Bank Debit'},
-    {date:'13 May 2024',desc:'Engen bulk diesel delivery (4500L for combines)',cat:'Fuel & Oil',type:'expense',amt:65000,method:'Bank Debit'},
-    {date:'12 May 2024',desc:'Eskom irrigation pump electricity',cat:'Irrigation & Water',type:'expense',amt:22000,method:'Bank Debit'},
-    {date:'11 May 2024',desc:'Combine major service (Senwes workshop)',cat:'Machinery & Repairs',type:'expense',amt:28500,method:'Bank Debit'},
-    {date:'09 May 2024',desc:'Pyrinex insecticide 20L (armyworm)',cat:'Crop Protection',type:'expense',amt:18400,method:'Bank Debit'},
     {date:'08 May 2024',desc:'DAFF diesel rebate refund',cat:'Government Grant',type:'income',amt:18200,method:'Bank Deposit'},
-    {date:'07 May 2024',desc:'NWK silo storage levy',cat:'Other',type:'expense',amt:8400,method:'Bank Debit'},
-    {date:'06 May 2024',desc:'Sasol bulk diesel (2800L)',cat:'Fuel & Oil',type:'expense',amt:42000,method:'Bank Debit'},
-    {date:'04 May 2024',desc:'Winter wheat seed deposit (Pioneer)',cat:'Seeds & Planting',type:'expense',amt:32000,method:'Bank Debit'},
+    {date:'06 May 2024',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21200,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 May 2024',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:86508,method:'Bank Deposit',ent:'ls:4'},
+    {date:'10 May 2024',desc:'Weaner calves — Karan Beef',cat:'Livestock Sales',type:'income',amt:126166,method:'Bank Deposit',ent:'ls:1'},
+    {date:'26 May 2024',desc:'Butternut — fresh produce market',cat:'Fruit Sales',type:'income',amt:82318,method:'Bank Deposit',ent:'or:f8'},
+    {date:'09 May 2024',desc:'Lemons — local market',cat:'Fruit Sales',type:'income',amt:131998,method:'Bank Deposit',ent:'or:f3'},
+    {date:'24 May 2024',desc:'Navel citrus — export',cat:'Fruit Sales',type:'income',amt:251165,method:'Bank Deposit',ent:'or:f2'},
+    {date:'22 May 2024',desc:'Valencia citrus — export packout',cat:'Fruit Sales',type:'income',amt:369792,method:'Bank Deposit',ent:'or:f1'},
+    {date:'20 May 2024',desc:'White maize — delivery to NWK',cat:'Crop Sales',type:'income',amt:636854,method:'Bank Deposit',ent:'crop:White maize'},
+    {date:'18 May 2024',desc:'Soybeans — delivery to Afgri',cat:'Crop Sales',type:'income',amt:323482,method:'Bank Deposit',ent:'crop:Soybeans'},
+    {date:'17 May 2024',desc:'Sunflower — delivery to Senwes',cat:'Crop Sales',type:'income',amt:205070,method:'Bank Deposit',ent:'crop:Sunflower'},
+    {date:'08 May 2024',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:24525,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 May 2024',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
     {date:'03 May 2024',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
-    {date:'01 May 2024',desc:'Crop insurance premium (Santam)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'02 May 2024',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 May 2024',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
     {date:'01 May 2024',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
-    // ─ NEW: April 2024 — match the realistic post-planting expense tail ─
-    {date:'28 Apr 2024',desc:'Workshop spares & consumables',cat:'Machinery & Repairs',type:'expense',amt:6800,method:'Bank Debit'},
-    {date:'26 Apr 2024',desc:'Combine pre-season inspection',cat:'Machinery & Repairs',type:'expense',amt:12500,method:'Bank Debit'},
-    {date:'25 Apr 2024',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:42000,method:'EFT'},
-    {date:'20 Apr 2024',desc:'Vet routine cattle check',cat:'Veterinary',type:'expense',amt:9400,method:'Bank Debit'},
-    {date:'18 Apr 2024',desc:'Casual labour batch',cat:'Labour & Wages',type:'expense',amt:8200,method:'Cash'},
-    {date:'15 Apr 2024',desc:'Bulk diesel (1800L pre-harvest)',cat:'Fuel & Oil',type:'expense',amt:27000,method:'Bank Debit'},
-    {date:'12 Apr 2024',desc:'Glyphosate 200L',cat:'Crop Protection',type:'expense',amt:14200,method:'Bank Debit'},
-    {date:'10 Apr 2024',desc:'Diesel bulk (2000L late planting)',cat:'Fuel & Oil',type:'expense',amt:30000,method:'Bank Debit'},
-    {date:'08 Apr 2024',desc:'Eskom electricity',cat:'Irrigation & Water',type:'expense',amt:18500,method:'Bank Debit'},
+    {date:'27 May 2024',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:10695,method:'Fuel Card'},
+    {date:'25 May 2024',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:38220,method:'EFT'},
+    {date:'06 Apr 2024',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:18400,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Apr 2024',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:93236,method:'Bank Deposit',ent:'ls:4'},
+    {date:'10 Apr 2024',desc:'Weaner calves — Karan Beef',cat:'Livestock Sales',type:'income',amt:135086,method:'Bank Deposit',ent:'ls:1'},
+    {date:'11 Apr 2024',desc:'Apples (Cripps Pink) — pack & sell',cat:'Fruit Sales',type:'income',amt:196733,method:'Bank Deposit',ent:'or:f6'},
+    {date:'09 Apr 2024',desc:'Lemons — local market',cat:'Fruit Sales',type:'income',amt:141523,method:'Bank Deposit',ent:'or:f3'},
+    {date:'18 Apr 2024',desc:'Soybeans — delivery to Afgri',cat:'Crop Sales',type:'income',amt:347069,method:'Bank Deposit',ent:'crop:Soybeans'},
+    {date:'17 Apr 2024',desc:'Sunflower — delivery to Senwes',cat:'Crop Sales',type:'income',amt:219283,method:'Bank Deposit',ent:'crop:Sunflower'},
+    {date:'08 Apr 2024',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:14250,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Apr 2024',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
     {date:'03 Apr 2024',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
     {date:'02 Apr 2024',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
-    {date:'02 Apr 2024',desc:'Combine harvester finance (John Deere)',cat:'Loan Repayments',type:'expense',amt:28500,method:'Debit Order'},
-    {date:'01 Apr 2024',desc:'Crop insurance premium (Santam)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Apr 2024',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
     {date:'01 Apr 2024',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
-    // ─ Existing demo transactions ─
-    {date:'20 May 2024',desc:'Maize - 120 tons (SAFEX)',cat:'Crop Sales',type:'income',amt:650000,method:'Bank Deposit'},
-    {date:'20 May 2024',desc:'Urea Fertiliser (2 ton)',cat:'Fertiliser',type:'expense',amt:18500,method:'Bank Debit'},
-    {date:'19 May 2024',desc:'Diesel - 450L',cat:'Fuel & Oil',type:'expense',amt:7650,method:'Fuel Card'},
-    {date:'18 May 2024',desc:'Soybeans - 80 tons (NWK)',cat:'Crop Sales',type:'income',amt:320000,method:'Bank Deposit'},
-    {date:'18 May 2024',desc:'Casual Labour (3 days)',cat:'Labour & Wages',type:'expense',amt:4500,method:'Cash'},
-    {date:'17 May 2024',desc:'John Deere service',cat:'Machinery & Repairs',type:'expense',amt:9800,method:'Bank Debit'},
-    {date:'10 May 2024',desc:'Livestock - 12 Bonsmara steers',cat:'Livestock Sales',type:'income',amt:126250,method:'Bank Deposit'},
-    {date:'05 May 2024',desc:'DAFF drought relief grant',cat:'Government Grant',type:'income',amt:60000,method:'Bank Deposit'},
-    {date:'03 May 2024',desc:'Crop Protection - Roundup 20L',cat:'Crop Protection',type:'expense',amt:3200,method:'Bank Debit'},
-    {date:'02 May 2024',desc:'Irrigation pump electricity',cat:'Irrigation & Water',type:'expense',amt:4800,method:'Bank Debit'},
-    {date:'28 Apr 2024',desc:'Maize - 95 tons (spot sale)',cat:'Crop Sales',type:'income',amt:512000,method:'Bank Deposit'},
-    {date:'25 Apr 2024',desc:'LAN Fertiliser (1.5 ton)',cat:'Fertiliser',type:'expense',amt:14200,method:'Bank Debit'},
-    {date:'22 Apr 2024',desc:'Diesel - 380L',cat:'Fuel & Oil',type:'expense',amt:6460,method:'Fuel Card'},
-    {date:'18 Apr 2024',desc:'Merino ewes - 15 head',cat:'Livestock Sales',type:'income',amt:93000,method:'Bank Deposit'},
-    {date:'15 Apr 2024',desc:'Permanent staff wages',cat:'Labour & Wages',type:'expense',amt:38000,method:'Bank Debit'},
-    {date:'10 Apr 2024',desc:'Tractor tyre replacement',cat:'Machinery & Repairs',type:'expense',amt:12800,method:'Bank Debit'},
-    {date:'29 Mar 2024',desc:'Sorghum - 60 tons (co-op)',cat:'Crop Sales',type:'income',amt:148800,method:'Bank Deposit'},
-    {date:'25 Mar 2024',desc:'MAP Fertiliser (planting)',cat:'Fertiliser',type:'expense',amt:22500,method:'Bank Debit'},
-    {date:'20 Mar 2024',desc:'Diesel - 500L',cat:'Fuel & Oil',type:'expense',amt:8500,method:'Fuel Card'},
-    {date:'18 Mar 2024',desc:'Certified maize seed (50 bags)',cat:'Seeds & Planting',type:'expense',amt:18500,method:'Bank Debit'},
-    {date:'15 Mar 2024',desc:'Permanent staff wages',cat:'Labour & Wages',type:'expense',amt:38000,method:'Bank Debit'},
-    {date:'05 Mar 2024',desc:'Grazing rights rental income',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
-    {date:'28 Feb 2024',desc:'Sunflower seed - 45 tons',cat:'Crop Sales',type:'income',amt:331650,method:'Bank Deposit'},
-    {date:'22 Feb 2024',desc:'Diesel - 420L',cat:'Fuel & Oil',type:'expense',amt:7140,method:'Fuel Card'},
-    {date:'15 Feb 2024',desc:'Permanent staff wages',cat:'Labour & Wages',type:'expense',amt:38000,method:'Bank Debit'},
-    {date:'05 Feb 2024',desc:'Boer goats - 8 head (auction)',cat:'Livestock Sales',type:'income',amt:46400,method:'Cash'},
-    {date:'30 Jan 2024',desc:'Maize advance payment (NWK)',cat:'Crop Sales',type:'income',amt:850000,method:'Bank Deposit'},
-    {date:'25 Jan 2024',desc:'Combine harvester repairs',cat:'Machinery & Repairs',type:'expense',amt:28500,method:'Bank Debit'},
-    {date:'22 Jan 2024',desc:'Diesel - 600L',cat:'Fuel & Oil',type:'expense',amt:10200,method:'Fuel Card'},
-    {date:'15 Jan 2024',desc:'Permanent staff wages',cat:'Labour & Wages',type:'expense',amt:38000,method:'Bank Debit'},
-    {date:'10 Jan 2024',desc:'Soybean advance payment',cat:'Crop Sales',type:'income',amt:420000,method:'Bank Deposit'},
-    {date:'20 Dec 2023',desc:'Cattle - 8 head (Boeremark)',cat:'Livestock Sales',type:'income',amt:112000,method:'Cash'},
-    {date:'15 Dec 2023',desc:'Permanent staff wages + bonus',cat:'Labour & Wages',type:'expense',amt:52000,method:'Bank Debit'},
-    {date:'10 Dec 2023',desc:'Diesel - 550L',cat:'Fuel & Oil',type:'expense',amt:9350,method:'Fuel Card'},
-    {date:'28 Nov 2023',desc:'Sunflower seed - 38 tons',cat:'Crop Sales',type:'income',amt:280060,method:'Bank Deposit'},
-    {date:'20 Nov 2023',desc:'Certified soybean seed (planting)',cat:'Seeds & Planting',type:'expense',amt:24000,method:'Bank Debit'},
-    {date:'15 Nov 2023',desc:'Permanent staff wages',cat:'Labour & Wages',type:'expense',amt:38000,method:'Bank Debit'},
-    {date:'10 Nov 2023',desc:'Diesel - 480L',cat:'Fuel & Oil',type:'expense',amt:8160,method:'Fuel Card'}
+    {date:'27 Apr 2024',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:11500,method:'Fuel Card'},
+    {date:'25 Apr 2024',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:40950,method:'EFT'},
+    {date:'06 Mar 2024',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:19800,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Mar 2024',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:99965,method:'Bank Deposit',ent:'ls:4'},
+    {date:'11 Mar 2024',desc:'Apples (Cripps Pink) — pack & sell',cat:'Fruit Sales',type:'income',amt:210643,method:'Bank Deposit',ent:'or:f6'},
+    {date:'20 Mar 2024',desc:'Cattle dipping & vaccine (vet)',cat:'Veterinary',type:'expense',amt:11640,method:'Bank Debit',ent:'ls:1',receipt:{name:'vet-invoice-2271.svg',kind:'image',size:'14 KB',added:'28 May 2024',url:'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzg0IiB2aWV3Qm94PSIwIDAgMzAwIDM4NCI+PHJlY3Qgd2lkdGg9IjMwMCIgaGVpZ2h0PSIzODQiIGZpbGw9IiNmZmZmZmYiLz48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjU4IiBmaWxsPSIjMkQ2QTRGIi8+PHRleHQgeD0iMTgiIHk9IjI2IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTUiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjZmZmZmZmIj5NQVJJVFpCVVJHIFZFVDwvdGV4dD48dGV4dCB4PSIxOCIgeT0iNDQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iI0Q4RjNEQyI+QW5pbWFsIEhlYWx0aCBTZXJ2aWNlcyAgVGF4IEludm9pY2U8L3RleHQ+PHRleHQgeD0iMTgiIHk9Ijg0IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM2QjcyODAiPkludm9pY2UgTm86IElOVi0yMjcxPC90ZXh0Pjx0ZXh0IHg9IjE4IiB5PSIxMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzZCNzI4MCI+RGF0ZTogMjggTWF5IDIwMjQ8L3RleHQ+PHRleHQgeD0iMTgiIHk9IjExNiIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjNkI3MjgwIj5WQVQgTm86IDQ4MjAxMTY1OTc8L3RleHQ+PGxpbmUgeDE9IjE4IiB5MT0iMTMwIiB4Mj0iMjgyIiB5Mj0iMTMwIiBzdHJva2U9IiNFNUU3RUIiLz48dGV4dCB4PSIxOCIgeT0iMTUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTAiIGZvbnQtd2VpZ2h0PSJib2xkIiBmaWxsPSIjMTExODI3Ij5EZXNjcmlwdGlvbjwvdGV4dD48dGV4dCB4PSIyODIiIHk9IjE1MCIgdGV4dC1hbmNob3I9ImVuZCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iIzExMTgyNyI+QW1vdW50PC90ZXh0Pjx0ZXh0IHg9IjE4IiB5PSIxNzQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzM3NDE1MSI+Q2F0dGxlIGRpcCAtIHBsdW5nZSAoMTIwIGhlYWQpPC90ZXh0Pjx0ZXh0IHg9IjI4MiIgeT0iMTc0IiB0ZXh0LWFuY2hvcj0iZW5kIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiMzNzQxNTEiPlIgNyAyMDA8L3RleHQ+PHRleHQgeD0iMTgiIHk9IjE5NCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMzc0MTUxIj5MdW1weSBza2luIHZhY2NpbmUgKGRvc2VzKTwvdGV4dD48dGV4dCB4PSIyODIiIHk9IjE5NCIgdGV4dC1hbmNob3I9ImVuZCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMzc0MTUxIj5SIDYgODAwPC90ZXh0Pjx0ZXh0IHg9IjE4IiB5PSIyMTQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzM3NDE1MSI+TXVsdGltaW4gKyBjYWxsLW91dCBmZWU8L3RleHQ+PHRleHQgeD0iMjgyIiB5PSIyMTQiIHRleHQtYW5jaG9yPSJlbmQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzM3NDE1MSI+UiA0IDIwMDwvdGV4dD48bGluZSB4MT0iMTgiIHkxPSIyMzAiIHgyPSIyODIiIHkyPSIyMzAiIHN0cm9rZT0iI0U1RTdFQiIvPjx0ZXh0IHg9IjE4IiB5PSIyNTIiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzZCNzI4MCI+U3VidG90YWw8L3RleHQ+PHRleHQgeD0iMjgyIiB5PSIyNTIiIHRleHQtYW5jaG9yPSJlbmQiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzM3NDE1MSI+UiAxOCAyMDA8L3RleHQ+PHJlY3QgeD0iMTgiIHk9IjI2NiIgd2lkdGg9IjI2NCIgaGVpZ2h0PSIzMCIgZmlsbD0iI0YwRkFGNCIvPjx0ZXh0IHg9IjI2IiB5PSIyODYiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMiIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiMxQjQzMzIiPlRPVEFMIERVRTwvdGV4dD48dGV4dCB4PSIyNzQiIHk9IjI4NiIgdGV4dC1hbmNob3I9ImVuZCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEzIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iIzFCNDMzMiI+UiAxOCAyMDA8L3RleHQ+PHRleHQgeD0iMTgiIHk9IjMzMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjkiIGZpbGw9IiM5Q0EzQUYiPldpdGhkcmF3YWwgcGVyaW9kIGFwcGxpZXMgLSBzZWUgcHJvZHVjdCBsYWJlbHMuPC90ZXh0Pjx0ZXh0IHg9IjE4IiB5PSIzNDYiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI5IiBmaWxsPSIjOUNBM0FGIj5UaGFuayB5b3UgZm9yIHlvdXIgYnVzaW5lc3MuPC90ZXh0Pjwvc3ZnPg=='}},
+    {date:'08 Mar 2024',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:15300,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Mar 2024',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Mar 2024',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Mar 2024',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Mar 2024',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Mar 2024',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Mar 2024',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:12305,method:'Fuel Card'},
+    {date:'25 Mar 2024',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:35490,method:'EFT'},
+    {date:'06 Feb 2024',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21200,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Feb 2024',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:86508,method:'Bank Deposit',ent:'ls:4'},
+    {date:'07 Feb 2024',desc:'Boer goats — speculators auction',cat:'Livestock Sales',type:'income',amt:49680,method:'Cash',ent:'ls:3'},
+    {date:'19 Feb 2024',desc:'Citrus fertiliser programme',cat:'Fertiliser',type:'expense',amt:30727,method:'Bank Debit',ent:'or:f1'},
+    {date:'15 Feb 2024',desc:'Pyrinex insecticide (armyworm)',cat:'Crop Protection',type:'expense',amt:16560,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'10 Feb 2024',desc:'LAN top-dressing (maize)',cat:'Fertiliser',type:'expense',amt:54369,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'08 Feb 2024',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:16350,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Feb 2024',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Feb 2024',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Feb 2024',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Feb 2024',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Feb 2024',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Feb 2024',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:10695,method:'Fuel Card'},
+    {date:'25 Feb 2024',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:38220,method:'EFT'},
+    {date:'06 Jan 2024',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:18400,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Jan 2024',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:93236,method:'Bank Deposit',ent:'ls:4'},
+    {date:'15 Jan 2024',desc:'Pyrinex insecticide (armyworm)',cat:'Crop Protection',type:'expense',amt:17848,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'10 Jan 2024',desc:'LAN top-dressing (maize)',cat:'Fertiliser',type:'expense',amt:58375,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'08 Jan 2024',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:14250,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Jan 2024',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Jan 2024',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Jan 2024',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Jan 2024',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Jan 2024',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Jan 2024',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:11500,method:'Fuel Card'},
+    {date:'25 Jan 2024',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:40950,method:'EFT'},
+    {date:'06 Dec 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:20400,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Dec 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:102848,method:'Bank Deposit',ent:'ls:4'},
+    {date:'12 Dec 2023',desc:'Glyphosate & spray programme',cat:'Crop Protection',type:'expense',amt:14484,method:'Bank Debit',ent:'crop:Soybeans'},
+    {date:'20 Dec 2023',desc:'Cattle dipping & vaccine (vet)',cat:'Veterinary',type:'expense',amt:12000,method:'Bank Debit',ent:'ls:1'},
+    {date:'08 Dec 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:15750,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Dec 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Dec 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Dec 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Dec 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Dec 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Dec 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:12650,method:'Fuel Card'},
+    {date:'25 Dec 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:48880,method:'EFT'},
+    {date:'08 Nov 2023',desc:'DAFF diesel rebate refund',cat:'Government Grant',type:'income',amt:18200,method:'Bank Deposit'},
+    {date:'06 Nov 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21800,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Nov 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:89392,method:'Bank Deposit',ent:'ls:4'},
+    {date:'21 Nov 2023',desc:'Orchard spray programme',cat:'Crop Protection',type:'expense',amt:20020,method:'Bank Debit',ent:'or:f2'},
+    {date:'13 Nov 2023',desc:'Engen bulk diesel (planting)',cat:'Fuel & Oil',type:'expense',amt:66950,method:'Bank Debit'},
+    {date:'18 Nov 2023',desc:'Soybean seed & inoculant',cat:'Seeds & Planting',type:'expense',amt:23760,method:'Bank Debit',ent:'crop:Soybeans'},
+    {date:'16 Nov 2023',desc:'Sunflower seed & planting',cat:'Seeds & Planting',type:'expense',amt:17480,method:'Bank Debit',ent:'crop:Sunflower'},
+    {date:'14 Nov 2023',desc:'Certified maize seed (Pioneer)',cat:'Seeds & Planting',type:'expense',amt:30070,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'12 Nov 2023',desc:'MAP planting fertiliser',cat:'Fertiliser',type:'expense',amt:69809,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'08 Nov 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:13650,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Nov 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Nov 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Nov 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Nov 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Nov 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Nov 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:11040,method:'Fuel Card'},
+    {date:'25 Nov 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:39390,method:'EFT'},
+    {date:'06 Oct 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:19000,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Oct 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:96120,method:'Bank Deposit',ent:'ls:4'},
+    {date:'14 Oct 2023',desc:'Wool clip — BKB auction',cat:'Livestock Sales',type:'income',amt:89338,method:'Bank Deposit',ent:'ls:2'},
+    {date:'15 Oct 2023',desc:'Blueberries — punnets (export)',cat:'Fruit Sales',type:'income',amt:263995,method:'Bank Deposit',ent:'or:f7'},
+    {date:'13 Oct 2023',desc:'Engen bulk diesel (planting)',cat:'Fuel & Oil',type:'expense',amt:71500,method:'Bank Debit'},
+    {date:'14 Oct 2023',desc:'Certified maize seed (Pioneer)',cat:'Seeds & Planting',type:'expense',amt:32240,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'12 Oct 2023',desc:'MAP planting fertiliser',cat:'Fertiliser',type:'expense',amt:74600,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'08 Oct 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:14700,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Oct 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Oct 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Oct 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Oct 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Oct 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Oct 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:11845,method:'Fuel Card'},
+    {date:'25 Oct 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:42120,method:'EFT'},
+    {date:'06 Sep 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:20400,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Sep 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:102848,method:'Bank Deposit',ent:'ls:4'},
+    {date:'06 Sep 2023',desc:'Shearing contractor (wool clip)',cat:'Other',type:'expense',amt:8190,method:'Cash',ent:'ls:2'},
+    {date:'14 Sep 2023',desc:'Wool clip — BKB auction',cat:'Livestock Sales',type:'income',amt:95990,method:'Bank Deposit',ent:'ls:2'},
+    {date:'11 Sep 2023',desc:'Cull cows — abattoir',cat:'Livestock Sales',type:'income',amt:105322,method:'Bank Deposit',ent:'ls:1'},
+    {date:'21 Sep 2023',desc:'Orchard spray programme',cat:'Crop Protection',type:'expense',amt:23100,method:'Bank Debit',ent:'or:f2'},
+    {date:'15 Sep 2023',desc:'Blueberries — punnets (export)',cat:'Fruit Sales',type:'income',amt:283046,method:'Bank Deposit',ent:'or:f7'},
+    {date:'20 Sep 2023',desc:'Cattle dipping & vaccine (vet)',cat:'Veterinary',type:'expense',amt:12000,method:'Bank Debit',ent:'ls:1'},
+    {date:'08 Sep 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:15750,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Sep 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Sep 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Sep 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Sep 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Sep 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Sep 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:12650,method:'Fuel Card'},
+    {date:'25 Sep 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:36660,method:'EFT'},
+    {date:'06 Aug 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21800,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Aug 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:89392,method:'Bank Deposit',ent:'ls:4'},
+    {date:'07 Aug 2023',desc:'Boer goats — speculators auction',cat:'Livestock Sales',type:'income',amt:51170,method:'Cash',ent:'ls:3'},
+    {date:'23 Aug 2023',desc:'Packhouse labour & cartons',cat:'Labour & Wages',type:'expense',amt:37450,method:'Bank Debit',ent:'or:f1'},
+    {date:'19 Aug 2023',desc:'Citrus fertiliser programme',cat:'Fertiliser',type:'expense',amt:31718,method:'Bank Debit',ent:'or:f1'},
+    {date:'15 Aug 2023',desc:'Blueberries — punnets (export)',cat:'Fruit Sales',type:'income',amt:244944,method:'Bank Deposit',ent:'or:f7'},
+    {date:'08 Aug 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:20475,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Aug 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Aug 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Aug 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Aug 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Aug 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Aug 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:11040,method:'Fuel Card'},
+    {date:'25 Aug 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:39390,method:'EFT'},
+    {date:'06 Jul 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:19000,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Jul 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:96120,method:'Bank Deposit',ent:'ls:4'},
+    {date:'12 Jul 2023',desc:'Backgrounded steers — feedlot',cat:'Livestock Sales',type:'income',amt:107827,method:'Bank Deposit',ent:'ls:5'},
+    {date:'23 Jul 2023',desc:'Packhouse labour & cartons',cat:'Labour & Wages',type:'expense',amt:32550,method:'Bank Debit',ent:'or:f1'},
+    {date:'22 Jul 2023',desc:'Valencia citrus — export packout',cat:'Fruit Sales',type:'income',amt:331776,method:'Bank Deposit',ent:'or:f1'},
+    {date:'08 Jul 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:22050,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Jul 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Jul 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Jul 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Jul 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Jul 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Jul 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:11845,method:'Fuel Card'},
+    {date:'25 Jul 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:42120,method:'EFT'},
+    {date:'06 Jun 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:20400,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Jun 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:102848,method:'Bank Deposit',ent:'ls:4'},
+    {date:'10 Jun 2023',desc:'Weaner calves — Karan Beef',cat:'Livestock Sales',type:'income',amt:121068,method:'Bank Deposit',ent:'ls:1'},
+    {date:'23 Jun 2023',desc:'Packhouse labour & cartons',cat:'Labour & Wages',type:'expense',amt:35000,method:'Bank Debit',ent:'or:f1'},
+    {date:'26 Jun 2023',desc:'Cabbage — fresh produce market',cat:'Fruit Sales',type:'income',amt:41623,method:'Bank Deposit',ent:'or:f9'},
+    {date:'24 Jun 2023',desc:'Navel citrus — export',cat:'Fruit Sales',type:'income',amt:241315,method:'Bank Deposit',ent:'or:f2'},
+    {date:'22 Jun 2023',desc:'Valencia citrus — export packout',cat:'Fruit Sales',type:'income',amt:355968,method:'Bank Deposit',ent:'or:f1'},
+    {date:'20 Jun 2023',desc:'White maize — delivery to NWK',cat:'Crop Sales',type:'income',amt:527213,method:'Bank Deposit',ent:'crop:White maize'},
+    {date:'20 Jun 2023',desc:'Cattle dipping & vaccine (vet)',cat:'Veterinary',type:'expense',amt:12000,method:'Bank Debit',ent:'ls:1'},
+    {date:'08 Jun 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:23625,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Jun 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Jun 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Jun 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Jun 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Jun 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Jun 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:12650,method:'Fuel Card'},
+    {date:'25 Jun 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:36660,method:'EFT'},
+    {date:'08 May 2023',desc:'DAFF diesel rebate refund',cat:'Government Grant',type:'income',amt:18200,method:'Bank Deposit'},
+    {date:'06 May 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21800,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 May 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:82770,method:'Bank Deposit',ent:'ls:4'},
+    {date:'10 May 2023',desc:'Weaner calves — Karan Beef',cat:'Livestock Sales',type:'income',amt:120360,method:'Bank Deposit',ent:'ls:1'},
+    {date:'26 May 2023',desc:'Butternut — fresh produce market',cat:'Fruit Sales',type:'income',amt:78440,method:'Bank Deposit',ent:'or:f8'},
+    {date:'09 May 2023',desc:'Lemons — local market',cat:'Fruit Sales',type:'income',amt:126000,method:'Bank Deposit',ent:'or:f3'},
+    {date:'24 May 2023',desc:'Navel citrus — export',cat:'Fruit Sales',type:'income',amt:239400,method:'Bank Deposit',ent:'or:f2'},
+    {date:'22 May 2023',desc:'Valencia citrus — export packout',cat:'Fruit Sales',type:'income',amt:352000,method:'Bank Deposit',ent:'or:f1'},
+    {date:'20 May 2023',desc:'White maize — delivery to NWK',cat:'Crop Sales',type:'income',amt:609120,method:'Bank Deposit',ent:'crop:White maize'},
+    {date:'18 May 2023',desc:'Soybeans — delivery to Afgri',cat:'Crop Sales',type:'income',amt:308880,method:'Bank Deposit',ent:'crop:Soybeans'},
+    {date:'17 May 2023',desc:'Sunflower — delivery to Senwes',cat:'Crop Sales',type:'income',amt:195520,method:'Bank Deposit',ent:'crop:Sunflower'},
+    {date:'08 May 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:20475,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 May 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 May 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 May 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 May 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 May 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 May 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:8832,method:'Fuel Card'},
+    {date:'25 May 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:39390,method:'EFT'},
+    {date:'06 Apr 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:19000,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Apr 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:89000,method:'Bank Deposit',ent:'ls:4'},
+    {date:'10 Apr 2023',desc:'Weaner calves — Karan Beef',cat:'Livestock Sales',type:'income',amt:128620,method:'Bank Deposit',ent:'ls:1'},
+    {date:'11 Apr 2023',desc:'Apples (Cripps Pink) — pack & sell',cat:'Fruit Sales',type:'income',amt:187680,method:'Bank Deposit',ent:'or:f6'},
+    {date:'09 Apr 2023',desc:'Lemons — local market',cat:'Fruit Sales',type:'income',amt:134820,method:'Bank Deposit',ent:'or:f3'},
+    {date:'18 Apr 2023',desc:'Soybeans — delivery to Afgri',cat:'Crop Sales',type:'income',amt:330720,method:'Bank Deposit',ent:'crop:Soybeans'},
+    {date:'17 Apr 2023',desc:'Sunflower — delivery to Senwes',cat:'Crop Sales',type:'income',amt:169200,method:'Bank Deposit',ent:'crop:Sunflower'},
+    {date:'08 Apr 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:14700,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Apr 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Apr 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Apr 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Apr 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Apr 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Apr 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:9476,method:'Fuel Card'},
+    {date:'25 Apr 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:42120,method:'EFT'},
+    {date:'06 Mar 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:20400,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Mar 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:95230,method:'Bank Deposit',ent:'ls:4'},
+    {date:'11 Mar 2023',desc:'Apples (Cripps Pink) — pack & sell',cat:'Fruit Sales',type:'income',amt:200560,method:'Bank Deposit',ent:'or:f6'},
+    {date:'20 Mar 2023',desc:'Cattle dipping & vaccine (vet)',cat:'Veterinary',type:'expense',amt:12000,method:'Bank Debit',ent:'ls:1'},
+    {date:'08 Mar 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:15750,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Mar 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Mar 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Mar 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Mar 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Mar 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Mar 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:10120,method:'Fuel Card'},
+    {date:'25 Mar 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:36660,method:'EFT'},
+    {date:'06 Feb 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21800,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Feb 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:82770,method:'Bank Deposit',ent:'ls:4'},
+    {date:'07 Feb 2023',desc:'Boer goats — speculators auction',cat:'Livestock Sales',type:'income',amt:47380,method:'Cash',ent:'ls:3'},
+    {date:'19 Feb 2023',desc:'Citrus fertiliser programme',cat:'Fertiliser',type:'expense',amt:26880,method:'Bank Debit',ent:'or:f1'},
+    {date:'15 Feb 2023',desc:'Pyrinex insecticide (armyworm)',cat:'Crop Protection',type:'expense',amt:17112,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'10 Feb 2023',desc:'LAN top-dressing (maize)',cat:'Fertiliser',type:'expense',amt:47530,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'08 Feb 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:13650,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Feb 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Feb 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Feb 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Feb 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Feb 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Feb 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:8832,method:'Fuel Card'},
+    {date:'25 Feb 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:39390,method:'EFT'},
+    {date:'06 Jan 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:19000,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Jan 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:89000,method:'Bank Deposit',ent:'ls:4'},
+    {date:'15 Jan 2023',desc:'Pyrinex insecticide (armyworm)',cat:'Crop Protection',type:'expense',amt:18400,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'10 Jan 2023',desc:'LAN top-dressing (maize)',cat:'Fertiliser',type:'expense',amt:50925,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'08 Jan 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:14700,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Jan 2023',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Jan 2023',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Jan 2023',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Jan 2023',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Jan 2023',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Jan 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:9476,method:'Fuel Card'},
+    {date:'25 Jan 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:42120,method:'EFT'},
+    {date:'06 Dec 2022',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21000,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Dec 2022',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:97900,method:'Bank Deposit',ent:'ls:4'},
+    {date:'12 Dec 2022',desc:'Glyphosate & spray programme',cat:'Crop Protection',type:'expense',amt:14910,method:'Bank Debit',ent:'crop:Soybeans'},
+    {date:'20 Dec 2022',desc:'Cattle dipping & vaccine (vet)',cat:'Veterinary',type:'expense',amt:12360,method:'Bank Debit',ent:'ls:1'},
+    {date:'08 Dec 2022',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:16200,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Dec 2022',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Dec 2022',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Dec 2022',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Dec 2022',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Dec 2022',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Dec 2022',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:8464,method:'Fuel Card'},
+    {date:'25 Dec 2022',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:50440,method:'EFT'},
+    {date:'08 Nov 2022',desc:'DAFF diesel rebate refund',cat:'Government Grant',type:'income',amt:18200,method:'Bank Deposit'},
+    {date:'06 Nov 2022',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:18200,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Nov 2022',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:85440,method:'Bank Deposit',ent:'ls:4'},
+    {date:'21 Nov 2022',desc:'Orchard spray programme',cat:'Crop Protection',type:'expense',amt:20680,method:'Bank Debit',ent:'or:f2'},
+    {date:'13 Nov 2022',desc:'Engen bulk diesel (planting)',cat:'Fuel & Oil',type:'expense',amt:55120,method:'Bank Debit'},
+    {date:'18 Nov 2022',desc:'Soybean seed & inoculant',cat:'Seeds & Planting',type:'expense',amt:19800,method:'Bank Debit',ent:'crop:Soybeans'},
+    {date:'16 Nov 2022',desc:'Sunflower seed & planting',cat:'Seeds & Planting',type:'expense',amt:18050,method:'Bank Debit',ent:'crop:Sunflower'},
+    {date:'14 Nov 2022',desc:'Certified maize seed (Pioneer)',cat:'Seeds & Planting',type:'expense',amt:31000,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'12 Nov 2022',desc:'MAP planting fertiliser',cat:'Fertiliser',type:'expense',amt:60900,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'08 Nov 2022',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:14100,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Nov 2022',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Nov 2022',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Nov 2022',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Nov 2022',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Nov 2022',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Nov 2022',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:9108,method:'Fuel Card'},
+    {date:'25 Nov 2022',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:40560,method:'EFT'},
+    {date:'06 Oct 2022',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:19600,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Oct 2022',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:91670,method:'Bank Deposit',ent:'ls:4'},
+    {date:'14 Oct 2022',desc:'Wool clip — BKB auction',cat:'Livestock Sales',type:'income',amt:85360,method:'Bank Deposit',ent:'ls:2'},
+    {date:'15 Oct 2022',desc:'Blueberries — punnets (export)',cat:'Fruit Sales',type:'income',amt:252000,method:'Bank Deposit',ent:'or:f7'},
+    {date:'13 Oct 2022',desc:'Engen bulk diesel (planting)',cat:'Fuel & Oil',type:'expense',amt:47840,method:'Bank Debit'},
+    {date:'14 Oct 2022',desc:'Certified maize seed (Pioneer)',cat:'Seeds & Planting',type:'expense',amt:33170,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'12 Oct 2022',desc:'MAP planting fertiliser',cat:'Fertiliser',type:'expense',amt:52780,method:'Bank Debit',ent:'crop:White maize'},
+    {date:'08 Oct 2022',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:15150,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Oct 2022',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Oct 2022',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Oct 2022',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Oct 2022',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Oct 2022',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Oct 2022',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:9752,method:'Fuel Card'},
+    {date:'25 Oct 2022',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:35100,method:'EFT'},
+    {date:'06 Sep 2022',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21000,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Sep 2022',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:97900,method:'Bank Deposit',ent:'ls:4'},
+    {date:'06 Sep 2022',desc:'Shearing contractor (wool clip)',cat:'Other',type:'expense',amt:8460,method:'Cash',ent:'ls:2'},
+    {date:'14 Sep 2022',desc:'Wool clip — BKB auction',cat:'Livestock Sales',type:'income',amt:91520,method:'Bank Deposit',ent:'ls:2'},
+    {date:'11 Sep 2022',desc:'Cull cows — abattoir',cat:'Livestock Sales',type:'income',amt:100280,method:'Bank Deposit',ent:'ls:1'},
+    {date:'21 Sep 2022',desc:'Orchard spray programme',cat:'Crop Protection',type:'expense',amt:23760,method:'Bank Debit',ent:'or:f2'},
+    {date:'15 Sep 2022',desc:'Blueberries — punnets (export)',cat:'Fruit Sales',type:'income',amt:269640,method:'Bank Deposit',ent:'or:f7'},
+    {date:'20 Sep 2022',desc:'Cattle dipping & vaccine (vet)',cat:'Veterinary',type:'expense',amt:12360,method:'Bank Debit',ent:'ls:1'},
+    {date:'08 Sep 2022',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:16200,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Sep 2022',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Sep 2022',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Sep 2022',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Sep 2022',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Sep 2022',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Sep 2022',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:8464,method:'Fuel Card'},
+    {date:'25 Sep 2022',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:37830,method:'EFT'},
+    {date:'06 Aug 2022',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:18200,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Aug 2022',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:85440,method:'Bank Deposit',ent:'ls:4'},
+    {date:'07 Aug 2022',desc:'Boer goats — speculators auction',cat:'Livestock Sales',type:'income',amt:48760,method:'Cash',ent:'ls:3'},
+    {date:'23 Aug 2022',desc:'Packhouse labour & cartons',cat:'Labour & Wages',type:'expense',amt:38500,method:'Bank Debit',ent:'or:f1'},
+    {date:'19 Aug 2022',desc:'Citrus fertiliser programme',cat:'Fertiliser',type:'expense',amt:27720,method:'Bank Debit',ent:'or:f1'},
+    {date:'15 Aug 2022',desc:'Blueberries — punnets (export)',cat:'Fruit Sales',type:'income',amt:234360,method:'Bank Deposit',ent:'or:f7'},
+    {date:'08 Aug 2022',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:21150,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Aug 2022',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Aug 2022',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Aug 2022',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Aug 2022',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Aug 2022',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Aug 2022',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:9108,method:'Fuel Card'},
+    {date:'25 Aug 2022',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:40560,method:'EFT'},
+    {date:'06 Jul 2022',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:19600,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Jul 2022',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:91670,method:'Bank Deposit',ent:'ls:4'},
+    {date:'12 Jul 2022',desc:'Backgrounded steers — feedlot',cat:'Livestock Sales',type:'income',amt:102720,method:'Bank Deposit',ent:'ls:5'},
+    {date:'23 Jul 2022',desc:'Packhouse labour & cartons',cat:'Labour & Wages',type:'expense',amt:33600,method:'Bank Debit',ent:'or:f1'},
+    {date:'22 Jul 2022',desc:'Valencia citrus — export packout',cat:'Fruit Sales',type:'income',amt:316800,method:'Bank Deposit',ent:'or:f1'},
+    {date:'08 Jul 2022',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:22725,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Jul 2022',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Jul 2022',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Jul 2022',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Jul 2022',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Jul 2022',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Jul 2022',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:9752,method:'Fuel Card'},
+    {date:'25 Jul 2022',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:35100,method:'EFT'},
+    {date:'06 Jun 2022',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21000,method:'Bank Debit',ent:'ls:4'},
+    {date:'15 Jun 2022',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:97900,method:'Bank Deposit',ent:'ls:4'},
+    {date:'10 Jun 2022',desc:'Weaner calves — Karan Beef',cat:'Livestock Sales',type:'income',amt:115640,method:'Bank Deposit',ent:'ls:1'},
+    {date:'23 Jun 2022',desc:'Packhouse labour & cartons',cat:'Labour & Wages',type:'expense',amt:36050,method:'Bank Debit',ent:'or:f1'},
+    {date:'26 Jun 2022',desc:'Cabbage — fresh produce market',cat:'Fruit Sales',type:'income',amt:39770,method:'Bank Deposit',ent:'or:f9'},
+    {date:'24 Jun 2022',desc:'Navel citrus — export',cat:'Fruit Sales',type:'income',amt:230280,method:'Bank Deposit',ent:'or:f2'},
+    {date:'22 Jun 2022',desc:'Valencia citrus — export packout',cat:'Fruit Sales',type:'income',amt:339200,method:'Bank Deposit',ent:'or:f1'},
+    {date:'20 Jun 2022',desc:'White maize — delivery to NWK',cat:'Crop Sales',type:'income',amt:406800,method:'Bank Deposit',ent:'crop:White maize'},
+    {date:'20 Jun 2022',desc:'Cattle dipping & vaccine (vet)',cat:'Veterinary',type:'expense',amt:12360,method:'Bank Debit',ent:'ls:1'},
+    {date:'08 Jun 2022',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:24300,method:'Bank Debit',ent:'ls:1'},
+    {date:'05 Jun 2022',desc:'Grazing rights rental (neighbour)',cat:'Rental Income',type:'income',amt:15000,method:'Bank Deposit'},
+    {date:'03 Jun 2022',desc:'Bakkie finance (Toyota Hilux)',cat:'Loan Repayments',type:'expense',amt:8400,method:'Debit Order'},
+    {date:'02 Jun 2022',desc:'Land Bank production loan',cat:'Loan Repayments',type:'expense',amt:45000,method:'Debit Order'},
+    {date:'01 Jun 2022',desc:'Farm insurance premium (Santam Agri)',cat:'Insurance',type:'expense',amt:5670,method:'Debit Order'},
+    {date:'01 Jun 2022',desc:'Phone & internet (Vodacom)',cat:'Admin',type:'expense',amt:1850,method:'Debit Order'},
+    {date:'27 Jun 2022',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:8464,method:'Fuel Card'},
+    {date:'25 Jun 2022',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:37830,method:'EFT'},
   ]
 };
 
@@ -10385,7 +10671,7 @@ rows += '<tr class="tx-month-row"><td colspan="5" style="padding:0">' +
         '<td style="font-size:12px;color:var(--t3)">' + t.date + '</td>' +
         '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">' + (t.desc || '') + '</div>' +
              '<div class="tx-source">' + (t.method || '') + clip + '</div></td>' +
-        '<td><span class="tag ' + tag + '">' + t.cat + '</span></td>' +
+        '<td><span class="tag ' + tag + '">' + esc(t.cat) + '</span></td>' +
         '<td style="font-weight:700;color:var(--gd);text-align:right">+' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
       '</tr>';
@@ -10467,7 +10753,7 @@ var months = [];
         '<td style="font-size:12px;color:var(--t3)">' + t.date + '</td>' +
         '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">' + (t.desc || '') + '</div>' +
              '<div class="tx-source">' + (t.method || '') + clip + '</div></td>' +
-        '<td><span class="tag ' + tag + '">' + t.cat + '</span></td>' +
+        '<td><span class="tag ' + tag + '">' + esc(t.cat) + '</span></td>' +
         '<td style="font-weight:700;color:var(--rd);text-align:right">− ' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
       '</tr>';
@@ -11933,8 +12219,9 @@ function showSkeleton(containerId, rows) {
 
 // ============================================================
 function nav(id) {
-  document.querySelectorAll('.pg').forEach(function(p){ p.classList.remove('on'); });
   var pg = $('pg-' + id);
+  if (!pg) { pg = $('pg-dashboard'); id = 'dashboard'; }   // missing target -> fall back to dashboard, never blank the screen
+  document.querySelectorAll('.pg').forEach(function(p){ p.classList.remove('on'); });
   if (pg) pg.classList.add('on');
 
   document.querySelectorAll('.nav-item').forEach(function(item){
@@ -12002,6 +12289,31 @@ function nav(id) {
   if (id === 'add-expense') { var d=$('ae-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; }
   if (typeof langSync === 'function') langSync();
   }, 60);
+}
+
+// ── DEV-ONLY: duplicate-id guardrail (audit F-04 / #5) ───────────────────────
+// Several modules INTENTIONALLY reuse ids (pfFc/dPfB/pfBe, hp-res/hp-multi/…,
+// ln-addform) across mutually-exclusive render branches that share one container
+// (pf-wi-body, the herd-plan area, the loans add-form). Safe today because only
+// one branch is ever in the DOM at a time. This watchdog warns if a future change
+// ever breaks that one-at-a-time invariant (getElementById would then read the
+// wrong element). Gated to localhost / TEST builds; no-op in production.
+var _AI_DEV = (function(){ try { return location.hostname==='localhost' || location.hostname==='127.0.0.1' || /TEST/.test(location.pathname); } catch(e){ return false; } })();
+function _devCheckDupeIds(){
+  if(!_AI_DEV) return [];
+  var seen=Object.create(null), dupes=Object.create(null), els=document.querySelectorAll('[id]');
+  for(var i=0;i<els.length;i++){ var id=els[i].id; if(!id) continue; if(seen[id]) dupes[id]=(dupes[id]||1)+1; else seen[id]=1; }
+  var list=Object.keys(dupes);
+  if(list.length) console.warn('[AgriInsights dev] Duplicate DOM ids — getElementById reads only the first:', list.map(function(k){return k+' ×'+dupes[k];}));
+  return list;
+}
+if(_AI_DEV && typeof window!=='undefined'){
+  window._devCheckDupeIds=_devCheckDupeIds;           // call from console anytime
+  try{
+    var _dupTimer=null;
+    var _dupObs=new MutationObserver(function(){ if(_dupTimer) return; _dupTimer=setTimeout(function(){ _dupTimer=null; _devCheckDupeIds(); },400); });
+    document.addEventListener('DOMContentLoaded', function(){ _dupObs.observe(document.getElementById('content')||document.body,{childList:true,subtree:true}); });
+  }catch(e){}
 }
 
 // ============================================================
@@ -12903,7 +13215,7 @@ function LN_payoff(l){
   if(bal<=0) return {amortises:true, months:0, date:today, totalInterest:0, totalPay:0, yearEnds:[]};
   if(r<=0){ var nz=Math.ceil(bal/Math.max(1,pay)); var dz=new Date(today.getFullYear(),today.getMonth(),1); dz.setMonth(dz.getMonth()+nz); return {amortises:true, months:nz, date:dz, totalInterest:0, totalPay:Math.round(bal), yearEnds:[]}; }
   var intM=bal*r;
-  if(pay<=intM) return {amortises:false, intMonth:Math.round(intM)};
+  if(pay<=intM+0.005) return {amortises:false, intMonth:Math.round(intM)};
   var b=bal, totInt=0, totPay=0, m=0, yearEnds=[];
   var d=new Date(today.getFullYear(), today.getMonth(), 1);
   while(b>0.5 && m<1200){
@@ -12912,7 +13224,7 @@ function LN_payoff(l){
     b-=prin; totInt+=i; totPay+=pay; m++; d.setMonth(d.getMonth()+1);
     if(d.getMonth()===0) yearEnds.push({year:d.getFullYear()-1, balance:Math.round(b)});
   }
-  return {amortises:true, months:m, date:new Date(d), totalInterest:Math.round(totInt), totalPay:Math.round(totPay), yearEnds:yearEnds};
+  return {amortises:(b<=0.5), months:m, date:new Date(d), totalInterest:Math.round(totInt), totalPay:Math.round(totPay), yearEnds:yearEnds};
 }
 
 var LN_MONTH_FULL={Jan:'January',Feb:'February',Mar:'March',Apr:'April',May:'May',Jun:'June',Jul:'July',Aug:'August',Sep:'September',Oct:'October',Nov:'November',Dec:'December'};
@@ -12996,7 +13308,7 @@ function laM(n){ var v=Math.round(n/100000)/10; return 'R'+v.toFixed(1).replace(
 function laGrp(el){ var v=laNum(el.value); el.value=v?_grpInt(v):''; }
 
 function laEntryCardHTML(){
-  return '<div class="ln-card la-entry" onclick="openAffordabilityFlow()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'){openAffordabilityFlow();}">'+
+  return '<div class="ln-card la-entry" id="ln-la-entry" onclick="openAffordabilityFlow()" role="button" tabindex="0" onkeydown="if(event.key===\'Enter\'){openAffordabilityFlow();}">'+
     '<div class="la-entry-l"><div class="la-entry-ic">🏦</div><div><div class="la-entry-t">Thinking of borrowing?</div><div class="la-entry-s">See what you can afford — and get a bank-ready report — in a few minutes.</div></div></div>'+
     '<div class="la-entry-go"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></div></div>';
 }
@@ -15439,7 +15751,7 @@ function renderWkCompliance(){ wkSync();
     var off=cs.untracked[it.key];
     var click = off ? '' : (' onclick="wkCompOpen(\''+it.key+'\')" style="cursor:pointer"');
     return '<div class="wk-citem'+(off?' off':'')+'"'+click+'><div class="ch"><span class="wk-dot '+(off?'off':it.status)+'"></span><div><div class="wk-cname">'+wkE(it.name)+'</div><div class="wk-claw">'+wkE(it.law)+'</div></div><span class="wk-pill '+(off?'off':it.status)+'">'+(off?'Not tracked':wkE(it.pill))+'</span>'+(off?'':'<span style="color:var(--t4);font-size:18px;margin-left:4px">\u203a</span>')+'</div>'
-      + (off?'':('<div class="wk-cdesc">'+it.desc+'</div>'))
+      + (off?'':('<div class="wk-cdesc">'+esc(it.desc)+'</div>'))
       + '</div>';
   }).join('');
   box.innerHTML =
@@ -16894,7 +17206,8 @@ var ST_LS = {
   camps: [
     {id:'cmp3', name:'Camp 3',    ha:18, since:'March',  notes:'Mixed grazing'},
     {id:'cmp1', name:'Camp 1',    ha:12, since:'April',  notes:''},
-    {id:'cmpv', name:'Veld camp', ha:60, since:'',       notes:'Extensive veld'}
+    {id:'cmpv', name:'Veld camp', ha:60, since:'',       notes:'Extensive veld'},
+    {id:'cmpd', name:'Dairy paddock', ha:8, since:'', notes:'Dairy cows near the dairy'}
   ],
   herd: [
     {id:1,type:'Beef cattle', name:'Breeding cows', camp:'Camp 3', campId:'cmp3', track:true,  qty:20, buy:4500,  feed:350, vet:80,  sell:12500, months:5,  notes:'Bonsmara',
@@ -16904,11 +17217,41 @@ var ST_LS = {
     {id:2,type:'Wool sheep (Merino)',  name:'Ewe flock',     camp:'Veld camp', campId:'cmpv', track:false, qty:36, buy:2800,  feed:160, vet:50,  sell:6200,  months:4,  notes:'Merino ewes', breed:'Merino · commercial'},
     {id:3,type:'Boer goats (meat)',  name:'Boer goats',    camp:'Camp 1', campId:'cmp1', track:false, qty:24, buy:2200,  feed:120, vet:40,  sell:5800,  months:6,  notes:'Boer goats',
       breed:'Boer · commercial', classes:[{k:'does',n:15,v:6200},{k:'bucks',n:2,v:9500},{k:'kids',n:7,v:3800}]},
-    {id:4,type:'Dairy cattle',     name:'Dairy cows',    camp:'',          campId:'', track:false, qty:0,  buy:18000, feed:800, vet:150, sell:0,     months:12, notes:'Planning to start a small dairy', planned:true}
+    {id:4,type:'Dairy cattle', name:'Dairy cows', camp:'Dairy paddock', campId:'cmpd', track:true, qty:32, buy:18000, feed:800, vet:150, sell:14000, months:12, notes:'Small Jersey dairy \u00b7 hand-reared replacements', breed:'Jersey \u00b7 commercial', classes:[{k:'cows',n:24,v:16000},{k:'heifers',n:6,v:11000},{k:'calves',n:2,v:4500}]}
   ],
   animals: [
     {id:'an1',herd:1,tag:'GV-0421',name:'Daisy',sex:'F',breed:'Bonsmara'},
-    {id:'an2',herd:1,tag:'GV-0533',name:'Bella',sex:'F',breed:'Bonsmara'}
+    {id:'an2',herd:1,tag:'GV-0533',name:'Bella',sex:'F',breed:'Bonsmara'},
+    {id:'dan01',herd:4,tag:'JD-101001',name:'Clover',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101001-s1',k:'service',date:'2023-08-15',sire:'JD-Bull-05',method:'AI'},{id:'r-JD-101001-p1',k:'scan',date:'2023-09-19',result:'in-calf'}]},
+    {id:'dan02',herd:4,tag:'JD-101002',name:'Buttercup',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101002-s1',k:'service',date:'2023-08-25',sire:'ABS-Jersey-118',method:'AI'},{id:'r-JD-101002-p1',k:'scan',date:'2023-09-29',result:'in-calf'}]},
+    {id:'dan03',herd:4,tag:'JD-101003',name:'Daisybelle',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101003-s1',k:'service',date:'2023-09-04',sire:'Semex-JX-77',method:'AI'},{id:'r-JD-101003-p1',k:'scan',date:'2023-10-09',result:'in-calf'}]},
+    {id:'dan04',herd:4,tag:'JD-101004',name:'Marigold',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101004-s1',k:'service',date:'2023-09-14',sire:'JD-Bull-02',method:'AI'},{id:'r-JD-101004-p1',k:'scan',date:'2023-10-19',result:'in-calf'}]},
+    {id:'dan05',herd:4,tag:'JD-101005',name:'Primrose',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101005-s1',k:'service',date:'2023-09-24',sire:'JD-Bull-05',method:'AI'},{id:'r-JD-101005-p1',k:'scan',date:'2023-10-29',result:'in-calf'}]},
+    {id:'dan06',herd:4,tag:'JD-101006',name:'Bluebell',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101006-s1',k:'service',date:'2023-10-04',sire:'ABS-Jersey-118',method:'AI'},{id:'r-JD-101006-p1',k:'scan',date:'2023-11-08',result:'in-calf'}]},
+    {id:'dan07',herd:4,tag:'JD-101007',name:'Hazel',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101007-s1',k:'service',date:'2023-10-14',sire:'Semex-JX-77',method:'AI'},{id:'r-JD-101007-p1',k:'scan',date:'2023-11-18',result:'in-calf'}]},
+    {id:'dan08',herd:4,tag:'JD-101008',name:'Ivy',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101008-s1',k:'service',date:'2023-10-24',sire:'JD-Bull-02',method:'AI'},{id:'r-JD-101008-p1',k:'scan',date:'2023-11-28',result:'in-calf'}]},
+    {id:'dan09',herd:4,tag:'JD-101009',name:'Willow',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101009-s1',k:'service',date:'2023-11-03',sire:'JD-Bull-05',method:'AI'},{id:'r-JD-101009-p1',k:'scan',date:'2023-12-08',result:'in-calf'}]},
+    {id:'dan10',herd:4,tag:'JD-101010',name:'Rosie',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101010-s1',k:'service',date:'2023-11-13',sire:'ABS-Jersey-118',method:'AI'},{id:'r-JD-101010-p1',k:'scan',date:'2023-12-18',result:'in-calf'}]},
+    {id:'dan11',herd:4,tag:'JD-101011',name:'Poppy',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101011-s1',k:'service',date:'2023-11-23',sire:'Semex-JX-77',method:'AI'},{id:'r-JD-101011-p1',k:'scan',date:'2023-12-28',result:'in-calf'}]},
+    {id:'dan12',herd:4,tag:'JD-101012',name:'Fern',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101012-s1',k:'service',date:'2023-12-03',sire:'JD-Bull-02',method:'AI'},{id:'r-JD-101012-p1',k:'scan',date:'2024-01-07',result:'in-calf'}]},
+    {id:'dan13',herd:4,tag:'JD-101013',name:'Maple',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101013-s1',k:'service',date:'2023-12-13',sire:'JD-Bull-05',method:'AI'},{id:'r-JD-101013-p1',k:'scan',date:'2024-01-17',result:'in-calf'}]},
+    {id:'dan14',herd:4,tag:'JD-101014',name:'Olive',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101014-c1',k:'calving',date:'2022-09-04'},{id:'r-JD-101014-c2',k:'calving',date:'2023-10-04'},{id:'r-JD-101014-s1',k:'service',date:'2023-12-23',sire:'ABS-Jersey-118',method:'AI'},{id:'r-JD-101014-p1',k:'scan',date:'2024-01-27',result:'in-calf'}]},
+    {id:'dan15',herd:4,tag:'JD-101015',name:'Pearl',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101015-c1',k:'calving',date:'2022-09-14'},{id:'r-JD-101015-c2',k:'calving',date:'2023-10-14'},{id:'r-JD-101015-s1',k:'service',date:'2024-01-02',sire:'Semex-JX-77',method:'AI'},{id:'r-JD-101015-p1',k:'scan',date:'2024-02-06',result:'in-calf'}]},
+    {id:'dan16',herd:4,tag:'JD-101016',name:'Suzie',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101016-c1',k:'calving',date:'2023-11-23'},{id:'r-JD-101016-s1',k:'service',date:'2024-01-12',sire:'JD-Bull-02',method:'AI'},{id:'r-JD-101016-p1',k:'scan',date:'2024-02-16',result:'in-calf'}]},
+    {id:'dan17',herd:4,tag:'JD-101017',name:'Bonnie',sex:'F',breed:'Jersey',cls:'cows',repro:[{id:'r-JD-101017-c1',k:'calving',date:'2023-12-03'},{id:'r-JD-101017-s1',k:'service',date:'2024-01-22',sire:'JD-Bull-05',method:'AI'},{id:'r-JD-101017-p1',k:'scan',date:'2024-02-26',result:'in-calf'}]},
+    {id:'dan18',herd:4,tag:'JD-101018',name:'Trixie',sex:'F',breed:'Jersey',cls:'cows',status:'dry',repro:[{id:'r-JD-101018-s1',k:'service',date:'2024-02-01',sire:'ABS-Jersey-118',method:'AI'},{id:'r-JD-101018-p1',k:'scan',date:'2024-03-07',result:'in-calf'}]},
+    {id:'dan19',herd:4,tag:'JD-101019',name:'Gemma',sex:'F',breed:'Jersey',cls:'cows',status:'dry',repro:[{id:'r-JD-101019-s1',k:'service',date:'2024-02-11',sire:'Semex-JX-77',method:'AI'},{id:'r-JD-101019-p1',k:'scan',date:'2024-03-17',result:'in-calf'}]},
+    {id:'dan20',herd:4,tag:'JD-101020',name:'Lettie',sex:'F',breed:'Jersey',cls:'cows',status:'open',repro:[{id:'r-JD-101020-s1',k:'service',date:'2023-09-24',sire:'JD-Bull-02',method:'natural'},{id:'r-JD-101020-p1',k:'scan',date:'2023-10-29',result:'empty'}]},
+    {id:'dan21',herd:4,tag:'JD-101021',name:'Nandi',sex:'F',breed:'Jersey',cls:'cows',status:'open',repro:[{id:'r-JD-101021-s1',k:'service',date:'2023-10-06',sire:'JD-Bull-05',method:'natural'},{id:'r-JD-101021-p1',k:'scan',date:'2023-11-10',result:'empty'}]},
+    {id:'dan22',herd:4,tag:'JD-101022',name:'Thandi',sex:'F',breed:'Jersey',cls:'cows',status:'open',repro:[{id:'r-JD-101022-s1',k:'service',date:'2023-10-18',sire:'ABS-Jersey-118',method:'natural'},{id:'r-JD-101022-p1',k:'scan',date:'2023-11-22',result:'empty'}]},
+    {id:'dan23',herd:4,tag:'JD-101023',name:'Lulu',sex:'F',breed:'Jersey',cls:'cows',status:'fresh',repro:[{id:'r-JD-101023-c1',k:'calving',date:'2024-03-01'}]},
+    {id:'dan24',herd:4,tag:'JD-101024',name:'Mieke',sex:'F',breed:'Jersey',cls:'cows',status:'fresh',repro:[{id:'r-JD-101024-c1',k:'calving',date:'2024-03-13'}]},
+    {id:'dan25',herd:4,tag:'JD-101025',name:'Sannie',sex:'F',breed:'Jersey',cls:'heifers'},
+    {id:'dan26',herd:4,tag:'JD-101026',name:'Truia',sex:'F',breed:'Jersey',cls:'heifers'},
+    {id:'dan27',herd:4,tag:'JD-101027',name:'Gerda',sex:'F',breed:'Jersey',cls:'heifers'},
+    {id:'dan28',herd:4,tag:'JD-101028',name:'Katrien',sex:'F',breed:'Jersey',cls:'heifers'},
+    {id:'dan29',herd:4,tag:'JD-101029',name:'Rensie',sex:'F',breed:'Jersey',cls:'heifers'},
+    {id:'dan30',herd:4,tag:'JD-101030',name:'Bettie',sex:'F',breed:'Jersey',cls:'heifers'}
   ],
   moves: [
     {id:'m1',herd:1,reason:'born',qty:3,date:'2024-05-18',note:'3 calves',money:0},
@@ -23911,7 +24254,7 @@ function stCropRows(){
       _d:{plRev:Math.round(e.plRev),acRev:Math.round(e.acRev),plCost:Math.round(plCost),acCost:Math.round(acCost),tag:tag,byCat:byK,budget:Math.round(e.budget),budgetLine:budLine,
           revLbl:(aY<tY?'Smaller harvest':'Bigger harvest'),revNote:(Math.round(aY*10)/10)+' tons a hectare, planned '+(Math.round(tY*10)/10),
           costLbl:'Inputs',costNote:'on your input budget',
-          openFn:"nav('crops')",openLbl:'Open your lands'} };
+          openFn:"nav('crop')",openLbl:'Open your lands'} };
   });
 }
 function stOrchRows(){
@@ -26176,11 +26519,11 @@ function renderTable(type) {
     var acolor = t.type==='income' ? '#1B4332' : '#E74C3C';
     var asign  = t.type==='income' ? '+' : '-';
     if (type === 'all') {
-      return '<tr><td>'+t.date+'</td><td>'+t.desc+'</td><td><span class="tag '+tag+'">'+t.cat+'</span></td>'+
+      return '<tr><td>'+t.date+'</td><td>'+esc(t.desc)+'</td><td><span class="tag '+tag+'">'+esc(t.cat)+'</span></td>'+
         '<td><span class="tag '+(t.type==='income'?'tg':'tr')+'">'+t.type+'</span></td>'+
         '<td style="font-weight:700;color:'+acolor+'">'+asign+fmt(t.amt)+'</td><td>'+t.method+'</td></tr>';
     }
-    return '<tr><td>'+t.date+'</td><td>'+t.desc+'</td><td><span class="tag '+tag+'">'+t.cat+'</span></td>'+
+    return '<tr><td>'+t.date+'</td><td>'+esc(t.desc)+'</td><td><span class="tag '+tag+'">'+esc(t.cat)+'</span></td>'+
       '<td style="font-weight:700;color:'+acolor+'">'+asign+fmt(t.amt)+'</td><td>'+t.method+'</td></tr>';
   }).join('');
   if(!html) html='<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:20px">No transactions yet.</td></tr>';
@@ -27502,7 +27845,7 @@ function renderRecentIncome() {
   if (!el) return;
   var inc = ST.txns.filter(function(t){ return t.type==='income'; }).slice(0,4);
   el.innerHTML = inc.map(function(t){
-    return '<div class="rl-row"><div class="rl-left"><div class="rl-icon" style="background:var(--gb)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--gd)" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div><div><div class="rl-name">'+t.desc+'</div><div class="rl-date">'+t.date+'</div></div></div><div class="rl-val">'+fmt(t.amt)+'</div></div>';
+    return '<div class="rl-row"><div class="rl-left"><div class="rl-icon" style="background:var(--gb)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--gd)" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div><div><div class="rl-name">'+esc(t.desc)+'</div><div class="rl-date">'+t.date+'</div></div></div><div class="rl-val">'+fmt(t.amt)+'</div></div>';
   }).join('');
 }
 
@@ -27511,6 +27854,16 @@ function renderRecentIncome() {
 // ============================================================
 
 var LANG_PAIRS = [
+
+  // ── Orchard add-block form — full AF coverage (audit #11) ──
+  ['A carton is the standard box your fruit is packed and sold in.','’n Karton is die standaard boks waarin jou vrugte verpak en verkoop word.'],
+  ['Citrus is usually 15 kg, apples 12.5 kg, avocados 4 kg — but your packhouse may pack a different size, so set what you actually use.','Sitrus is gewoonlik 15 kg, appels 12.5 kg, avokado’s 4 kg — maar jou pakhuis pak dalk ’n ander grootte, so stel in wat jy werklik gebruik.'],
+  ['what the tree is grafted onto','waarop die boom geënt is'],
+  ['how your fruit is packed','hoe jou vrugte verpak word'],
+  ['for your yearly tax write-off','vir jou jaarlikse belastingafskrywing'],
+  ['What\'s a carton?','Wat is ’n karton?'],
+  ['Carton weight in kg','Kartongewig in kg'],
+  ['Bushes','Struike'],
   // ── Orchards / Fruit & Veg module (multi-word first) ─────────
   ['Your Profit Margins','Jou winsmarges'],
   ['Farm profit this season',                   'Plaaswins hierdie seisoen'],
@@ -28215,7 +28568,7 @@ var LANG_PAIRS = [
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
 
 // Key-based dictionary — elements tagged data-t translate exactly and reversibly
-var I18N = {"nav.group.daily":{"en":"Daily","af":"Daagliks"},"nav.dashboard":{"en":"Dashboard","af":"Tuisblad"},"nav.transactions":{"en":"Transactions","af":"Transaksies"},"nav.group.money":{"en":"Money","af":"Geld"},"nav.income":{"en":"Income","af":"Inkomste"},"nav.expenses":{"en":"Expenses","af":"Uitgawes"},"nav.cashflow":{"en":"Money Flow","af":"Geldvloei"},"nav.budgets":{"en":"Budgets","af":"Begrotings"},"nav.loans":{"en":"Loans & Debt","af":"Loans & Debt"},"nav.tax":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.title":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.sub":{"en":"What to set aside, what’s due and when — in plain words.","af":"Wat om weg te sit, wat betaalbaar is en wanneer — in eenvoudige taal."},"nav.reports":{"en":"Reports","af":"Verslae"},"nav.group.farm":{"en":"My Farm","af":"My Plaas"},"nav.planning":{"en":"Planning","af":"Beplanning"},"nav.crop":{"en":"Crops","af":"Crops"},"nav.orchards":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"nav.livestock":{"en":"Livestock","af":"Vee"},"nav.profit":{"en":"Profit","af":"Profit"},"nav.assets":{"en":"Assets","af":"Bates"},"nav.workers":{"en":"Workers","af":"Workers"},"nav.group.market":{"en":"Market","af":"Mark"},"nav.market":{"en":"Market Prices","af":"Markpryse"},"nav.settings":{"en":"Settings","af":"Instellings"},"offline.sub":{"en":"Working offline. Data syncs when online.","af":"Werk vanlyn. Data sinkroniseer wanneer aanlyn."},"or.title":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"or.sub":{"en":"Trees, vines, berries and veg \u2014 what each block costs, yields and earns","af":"Bome, wingerde, bessies en groente \u2014 wat elke blok kos, lewer en verdien"},"or.tab.overview":{"en":"Overview","af":"Oorsig"},"or.tab.blocks":{"en":"Blocks","af":"Blokke"},"or.tab.spray":{"en":"Spray & Inputs","af":"Spuit & Insette"},"or.tab.harvest":{"en":"Harvest & Pack","af":"Oes & Pak"},"or.tab.comply":{"en":"Compliance","af":"Voldoening"},"or.tab.add":{"en":"\uff0b Add block","af":"\uff0b Voeg blok by"},"or.spray.safe":{"en":"Safe to pick","af":"Veilig om te pluk"},"or.spray.safesub":{"en":"Pick a market \u2014 the wait changes with its rules","af":"Kies \u2019n mark \u2014 die wagtyd verander met sy re\u00ebls"},"or.local":{"en":"Local","af":"Local"},"or.spray.diary":{"en":"Spray diary","af":"Spuitdagboek"},"or.spray.log":{"en":"\uff0b Log spray","af":"\uff0b Teken spuit aan"},"or.harvest.calc":{"en":"What one packed unit pays you","af":"Wat een verpakte eenheid jou betaal"},"or.harvest.calcsub":{"en":"Edit any number \u2014 your money-back updates live","af":"Wysig enige getal \u2014 jou geld-terug werk regstreeks by"},"or.harvest.block":{"en":"Block","af":"Block"},"or.harvest.recent":{"en":"Recent picks","af":"Onlangse oeste"},"or.harvest.log":{"en":"\uff0b Log pick","af":"\uff0b Teken oes aan"},"or.cmp.certs":{"en":"Certificates & audits","af":"Sertifikate & oudits"},"or.cmp.pests":{"en":"Pests & diseases watched","af":"Plae & siektes dopgehou"},"or.cmp.other":{"en":"Other records on file","af":"Ander rekords op l\u00eaer"},"or.add.title":{"en":"Add a block","af":"Voeg \u2019n blok by"},"or.add.sub":{"en":"Tell us what you're growing \u2014 we set up the rest","af":"Tell us what you're growing \u2014 we set up the rest"},"or.add.tree":{"en":"Tree / vine","af":"Tree / vine"},"or.add.treesub":{"en":"citrus, avo, apple\u2026","af":"citrus, avo, apple\u2026"},"or.add.berry":{"en":"Berry","af":"Berry"},"or.add.berrysub":{"en":"blueberry, rasp\u2026","af":"blueberry, rasp\u2026"},"or.add.veg":{"en":"Vegetable","af":"Vegetable"},"or.add.vegsub":{"en":"replanted each season","af":"replanted each season"},"or.add.name":{"en":"Block name","af":"Bloknaam"},"or.add.crop":{"en":"What are you growing?","af":"Wat kweek jy?"},"or.add.area":{"en":"Area (ha)","af":"Area (ha)"},"or.add.spacing":{"en":"Spacing","af":"Spacing"},"or.add.yield":{"en":"Target yield once mature","af":"Target yield once mature"},"or.add.save":{"en":"Save block","af":"Stoor blok"}};
+var I18N = {"nav.group.daily":{"en":"Daily","af":"Daagliks"},"nav.dashboard":{"en":"Dashboard","af":"Tuisblad"},"nav.transactions":{"en":"Transactions","af":"Transaksies"},"nav.group.money":{"en":"Money","af":"Geld"},"nav.income":{"en":"Income","af":"Inkomste"},"nav.expenses":{"en":"Expenses","af":"Uitgawes"},"nav.cashflow":{"en":"Money Flow","af":"Geldvloei"},"nav.budgets":{"en":"Budgets","af":"Begrotings"},"nav.loans":{"en":"Loans & Debt","af":"Lenings & Skuld"},"nav.tax":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.title":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.sub":{"en":"What to set aside, what’s due and when — in plain words.","af":"Wat om weg te sit, wat betaalbaar is en wanneer — in eenvoudige taal."},"nav.reports":{"en":"Reports","af":"Verslae"},"nav.group.farm":{"en":"My Farm","af":"My Plaas"},"nav.planning":{"en":"Planning","af":"Beplanning"},"nav.crop":{"en":"Crops","af":"Gewasse"},"nav.orchards":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"nav.livestock":{"en":"Livestock","af":"Vee"},"nav.profit":{"en":"Profit","af":"Wins"},"nav.assets":{"en":"Assets","af":"Bates"},"nav.workers":{"en":"Workers","af":"Werkers"},"nav.group.market":{"en":"Market","af":"Mark"},"nav.market":{"en":"Market Prices","af":"Markpryse"},"nav.settings":{"en":"Settings","af":"Instellings"},"offline.sub":{"en":"Working offline. Data syncs when online.","af":"Werk vanlyn. Data sinkroniseer wanneer aanlyn."},"or.title":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"or.sub":{"en":"Trees, vines, berries and veg — what each block costs, yields and earns","af":"Bome, wingerde, bessies en groente — wat elke blok kos, lewer en verdien"},"or.tab.overview":{"en":"Overview","af":"Oorsig"},"or.tab.blocks":{"en":"Blocks","af":"Blokke"},"or.tab.spray":{"en":"Spray & Inputs","af":"Spuit & Insette"},"or.tab.harvest":{"en":"Harvest & Pack","af":"Oes & Pak"},"or.tab.comply":{"en":"Compliance","af":"Voldoening"},"or.tab.add":{"en":"＋ Add block","af":"＋ Voeg blok by"},"or.spray.safe":{"en":"Safe to pick","af":"Veilig om te pluk"},"or.spray.safesub":{"en":"Pick a market — the wait changes with its rules","af":"Kies ’n mark — die wagtyd verander met sy reëls"},"or.local":{"en":"Local","af":"Plaaslik"},"or.spray.diary":{"en":"Spray diary","af":"Spuitdagboek"},"or.spray.log":{"en":"＋ Log spray","af":"＋ Teken spuit aan"},"or.harvest.calc":{"en":"What one packed unit pays you","af":"Wat een verpakte eenheid jou betaal"},"or.harvest.calcsub":{"en":"Edit any number — your money-back updates live","af":"Wysig enige getal — jou geld-terug werk regstreeks by"},"or.harvest.block":{"en":"Block","af":"Blok"},"or.harvest.recent":{"en":"Recent picks","af":"Onlangse oeste"},"or.harvest.log":{"en":"＋ Log pick","af":"＋ Teken oes aan"},"or.cmp.certs":{"en":"Certificates & audits","af":"Sertifikate & oudits"},"or.cmp.pests":{"en":"Pests & diseases watched","af":"Plae & siektes dopgehou"},"or.cmp.other":{"en":"Other records on file","af":"Ander rekords op lêer"},"or.add.title":{"en":"Add a block","af":"Voeg ’n blok by"},"or.add.sub":{"en":"Tell us what you're growing — we set up the rest","af":"Sê vir ons wat jy kweek — ons stel die res op"},"or.add.tree":{"en":"Tree / vine","af":"Boom / wingerdstok"},"or.add.treesub":{"en":"citrus, avo, apple…","af":"sitrus, avo, appel…"},"or.add.berry":{"en":"Berry","af":"Bessie"},"or.add.berrysub":{"en":"blueberry, rasp…","af":"bloubessie, framb…"},"or.add.veg":{"en":"Vegetable","af":"Groente"},"or.add.vegsub":{"en":"replanted each season","af":"elke seisoen herplant"},"or.add.name":{"en":"Block name","af":"Bloknaam"},"or.add.crop":{"en":"What are you growing?","af":"Wat kweek jy?"},"or.add.area":{"en":"Area (ha)","af":"Oppervlakte (ha)"},"or.add.spacing":{"en":"Spacing","af":"Spasiëring"},"or.add.yield":{"en":"Target yield once mature","af":"Teiken-opbrengs wanneer volgroei"},"or.add.save":{"en":"Save block","af":"Stoor blok"},"hero.h":{"en":"Let's grow your profit this season.","af":"Kom ons groei jou wins hierdie seisoen."},"offline.title":{"en":"Offline Mode","af":"Vanlyn-modus"},"or.add.root":{"en":"Rootstock","af":"Onderstam"},"or.add.carton":{"en":"Carton size","af":"Kartongrootte"},"or.add.estab":{"en":"What it cost to establish","af":"Wat dit gekos het om te vestig"},"sync.last":{"en":"Saved","af":"Gestoor"}};
 
 var SKIP_TAGS = {SCRIPT:1, STYLE:1, SVG:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1};
 
@@ -28614,6 +28967,17 @@ function openSmsBackup() {
   }
 }
 function closeSmsModal(){ var m=$('sms-modal'); if(m) m.style.display='none'; }
+// Copy the SMS-backup text. Prefer the modern async Clipboard API; fall back to
+// the deprecated execCommand path for older WebViews, and tell the user if both fail.
+function smsCopyText(){
+  var t = $('sms-text'); if(!t) return;
+  function ok(){ if(typeof toast==='function') toast('Copied!','success'); }
+  function fail(){ try{ t.select(); if(document.execCommand('copy')){ ok(); return; } }catch(e){} if(typeof toast==='function') toast('Could not copy — select the text and copy manually','error'); }
+  t.select();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t.value).then(ok, fail);
+  } else { fail(); }
+}
 
 // ============================================================
 
@@ -28942,7 +29306,7 @@ function buildCFReport() {
       var lbl2=MONTH_LABELS[d.m]+' '+d.y;
       return R.months.indexOf(lbl2)>=0;
     }).map(function(t){
-      return '<tr><td>'+t.desc+'</td><td>'+t.cat+'</td><td class="amt pos">'+fmt(t.amt)+'</td></tr>';
+      return '<tr><td>'+esc(t.desc)+'</td><td>'+esc(t.cat)+'</td><td class="amt pos">'+fmt(t.amt)+'</td></tr>';
     }).join('')+
     '<tr class="total"><td colspan="2">TOTAL INFLOWS</td><td class="amt pos">'+fmt(R.totalIncome)+'</td></tr></table>'+
     '<h2>Cash Outflows</h2>'+
@@ -28953,7 +29317,7 @@ function buildCFReport() {
       var lbl2=MONTH_LABELS[d.m]+' '+d.y;
       return R.months.indexOf(lbl2)>=0;
     }).map(function(t){
-      return '<tr><td>'+t.desc+'</td><td>'+t.cat+'</td><td class="amt neg">'+fmt(t.amt)+'</td></tr>';
+      return '<tr><td>'+esc(t.desc)+'</td><td>'+esc(t.cat)+'</td><td class="amt neg">'+fmt(t.amt)+'</td></tr>';
     }).join('')+
     '<tr class="total"><td colspan="2">TOTAL OUTFLOWS</td><td class="amt neg">'+fmt(R.totalCOS+R.totalOpex)+'</td></tr></table>'+
     '<h2>Net Cash Position</h2>'+
@@ -29151,14 +29515,14 @@ function buildPreviewCF(R, meta) {
     '<div class="pv-section"><h2>Cash Inflows</h2>'+
     '<table class="pv-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amt">Amount</th></tr></thead><tbody>'+
     (inflows.length ? inflows.map(function(t){
-      return '<tr><td style="color:#6B7280;font-size:12px">'+t.date+'</td><td>'+t.desc+'</td><td><span style="background:#DCFCE7;color:#16A34A;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600">'+t.cat+'</span></td><td class="amt pv-pos">'+fmt(t.amt)+'</td></tr>';
+      return '<tr><td style="color:#6B7280;font-size:12px">'+t.date+'</td><td>'+esc(t.desc)+'</td><td><span style="background:#DCFCE7;color:#16A34A;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600">'+esc(t.cat)+'</span></td><td class="amt pv-pos">'+fmt(t.amt)+'</td></tr>';
     }).join('') : '<tr><td colspan="4" style="color:#9CA3AF;text-align:center">No income transactions for this period</td></tr>')+
     '<tr class="total"><td colspan="3">TOTAL INFLOWS</td><td class="amt pv-pos">'+fmt(R.totalIncome)+'</td></tr>'+
     '</tbody></table></div>'+
     '<div class="pv-section"><h2>Cash Outflows</h2>'+
     '<table class="pv-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amt">Amount</th></tr></thead><tbody>'+
     (outflows.length ? outflows.map(function(t){
-      return '<tr><td style="color:#6B7280;font-size:12px">'+t.date+'</td><td>'+t.desc+'</td><td><span style="background:#FEE2E2;color:#DC2626;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600">'+t.cat+'</span></td><td class="amt pv-neg">'+fmt(t.amt)+'</td></tr>';
+      return '<tr><td style="color:#6B7280;font-size:12px">'+t.date+'</td><td>'+esc(t.desc)+'</td><td><span style="background:#FEE2E2;color:#DC2626;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600">'+esc(t.cat)+'</span></td><td class="amt pv-neg">'+fmt(t.amt)+'</td></tr>';
     }).join('') : '<tr><td colspan="4" style="color:#9CA3AF;text-align:center">No expense transactions for this period</td></tr>')+
     '<tr class="total-neg"><td colspan="3">TOTAL OUTFLOWS</td><td class="amt pv-neg">'+fmt(R.totalCOS+R.totalOpex)+'</td></tr>'+
     '</tbody></table></div>'+
@@ -29226,7 +29590,15 @@ function IE_treat(cat){ return (IE_VATT && IE_VATT[cat]) ? IE_VATT[cat] : 'std';
 function IE_split(amt, cat){
   if (typeof FARM === 'undefined' || !FARM.vat) return {net:amt, vat:0, t:'none'};
   var t = IE_treat(cat);
-  if (t === 'std') { var vat = Math.round(amt * IE_VAT_RATE / (1 + IE_VAT_RATE)); return {net:amt - vat, vat:vat, t:t}; }
+  if (t === 'std') {
+    // Integer-cent arithmetic (audit C-03): round VAT to the nearest CENT — not the
+    // nearest rand — per line, so fractional cents never accumulate across a VAT
+    // period. Callers sum these exact values and round once at display/report level
+    // (IE_R rounds to rands for the screen; taxVatPosition rounds the period total).
+    var cents = Math.round(amt * 100);
+    var vatC  = Math.round(cents * IE_VAT_RATE / (1 + IE_VAT_RATE));
+    return {net:(cents - vatC) / 100, vat:vatC / 100, t:t};
+  }
   return {net:amt, vat:0, t:t};
 }
 function IE_R(n){ n = Math.round(n); return (n<0?'\u2212R':'R') + _grpInt(n); }
@@ -29403,7 +29775,7 @@ function exportIECsv(){
   var curInfo = computeRPT();
   var cur = IE_aggregate(curInfo);
   var lbl = getPeriodLabel();
-  function esc(v){ v = '' + v; return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }
+  function esc(v){ v = '' + v; if(/^[=+\-@\t\r]/.test(v)) v = "'" + v; return /[",\n]/.test(v) ? '"' + v.replace(/"/g,'""') + '"' : v; }
   function row(a){ return a.map(esc).join(',') + '\r\n'; }
   var csv = row(['Income & Expenses Statement', FARM.name || 'Farm', lbl]) + row([]) +
             row(['Date','Description','Type','Category','VAT treatment','Amount (incl)','VAT','Net (excl VAT)']);
@@ -29411,7 +29783,9 @@ function exportIECsv(){
     cats.forEach(function(c){
       c.items.forEach(function(t){
         var s = IE_split(t.amt, t.cat);
-        csv += row([t.date, t.desc, type, t.cat, IE_VTLABEL[s.t], Math.round(t.amt), Math.round(s.vat), Math.round(s.net)]);
+        // Export exact rands-and-cents so the accountant's column sums reconcile
+        // (whole-rand rounding per line reintroduced the C-03 drift on re-summation).
+        csv += row([t.date, t.desc, type, t.cat, IE_VTLABEL[s.t], (+t.amt).toFixed(2), s.vat.toFixed(2), s.net.toFixed(2)]);
       });
     });
   }
@@ -29930,7 +30304,7 @@ function printDeprSchedule(fy){ fy=(fy==null)?_txResolveFy():fy;
   var w=window.open('','_blank'); if(!w) return; w.document.write('<html><head><title>Depreciation schedule</title></head><body style="font-family:-apple-system,Segoe UI,sans-serif;padding:24px;max-width:820px;margin:0 auto">'+html+'</body></html>'); w.document.close(); setTimeout(function(){ try{ w.print(); }catch(e){} },250);
 }
 function exportDeprCsv(fy){ fy=(fy==null)?_txResolveFy():fy; var rows=_txDeprRows(fy);
-  function esc(v){ v=''+v; return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+  function esc(v){ v=''+v; if(/^[=+\-@\t\r]/.test(v)) v="'"+v; return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
   function row(a){ return a.map(esc).join(',')+'\r\n'; }
   var csv=row(['Depreciation schedule',(typeof FARM!=='undefined'&&FARM.name)||'Farm',_txFyLabel(fy)])+row([])+row(['Asset','Allowance','Cost','Write-off this year','Tax value carried']);
   rows.forEach(function(r){ csv+=row([r.name,_txSecLabel(r.type),Math.round(r.price),Math.round(r.thisFy),Math.round(r.book)]); });
@@ -31433,7 +31807,7 @@ var DEMO_INCOME_STEPS = [
     action:  function() { var d=$('ai-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; }
   },
   {
-    target:  'ai-cat',
+    target:  'ai-method',
     icon:    '🏷️',
     title:   'Step 5: Category & payment method',
     text:    'The category is auto-set to Crop Sales. The payment method (bank deposit, cash, etc.) helps you match against your bank statement later.',
@@ -31620,7 +31994,7 @@ if (step.typeInto) {
     setTimeout(function(){ demoTypeField(step.typeInto, step.typeText || ''); }, 400);
   }
 
-setTimeout(function(){ demoPosition(step); }, step.page ? 200 : 80);
+setTimeout(function(){ tourScrollTo(step.target, function(scrolled){ setTimeout(function(){ demoPosition(step); }, scrolled ? 420 : 0); }); }, step.page ? 200 : 80);
 }
 
 function demoTypeField(fieldId, text) {
@@ -31770,14 +32144,20 @@ var PAGE_TOURS = {
   ],
   dashboard: [
     { target:'pg-dashboard', title:'Dashboard overview', icon:'📊',
-      text:'Everything on one screen — profit status, cashflow, budget progress, market prices and recent income. It updates the moment you add a transaction.',
+      text:'Everything on one screen — your profit for the month, cashflow, budget progress and where your income and costs are coming from. It updates the moment you add a transaction.',
       tip:'The big green/red card at the very top answers the one question every farmer asks: Am I making money this month?', pos:'center' },
+    { target:'dash-combo-stripe', title:'Am I making money this month?', icon:'💵',
+      text:'The headline card: your profit for the month in one number, green when you\u2019re ahead and red when you\u2019re behind, with your margin, transaction count and days to your next tax payment beside it.',
+      tip:'This is the first thing to check each morning — everything else on the page explains the story behind it.', pos:'bottom' },
     { target:'dash-cf-grid', title:'Your key numbers', icon:'💰',
       text:'These four cards show this month\'s income, expenses, profit and transaction count — all live from your recorded data.',
       tip:'Tap any of these cards to jump straight to the relevant page for more detail.', pos:'smart' },
     { target:'dashChart', title:'6-month performance chart', icon:'📈',
       text:'The bar chart shows your money in (green), money out (red) and profit line (dark) over the selected period. Use the 3M / 6M / 12M pills to change the view.',
       pos:'smart' },
+    { target:'dash-inc-sources', title:'Where your money comes from — and goes', icon:'🥧',
+      text:'Two cards side by side: your income broken down by source, and your costs broken down by category, for the same period as the chart. A quick read on what\u2019s carrying you and what\u2019s eating you.',
+      tip:'Tap \u201cView all income\u201d or \u201cView all expenses\u201d to jump to the full page.', pos:'smart' },
     { target:'bp-income-fill', title:'Budget progress bars', icon:'🎯',
       text:'The coloured bars show how your actual income and expenses compare to your budget targets for this month. Green = on track, amber = close, red = over.',
       tip:'Set budget targets in the Budgets tab to make these bars meaningful.', pos:'smart' },
@@ -31789,6 +32169,9 @@ var PAGE_TOURS = {
     { target:'pg-income', title:'Income page overview', icon:'💵',
       text:'All your income in one place. The four metric cards at the top show money in, profit, year-to-date total and your best month — all adjustable by time period.',
       pos:'center' },
+    { target:'inc-worth', title:'Worth knowing', icon:'💡',
+      text:"Right in the hero, up to three insights about your income this season — your biggest mover, a seasonal read, and how you're pacing against last year. Nothing to set up; it only shows when there's something worth saying.",
+      pos:'smart' },
     { target:'inc-pill-1', title:'Time period pills', icon:'🗓️',
       text:'Switch between 1 month, 3 months, 6 months or 12 months. Every number on this page — values, percentages and the chart — updates to match the selected period.',
       tip:'The comparison stat under each card (e.g. ↑ 9% vs prev 3 months) compares your current period to the same length period before it.', pos:'smart' },
@@ -31799,6 +32182,9 @@ var PAGE_TOURS = {
     { target:'incSourceDonut', title:'Income by source', icon:'🥧',
       text:'The donut chart breaks your income into categories — Crop Sales, Livestock, Grants, Rental. The legend shows the rand value and percentage for each.',
       tip:'A healthy farm should have income from at least 2-3 sources. Heavy reliance on one crop adds seasonal risk.', pos:'smart' },
+    { target:'inc-seg-wrap', title:'By enterprise', icon:'🌾',
+      text:'Switch "Whole farm" to "By enterprise" and the same chart splits your income by crop, herd or orchard block instead of by category — so you can see which part of the farm actually earned it. Anything not tagged yet shows as a nudge with a one-tap "Sort ›" to link it.',
+      tip:'Tagging a sale to a crop or herd once means it flows straight into Profit by Crop & Herd too — no extra entry.', pos:'smart' },
     { target:'inc-target-card', title:'Monthly income target', icon:'🎯',
       text:'This progress bar shows how close you are to your income target for the current month. Set or change your target by tapping "Set target".',
       tip:'Your targets come from the Budgets page. Setting realistic monthly targets is the single most important thing you can do to stay financially on track.', pos:'smart' }
@@ -31807,6 +32193,9 @@ var PAGE_TOURS = {
     { target:'pg-expenses', title:'Expenses page overview', icon:'💸',
       text:'All your farm costs in one place. Track by category, see your expense ratio, and spot which category is eating the most money this period.',
       pos:'center' },
+    { target:'exp-worth', title:'Worth knowing', icon:'💡',
+      text:"The hero shows up to three insights about your spending this season — a cost that jumped, a seasonal read, or how a category compares to last year. Only appears when there's something worth flagging.",
+      pos:'smart' },
     { target:'exp-pill-1', title:'Time period filter', icon:'🗓️',
       text:'Same as income — switch between 1M, 3M, 6M, 12M. The expense ratio, top category and comparison stats all update to match.',
       pos:'smart' },
@@ -31815,40 +32204,43 @@ var PAGE_TOURS = {
     { target:'exp-metric-ratio', title:'Expense ratio', icon:'📐',
       text:'This is expenses ÷ income as a percentage. A ratio above 80% means you are keeping less than 20 cents of every rand earned.',
       tip:'South African grain farms typically target an expense ratio of 60–70%. Anything above 85% means your margins are dangerously thin.', pos:'smart' },
+    { target:'exp-metric-ha', title:'Two more numbers worth knowing', icon:'📐',
+      text:"Biggest Category flags whatever's eating the most this period. Expenses per Hectare lets you compare your cost of farming against last season, or against a neighbour, on the same basis.",
+      pos:'smart' },
     { target:'expChart', title:'Expenses chart', icon:'📊',
       text:'Monthly expense bars for your selected period. Look for months where costs spike — that usually means planting inputs or machinery repairs.', pos:'smart' },
+    { target:'exp-seg-wrap', title:'By enterprise', icon:'🌾',
+      text:'Switch "Whole farm" to "By enterprise" to split your costs by crop, herd or orchard block instead of by category. Anything taggable but not yet linked shows as a nudge — tap "Sort ›" to link it in one place.',
+      tip:'A cost tagged to a crop or herd counts straight in Profit by Crop & Herd — no extra entry needed.', pos:'smart' },
     { target:'exp-target-card', title:'Expense budget bar', icon:'🎯',
       text:'Shows how close you are to your monthly expense budget. Red means you\'ve gone over. Set a spending limit to stay disciplined.',
       tip:'Your expense budget is set independently from your income target. A good rule: set it to 65–70% of your expected monthly income.', pos:'smart' }
   ],
   cashflow: [
-    { target:'pg-cashflow', title:'Money Flow overview', icon:'💧',
-      text:'The page is split into two halves. The top half shows what\'s happened recently. The bottom half — Looking Ahead — projects your bank balance forward so you can plan for tough months before they hit.',
+    { target:'pg-cashflow', title:'Money Flow — now and ahead', icon:'💧',
+      text:'Two tabs: “Now” shows what’s already happened — money in, money out, profit. “Forecast” looks ahead and projects your bank balance forward, so you can see a tight month coming before it hits.',
       pos:'center' },
-    { target:'cf-pill-1', title:'Period selector', icon:'🗓️',
-      text:'Pick 1, 3, 6 or 12 months. Both halves of the page have their own pills — the top one looks back, the bottom one looks ahead.', pos:'smart' },
-    { target:'cf-in-val', title:'Three numbers', icon:'🔢',
-      text:'Money In (total income), Money Out (total expenses) and Profit for the selected period. Tap Money In or Money Out to drill into those pages.',
-      pos:'smart' },
-    { target:'cfHistChart', title:'Performance chart', icon:'📊',
-      text:'Green bars are income, red bars are expenses, and the dark green line is your profit trend across months. The same format as the dashboard chart so it feels familiar.',
-      pos:'smart' },
-    { target:'cf-bankbal', title:'Your current bank balance', icon:'💰',
-      text:'Enter your real bank balance here and the forecast starts from that number — so the projected runway matches your actual account, not just the transactions you have logged.',
-      tip:'We prefill an estimate from your records — check it against your bank and tap Save so the projection is accurate.', pos:'smart' },
-    { target:'cf-fwd-answer', title:'Looking ahead — your runway', icon:'🧭',
-      text:'One row per future month with a colour pip — Healthy, Tight, or Below zero. Tells you exactly when cash gets uncomfortable so you can act before it happens.',
-      tip:'Tap any month to expand it and see exactly what is driving the balance — crop-plan income, recurring items, and the costs going out that month.', pos:'smart' },
-    { target:'cf-recur-panel', title:'Recurring items', icon:'🔁',
-      text:'Click to see every recurring item factored into the forecast — loans, salaries, insurance, rental income, grants. The more complete this list, the more accurate your projection.',
-      pos:'smart' }
+    { target:'mf-tab-now', title:'Now — your recent picture', icon:'📊', tab:'now',
+      text:'Pick 1, 3, 6 or 12 months. The three numbers — Money In, Money Out, Profit — and the bar chart below all update to match.', pos:'smart' },
+    { target:'cfHistChart', title:'Performance chart', icon:'📈', tab:'now',
+      text:'Green bars are income, red bars are expenses, and the dark green line is your profit trend across months — the same look as the Dashboard chart.', pos:'smart' },
+    { target:'mf-tab-forecast', title:'Forecast — your runway ahead', icon:'🧭', tab:'forecast',
+      text:'Switch to Forecast and the page projects your bank balance forward from today, using your crop, orchard and livestock plans plus everything recurring — loans, salaries, insurance.', pos:'smart' },
+    { target:'cf-bankbal', title:'Start from your real balance', icon:'💰', tab:'forecast',
+      text:'Enter your actual bank balance here and the whole forecast starts from that number, so the runway ahead matches your real account — not just what’s been logged.', pos:'smart' },
+    { target:'cfl-line-card', title:'Cash on hand, month by month', icon:'📉', tab:'forecast',
+      text:'A line showing your projected balance ahead — dips below the line mean a tight month. Switch to Bars for the same numbers as columns instead.', tip:'Tap any point on the line to see exactly what’s driving that month’s balance.', pos:'smart' },
+    { target:'cfl-wi-card', title:'What-if — stress-test the season', icon:'🎚️', tab:'forecast',
+      text:'Try Bad year or Good year, or drag the sliders yourself — commodity prices, yield, costs — and watch the whole forecast move live. Base always returns you to your real plan.', tip:'This is the same what-if engine as Profit and Planning, just applied to your cash runway.', pos:'smart' },
+    { target:'cf-recur-panel', title:'Recurring items', icon:'🔁', tab:'forecast',
+      text:'Every recurring item factored into the forecast — loans, salaries, insurance, rental income, grants. The more complete this list, the more accurate the runway ahead.', pos:'smart' }
   ],
   reports: [
     { target:'pg-reports', title:'Reports overview', icon:'📋',
       text:'Three SARS-standard reports generated automatically from your recorded transactions. No manual calculations — just click and print.',
       pos:'center' },
     { target:'rpt-type-monthly', title:'Period selector', icon:'🗓️',
-      text:'Switch between monthly, quarterly and yearly reports. Use the arrows to navigate to any previous period. All figures come from your actual transactions.',
+      text:'Switch between monthly, quarterly, yearly, or set your own Custom range. Use the arrows to navigate to any previous period. All figures come from your actual transactions.',
       pos:'smart' },
     { page:'reports', target:'rpt-income', title:'Report summary figures', icon:'💰',
       text:'The headline numbers for your selected period — income, expenses, gross profit, net profit and margin. These match what would appear on your official statements.',
@@ -31858,18 +32250,24 @@ var PAGE_TOURS = {
       tip:'Your accountant needs these three documents for your annual tax return. Keep them up to date throughout the year to avoid a rush at year-end.', pos:'smart' },
     { target:'acc-pack', title:'Accountant Pack', icon:'📦',
       text:'Further down the page, the Accountant Pack bundles your year-end exports. Tap the Year-end pack to preview everything first — Profit & Loss, transactions, general ledger, asset register and a Pastel import — then download it all in one go.',
-      tip:'You can also export directly for Pastel or Xero, or invite your accountant by email so they can pull the records themselves.', pos:'smart' }
+      tip:'You can also export directly for Pastel or Xero, or invite your accountant by email so they can pull the records themselves.', pos:'smart' },
+    { target:'bank-pack', title:'Bankability Report — for the bank', icon:'🏦',
+      text:'A lender-ready summary of your farm’s finances — debt cover, collateral and track record — built from your own records. Handy when you’re applying for finance or renewing an overdraft.', pos:'smart' }
   ],
   budgets: [
-    { target:'bgt-status-card', title:'Budget status card', icon:'🎯',
+    { target:'bgt-tab-in', title:'Income and expense targets', icon:'🎯',
+      text:"Two tabs — Income sets what you're aiming to earn each month, Expenses sets a spending ceiling you don't want to cross. Switch between them any time; each has its own annual target and monthly grid.", pos:'smart' },
+    { target:'bgt-status-card', title:'Budget status card', icon:'🎯', tab:'in',
       text:'The big card at the top tells you in plain language whether you are ahead or behind your annual income target — and by exactly how much.',
       pos:'smart' },
-    { target:'bgt-annual-input', title:'Set your annual target', icon:'💰',
+    { target:'bgt-annual-input', title:'Set your annual target', icon:'💰', tab:'in',
       text:'Enter your total income goal for the financial year. Then choose a pattern to distribute it across months — Harvest Season is the most realistic for grain farms.',
       tip:'Harvest Season puts 80% of income in September–February (your main harvest and delivery months) and lighter targets in the planting months.', pos:'smart' },
-    { target:'bgt-month-bars-in', title:'Monthly targets grid', icon:'🗓️',
+    { target:'bgt-month-bars-in', title:'Monthly targets grid', icon:'🗓️', tab:'in',
       text:'Each block shows a month\'s target and a progress bar of actual income vs target. Green bar = at or above target. You can edit any individual month directly.',
-      tip:'The NOW badge shows the current month. Past months show whether you hit or missed your target — great for spotting seasonal patterns over time.', pos:'smart' }
+      tip:'The NOW badge shows the current month. Past months show whether you hit or missed your target — great for spotting seasonal patterns over time.', pos:'smart' },
+    { target:'bgt-month-bars-out', title:'Now do the same for expenses', icon:'💸', tab:'out',
+      text:'Tap the Expenses tab and set a spending ceiling the same way — an annual total, spread across months. The grid below turns red the moment a month goes over.', pos:'smart' }
   ],
   planning: [
     { target:'pg-planning', title:'Planning overview', icon:'🌱',
@@ -31887,7 +32285,9 @@ var PAGE_TOURS = {
     { target:'plan-live-grid', title:'Livestock events', icon:'📋', tab:'livestock', ent:'livestock',
       text:'Each event shows its month, type and rand value and feeds the same 12-month forecast as your crops and orchards. Recurring events — like monthly feed — repeat automatically.', tip:'Tap + Add livestock event to schedule a purchase, sale or cost.', pos:'smart' },
     { target:'plan-fin', title:'Your plan in money + what-if', icon:'💰',
-      text:'Your whole plan as income, costs and profit for the year — crops, orchards and livestock combined. Drag the sliders underneath to stress-test it: each tab has its own levers (grain prices, fruit prices, growing costs, herd numbers) and the profit moves live.', tip:'“Actual so far” shows how your real numbers are tracking against the plan.', pos:'smart' }
+      text:'Your whole plan as income, costs and profit for the year — crops, orchards and livestock combined. Drag the sliders underneath to stress-test it: each tab has its own levers (grain prices, fruit prices, growing costs, herd numbers) and the profit moves live.', tip:'“Actual so far” shows how your real numbers are tracking against the plan.', pos:'smart' },
+    { target:'plan-tab-track', title:'Season Tracker — plan vs actual', icon:'📊', tab:'tracker',
+      text:"A fourth tab that compares your plan to what's actually happened — crops, orchards and livestock each get a plan-vs-actual read, with anything drifting off-plan flagged so you can catch it early.", pos:'smart' }
   ],
   orchards: [
     { target:'pg-orchards', title:'Orchards, Fruit & Veg', icon:'🍊', tab:'overview',
@@ -31908,9 +32308,13 @@ var PAGE_TOURS = {
       text:'Every camp shows what’s grazing there and what it’s worth. Tap a make-up bar to open the class breakdown — cows, heifers, bulls, calves — each with its value. A red flag warns when animals are under a medicine withdrawal and not safe to sell.', pos:'smart' },
     { target:'ls-tab-health', title:'Health & treatments', icon:'💉', tab:'health',
       text:'Tap “+ Log a treatment” to record a vaccine, dose or vet treatment against a herd — the product, who got it, and the meat &amp; milk withdrawal days. That sets the “not safe to sell” flag automatically, and doubles as your Act 36 stock-remedy evidence.', tip:'Tick the box to send the cost straight to Money Flow as a vet expense — no double entry.', pos:'center' },
-    { target:'ls-tab-register', title:'Movement register', icon:'📋', tab:'register',
+    { target:'ls-view-breeding', title:'Breeding — service to calving', icon:'🐄', tab:'breeding',
+      text:'Every breeding season lives here. Log a service, a pregnancy scan or a calving with “＋ Log breeding” — the herd’s in-calf %, calving spread and empty-cow list update the moment you do.', tip:'Works for any herd — from a simple seasonal mating record to full per-cow AI history.', pos:'center' },
+    { target:'ls-view-breeding', title:'Dairy herds get their own fertility panel', icon:'🥛', tab:'breeding',
+      text:'For a dairy herd, this tab shows days-empty, in-calf % and calving interval at a glance, plus a calving-block chart — a week-by-week view of when your cows are due, so you can see if calving is tight or spread out and staff up for the busy weeks.', tip:'A red “empty too long” list flags cows worth re-checking or culling before they cost you another season.', pos:'center' },
+    { target:'ls-view-register', title:'Movement register', icon:'📋', tab:'register',
       text:'The Register records every movement — births, purchases, sales and deaths — building the stock register SARS and the Animal Identification Act expect, plus the numbers behind your herd value. You can also split a group across camps here.', pos:'center' },
-    { target:'ls-tab-insights', title:'Herd insights', icon:'📈', tab:'insights',
+    { target:'ls-view-insights', title:'Herd insights', icon:'📈', tab:'insights',
       text:'See how the herd is performing in plain terms — calving and lambing rates, breeding ratios, replacement and off-take — each measured against a sensible guide, with what it means and what to do next.', pos:'center' },
     { target:'ls-tab-plan', title:'Plan the season ahead', icon:'📈', tab:'plan',
       text:'Pick any herd — or plan a brand-new line — and see what it does to your animals and your cash. It works for every animal: cattle, sheep, goats, pigs, game and poultry. Keep or sell each class, set calving and prices, and watch the closing herd and the money. Nothing touches your live forecast until you add it.', pos:'center' },
@@ -31920,7 +32324,7 @@ var PAGE_TOURS = {
       text:'Tap 3 yr or 5 yr and the plan opens full-screen, carrying your herd forward season by season — births, keeps and sales — or repeating the flock for poultry. Stress-test a tough year to see how a dry spell or weak prices would hit.', pos:'center' },
     { target:'ls-plan-body', title:'From a plan to real animals', icon:'✅', tab:'plan',
       text:'Add a new line to your forecast and it shows as “In planning” in Overview — earmark a camp for it, then Confirm the buy to make it real and record the cash, or Remove it. Planned stock stays out of your herd totals and the SARS register until you confirm.', pos:'center' },
-    { target:'ls-tab-add', title:'Add a group or animal', icon:'➕', tab:'add',
+    { target:'ls-view-add', title:'Add a group or animal', icon:'➕', tab:'add',
       text:'Add a new livestock group here. For stud, dairy or breeding stock you can also tag individual animals (from a group in Overview) to track withdrawal per animal — everything you capture flows into the overview, the register and your forecasts.', pos:'center' }
   ],
   market: [
@@ -31945,7 +32349,7 @@ var PAGE_TOURS = {
       tip:'Section 12B gives 50/30/20 accelerated write-off on most farming gear; Section 11(e) is straight-line wear and tear. Both lower your taxable income \u2014 the app picks the right one per asset.', pos:'smart' },
     { target:'ast-tbody', title:'Tap any asset to open it', icon:'📋', tab:'register',
       text:'Each row shows the category, what you paid, what it\u2019s worth now and this year\u2019s depreciation. Filter by category up top, or tap a row to see the full detail.',
-      tip:'The detail view shows a depreciation forecast, what you still owe the bank, whether it\u2019s properly insured, and any photos of the invoice or policy you\u2019ve stored.', pos:'smart' },
+      tip:'The detail view shows a depreciation forecast, what you still owe the bank, whether it\u2019s properly insured, and any photos of the invoice or policy you\u2019ve stored. If a loan on your Loans page is linked to this asset, its real balance and rate show here instead of an estimate.', pos:'smart' },
     { target:'ast-add-btn', title:'Adding an asset is easy', icon:'➕', tab:'register',
       text:'Type what it is and the app suggests the right SARS treatment, the usual write-off period and a plain-language note \u2014 no tax knowledge needed. You can also record finance, insurance and snap a photo of the invoice.',
       tip:'It handles land, vehicles, machinery, irrigation, storage, solar, dams and fencing \u2014 each with the correct tax treatment already chosen.', pos:'smart' },
@@ -31991,11 +32395,25 @@ var PAGE_TOURS = {
       text:"The big number is your total debt. The bar shows how much of the farm is already yours versus still owed to the bank. Every payment moves that bar in your favour.", pos:'smart' },
     { target:'ln-confirmbtn', title:'Confirm your payments', icon:'🗓️', tab:'glance',
       text:"Once a month, tap here to tick off the payments that went off. Balances drop and you see in plain numbers how much came off your loans — debt shrinking, month by month.", pos:'smart' },
+    { target:'ln-la-entry', title:'Thinking of borrowing?', icon:'🏦', tab:'glance',
+      text:"Tap this card to see what you can realistically afford to borrow, based on your farm’s real income — and get a lender-ready Bankability Report at the end, built from your own numbers.", pos:'smart' },
     { target:'ln-firstcard', title:'Each loan, in plain terms', icon:'📄', tab:'myloans',
       text:"Every loan shows what you still owe, your rate, how far you have paid it off, and how much of each payment is interest versus actually paying down the loan.",
-      tip:"Here is the clever bit: only the interest counts as a cost on your Profit and Tax pages. Paying off a loan turns debt into ownership — so your profit never looks smaller than it really is.", pos:'smart' },
+      tip:"Here is the clever bit: only the interest counts as a cost on your Profit and Tax pages. Paying off a loan turns debt into ownership — so your profit never looks smaller than it really is. A 🔗 badge means this loan is linked to a specific asset on your Assets page.", pos:'smart' },
     { target:'ln-addform', title:'Add any loan', icon:'➕', tab:'add',
       text:"Tell us the basics — who it is with, how much you owe, the rate and the monthly payment — and we work out the interest, the part that comes off the loan, and how it connects to your other pages.", pos:'smart' }
+  ],
+  tax: [
+    { target:'pg-tax', title:'Tax & SARS — all in one place', icon:'🧾',
+      text:'Everything to do with SARS lives here — provisional tax, VAT, payroll and depreciation — worked out from what you’ve already recorded. Three tabs: At a glance, Reports, and What-if.', pos:'center' },
+    { target:'tax-tab-glance', title:'At a glance — what you owe, and when', icon:'📊', tab:'glance',
+      text:'The top card totals your estimated tax for the year — income tax, VAT and payroll together — and how much of your bank balance is really yours after the next set-aside. Below that: your effective tax rate, what to set aside each month, and your last few VAT periods.', tip:'The amber note reminds you to top up your provisional payment if profit climbs later in the season, to avoid SARS interest.', pos:'smart' },
+    { target:'tax-tab-glance', title:'From profit to tax, and your year ahead', icon:'📅', tab:'glance',
+      text:'A waterfall shows exactly how your farming income becomes taxable profit and then tax. Next to it, a calendar of what’s actually due — provisional payments, VAT returns, worker tax — each with its SARS form name and days to go.', pos:'smart' },
+    { target:'tax-tab-reports', title:'Reports — the actual SARS forms', icon:'📄', tab:'reports',
+      text:'Pull the real numbers for your IRP6 provisional return, your VAT201, and Section 11(e) / 12B depreciation — for any month, quarter or year, ready to hand to your accountant.', pos:'smart' },
+    { target:'tax-tab-whatif', title:'What-if — plan before the money moves', icon:'🎚️', tab:'whatif',
+      text:'Test a change in income or expenses and see your tax liability move before it happens — useful before a big sale, an equipment purchase, or year-end tax planning with your accountant.', pos:'smart' }
   ],
   profit: [
     { target:'pg-profit', title:'Your Profit Margins', icon:'📊', tab:'glance',
@@ -32003,7 +32421,8 @@ var PAGE_TOURS = {
     { target:'pf-tabbtn-glance', title:'Three views, one page', icon:'🗂️', tab:'glance',
       text:"At a glance ranks your earners. Details drills into one part of your farm. What-if lets you test a season before it happens. We start on At a glance.", pos:'smart' },
     { target:'pf-tab-glance', title:'At a glance — who earns what', icon:'🌽', tab:'glance',
-      text:"Each part of your farm is ranked by what it earns — per hectare, per animal, or per orchard block. The bars compare them side by side, and up top you see your whole-farm profit with your best and weakest earners.", pos:'smart' },
+      text:"Each part of your farm is ranked by what it earns — per hectare for crops, per animal for herds, per block for orchards — so you can fairly compare a maize land against a dairy herd. Up top you see your whole-farm profit with your best and weakest earners.",
+      tip:'The more you tag costs to a crop or herd on your Income and Expenses pages — including labour — the more this shifts from an estimate to your real, measured margin.', pos:'smart' },
     { target:'pf-tab-details', title:'Details — drill into one part of your farm', icon:'🔎', tab:'details',
       text:"Pick a part of your farm and see where the cost goes. For orchards you’ll see money back, minus growing costs, equals gross margin — the same basis as your crops and herds, so the whole-farm profit adds up honestly.", tip:'The green box at the bottom says what it all means in plain words.', pos:'smart' },
     { target:'pf-tab-whatif', title:'What-if — test before you commit', icon:'🎚️', tab:'whatif',
@@ -32087,6 +32506,9 @@ if (prevBtn) prevBtn.onclick = function(){ pageTourPrev(); };
       else if (PAGE_TOUR_PAGE==='market') { var _mb=$('mkt-tab-'+step.tab); if(_mb) _mb.click(); }
       else if (PAGE_TOUR_PAGE==='assets'    && typeof astTab==='function')    astTab(step.tab);
       else if (PAGE_TOUR_PAGE==='loans'     && typeof lnTab==='function')     lnTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='cashflow'  && typeof mfTab==='function')     mfTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='budgets'   && typeof setBudgetTab==='function') setBudgetTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='tax'       && typeof taxTab==='function')    taxTab(step.tab);
       else if (PAGE_TOUR_PAGE==='profit'    && typeof pfTab==='function')     pfTab(step.tab);
       else if (PAGE_TOUR_PAGE==='workers'   && typeof wkTab==='function')     wkTab(step.tab);
       else if (PAGE_TOUR_PAGE==='orchards'  && typeof orSetTab==='function')  orSetTab(step.tab);
