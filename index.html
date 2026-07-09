@@ -3973,7 +3973,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
   <!-- CONTENT -->
 
-<div id="nudge-banner" style="display:none;background:linear-gradient(90deg,#1B4332,#2D6A4F);color:#fff;padding:10px 20px;display:none;align-items:center;gap:12px;justify-content:space-between;font-size:13px;position:sticky;top:0;z-index:500">
+<div id="nudge-banner" style="display:none;background:linear-gradient(90deg,#1B4332,#2D6A4F);color:#fff;padding:10px 20px;display:none;align-items:center;gap:12px;justify-content:space-between;font-size:13px;position:sticky;top:0;z-index:40">
   <div style="display:flex;align-items:center;gap:10px">
     <span style="font-size:18px">📝</span>
     <span id="nudge-text">You haven't recorded any transactions in a few days — keeping records up to date takes 30 seconds.</span>
@@ -6867,6 +6867,10 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div><div class="tl">"How to add" demo buttons</div><div class="ts">Guided demo buttons on the Income and Expenses pages.</div></div>
           <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-demo-btn" checked onchange="ST.showDemoBtn=this.checked;updateDemoBtnVisibility()"/><div class="toggle-track"></div></label>
         </div>
+        <div class="set-trow">
+          <div><div class="tl">Share diagnostics</div><div class="ts">Keep the last few errors on this device so you can send them to support if something breaks. <span id="set-diag-count">0</span> saved · <span onclick="diagCopy()" style="color:var(--gm);font-weight:700;cursor:pointer">Copy</span> · <span onclick="diagClear()" style="color:var(--t3);cursor:pointer">Clear</span></div></div>
+          <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-diag" onchange="setDiagnostics(this.checked)"/><div class="toggle-track"></div></label>
+        </div>
       </div>
     </div>
 
@@ -6936,6 +6940,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="tx-filter-sep"></div>
     <button id="tx-clear-btn" onclick="txClearFilters()" style="display:none;padding:4px 10px;border-radius:20px;border:1.5px solid var(--rd);background:var(--rp);color:var(--rd);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✕ Clear filters</button>
     <div class="tx-filter-sep"></div>
+    <div id="tx-deleted-chip" onclick="txToggleDeleted()" style="display:none;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#B45309;border:1.5px dashed #C8962C;border-radius:8px;padding:5px 9px;cursor:pointer;background:#FEFBF2">🗑 Recently deleted (<span id="tx-deleted-n">0</span>)</div>
     <div class="tx-search-wrap">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input id="tx-search" placeholder="Search..." oninput="txUpdateClearBtn();txRender()"/>
@@ -10013,6 +10018,13 @@ function renderProfit(){
     '<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfBestEarner\')"><span class="kpi-i">\u24D8</span><div class="l">Best earner</div><div class="v">'+esc(best.crop||best.name)+'</div><div class="s">'+bestTxt+'</div></div>'+
     (watch?'<div class="pf-kpi warn kpi-tap" onclick="kpiOpen(\'pfThird\')"><span class="kpi-i">\u24D8</span><div class="l">Watch</div><div class="v">'+esc(watch)+'</div><div class="s">'+watchSub+'</div></div>':'<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfThird\')"><span class="kpi-i">\u24D8</span><div class="l">Crops &amp; herds</div><div class="v">'+(sc.length+sl.length)+'</div><div class="s">tracked this season</div></div>')+
   '</div>';
+  // U9: untagged income never reaches an enterprise margin — surface it
+  var _pfValid={}; try { (typeof entList==='function'?entList():[]).forEach(function(e){ if(e&&e.code) _pfValid[e.code]=1; }); } catch(e){}
+  var _pfUnalloc=0, _pfUnN=0;
+  (ST.txns||[]).forEach(function(t){ if(t && t.type==='income' && !(t.ent && _pfValid[t.ent])){ _pfUnalloc+=t.amt||0; _pfUnN++; } });
+  if(_pfUnalloc>0){
+    html+='<div class="pf-card" style="border-color:#F1DBA6;background:#FEFBF2"><div style="display:flex;align-items:flex-start;gap:9px"><span style="font-size:18px">\uD83C\uDFF7\uFE0F</span><div style="flex:1"><div style="font-weight:800;color:var(--t1);font-size:13.5px">'+fmt(Math.round(_pfUnalloc))+' income not linked to an enterprise</div><div style="font-size:11.5px;color:var(--t3);margin-top:2px">'+_pfUnN+' transaction'+(_pfUnN===1?'':'s')+' aren\u2019t counted in the margins below. <span onclick="pfShowUnalloc()" style="color:var(--gm);font-weight:800;cursor:pointer;text-decoration:underline">Tag them \u2192</span></div></div></div></div>';
+  }
   if(sc.length){
     var cmax=Math.max.apply(null,sc.map(function(c){return c.gmHa;}).concat(1));
     html+='<div class="pf-card"><div class="pf-ct">Which crop pays best?</div><div class="pf-cw">Gross margin per hectare \u2014 income minus the costs that belong to that crop.</div><div class="pf-srcleg"><b style="color:#2E7D4F">Real costs</b> = built from actual spend you tagged to the crop · <b style="color:#6B7280">Budget cost</b> = from your planting budget until you tag real purchases.</div>';
@@ -10108,6 +10120,8 @@ var ST = {
   lang: 'en',
   firstRun: true,
   importBatches: [],
+  deletedTxns: [],       // U5: 30-day recently-deleted bin
+  diagnostics: false,    // #21: opt-in error capture
   showTourBtn: true,
   showDemoBtn: false,   // U1: demo buttons off by default in production; re-enable in Settings
   farmType: 'grain',
@@ -11474,6 +11488,7 @@ function dataChanged(event) {
     try { updateSyncIndicator(); } catch (e) {}
   }
   if (typeof updateDemoBtnVisibility === 'function') { try { updateDemoBtnVisibility(); } catch (e) {} }
+  if (typeof txnPurgeDeleted === 'function') { try { txnPurgeDeleted(); } catch (e) {} }
   if (typeof LN_pruneFundsFor === 'function') { try { LN_pruneFundsFor(); } catch (e) {} }
 
   // Page-specific refresh decisions per event type
@@ -12306,7 +12321,7 @@ function nav(id) {
     if (id === 'expenses')    { try { lazyInitCharts('expenses'); } catch (e) {} renderTable('expense'); renderExpBar(); updateExpPage(); }
     if (id === 'cashflow')    { try { lazyInitCharts('cashflow'); } catch (e) {} updateCfPage(); }
     if (id === 'market')      { try { lazyInitCharts('market'); } catch (e) {} renderMyFarm(); renderMktInsight(); if (typeof mktRefreshDateLabels==='function') mktRefreshDateLabels(); }
-    if (id === 'transactions'){ txRender(); }
+    if (id === 'transactions'){ txRender(); if(typeof txRefreshDeletedChip==='function') txRefreshDeletedChip(); }
   if (id === 'settings')    {
     var sf=$('set-farm');   if(sf) sf.value = ST.farmName   || '';
     var so=$('set-owner');  if(so) so.value = ST.ownerName  || '';
@@ -12318,6 +12333,8 @@ function nav(id) {
     var sen=$('set-entity'); if(sen) sen.value = ST.entityType || 'sole';
     var stb=$('set-tour-btn'); if(stb) stb.checked = ST.showTourBtn !== false;
     var sdb=$('set-demo-btn'); if(sdb) sdb.checked = ST.showDemoBtn !== false;
+    var sdg=$('set-diag'); if(sdg) sdg.checked = ST.diagnostics===true;
+    var sdc=$('set-diag-count'); if(sdc) sdc.textContent = (typeof ERR_LOG!=='undefined'?ERR_LOG.length:0);
     var ssv=$('set-simple-view'); if(ssv) ssv.checked = ST.simpleView === true;
     if(typeof refreshEntToggles==='function') refreshEntToggles();
     // Farm enterprise dropdown — populate from saved value, show inferred state if unset
@@ -25141,13 +25158,15 @@ function txdSaveEdit(){
 
 async function txdDelete(){
   var t = ST.txns[TXD_IDX]; if(!t) return;
-  if(!(await appConfirm('Delete this transaction permanently? This cannot be undone.'))) return;
+  if(!(await appConfirm('Delete this transaction? It moves to Recently deleted and can be restored for 30 days.'))) return;
+  try { ST.deletedTxns = ST.deletedTxns || []; var _d={}; for(var k in t){ _d[k]=t[k]; } _d.deletedAt=Date.now(); ST.deletedTxns.unshift(_d); if(ST.deletedTxns.length>100) ST.deletedTxns=ST.deletedTxns.slice(0,100); } catch(e){}
   ST.txns.splice(TXD_IDX, 1);
   txnDeleteThrough(t);
   hideTxnDetail();
   dataChanged('transaction');
   if(typeof saveState==='function') saveState();
-  toast('Transaction deleted','success');
+  if(typeof txRefreshDeletedChip==='function') txRefreshDeletedChip();
+  toast('Moved to Recently deleted','success');
 }
 
 function renderEvtModal() {
@@ -27908,6 +27927,14 @@ function renderRecentIncome() {
 // ============================================================
 
 var LANG_PAIRS = [
+
+  // ── Batch #21/U5/U9 labels ──
+  ['Share diagnostics','Deel diagnostiek'],
+  ['Recently deleted','Onlangs uitgevee'],
+  ['Moved to Recently deleted','Geskuif na Onlangs uitgevee'],
+  ['income not linked to an enterprise','inkomste nie aan \'n onderneming gekoppel nie'],
+  ['Tag them →','Merk hulle →'],
+  ['Kept for 30 days, then removed. Restored items sync back automatically.','Word 30 dae gehou, dan verwyder. Herstelde items sinkroniseer outomaties terug.'],
 
   // ── Quick-Capture inline details (audit U2) ──
   ['+ Add details','+ Voeg besonderhede by'],
@@ -32812,6 +32839,63 @@ function updateDemoBtnVisibility() {
   var top = $('demo-temp-btn');
   if (top) top.style.display = show ? '' : 'none';
 }
+
+// ── #21 Opt-in diagnostics: capture recent errors locally so a farmer can share them ──
+var ERR_LOG_KEY = 'agri_errlog';
+var ERR_LOG = (function(){ try { return JSON.parse(localStorage.getItem(ERR_LOG_KEY) || '[]'); } catch(e){ return []; } })();
+function _diagOn(){ try { return (typeof ST !== 'undefined' && ST.diagnostics === true); } catch(e){ return false; } }
+function _diagPage(){ try { return (document.querySelector('.pg.on')||{}).id || ''; } catch(e){ return ''; } }
+function _logErr(rec){
+  if (!_diagOn()) return;
+  try {
+    ERR_LOG.push(rec); if (ERR_LOG.length > 20) ERR_LOG = ERR_LOG.slice(-20);
+    localStorage.setItem(ERR_LOG_KEY, JSON.stringify(ERR_LOG));
+    var b = $('set-diag-count'); if (b) b.textContent = ERR_LOG.length;
+  } catch(e){}
+}
+window.addEventListener('error', function(e){ _logErr({ ts:new Date().toISOString(), msg:(e&&e.message)||'error', src:(e&&e.filename)||'', line:(e&&e.lineno)||0, page:_diagPage(), stack:((e&&e.error&&e.error.stack)||'').slice(0,500) }); });
+window.addEventListener('unhandledrejection', function(e){ var r=e&&e.reason; _logErr({ ts:new Date().toISOString(), msg:'unhandled: '+((r&&r.message)||r||''), src:'', line:0, page:_diagPage(), stack:((r&&r.stack)||'').slice(0,500) }); });
+function setDiagnostics(on){ ST.diagnostics = !!on; try { if (typeof saveState==='function') saveState(); } catch(e){} }
+function diagText(){ return ERR_LOG.map(function(r){ return r.ts+' \u00b7 '+(r.page||'?')+' \u00b7 '+r.msg+(r.src?(' ('+r.src+':'+r.line+')'):'')+(r.stack?('\n'+r.stack):''); }).join('\n\n') || 'No errors recorded.'; }
+function diagCopy(){ var t='AgriInsights diagnostics ('+ERR_LOG.length+')\n\n'+diagText(); if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ toast('Diagnostics copied \u2014 paste to support','success'); }, function(){ toast('Could not copy','error'); }); } else { toast('Copy not supported here','error'); } }
+function diagClear(){ ERR_LOG = []; try { localStorage.setItem(ERR_LOG_KEY,'[]'); } catch(e){} var b=$('set-diag-count'); if (b) b.textContent='0'; toast('Diagnostics cleared','info'); }
+
+function txnPurgeDeleted(){ try { if(!ST.deletedTxns) return; var cut=Date.now()-30*86400000; ST.deletedTxns=ST.deletedTxns.filter(function(d){ return (d.deletedAt||0)>cut; }); } catch(e){} }
+function txRefreshDeletedChip(){ var chip=$('tx-deleted-chip'); if(!chip) return; var n=(ST.deletedTxns||[]).length; chip.style.display=n>0?'inline-flex':'none'; var nn=$('tx-deleted-n'); if(nn) nn.textContent=n; }
+function txToggleDeleted(){
+  var ov=document.getElementById('tx-del-ov'); if(ov){ ov.remove(); return; }
+  ov=document.createElement('div'); ov.id='tx-del-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.onclick=function(e){ if(e.target===ov) ov.remove(); };
+  ov.innerHTML='<div id="tx-del-card" style="background:#fff;border-radius:16px;max-width:460px;width:100%;max-height:80vh;overflow:auto;padding:16px;font-family:inherit"></div>';
+  document.body.appendChild(ov); renderRecentlyDeleted();
+}
+function renderRecentlyDeleted(){
+  var card=document.getElementById('tx-del-card'); if(!card) return;
+  var list=(ST.deletedTxns||[]);
+  var rows = list.length ? list.map(function(d,i){
+    var ago=Math.max(0,Math.round((Date.now()-(d.deletedAt||Date.now()))/86400000));
+    var sign=d.type==='income'?'+':'\u2212';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--br2)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--t1)">'+esc(d.desc||'')+'</div><div style="font-size:11px;color:var(--t4)">'+esc(d.date||'')+' \u00b7 '+esc(d.cat||'')+' \u00b7 '+sign+fmt(d.amt||0)+' \u00b7 deleted '+(ago===0?'today':ago+'d ago')+'</div></div><button onclick="txnRestore('+i+')" style="border:1.5px solid #C6E3D2;background:#fff;color:#1B4332;border-radius:7px;padding:5px 10px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit">Restore</button><button onclick="txnDeleteForever('+i+')" title="Delete forever" style="border:1.5px solid var(--br);background:#fff;color:var(--t4);border-radius:7px;padding:5px 8px;font-size:11.5px;cursor:pointer;font-family:inherit">\u2715</button></div>';
+  }).join('') : '<div style="text-align:center;color:var(--t3);padding:22px 0">Nothing here \u2014 deleted transactions appear here for 30 days.</div>';
+  card.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:15px;font-weight:800;color:var(--t1)">Recently deleted</div><button onclick="txToggleDeleted()" style="background:none;border:none;font-size:20px;color:var(--t4);cursor:pointer;line-height:1">\u2715</button></div><div style="font-size:11px;color:var(--t4);margin-bottom:6px">Kept for 30 days, then removed. Restored items sync back automatically.</div>'+rows;
+}
+function txnRestore(i){
+  var list=ST.deletedTxns||[]; var d=list[i]; if(!d) return;
+  var t={}; for(var k in d){ if(k!=='deletedAt') t[k]=d[k]; }
+  ST.txns.unshift(t); var _r=ST.txns[0];
+  try { if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_r, { date:t.date, amt:t.amt, cat:t.cat, type:t.type, desc:t.desc, method:t.method, qty:t.qty, unit:t.unit, ent:t.ent, note:t.note, source:t.source }); } } catch(e){}
+  list.splice(i,1);
+  dataChanged('transaction'); if(typeof saveState==='function') saveState();
+  renderRecentlyDeleted(); txRefreshDeletedChip(); if(typeof txRender==='function') txRender();
+  toast('Restored','success');
+}
+async function txnDeleteForever(i){
+  var list=ST.deletedTxns||[]; if(!list[i]) return;
+  if(!(await appConfirm('Delete this transaction forever? This cannot be undone.'))) return;
+  list.splice(i,1); if(typeof saveState==='function') saveState(); renderRecentlyDeleted(); txRefreshDeletedChip();
+}
+function pfShowUnalloc(){ try { nav('transactions'); setTimeout(function(){ if(typeof txSetTypeFilter==='function') txSetTypeFilter('income'); }, 120); } catch(e){} toast('Open each income transaction and set \u201cFor which enterprise?\u201d to include it in Profit.','info'); }
 
 // ============================================================
 
