@@ -4095,8 +4095,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
     <div class="card">
       <div class="sec-title">Quick Actions</div>
-      <div class="qa-row" onclick="openAddIncome('sale')"><div class="qa-left"><div class="qa-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div><div class="qa-txt">Add Income</div></div><svg class="qa-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
-      <div class="qa-row" onclick="openAddExpense()"><div class="qa-left"><div class="qa-icon r"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><div class="qa-txt">Add Expense</div></div><svg class="qa-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+      <div class="qa-row" onclick="qcOpen('income')"><div class="qa-left"><div class="qa-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div><div class="qa-txt">Add Income</div></div><svg class="qa-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
+      <div class="qa-row" onclick="qcOpen('expense')"><div class="qa-left"><div class="qa-icon r"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><div class="qa-txt">Add Expense</div></div><svg class="qa-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
       <div class="qa-row" onclick="nav('reports')"><div class="qa-left"><div class="qa-icon b"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></div><div class="qa-txt">View Reports</div></div><svg class="qa-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
     </div>
   </div>
@@ -4223,7 +4223,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <div class="page-hdr" style="flex-wrap:wrap;gap:10px">
     <div><div class="page-title">Income</div><div class="page-sub">Track all money your farm has received.</div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <button class="btn-pri" onclick="openAddIncome('sale')">+ Add Income</button>
+      <button class="btn-pri" onclick="qcOpen('income')">+ Add Income</button>
       <div class="hdr-dropwrap">
         <button class="btn-sec" onclick="toggleDrop('inc-import-drop')" title="Import bank statement or co-op settlement">↑ Import <span class="hdr-caret">▾</span></button>
         <div class="drop hdr-drop" id="inc-import-drop">
@@ -4444,7 +4444,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Upload Receipt
       </button>
-      <button class="btn-pri" onclick="openAddExpense()">+ Add Expense</button>
+      <button class="btn-pri" onclick="qcOpen('expense')">+ Add Expense</button>
       <div class="hdr-dropwrap">
         <button class="btn-sec" onclick="toggleDrop('exp-import-drop')" title="Import bank statement or co-op settlement">↑ Import <span class="hdr-caret">▾</span></button>
         <div class="drop hdr-drop" id="exp-import-drop">
@@ -7257,6 +7257,20 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
             </div>
           </div>
 
+          <div id="qc-details-toggle" onclick="qcToggleDetails()" style="text-align:center;font-size:12.5px;font-weight:700;color:var(--gd);cursor:pointer;margin:2px 0 10px">+ Add details</div>
+          <div id="qc-details" style="display:none">
+            <div class="qc-row"><div class="qc-field" style="flex:1"><label id="qcd-party-lbl">Buyer (optional)</label><input id="qcd-party" type="text" placeholder="Name" style="width:100%;padding:10px;border:1.5px solid var(--br);border-radius:var(--rs);font-size:13px;background:#fff"/></div></div>
+            <div class="qc-row">
+              <div class="qc-field"><label>Quantity</label><input id="qcd-qty" type="number" placeholder="0" oninput="qcCalcTotal()" style="width:100%;padding:10px;border:1.5px solid var(--br);border-radius:var(--rs);font-size:13px;background:#fff"/></div>
+              <div class="qc-field"><label>Unit</label><select id="qcd-unit" style="width:100%;padding:10px;border:1.5px solid var(--br);border-radius:var(--rs);font-size:13px;background:#fff"><option>Tons</option><option>kg</option><option>head</option><option>litre</option><option>hour</option><option>unit</option></select></div>
+              <div class="qc-field" id="qcd-price-wrap"><label>Price/unit (R)</label><input id="qcd-price" type="number" placeholder="0" oninput="qcCalcTotal()" style="width:100%;padding:10px;border:1.5px solid var(--br);border-radius:var(--rs);font-size:13px;background:#fff"/></div>
+            </div>
+            <div class="qc-row">
+              <div class="qc-field"><label>For which enterprise?</label><select id="qcd-ent" style="width:100%;padding:10px;border:1.5px solid var(--br);border-radius:var(--rs);font-size:13px;background:#fff"><option value="">Whole farm</option></select></div>
+              <div class="qc-field"><label>Payment method</label><select id="qcd-method" style="width:100%;padding:10px;border:1.5px solid var(--br);border-radius:var(--rs);font-size:13px;background:#fff"><option>Bank Deposit</option><option>Cash</option><option>EFT</option><option>Card</option></select></div>
+            </div>
+            <div onclick="qcOpenFull()" style="text-align:center;font-size:11.5px;color:var(--t3);cursor:pointer;text-decoration:underline;margin-top:2px">Need sale-type tiles, co-op or a photo? Open the full form →</div>
+          </div>
           <button class="qc-save inc" id="qc-save" onclick="qcSave()">Save</button>
           <div class="qc-hint" id="qc-cat-hint">Category will be auto-detected from your description</div>
         </div>
@@ -27895,6 +27909,18 @@ function renderRecentIncome() {
 
 var LANG_PAIRS = [
 
+  // ── Quick-Capture inline details (audit U2) ──
+  ['+ Add details','+ Voeg besonderhede by'],
+  ['– Hide details','– Versteek besonderhede'],
+  ['Buyer (optional)','Koper (opsioneel)'],
+  ['Supplier (optional)','Verskaffer (opsioneel)'],
+  ['Price/unit (R)','Prys/eenheid (R)'],
+  ['For which enterprise?','Vir watter onderneming?'],
+  ['Payment method','Betaalmetode'],
+  ['Need sale-type tiles, co-op or a photo? Open the full form →','Benodig verkoopstipe-blokkies, ko-op of ’n foto? Open die volledige vorm →'],
+  ['Save income','Stoor inkomste'],
+  ['Save expense','Stoor uitgawe'],
+
   // ── Provisional-tax rolling forecast copy (audit #8) ──
   ['Money to keep aside for tax','Geld om vir belasting weg te sit'],
   ['Next payment','Volgende betaling'],
@@ -30782,22 +30808,24 @@ function qcSetType(t) {
   if (expBtn)  expBtn.className  = 'qc-type exp' + (t === 'expense' ? ' on' : '');
   if (saveBtn) saveBtn.className = 'qc-save ' + (t === 'income' ? 'inc' : 'exp');
   if (saveBtn) saveBtn.textContent = t === 'income' ? 'Save income' : 'Save expense';
+  if (typeof qcSyncDetailsType === 'function') qcSyncDetailsType();
 }
 
-function qcOpen() {
+function qcOpen(type) {
   var bg   = $('qc-bg');
   var fab  = $('qc-fab');
   var tip  = $('qc-fab-tip');
-  var date = $('qc-date');
 
-if (date && !date.value) {
+  qcReset();
+  if (type === 'income' || type === 'expense') qcSetType(type);
+
+  var date = $('qc-date');
+  if (date && !date.value) {
     var now = new Date();
     date.value = now.getFullYear() + '-' +
       ('0' + (now.getMonth() + 1)).slice(-2) + '-' +
       ('0' + now.getDate()).slice(-2);
   }
-
-qcReset();
 
   if (bg)  { bg.classList.add('show'); }
   if (fab) { fab.classList.add('open'); }
@@ -30825,17 +30853,21 @@ function qcBgClick(e) {
   if (e.target === $('qc-bg')) qcClose();
 }
 
+var QC_FORM_HTML = null;
 function qcReset() {
   QC_TYPE = 'income';
   var body = $('qc-body');
-  if (body) body.innerHTML = body.innerHTML;
-
-  renderQCForm();
+  if (body) {
+    if (QC_FORM_HTML == null) QC_FORM_HTML = body.innerHTML;   // cache pristine form once
+    else body.innerHTML = QC_FORM_HTML;                        // restore clean form (with #qc-details) after a save
+  }
+  qcSetType('income');
 }
 
 function renderQCForm() {  }
 
 function qcSave() {
+  if (qcSave._busy) return;
   var amt   = parseFloat($('qc-amt')  && $('qc-amt').value)  || 0;
   var desc  = ($('qc-desc') && $('qc-desc').value.trim())    || '';
   var catEl = $('qc-cat');
@@ -30843,19 +30875,34 @@ function qcSave() {
 
   if (!amt)  { $('qc-amt')  && $('qc-amt').focus();  toast('Please enter an amount', 'error'); return; }
   if (!desc) { $('qc-desc') && $('qc-desc').focus(); toast('Please enter a description', 'error'); return; }
+  qcSave._busy = true; setTimeout(function(){ qcSave._busy = false; }, 2000);
 
 var match = qcDetectCategory(desc);
   var cat   = (catEl && catEl.value) || (match && match.cat) || (QC_TYPE === 'income' ? 'Crop Sales' : 'Other Expenses');
   var type  = QC_TYPE;
 
-var dateStr = 'Today';
-  if (date) {
-    var d = new Date(date);
-    var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    dateStr = d.getDate() + ' ' + MO[d.getMonth()] + ' ' + d.getFullYear();
+  var det = $('qc-details'), detOpen = !!(det && det.style.display && det.style.display !== 'none');
+  var method = 'Quick Capture', ent, qty, unit, note;
+  if (detOpen) {
+    method = ($('qcd-method') && $('qcd-method').value) || method;
+    ent    = ($('qcd-ent')    && $('qcd-ent').value)    || undefined;
+    qty    = parseFloat($('qcd-qty') && $('qcd-qty').value) || undefined;
+    unit   = (qty && $('qcd-unit')) ? $('qcd-unit').value : undefined;
+    var party = ($('qcd-party') && $('qcd-party').value.trim()) || '';
+    if (party) note = (type === 'income' ? 'Buyer: ' : 'Supplier: ') + party;
   }
 
-ST.txns.unshift({ date: dateStr, desc: desc, cat: cat, type: type, amt: amt, method: 'Quick Capture', source: 'Quick Add' });
+var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var dateStr = 'Today', isoDate = new Date().toISOString().slice(0,10);
+  if (date) {
+    var d = new Date(date);
+    dateStr = d.getDate() + ' ' + MO[d.getMonth()] + ' ' + d.getFullYear();
+    isoDate = date;
+  }
+
+ST.txns.unshift({ date: dateStr, desc: desc, cat: cat, type: type, amt: amt, method: method, source: 'Quick Add', qty: qty, unit: unit, ent: ent, note: note });
+  var _qc = ST.txns[0];
+  try { if (window.AI && AI.farm && AI.farm.active()) { txnWriteThrough(_qc, { date: isoDate, amt: amt, cat: cat, type: type, desc: desc, method: method, qty: qty, unit: unit, ent: ent, note: note, source: 'Quick Add' }); } } catch(e){}
   ST.lastActivity = Date.now();
   dataChanged('transaction');
   CHARTS_INITED = {};
@@ -30876,6 +30923,34 @@ var body = $('qc-body');
     var undoMsg = (type === 'income' ? 'Income saved: ' : 'Expense saved: ') + fmt(amt);
     showUndoToast(undoMsg);
   }, 1600);
+}
+
+function qcCalcTotal() {
+  var q = parseFloat($('qcd-qty') && $('qcd-qty').value) || 0;
+  var pr = parseFloat($('qcd-price') && $('qcd-price').value) || 0;
+  if (q && pr) { var a = $('qc-amt'); if (a) a.value = Math.round(q * pr); }
+}
+function qcSyncDetailsType() {
+  var isInc = (QC_TYPE === 'income');
+  var pl = $('qcd-party-lbl'); if (pl) pl.textContent = (isInc ? 'Buyer' : 'Supplier') + ' (optional)';
+  var pw = $('qcd-price-wrap'); if (pw) pw.style.display = isInc ? '' : 'none';
+  var ent = $('qcd-ent');
+  if (ent && ent.options.length <= 1 && typeof entOptions === 'function') { try { ent.innerHTML = entOptions(''); } catch(e){} }
+}
+function qcToggleDetails() {
+  var d = $('qc-details'); if (!d) return;
+  var open = (!d.style.display || d.style.display === 'none');
+  d.style.display = open ? 'block' : 'none';
+  var t = $('qc-details-toggle'); if (t) t.textContent = open ? '\u2013 Hide details' : '+ Add details';
+  if (open) qcSyncDetailsType();
+}
+function qcOpenFull() {
+  var type = QC_TYPE, desc = ($('qc-desc') && $('qc-desc').value) || '';
+  qcClose();
+  setTimeout(function() {
+    if (type === 'income') { if (typeof openAddIncome === 'function') openAddIncome('sale'); setTimeout(function(){ var el=$('ai-desc'); if(el&&desc){ el.value=desc; if(typeof updateSaleSummary==='function') updateSaleSummary(); } }, 150); }
+    else { if (typeof openAddExpense === 'function') openAddExpense(); setTimeout(function(){ var el=$('ae-desc'); if(el&&desc){ el.value=desc; if(typeof updateExpSummary==='function') updateExpSummary(); } }, 150); }
+  }, 220);
 }
 
 // ── Keyboard shortcut: Escape to close ──
