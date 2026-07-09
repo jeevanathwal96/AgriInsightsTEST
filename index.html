@@ -3710,6 +3710,32 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div style="font-size:11px;color:#6B7280;line-height:1.45;margin-top:6px">Sets how we estimate your provisional tax. Not sure? Leave as Sole proprietor — change it anytime in Settings.</div>
         </div>
 
+        <div class="ob-field" id="ob-vat-field">
+          <label class="ob-label" style="display:flex;align-items:center;gap:7px">Are you registered for VAT?<span onclick="obVatInfo('ob-vat-why')" role="button" aria-label="Why we ask about VAT" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#D8F3DC;color:#1B4332;font-size:11px;font-weight:800;cursor:pointer;text-transform:none">i</span></label>
+          <div id="ob-vat-why" style="display:none;background:#EEF6FF;border:1px solid #CFE3F7;border-radius:10px;padding:11px 12px;margin-bottom:10px;font-size:12px;line-height:1.55;color:#1E3A5F"><b>Why we ask.</b> If you’re VAT-registered, we split the 15% out of your sales and costs and track what you owe or reclaim on your VAT201. If not, we leave your amounts exactly as entered. Most smaller farmers only register once turnover passes R1 million.</div>
+          <div class="ob-fu-opt on" id="ob-vat-no" onclick="obPickVat(false, event)">
+            <div class="ob-fu-radio"></div>
+            <div class="ob-fu-tx"><b>No — not registered</b><small>Turnover under R1m, or not yet registered.</small></div>
+            <div class="ob-fu-e">🧾</div>
+          </div>
+          <div class="ob-fu-opt" id="ob-vat-yes" onclick="obPickVat(true, event)">
+            <div class="ob-fu-radio"></div>
+            <div class="ob-fu-tx"><b>Yes — I charge 15% VAT</b><small>SARS-registered; you file a VAT201.</small></div>
+            <div class="ob-fu-e">✅</div>
+          </div>
+          <div id="ob-vatcat-wrap" style="display:none;margin-top:12px">
+            <label class="ob-label" style="display:flex;align-items:center;gap:7px">How often you file VAT<span onclick="obVatInfo('ob-vatcat-info')" role="button" aria-label="Explain the VAT categories" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#D8F3DC;color:#1B4332;font-size:11px;font-weight:800;cursor:pointer;text-transform:none">i</span></label>
+            <select id="ob-vatcat" class="ob-select">
+              <option value="A">Every 2 months — Category A</option>
+              <option value="B">Every 2 months — Category B</option>
+              <option value="D">Every 6 months — Category D (farming)</option>
+              <option value="C">Every month — Category C</option>
+              <option value="E">Once a year — Category E</option>
+            </select>
+            <div id="ob-vatcat-info" style="display:none;background:#F4FBF6;border:1px solid #C6E3D2;border-radius:10px;padding:12px;margin-top:8px;font-size:12px;line-height:1.5;color:#274C3A">Your category is how often SARS wants your VAT201 — it’s on your VAT registration letter or on SARS eFiling. <b>A / B</b> file every 2 months (SARS picks which). <b>D</b> is the 6-month farming cycle. <b>C</b> is monthly, <b>E</b> once a year. Not sure? Leave it on 2-monthly and confirm with your accountant.</div>
+          </div>
+        </div>
+
         <div class="ob-actions">
           <button class="ob-btn-pri" onclick="obNext()">Next ⟶</button>
           <button class="ob-btn-sec" onclick="obBack()">← Back</button>
@@ -4171,18 +4197,18 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <div id="prov-tax-card" style="background:linear-gradient(135deg,#1B4332 0%,#2D6A4F 100%);border-radius:var(--rl);padding:14px 16px;margin-bottom:10px;color:#fff;display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
       <div>
-        <div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Estimated provisional tax due</div>
+        <div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Money to keep aside for tax</div>
         <div style="font-size:24px;font-weight:800" id="prov-tax-amount">R0</div>
         <div style="font-size:12px;opacity:.8;margin-top:2px" id="prov-tax-sub">Based on this season so far</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:11px;opacity:.7;margin-bottom:3px">Next due date</div>
+        <div style="font-size:11px;opacity:.7;margin-bottom:3px">Next payment</div>
         <div style="font-size:14px;font-weight:700" id="prov-tax-due"></div>
         <div style="font-size:11px;opacity:.7;margin-top:2px" id="prov-tax-days">92 days away</div>
       </div>
     </div>
     <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2);font-size:11px;opacity:.65" id="prov-tax-note">
-      Rough estimate from your records · not tax advice · confirm with your tax practitioner
+      A guide to help you plan — not your final tax bill. Your accountant works out the exact amount.
     </div>
   </div>
   <div id="sars-reminders" style="margin-bottom:14px"></div>
@@ -6776,7 +6802,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           </select>
         </div>
         <div><label>VAT registered</label>
-          <select id="set-vat">
+          <select id="set-vat" onchange="_setVatCatVis()">
             <option value="yes">Yes – 15% VAT</option>
             <option value="no">No – not VAT registered</option>
           </select>
@@ -6795,6 +6821,16 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <div><label>Income tax number (SARS)</label><input id="set-taxno" placeholder="e.g. 1234567890"/></div>
         <div><label>VAT registration number</label><input id="set-vatno" placeholder="e.g. 4123456789"/></div>
       </div>
+      <div id="set-vatcat-wrap" style="display:none;margin-top:12px">
+        <label>How often you file VAT <span style="font-weight:600;color:var(--t4)">— your VAT category</span></label>
+        <select id="set-vatcat">
+          <option value="A">Every 2 months — Category A (ends Jan, Mar, May, Jul, Sep, Nov)</option>
+          <option value="B">Every 2 months — Category B (ends Feb, Apr, Jun, Aug, Oct, Dec)</option>
+          <option value="D">Every 6 months — Category D (the farming cycle)</option>
+          <option value="C">Every month — Category C</option>
+          <option value="E">Once a year — Category E</option>
+        </select>
+        <div style="font-size:11px;color:var(--t3);margin-top:4px;line-height:1.45">This is how often SARS wants your VAT201 return — it’s on your VAT registration letter or on SARS eFiling. Most farmers file every 2 months: SARS decides whether you’re A or B, so check which months your last VAT201 covered. Some farms register for the 6-month farming cycle (Category D). Not sure? Leave it on 2-monthly and confirm with your accountant.</div>
     </div>
 
     <!-- App preferences -->
@@ -10076,6 +10112,7 @@ var ST = {
   province: 'Eastern Cape',
   farmHa: 5462,
   vatRegistered: true,
+  vatCategory: 'A',
   vatNumber: '',
   taxNumber: '',
   entityType: 'sole',
@@ -12035,6 +12072,7 @@ function syncSettingsHeader(){
   sb.textContent = bits.join(' \u00b7 ');
 }
 
+function _setVatCatVis(){ var w=document.getElementById('set-vatcat-wrap'), v=document.getElementById('set-vat'); if(w&&v) w.style.display=(v.value==='yes')?'block':'none'; }
 function saveSettings() {
 
   var nameEl  = document.getElementById('set-farm');
@@ -12060,6 +12098,7 @@ if (name)  { ST.farmName = name;  FARM.name  = name; }
   var provEl = document.getElementById('set-province'); if (provEl && provEl.value) ST.province = provEl.value;
   var taxno = document.getElementById('set-taxno'); if(taxno && taxno.value.trim()) { ST.taxNumber = taxno.value.trim(); FARM.taxNo = ST.taxNumber; }
   var vatno = document.getElementById('set-vatno'); if(vatno && vatno.value.trim()) { ST.vatNumber = vatno.value.trim(); FARM.vatNo = ST.vatNumber; }
+  var vcat = document.getElementById('set-vatcat'); if(vcat && vcat.value) ST.vatCategory = vcat.value;
 
 var greetEl = document.getElementById('topbar-greeting');
   if (greetEl) {
@@ -12261,6 +12300,8 @@ function nav(id) {
     var sh=$('set-ha');     if(sh) sh.value = ST.farmHa     || '';
     var st=$('set-taxno');  if(st) st.value = ST.taxNumber  || '';
     var sv=$('set-vatno');  if(sv) sv.value = ST.vatNumber  || '';
+    var svc=$('set-vatcat'); if(svc) svc.value = ST.vatCategory || 'A';
+    if(typeof _setVatCatVis==='function') _setVatCatVis();
     var sen=$('set-entity'); if(sen) sen.value = ST.entityType || 'sole';
     var stb=$('set-tour-btn'); if(stb) stb.checked = ST.showTourBtn !== false;
     var sdb=$('set-demo-btn'); if(sdb) sdb.checked = ST.showDemoBtn !== false;
@@ -27632,9 +27673,9 @@ function _cfFinanceFor(year, mIdx, stepIdx){
 
   // 4) Provisional tax — placed on the SARS payment dates that land in this forecast month.
   try{ if(typeof taxProvEstimate==='function'){ var pe=taxProvEstimate();
-    if(pe && pe.ok && pe.provPayment>0 && pe.dts){ pe.dts.forEach(function(dt){
-      if(dt && dt.d && dt.d.getFullYear()===year && dt.d.getMonth()===mIdx && dt.per!=='top-up')
-        out('Provisional tax ('+dt.per+')', 'Tax & SARS', pe.provPayment);
+    if(pe && pe.ok && pe.dts){ pe.dts.forEach(function(dt){
+      if(dt && dt.d && (dt.amt||0)>0 && dt.d.getFullYear()===year && dt.d.getMonth()===mIdx && dt.per!=='top-up')
+        out('Provisional tax ('+dt.per+')', 'Tax & SARS', dt.amt);
     }); } } }catch(e){}
 
   // 5) VAT — net payable spread over the six 2-month VAT201 cycles (payment months = odd month indices).
@@ -27854,6 +27895,51 @@ function renderRecentIncome() {
 // ============================================================
 
 var LANG_PAIRS = [
+
+  // ── Provisional-tax rolling forecast copy (audit #8) ──
+  ['Money to keep aside for tax','Geld om vir belasting weg te sit'],
+  ['Next payment','Volgende betaling'],
+  ['From your season plan','Uit jou seisoenplan'],
+  ['Spread evenly (no plan yet)','Eweredig versprei (nog geen plan)'],
+  ['Spread evenly','Eweredig versprei'],
+  ['what you’ve earned so far plus the rest of the season','wat jy tot dusver verdien het plus die res van die seisoen'],
+  ['based on your first','gebaseer op jou eerste'],
+  ['A guide to help you plan — not your final tax bill. Your accountant works out the exact amount.','’n Riglyn om mee te beplan — nie jou finale belastingrekening nie. Jou rekenmeester werk die presiese bedrag uit.'],
+  ['A sharper number is waiting.','’n Skerper syfer wag.'],
+  ['You haven’t added your','Jy het nog nie jou'],
+  ['to the season plan yet, so we spread your money evenly.','by die seisoenplan gevoeg nie, so ons versprei jou geld eweredig.'],
+  ['to the season plan yet, so we spread your income evenly across the year.','by die seisoenplan gevoeg nie, so ons versprei jou inkomste eweredig oor die jaar.'],
+  ['Finish your plan','Voltooi jou plan'],
+
+  // ── Onboarding VAT step (audit #7 onboarding) ──
+  ['Are you registered for VAT?','Is jy vir BTW geregistreer?'],
+  ['<b>Why we ask.</b> If you’re VAT-registered, we split the 15% out of your sales and costs and track what you owe or reclaim on your VAT201. If not, we leave your amounts exactly as entered. Most smaller farmers only register once turnover passes R1 million.','<b>Hoekom ons vra.</b> As jy vir BTW geregistreer is, haal ons die 15% uit jou verkope en koste en hou ons by wat jy skuld of kan terugeis op jou BTW201. Indien nie, los ons jou bedrae presies soos ingevoer. Die meeste kleiner boere registreer eers wanneer omset R1 miljoen verbygaan.'],
+  ['No — not registered','Nee — nie geregistreer nie'],
+  ['Turnover under R1m, or not yet registered.','Omset onder R1m, of nog nie geregistreer nie.'],
+  ['Yes — I charge 15% VAT','Ja — ek hef 15% BTW'],
+  ['SARS-registered; you file a VAT201.','By SARS geregistreer; jy dien ’n BTW201 in.'],
+  ['Every 2 months — Category A','Elke 2 maande — Kategorie A'],
+  ['Every 2 months — Category B','Elke 2 maande — Kategorie B'],
+  ['Every 6 months — Category D (farming)','Elke 6 maande — Kategorie D (boerdery)'],
+  ['Every month — Category C','Elke maand — Kategorie C'],
+  ['Once a year — Category E','Een keer per jaar — Kategorie E'],
+  ['Your category is how often SARS wants your VAT201 — it’s on your VAT registration letter or on SARS eFiling. <b>A / B</b> file every 2 months (SARS picks which). <b>D</b> is the 6-month farming cycle. <b>C</b> is monthly, <b>E</b> once a year. Not sure? Leave it on 2-monthly and confirm with your accountant.','Jou kategorie is hoe gereeld SARS jou BTW201 wil hê — dit staan op jou BTW-registrasiebrief of op SARS eFiling. <b>A / B</b> dien elke 2 maande in (SARS kies watter een). <b>D</b> is die 6-maande boerdery-siklus. <b>C</b> is maandeliks, <b>E</b> een keer per jaar. Nie seker nie? Los dit op 2-maandeliks en bevestig met jou rekenmeester.'],
+
+  // ── VAT category setting + guidance (audit #7) ──
+  ['How often you file VAT','Hoe gereeld dien jy BTW in'],
+  ['— your VAT category','— jou BTW-kategorie'],
+  ['Every 2 months — Category A (ends Jan, Mar, May, Jul, Sep, Nov)','Elke 2 maande — Kategorie A (eindig Jan, Mrt, Mei, Jul, Sep, Nov)'],
+  ['Every 2 months — Category B (ends Feb, Apr, Jun, Aug, Oct, Dec)','Elke 2 maande — Kategorie B (eindig Feb, Apr, Jun, Aug, Okt, Des)'],
+  ['Every 6 months — Category D (the farming cycle)','Elke 6 maande — Kategorie D (die boerdery-siklus)'],
+  ['Every month — Category C','Elke maand — Kategorie C'],
+  ['Once a year — Category E','Een keer per jaar — Kategorie E'],
+  ['This is how often SARS wants your VAT201 return — it’s on your VAT registration letter or on SARS eFiling. Most farmers file every 2 months: SARS decides whether you’re A or B, so check which months your last VAT201 covered. Some farms register for the 6-month farming cycle (Category D). Not sure? Leave it on 2-monthly and confirm with your accountant.','Dit is hoe gereeld SARS jou BTW201-opgawe wil hê — dit staan op jou BTW-registrasiebrief of op SARS eFiling. Die meeste boere dien elke 2 maande in: SARS besluit of jy A of B is, so kyk watter maande jou laaste BTW201 gedek het. Sommige plase registreer vir die 6-maande boerdery-siklus (Kategorie D). Nie seker nie? Los dit op 2-maandeliks en bevestig met jou rekenmeester.'],
+  ['change VAT category','verander BTW-kategorie'],
+  [', following the VAT category in Settings.',', volgens die BTW-kategorie in Instellings.'],
+  ['every 2 months','elke 2 maande'],
+  ['every 6 months','elke 6 maande'],
+  ['every month','elke maand'],
+  ['once a year','een keer per jaar'],
 
   // ── Orchard add-block form — full AF coverage (audit #11) ──
   ['A carton is the standard box your fruit is packed and sold in.','’n Karton is die standaard boks waarin jou vrugte verpak en verkoop word.'],
@@ -29859,24 +29945,88 @@ window.calcAnnualIncomeTax = calcAnnualIncomeTax; window._taxFromBands = _taxFro
 function _txNow(){ return (typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); }
 function _txDaysTo(d){ return Math.ceil((d-_txNow())/86400000); }
 function _txWhen(d){ var n=_txDaysTo(d); if(n<0) return {t:'Overdue',late:true}; if(n===0) return {t:'Due today',late:false}; return {t:'in '+n+' day'+(n===1?'':'s'),late:false}; }
-// Provisional-tax estimate — same annualisation as renderProvTax, using the real tax engine.
+// Provisional-tax estimate (audit #8). Full-year profit = ACTUALS-TO-DATE + the season
+// plan for the REMAINING tax-year months (rolling forecast), which tracks seasonal farms
+// far better than straight-line. Falls back to straight-line annualisation when there is
+// no / a sparse plan, so steady-income farms and plan-less users are never worse off.
+// 2nd payment = full-year estimate - 1st (IRP6), not another half.
+function _provPlanMap(){
+  var mp={};
+  try{
+    var hasData=(ST_PLAN.months||[]).some(function(m){return (m&&((m.income||0)>0||(m.expenses||0)>0));});
+    var hasPlan=(((ST_PLAN.crops||[]).length)||((ST_PLAN.events||[]).length));
+    if(!hasData && hasPlan && typeof recomputePlan==='function'){ try{ recomputePlan(); }catch(e){} }
+    (ST_PLAN.months||[]).forEach(function(m){ if(m&&m.label) mp[m.label]={income:(m.income||0),expenses:(m.expenses||0)}; });
+  }catch(e){}
+  return mp;
+}
+// Seasonal? True when one month carries a big share of the year's income (harvest spike).
+function _provIncomeLumpy(){
+  var fy=getCurrentFY(), fyStart=(ST.fyStartMonth||3)-1, by={}, tot=0;
+  (ST.txns||[]).forEach(function(t){ if(!t||t.type!=='income')return; var d=parseDate(t.date); if(!d)return; var yfy=(d.m>=fyStart)?d.y:d.y-1; if(yfy!==fy)return; by[d.m]=(by[d.m]||0)+t.amt; tot+=t.amt; });
+  if(tot<=0) return false;
+  var mx=0; for(var k in by){ if(by[k]>mx) mx=by[k]; }
+  return (mx/tot)>0.4;
+}
 function taxProvEstimate(){
   var ytd=ytdSummary(), fy=getCurrentFY(), fyMonths=getFYMonths(fy), cur=currentPeriodLabel();
   var me=fyMonths.indexOf(cur)+1; if(me<1) me=5;
-  var annualIncome=me>0?Math.round(ytd.income/me*12):0, annualExpense=me>0?Math.round(ytd.expenses/me*12):0;
-  var annualProfit=annualIncome-annualExpense, entity=(ST.entityType)||'sole';
+  var entity=(ST.entityType)||'sole';
+  // Straight-line baseline (also the fallback)
+  var slIncome=Math.round(ytd.income/me*12), slExpense=Math.round(ytd.expenses/me*12);
+  // Rolling forecast: actuals to date + planned remainder of the tax year (run-rate for any
+  // tax-FY month the May-Apr plan doesn't cover, e.g. the Mar/Apr edge)
+  var planMap=_provPlanMap(), rrIncome=ytd.income/me, rrExpense=ytd.expenses/me;
+  var remIncome=0, remExpense=0, planTotIncome=0, i, pm;
+  for(i=0;i<fyMonths.length;i++){ pm=planMap[fyMonths[i]];
+    if(pm) planTotIncome+=pm.income;
+    if(i>=me){ if(pm){ remIncome+=pm.income; remExpense+=pm.expenses; } else { remIncome+=rrIncome; remExpense+=rrExpense; } }
+  }
+  var planIncome=Math.round(ytd.income+remIncome), planExpense=Math.round(ytd.expenses+remExpense);
+  // Is the plan meaningfully complete? (covers enabled enterprises, income not far below run-rate)
+  var ent=(typeof FARM!=='undefined'&&FARM.enterprises)||{crops:true,orchards:true,livestock:true};
+  var hasCrops=((ST_PLAN.crops||[]).length>0);
+  var hasLive=((ST_PLAN.events||[]).some(function(e){return e&&e.type==='sell';}));
+  var hasOrch=(typeof ST_FRUIT!=='undefined'&&((ST_FRUIT.blocks||[]).length>0));
+  var missingEnt=(ent.crops&&!hasCrops)?'crop':((ent.livestock&&!hasLive)?'livestock':((ent.orchards&&!hasOrch)?'orchard':null));
+  var sparse=(planTotIncome<=0)||(slIncome>0&&planTotIncome<slIncome*0.5);
+  var planComplete=(!missingEnt&&!sparse&&planTotIncome>0);
+  var basis=planComplete?'plan':'straight';
+  var annualIncome=(basis==='plan')?planIncome:slIncome;
+  var annualExpense=(basis==='plan')?planExpense:slExpense;
+  var annualProfit=annualIncome-annualExpense;
   var annualTax=(typeof calcAnnualIncomeTax==='function')?calcAnnualIncomeTax(Math.max(0,annualProfit),entity):0;
-  var provPayment=Math.round(annualTax/2), now=_txNow(), endFebDay=new Date(fy+1,2,0).getDate();
-  var dts=[{d:new Date(fy,7,31),lbl:'31 Aug '+fy,per:'1st'},{d:new Date(fy+1,1,endFebDay),lbl:endFebDay+' Feb '+(fy+1),per:'2nd'},{d:new Date(fy+1,8,30),lbl:'30 Sep '+(fy+1),per:'top-up'}];
-  var next=dts[0]; for(var i=0;i<dts.length;i++){ if(dts[i].d>=now){ next=dts[i]; break; } }
-  return {annualIncome:annualIncome,annualExpense:annualExpense,annualProfit:annualProfit,annualTax:annualTax,provPayment:provPayment,entity:entity,next:next,dts:dts,daysAway:Math.ceil((next.d-now)/86400000),ok:(annualProfit>0&&annualIncome>0)};
+  var pay1=Math.round(annualTax/2), pay2=Math.max(0,annualTax-pay1);   // IRP6: 2nd = estimate - 1st
+  var now=_txNow(), endFebDay=new Date(fy+1,2,0).getDate();
+  var dts=[{d:new Date(fy,7,31),lbl:'31 Aug '+fy,per:'1st',amt:pay1},
+           {d:new Date(fy+1,1,endFebDay),lbl:endFebDay+' Feb '+(fy+1),per:'2nd',amt:pay2},
+           {d:new Date(fy+1,8,30),lbl:'30 Sep '+(fy+1),per:'top-up',amt:0}];
+  var next=dts[0]; for(i=0;i<dts.length;i++){ if(dts[i].d>=now){ next=dts[i]; break; } }
+  var nudge={show:(basis==='straight' && _provIncomeLumpy()), enterprise:(missingEnt||'season')};   // seasonal income only -> steady farms stay silent
+  return {annualIncome:annualIncome,annualExpense:annualExpense,annualProfit:annualProfit,annualTax:annualTax,
+          provPayment:next.amt,pay1:pay1,pay2:pay2,entity:entity,next:next,dts:dts,basis:basis,planComplete:planComplete,
+          monthsElapsed:me,nudge:nudge,daysAway:Math.ceil((next.d-now)/86400000),ok:(annualProfit>0&&annualIncome>0)};
 }
-// Current 2-month VAT position — derive-only via IE_split.
+// VAT filing period for the farm's SARS category (audit #7): A/B = 2-monthly
+// (SARS assigns which); C = monthly; D = 6-monthly farming cycle; E = annual.
+// Returns the [start,end] of the period containing `now`. Defaults to Category A.
+function _vatPeriod(now, cat){
+  var y=now.getFullYear(), m=now.getMonth();                       // m: 0-11
+  function per(sy,sm,len){ return {start:new Date(sy,sm,1), end:new Date(sy,sm+len,0)}; }
+  if(cat==='C') return per(y,m,1);                                 // monthly
+  if(cat==='D'){ if(m>=2&&m<=7) return per(y,2,6); return per(m>=8?y:y-1,8,6); }  // Mar-Aug / Sep-Feb
+  if(cat==='E') return per(m>=2?y:y-1,2,12);                       // annual (tax year Mar-Feb)
+  var mm=m+1, endsOdd=(cat!=='B');                                 // A ends odd months; B ends even
+  var endM1=endsOdd?(mm%2?mm:mm+1):(mm%2?mm+1:mm);                 // 1-indexed end month
+  return {start:new Date(y,endM1-2,1), end:new Date(y,endM1,0)};   // 2-monthly (Date handles year rollover)
+}
+function _vatCadence(cat){ return cat==='C'?'every month':(cat==='D'?'every 6 months':(cat==='E'?'once a year':'every 2 months')); }
+function _vatPeriodLabel(v){ if(!v||!v.from||!v.to) return ''; var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; function f(d){ return d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear(); } return f(v.from)+' \u2013 '+f(v.to); }
 function taxVatPosition(){
   if(typeof FARM==='undefined'||!FARM.vat) return null;
-  var now=_txNow(), end=new Date(now.getFullYear(),now.getMonth()+1,0), start=new Date(now.getFullYear(),now.getMonth()-1,1), out=0,inp=0;
+  var cat=(typeof ST!=='undefined'&&ST.vatCategory)||'A', now=_txNow(), pr=_vatPeriod(now,cat), start=pr.start, end=pr.end, out=0,inp=0;
   (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var dd=new Date(d.y,d.m,d.d||1); if(dd<start||dd>end) return; var s=IE_split(t.amt,t.cat); if(t.type==='income') out+=s.vat; else inp+=s.vat; });
-  return {out:Math.round(out),inp:Math.round(inp),owe:Math.round(out-inp),from:start,to:end};
+  return {out:Math.round(out),inp:Math.round(inp),owe:Math.round(out-inp),from:start,to:end,cat:cat};
 }
 // Workers/BCEA snapshot — min-wage check is exact; UIF/PAYE stay on the payroll screen (not re-totalled here).
 function taxWorkerSnapshot(){
@@ -30041,13 +30191,14 @@ function taxGlanceHTML(){
         '<div class="tx-tile"><div class="k">Payroll</div><div class="v">'+fmt(pay.total)+'</div></div>'+
       '</div></div>';
     h+='<div class="tx-nudge" style="background:#FEF6E7;border-color:#F1DBA6"><b>Keep your provisional in check.</b> It’s an estimate on your profit so far — if profit climbs later in the season, a top-up at the 3rd payment (30 Sep) helps you avoid SARS interest. <span onclick="taxTab(\'whatif\')" style="text-decoration:underline;cursor:pointer">Try the What-if →</span></div>';
+    if(prov.nudge && prov.nudge.show) h+='<div class="tx-nudge" style="background:#FEF6E7;border-color:#F1DBA6"><b>A sharper number is waiting.</b> You haven\u2019t added your '+esc(prov.nudge.enterprise)+' to the season plan yet, so we spread your income evenly across the year. <span onclick="nav(\'planning\')" style="text-decoration:underline;cursor:pointer">Finish your plan \u2192</span></div>';
   }
 
   // 3-up: gauge / set-aside / VAT trend
   h+='<div class="tx-g3">';
   if(prov.ok){ var eff=prov.annualProfit>0?Math.round(prov.annualTax/prov.annualProfit*100):0;
     h+='<div class="tx-card"><div class="tx-h">Effective tax rate</div>'+_taxGauge(eff/45)+'<div style="text-align:center;font-size:20px;font-weight:800;margin-top:-6px">'+eff+'%</div><div style="text-align:center;font-size:10.5px;color:var(--t4)">of profit · '+esc(_entityTaxLabel(prov.entity))+'</div></div>';
-    h+='<div class="tx-card" style="display:flex;flex-direction:column"><div class="tx-h">Set aside each month</div><div style="flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:24px;font-weight:800">'+fmt(Math.round(prov.annualTax/12))+'</div><div style="font-size:11px;color:var(--t3);margin-top:3px">to cover '+esc(prov.next.lbl)+' — '+(prov.daysAway>0?prov.daysAway+' days to go':'due now')+'</div></div></div>';
+    h+='<div class="tx-card" style="display:flex;flex-direction:column"><div class="tx-h">Set aside each month</div><div style="flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:24px;font-weight:800">'+fmt(Math.round(prov.annualTax/12))+'</div><div style="font-size:11px;color:var(--t3);margin-top:3px">to cover '+esc(prov.next.lbl)+' — '+(prov.daysAway>0?prov.daysAway+' days to go':'due now')+'</div><div style="font-size:10px;color:var(--t4);margin-top:3px">'+(prov.basis==='plan'?'From your season plan':'Spread evenly (no plan yet)')+'</div></div></div>';
   } else { h+='<div class="tx-card"><div class="tx-h">Set aside for tax</div><div style="font-size:12.5px;color:var(--t3)">Once your season shows a profit, your provisional-tax set-aside appears here.</div></div>'; }
   if(trend.length){ var mx=Math.max.apply(null,trend.map(function(t){return Math.abs(t.net);}).concat(1));
     h+='<div class="tx-card" style="display:flex;flex-direction:column"><div class="tx-h">VAT — last 3 periods</div><div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:4px"><div style="display:flex;align-items:flex-end;gap:10px;height:62px">'+trend.map(function(t,i){var pc=Math.max(6,Math.round(Math.abs(t.net)/mx*100));return '<div style="flex:1;text-align:center"><div style="height:'+Math.round(pc*0.44)+'px;background:'+(i===trend.length-1?'#DC2626':'#F87171')+';border-radius:4px 4px 0 0"></div><div style="font-size:9px;color:var(--t4);margin-top:3px">'+t.label+'</div></div>';}).join('')+'</div><div style="font-size:10.5px;color:var(--t4);margin-top:6px;text-align:center">Net VAT payable per period</div></div></div>';
@@ -30063,7 +30214,7 @@ function taxGlanceHTML(){
   h+='</div>';
   h+='<div class="tx-card"><div class="tx-h">Your tax year — what’s ahead 📅</div>';
   var cal=[]; if(wk) cal.push(['Aug','Provisional 1st','IRP6','#B45309',prov.ok]); var _n=_txNow();
-  cal=[]; if(prov.ok) cal.push([_shortDate(prov.next.d),'Provisional '+prov.next.per,'IRP6','#B45309',true]);
+  cal=[]; if(prov.ok) cal.push([_shortDate(prov.next.d),'Provisional '+prov.next.per+' \u00b7 '+fmt(prov.next.amt),'IRP6','#B45309',true]);
   if(vat) cal.push([_shortDate(new Date(vat.to.getFullYear(),vat.to.getMonth()+1,25)),'VAT return','VAT201','#DC2626',false]);
   if(wk) cal.push(['7th','Worker tax','EMP201','#2D6A4F',false]);
   cal.push(['year-end','Income tax return','ITR12','#2D6A4F',false]);
@@ -30089,7 +30240,7 @@ function taxGlanceHTML(){
 
   // VAT + workers
   h+='<div class="tx-g2">';
-  if(vat){ h+='<div class="tx-card"><div class="tx-h"><span class="tx-vaticon">%</span> VAT — current period</div><div class="tx-mr"><span>Collected on sales</span><b>'+IE_R(vat.out)+'</b></div><div class="tx-mr"><span>Paid on costs</span><b>−'+IE_R(vat.inp).replace('−','')+'</b></div><div class="tx-mr" style="border-top:1px solid var(--br2);padding-top:6px;margin-top:4px"><span style="font-weight:700">'+(vat.owe>=0?'Owe SARS':'SARS owes you')+'</span><b style="color:'+(vat.owe>=0?'var(--rd)':'var(--gm)')+'">'+IE_R(Math.abs(vat.owe))+'</b></div><div class="tx-wi"><details><summary>What is this?</summary>VAT charged on sales minus VAT paid on standard-rated costs. Farming inputs like fertiliser, seed and diesel are zero-rated. Filed on a VAT201 every two months.</details></div></div>'; }
+  if(vat){ h+='<div class="tx-card"><div class="tx-h"><span class="tx-vaticon">%</span> VAT — current period</div><div class="tx-mr"><span>Collected on sales</span><b>'+IE_R(vat.out)+'</b></div><div class="tx-mr"><span>Paid on costs</span><b>−'+IE_R(vat.inp).replace('−','')+'</b></div><div class="tx-mr" style="border-top:1px solid var(--br2);padding-top:6px;margin-top:4px"><span style="font-weight:700">'+(vat.owe>=0?'Owe SARS':'SARS owes you')+'</span><b style="color:'+(vat.owe>=0?'var(--rd)':'var(--gm)')+'">'+IE_R(Math.abs(vat.owe))+'</b></div><div style="font-size:11px;color:var(--t4);margin-top:7px">Period: '+_vatPeriodLabel(vat)+' &nbsp;\u00b7&nbsp; <span onclick="nav(\'settings\')" style="color:var(--gd);cursor:pointer;font-weight:700">change VAT category</span></div><div class="tx-wi"><details><summary>What is this?</summary>VAT charged on sales minus VAT paid on standard-rated costs. Farming inputs like fertiliser, seed and diesel are zero-rated. Filed on a VAT201 '+_vatCadence(vat.cat)+', following the VAT category in Settings.</details></div></div>'; }
   else h+='<div class="tx-card"><div class="tx-h"><span class="tx-vaticon">%</span> VAT</div><div style="font-size:12.5px;color:var(--t3)">You’re not registered for VAT. If your turnover passes R1m, registration usually becomes compulsory.</div></div>';
   if(wk){ h+='<div class="tx-card"><div class="tx-h">👷 Your workers</div><div style="font-size:12.5px;font-weight:700;color:'+(wk.allOk?'var(--gm)':'var(--rd)')+'">'+(wk.allOk?'✓ All '+wk.count+' paid above minimum wage':'⚠ Someone is below minimum wage')+'</div><div class="tx-mr"><span>Skills levy (SDL)</span><b>'+(wk.sdl?'applies':'not yet — under R500k/yr')+'</b></div><div style="font-size:11px;color:var(--t3);margin-top:5px">UIF &amp; PAYE worked out each payroll run — <span onclick="nav(\'workers\')" style="color:var(--gm);font-weight:700;cursor:pointer">open Workers →</span></div></div>'; }
   else h+='<div class="tx-card"><div class="tx-h">👷 Workers</div><div style="font-size:12.5px;color:var(--t3)">No workers on your register — no PAYE, UIF or COIDA to manage.</div></div>';
@@ -30346,56 +30497,27 @@ function taxWhatIfHTML(){
 
 function renderProvTax() {
   var card = $('prov-tax-card'); if (!card) return;
-
-  var ytd  = ytdSummary();
-  var fy   = getCurrentFY();
-
-var fyMonths = getFYMonths(fy);
-  var curMonth = currentPeriodLabel();
-  var monthsElapsed = fyMonths.indexOf(curMonth) + 1;
-  if (monthsElapsed < 1) monthsElapsed = 5;
-
-  var annualIncome  = monthsElapsed > 0 ? Math.round(ytd.income  / monthsElapsed * 12) : 0;
-  var annualExpense = monthsElapsed > 0 ? Math.round(ytd.expenses / monthsElapsed * 12) : 0;
-  var annualProfit  = annualIncome - annualExpense;
-
-  if (annualProfit <= 0 || annualIncome <= 0) {
-    card.style.display = 'none';
-    return;
-  }
-
-var entity     = (ST.entityType) || 'sole';
-  var annualTax  = calcAnnualIncomeTax(annualProfit, entity);
-  var effRate    = annualProfit > 0 ? annualTax / annualProfit : 0;
-  var provPayment = Math.round(annualTax / 2);   // one provisional period (1st/2nd are ~half each)
-
-  // Provisional dates for a Feb year-end, from the current FY (fy = 1 Mar start year):
-  //   1st = 31 Aug fy · 2nd = end-Feb (fy+1) · top-up = 30 Sep (fy+1). Next on/after today.
-  var now = (typeof APP_TODAY !== 'undefined' && APP_TODAY) ? new Date(APP_TODAY) : new Date();
-  var endFebDay = new Date(fy + 1, 2, 0).getDate();
-  var dts = [
-    { d: new Date(fy, 7, 31),            lbl: '31 Aug ' + fy,                 per: '1st' },
-    { d: new Date(fy + 1, 1, endFebDay), lbl: endFebDay + ' Feb ' + (fy + 1), per: '2nd' },
-    { d: new Date(fy + 1, 8, 30),        lbl: '30 Sep ' + (fy + 1),           per: 'top-up' }
-  ];
-  var next = dts[0];
-  for (var i = 0; i < dts.length; i++) { if (dts[i].d >= now) { next = dts[i]; break; } }
-  var daysAway = Math.ceil((next.d - now) / 86400000);
-
+  var pe = (typeof taxProvEstimate === 'function') ? taxProvEstimate() : null;
+  if (!pe || !pe.ok) { card.style.display = 'none'; return; }
   card.style.display = 'block';
-  setEl('prov-tax-amount', fmt(provPayment));
-  setEl('prov-tax-sub',
-    'Based on ' + monthsElapsed + ' months · annualised profit ' + IE_R(annualProfit) +
-    ' · ' + _entityTaxLabel(entity) + ' · ~' + Math.round(effRate * 100) + '% effective');
-  setEl('prov-tax-due', next.lbl + ' (' + next.per + ')');
+  setEl('prov-tax-amount', fmt(pe.provPayment));
+  setEl('prov-tax-sub', pe.basis === 'plan'
+    ? 'From your season plan \u00b7 what you\u2019ve earned so far plus the rest of the season'
+    : 'Spread evenly \u00b7 based on your first ' + pe.monthsElapsed + ' month' + (pe.monthsElapsed === 1 ? '' : 's'));
+  setEl('prov-tax-due', pe.next.lbl + ' (' + pe.next.per + ')');
   setEl('prov-tax-days',
-    daysAway > 0
-      ? daysAway + ' days away · ' + (daysAway <= 30 ? 'pay soon!' : daysAway <= 60 ? 'coming up' : 'plan ahead')
+    pe.daysAway > 0
+      ? pe.daysAway + ' days away \u00b7 ' + (pe.daysAway <= 30 ? 'pay soon!' : pe.daysAway <= 60 ? 'coming up' : 'plan ahead')
       : 'Due today!');
   var noteEl = $('prov-tax-note');
-  if (noteEl) noteEl.textContent =
-    'Rough estimate · ' + _entityTaxLabel(entity) + ' · ' + STATUTORY.tax.yearLabel +
-    ' tables · excludes capital allowances & farming rules · not tax advice — confirm with your tax practitioner';
+  if (noteEl) {
+    if (pe.nudge && pe.nudge.show) {
+      noteEl.innerHTML = 'You haven\u2019t added your <b>' + esc(pe.nudge.enterprise) + '</b> to the season plan yet, so we spread your money evenly. '
+        + '<span onclick="nav(\'planning\')" style="text-decoration:underline;cursor:pointer;font-weight:700">Finish your plan \u2192</span>';
+    } else {
+      noteEl.textContent = 'A guide to help you plan \u2014 not your final tax bill. Your accountant works out the exact amount.';
+    }
+  }
 }
 
 function renderSarsReminders() {
@@ -31050,6 +31172,7 @@ function obEnterprisesFromArch(){
 var OB_FARM_ENTERPRISE = 'crops'; // matches default OB_TYPE='grain' → 'crops'
 
 var OB_WANTS_IMPORT = true; // default sub-choice when "my own data" is picked
+var OB_VATREG = false; // VAT registration, captured at onboarding (default: not registered)
 function obPickMode(el) {
   ['ob-mode-demo','ob-mode-fresh'].forEach(function(id){
     var e = $(id); if(e) e.className = 'ob-mode';
@@ -31070,6 +31193,15 @@ function obSetImport(wants, ev) {
   if (imp)   imp.className   = 'ob-fu-opt' + (wants ? ' on' : '');
   if (later) later.className = 'ob-fu-opt' + (wants ? '' : ' on');
 }
+function obPickVat(reg, ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  OB_VATREG = !!reg;
+  var yes = $('ob-vat-yes'), no = $('ob-vat-no'), wrap = $('ob-vatcat-wrap');
+  if (yes)  yes.className = 'ob-fu-opt' + (reg ? ' on' : '');
+  if (no)   no.className  = 'ob-fu-opt' + (reg ? '' : ' on');
+  if (wrap) wrap.style.display = reg ? 'block' : 'none';
+}
+function obVatInfo(id) { var e = $(id); if (e) e.style.display = (!e.style.display || e.style.display === 'none') ? 'block' : 'none'; }
 
 function obBuildTour() {
   var s     = OB_STRINGS[OB_LANG] || OB_STRINGS.en;
@@ -31136,11 +31268,15 @@ function obFinish() {
   var province = ($('ob-province') && $('ob-province').value) || '';
   var fy       = parseInt($('ob-fystart') && $('ob-fystart').value) || 3;
   var entity   = ($('ob-entity') && $('ob-entity').value) || 'sole';
+  var vatReg   = (typeof OB_VATREG !== 'undefined') ? OB_VATREG : false;
+  var vatCat   = ($('ob-vatcat') && $('ob-vatcat').value) || 'A';
 
 ST.farmName      = farmName;
   ST.ownerName     = owner;
   ST.fyStartMonth  = fy;
   ST.entityType    = entity;
+  ST.vatRegistered = vatReg; if (typeof FARM !== 'undefined') FARM.vat = vatReg;
+  ST.vatCategory   = vatCat;
   if (ha) ST.farmHa = ha;
   if (province) ST.province = province;
   // Per-enterprise gating — the source of truth (from the Step 3 archetype / Mixed picks)
