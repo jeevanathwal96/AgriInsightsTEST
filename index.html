@@ -3878,7 +3878,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
-  <div class="logo" onclick="toggleToursMenu()" style="cursor:pointer" title="Demo a tab">
+  <div class="logo" onclick="nav('dashboard')" style="cursor:pointer" title="Go to dashboard">
     <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M12 2C9 2 6 4 6 8c0 3 2 5 6 5s6-2 6-5c0-4-3-6-6-6z"/><path d="M6 14c-2 1-4 3-4 6h20c0-3-2-5-4-6"/><path d="M12 13v6"/></svg></div>
     <div><div class="brand">Agri<span>Insights</span></div><div class="tagline">Making Farm Finances Simple</div></div>
   </div>
@@ -3943,7 +3943,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       </div>
     </div>
     <div class="topbar-right" data-notranslate>
-      <button id="demo-temp-btn" onclick="toggleToursMenu()" style="background:var(--am);color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;flex-shrink:0" title="Temporary — demo any tab">▶ Demo a tab</button>
+      <button id="demo-temp-btn" onclick="toggleToursMenu()" style="background:var(--am);color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;flex-shrink:0;display:none" title="Temporary — demo any tab">▶ Demo a tab</button>
       <div id="sync-indicator" style="display:flex;align-items:center;gap:5px;cursor:default;background:var(--bg);border:1px solid var(--br);border-radius:var(--rs);padding:5px 10px;flex-shrink:0">
           <span id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:#40916C;display:inline-block;flex-shrink:0;transition:background .3s"></span>
           <span id="sync-text" style="font-size:11px;color:var(--t3);white-space:nowrap">Ready</span>
@@ -3965,9 +3965,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div class="notif-hdr"><span style="font-size:14px;font-weight:700">Notifications</span><span onclick="markRead()" style="font-size:12px;color:var(--gl);font-weight:600;cursor:pointer">Mark all read</span></div>
           <div id="notif-list">
             <div class="notif-empty"><div class="notif-empty-em">🔔</div>Loading…</div>
-          </div>
-          <div class="drop-item" onclick="nav('transactions')" style="text-align:center;justify-content:center;color:var(--gl);font-weight:600">View all</div>
-        </div>
+          </div>        </div>
       </div>
       <div class="avatar" id="user-avatar" onclick="nav('settings')">JM</div>
     </div>
@@ -10097,7 +10095,7 @@ var ST = {
   firstRun: true,
   importBatches: [],
   showTourBtn: true,
-  showDemoBtn: true,
+  showDemoBtn: false,   // U1: demo buttons off by default in production; re-enable in Settings
   farmType: 'grain',
   // farmEnterprise: 'crops' | 'livestock' | 'mixed' | null (not set; inference will resolve)
   // Used by getFarmType() resolver to drive farm-type-aware copy on Budgets, Money Flow, etc.
@@ -11461,6 +11459,7 @@ function dataChanged(event) {
   if (typeof updateSyncIndicator === 'function') {
     try { updateSyncIndicator(); } catch (e) {}
   }
+  if (typeof updateDemoBtnVisibility === 'function') { try { updateDemoBtnVisibility(); } catch (e) {} }
   if (typeof LN_pruneFundsFor === 'function') { try { LN_pruneFundsFor(); } catch (e) {} }
 
   // Page-specific refresh decisions per event type
@@ -32735,6 +32734,8 @@ function updateDemoBtnVisibility() {
   var exp = $('exp-demo-btn-wrap');
   if (inc) inc.style.display = show ? '' : 'none';
   if (exp) exp.style.display = show ? '' : 'none';
+  var top = $('demo-temp-btn');
+  if (top) top.style.display = show ? '' : 'none';
 }
 
 // ============================================================
