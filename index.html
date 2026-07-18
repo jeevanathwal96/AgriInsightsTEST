@@ -1634,7 +1634,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 #page-tour-fixed-btn:hover{background:var(--gp)}
 #page-tour-fixed-dismiss{padding:7px 10px 7px 6px;background:var(--gb);color:var(--t4);font-size:14px;cursor:pointer;border:none;border-left:1px solid var(--gp);font-family:inherit;transition:all .12s;line-height:1}
 #page-tour-fixed-dismiss:hover{background:var(--rp);color:var(--rd);border-left-color:var(--rp)}
-#page-tour-fixed.pulse{animation:ptfPulse 1.5s ease-out 4}
+#page-tour-fixed.pulse{animation:ptfPulse 1.5s ease-out 4}#tours-fab.pulse{animation:ptfPulse 1.5s ease-out 4}
 @keyframes ptfPulse{0%{box-shadow:0 0 0 0 rgba(64,145,108,.5)}70%{box-shadow:0 0 0 12px rgba(64,145,108,0)}100%{box-shadow:0 0 0 0 rgba(64,145,108,0)}}
 #tour-complete-bg{position:fixed;inset:0;z-index:8050;background:rgba(17,24,39,.5);display:none;align-items:center;justify-content:center;padding:20px}
 .tour-complete-card{background:#fff;border-radius:18px;max-width:360px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,.3);padding:24px;animation:tourPop .25s ease}
@@ -3917,7 +3917,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
 <div class="app">
 
-<div id="page-tour-fixed">
+<div id="page-tour-fixed" class="hidden" hidden>
   <button id="page-tour-fixed-btn" onclick="startCurrentPageTour()">
     <svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20 6 4"/></svg>
     Demo this page
@@ -4000,7 +4000,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         <div class="drop" id="farm-drop">
           <div class="drop-item" onclick="closeDrop('farm-drop')"></div>
-          <div class="drop-item" onclick="toast('Add farm coming soon','info');closeDrop('farm-drop')">+ Add another farm</div>
+          <!-- The add-another-farm row was removed: it only fired a toast. Restore it when multi-farm actually ships. -->
         </div>
       </div>
     </div>
@@ -6904,10 +6904,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div><div class="tl">Simple View</div><div class="ts">Hide advanced tabs — keeps Dashboard, Income, Expenses, Money Flow and Reports.</div></div>
           <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-simple-view" onchange="setSimpleView(this.checked)"/><div class="toggle-track"></div></label>
         </div>
-        <div class="set-trow">
-          <div><div class="tl">Page tour button</div><div class="ts">Quick-access demo button in the top-right of each page.</div></div>
-          <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-tour-btn" checked onchange="ST.showTourBtn=this.checked;updateTourBtnVisibility()"/><div class="toggle-track"></div></label>
-        </div>
+        <!-- "Page tour button" toggle retired with the pill — guides now live on the 🗺️ button (bottom-right). -->
         <div class="set-trow">
           <div><div class="tl">"How to add" demo buttons</div><div class="ts">Guided demo buttons on the Income and Expenses pages.</div></div>
           <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-demo-btn" checked onchange="ST.showDemoBtn=this.checked;updateDemoBtnVisibility()"/><div class="toggle-track"></div></label>
@@ -9650,9 +9647,9 @@ function _pfWhatIfCropHTML(c){
     '<div id="pf-cc-single"><div class="pf-sl"><div class="pf-sllab"><span>Input cost <small style="color:var(--t4)">seed, fert, chem, fuel</small></span><span class="pf-slval"><span id="vPfIn">'+fmt(input0)+'</span><small>/ha</small></span></div>'+_pfSlider('pfIn',iMin,iMax,50,input0,'pfWhatIfCrop')+'<div class="pf-slends"><span>'+fmt(iMin)+'</span><span>your budget</span><span>'+fmt(iMax)+'</span></div></div></div>'+
     '<div id="pf-cc-lines" style="display:none"></div>'+
     '<button class="pf-costtog" onclick="pfCcToggle()"><span id="pf-cc-chev">\u25BC</span><span id="pf-cc-toglbl">Break down the cost</span></button>'+
-    '<div class="pf-fc profit" id="pfFc"><div class="pf-fc-top"><span class="pf-fc-lbl">Expected profit \u2014 this crop</span><span class="pf-fc-delta" id="dPfB"></span></div>'+
-    '<div class="pf-fc-hero"><span class="amt" id="rPfB">R 0</span><span class="sub" id="pfSzC"></span></div>'+
-    '<div class="pf-fc-be" id="pfBe"></div></div>'+
+    '<div class="pf-fc profit" id="pfFcC"><div class="pf-fc-top"><span class="pf-fc-lbl">Expected profit \u2014 this crop</span><span class="pf-fc-delta" id="dPfBC"></span></div>'+
+    '<div class="pf-fc-hero"><span class="amt" id="rPfBC">R 0</span><span class="sub" id="pfSzC"></span></div>'+
+    '<div class="pf-fc-be" id="pfBeC"></div></div>'+
     '<button class="pf-reset" onclick="pfResetWhatIf()">\u21BA Reset to my figures</button>'+
     
     '<div class="pf-note">Cutting inputs usually trims yield too \u2014 move both together to stay realistic. Starting price comes from your Market Prices.</div></div>';
@@ -9666,11 +9663,11 @@ function pfWhatIfCrop(){
   var gmHa=yld*price-input, gm=gmHa*area, cop=yld>0?input/yld:0, cushion=price-cop;
   var signedR=function(n){ return (n<0?'\u2212R\u00a0':'R\u00a0')+_grpInt(n); };
   var loss=gm<0;
-  var _fc=$('pfFc'); if(_fc) _fc.className='pf-fc '+(loss?'loss':'profit');
-  $('rPfB').textContent=signedR(gm); $('rPfB').style.color='';
+  var _fc=$('pfFcC'); if(_fc) _fc.className='pf-fc '+(loss?'loss':'profit');
+  $('rPfBC').textContent=signedR(gm); $('rPfBC').style.color='';
   if($('pfSzC')) $('pfSzC').innerHTML='over <b>'+area+' ha</b> &nbsp;\u00b7&nbsp; <b>'+signedR(gmHa)+'</b> per hectare';
-  var _dc=$('dPfB'); if(_dc) _dc.innerHTML=(Math.abs(gm-(PF_CURC.baseGm||0))<1)?'':_pfDelta(gm,PF_CURC.baseGm);
-  var be=$('pfBe');
+  var _dc=$('dPfBC'); if(_dc) _dc.innerHTML=(Math.abs(gm-(PF_CURC.baseGm||0))<1)?'':_pfDelta(gm,PF_CURC.baseGm);
+  var be=$('pfBeC');
   if(be){
     if(loss) be.innerHTML='You\u2019d <b style="color:#B42318">lose money</b> at these numbers \u2014 below <b>'+fmt(Math.round(cop))+'/ton</b> you don\u2019t cover your input costs; more hectares just grows the loss.';
     else be.innerHTML='Costs <b>'+fmt(Math.round(cop))+'/ton</b> to grow \u2014 your break-even. At today\u2019s price you clear <b style="color:#1B7A3E">'+fmt(Math.round(cushion))+'/ton</b> on top, a comfortable cushion.';
@@ -9994,9 +9991,9 @@ function _pfWhatIfLiveHTML(l){
     '<button class="pf-costtog" onclick="pfLcToggle()"><span id="pf-lc-chev">\u25BC</span><span id="pf-lc-toglbl">Break down the cost</span></button>'+
     '<label class="pf-chk"><input type="checkbox" id="pfIB" '+(incBuy?'checked':'')+' onchange="pfToggleBuy()"> Include buy / replacement cost <small>leave off if you rear your own</small></label>'+
     '<div id="pfBuyW" style="display:'+(incBuy?'block':'none')+'"><div class="pf-sl" style="margin-top:8px"><div class="pf-sllab"><span>Buy / replacement</span><span class="pf-slval"><span id="vPfBu">'+fmt(l.buy||0)+'</span><small>/head</small></span></div>'+_pfSlider('pfBu',bMin,bMax,50,l.buy||0,'pfWhatIfHerd')+'<div class="pf-slends"><span>'+fmt(bMin)+'</span><span>your price</span><span>'+fmt(bMax)+'</span></div></div></div>'+
-    '<div class="pf-fc profit" id="pfFc"><div class="pf-fc-top"><span class="pf-fc-lbl">Expected profit \u2014 this herd</span><span class="pf-fc-delta" id="dPfB"></span></div>'+
-    '<div class="pf-fc-hero"><span class="amt" id="rPfB">R 0</span><span class="sub" id="pfSzL"></span></div>'+
-    '<div class="pf-fc-be" id="pfBe"></div></div>'+
+    '<div class="pf-fc profit" id="pfFcL"><div class="pf-fc-top"><span class="pf-fc-lbl">Expected profit \u2014 this herd</span><span class="pf-fc-delta" id="dPfBL"></span></div>'+
+    '<div class="pf-fc-hero"><span class="amt" id="rPfBL">R 0</span><span class="sub" id="pfSzL"></span></div>'+
+    '<div class="pf-fc-be" id="pfBeL"></div></div>'+
     '<button class="pf-reset" onclick="pfResetWhatIf()">\u21BA Reset to my figures</button>'+
     
     '<div class="pf-note">One monthly figure covers feed, health &amp; licks. Tick buy-in only if you purchase animals \u2014 breeders who rear their own leave it off.</div></div>';
@@ -10011,11 +10008,11 @@ function pfWhatIfHerd(){
   var costHead=monthly*PF_CURL.months+(inc?buy:0), mh=sell-costHead, gm=mh*head;
   var signedR=function(n){ return (n<0?'\u2212R\u00a0':'R\u00a0')+_grpInt(n); };
   var loss=gm<0;
-  var _fc=$('pfFc'); if(_fc) _fc.className='pf-fc '+(loss?'loss':'profit');
-  $('rPfB').textContent=signedR(gm); $('rPfB').style.color='';
+  var _fc=$('pfFcL'); if(_fc) _fc.className='pf-fc '+(loss?'loss':'profit');
+  $('rPfBL').textContent=signedR(gm); $('rPfBL').style.color='';
   if($('pfSzL')) $('pfSzL').innerHTML='over <b>'+head+' head</b> &nbsp;\u00b7&nbsp; <b>'+signedR(mh)+'</b> per head';
-  var _dc=$('dPfB'); if(_dc) _dc.innerHTML=(Math.abs(gm-(PF_CURL.baseGm||0))<1)?'':_pfDelta(gm,PF_CURL.baseGm);
-  var be=$('pfBe');
+  var _dc=$('dPfBL'); if(_dc) _dc.innerHTML=(Math.abs(gm-(PF_CURL.baseGm||0))<1)?'':_pfDelta(gm,PF_CURL.baseGm);
+  var be=$('pfBeL');
   if(be){
     if(loss) be.innerHTML='You\u2019d <b style="color:#B42318">lose money</b> at these numbers \u2014 each head costs <b>'+fmt(Math.round(costHead))+'</b> to run, more than the <b>'+fmt(sell)+'</b> sale price; more head just grows the loss.';
     else be.innerHTML='Costs <b>'+fmt(Math.round(costHead))+'/head</b> to run \u2014 your break-even. At <b>'+fmt(sell)+'</b> you clear <b style="color:#1B7A3E">'+fmt(Math.round(mh))+'/head</b>'+(inc?' (replacement cost in)':'')+'.';
@@ -12409,13 +12406,19 @@ function nav(id) {
   }, 60);
 }
 
-// ── DEV-ONLY: duplicate-id guardrail (audit F-04 / #5) ───────────────────────
-// Several modules INTENTIONALLY reuse ids (pfFc/dPfB/pfBe, hp-res/hp-multi/…,
-// ln-addform) across mutually-exclusive render branches that share one container
-// (pf-wi-body, the herd-plan area, the loans add-form). Safe today because only
-// one branch is ever in the DOM at a time. This watchdog warns if a future change
-// ever breaks that one-at-a-time invariant (getElementById would then read the
-// wrong element). Gated to localhost / TEST builds; no-op in production.
+// ── DEV-ONLY: duplicate-id guardrail (audit F-04) ───────────────────────────────
+// Every id emitted by MORE THAN ONE render function has now been made unique, so a future
+// change cannot make getElementById read the wrong element:
+//   pfFc/dPfB/rPfB/pfBe  → …C (crop) / …L (livestock), matching the existing …O (orchard)
+//   hp-res → hp-pout-res (poultry) · hp-born → hp-start-born (start mode)
+//   hp-multi → hp-multi-focus · hp-pout-table → hp-pout-table-focus (multi-year views)
+//   hp-herd  → emitted once from _hpHerdSelect() (the 3 copies were byte-identical)
+//   ln-addform → hoisted onto a single wrapper in lnAddWrapHTML()
+// STILL duplicated in source, and deliberately so: he-bulkval(×5), dzl-date(×3), vPfOe,
+// ls-mv-ref, brcf-date. Each is emitted by a SINGLE function on mutually exclusive if/else
+// branches assigning one variable — they physically cannot co-exist in the DOM, so renaming
+// them would add reader complexity for no safety gain. This watchdog still covers them.
+// Gated to localhost / TEST builds; no-op in production.
 var _AI_DEV = (function(){ try { return location.hostname==='localhost' || location.hostname==='127.0.0.1' || /TEST/.test(location.pathname); } catch(e){ return false; } })();
 function _devCheckDupeIds(){
   if(!_AI_DEV) return [];
@@ -14516,7 +14519,7 @@ function lnAddOdHTML(){
   var lenders=['Land Bank','ABSA','BKB','OVK','Senwes','Other'];
   var lv=o?o.lender:'Land Bank';
   var css='<style>.od-re-toggle{display:inline-flex;gap:4px;background:#fff;border:1px solid var(--br);border-radius:8px;padding:2px}.od-re-mode{font-size:11px;font-weight:700;padding:7px 13px;border-radius:6px;border:none;background:transparent;color:var(--t3);cursor:pointer;font-family:inherit}.od-re-mode.on{background:var(--bl);color:#fff}</style>';
-  var h=css+'<div class="ln-card" id="ln-addform"><p class="ln-ct">'+(o?'Edit overdraft':'Add an overdraft')+'</p><p class="ln-cw">An overdraft is flexible credit \u2014 a limit you can draw against and pay back as cash allows. We only count interest on what you\u2019ve actually drawn.</p>';
+  var h=css+'<div class="ln-card"><p class="ln-ct">'+(o?'Edit overdraft':'Add an overdraft')+'</p><p class="ln-cw">An overdraft is flexible credit \u2014 a limit you can draw against and pay back as cash allows. We only count interest on what you\u2019ve actually drawn.</p>';
   h+='<div class="ln-frow"><label>What do you call it?</label><input id="odf-name" class="ln-inp" placeholder="e.g. Production overdraft" value="'+(o?esc(o.name):'')+'"></div>';
   h+='<div class="ln-frow"><label>Who\u2019s it with?</label><select id="odf-lender" class="ln-inp">'+lenders.map(function(x){return '<option'+(x===lv?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>';
   h+='<div class="ln-two"><div class="ln-frow"><label>What\u2019s your limit?</label><input id="odf-limit" class="ln-inp" inputmode="numeric" placeholder="R 0" value="'+(o?o.limit:'')+'"></div>'+
@@ -14649,7 +14652,7 @@ function lnAddCoHTML(){
   var o = LN_CO_EDIT_ID ? LN_coAcct(LN_CO_EDIT_ID) : null;
   var coops=['OVK','BKB','Senwes','NWK','VKB','Afgri','GWK','Agri EC','Other'];
   var cv=o?(o.coop||o.lender):'OVK';
-  var h='<div class="ln-card" id="ln-addform"><p class="ln-ct">'+(o?'Edit co-op account':'Add a co-op account')+'</p><p class="ln-cw">Buying inputs on account from your co-op? Add it here. It works like an overdraft \u2014 you owe interest only on what you\u2019ve used, and the co-op usually settles it off your payouts.</p>';
+  var h='<div class="ln-card"><p class="ln-ct">'+(o?'Edit co-op account':'Add a co-op account')+'</p><p class="ln-cw">Buying inputs on account from your co-op? Add it here. It works like an overdraft \u2014 you owe interest only on what you\u2019ve used, and the co-op usually settles it off your payouts.</p>';
   h+='<div class="ln-frow"><label>What do you call it?</label><input id="cof-name" class="ln-inp" placeholder="e.g. OVK input account" value="'+(o?esc(o.name):'')+'"></div>';
   h+='<div class="ln-frow"><label>Which co-op?</label><select id="cof-coop" class="ln-inp">'+coops.map(function(x){return '<option'+(x===cv?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>';
   h+='<div class="ln-two"><div class="ln-frow"><label>What\u2019s your credit limit?</label><input id="cof-limit" class="ln-inp" inputmode="numeric" placeholder="R 0" value="'+(o?o.limit:'')+'"></div>'+
@@ -14692,7 +14695,11 @@ function lnRemoveCoopAcct(id){
 var LN_ADD_KIND='loan';
 function lnAddOpen(kind){ LN_ADD_KIND=kind; LN_OD_EDIT_ID=null; LN_CO_EDIT_ID=null; LN_FORM_FF=null; LN_LOAN_EDIT_ID=null; if(kind==='overdraft') LN_OD_FORM_MODE='prime'; ST_LOANS.activeTab='add'; renderLoans(); }
 function lnAddKind(k){ LN_ADD_KIND=k; LN_OD_EDIT_ID=null; LN_CO_EDIT_ID=null; LN_LOAN_EDIT_ID=null; renderLoans(); }
-function lnAddWrapHTML(){
+/* The ln-addform id lives on this wrapper only (audit F-04): the three inner cards
+   (loan / overdraft / co-op) each used to carry it. Sole caller is renderLoans; the
+   page-tour anchors target this wrapper. */
+function lnAddWrapHTML(){ return '<div id="ln-addform">' + _lnAddInnerHTML() + '</div>'; }
+function _lnAddInnerHTML(){
   if(typeof LN_LOAN_EDIT_ID!=='undefined' && LN_LOAN_EDIT_ID) return lnAddHTML();
   if(LN_CO_EDIT_ID||LN_ADD_KIND==='coop') return lnAddCoHTML();
   if(LN_OD_EDIT_ID) return lnAddOdHTML();
@@ -14708,7 +14715,7 @@ function lnAddHTML(){
   var L = (typeof LN_LOAN_EDIT_ID!=='undefined' && LN_LOAN_EDIT_ID) ? lnLoan(LN_LOAN_EDIT_ID) : null;
   function av(v){ return (v!=null && v!=='') ? ' value="'+String(v).replace(/"/g,'&quot;')+'"' : ''; }
   function opts(list,sel){ return list.map(function(x){return '<option'+(x===sel?' selected':'')+'>'+x+'</option>';}).join(''); }
-  var h='<div class="ln-card" id="ln-addform"><p class="ln-ct">'+(L?'Edit loan':'Add a loan')+'</p><p class="ln-cw">Just the basics. We work out the interest, the part that comes off the loan, and what it costs you.</p>';
+  var h='<div class="ln-card"><p class="ln-ct">'+(L?'Edit loan':'Add a loan')+'</p><p class="ln-cw">Just the basics. We work out the interest, the part that comes off the loan, and what it costs you.</p>';
   h+='<div class="ln-frow"><label>What do you call it?</label><input id="ln-f-name" class="ln-inp" placeholder="e.g. New tractor loan"'+(L?av(L.name):'')+'></div>';
   h+='<div class="ln-two"><div class="ln-frow"><label>Who\u2019s it with?</label><select id="ln-f-lender" class="ln-inp">'+opts(lenders, L?L.lender:null)+'</select></div>'+
      '<div class="ln-frow"><label>What kind?</label><select id="ln-f-type" class="ln-inp">'+opts(types, L?L.type:null)+'</select></div></div>';
@@ -18702,6 +18709,9 @@ function _hpInit(hid){
   HP_STATE.buySell    = h.sell>0 ? h.sell : Math.round(HP_STATE.buyPrice*1.5);
 }
 
+/* The herd picker is identical in the mammal, poultry and unsupported branches (audit F-04):
+   emit it from one place so the id cannot be duplicated at source. */
+function _hpHerdSelect(opt){ return '<select id="hp-herd" onchange="hpPickHerd(this.value)">'+opt+'</select>'; }
 function _hpHtml(){
   var h=lsHerdById(HP_STATE.herdId);
   // Option A — forecast focus: when a multi-year view is open (breed mode), the planner
@@ -18725,7 +18735,7 @@ function _hpHtml(){
 
   var html='<div class="card hp-card">';
   html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h3 style="margin:0;font-size:15px;font-weight:800">Plan this season</h3><span class="hp-stagetag">One season</span></div>';
-  html+='<div class="hp-pickrow"><select id="hp-herd" onchange="hpPickHerd(this.value)">'+opt+'</select></div>';
+  html+='<div class="hp-pickrow">'+_hpHerdSelect(opt)+'</div>';
   html+='<div class="hp-band"><span>Opening <b>'+(h.qty||0)+' head</b></span><span>\u00b7</span><span>Value <b>'+lsRand0(_hpHerdValue(h))+'</b></span></div>';
   // mode picker (#9 breed/buy, #2 start-new)
   var canStart=(h.planned || !lsHasClasses(h) || (h.qty||0)===0);
@@ -18853,7 +18863,7 @@ function _hpStartInputs(h){
   html+='<div class="hp-sec">\u2461 First season\u2019s '+young+'</div>';
   html+=_hpSlider('hp-repro', _hpReproLabel(h.type), Math.round(HP_STATE.repro*0.6), 0, rMax, '% (lower in year one)', 'mature herd '+defT+'%');
   html+=_hpSlider('hp-morty', young.charAt(0).toUpperCase()+young.slice(1)+' losses', HP_STATE.mortYoung, 0, 30, '% mortality','guide '+lsBench('mortYoung')+'%');
-  html+='<div class="hp-born" id="hp-born"></div>';
+  html+='<div class="hp-born" id="hp-start-born"></div>';
   return html;
 }
 function _hpField(id,label,val,unit,money){
@@ -19008,7 +19018,7 @@ function _hpPoultryHtml(h){
   var conf=isBro?_broilerBench(h.type).conf:_layerBench(h.type).conf;
   var html='<div class="card hp-card">';
   html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h3 style="margin:0;font-size:15px;font-weight:800">Plan this flock</h3><span class="hp-stagetag">'+(isBro?'Batch grow-out':'Egg production')+'</span></div>';
-  html+='<div class="hp-pickrow"><select id="hp-herd" onchange="hpPickHerd(this.value)">'+opt+'</select></div>';
+  html+='<div class="hp-pickrow">'+_hpHerdSelect(opt)+'</div>';
   html+='<p class="hp-poultry-intro">'+(isBro
     ? 'Buy day-old chicks, grow them out, then sell. We work it per batch and per year. National starting numbers'+(conf==='est'?' (estimates for this bird)':'')+' \u2014 change any to match your operation.'
     : 'Buy point-of-lay hens, sell the eggs, then cull at the end. National starting numbers'+(conf==='est'?' (estimates for this bird)':'')+' \u2014 change any to match your operation.')+'</p>';
@@ -19034,7 +19044,7 @@ function _hpPoultryHtml(h){
     html+=_hpPoultryField('hp-p-cull','Cull value',s.cullValue,'R/hen');
     html+=_hpPoultryField('hp-p-mort','Losses',s.mortality,'%');
   }
-  html+='</div><div class="hp-col-out"><div class="hp-res" id="hp-res"></div>';
+  html+='</div><div class="hp-col-out"><div class="hp-res" id="hp-pout-res"></div>';
   // 3-5 year outlook
   html+='<div class="hp-poutlook'+(s.outlook.years?' on':'')+'">';
   html+='<div class="hp-pout-head"><span>Year outlook</span><div class="hp-pout-yrs">'+
@@ -19076,7 +19086,7 @@ function _hpPoultryFocusHtml(h){
   html+='<div class="hp-pout-focusbar"><div class="hp-pout-yrs">'+
     [3,5].map(function(y){ return '<button class="'+(s.outlook.years===y?'on':'')+'" onclick="hpPoultrySetYears('+y+')">'+y+' yr</button>'; }).join('')+
     '</div><div class="hp-pout-knobs2">'+_hpPoultryField('hp-po-growth','Grow flock each year',s.outlook.growth,'%/yr')+_hpPoultryField('hp-po-drift','Margin drift',s.outlook.drift,'%/yr')+'</div></div>';
-  html+='<div class="hp-pout-table" id="hp-pout-table"></div>';
+  html+='<div class="hp-pout-table" id="hp-pout-table-focus"></div>';
   html+='<div class="hp-actions"><button onclick="hpPoultrySetYears(0)">\u21BA Back</button><button class="pri" onclick="hpAddToForecast()">Add year 1 to my forecast</button></div>';
   html+='<div class="hp-scenline">Adding sends year 1 to Planning as a scenario \u2014 your live forecast only changes when you confirm.</div>';
   html+='</div>';
@@ -19103,7 +19113,7 @@ function hpPoultryCalc(){
 }
 function hpPoultrySetYears(y){ if(!HP_POULTRY||!HP_POULTRY.outlook) return; HP_POULTRY.outlook.years=y; renderHerdPlan(HP_STATE.herdId); }
 function _hpRenderPoultryOutlook(){
-  var box=$('hp-pout-table'); if(!box) return;
+  var box=($('hp-pout-table')||$('hp-pout-table-focus')); if(!box) return;
   var O=_hpPoultryOutlook(); if(!O){ box.innerHTML=''; return; }
   var sizeLbl=(HP_POULTRY.model==='broiler')?'Batch':'Hens';
   var html='<table class="hp-poutable"><thead><tr><th>Year</th><th>'+sizeLbl+'</th><th>Income</th><th>Costs</th><th>Profit</th><th>Running</th></tr></thead><tbody>';
@@ -19127,7 +19137,7 @@ function _hpRenderPoultryStress(){
   box.innerHTML=html;
 }
 function _hpRenderPoultryRes(){
-  var box=$('hp-res'); if(!box) return;
+  var box=$('hp-pout-res'); if(!box) return;
   var P=hpProjectPoultry(); if(!P){ box.innerHTML=''; return; }
   var html='';
   if(P.model==='broiler'){
@@ -19162,7 +19172,7 @@ function _hpUnsupportedHtml(h){
     '<optgroup label="Planning">'+optPlan+'<option value="__new">\uFF0B Plan a new line\u2026</option></optgroup>';
   var html='<div class="card hp-card">';
   html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><h3 style="margin:0;font-size:15px;font-weight:800">Plan this season</h3><span class="hp-stagetag">One season</span></div>';
-  html+='<div class="hp-pickrow"><select id="hp-herd" onchange="hpPickHerd(this.value)">'+opt+'</select></div>';
+  html+='<div class="hp-pickrow">'+_hpHerdSelect(opt)+'</div>';
   html+='<div class="hp-unsupported">'+
     '<div class="ic">'+lsHerdIcon(h)+'</div>'+
     '<div class="ph">Season planning isn\u2019t available for '+esc(animalBaseLabel(h.type))+' yet</div>'+
@@ -19201,7 +19211,7 @@ function _hpFocusHtml(h){
   '</div>';
   html+='<div class="hp-baseband"><span class="bb-lbl">'+(startMode?'Start-up plan':'Base plan')+'</span><div class="bb-chips">'+chips+'</div>'+
     '<span class="bb-edit" onclick="hpSetYears(0)">\u270E Edit base</span></div>';
-  html+='<div class="hp-multi" id="hp-multi"></div>';
+  html+='<div class="hp-multi" id="hp-multi-focus"></div>';
   html+='<div class="hp-actions"><button onclick="hpReset()">\u21BA Reset plan</button><button class="pri" onclick="hpAddToForecast()">Add year 1 to my forecast</button></div>';
   html+='<div class="hp-scenline">Adding sends year 1\u2019s '+(startMode?'buy-in':'sales')+' to Planning as a scenario \u2014 your live forecast only changes when you confirm.</div>';
   html+='</div>';
@@ -19580,7 +19590,7 @@ function _hpRenderBuy(h,P){
 function _hpRenderStart(h,P){
   var res=$('hp-res'); if(!res) return;
   var young=_hpYoungLabel(h.type), blab=lsClassMeta(h.type,lsBreedingClass(h.type)).label.toLowerCase();
-  var bl=$('hp-born'); if(bl) bl.innerHTML='\u2192 about <b>'+P.born+' '+young+'</b> in the first season ('+P.bornF+' female to grow the herd)';
+  var bl=$('hp-start-born'); if(bl) bl.innerHTML='\u2192 about <b>'+P.born+' '+young+'</b> in the first season ('+P.bornF+' female to grow the herd)';
   res.innerHTML='<div class="hl">Start-up \u2014 first season</div>'+
     '<div class="oc"><span class="n">0</span><span class="arrow">\u2192</span><span class="n" style="color:var(--gd)">'+P.headClose+' head</span></div>'+
     '<div class="sub" style="margin-top:6px">'+P.startN+' '+blab+(P.siresNeeded>0?(' + '+P.siresNeeded+' '+_hpSireLabel(h.type)+(P.siresNeeded>1?'s':'')):'')+' bought in, '+P.born+' born</div>'+
@@ -19677,7 +19687,7 @@ function hpCalc(){
 }
 
 function _hpRenderMulti(h){
-  var box=$('hp-multi'); if(!box) return;
+  var box=($('hp-multi')||$('hp-multi-focus')); if(!box) return;
   var yrs=HP_STATE.multiYears||0;
   if(!yrs){
     box.innerHTML='<div class="hp-stepup"><div class="su-txt"><b>Plan several seasons ahead</b><small>Each year editable on its own \u2014 watch the herd and cash build.</small></div>'+
@@ -22525,7 +22535,7 @@ function lsReportCSV(){
     document.body.appendChild(a); a.click(); setTimeout(function(){ a.remove(); URL.revokeObjectURL(a.href); },120);
   }catch(e){ if(typeof toast==='function') toast('Could not export CSV','error'); }
 }
-function lsCsvRow(arr){ return arr.map(function(x){ var s=String(x==null?'':x); return /[",\n]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s; }).join(',')+'\n'; }
+function lsCsvRow(arr){ return arr.map(function(x){ var s=(typeof csvGuard==='function')?csvGuard(x):String(x==null?'':x); return /[",\n]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s; }).join(',')+'\n'; }
 
 /* ---- Report 1: SARS livestock valuation & trading statement ---- */
 function openSarsLivestockReport(){
@@ -22818,7 +22828,7 @@ function _lsRegCsv(){
   var d=_lsRegTotals(), rows=[['Species','Opening','Born','Bought','Sold','Lost','Closing','Value(R)']];
   d.rows.forEach(function(b){ rows.push([b.sp,b.op,b.born,b.bought,b.sold,b.lost,b.close,b.val]); });
   rows.push(['Whole farm',d.T.op,d.T.born,d.T.bought,d.T.sold,d.T.lost,d.T.close,d.T.val]);
-  var csv=rows.map(function(r){return r.join(',');}).join('\n');
+  var csv=rows.map(function(r){return lsCsvRow(r);}).join('');   // escapes + guards; lsCsvRow appends the newline
   try{
     var blob=new Blob([csv],{type:'text/csv'}), url=URL.createObjectURL(blob), a=document.createElement('a');
     a.href=url; a.download='stock-reconciliation.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function(){URL.revokeObjectURL(url);},1000);
@@ -32740,9 +32750,9 @@ function tourFinish() {
 }
 function tourShowComplete(){
   var bg=$('tour-complete-bg'); if(bg) bg.style.display='flex';
-  // draw the eye to the per-tab demo button
-  var ptf=$('page-tour-fixed');
-  if(ptf){ ptf.classList.remove('hidden'); ptf.classList.add('pulse'); setTimeout(function(){ ptf.classList.remove('pulse'); }, 7000); }
+  // draw the eye to the guides FAB (the pill this used to pulse is retired)
+  var fab=$('tours-fab');
+  if(fab){ fab.classList.add('pulse'); setTimeout(function(){ fab.classList.remove('pulse'); }, 7000); }
 }
 function tourCompleteClose(){ var bg=$('tour-complete-bg'); if(bg) bg.style.display='none'; }
 function tourCompleteDemoNow(){
@@ -33289,6 +33299,11 @@ function qcSuggestNo() {
 function toggleToursMenu() {
   var el = $('tours-menu');
   if (!el) return;
+  // keep the contextual "Demo this page" row in step with the page you're on
+  try{
+    var cur=$('tours-menu-current'), has=!!(typeof PAGE_TOURS!=='undefined' && PAGE_TOURS && PAGE_TOURS[CURRENT_PAGE]);
+    if(cur) cur.style.display = has ? '' : 'none';
+  }catch(e){}
   if (el.classList.contains('show')) {
     el.classList.remove('show');
     el.style.display = 'none';
@@ -35286,8 +35301,18 @@ function downloadFile(name, content, mime){
   setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 200);
 }
 
-function csvCell(v){
+/* CSV formula-injection guard (audit F-05). A cell beginning = + - @ (or tab/CR) is
+   executed as a formula by Excel/Sheets/LibreOffice, so `=HYPERLINK(...)` typed into a
+   transaction description becomes live code in the accountant's spreadsheet. Prefixing a
+   single quote neutralises it; the quote must be added BEFORE the quoting test so it ends
+   up inside the quoted cell. Shared by every CSV path in the app. */
+function csvGuard(v){
   v = (v == null ? '' : String(v));
+  if(/^[=+\-@\t\r]/.test(v)) v = "'" + v;
+  return v;
+}
+function csvCell(v){
+  v = csvGuard(v);
   if(/[",\n]/.test(v)) return '"' + v.replace(/"/g,'""') + '"';
   return v;
 }
@@ -38761,8 +38786,13 @@ function orExportPackout(){
 
 <div id="tours-menu">
   <div class="tours-menu-title">
-    🗺️ Demo a tab
+    🗺️ Guides
     <button class="tours-menu-close" onclick="toggleToursMenu()">✕</button>
+  </div>
+  <!-- contextual entry — replaces the retired always-on #page-tour-fixed pill -->
+  <div class="tours-menu-item" id="tours-menu-current" style="display:none" onclick="toggleToursMenu();startCurrentPageTour()">
+    <span class="tours-menu-icon">▶</span>
+    <div><div class="tours-menu-label">Demo this page</div><div class="tours-menu-sub">The screen you’re on</div></div>
   </div>
   <div class="tours-menu-item" onclick="toggleToursMenu();startPageTour('dashboard')">
     <span class="tours-menu-icon">📊</span>
