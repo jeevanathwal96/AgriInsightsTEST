@@ -32887,12 +32887,13 @@ var QC_RULES = [
   {words:['wool','wol','shear','skeer','mohair','sybok','bkb','cape wools','fibre'],                                                                                        cat:'Wool & Fibre',              type:'income'},
   {words:['cattle','bees','sheep','skaap','goat','bok','pig','vark','poultry','beef','lamb','lambs','lam','livestock','vee'],                                                    cat:'Livestock Sales',           type:'income'},
   {words:['grant','subsidie','subsidy','coupon','voucher'],                                                                                                                       cat:'Government Grant',          type:'income'},
+  {words:['rental','rent ','lease','huur','grazing lease','weidinghuur','servitude','erfdiens'],                                                                                cat:'Rental Income',             type:'income'},
 
   {words:['seed','saad','saailing','inoculant','hybrid','kiemplant'],                                                                                                                          cat:'Seeds & Planting',          type:'expense'},
   {words:['fertiliser','fertilizer','kunsmis','urea','lan ','map ','kcl','lime','kalk','superphosphate'],                                                                           cat:'Fertiliser',                type:'expense'},
   {words:['herbicide','fungicide','insecticide','pesticide','roundup','atrazine','spray','spuit','chemical','chemikal','weed','wied'],                                            cat:'Crop Protection',           type:'expense'},
   {words:['diesel','petrol','fuel','brandstof','oil','olie','hydraulic','hydraulies'],                                                                                            cat:'Fuel & Oil',                type:'expense'},
-  {words:['labour','labor','arbeid','wages','loon','salary','salaris','worker','werker','casual'],                                                                                cat:'Labour & Wages',            type:'expense'},
+  {words:['labour','labor','arbeid','wages','loon','salary','salaris','worker','werker','casual','picking','pluk','crew','span','personeel','seasonal work'],                                                                                cat:'Labour & Wages',            type:'expense'},
   {words:['repair','herstel','service','diens','tractor','trekker','machine','masjien','part','onderdeel','workshop','werkswinkel'],                                                           cat:'Machinery & Repairs',       type:'expense'},
   {words:['vet','dier','animal','dip','doop','vaccine','vaksine','dose','doseer','medicine','medisyne'],                                                                          cat:'Veterinary & Animal Health',type:'expense'},
   {words:['feed','voer','lick','lek','hay','hooi','silage','kuilvoer','pellet','concentrate','konsentraat','grazing','weiding'],  cat:'Animal Feed',               type:'expense'},
@@ -37362,7 +37363,7 @@ function inferCategory(desc, isIncome){
   if(/wool|wol|shear|skeer|mohair|sybok|bkb/.test(d)) return 'Wool & Fibre';
   if(/livestock|vee|cattle|bees|sheep|skaap|goat|bok|pig|vark|poultry|beef|lamb|calf|calves|weaner|speculator|feedlot|bonsmara|brahman|auction|abattoir/.test(d)) return 'Livestock Sales';
     if(/daff|government|grant|subsid|agriseta/.test(d)) return 'Government Grant';
-    if(/rental|rent /.test(d)) return 'Rental Income';
+    if(/rental|rent |lease|huur|grazing lease|weidinghuur|servitude|erfdiens/.test(d)) return 'Rental Income';
     if(/refund|rebate/.test(d)) return 'Other Income';
     return 'Other Income';
   }
@@ -37372,12 +37373,12 @@ function inferCategory(desc, isIncome){
   if(/spray|herbicide|pesticide|round\s*up|crop protect|insecticide/.test(d)) return 'Crop Protection';
   if(/vet|vaccin|dip|dose|drench|deworm|medicat|antibiot/.test(d)) return 'Veterinary & Animal Health';
   if(/feed|voer|lick|lek|hay|hooi|silage|kuilvoer|grazing|weiding|pellet|meal|concentrate|konsentraat/.test(d)) return 'Animal Feed';
-  if(/wage|salary|payroll|casual|labour|worker|staff/.test(d)) return 'Labour & Wages';
+  if(/wage|loon|salary|salaris|payroll|casual|labour|labor|arbeid|worker|werker|staff|personeel|picking|pluk|crew|span|harvest team|seasonal work/.test(d)) return 'Labour & Wages';
   if(/john\s*deere|case\s*ih|new\s*holland|repair|service|spare|part|workshop|mechanic/.test(d)) return 'Machinery & Repairs';
   if(/irrigation|water|pump|electricity|eskom|munic/.test(d)) return 'Irrigation & Water';
   if(/insurance|santam|hollard|old\s*mutual|outsurance|iwyze/.test(d)) return 'Insurance';
   if(/loan|land\s*bank|hire\s*purchase|finance|instal/.test(d)) return 'Loan Repayments';
-  if(/vodacom|mtn|telkom|internet|airtime|phone|admin/.test(d)) return 'Admin & Professional Fees';
+  if(/vodacom|mtn|telkom|internet|airtime|lugtyd|phone|foon|admin|accountant|rekenmeester|auditor|ouditeur|bank charge|bankkoste|licence|lisensie|legal fee/.test(d)) return 'Admin & Professional Fees';
   if(/sars|tax|vat /.test(d)) return 'Tax';
   return 'Other Expenses';
 }
