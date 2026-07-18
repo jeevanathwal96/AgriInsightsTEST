@@ -2550,6 +2550,21 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
 .ls-tagsec-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px}
 .ls-tagsec-h span{font-size:11px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
 .ls-tag-add{font-size:11.5px;font-weight:800;color:var(--gd);background:var(--gp);border:none;border-radius:8px;padding:6px 11px;cursor:pointer;font-family:inherit}
+.ls-sexchips{display:flex;gap:6px;flex-wrap:wrap}
+.ls-sexchip{border:1.5px solid var(--br);border-radius:999px;padding:7px 13px;font-size:12px;font-weight:700;color:var(--t2);background:#fff;cursor:pointer;font-family:inherit}
+.ls-sexchip.on{background:var(--gb);border-color:var(--gp);color:var(--gd)}
+.ls-tagopt{color:var(--t4);font-weight:600;font-size:11px}
+.ls-tagclash{font-size:11.5px;line-height:1.5;background:var(--ambg);border:1px solid #EBD9A8;color:var(--t2);border-radius:9px;padding:9px 11px;margin-top:8px}
+.ls-tagclash b{color:#8A6A14}
+.ls-sexnudge{font-size:12px;line-height:1.5;background:var(--ambg);border:1px solid #EBD9A8;border-radius:10px;padding:10px 12px;margin:0 0 9px;display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.ls-sexnudge b{color:#8A6A14}
+.ls-sexnudge button{margin-left:auto;font-size:11.5px;font-weight:800;color:var(--gd);background:#fff;border:1.5px solid var(--gp);border-radius:8px;padding:7px 12px;cursor:pointer;font-family:inherit}
+.ls-sexrow{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--br2)}
+.ls-sexrow:last-child{border-bottom:0}
+.ls-sexrow .tg{font-family:Georgia,serif;font-weight:700;font-size:11.5px;background:var(--ink,#22302A);color:#fff;border-radius:6px;padding:3px 8px}
+.ls-sexrow .sx{margin-left:auto;display:flex;gap:6px}
+.ls-sexrow .sx button{border:1.5px solid var(--br);background:#fff;border-radius:8px;padding:5px 11px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;color:var(--t2)}
+.ls-sexrow .sx button.on{background:var(--gb);border-color:var(--gp);color:var(--gd)}
 .ls-tagsec-sub{font-size:11px;color:var(--t4);margin-bottom:8px;line-height:1.4}
 .ls-tag-none{font-size:12px;color:var(--t3);background:var(--cream);border-radius:10px;padding:11px 13px;line-height:1.5}
 .ls-tag-none b{color:var(--gd);cursor:pointer;text-decoration:underline}
@@ -18454,7 +18469,7 @@ function _lsTagSection(h){
         '<span class="ls-tag-edit" onclick="event.stopPropagation();lsTagEditOpen(\''+esc(a.id)+'\')">✎ Edit tag</span> '+
         '<span class="ls-tag-edit del" onclick="event.stopPropagation();lsTagDelete(\''+esc(a.id)+'\')">Remove</span></div>';
   }).join('');
-  return '<details class="ls-taglist"><summary>🏷️ Individual animals <span class="n">· '+anims.length+' tracked</span>'+pill+'<button class="ls-tag-add" onclick="event.stopPropagation();heOpen('+h.id+',0)">✎ Edit all</button><span class="tchev">▾</span></summary><div class="ls-tl-body">'+rows+'</div></details>';
+  return '<details class="ls-taglist"><summary>🏷️ Individual animals <span class="n">· '+anims.length+' tracked</span>'+pill+'<button class="ls-tag-add" onclick="event.stopPropagation();heOpen('+h.id+',0)">✎ Edit all</button><span class="tchev">▾</span></summary><div class="ls-tl-body">'+_lsSexNudge(h)+rows+'</div></details>';
 }
 var LS_TAG_FORM={};
 var LS_TAG_PREFILL=null; // {cls,sire} — born-in defaults when tagging new calves from a calving
@@ -18471,6 +18486,108 @@ function lsTagEditOpen(animId){
   lsTagAddOpen(hi, animId);
 }
 function lsTagFormClose(){ var bg=$('ls-tag-bg'); if(bg) bg.classList.remove('on'); LS_TAG_PREFILL=null; }
+/* Sex is optional everywhere. The old form defaulted to Female, and range mode assigned sex
+   by position in the number range — inventing which specific ear tags were cows. Three states
+   now: F, M, or unset. Unset animals stay out of the dam/sire pickers, which read sex
+   directly, so a gap can never masquerade as a fact. */
+/* Sex is never guessed, so some animals will sit unsexed. Rather than pre-selecting a value
+   in the form (which is what fabricated the data), the register carries a quiet reminder and
+   a tap-through. If the farmer said "6 female, 3 male" when registering a range, that is held
+   on the herd as expectF/expectM and used here as a checklist. */
+function _lsUnsexed(h){ return lsHerdAnimals(h.id).filter(function(a){ return !a.sex; }); }
+function _lsSexNudge(h){
+  var un=_lsUnsexed(h); if(!un.length) return '';
+  var eF=h.expectF||0, eM=h.expectM||0;
+  var expect=(eF||eM)?(' You expect <b>'+eF+' female</b> and <b>'+eM+' male</b> among them.'):'';
+  return '<div class="ls-sexnudge"><span><b>'+un.length+' animal'+(un.length===1?'':'s')+'</b> still need'+(un.length===1?'s':'')+' sexing.'+expect+
+    ' Until they\u2019re set they stay out of dam and sire lists.</span>'+
+    '<button onclick="event.stopPropagation();lsSexPanelOpen('+ST_LS.herd.indexOf(h)+')">Set them now</button></div>';
+}
+var LS_SEX_PANEL=null;
+function lsSexPanelOpen(hi){
+  var h=ST_LS.herd[hi]; if(!h) return;
+  LS_SEX_PANEL={hi:hi};
+  var bg=$('ls-tag-bg'); if(!bg) return;
+  $('ls-tag-in').innerHTML=_lsSexPanelHtml(h);
+  bg.classList.add('on');
+}
+function _lsSexPanelHtml(h){
+  var un=_lsUnsexed(h), eF=h.expectF||0, eM=h.expectM||0;
+  var doneF=lsHerdAnimals(h.id).filter(function(a){return a.sex==='F';}).length;
+  var doneM=lsHerdAnimals(h.id).filter(function(a){return a.sex==='M';}).length;
+  var rows=un.map(function(a){
+    return '<div class="ls-sexrow"><span class="tg">'+esc(a.tag)+'</span>'+(a.name?'<span>'+esc(a.name)+'</span>':'')+
+      '<span class="sx"><button onclick="lsSexSet(\''+a.id+'\',\'F\')">\u2640</button>'+
+      '<button onclick="lsSexSet(\''+a.id+'\',\'M\')">\u2642</button></span></div>';
+  }).join('');
+  var tally=(eF||eM)
+    ? ('<div class="ls-trsub">'+doneF+' female, '+doneM+' male set so far. You said '+eF+' and '+eM+'.</div>')
+    : ('<div class="ls-trsub">'+un.length+' left to set. Leave any you are not sure about.</div>');
+  return '<div class="lshmv-top"><div class="ttl"><span class="dic">'+lsHerdIcon(h)+'</span><div><h3>Which are the females?</h3><small>'+esc(lsHerdName(h))+' \u00b7 '+un.length+' to set</small></div></div><button class="lshmv-x" onclick="lsTagFormClose()">\u00d7</button></div>'+
+    '<div class="ls-sexlist">'+(rows||'<div class="ls-tag-none">All animals in this group have a sex recorded.</div>')+'</div>'+tally+
+    '<div class="lshmv-act"><button onclick="lsTagFormClose()">Finish later</button><button class="pri" onclick="lsTagFormClose()">Done</button></div>';
+}
+function lsSexSet(animId, sx){
+  var a=(ST_LS.animals||[]).filter(function(x){return x.id===animId;})[0]; if(!a) return;
+  a.sex=sx;
+  var h=ST_LS.herd[(LS_SEX_PANEL||{}).hi];
+  if(h){
+    // expectation met? stop carrying it
+    var f=lsHerdAnimals(h.id).filter(function(x){return x.sex==='F';}).length;
+    var m=lsHerdAnimals(h.id).filter(function(x){return x.sex==='M';}).length;
+    if((h.expectF||0)<=f && (h.expectM||0)<=m){ delete h.expectF; delete h.expectM; }
+  }
+  try{ saveState&&saveState(); }catch(e){}
+  try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
+  if(h) $('ls-tag-in').innerHTML=_lsSexPanelHtml(h);
+  try{ renderCamps(); }catch(e){}
+}
+function _lsSexChips(id, sel){
+  var opts=[['F','Female'],['M','Male'],['','Not recorded']];
+  return '<input type="hidden" id="'+id+'" value="'+esc(sel||'')+'">'+
+    '<div class="ls-sexchips">'+opts.map(function(o){
+      return '<button type="button" class="ls-sexchip'+(((sel||'')===o[0])?' on':'')+'" onclick="lsSexPick(\''+id+'\',\''+o[0]+'\',this)">'+o[1]+'</button>';
+    }).join('')+'</div>';
+}
+function lsSexPick(id, v, el){
+  var f=document.getElementById(id); if(f) f.value=v;
+  var wrap=el&&el.parentNode; if(wrap) wrap.querySelectorAll('.ls-sexchip').forEach(function(b){ b.classList.remove('on'); });
+  if(el) el.classList.add('on');
+}
+/* "All female" / "All male" are things a farmer knows about a pen. "Mixed" keeps the counts,
+   but stores them on the herd as expectF/expectM rather than writing a sex onto whichever
+   tag numbers happen to come first. */
+function _lsBulkSexChips(){
+  var opts=[['F','All female'],['M','All male'],['mixed','Mixed'],['','Not recorded']];
+  return '<input type="hidden" id="ls-tag-bsex" value="">'+
+    '<div class="ls-sexchips">'+opts.map(function(o){
+      return '<button type="button" class="ls-sexchip'+(o[0]===''?' on':'')+'" onclick="lsBulkSexPick(\''+o[0]+'\',this)">'+o[1]+'</button>';
+    }).join('')+'</div>';
+}
+function lsBulkSexPick(v, el){
+  var f=document.getElementById('ls-tag-bsex'); if(f) f.value=v;
+  var wrap=el&&el.parentNode; if(wrap) wrap.querySelectorAll('.ls-sexchip').forEach(function(b){ b.classList.remove('on'); });
+  if(el) el.classList.add('on');
+  var mb=document.getElementById('ls-tag-mixbox'); if(mb) mb.style.display=(v==='mixed'?'block':'none');
+  lsTagBulkCount();
+}
+/* Pre-flight the range so the preview, the warning and the button all show the TRUE count.
+   The clash check used to run silently inside the save loop, which produced confirmations
+   like "9 tags added — 10 female, 0 male". */
+function _lsTagRangePlan(){
+  var h=ST_LS.herd[LS_TAG_FORM.herdIdx];
+  var pf=_lsTagSplitNum((($('ls-tag-from')||{}).value||'').trim());
+  var pt=_lsTagSplitNum((($('ls-tag-to')||{}).value||'').trim());
+  if(!h||!pf||!pt||pf.pre!==pt.pre||pt.num<pf.num) return {ok:false, made:[], skipped:[], n:0};
+  if(pt.num-pf.num>200) return {ok:false, tooBig:true, made:[], skipped:[], n:0};
+  var made=[], skipped=[];
+  for(var i=pf.num;i<=pt.num;i++){
+    var tag=pf.pre+String(i).padStart(pf.width,'0');
+    if((ST_LS.animals||[]).some(function(x){return x.herd===h.id&&x.tag===tag;})) skipped.push(tag);
+    else made.push(tag);
+  }
+  return {ok:true, made:made, skipped:skipped, n:made.length};
+}
 function _lsTagClassOpts(type, sel){ return (lsClassDefs(type)||[{k:'',label:'\u2014'}]).map(function(c){ return '<option value="'+c.k+'"'+(c.k===sel?' selected':'')+'>'+esc(c.label)+'</option>'; }).join(''); }
 // Collapsed "Age & pedigree" dropdown for the tag sheet \u2014 dam/sire pick from this herd's tagged animals (datalist), or free-type. Optional, closed by default so the sheet stays tag-first.
 function _lsPedFields(h,a){
@@ -18497,29 +18614,50 @@ function _lsTagFormHtml(h, editId){
     '<div id="ls-tag-onebox">'+
       '<div class="ls-tr-fld"><label>Tag number</label><input type="text" id="ls-tag-tag" value="'+(a?esc(a.tag):'')+'" placeholder="e.g. GV-0601"></div>'+
       '<div class="ls-tr-row2"><div class="ls-tr-fld"><label>Class</label><select id="ls-tag-cls">'+_lsTagClassOpts(h.type, a?a.cls:defCls)+'</select></div>'+
-        '<div class="ls-tr-fld"><label>Sex</label><select id="ls-tag-sex"><option value="F"'+(a&&a.sex==='F'?' selected':'')+'>Female</option><option value="M"'+(a&&a.sex==='M'?' selected':'')+'>Male</option></select></div></div>'+
+        '<div class="ls-tr-fld"><label>Sex <span class="ls-tagopt">optional</span></label>'+_lsSexChips('ls-tag-sex', a?a.sex:'')+'</div></div>'+
       '<div class="ls-tr-fld"><label>Name (optional)</label><input type="text" id="ls-tag-name" value="'+(a&&a.name?esc(a.name):'')+'" placeholder="just for recognition"></div>'+
       _lsPedFields(h,a)+
     '</div>'+
     (a?'':'<div id="ls-tag-bulkbox" style="display:none">'+
       '<div class="ls-tr-row2"><div class="ls-tr-fld"><label>From tag</label><input type="text" id="ls-tag-from" oninput="lsTagBulkCount()" placeholder="GV-0601"></div><div class="ls-tr-fld"><label>To tag</label><input type="text" id="ls-tag-to" oninput="lsTagBulkCount()" placeholder="GV-0620"></div></div>'+
       '<div class="ls-tr-fld"><label>Class for all</label><select id="ls-tag-bcls">'+_lsTagClassOpts(h.type, defCls)+'</select></div>'+
-      '<div class="ls-tr-row2"><div class="ls-tr-fld"><label>Females</label><input type="number" id="ls-tag-bfem" min="0" placeholder="0" oninput="lsTagBulkBal(\'fem\')"></div>'+
-        '<div class="ls-tr-fld"><label>Males</label><input type="number" id="ls-tag-bmale" min="0" placeholder="0" oninput="lsTagBulkBal(\'male\')"></div></div>'+
-      '<div class="ls-trsub" id="ls-tag-bulkhint">Enter a range like GV-0601 to GV-0620, then split it into females and males.</div></div>')+
-    '<div class="lshmv-act"><button onclick="lsTagFormClose()">Cancel</button><button class="pri" onclick="lsTagSave()">'+(a?'Save':'Add tag')+'</button></div>';
+      '<div class="ls-tr-fld"><label>Sex <span class="ls-tagopt">optional</span></label>'+_lsBulkSexChips()+'</div>'+
+      '<div id="ls-tag-mixbox" style="display:none">'+
+        '<div class="ls-tr-row2"><div class="ls-tr-fld"><label>Females</label><input type="number" id="ls-tag-bfem" min="0" placeholder="0" oninput="lsTagBulkBal(\'fem\')"></div>'+
+          '<div class="ls-tr-fld"><label>Males</label><input type="number" id="ls-tag-bmale" min="0" placeholder="0" oninput="lsTagBulkBal(\'male\')"></div></div>'+
+        '<div class="ls-trsub">We keep these as what you expect to find. You pick which animal is which afterwards — the app never guesses.</div>'+
+      '</div>'+
+      '<div class="ls-trsub" id="ls-tag-bulkhint">Enter a range like GV-0601 to GV-0620.</div>'+
+      '<div id="ls-tag-clash"></div></div>')+
+    '<div class="lshmv-act"><button onclick="lsTagFormClose()">Cancel</button><button class="pri" id="ls-tag-savebtn" onclick="lsTagSave()">'+(a?'Save':'Register')+'</button></div>';
 }
 function lsTagMode(m, el){ LS_TAG_FORM.mode=m; $('ls-tag-in').querySelectorAll('.ls-tagseg button').forEach(function(b){b.classList.remove('on');}); if(el) el.classList.add('on');
-  var ob=$('ls-tag-onebox'), bb=$('ls-tag-bulkbox'); if(ob) ob.style.display=(m==='one'?'block':'none'); if(bb) bb.style.display=(m==='bulk'?'block':'none'); }
+  var ob=$('ls-tag-onebox'), bb=$('ls-tag-bulkbox'); if(ob) ob.style.display=(m==='one'?'block':'none'); if(bb) bb.style.display=(m==='bulk'?'block':'none');
+  try{ lsTagBulkCount(); }catch(e){} }
 function _lsTagSplitNum(tag){ var m=String(tag).match(/^(.*?)(\d+)$/); return m?{pre:m[1], num:parseInt(m[2],10), width:m[2].length}:null; }
 // Bulk range: how many tags the from/to span, and a live female/male splitter that always sums to the range.
 function _lsTagBulkN(){ var pf=_lsTagSplitNum((($('ls-tag-from')||{}).value||'').trim()), pt=_lsTagSplitNum((($('ls-tag-to')||{}).value||'').trim()); if(!pf||!pt||pf.pre!==pt.pre||pt.num<pf.num) return 0; return pt.num-pf.num+1; }
-function _lsTagBulkHint(n,f,m){ var h=$('ls-tag-bulkhint'); if(!h) return; h.textContent = n>0 ? (n+' tag'+(n===1?'':'s')+' in range — '+f+' female · '+m+' male.') : 'Enter a range like GV-0601 to GV-0620, then split it into females and males.'; }
-function lsTagBulkCount(){ var n=_lsTagBulkN(); var f=$('ls-tag-bfem'), m=$('ls-tag-bmale'); if(!f||!m) return;
-  if(n>0){ var fv=parseInt(f.value,10), mv=parseInt(m.value,10);
+function _lsTagBulkHint(p){ var h=$('ls-tag-bulkhint'); if(!h) return;
+  if(p&&p.tooBig){ h.textContent='That range is too large — 200 at a time is the limit.'; return; }
+  h.textContent = (p&&p.ok&&p.n) ? (p.n+' new animal'+(p.n===1?'':'s')+(p.skipped.length?' · '+p.skipped.length+' already registered':'')) : 'Enter a range like GV-0601 to GV-0620.';
+}
+function lsTagBulkCount(){
+  var p=_lsTagRangePlan();
+  var f=$('ls-tag-bfem'), m=$('ls-tag-bmale'), n=p.n;
+  if(f&&m&&n>0){ var fv=parseInt(f.value,10), mv=parseInt(m.value,10);
     if(isNaN(fv)&&isNaN(mv)){ fv=n; mv=0; } else { if(isNaN(fv)) fv=(isNaN(mv)?n:Math.max(0,n-mv)); fv=Math.max(0,Math.min(fv,n)); mv=n-fv; }
-    f.value=fv; m.value=mv; _lsTagBulkHint(n,fv,mv);
-  } else { _lsTagBulkHint(0,0,0); } }
+    f.value=fv; m.value=mv;
+  }
+  _lsTagBulkHint(p);
+  var c=$('ls-tag-clash');
+  if(c){
+    c.innerHTML = (p.ok && p.skipped.length)
+      ? '<div class="ls-tagclash"><b>'+esc(p.skipped.slice(0,3).join(', '))+(p.skipped.length>3?' and '+(p.skipped.length-3)+' more':'')+'</b> '+(p.skipped.length===1?'is':'are')+' already registered here and will be left alone — that\u2019s <b>'+p.n+' new</b>, not '+(p.n+p.skipped.length)+'.</div>'
+      : '';
+  }
+  var btn=document.getElementById('ls-tag-savebtn');
+  if(btn) btn.textContent = (LS_TAG_FORM.mode==='bulk' && p.ok && p.n) ? ('Register '+p.n+' animal'+(p.n===1?'':'s')) : (LS_TAG_FORM.editId?'Save':'Register');
+}
 function lsTagBulkBal(which){ var n=_lsTagBulkN(); var f=$('ls-tag-bfem'), m=$('ls-tag-bmale'); if(!f||!m) return; if(n<=0){ _lsTagBulkHint(0,0,0); return; }
   if(which==='fem'){ var fv=parseInt(f.value,10); if(isNaN(fv))fv=0; fv=Math.max(0,Math.min(fv,n)); f.value=fv; m.value=n-fv; _lsTagBulkHint(n,fv,n-fv); }
   else { var mv=parseInt(m.value,10); if(isNaN(mv))mv=0; mv=Math.max(0,Math.min(mv,n)); m.value=mv; f.value=n-mv; _lsTagBulkHint(n,n-mv,mv); } }
@@ -18529,28 +18667,38 @@ function lsTagSave(){
   if(LS_TAG_FORM.editId){
     var a=ST_LS.animals.filter(function(x){return x.id===LS_TAG_FORM.editId;})[0]; if(!a){ toast('Tag not found.','error'); return; }
     var tg=(($('ls-tag-tag')||{}).value||'').trim(); if(!tg){ toast('Tag number?','error'); return; }
-    a.tag=tg; a.cls=($('ls-tag-cls')||{}).value; a.sex=($('ls-tag-sex')||{}).value; a.name=(($('ls-tag-name')||{}).value||'').trim()||undefined;
+    a.tag=tg; a.cls=($('ls-tag-cls')||{}).value; var _sx1=($('ls-tag-sex')||{}).value; if(_sx1) a.sex=_sx1; else delete a.sex;
+    a.name=(($('ls-tag-name')||{}).value||'').trim()||undefined;
     a.dob=(($('ls-tag-dob')||{}).value||'').trim()||undefined; a.dam=(($('ls-tag-dam')||{}).value||'').trim()||undefined; a.sire=(($('ls-tag-sire')||{}).value||'').trim()||undefined;
   } else if(LS_TAG_FORM.mode==='bulk'){
-    var from=(($('ls-tag-from')||{}).value||'').trim(), to=(($('ls-tag-to')||{}).value||'').trim();
-    var pf=_lsTagSplitNum(from), pt=_lsTagSplitNum(to);
-    if(!pf||!pt||pf.pre!==pt.pre||pt.num<pf.num){ toast('Use a range like GV-0601 to GV-0620.','error'); return; }
-    if(pt.num-pf.num>200){ toast('Range too large (max 200).','error'); return; }
-    var cls=($('ls-tag-bcls')||{}).value, added=0;
-    var _N=pt.num-pf.num+1; var _fem=parseInt(($('ls-tag-bfem')||{}).value,10); if(isNaN(_fem)) _fem=_N; _fem=Math.max(0,Math.min(_fem,_N));
-    for(var i=pf.num;i<=pt.num;i++){
-      var tag=pf.pre+String(i).padStart(pf.width,'0');
-      if((ST_LS.animals||[]).some(function(x){return x.herd===h.id&&x.tag===tag;})) continue;
-      var _sx=((i-pf.num)<_fem)?'F':'M';   // first N females in the range, then males
-      ST_LS.animals.push({id:'an'+Date.now().toString(36)+i, herd:h.id, tag:tag, cls:cls, sex:_sx});
-      added++;
+    var plan=_lsTagRangePlan();
+    if(plan.tooBig){ toast('Range too large (max 200).','error'); return; }
+    if(!plan.ok){ toast('Use a range like GV-0601 to GV-0620.','error'); return; }
+    if(!plan.n){ toast('Every tag in that range is already registered here.','error'); return; }
+    var cls=($('ls-tag-bcls')||{}).value;
+    var bsex=($('ls-tag-bsex')||{}).value;          // 'F' | 'M' | 'mixed' | ''
+    /* A sex is written only when it applies to EVERY animal in the range. "Mixed" is kept as
+       a herd-level expectation and resolved per animal afterwards — the app never decides
+       which specific tag is which. */
+    var applied=(bsex==='F'||bsex==='M')?bsex:'';
+    plan.made.forEach(function(tag,k){
+      ST_LS.animals.push({id:'an'+Date.now().toString(36)+k, herd:h.id, tag:tag, cls:cls, sex:applied||undefined});
+    });
+    var added=plan.n;
+    if(bsex==='mixed'){
+      var _f=parseInt(($('ls-tag-bfem')||{}).value,10); if(isNaN(_f)) _f=0;
+      _f=Math.max(0,Math.min(_f,added));
+      h.expectF=(h.expectF||0)+_f;
+      h.expectM=(h.expectM||0)+(added-_f);
     }
-    toast(added+' tag'+(added===1?'':'s')+' added — '+_fem+' female, '+(_N-_fem)+' male.','success');
+    toast(added+' animal'+(added===1?'':'s')+' registered'+(plan.skipped.length?' · '+plan.skipped.length+' already existed':'')+
+          (applied?(' · all '+(applied==='F'?'female':'male')):'')+'.','success');
   } else {
     var t1=(($('ls-tag-tag')||{}).value||'').trim(); if(!t1){ toast('Tag number?','error'); return; }
     if((ST_LS.animals||[]).some(function(x){return x.herd===h.id&&x.tag===t1;})){ toast('That tag is already in this herd.','error'); return; }
-    ST_LS.animals.push({id:'an'+Date.now().toString(36)+Math.floor(Math.random()*1e3), herd:h.id, tag:t1, cls:($('ls-tag-cls')||{}).value, sex:($('ls-tag-sex')||{}).value, name:(($('ls-tag-name')||{}).value||'').trim()||undefined, dob:(($('ls-tag-dob')||{}).value||'').trim()||undefined, dam:(($('ls-tag-dam')||{}).value||'').trim()||undefined, sire:(($('ls-tag-sire')||{}).value||'').trim()||undefined});
-    toast('Tag added.','success');
+    var _sxNew=($('ls-tag-sex')||{}).value;
+    ST_LS.animals.push({id:'an'+Date.now().toString(36)+Math.floor(Math.random()*1e3), herd:h.id, tag:t1, cls:($('ls-tag-cls')||{}).value, sex:_sxNew||undefined, name:(($('ls-tag-name')||{}).value||'').trim()||undefined, dob:(($('ls-tag-dob')||{}).value||'').trim()||undefined, dam:(($('ls-tag-dam')||{}).value||'').trim()||undefined, sire:(($('ls-tag-sire')||{}).value||'').trim()||undefined});
+    toast('Registered.','success');
   }
   if(!h.track) h.track=true; // tagging turns on individual tracking for this herd
   try{ _lsSyncHerd(h); }catch(e){}   // roll the tagged animals up into the class breakdown
@@ -20886,9 +21034,11 @@ function lsMoveSave(){
   if(r==='sold'){
     var _plan=(typeof ST_PLAN!=='undefined'&&ST_PLAN.events?ST_PLAN.events:[]).filter(function(ev){ return ev && !ev.done && ev.type==='sell' && ev.herdId===h.id; });
     if(_plan.length && typeof appConfirm==='function'){
-      appConfirm('You already have a planned sale for '+lsHerdName(h)+' ('+(_plan[0].qty||0)+' head). Mark that plan line as done instead — so this sale isn’t counted twice in your forecast?').then(function(ok){
-        if(ok){ lsMoveClose(); markEventDone(ST_PLAN.events.indexOf(_plan[0])); }
-        else { _lsMvFinish(opts); }
+      appConfirm('This looks like your planned sale for '+lsHerdName(h)+' ('+(_plan[0].qty||0)+' head). Tick it off the forecast so it isn’t counted twice? Your sale is still recorded exactly as you entered it.').then(function(ok){
+        /* Either way the sale is recorded from the farmer's own entry. "Yes" only closes the
+           forecast line — it never substitutes the plan's quantity, price or month. */
+        if(ok){ markEventDone(ST_PLAN.events.indexOf(_plan[0]), {closeOnly:true}); }
+        _lsMvFinish(opts);
       });
       return;
     }
@@ -21244,6 +21394,43 @@ function lsRemClose(){   // closing must still resolve the mismatch (the sale mo
   var ids=Object.keys(LSREM.sel).filter(function(k){return LSREM.sel[k];});
   if(ids.length!==LSREM.need){ var anims=lsHerdAnimals(LSREM.herdId); ids=[]; for(var i=anims.length-1,k=0;i>=0&&k<LSREM.need;i--,k++) ids.push(anims[i].id); }
   _lsRemApply(ids);
+}
+/* ── One snapshot/restore path for anything that moves a herd ────────────────────────
+   Used by the birth log, the dairy log, and the delete-a-sale flow. Each of the first two
+   previously wrote its own copy of this; they had drifted (the dairy one lacked the null
+   guard, so an undo with no prevQty recorded set h.qty to undefined).
+
+   opts.animalIds — deep-copies those animal records too, because a removal DELETES them
+   from ST_LS.animals rather than flagging them. Without the copies there is nothing to
+   put back. */
+function _lsMoveSnapshot(h, opts){
+  if(!h) return null;
+  opts=opts||{};
+  var snap={ herdId:h.id, prevQty:h.qty||0,
+             prevAges:h.ages?JSON.parse(JSON.stringify(h.ages)):null,
+             prevClasses:h.classes?JSON.parse(JSON.stringify(h.classes)):null,
+             moveId:null };
+  if(opts.animalIds && opts.animalIds.length){
+    snap.animals=(opts.animalIds||[]).map(function(id){
+      var a=(ST_LS.animals||[]).filter(function(x){return x.id===id;})[0];
+      return a?JSON.parse(JSON.stringify(a)):null;
+    }).filter(Boolean);
+  }
+  return snap;
+}
+function _lsMoveRestore(h, snap){
+  if(!h || !snap) return false;
+  if(snap.moveId && ST_LS.moves) ST_LS.moves=ST_LS.moves.filter(function(m){return m.id!==snap.moveId;});
+  if(snap.prevQty!=null)     h.qty=snap.prevQty;
+  if(snap.prevAges!=null)    h.ages=snap.prevAges;
+  if(snap.prevClasses!=null) h.classes=snap.prevClasses;
+  if(snap.animals && snap.animals.length){
+    ST_LS.animals=ST_LS.animals||[];
+    snap.animals.forEach(function(rec){
+      if(!ST_LS.animals.some(function(x){return x.id===rec.id;})) ST_LS.animals.push(JSON.parse(JSON.stringify(rec)));
+    });
+  }
+  return true;
 }
 function _lsRemApply(ids){
   ids.forEach(function(id){ try{ if(window.AI&&AI.farm&&AI.farm.active()) AI.livestock.removeAnimal(id).catch(function(){}); }catch(e){} });
@@ -22153,7 +22340,7 @@ function brBirthSave(){
         a.repro=a.repro||[]; a.repro.push(ev); undo.cows.push({a:a,evId:ev.id,prev:a.status}); a.status='fresh';
         totalYoung+=n;
       });
-      undo.move={herdId:h.id,prevQty:h.qty||0,prevAges:h.ages?JSON.parse(JSON.stringify(h.ages)):null,prevClasses:h.classes?JSON.parse(JSON.stringify(h.classes)):null,moveId:null};
+      undo.move=_lsMoveSnapshot(h);
       if(typeof lsRecordMove==='function'){ lsRecordMove({herdId:h.id,reason:'born',qty:totalYoung,date:date,note:totalYoung+' '+(totalYoung===1?term.single:term.young)+' · '+ids.length+' '+(ids.length===1?term.femSingle:term.fem)}); if(ST_LS.moves&&ST_LS.moves[0]) undo.move.moveId=ST_LS.moves[0].id; }
     } else {
       var live=parseInt(BR_BIRTH.headLive,10)||0, still=parseInt(BR_BIRTH.headStill,10)||0;
@@ -22162,7 +22349,7 @@ function brBirthSave(){
       if(b){ undo.prevB={born:b.born||0,stillborn:b.stillborn||0,status:b.status}; b.born=(b.born||0)+live; b.stillborn=(b.stillborn||0)+still; b.status='calving'; }
       totalYoung=live;
       if(live>0 && typeof lsRecordMove==='function'){
-        undo.move={herdId:h.id,prevQty:h.qty||0,prevAges:h.ages?JSON.parse(JSON.stringify(h.ages)):null,prevClasses:h.classes?JSON.parse(JSON.stringify(h.classes)):null,moveId:null};
+        undo.move=_lsMoveSnapshot(h);
         lsRecordMove({herdId:h.id,reason:'born',qty:live,date:date,note:live+' '+term.young+(b?(' · '+b.season):'')});
         if(ST_LS.moves&&ST_LS.moves[0]) undo.move.moveId=ST_LS.moves[0].id;
       }
@@ -22197,7 +22384,7 @@ function _brBirthResultHtml(){
 function bbrUndo(){
   if(!BR_BIRTH||!BR_BIRTH.done) return; var u=BR_BIRTH.done.undo||{}; var h=lsHerdById(BR_BIRTH.herdId);
   (u.cows||[]).forEach(function(c){ var a=c.a; if(a&&a.repro){ a.repro=a.repro.filter(function(e){return e.id!==c.evId;}); if(!a.repro.length) delete a.repro; } if(a){ if(c.prev==null) delete a.status; else a.status=c.prev; } });
-  if(u.move && h){ if(u.move.moveId && ST_LS.moves){ ST_LS.moves=ST_LS.moves.filter(function(m){return m.id!==u.move.moveId;}); } if(u.move.prevQty!=null) h.qty=u.move.prevQty; if(u.move.prevAges!=null) h.ages=u.move.prevAges; if(u.move.prevClasses!=null) h.classes=u.move.prevClasses; }
+  if(u.move && h){ _lsMoveRestore(h, u.move); }
   if(u.brId && u.prevB){ var b=_brFind(u.brId); if(b){ b.born=u.prevB.born; b.stillborn=u.prevB.stillborn; b.status=u.prevB.status; } }
   try{ _dzCommit(); }catch(e){}
   try{toast('Undone — nothing was saved.','info');}catch(e){}
@@ -22417,7 +22604,7 @@ function _brDairyResultHtml(){
 function dzrRemind(herdId){ var h=(ST_LS.herd||[]).filter(function(x){return x.id===herdId;})[0]; if(!h) return; h.brRemind=!(h.brRemind!==false); _dzCommit(); _dzShow(_brDairyResultHtml()); }
 function dzrUndo(){ if(!DZL||!DZL.done) return; var u=DZL.done.undo||{cows:[]}; var h=_dzlHerd();
   (u.cows||[]).forEach(function(c){ var a=c.a; if(a&&a.repro){ a.repro=a.repro.filter(function(e){return e.id!==c.evId;}); if(!a.repro.length) delete a.repro; } if(a){ if(c.prev==null) delete a.status; else a.status=c.prev; } });
-  if(u.move && h){ if(u.move.moveId && ST_LS.moves){ ST_LS.moves=ST_LS.moves.filter(function(m){return m.id!==u.move.moveId;}); } h.qty=u.move.prevQty; if(u.move.prevAges!=null) h.ages=u.move.prevAges; if(u.move.prevClasses!=null) h.classes=u.move.prevClasses; }
+  if(u.move && h){ _lsMoveRestore(h, u.move); }
   _dzCommit(); try{toast('Undone — nothing was saved.','info');}catch(e){}
   var k=DZL.done.kind; DZL.done=null; DZL.kind=k; _dzShow(_brDairyLogHtml());
 }
@@ -26386,8 +26573,21 @@ function setEvtSpecies(type){
   renderEvtModal();
 }
 
-function markEventDone(idx){
+/* opts.closeOnly — the sale or purchase is being recorded elsewhere, with the farmer's own
+   figures. Closing the plan line must NOT also post it: doing both silently replaced what the
+   farmer typed (12 head, R126 000, today) with the forecast's (6 head, R30 000, September).
+   Posting a sale FROM the Plan page is the default path and is unchanged. */
+function markEventDone(idx, opts){
   var e=ST_PLAN.events[idx]; if(!e || e.done) return;
+  opts=opts||{};
+  if(opts.closeOnly){
+    e.done=true;
+    try{ if(typeof dataChanged==='function') dataChanged('plan'); }catch(er){}
+    if(typeof renderEventList==='function') renderEventList();
+    if(typeof updatePlanSummary==='function') updatePlanSummary();
+    try{ saveState&&saveState(); }catch(er){}
+    return;
+  }
   var h=null;
   if(e.herdId!=null && typeof lsHerdById==='function') h=lsHerdById(e.herdId); // match by id first (rename-safe)
   if(!h){ var _lbl=String(e.animal||'').trim().toLowerCase();
@@ -28926,6 +29126,16 @@ function renderRecentIncome() {
 // ============================================================
 
 var LANG_PAIRS = [
+  ["Not recorded","Nie aangeteken"],
+  ["All female","Almal wyfies"],
+  ["All male","Almal mannetjies"],
+  ["Which are the females?","Watter is die wyfies?"],
+  ["Finish later","Voltooi later"],
+  ["Set them now","Stel hulle nou"],
+  ["Register several animals","Registreer verskeie diere"],
+  ["Register an animal","Registreer 'n dier"],
+  ["Several at once","Verskeie gelyk"],
+  ["Enter a range like GV-0601 to GV-0620.","Voer 'n reeks in soos GV-0601 tot GV-0620."],
   ["Something is wrong","Iets is verkeerd"],
   ["Looks low","Lyk laag"],
   ["Yes, that’s right — count it","Ja, dis reg — tel dit"],
