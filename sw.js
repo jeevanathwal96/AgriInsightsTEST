@@ -11,7 +11,7 @@
  */
 'use strict';
 
-var APP_VERSION = '2026-07-18-170';
+var APP_VERSION = '2026-07-18-172';
 var CACHE = 'agriinsights-' + APP_VERSION;
 
 /* App shell precached on install. The ?v=-suffixed JS is intentionally left to
@@ -54,6 +54,19 @@ self.addEventListener('activate', function (e) {
   );
 });
 
+/* Build an HTML request that bypasses the browser's HTTP cache. GitHub Pages serves
+   index.html with cache-control: max-age=600, so a plain fetch() inside a network-first
+   handler can still be answered from cache and a fresh deploy goes unseen for ten
+   minutes. cache:'reload' forces a real trip to the origin. Falls back to the original
+   request if the Request constructor rejects the option. */
+function _freshHTML(req){
+  try { return new Request(req, {cache: 'reload'}); }
+  catch (e) {
+    try { return new Request(req.url, {cache: 'reload', credentials: 'same-origin'}); }
+    catch (e2) { return req; }
+  }
+}
+
 self.addEventListener('fetch', function (e) {
   var req = e.request;
   if (req.method !== 'GET') return;            // never intercept writes (POST/PATCH/DELETE)
@@ -73,7 +86,7 @@ self.addEventListener('fetch', function (e) {
   //    deploy when online; fall back to the cached shell when offline.
   if (isHTML) {
     e.respondWith(
-      fetch(req).then(function (res) {
+      fetch(_freshHTML(req)).then(function (res) {
         var copy = res.clone();
         caches.open(CACHE).then(function (c) { c.put('./index.html', copy); });
         return res;

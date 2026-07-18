@@ -2236,6 +2236,11 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
    on the children instead. */
 .tx-card{padding:0;position:relative}
 .tx-toolbar{position:sticky;top:0;z-index:6;background:var(--card);padding:14px 16px;border-bottom:1px solid var(--br2);border-radius:13px 13px 0 0}
+/* The Transactions page keeps its filters OUTSIDE the card, so it sticks to the page. */
+.tx-filters{position:sticky;top:0;z-index:7;background:var(--bg);padding:10px 0 9px}
+.tx-filters > select{flex:0 0 auto}
+.tx-filters .tx-search-wrap{flex:0 0 auto}
+#tx-tbl thead th{position:sticky;top:var(--txall-th-top,58px);z-index:5;background:var(--bg)}
 .tx-tbl thead th{position:sticky;top:var(--tx-th-top,64px);z-index:5}
 /* Without fixed shares the Description column absorbs every spare pixel and leaves a
    long empty run before Category. These add to 100% so nothing is left over to absorb. */
@@ -7115,7 +7120,15 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <button class="pill"    id="txf-income" onclick="txSetTypeFilter('income')">Income</button>
     <button class="pill"    id="txf-expense" onclick="txSetTypeFilter('expense')">Expenses</button>
     <div class="tx-filter-sep"></div>
-    <div id="tx-cat-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    <select id="tx-cat-select" title="Category" onchange="txPickCat(this.value)" style="font-size:12px;padding:7px 30px 7px 11px;min-width:190px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff;font-family:inherit"></select>
+    <select id="tx-period" title="Period" onchange="txSetPeriodSel(this.value)" style="font-size:12px;padding:7px 30px 7px 11px;min-width:170px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff;font-family:inherit">
+      <option value="1">This month</option>
+      <option value="3">Last 3 months</option>
+      <option value="fy">This financial year</option>
+      <option value="12">Last 12 months</option>
+      <option value="all">All time</option>
+      <option value="">Custom dates</option>
+    </select>
     <div class="tx-filter-sep"></div>
     <button id="tx-clear-btn" onclick="txClearFilters()" style="display:none;padding:4px 10px;border-radius:20px;border:1.5px solid var(--rd);background:var(--rp);color:var(--rd);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✕ Clear filters</button>
     <div class="tx-filter-sep"></div>
@@ -7132,11 +7145,22 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
   </div>
 
+  <div id="txall-summary" style="margin:2px 0 8px;font-size:12px;color:var(--t3)"></div>
+  <button id="txall-need-btn" onclick="txAllNeedToggle()" class="tx-need-btn" style="display:none;margin-bottom:8px"></button>
+  <div id="txall-bulk-bar" class="tx-bulk-bar" style="display:none;margin-bottom:10px">
+    <span class="tx-bulk-n">0 selected</span>
+    <select id="txall-bulk-cat" class="tx-bulk-cat"></select>
+    <button class="tx-bulk-go" onclick="txAllBulkApply()">Move</button>
+    <button class="tx-bulk-x" onclick="txAllSelClear()">Cancel</button>
+  </div>
+
   <!-- Table card -->
-  <div class="card" style="padding:0;overflow:hidden" id="tx-table-card">
+  <!-- CAREFUL: no overflow:hidden here — it kills position:sticky on the filter bar. -->
+  <div class="card tx-card" id="tx-table-card">
     <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
     <table class="tbl" id="tx-tbl" style="min-width:760px">
       <thead><tr>
+        <th class="tx-selcol"><input type="checkbox" class="tx-selall" title="Select all shown" onchange="txAllSelAll(this.checked)"/></th>
         <th style="width:104px;white-space:nowrap">Date</th>
         <th style="min-width:200px">Description</th>
         <th style="width:172px">Category</th>
@@ -7826,7 +7850,7 @@ function registerServiceWorker() {
   // Defer until after first paint so it never blocks startup
   setTimeout(function(){
     try {
-      navigator.serviceWorker.register('sw.js').then(function(reg){
+      navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).then(function(reg){
         if (!reg) return;
         if (reg.waiting && navigator.serviceWorker.controller) swShowUpdateNotice();
         reg.addEventListener('updatefound', function(){
@@ -10285,6 +10309,15 @@ function bootAgriInsights() {
   try { _fcFillAllSelects(); } catch(e){}
   // Any expense category without a card gets a home in the fallback picker.
   try { aeFillMore(); } catch(e){}
+  // The Transactions page opens on the financial year rather than everything ever.
+  try{
+    if(!ST.txPeriodSel) ST.txPeriodSel='fy';
+    if(ST.txPeriodSel){                       // always re-apply the range, not just on first run
+      var _tr=_txRangeFor(ST.txPeriodSel); TX_FROM=_tr.from; TX_TO=_tr.to;
+      var _f=$('tx-from'), _t2=$('tx-to'); if(_f) _f.value=TX_FROM; if(_t2) _t2.value=TX_TO;
+    }
+    txFillCatSelect(); _txSyncPeriodSelect();
+  }catch(e){}
   // Transaction lists default to the financial year, not a rolling 6 months.
   try{
     if(!ST.expPeriodSel){ ST.expPeriodSel='fy'; ST.expPeriod=String(_txPeriodMonths('fy')); }
@@ -36444,6 +36477,143 @@ function txBuildCatPills() {
   }).join('');
 }
 
+/* ── Transactions page (pg-transactions) — period + selection ─────────────────────
+   This is the page in the main nav. It filters by an explicit date RANGE (TX_FROM/
+   TX_TO), not by a month count, so the period dropdown resolves to a range here
+   rather than reusing the month-count helper the Income/Expense pages use. */
+function _txRangeFor(v){
+  var t = (typeof APP_TODAY!=='undefined' && APP_TODAY) ? APP_TODAY : new Date();
+  function iso(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  var to = iso(t), from;
+  if (v==='all') return {from:'', to:''};
+  if (v==='fy'){
+    var fyStart=(ST.fyStartMonth||3)-1;                     // stored 1-12
+    var y = (t.getMonth() >= fyStart) ? t.getFullYear() : t.getFullYear()-1;
+    from = y+'-'+('0'+(fyStart+1)).slice(-2)+'-01';
+  } else if (v==='1'){
+    from = t.getFullYear()+'-'+('0'+(t.getMonth()+1)).slice(-2)+'-01';
+  } else {
+    var back = parseInt(v,10)||3;
+    var d = new Date(t.getFullYear(), t.getMonth()-(back-1), 1);
+    from = iso(d);
+  }
+  return {from:from, to:to};
+}
+function txSetPeriodSel(v){
+  ST.txPeriodSel = v;
+  var r = _txRangeFor(v);
+  TX_FROM = r.from; TX_TO = r.to;
+  var fe=$('tx-from'), te=$('tx-to');
+  if(fe) fe.value=TX_FROM; if(te) te.value=TX_TO;
+  try{ saveState&&saveState(); }catch(e){}
+  txUpdateClearBtn(); txRender();
+}
+/* Typing a date by hand means the farmer wants a custom window — stop claiming a preset. */
+function _txSyncPeriodSelect(){
+  var sel=$('tx-period'); if(!sel) return;
+  var v=ST.txPeriodSel||'fy', r=_txRangeFor(v);
+  sel.value = (r.from===TX_FROM && r.to===TX_TO) ? v : '';
+}
+
+/* Category filter as a dropdown rather than one chip per category: with 18+ categories
+   the chip row wrapped to several lines and pushed the table off the screen. */
+function txFillCatSelect(){
+  var sel=$('tx-cat-select'); if(!sel) return;
+  var used={}; (ST.txns||[]).forEach(function(t){ if(t.cat) used[t.cat]=(used[t.cat]||0)+1; });
+  var cats=Object.keys(used).sort(function(a,b){ return used[b]-used[a] || (a<b?-1:1); });
+  sel.innerHTML='<option value="">All categories</option>' +
+    cats.map(function(c){ return '<option'+(TX_CAT_FILTER===c?' selected':'')+'>'+esc(c)+'</option>'; }).join('');
+  sel.value=TX_CAT_FILTER||'';
+}
+function txPickCat(v){ TX_CAT_FILTER=v||''; txUpdateClearBtn(); txRender(); }
+
+/* Needs-a-look / selection / bulk for this page. 'all' spans both income and expenses,
+   so the category list offered for a bulk move is filtered to the selected rows' type. */
+function txAllNeedList(){
+  return (ST.txns||[]).filter(function(t){ return _txNeedsLook(t); });
+}
+function txAllNeedToggle(){ ST.txNeedOnly=!ST.txNeedOnly; txUpdateClearBtn(); txRender(); }
+function txAllSelToggle(idx, ev){
+  if(ev) ev.stopPropagation();
+  var m=TX_SEL.all||(TX_SEL.all={});
+  if(m[idx]) delete m[idx]; else m[idx]=1;
+  var row=document.getElementById('txall-row-'+idx);
+  if(row) row.classList.toggle('tx-row-sel', !!m[idx]);
+  txAllSelBar();
+}
+function txAllSelAll(on){
+  TX_SEL.all={};
+  document.querySelectorAll('#all-tbody input.tx-sel').forEach(function(cb){
+    cb.checked=!!on;
+    var r=cb.closest('tr'); if(r) r.classList.toggle('tx-row-sel', !!on);
+    if(on) TX_SEL.all[cb.getAttribute('data-i')]=1;
+  });
+  txAllSelBar();
+}
+function txAllSelClear(){ TX_SEL.all={}; txRender(); }
+function txAllSelBar(){
+  var bar=$('txall-bulk-bar'); if(!bar) return;
+  var ids=Object.keys(TX_SEL.all||{}), c=ids.length;
+  bar.style.display=c?'':'none';
+  var lbl=bar.querySelector('.tx-bulk-n'); if(lbl) lbl.textContent=c+' selected';
+  var sel=$('txall-bulk-cat'); if(!sel) return;
+  /* Only offer categories valid for what is actually selected — moving an income row
+     into an expense category would quietly corrupt the reports. */
+  var types={}; ids.forEach(function(i){ var t=ST.txns[+i]; if(t) types[t.type]=1; });
+  var want = types.income && types.expense ? null : (types.income ? 'inc' : 'exp');
+  var mixed = !want;
+  sel.disabled = mixed;
+  sel.innerHTML = mixed
+    ? '<option value="">Select one type at a time</option>'
+    : '<option value="">Move to…</option>' + FARM_CATS.filter(function(c){
+        return c.t===want || c.t==='both';
+      }).map(function(c){ return '<option>'+esc(c.n)+'</option>'; }).join('');
+}
+function txAllBulkApply(){
+  var sel=$('txall-bulk-cat'); var cat=sel&&sel.value; if(!cat) return;
+  var ids=Object.keys(TX_SEL.all||{}); if(!ids.length) return;
+  var moved=0;
+  ids.forEach(function(i){ var t=ST.txns[+i]; if(t&&t.cat!==cat){ t.cat=cat; t._catOk=true; moved++; } });
+  TX_SEL.all={};
+  try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
+  try{ saveState&&saveState(); }catch(e){}
+  txRender();
+  try{ toast&&toast(moved+' transaction'+(moved===1?'':'s')+' moved to '+cat); }catch(e){}
+}
+function txAllCatOpen(idx, el){
+  var t=ST.txns[idx]; if(!t||!el) return;
+  var cell=el.closest('td'); if(!cell||cell.querySelector('select')) return;
+  var opts=FARM_CATS.filter(function(c){ return c.t===(t.type==='income'?'inc':'exp')||c.t==='both'; })
+                    .map(function(c){ return c.n; });
+  if(opts.indexOf(t.cat)<0) opts.unshift(t.cat);
+  cell.innerHTML='<select class="tx-cat-edit" onclick="event.stopPropagation()" '+
+    'onchange="txAllCatApply('+idx+', this.value)" onblur="txRender()">'+
+    opts.map(function(c){ return '<option'+(c===t.cat?' selected':'')+'>'+esc(c)+'</option>'; }).join('')+'</select>';
+  var s2=cell.querySelector('select'); if(s2){ s2.focus(); try{ s2.showPicker&&s2.showPicker(); }catch(e){} }
+}
+function txAllCatApply(idx, cat){
+  var t=ST.txns[idx]; if(!t||!cat||cat===t.cat) return txRender();
+  var from=t.cat; t.cat=cat; t._catOk=true;
+  try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
+  try{ saveState&&saveState(); }catch(e){}
+  txRender();
+  try{ toast&&toast('Moved to '+cat+' (was '+from+')'); }catch(e){}
+}
+function txAllNeedButton(){
+  var btn=$('txall-need-btn'); if(!btn) return;
+  var c=txAllNeedList().length, on=!!ST.txNeedOnly;
+  btn.style.display=(c||on)?'':'none';
+  btn.className='tx-need-btn'+(on?' on':'');
+  btn.textContent = on ? ('✕  Showing '+c+' to check') : (c+' need a look');
+  var note=$('txall-need-note');
+  if(on&&c){
+    if(!note){ note=document.createElement('div'); note.id='txall-need-note'; note.className='tx-need-note';
+               btn.parentNode.insertBefore(note, btn.nextSibling); }
+    note.innerHTML='These '+c+' transaction'+(c===1?'':'s')+' are filed somewhere the description does not point. '+
+      'Nothing has been changed — click a category to move it, or open the row and confirm it is right.';
+  } else if(note){ note.remove(); }
+}
+
 function txSetTypeFilter(t) {
   TX_TYPE_FILTER = t;
   ['all','income','expense'].forEach(function(x){
@@ -36457,22 +36627,40 @@ function txClearFilters() {
   TX_TYPE_FILTER = 'all';
   TX_CAT_FILTER  = '';
   TX_BATCH_FILTER = '';
-  TX_FROM = ''; TX_TO = '';
-  var tf = $('tx-from'); if (tf) tf.value = '';
-  var tt = $('tx-to');   if (tt) tt.value = '';
+  ST.txNeedOnly = false;
+  TX_SEL.all = {};
+  ST.txPeriodSel = 'fy';                       // back to the default window, not "all time"
+  var _r = _txRangeFor('fy');
+  TX_FROM = _r.from; TX_TO = _r.to;
+  var tf = $('tx-from'); if (tf) tf.value = TX_FROM;
+  var tt = $('tx-to');   if (tt) tt.value = TX_TO;
   var search = $('tx-search'); if (search) search.value = '';
   ['all','income','expense'].forEach(function(x){
     var b=$('txf-'+x); if(b) b.className='pill'+(x==='all'?' on':'');
   });
-  txBuildCatPills();
+  txFillCatSelect();
   txUpdateClearBtn();
   txRender();
+}
+
+/* Counts for the Transactions page, refreshed from txRender so they can never drift
+   from what is actually on screen. */
+function txAllSummary(list){
+  var el=$('txall-summary'); if(!el) return;
+  var net=list.reduce(function(a,t){ return a+(t.type==='income'?t.amt:-t.amt); },0);
+  var inc=list.filter(function(t){ return t.type==='income'; }).length;
+  var filtered = TX_TYPE_FILTER!=='all' || !!TX_CAT_FILTER || !!(($('tx-search')||{}).value||'') || !!ST.txNeedOnly;
+  el.innerHTML='<b>'+list.length+'</b> transaction'+(list.length===1?'':'s')+
+    ' \u00b7 '+inc+' in, '+(list.length-inc)+' out \u00b7 net '+(net<0?'\u2212':'')+fmt(Math.abs(net))+
+    (filtered?' \u00b7 filtered':'');
+  el.style.display=(list.length||filtered)?'':'none';
 }
 
 function txUpdateClearBtn() {
   var btn = $('tx-clear-btn'); if (!btn) return;
   var q = ($('tx-search')||{}).value || '';
-  var active = TX_TYPE_FILTER !== 'all' || TX_CAT_FILTER !== '' || q !== '' || TX_FROM !== '' || TX_TO !== '';
+  var active = TX_TYPE_FILTER !== 'all' || TX_CAT_FILTER !== '' || q !== '' || !!ST.txNeedOnly ||
+               (ST.txPeriodSel && ST.txPeriodSel !== 'fy');
   btn.style.display = active ? 'block' : 'none';
 }
 
@@ -36539,6 +36727,7 @@ function txRender() {
       if (TX_TO)   { var tp = TX_TO.split('-');   if (dn > (+tp[0]*10000 + +tp[1]*100 + +tp[2])) return false; }
     }
     if (lo && (t.desc+' '+t.cat+' '+t.date+' '+t.amt).toLowerCase().indexOf(lo) < 0) return false;
+    if (ST.txNeedOnly && !_txNeedsLook(t)) return false;
     return true;
   });
 
@@ -36569,7 +36758,7 @@ function txRender() {
 
   var rows = '';
   if (!list.length) {
-    rows = '<tr><td colspan="6" style="text-align:center;color:var(--t3);padding:32px">No transactions match your filter.</td></tr>';
+    rows = '<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:32px">No transactions match your filter.</td></tr>';
   } else {
     months.forEach(function(mo) {
       var moTxns = byMonth[mo];
@@ -36578,7 +36767,7 @@ function txRender() {
       var moPro  = moInc - moExp;
       var proCol = moPro >= 0 ? 'var(--gd)' : 'var(--rd)';
 
-      rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
+      rows += '<tr class="tx-month-row"><td colspan="7" style="padding:0">' +
         '<div class="tx-month-hdr">' +
           '<span>'+escHtml(mo)+'</span>' +
           '<span class="tx-month-totals">' +
@@ -36599,11 +36788,16 @@ function txRender() {
         var bgStyle  = isEven ? '' : 'background:var(--bg)';
         var isEditing = TX_EDIT_IDX === ri;
 
-        rows += '<tr class="txrow-click" data-txidx="'+ri+'" onclick="openTxnDetail('+ri+')" style="'+(bgStyle)+';cursor:pointer">' +
+        var need  = _txNeedsLook(t);
+        var selOn = !!(TX_SEL.all && TX_SEL.all[ri]);
+        rows += '<tr id="txall-row-'+ri+'" class="txrow-click'+(selOn?' tx-row-sel':'')+(need?' tx-row-need':'')+'" data-txidx="'+ri+'" onclick="openTxnDetail('+ri+')" style="'+(bgStyle)+';cursor:pointer">' +
+          '<td class="tx-selcol" onclick="event.stopPropagation()"><input type="checkbox" class="tx-sel" data-i="'+ri+'"'+(selOn?' checked':'')+' onchange="txAllSelToggle('+ri+', event)"/></td>' +
           '<td style="font-size:12px;color:var(--t3);white-space:nowrap">'+escHtml(t.date)+'</td>' +
           '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">'+escHtml(t.desc||'')+'</div>' +
                '<div class="tx-source">'+escHtml(source)+'</div></td>' +
-          '<td style="white-space:nowrap">'+catTag(t.cat||'')+'</td>' +
+          '<td class="tx-catcell" style="white-space:nowrap" onclick="event.stopPropagation(); txAllCatOpen('+ri+', this)">' +
+            catTag(t.cat||'') +
+            (need ? '<div class="tx-need-hint">looks like '+escHtml(need)+'</div>' : '') + '</td>' +
           '<td style="text-align:right;font-weight:700;color:'+amtCol+'">'+amtSign+fmt(t.amt)+'</td>' +
           '<td style="font-size:12px;color:var(--t3);white-space:nowrap">'+escHtml(t.method||'')+'</td>' +
           '<td><button class="tx-edit-btn" onclick="event.stopPropagation();txStartEdit('+ri+')">✏ Edit</button></td>' +
@@ -36611,7 +36805,7 @@ function txRender() {
 
         if (isEditing) {
           var cats = txAllCats();
-          rows += '<tr class="tx-edit-row-tr"><td colspan="6" style="padding:0">' +
+          rows += '<tr class="tx-edit-row-tr"><td colspan="7" style="padding:0">' +
             '<div class="tx-edit-row">' +
               '<div><div class="tx-edit-lbl">Description</div><input id="txe-desc" value="'+escHtml(t.desc||'')+'"/></div>' +
               '<div><div class="tx-edit-lbl">Amount (R)</div><input id="txe-amt" type="number" value="'+t.amt+'"/></div>' +
@@ -36631,12 +36825,17 @@ function txRender() {
 
   if (TX_BATCH_FILTER) {
     var _bb=(ST.importBatches||[]).find(function(x){return x.id===TX_BATCH_FILTER;});
-    rows = '<tr><td colspan="6" style="padding:10px 14px;background:#F1F5F2;border-bottom:1px solid #DCE7DF">'+
+    rows = '<tr><td colspan="7" style="padding:10px 14px;background:#F1F5F2;border-bottom:1px solid #DCE7DF">'+
       '<span style="font-size:12.5px;color:var(--t2)">Showing one import: <b>'+escHtml((_bb&&_bb.source)||'import')+'</b></span>'+
       '<button onclick="txClearBatchFilter()" style="margin-left:10px;background:#fff;border:1px solid var(--br);border-radius:6px;padding:4px 11px;font-size:11.5px;font-weight:600;color:var(--gd);cursor:pointer;font-family:inherit">Show all transactions</button>'+
       '</td></tr>'+rows;
   }
   var tb = $('all-tbody'); if(tb) tb.innerHTML = rows;
+  try{ txAllSummary(list); }catch(e){}
+  try{ txAllNeedButton(); }catch(e){}
+  try{ txAllSelBar(); }catch(e){}
+  try{ txFillCatSelect(); }catch(e){}
+  try{ _txSyncPeriodSelect(); }catch(e){}
 
   // Update summary
   txUpdateSummary();
