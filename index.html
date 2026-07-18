@@ -2235,9 +2235,14 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
    scrolls away and the CSS looks perfectly correct while doing it. Corners are rounded
    on the children instead. */
 .tx-card{padding:0;position:relative}
-.tx-toolbar{position:sticky;top:0;z-index:6;background:#fff;box-shadow:0 -26px 0 0 var(--bg);padding:14px 16px;border-bottom:1px solid var(--br2);border-radius:13px 13px 0 0}
+.tx-toolbar{position:sticky;top:0;z-index:6;background:#fff;padding:14px 16px;border-bottom:1px solid var(--br2);border-radius:13px 13px 0 0}
 /* The Transactions page keeps its filters OUTSIDE the card, so it sticks to the page. */
-.tx-filters{position:sticky;top:0;z-index:7;background:var(--bg);padding:10px 0 9px;box-shadow:0 -26px 0 0 var(--bg)}
+.tx-filters{position:sticky;top:0;z-index:7;background:var(--bg);padding:10px 0 9px;align-items:stretch}
+.tx-fgroup{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.tx-fctl{font-size:12.5px;padding:0 11px;height:38px;width:auto;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff;font-family:inherit}
+select.tx-fctl{padding-right:30px}
+.tx-filters .tx-search-wrap{flex:1 1 200px;max-width:320px;display:flex;align-items:center;height:38px;box-sizing:border-box}
+.tx-filter-sep{display:none}
 .tx-filters > select{flex:0 0 auto;width:auto}
 .tx-filters .tx-search-wrap{flex:0 0 auto}
 #tx-tbl thead th{position:sticky;top:var(--txall-th-top,58px);z-index:5;background:var(--bg)}
@@ -7131,12 +7136,13 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
   <!-- Filters -->
   <div class="tx-filters" id="tx-filter-bar">
-    <button class="pill on" id="txf-all"    onclick="txSetTypeFilter('all')">All</button>
-    <button class="pill"    id="txf-income" onclick="txSetTypeFilter('income')">Income</button>
-    <button class="pill"    id="txf-expense" onclick="txSetTypeFilter('expense')">Expenses</button>
-    <div class="tx-filter-sep"></div>
-    <select id="tx-cat-select" title="Category" onchange="txPickCat(this.value)" style="font-size:12px;padding:7px 30px 7px 11px;width:auto;min-width:190px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff;font-family:inherit"></select>
-    <select id="tx-period" title="Period" onchange="txSetPeriodSel(this.value)" style="font-size:12px;padding:7px 30px 7px 11px;width:auto;min-width:170px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff;font-family:inherit">
+    <div class="tx-fgroup">
+      <button class="pill on" id="txf-all"    onclick="txSetTypeFilter('all')">All</button>
+      <button class="pill"    id="txf-income" onclick="txSetTypeFilter('income')">Income</button>
+      <button class="pill"    id="txf-expense" onclick="txSetTypeFilter('expense')">Expenses</button>
+    </div>
+    <select id="tx-cat-select" class="tx-fctl" title="Category" onchange="txPickCat(this.value)" style="min-width:180px"></select>
+    <select id="tx-period" class="tx-fctl" title="Period" onchange="txSetPeriodSel(this.value)" style="min-width:164px">
       <option value="1">This month</option>
       <option value="3">Last 3 months</option>
       <option value="fy">This financial year</option>
@@ -7144,20 +7150,17 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <option value="all">All time</option>
       <option value="">Custom dates</option>
     </select>
-    <div class="tx-filter-sep"></div>
-    <button id="tx-clear-btn" onclick="txClearFilters()" style="display:none;padding:4px 10px;border-radius:20px;border:1.5px solid var(--rd);background:var(--rp);color:var(--rd);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✕ Clear filters</button>
-    <div class="tx-filter-sep"></div>
-    <div id="tx-deleted-chip" onclick="txToggleDeleted()" style="display:none;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#B45309;border:1.5px dashed #C8962C;border-radius:8px;padding:5px 9px;cursor:pointer;background:#FEFBF2">🗑 Recently deleted (<span id="tx-deleted-n">0</span>)</div>
+    <div class="tx-fgroup">
+      <input id="tx-from" type="date" class="tx-fctl" onchange="txSetRange()" title="From date"/>
+      <span style="font-size:12px;color:var(--t4)">&ndash;</span>
+      <input id="tx-to" type="date" class="tx-fctl" onchange="txSetRange()" title="To date"/>
+    </div>
     <div class="tx-search-wrap">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input id="tx-search" placeholder="Search..." oninput="txUpdateClearBtn();txRender()"/>
     </div>
-    <div class="tx-filter-sep"></div>
-    <div style="display:flex;align-items:center;gap:6px">
-      <input id="tx-from" type="date" onchange="txSetRange()" title="From date" style="font-family:inherit;font-size:12px;padding:5px 8px;border:1.5px solid var(--br);border-radius:var(--rs);color:var(--t2);background:#fff"/>
-      <span style="font-size:12px;color:var(--t4)">&ndash;</span>
-      <input id="tx-to" type="date" onchange="txSetRange()" title="To date" style="font-family:inherit;font-size:12px;padding:5px 8px;border:1.5px solid var(--br);border-radius:var(--rs);color:var(--t2);background:#fff"/>
-    </div>
+    <button id="tx-clear-btn" onclick="txClearFilters()" style="display:none;padding:6px 12px;border-radius:20px;border:1.5px solid var(--rd);background:var(--rp);color:var(--rd);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✕ Clear filters</button>
+    <div id="tx-deleted-chip" onclick="txToggleDeleted()" style="display:none;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#B45309;border:1.5px dashed #C8962C;border-radius:8px;padding:5px 9px;cursor:pointer;background:#FEFBF2">🗑 Recently deleted (<span id="tx-deleted-n">0</span>)</div>
   </div>
 
   <div id="txall-summary" style="margin:2px 0 8px;font-size:12px;color:var(--t3)"></div>
@@ -11179,6 +11182,8 @@ function txCatApply(idx, cat, kind){
   var from = t.cat;
   t.cat = cat;
   t._catOk = true;                                          // an explicit choice is a confirmation
+  /* Local-only mutation reverts on the next cloud pull — persist like the Edit form does. */
+  try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(e){}
   try{ if (typeof dataChanged === 'function') dataChanged('transaction'); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   (kind==='income') ? filterIncomeTx() : filterExpTx();
@@ -11225,7 +11230,8 @@ function txBulkApply(kind){
   var moved = 0;
   ids.forEach(function(i){
     var t = ST.txns[+i];
-    if (t && t.cat !== cat){ t.cat = cat; t._catOk = true; moved++; }
+    if (t && t.cat !== cat){ t.cat = cat; t._catOk = true; moved++;
+      try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(er){} }
   });
   TX_SEL[kind] = {};
   try{ if (typeof dataChanged === 'function') dataChanged('transaction'); }catch(e){}
@@ -36696,7 +36702,8 @@ function txAllBulkApply(){
   var sel=$('txall-bulk-cat'); var cat=sel&&sel.value; if(!cat) return;
   var ids=Object.keys(TX_SEL.all||{}); if(!ids.length) return;
   var moved=0;
-  ids.forEach(function(i){ var t=ST.txns[+i]; if(t&&t.cat!==cat){ t.cat=cat; t._catOk=true; moved++; } });
+  ids.forEach(function(i){ var t=ST.txns[+i]; if(t&&t.cat!==cat){ t.cat=cat; t._catOk=true; moved++;
+    try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(er){} } });
   TX_SEL.all={};
   try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
@@ -36711,6 +36718,7 @@ function txAllCatOpen(idx, el){
 function txAllCatApply(idx, cat){
   var t=ST.txns[idx]; if(!t||!cat||cat===t.cat) return txRender();
   var from=t.cat; t.cat=cat; t._catOk=true;
+  try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(er){}
   try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   txRender();
