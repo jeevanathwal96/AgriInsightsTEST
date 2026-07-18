@@ -7158,7 +7158,9 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <!-- Table card -->
   <!-- CAREFUL: no overflow:hidden here — it kills position:sticky on the filter bar. -->
   <div class="card tx-card" id="tx-table-card">
-    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+    <!-- CAREFUL: no overflow on this wrapper. Any overflow value other than visible makes
+         it the sticky scrollport, which pins the thead INTO the rows instead of to the page. -->
+    <div>
     <table class="tbl" id="tx-tbl" style="min-width:760px">
       <thead><tr>
         <th class="tx-selcol"><input type="checkbox" class="tx-selall" title="Select all shown" onchange="txAllSelAll(this.checked)"/></th>
@@ -10972,7 +10974,7 @@ rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
         /* The category cell is a button: clicking it CHANGES the category, which is what
            a farmer wants here far more often than an explanation. */
         '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'income\')">' +
-          '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat) + '<i class="tx-caret">\u25be</i></span>' +
+          '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat||'Uncategorised') + '<i class="tx-caret">\u25be</i></span>' +
           (_need ? '<div class="tx-need-hint">looks like ' + esc(_need) + ' \u00b7 <span class="tx-keep" onclick="event.stopPropagation();txCatConfirm(' + ri + ')">keep as is</span></div>' : '') + '</td>' +
         '<td style="font-weight:700;color:var(--gd);text-align:right">+' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
@@ -11048,12 +11050,10 @@ var TX_SEL = {expense:{}, income:{}};
    the server may still carry pre-merge names ('Veterinary') and spelling variants
    ('CropSales'). All three migrations are idempotent; re-run them when the ledger's row
    count changes and something the registry does not recognise is present. */
-var _txMigLastN = -1;
 function _txMigrateIfNeeded(){
   try{
-    var n = (ST.txns||[]).length;
-    if (n === _txMigLastN) return;
-    _txMigLastN = n;
+    /* No row-count shortcut: cloud sync can replace the ledger with the SAME count,
+       which left 967 'Other' rows unmigrated on live data. The scan is O(n) and cheap. */
     var reg = {};
     FARM_CATS.forEach(function(c){ reg[c.n] = 1; });
     var dirty = (ST.txns||[]).some(function(t){ return t && t.cat && !reg[t.cat]; });
@@ -11069,7 +11069,9 @@ function _txNeedsLook(t){
   var isInc = (t.type === 'income');
   var guess;
   try{ guess = inferCategory(t.desc, isInc); }catch(e){ return null; }
-  if (!guess || guess === t.cat) return null;
+  var filed = (t.cat == null ? '' : String(t.cat)).trim();
+  if (!filed) return guess || (isInc ? 'Other Income' : 'Other Expenses');  // uncategorised: always worth a look
+  if (!guess || guess === filed) return null;
   /* Cloud-synced data can arrive AFTER the boot migrations ran, still carrying spelling
      variants ('CropSales'). Same category, different spelling — not a finding. */
   try{ if (typeof normalizeCat==='function' && normalizeCat(t.cat) === guess) return null; }catch(e){}
@@ -11108,7 +11110,7 @@ function txCatOpen(idx, el, kind){
   var opts = FARM_CATS.filter(function(c){
     return c.t === (t.type==='income' ? 'inc' : 'exp') || c.t === 'both';
   }).map(function(c){ return c.n; });
-  if (opts.indexOf(t.cat) < 0) opts.unshift(t.cat);         // never hide where it is now
+  if (t.cat && opts.indexOf(t.cat) < 0) opts.unshift(t.cat);         // never hide where it is now
   var prev = cell.innerHTML;
   cell.innerHTML = '<select class="tx-cat-edit" onclick="event.stopPropagation()" ' +
     'onchange="txCatApply(' + idx + ', this.value, \'' + kind + '\')" ' +
@@ -11306,7 +11308,7 @@ var months = [];
         /* The category cell is a button: clicking it CHANGES the category, which is what
            a farmer wants here far more often than an explanation. */
         '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'expense\')">' +
-          '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat) + '<i class="tx-caret">\u25be</i></span>' +
+          '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat||'Uncategorised') + '<i class="tx-caret">\u25be</i></span>' +
           (_need ? '<div class="tx-need-hint">looks like ' + esc(_need) + ' \u00b7 <span class="tx-keep" onclick="event.stopPropagation();txCatConfirm(' + ri + ')">keep as is</span></div>' : '') + '</td>' +
         '<td style="font-weight:700;color:var(--rd);text-align:right">− ' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
@@ -36643,7 +36645,7 @@ function txAllCatOpen(idx, el){
   var cell=el.closest('td'); if(!cell||cell.querySelector('select')) return;
   var opts=FARM_CATS.filter(function(c){ return c.t===(t.type==='income'?'inc':'exp')||c.t==='both'; })
                     .map(function(c){ return c.n; });
-  if(opts.indexOf(t.cat)<0) opts.unshift(t.cat);
+  if(t.cat && opts.indexOf(t.cat)<0) opts.unshift(t.cat);
   cell.innerHTML='<select class="tx-cat-edit" onclick="event.stopPropagation()" '+
     'onchange="txAllCatApply('+idx+', this.value)" onblur="txRender()">'+
     opts.map(function(c){ return '<option'+(c===t.cat?' selected':'')+'>'+esc(c)+'</option>'; }).join('')+'</select>';
@@ -36861,7 +36863,7 @@ function txRender() {
           '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">'+escHtml(t.desc||'')+'</div>' +
                '<div class="tx-source">'+escHtml(source)+'</div></td>' +
           '<td class="tx-catcell" style="white-space:nowrap" onclick="event.stopPropagation(); txAllCatOpen('+ri+', this)">' +
-            catTag(t.cat||'') +
+            catTag(t.cat||'Uncategorised') +
             (need ? '<div class="tx-need-hint">looks like '+escHtml(need)+' \u00b7 <span class="tx-keep" onclick="event.stopPropagation();txAllCatConfirm('+ri+')">keep as is</span></div>' : '') + '</td>' +
           '<td style="text-align:right;font-weight:700;color:'+amtCol+'">'+amtSign+fmt(t.amt)+'</td>' +
           '<td style="font-size:12px;color:var(--t3);white-space:nowrap">'+escHtml(t.method||'')+'</td>' +
@@ -37988,9 +37990,10 @@ function inferCategory(desc, isIncome){
   if(/john\s*deere|case\s*ih|new\s*holland|repair|service|spare|part|workshop|mechanic/.test(d)) return 'Machinery & Repairs';
   if(/irrigation|water|pump|electricity|eskom|munic/.test(d)) return 'Irrigation & Water';
   if(/insurance|santam|hollard|old\s*mutual|outsurance|iwyze/.test(d)) return 'Insurance';
-  if(/loan|land\s*bank|hire\s*purchase|finance|instal/.test(d)) return 'Loan Repayments';
-  if(/vodacom|mtn|telkom|internet|airtime|lugtyd|phone|foon|admin|accountant|rekenmeester|auditor|ouditeur|bank charge|bankkoste|licence|lisensie|legal fee/.test(d)) return 'Admin & Professional Fees';
-  if(/sars|tax|vat /.test(d)) return 'Tax';
+  if(/\brent\b|rental|lease|huurgeld/.test(d)) return 'Land & Rental';
+  if(/loan|land\s*bank|hire\s*purchase|finance|instal|overdraft|interest on/.test(d)) return 'Loan Repayments';
+  if(/vodacom|mtn|telkom|internet|airtime|lugtyd|phone|foon|admin|accountant|rekenmeester|auditor|ouditeur|bank charge|bankkoste|bank fee|banking fee|cash deposit|deposit fee|autobank|prepaid mobile|mobile purchase|licence|lisensie|legal fee/.test(d)) return 'Admin & Professional Fees';
+  if(/sars|efiling|paye|provisional tax|income tax|vat201/.test(d)) return 'Tax';
   return 'Other Expenses';
 }
 
