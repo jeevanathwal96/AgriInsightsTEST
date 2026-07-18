@@ -2552,6 +2552,15 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
 .ls-tag-add{font-size:11.5px;font-weight:800;color:var(--gd);background:var(--gp);border:none;border-radius:8px;padding:6px 11px;cursor:pointer;font-family:inherit}
 .ls-sexchips{display:flex;gap:6px;flex-wrap:wrap}
 .ai-leave-card{border:1.5px solid var(--gp);background:var(--gb);border-radius:11px;padding:12px 13px}
+.lsrec-card{border-color:#EBD9A8 !important;background:#FDFAF1}
+.lsrec-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 0;border-top:1px solid #EFE6CC}
+.lsrec-row:first-of-type{border-top:0}
+.lsrec-tx{flex:1;min-width:200px}
+.lsrec-tx .t1{font-size:13px;font-weight:700;color:var(--t1);line-height:1.4}
+.lsrec-tx .t2{font-size:11.5px;color:var(--t3);margin-top:2px;line-height:1.45}
+.lsrec-btns{display:flex;gap:7px;flex-wrap:wrap}
+.lsrec-btns button{border-radius:9px;padding:9px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;border:1.5px solid var(--gp);background:#fff;color:var(--gd)}
+.lsrec-btns button.pri{background:var(--gm);color:#fff;border-color:var(--gm)}
 .ls-match-bg{position:fixed;inset:0;background:rgba(16,25,20,.45);z-index:9300;display:none;align-items:center;justify-content:center;padding:18px}
 .ls-match-bg.on{display:flex}
 .ls-match-card{background:#fff;border-radius:15px;max-width:440px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.22)}
@@ -10339,7 +10348,7 @@ recurring: [
     {date:'25 Mar 2024',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:35490,method:'EFT'},
     {date:'06 Feb 2024',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21200,method:'Bank Debit',ent:'ls:4'},
     {date:'15 Feb 2024',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:86508,moneyOnly:true,method:'Bank Deposit',ent:'ls:4'},
-    {date:'07 Feb 2024',desc:'Boer goats — speculators auction',cat:'Livestock Sales',type:'income',amt:49680,method:'Cash',ent:'ls:3'},
+    {date:'07 Feb 2024',desc:'Boer goats — speculators auction',cat:'Livestock Sales',type:'income',amt:49680,moveRef:'m9',method:'Cash',ent:'ls:3'},
     {date:'19 Feb 2024',desc:'Citrus fertiliser programme',cat:'Fertiliser',type:'expense',amt:30727,method:'Bank Debit',ent:'or:f1'},
     {date:'15 Feb 2024',desc:'Pyrinex insecticide (armyworm)',cat:'Crop Protection',type:'expense',amt:16560,method:'Bank Debit',ent:'crop:White maize'},
     {date:'10 Feb 2024',desc:'LAN top-dressing (maize)',cat:'Fertiliser',type:'expense',amt:54369,method:'Bank Debit',ent:'crop:White maize'},
@@ -10439,7 +10448,7 @@ recurring: [
     {date:'25 Aug 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:39390,method:'EFT'},
     {date:'06 Jul 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:19000,method:'Bank Debit',ent:'ls:4'},
     {date:'15 Jul 2023',desc:'Milk delivery — Clover collection',cat:'Livestock Sales',type:'income',amt:96120,moneyOnly:true,method:'Bank Deposit',ent:'ls:4'},
-    {date:'12 Jul 2023',desc:'Backgrounded steers — feedlot',cat:'Livestock Sales',type:'income',amt:107827,method:'Bank Deposit',ent:'ls:5'},
+    {date:'12 Jul 2023',desc:'Backgrounded steers — feedlot',cat:'Livestock Sales',type:'income',amt:107827,moveRef:'m8',method:'Bank Deposit',ent:'ls:5'},
     {date:'23 Jul 2023',desc:'Packhouse labour & cartons',cat:'Labour & Wages',type:'expense',amt:32550,method:'Bank Debit',ent:'or:f1'},
     {date:'22 Jul 2023',desc:'Valencia citrus — export packout',cat:'Fruit Sales',type:'income',amt:331776,method:'Bank Deposit',ent:'or:f1'},
     {date:'08 Jul 2023',desc:'Winter lick blocks & feed (cattle)',cat:'Animal Feed',type:'expense',amt:22050,method:'Bank Debit',ent:'ls:1'},
@@ -17459,7 +17468,9 @@ var ST_LS = {
     {id:'m4',herd:2,reason:'sold',qty:6,date:'2024-05-12',note:'BKB auction',money:37200},
     {id:'m5',herd:3,reason:'born',qty:4,date:'2024-05-20',note:'4 kids',money:0},
     {id:'m6',herd:1,reason:'bought',qty:4,date:'2024-04-22',note:'Replacement heifers',money:72000},
-    {id:'m7',herd:3,reason:'slaughter',qty:2,date:'2024-04-15',note:'Home & staff rations',money:0}
+    {id:'m7',herd:3,reason:'slaughter',qty:2,date:'2024-04-15',note:'Home & staff rations',money:0},
+    {id:'m8',herd:5,reason:'sold',qty:6,date:'2024-05-20',note:'Backgrounded steers — feedlot',money:0,txnRef:'seed-steers'},
+    {id:'m9',herd:3,reason:'sold',qty:3,date:'2024-04-11',note:'Boer goats — speculators auction',money:0,txnRef:'seed-goats'}
   ],
   treatments: [
     {id:'t1',herd:1,kind:'vaccine',product:'FMD + Lumpy Skin vaccine',reg:'G0451',act:'36/1947',target:'whole',head:0,tags:[],dose:'2 ml subcut',route:'S/C',reason:'Annual prevention',batch:'LSD0440',expiry:'2025-11',date:'2024-05-15',by:'Dr P. Botha',cost:2800,meat:21,milk:0},
@@ -21092,6 +21103,10 @@ function lsMoveSave(){
      own; a farmer who had also banked the money through the income form would then get a
      second dialog immediately after. Both records answer the same question, so they are
      offered together and the farmer ticks whichever apply. */
+  if(r==='sold' && LS_RECON_LINK){
+    opts.linkTxn=LS_RECON_LINK; LS_RECON_LINK=null;   // came from the reconciliation net
+    _lsMvFinish(opts); return;
+  }
   if(r==='sold'){
     var _m=_lsFindSaleMatches(h.id, opts.money||0, opts.date);
     if((_m.money.length||_m.plan.length) && typeof lsMatchOpen==='function'){
@@ -23418,7 +23433,7 @@ function _lsRegTotals(){
 /* ---------- master render ---------- */
 function renderStockRegister(){
   var root=$('ls-reg-root'); if(!root) return;
-  root.innerHTML = _lsRegBanner() + _lsRegReconCard() + _lsRegCapitalCard() + _lsRegTimelineCard() + _lsRegHerdsCard();
+  root.innerHTML = _lsRegBanner() + _lsUnmatchedCard() + _lsRegReconCard() + _lsRegCapitalCard() + _lsRegTimelineCard() + _lsRegHerdsCard();
 }
 
 /* ---------- 1 · heads-up banner ---------- */
@@ -23482,6 +23497,108 @@ function _lsRegGoTax(){
 function _lsRegOpenPrices(){ LSREG_PX=true; renderStockRegister(); setTimeout(function(){ var s=$('lsreg-px'); if(s) s.scrollIntoView({behavior:'smooth',block:'center'}); },40); }
 
 /* ---------- 2 · reconciliation ---------- */
+/* ── The reconciliation net (audit #3, P7) ───────────────────────────────────────────
+   Layers 1 and 2 cover the doors a farmer walks through. Plan-posted actuals, imports and
+   — later — bank feeds arrive with nobody present to answer a question, and P6's "leave the
+   herd alone" deliberately orphans a movement. Both ends are caught here.
+
+   Produce income (milk, wool) is money without animals BY NATURE, so it is excluded:
+   either flagged moneyOnly, or measured in litres/kg rather than head. Without that the
+   demo alone would open with R2.6m of milk cheques reported as missing animals. */
+function _lsIncomeIsProduce(t){
+  if(t.moneyOnly) return true;
+  var u=String(t.unit||'').toLowerCase();
+  if(u==='litre'||u==='litres'||u==='l'||u==='kg') return true;
+  return /\bmilk\b|\bwool\b|clover|shear|mohair|cream|cheese/i.test(String(t.desc||''));
+}
+function _lsUnmatched(){
+  var from=(typeof lsFyStartISO==='function')?lsFyStartISO():'0000-01-01';
+  var money=[], animals=[];
+  (ST.txns||[]).forEach(function(t,i){
+    if(!_lsIsLivestockSale(t)) return;
+    if(t.moveRef && _lsMoveByRef(t.moveRef)) return;   // properly paired
+    if(_lsIncomeIsProduce(t)) return;                  // milk/wool never move animals
+    var iso=(typeof _lsTxnISO==='function')?_lsTxnISO(t.date):t.date;
+    if(iso<from) return;                               // only this financial year
+    money.push({i:i, t:t});
+  });
+  (ST_LS.moves||[]).forEach(function(m){
+    if(m.reason!=='sold') return;
+    if(m.txnRef || (m.money||0)>0) return;              // has money against it
+    var iso=(typeof _lsMoveISO==='function')?_lsMoveISO(m):m.date;
+    if(iso<from) return;
+    animals.push(m);
+  });
+  return {money:money, animals:animals};
+}
+function _lsUnmatchedCard(){
+  var u=_lsUnmatched();
+  if(!u.money.length && !u.animals.length) return '';
+  var rows='';
+  u.money.forEach(function(r){
+    var h=(ST_LS.herd||[]).filter(function(x){return x.id===_lsHerdIdFromEnt(r.t.ent);})[0];
+    rows+='<div class="lsrec-row"><div class="lsrec-tx">'+
+      '<div class="t1">'+lsRand0(r.t.amt||0)+' \u00b7 '+esc(r.t.desc||'Livestock sale')+'</div>'+
+      '<div class="t2">'+esc(r.t.date||'')+(h?(' \u00b7 '+esc(lsHerdName(h))):'')+' \u2014 no animals taken out</div></div>'+
+      '<div class="lsrec-btns"><button class="pri" onclick="lsReconTakeOut('+r.i+')">Take the animals out</button>'+
+      '<button onclick="lsReconNotLive('+r.i+')">It wasn\u2019t a live sale</button></div></div>';
+  });
+  u.animals.forEach(function(m){
+    var h=(ST_LS.herd||[]).filter(function(x){return x.id===m.herd;})[0];
+    rows+='<div class="lsrec-row"><div class="lsrec-tx">'+
+      '<div class="t1">'+(m.qty||0)+' head left '+(h?esc(lsHerdName(h)):'the herd')+' with no money against them</div>'+
+      '<div class="t2">'+esc(lsDispFromISO?lsDispFromISO(m.date):m.date)+' \u2014 record the income if this was a sale</div></div>'+
+      '<div class="lsrec-btns"><button class="pri" onclick="lsReconAddIncome(\''+m.id+'\')">Record the money</button></div></div>';
+  });
+  var n=u.money.length+u.animals.length;
+  return '<div class="lsreg-card lsrec-card"><div class="rc-h"><div><div class="rc-t">\u2696\ufe0f '+n+' thing'+(n===1?' doesn\u2019t':'s don\u2019t')+' line up</div>'+
+    '<div class="rc-s">Money and animals should move together. These don\u2019t \u2014 your closing stock will be out until they do.</div></div></div>'+
+    rows+'</div>';
+}
+/* "Take the animals out" — open the movement flow pre-filled, so the farmer confirms the
+   count and class against today's herd rather than us guessing. */
+function lsReconTakeOut(txnIdx){
+  var t=ST.txns[txnIdx]; if(!t) return;
+  var hid=_lsHerdIdFromEnt(t.ent);
+  var h=(ST_LS.herd||[]).filter(function(x){return x.id===hid;})[0];
+  if(!h){ toast('That group no longer exists.','error'); return; }
+  try{ nav('livestock'); lsTab('herd','overview'); }catch(e){}
+  setTimeout(function(){
+    try{
+      lsMoveOpen(hid,'sold');
+      var q=document.getElementById('ls-mv-qty');
+      if(q && t.unit==='head' && t.qty) q.value=t.qty;
+      var mn=document.getElementById('ls-mv-money');
+      if(mn) mn.value='';                       // money is already banked on the txn
+      LS_RECON_LINK=t;                          // link on save instead of posting again
+    }catch(e){}
+  },120);
+}
+var LS_RECON_LINK=null;
+function lsReconNotLive(txnIdx){
+  var t=ST.txns[txnIdx]; if(!t) return;
+  t.moneyOnly=true;
+  try{ saveState&&saveState(); }catch(e){}
+  try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
+  try{ renderStockRegister(); }catch(e){}
+  try{ toast('Marked as money only \u2014 it won\u2019t be asked about again','success'); }catch(e){}
+}
+function lsReconAddIncome(moveId){
+  var m=_lsMoveByRef(moveId); if(!m) return;
+  var h=(ST_LS.herd||[]).filter(function(x){return x.id===m.herd;})[0];
+  try{ nav('add-income'); setSaleType('Livestock'); }catch(e){}
+  setTimeout(function(){
+    try{
+      var q=document.getElementById('ai-qty'); if(q) q.value=m.qty||'';
+      var u=document.getElementById('ai-unit'); if(u) u.value='head';
+      var e2=document.getElementById('ai-ent'); if(e2&&h) e2.value='ls:'+h.id;
+      var d=document.getElementById('ai-desc'); if(d&&!d.value) d.value=(h?lsHerdName(h):'Livestock')+' sold';
+      lsLeaveReset();                      // the animals already left; don't move them twice
+      lsLeaveRefresh();
+      var on=document.getElementById('ai-leave-on'); if(on){ on.checked=false; LS_LEAVE.on=false; lsLeaveRefresh(); }
+    }catch(e){}
+  },140);
+}
 function _lsRegReconCard(){
   var d=_lsRegTotals();
   function num(n,cls){ return n ? '<td class="'+(cls||'')+'">'+(cls==='in'?'+':cls==='out'?'−':'')+n+'</td>' : '<td class="mut">—</td>'; }
@@ -29446,6 +29563,11 @@ function renderRecentIncome() {
 // ============================================================
 
 var LANG_PAIRS = [
+  ["Take the animals out","Haal die diere uit"],
+  ["It wasn’t a live sale","Dit was nie 'n lewende verkoop nie"],
+  ["Record the money","Teken die geld aan"],
+  ["Money and animals should move together. These don’t — your closing stock will be out until they do.","Geld en diere moet saam beweeg. Hierdie doen nie — jou sluitingsvoorraad sal verkeerd wees totdat hulle doen."],
+  ["Marked as money only — it won’t be asked about again","Gemerk as slegs geld — dit sal nie weer gevra word nie"],
   ["Already on your books?","Reeds op jou boeke?"],
   ["Save — link the ticked ones","Stoor — koppel die gemerktes"],
   ["None of these — separate sale","Nie een nie — aparte verkoop"],
