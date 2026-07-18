@@ -2238,7 +2238,7 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
 .tx-toolbar{position:sticky;top:0;z-index:6;background:var(--card);padding:14px 16px;border-bottom:1px solid var(--br2);border-radius:13px 13px 0 0}
 /* The Transactions page keeps its filters OUTSIDE the card, so it sticks to the page. */
 .tx-filters{position:sticky;top:0;z-index:7;background:var(--bg);padding:10px 0 9px}
-.tx-filters > select{flex:0 0 auto}
+.tx-filters > select{flex:0 0 auto;width:auto}
 .tx-filters .tx-search-wrap{flex:0 0 auto}
 #tx-tbl thead th{position:sticky;top:var(--txall-th-top,58px);z-index:5;background:var(--bg)}
 .tx-tbl thead th{position:sticky;top:var(--tx-th-top,64px);z-index:5}
@@ -2268,7 +2268,8 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
 .tx-need-btn{margin-top:9px;font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer;font-family:inherit}
 .tx-need-btn:hover{background:#FEF3C7}
 .tx-need-btn.on{background:#B45309;color:#fff;border-color:#B45309}
-.tx-need-note{margin-top:8px;font-size:11.5px;line-height:1.55;color:#7C2D12;background:#FFFBEB;border:1px solid #FDE68A;border-radius:9px;padding:9px 11px}
+.tx-need-note{margin:8px 0 10px;font-size:11.5px;line-height:1.55;color:#7C2D12;background:#FFFBEB;border:1px solid #FDE68A;border-radius:9px;padding:9px 11px;max-width:760px}
+.tx-keep{text-decoration:underline;cursor:pointer;font-weight:700;color:#92400E}
 .tx-bulk-bar{display:flex;align-items:center;gap:9px;margin-top:9px;padding:8px 11px;background:var(--gb);border:1.5px solid var(--gl);border-radius:10px;flex-wrap:wrap}
 .tx-bulk-n{flex:0 0 auto}
 .tx-bulk-n{font-size:12px;font-weight:700;color:var(--gd)}
@@ -7120,8 +7121,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <button class="pill"    id="txf-income" onclick="txSetTypeFilter('income')">Income</button>
     <button class="pill"    id="txf-expense" onclick="txSetTypeFilter('expense')">Expenses</button>
     <div class="tx-filter-sep"></div>
-    <select id="tx-cat-select" title="Category" onchange="txPickCat(this.value)" style="font-size:12px;padding:7px 30px 7px 11px;min-width:190px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff;font-family:inherit"></select>
-    <select id="tx-period" title="Period" onchange="txSetPeriodSel(this.value)" style="font-size:12px;padding:7px 30px 7px 11px;min-width:170px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff;font-family:inherit">
+    <select id="tx-cat-select" title="Category" onchange="txPickCat(this.value)" style="font-size:12px;padding:7px 30px 7px 11px;width:auto;min-width:190px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff;font-family:inherit"></select>
+    <select id="tx-period" title="Period" onchange="txSetPeriodSel(this.value)" style="font-size:12px;padding:7px 30px 7px 11px;width:auto;min-width:170px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff;font-family:inherit">
       <option value="1">This month</option>
       <option value="3">Last 3 months</option>
       <option value="fy">This financial year</option>
@@ -10894,6 +10895,7 @@ function expByCat() {
 // ============================================================
 // ── Income / Expense filters ──────────────────────────────────
 function filterIncomeTx() {
+  try{ _txMigrateIfNeeded(); }catch(e){}
   var q   = ($('inc-search')      && $('inc-search').value.toLowerCase())      || '';
   var cat = ($('inc-cat-filter')  && $('inc-cat-filter').value)                || '';
   var MO  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -10906,8 +10908,7 @@ var n = parseInt(ST.incPeriod || '6', 10);
   var periodMonths = [];
   for (var i = n - 1; i >= 0; i--) {
     var mo = ((cm - i) % 12 + 12) % 12;
-    var yr = cy + Math.floor((cm - i) / 12);
-    if (cm - i < 0) yr = cy - 1;
+    var yr = cy + Math.floor((cm - i) / 12);   // floor() is correct for negatives — no clamp
     periodMonths.push(MO[mo] + ' ' + yr);
   }
 
@@ -10918,10 +10919,14 @@ var n = parseInt(ST.incPeriod || '6', 10);
     if (periodMonths.indexOf(lbl) < 0) return false;
     if (cat && t.cat !== cat) return false;
     if (q && (t.desc + ' ' + t.cat).toLowerCase().indexOf(q) < 0) return false;
-    if (ST.incNeedOnly && !_txNeedsLook(t)) return false;
     t._realIdx = ST.txns.indexOf(t);
     return true;
   });
+
+  var _needHere = 0;
+  list.forEach(function(t){ if (_txNeedsLook(t)) _needHere++; });
+  window.__txNeedCount_inc = _needHere;
+  if (ST.incNeedOnly) list = list.filter(function(t){ return !!_txNeedsLook(t); });
 
   var tbody = $('income-tbody');
   if (!tbody) return;
@@ -10968,7 +10973,7 @@ rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
            a farmer wants here far more often than an explanation. */
         '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'income\')">' +
           '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat) + '<i class="tx-caret">\u25be</i></span>' +
-          (_need ? '<div class="tx-need-hint">looks like ' + esc(_need) + '</div>' : '') + '</td>' +
+          (_need ? '<div class="tx-need-hint">looks like ' + esc(_need) + ' \u00b7 <span class="tx-keep" onclick="event.stopPropagation();txCatConfirm(' + ri + ')">keep as is</span></div>' : '') + '</td>' +
         '<td style="font-weight:700;color:var(--gd);text-align:right">+' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
       '</tr>';
@@ -11007,11 +11012,27 @@ function _txStickyOffsets(){
     var tb=bar.closest('.tx-toolbar'); if(!tb) return;
     var card=tb.closest('.tx-card'); if(!card) return;
     var h=Math.round(tb.getBoundingClientRect().height);
+    /* A hidden page measures 0. Writing 0 pins the sticky header to the viewport top,
+       where it overlaps the toolbar and the first rows — exactly the broken layout this
+       shipped with. Keep the previous value (or the CSS default) instead. */
+    if (h < 2) return;
     card.style.setProperty('--tx-th-top', h+'px');
     var th=card.querySelector('.tx-tbl thead th');
     var thH=th?Math.round(th.getBoundingClientRect().height):38;
     card.style.setProperty('--tx-mo-top', (h+thH)+'px');
   });
+  /* The Transactions page keeps its filter bar OUTSIDE the card — measure it too;
+     until now nothing ever set --txall-th-top and the 58px default was a guess. */
+  var fb=document.getElementById('tx-filter-bar'), tcard=document.getElementById('tx-table-card');
+  if (fb && tcard){
+    var fh=Math.round(fb.getBoundingClientRect().height);
+    if (fh >= 2){
+      tcard.style.setProperty('--txall-th-top', fh+'px');
+      var th2=tcard.querySelector('#tx-tbl thead th');
+      var th2H=th2?Math.round(th2.getBoundingClientRect().height):38;
+      tcard.style.setProperty('--tx-mo-top', (fh+th2H)+'px');
+    }
+  }
 }
 try{ window.addEventListener('resize', function(){ try{ _txStickyOffsets(); }catch(e){} }); }catch(e){}
 /* ── Transaction list: selection, inline recategorise, and the "needs a look" scan ──
@@ -11023,12 +11044,35 @@ var TX_SEL = {expense:{}, income:{}};
 /* A row "needs a look" when the description points somewhere other than where it is
    filed. Fallback guesses are ignored — inferCategory always returns SOMETHING, and
    flagging every row whose fallback differs would bury the real ones. */
+/* The boot migrations run before Supabase sync can replace ST.txns, so data loaded from
+   the server may still carry pre-merge names ('Veterinary') and spelling variants
+   ('CropSales'). All three migrations are idempotent; re-run them when the ledger's row
+   count changes and something the registry does not recognise is present. */
+var _txMigLastN = -1;
+function _txMigrateIfNeeded(){
+  try{
+    var n = (ST.txns||[]).length;
+    if (n === _txMigLastN) return;
+    _txMigLastN = n;
+    var reg = {};
+    FARM_CATS.forEach(function(c){ reg[c.n] = 1; });
+    var dirty = (ST.txns||[]).some(function(t){ return t && t.cat && !reg[t.cat]; });
+    if (!dirty) return;
+    migrateCatSpelling(); migrateCatMerges(); migrateProduceSplit();
+    try{ _fcFillAllSelects(); }catch(e){}
+    try{ txFillCatSelect(); }catch(e){}
+  }catch(e){}
+}
+
 function _txNeedsLook(t){
   if (!t || !t.desc || t._catOk) return null;
   var isInc = (t.type === 'income');
   var guess;
   try{ guess = inferCategory(t.desc, isInc); }catch(e){ return null; }
   if (!guess || guess === t.cat) return null;
+  /* Cloud-synced data can arrive AFTER the boot migrations ran, still carrying spelling
+     variants ('CropSales'). Same category, different spelling — not a finding. */
+  try{ if (typeof normalizeCat==='function' && normalizeCat(t.cat) === guess) return null; }catch(e){}
   if (guess === 'Other Expenses' || guess === 'Other Income') return null;  // a shrug, not a finding
   return guess;
 }
@@ -11045,7 +11089,15 @@ function txCatConfirm(idx, kind){
   var t = ST.txns[idx]; if (!t) return;
   t._catOk = true;
   try{ saveState&&saveState(); }catch(e){}
+  kind = kind || t.type;
   (kind==='income') ? filterIncomeTx() : filterExpTx();
+}
+/* Same confirmation from the all-transactions page. */
+function txAllCatConfirm(idx){
+  var t = ST.txns[idx]; if (!t) return;
+  t._catOk = true;
+  try{ saveState&&saveState(); }catch(e){}
+  txRender();
 }
 
 /* ── Inline recategorise ─────────────────────────────────────────────────────────── */
@@ -11140,7 +11192,8 @@ function _txFillBulkCat(kind){
 function _txNeedButton(kind){
   var short = (kind==='income') ? 'inc' : 'exp';
   var btn = document.getElementById(short+'-need-btn'); if (!btn) return;
-  var c = _txNeedList(kind).length;
+  var c = (short==='inc') ? window.__txNeedCount_inc : window.__txNeedCount_exp;
+  if (c == null) c = _txNeedList(kind).length;
   var on = !!ST[short+'NeedOnly'];
   btn.style.display = (c || on) ? '' : 'none';
   btn.className = 'tx-need-btn' + (on ? ' on' : '');
@@ -11150,7 +11203,7 @@ function _txNeedButton(kind){
     if (!note){ note = document.createElement('div'); note.id = noteId; note.className = 'tx-need-note';
                 btn.parentNode.insertBefore(note, btn.nextSibling); }
     note.innerHTML = 'These ' + c + ' transaction' + (c===1?'':'s') + ' are filed somewhere the description does not point. ' +
-      'Nothing has been changed \u2014 click a category to move it, or open the row and confirm it is right to stop the reminder.';
+      'Nothing has been changed \u2014 click a category chip to move it, or tap \u2018keep as is\u2019 to stop the reminder.';
   } else if (note){ note.remove(); }
 }
 
@@ -11177,6 +11230,7 @@ function _txFilterSummary(kind, shown, shownTotal, allInPeriod){
 }
 
 function filterExpTx() {
+  try{ _txMigrateIfNeeded(); }catch(e){}
   var q   = ($('exp-search')     && $('exp-search').value.toLowerCase())     || '';
   var cat = ($('exp-cat-filter') && $('exp-cat-filter').value)               || '';
   var MO  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -11189,8 +11243,7 @@ var n = parseInt(ST.expPeriod || '6', 10);
   var periodMonths = [];
   for (var i = n - 1; i >= 0; i--) {
     var mo = ((cm - i) % 12 + 12) % 12;
-    var yr = cy + Math.floor((cm - i) / 12);
-    if (cm - i < 0) yr = cy - 1;
+    var yr = cy + Math.floor((cm - i) / 12);   // floor() is correct for negatives — no clamp
     periodMonths.push(MO[mo] + ' ' + yr);
   }
 
@@ -11201,9 +11254,13 @@ var n = parseInt(ST.expPeriod || '6', 10);
     if (periodMonths.indexOf(lbl) < 0) return false;
     if (cat && t.cat !== cat) return false;
     if (q && (t.desc + ' ' + t.cat).toLowerCase().indexOf(q) < 0) return false;
-    if (ST.expNeedOnly && !_txNeedsLook(t)) return false;
     return true;
   });
+
+  var _needHere = 0;
+  list.forEach(function(t){ if (_txNeedsLook(t)) _needHere++; });
+  window.__txNeedCount_exp = _needHere;
+  if (ST.expNeedOnly) list = list.filter(function(t){ return !!_txNeedsLook(t); });
 
   var tbody = $('expense-tbody');
   if (!tbody) return;
@@ -11250,7 +11307,7 @@ var months = [];
            a farmer wants here far more often than an explanation. */
         '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'expense\')">' +
           '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat) + '<i class="tx-caret">\u25be</i></span>' +
-          (_need ? '<div class="tx-need-hint">looks like ' + esc(_need) + '</div>' : '') + '</td>' +
+          (_need ? '<div class="tx-need-hint">looks like ' + esc(_need) + ' \u00b7 <span class="tx-keep" onclick="event.stopPropagation();txCatConfirm(' + ri + ')">keep as is</span></div>' : '') + '</td>' +
         '<td style="font-weight:700;color:var(--rd);text-align:right">− ' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
       '</tr>';
@@ -11291,8 +11348,7 @@ var parts = (curMonth||'May 2024').split(' ');
   var periodMonths = [];
   for (var i = months - 1; i >= 0; i--) {
     var mo = ((cm - i) % 12 + 12) % 12;
-    var yr = cy + Math.floor((cm - i) / 12);
-    if (cm - i < 0) yr = cy - 1;
+    var yr = cy + Math.floor((cm - i) / 12);   // floor() is correct for negatives — no clamp
     var mn = Object.keys(MONTH_NAMES).find(function(k){ return MONTH_NAMES[k] === ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mo]; });
     var lbl = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][mo] + ' ' + yr;
     periodMonths.push(lbl);
@@ -11457,8 +11513,7 @@ var COLORS = (typeof EXP_CAT_COLORS !== 'undefined' && EXP_CAT_COLORS) ? EXP_CAT
   var periodMonths = [];
   for (var i = n - 1; i >= 0; i--) {
     var mo = ((cm - i) % 12 + 12) % 12;
-    var yr = cy + Math.floor((cm - i) / 12);
-    if (cm - i < 0) yr = cy - 1;
+    var yr = cy + Math.floor((cm - i) / 12);   // floor() is correct for negatives — no clamp
     periodMonths.push(MO[mo] + ' ' + yr);
   }
 
@@ -13011,6 +13066,10 @@ function nav(id) {
 
   var c = $('content');
   if (c) c.scrollTop = 0;
+
+  // Sticky offsets can only be measured while the page is visible; remeasure after
+  // the switch has painted.
+  try{ requestAnimationFrame(function(){ try{ _txStickyOffsets(); }catch(e){} }); }catch(e){}
 
   setTimeout(function(){
     if (id === 'dashboard')   { renderRecentIncome(); updateDashboardFigures(); try { initDashChart(); } catch (e) { /* Chart.js may have failed to load; non-chart UI still renders */ } }
@@ -28263,8 +28322,7 @@ function renderIncBySource() {
   var periodMonths = [];
   for (var i = n - 1; i >= 0; i--) {
     var mo = ((cm - i) % 12 + 12) % 12;
-    var yr = cy + Math.floor((cm - i) / 12);
-    if (cm - i < 0) yr = cy - 1;
+    var yr = cy + Math.floor((cm - i) / 12);   // floor() is correct for negatives — no clamp
     periodMonths.push(MO[mo] + ' ' + yr);
   }
 
@@ -36601,7 +36659,7 @@ function txAllCatApply(idx, cat){
 }
 function txAllNeedButton(){
   var btn=$('txall-need-btn'); if(!btn) return;
-  var c=txAllNeedList().length, on=!!ST.txNeedOnly;
+  var c=(window.__txAllNeedCount!=null)?window.__txAllNeedCount:txAllNeedList().length, on=!!ST.txNeedOnly;
   btn.style.display=(c||on)?'':'none';
   btn.className='tx-need-btn'+(on?' on':'');
   btn.textContent = on ? ('✕  Showing '+c+' to check') : (c+' need a look');
@@ -36610,7 +36668,7 @@ function txAllNeedButton(){
     if(!note){ note=document.createElement('div'); note.id='txall-need-note'; note.className='tx-need-note';
                btn.parentNode.insertBefore(note, btn.nextSibling); }
     note.innerHTML='These '+c+' transaction'+(c===1?'':'s')+' are filed somewhere the description does not point. '+
-      'Nothing has been changed — click a category to move it, or open the row and confirm it is right.';
+      'Nothing has been changed — click a category chip to move it, or tap \u2018keep as is\u2019 to stop the reminder.';
   } else if(note){ note.remove(); }
 }
 
@@ -36710,6 +36768,7 @@ function txUpdateSummary() {
 
 // ── Main render ────────────────────────────────────────────────
 function txRender() {
+  try{ _txMigrateIfNeeded(); }catch(e){}
   var q = ($('tx-search')||{}).value || '';
   var lo = q.toLowerCase();
 
@@ -36727,9 +36786,15 @@ function txRender() {
       if (TX_TO)   { var tp = TX_TO.split('-');   if (dn > (+tp[0]*10000 + +tp[1]*100 + +tp[2])) return false; }
     }
     if (lo && (t.desc+' '+t.cat+' '+t.date+' '+t.amt).toLowerCase().indexOf(lo) < 0) return false;
-    if (ST.txNeedOnly && !_txNeedsLook(t)) return false;
     return true;
   });
+
+  /* Count flagged rows INSIDE the active filters, so the button never promises more
+     than clicking it will show ("25 need a look" -> 4 rows was this bug). */
+  var _needHere = 0;
+  list.forEach(function(t){ if (_txNeedsLook(t)) _needHere++; });
+  window.__txAllNeedCount = _needHere;
+  if (ST.txNeedOnly) list = list.filter(function(t){ return !!_txNeedsLook(t); });
 
   // Group by month
   var months = [];
@@ -36797,7 +36862,7 @@ function txRender() {
                '<div class="tx-source">'+escHtml(source)+'</div></td>' +
           '<td class="tx-catcell" style="white-space:nowrap" onclick="event.stopPropagation(); txAllCatOpen('+ri+', this)">' +
             catTag(t.cat||'') +
-            (need ? '<div class="tx-need-hint">looks like '+escHtml(need)+'</div>' : '') + '</td>' +
+            (need ? '<div class="tx-need-hint">looks like '+escHtml(need)+' \u00b7 <span class="tx-keep" onclick="event.stopPropagation();txAllCatConfirm('+ri+')">keep as is</span></div>' : '') + '</td>' +
           '<td style="text-align:right;font-weight:700;color:'+amtCol+'">'+amtSign+fmt(t.amt)+'</td>' +
           '<td style="font-size:12px;color:var(--t3);white-space:nowrap">'+escHtml(t.method||'')+'</td>' +
           '<td><button class="tx-edit-btn" onclick="event.stopPropagation();txStartEdit('+ri+')">✏ Edit</button></td>' +
@@ -36836,6 +36901,7 @@ function txRender() {
   try{ txAllSelBar(); }catch(e){}
   try{ txFillCatSelect(); }catch(e){}
   try{ _txSyncPeriodSelect(); }catch(e){}
+  try{ _txStickyOffsets(); }catch(e){}
 
   // Update summary
   txUpdateSummary();
