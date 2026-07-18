@@ -2237,7 +2237,7 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
 .tx-card{padding:0;position:relative}
 .tx-toolbar{position:sticky;top:0;z-index:6;background:var(--card);padding:14px 16px;border-bottom:1px solid var(--br2);border-radius:13px 13px 0 0}
 /* The Transactions page keeps its filters OUTSIDE the card, so it sticks to the page. */
-.tx-filters{position:sticky;top:0;z-index:7;background:var(--bg);padding:10px 0 9px}
+.tx-filters{position:sticky;top:0;z-index:7;background:var(--bg);padding:10px 0 9px;box-shadow:0 -26px 0 0 var(--bg)}
 .tx-filters > select{flex:0 0 auto;width:auto}
 .tx-filters .tx-search-wrap{flex:0 0 auto}
 #tx-tbl thead th{position:sticky;top:var(--txall-th-top,58px);z-index:5;background:var(--bg)}
@@ -2258,7 +2258,7 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
 .tx-selcol{width:34px;padding-left:14px!important;padding-right:0!important}
 .tx-selcol input{width:15px;height:15px;cursor:pointer;accent-color:var(--gd)}
 .tx-row-sel td{background:var(--gb)!important}
-.tx-row-need td:first-child{box-shadow:inset 3px 0 0 #F59E0B}
+.tx-row-need td:first-child{box-shadow:inset 2px 0 0 #EBCF9C}
 .tx-catcell{cursor:pointer}
 .tx-tag-btn{display:inline-flex;align-items:center;gap:5px;cursor:pointer;transition:filter .12s}
 .tx-catcell:hover .tx-tag-btn{filter:brightness(.94)}
@@ -2270,6 +2270,20 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
 .tx-need-btn.on{background:#B45309;color:#fff;border-color:#B45309}
 .tx-need-note{margin:8px 0 10px;font-size:11.5px;line-height:1.55;color:#7C2D12;background:#FFFBEB;border:1px solid #FDE68A;border-radius:9px;padding:9px 11px;max-width:760px}
 .tx-keep{text-decoration:underline;cursor:pointer;font-weight:700;color:#92400E}
+.tx-sug{display:inline-block;max-width:136px;overflow:hidden;text-overflow:ellipsis;margin-left:6px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;color:#B45309;background:#FFF8E8;border:1.5px solid #F2DFB4;cursor:pointer;white-space:nowrap;vertical-align:middle}
+.tx-sug:hover{background:#FEF0D2}
+.tx-keepbtn{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;margin-left:5px;border-radius:999px;border:1.5px solid var(--br);background:#fff;color:var(--t3);font-size:11px;cursor:pointer;vertical-align:middle;flex:none}
+.tx-keepbtn:hover{border-color:var(--gd);color:var(--gd)}
+.tag.tx-uncat,.tx-uncat{background:transparent;border:1.5px dashed var(--t4);color:var(--t3);font-weight:600}
+.tx-menu{position:fixed;z-index:2147483000;background:#fff;border:1.5px solid var(--br);border-radius:11px;box-shadow:0 10px 32px rgba(0,0,0,.14);min-width:230px;max-width:280px;max-height:380px;overflow-y:auto;padding:5px;font-size:12.5px}
+.tx-menu-it{padding:7px 11px;border-radius:7px;cursor:pointer;color:var(--t2)}
+.tx-menu-it:hover{background:var(--bg)}
+.tx-menu-it.on{font-weight:800;color:var(--gd);background:var(--gb)}
+.tx-menu-sug{padding:8px 11px;border-radius:8px;cursor:pointer;background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;font-weight:700;margin-bottom:4px}
+.tx-menu-sug span{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;opacity:.75}
+.tx-menu-sug:hover{background:#FEF3C7}
+.tx-menu-keep{padding:6px 11px;border-radius:7px;cursor:pointer;color:var(--t3);font-size:11.5px;margin-bottom:4px;border-bottom:1px solid var(--br2)}
+.tx-menu-keep:hover{background:var(--bg)}
 .tx-bulk-bar{display:flex;align-items:center;gap:9px;margin-top:9px;padding:8px 11px;background:var(--gb);border:1.5px solid var(--gl);border-radius:10px;flex-wrap:wrap}
 .tx-bulk-n{flex:0 0 auto}
 .tx-bulk-n{font-size:12px;font-weight:700;color:var(--gd)}
@@ -7164,11 +7178,11 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <table class="tbl" id="tx-tbl" style="min-width:760px">
       <thead><tr>
         <th class="tx-selcol"><input type="checkbox" class="tx-selall" title="Select all shown" onchange="txAllSelAll(this.checked)"/></th>
-        <th style="width:104px;white-space:nowrap">Date</th>
+        <th style="width:96px;white-space:nowrap">Date</th>
         <th style="min-width:200px">Description</th>
-        <th style="width:172px">Category</th>
-        <th style="width:104px;text-align:right;white-space:nowrap">Amount</th>
-        <th style="width:120px;white-space:nowrap">Method</th>
+        <th style="width:252px">Category</th>
+        <th style="width:98px;text-align:right;white-space:nowrap">Amount</th>
+        <th style="width:90px;white-space:nowrap">Method</th>
         <th style="width:56px"></th>
       </tr></thead>
       <tbody id="all-tbody"></tbody>
@@ -10960,7 +10974,7 @@ rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
     '</td></tr>';
 
     moTxns.forEach(function(t, ti) {
-      var tag = CAT_TAG[t.cat] || 'tg';
+      var tag = t.cat ? (CAT_TAG[t.cat] || 'tg') : 'tx-uncat';
       var bg = ti % 2 !== 0 ? 'background:var(--bg)' : '';
       var ri = ST.txns.indexOf(t);
       var clip = t.receipt ? ' <span class="txd-clip">\u00b7 \ud83d\udcce</span>' : '';
@@ -10974,8 +10988,9 @@ rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
         /* The category cell is a button: clicking it CHANGES the category, which is what
            a farmer wants here far more often than an explanation. */
         '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'income\')">' +
-          '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat||'Uncategorised') + '<i class="tx-caret">\u25be</i></span>' +
-          (_need ? '<div class="tx-need-hint">looks like ' + esc(_need) + ' \u00b7 <span class="tx-keep" onclick="event.stopPropagation();txCatConfirm(' + ri + ')">keep as is</span></div>' : '') + '</td>' +
+          '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat||'None') + '<i class="tx-caret">\u25be</i></span>' +
+          (_need ? ' <span class="tx-sug" onclick="event.stopPropagation();txCatApply(' + ri + ', \'' + esc(_need).replace(/'/g,"\\'") + '\')" title="Move to ' + esc(_need) + '">\u2192 ' + esc(_need) + '</span>' +
+          '<span class="tx-keepbtn" onclick="event.stopPropagation();txCatConfirm(' + ri + ')" title="Keep as is \u2014 stop flagging">\u2713</span>' : '') + '</td>' +
         '<td style="font-weight:700;color:var(--gd);text-align:right">+' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
       '</tr>';
@@ -11103,25 +11118,62 @@ function txAllCatConfirm(idx){
 }
 
 /* ── Inline recategorise ─────────────────────────────────────────────────────────── */
+/* ── Category popover ─────────────────────────────────────────────────────────────
+   The injected <select> needed a second click on browsers where showPicker() refused.
+   This popover opens fully on the FIRST click, pins the suggestion (when the row is
+   flagged) to the top, and offers "keep as is" in the same place. */
+var TX_MENU = null;
+function _txMenuClose(){
+  if (!TX_MENU) return;
+  try{ document.removeEventListener('mousedown', _txMenuOutside, true); }catch(e){}
+  try{ document.removeEventListener('keydown', _txMenuKey, true); }catch(e){}
+  if (TX_MENU.el && TX_MENU.el.parentNode) TX_MENU.el.parentNode.removeChild(TX_MENU.el);
+  TX_MENU = null;
+}
+function _txMenuOutside(ev){ if (TX_MENU && !TX_MENU.el.contains(ev.target)) _txMenuClose(); }
+function _txMenuKey(ev){ if (ev.key === 'Escape') _txMenuClose(); }
+function _txCatMenu(idx, anchor, apply){
+  _txMenuClose();
+  var t = ST.txns[idx]; if (!t || !anchor) return;
+  var isInc = (t.type === 'income');
+  var used = {}; (ST.txns||[]).forEach(function(x){ if (x.cat) used[x.cat] = (used[x.cat]||0)+1; });
+  var cats = FARM_CATS.filter(function(c){ return c.t === (isInc?'inc':'exp') || c.t === 'both'; })
+    .map(function(c){ return c.n; })
+    .sort(function(a,b){ return (used[b]||0)-(used[a]||0) || (a<b?-1:1); });
+  var need = null; try{ need = _txNeedsLook(t); }catch(e){}
+  var h = '';
+  if (need){
+    h += '<div class="tx-menu-sug" onclick="TX_MENU.apply(\'' + esc(need).replace(/'/g,"\\'") + '\');_txMenuClose()">'+
+         '<span>Suggested</span> ' + esc(need) + '</div>';
+    h += '<div class="tx-menu-keep" onclick="TX_MENU.keep();_txMenuClose()">✓ Keep as ' + esc(t.cat||'Uncategorised') + '</div>';
+  }
+  h += cats.map(function(c){
+    return '<div class="tx-menu-it' + (c===t.cat?' on':'') + '" onclick="TX_MENU.apply(\'' + esc(c).replace(/'/g,"\\'") + '\');_txMenuClose()">' + esc(c) + '</div>';
+  }).join('');
+  var el = document.createElement('div');
+  el.className = 'tx-menu';
+  el.innerHTML = h;
+  document.body.appendChild(el);
+  var r = anchor.getBoundingClientRect();
+  var top = r.bottom + 4, left = Math.min(r.left, innerWidth - 290);
+  if (top + Math.min(el.offsetHeight, 380) > innerHeight - 8) top = Math.max(8, r.top - Math.min(el.offsetHeight, 380) - 4);
+  el.style.top = top + 'px'; el.style.left = left + 'px';
+  TX_MENU = {el:el, apply:apply,
+             keep:function(){ var x=ST.txns[idx]; if(x){ x._catOk=true; try{saveState&&saveState();}catch(e){} }
+                             try{ txRender(); }catch(e){} try{ filterExpTx(); }catch(e){} try{ filterIncomeTx(); }catch(e){} }};
+  document.addEventListener('mousedown', _txMenuOutside, true);
+  document.addEventListener('keydown', _txMenuKey, true);
+}
+
 function txCatOpen(idx, el, kind){
-  var t = ST.txns[idx]; if (!t || !el) return;
-  var cell = el.closest('td'); if (!cell) return;
-  if (cell.querySelector('select')) return;                 // already open
-  var opts = FARM_CATS.filter(function(c){
-    return c.t === (t.type==='income' ? 'inc' : 'exp') || c.t === 'both';
-  }).map(function(c){ return c.n; });
-  if (t.cat && opts.indexOf(t.cat) < 0) opts.unshift(t.cat);         // never hide where it is now
-  var prev = cell.innerHTML;
-  cell.innerHTML = '<select class="tx-cat-edit" onclick="event.stopPropagation()" ' +
-    'onchange="txCatApply(' + idx + ', this.value, \'' + kind + '\')" ' +
-    'onblur="(' + (kind==='income'?'filterIncomeTx':'filterExpTx') + ')()">' +
-    opts.map(function(c){ return '<option' + (c===t.cat?' selected':'') + '>' + esc(c) + '</option>'; }).join('') +
-    '</select>';
-  var sel = cell.querySelector('select');
-  if (sel){ sel.focus(); try{ sel.showPicker && sel.showPicker(); }catch(e){} }
+  _txCatMenu(idx, el, function(cat){
+    txCatApply(idx, cat, kind);
+  });
 }
 function txCatApply(idx, cat, kind){
-  var t = ST.txns[idx]; if (!t || !cat || cat === t.cat) {
+  var t = ST.txns[idx];
+  kind = kind || (t && t.type);                             // pill callers omit it
+  if (!t || !cat || cat === t.cat) {
     return (kind==='income') ? filterIncomeTx() : filterExpTx();
   }
   var from = t.cat;
@@ -11205,10 +11257,20 @@ function _txNeedButton(kind){
     if (!note){ note = document.createElement('div'); note.id = noteId; note.className = 'tx-need-note';
                 btn.parentNode.insertBefore(note, btn.nextSibling); }
     note.innerHTML = 'These ' + c + ' transaction' + (c===1?'':'s') + ' are filed somewhere the description does not point. ' +
-      'Nothing has been changed \u2014 click a category chip to move it, or tap \u2018keep as is\u2019 to stop the reminder.';
+      'Nothing has been changed \u2014 take the \u2192 suggestion, tap \u2713 to keep a row as it is, or click its category to file it elsewhere.';
   } else if (note){ note.remove(); }
 }
 
+/* Human label for a month-count period. The count is internal plumbing — 600 means
+   "all time" and the FY resolves to a count — so titles must translate back, or the
+   farmer reads "Income Overview — Last 600 Months". */
+function _txPeriodTitle(n){
+  n = parseInt(n,10)||6;
+  if (n === 1)   return 'This Month';
+  if (n >= 600)  return 'All Time';
+  try{ if (typeof _txFyMonths==='function' && n === _txFyMonths()) return 'This Financial Year'; }catch(e){}
+  return 'Last ' + n + ' Months';
+}
 function _txFilterSummary(kind, shown, shownTotal, allInPeriod){
   var el=document.getElementById(kind==='income'?'inc-filter-summary':'exp-filter-summary');
   if(!el) return;
@@ -11294,7 +11356,7 @@ var months = [];
     '</td></tr>';
 
     moTxns.forEach(function(t, ti) {
-      var tag = CAT_TAG[t.cat] || 'tr';
+      var tag = t.cat ? (CAT_TAG[t.cat] || 'tr') : 'tx-uncat';
       var bg = ti % 2 !== 0 ? 'background:var(--bg)' : '';
       var ri = ST.txns.indexOf(t);
       var clip = t.receipt ? ' <span class="txd-clip">\u00b7 \ud83d\udcce</span>' : '';
@@ -11308,8 +11370,9 @@ var months = [];
         /* The category cell is a button: clicking it CHANGES the category, which is what
            a farmer wants here far more often than an explanation. */
         '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'expense\')">' +
-          '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat||'Uncategorised') + '<i class="tx-caret">\u25be</i></span>' +
-          (_need ? '<div class="tx-need-hint">looks like ' + esc(_need) + ' \u00b7 <span class="tx-keep" onclick="event.stopPropagation();txCatConfirm(' + ri + ')">keep as is</span></div>' : '') + '</td>' +
+          '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat||'None') + '<i class="tx-caret">\u25be</i></span>' +
+          (_need ? ' <span class="tx-sug" onclick="event.stopPropagation();txCatApply(' + ri + ', \'' + esc(_need).replace(/'/g,"\\'") + '\')" title="Move to ' + esc(_need) + '">\u2192 ' + esc(_need) + '</span>' +
+          '<span class="tx-keepbtn" onclick="event.stopPropagation();txCatConfirm(' + ri + ')" title="Keep as is \u2014 stop flagging">\u2713</span>' : '') + '</td>' +
         '<td style="font-weight:700;color:var(--rd);text-align:right">− ' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
       '</tr>';
@@ -11374,7 +11437,7 @@ function updateIncPage() {
   var n  = parseInt(p);
   var R  = txSummaryPeriod(n);
   var Rp = txSummaryPeriod(n * 2);
-  var lbl     = n === 1 ? 'This Month' : 'Last ' + p + ' Months';
+  var lbl     = _txPeriodTitle(n);
   var prevLbl = n === 1 ? 'last month' : 'prev ' + p + ' months';
 
 setEl('inc-banner-val',    fmt(R.income));
@@ -11424,7 +11487,7 @@ function updateExpPage() {
   var n  = parseInt(p);
   var R  = txSummaryPeriod(n);
   var Rp = txSummaryPeriod(n * 2);
-  var lbl     = n === 1 ? 'This Month' : 'Last ' + p + ' Months';
+  var lbl     = _txPeriodTitle(n);
   var prevLbl = n === 1 ? 'last month' : 'prev ' + p + ' months';
   var ha = ST.farmHa || 1;
 
@@ -11533,7 +11596,7 @@ var COLORS = (typeof EXP_CAT_COLORS !== 'undefined' && EXP_CAT_COLORS) ? EXP_CAT
   var sorted = Object.keys(cats).sort(function(a,b){ return cats[b]-cats[a]; });
 
   // ── Update period sub-label ──
-  var periodLbl = n === 1 ? 'This Month' : 'Last ' + n + ' Months';
+  var periodLbl = _txPeriodTitle(n);
   setEl('exp-bycat-period', periodLbl);
 
   if (!sorted.length) {
@@ -12707,7 +12770,7 @@ function dashPeriodMonths() {
 }
 function dashPeriodLabel() {
   var n = parseInt(ST.period || '6', 10) || 6;
-  return n === 1 ? 'This Month' : 'Last ' + n + ' Months';
+  return _txPeriodTitle(n);
 }
 
 function renderDashExpCats() {
@@ -28342,7 +28405,7 @@ function renderIncBySource() {
   var sorted = Object.keys(cats).sort(function(a,b){ return cats[b]-cats[a]; });
 
   // ── Update period sub-label on the card header (if present) ──
-  var periodLbl = n === 1 ? 'This Month' : 'Last ' + n + ' Months';
+  var periodLbl = _txPeriodTitle(n);
   setEl('inc-bysource-period', periodLbl);
 
   if (!sorted.length) {
@@ -29292,9 +29355,9 @@ if (cf3)      cf3.style.display      = '';
 setEl('cf-now-sub',    'Looking back over ' + lblL);
   setEl('cf-hist-title', titleLbl);
 
-setEl('cf-in-lbl',  'Money In · ' + (n === 1 ? titleLbl : 'Last ' + n + ' Months'));
-  setEl('cf-out-lbl', 'Money Out · ' + (n === 1 ? titleLbl : 'Last ' + n + ' Months'));
-  setEl('cf-net-lbl', 'Profit · ' + (n === 1 ? titleLbl : 'Last ' + n + ' Months'));
+setEl('cf-in-lbl',  'Money In · ' + (n === 1 ? titleLbl : _txPeriodTitle(n)));
+  setEl('cf-out-lbl', 'Money Out · ' + (n === 1 ? titleLbl : _txPeriodTitle(n)));
+  setEl('cf-net-lbl', 'Profit · ' + (n === 1 ? titleLbl : _txPeriodTitle(n)));
 
 setEl('cf-in-val',  fmt(R.income));
   setEl('cf-out-val', fmt(R.expenses));
@@ -36641,15 +36704,9 @@ function txAllBulkApply(){
   try{ toast&&toast(moved+' transaction'+(moved===1?'':'s')+' moved to '+cat); }catch(e){}
 }
 function txAllCatOpen(idx, el){
-  var t=ST.txns[idx]; if(!t||!el) return;
-  var cell=el.closest('td'); if(!cell||cell.querySelector('select')) return;
-  var opts=FARM_CATS.filter(function(c){ return c.t===(t.type==='income'?'inc':'exp')||c.t==='both'; })
-                    .map(function(c){ return c.n; });
-  if(t.cat && opts.indexOf(t.cat)<0) opts.unshift(t.cat);
-  cell.innerHTML='<select class="tx-cat-edit" onclick="event.stopPropagation()" '+
-    'onchange="txAllCatApply('+idx+', this.value)" onblur="txRender()">'+
-    opts.map(function(c){ return '<option'+(c===t.cat?' selected':'')+'>'+esc(c)+'</option>'; }).join('')+'</select>';
-  var s2=cell.querySelector('select'); if(s2){ s2.focus(); try{ s2.showPicker&&s2.showPicker(); }catch(e){} }
+  _txCatMenu(idx, el, function(cat){
+    txAllCatApply(idx, cat);
+  });
 }
 function txAllCatApply(idx, cat){
   var t=ST.txns[idx]; if(!t||!cat||cat===t.cat) return txRender();
@@ -36670,7 +36727,7 @@ function txAllNeedButton(){
     if(!note){ note=document.createElement('div'); note.id='txall-need-note'; note.className='tx-need-note';
                btn.parentNode.insertBefore(note, btn.nextSibling); }
     note.innerHTML='These '+c+' transaction'+(c===1?'':'s')+' are filed somewhere the description does not point. '+
-      'Nothing has been changed — click a category chip to move it, or tap \u2018keep as is\u2019 to stop the reminder.';
+      'Nothing has been changed — take the \u2192 suggestion, tap \u2713 to keep a row as it is, or click its category to file it elsewhere.';
   } else if(note){ note.remove(); }
 }
 
@@ -36816,6 +36873,7 @@ function txRender() {
 
   function catTag(cat) {
     var colors = CAT_COLORS[cat];
+    if (cat === 'Uncategorised') return '<span class="tag tx-uncat" title="No category yet">None</span>';
     if (!colors) return '<span class="tag tgr" style="white-space:nowrap">'+escHtml(cat)+'</span>';
     var parts = colors.split(':');
     return '<span style="background:'+parts[0]+';color:'+parts[1]+';padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;display:inline-block">'+escHtml(cat)+'</span>';
@@ -36862,9 +36920,10 @@ function txRender() {
           '<td style="font-size:12px;color:var(--t3);white-space:nowrap">'+escHtml(t.date)+'</td>' +
           '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">'+escHtml(t.desc||'')+'</div>' +
                '<div class="tx-source">'+escHtml(source)+'</div></td>' +
-          '<td class="tx-catcell" style="white-space:nowrap" onclick="event.stopPropagation(); txAllCatOpen('+ri+', this)">' +
+          '<td class="tx-catcell" onclick="event.stopPropagation(); txAllCatOpen('+ri+', this)">' +
             catTag(t.cat||'Uncategorised') +
-            (need ? '<div class="tx-need-hint">looks like '+escHtml(need)+' \u00b7 <span class="tx-keep" onclick="event.stopPropagation();txAllCatConfirm('+ri+')">keep as is</span></div>' : '') + '</td>' +
+            (need ? ' <span class="tx-sug" onclick="event.stopPropagation();txAllCatApply('+ri+', \''+escHtml(need).replace(/'/g,"\\'")+'\')" title="Move to '+escHtml(need)+'">\u2192 '+escHtml(need)+'</span>'+
+                    '<span class="tx-keepbtn" onclick="event.stopPropagation();txAllCatConfirm('+ri+')" title="Keep as is \u2014 stop flagging">\u2713</span>' : '') + '</td>' +
           '<td style="text-align:right;font-weight:700;color:'+amtCol+'">'+amtSign+fmt(t.amt)+'</td>' +
           '<td style="font-size:12px;color:var(--t3);white-space:nowrap">'+escHtml(t.method||'')+'</td>' +
           '<td><button class="tx-edit-btn" onclick="event.stopPropagation();txStartEdit('+ri+')">✏ Edit</button></td>' +
