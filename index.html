@@ -2551,6 +2551,25 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
 .ls-tagsec-h span{font-size:11px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.04em}
 .ls-tag-add{font-size:11.5px;font-weight:800;color:var(--gd);background:var(--gp);border:none;border-radius:8px;padding:6px 11px;cursor:pointer;font-family:inherit}
 .ls-sexchips{display:flex;gap:6px;flex-wrap:wrap}
+.ai-leave-card{border:1.5px solid var(--gp);background:var(--gb);border-radius:11px;padding:12px 13px}
+.ai-leave-h{font-size:12.5px;font-weight:800;color:var(--gd);margin-bottom:8px}
+.ai-leave-chk{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;line-height:1.45;cursor:pointer;color:var(--t2)}
+.ai-leave-chk input{margin-top:2px;width:16px;height:16px;accent-color:var(--gm)}
+.ai-leave-chk b{color:var(--t1)}
+.ai-leave-sub{font-size:11.5px;line-height:1.5;color:var(--t3);margin-top:9px}
+.ai-leave-none{font-size:11.5px;line-height:1.5;color:var(--t3);background:#fff;border:1px dashed var(--gp);border-radius:9px;padding:9px 11px;margin-top:8px}
+.ai-leave-list{display:flex;flex-direction:column;gap:5px;background:#fff;border:1px solid var(--br);border-radius:9px;padding:7px;margin-top:5px;max-height:190px;overflow-y:auto}
+.ai-leave-row{display:grid;grid-template-columns:18px 1fr auto;gap:9px;align-items:center;padding:7px 8px;border-radius:7px;font-size:12.5px;border:1px solid transparent;cursor:pointer}
+.ai-leave-row.sel{background:var(--gb);border-color:var(--gp)}
+.ai-leave-row.held{background:#FBECEA;border-color:#E9C4BE}
+.ai-leave-row .cb{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--gp);display:grid;place-items:center;font-size:10px;font-weight:800;color:transparent}
+.ai-leave-row.sel .cb{background:var(--gm);border-color:var(--gm);color:#fff}
+.ai-leave-row .tg{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ai-leave-row .st{font-size:10px;font-weight:800;padding:2px 7px;border-radius:999px}
+.ai-leave-row .st.ok{background:var(--gb);color:var(--gm)}
+.ai-leave-row .st.hold{background:#FBECEA;color:#C0392B}
+.ai-leave-tally{font-size:11.5px;color:var(--t2);margin-top:6px}
+.ai-leave-tally b{color:var(--t1)}
 .ls-sexchip{border:1.5px solid var(--br);border-radius:999px;padding:7px 13px;font-size:12px;font-weight:700;color:var(--t2);background:#fff;cursor:pointer;font-family:inherit}
 .ls-sexchip.on{background:var(--gb);border-color:var(--gp);color:var(--gd)}
 .ls-tagopt{color:var(--t4);font-weight:600;font-size:11px}
@@ -4457,7 +4476,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <div style="margin-bottom:12px"><label id="ai-cust-lbl">Customer / Buyer (optional)</label><input id="ai-cust" placeholder="Customer name"/></div>
         <!-- Qty section (Crops/Livestock/Agritourism) -->
         <div id="ai-qty-sec" class="fg3">
-          <div><label id="ai-qty-lbl">Quantity</label><div style="display:flex;gap:6px"><input id="ai-qty" type="number" placeholder="0" style="flex:1" oninput="calcSaleTotal()"/><select id="ai-unit" style="width:75px;flex:0"><option>Tons</option><option>kg</option><option>head</option></select></div></div>
+          <div><label id="ai-qty-lbl">Quantity</label><div style="display:flex;gap:6px"><input id="ai-qty" type="number" placeholder="0" style="flex:1" oninput="calcSaleTotal();lsLeaveRefresh()"/><select id="ai-unit" style="width:75px;flex:0"><option>Tons</option><option>kg</option><option>head</option></select></div></div>
           <div><label id="ai-price-lbl">Price per unit (R)</label><input id="ai-price" type="number" placeholder="0" oninput="calcSaleTotal()"/></div>
           <div><label>Total Amount (R)</label><input id="ai-total" readonly style="background:var(--gb);font-weight:700;color:var(--gd)" placeholder="Auto-calculated"/></div>
         </div>
@@ -4479,7 +4498,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div><label>Payment Method</label><select id="ai-method"><option>Bank Deposit</option><option>Cash</option><option>EFT</option></select></div>
           <div><label>Reference / Notes (optional)</label><input id="ai-ref" placeholder="Invoice number or notes"/></div>
         </div>
-        <div style="margin-bottom:12px"><label>For which enterprise? (optional) <span id="ai-ent-badge" style="display:none"></span></label><select id="ai-ent" onchange="ST._aiEntManual=true;_entBadgeSet('ai-ent-badge','none')"><option value="">Whole farm</option></select><div id="ai-ent-hint" style="font-size:11px;color:var(--t4);margin-top:4px">Leave on &ldquo;Whole farm&rdquo; for general income. <span style="color:var(--gm);cursor:pointer;font-weight:700" onclick="nav('livestock')">Other animals not listed? Add them in Livestock first.</span></div></div>
+        <div style="margin-bottom:12px"><label>For which enterprise? (optional) <span id="ai-ent-badge" style="display:none"></span></label><select id="ai-ent" onchange="ST._aiEntManual=true;_entBadgeSet('ai-ent-badge','none');lsLeaveRefresh()"><option value="">Whole farm</option></select><div id="ai-ent-hint" style="font-size:11px;color:var(--t4);margin-top:4px">Leave on &ldquo;Whole farm&rdquo; for general income. <span style="color:var(--gm);cursor:pointer;font-weight:700" onclick="nav('livestock')">Other animals not listed? Add them in Livestock first.</span></div>
+        <div id="ai-leave" style="display:none;margin-top:10px"></div></div>
         <div class="form-step">5. Attach document (optional)</div>
         <div id="ai-upload" class="upload-zone" onclick="document.getElementById('ai-file').click()" ondragover="dzOver(event,'ai-upload')" ondragleave="dzLeave('ai-upload')" ondrop="dzDrop(event,'ai-file','ai-upload','ai-preview')">
           <input type="file" id="ai-file" accept="image/*,.pdf" style="display:none" onchange="dzSelect(this,'ai-upload','ai-preview')"/>
@@ -12415,7 +12435,7 @@ function nav(id) {
     var spv=$('set-province'); if(spv && ST.province) spv.value = ST.province;
     if (typeof syncSettingsHeader==='function') syncSettingsHeader();
   }
-  if (id === 'add-income')  { var d=$('ai-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; var ie=$('ai-ent'); if(ie) ie.innerHTML=entOptions(''); ST._aiEntManual=false; if(typeof aiApplyEntDefault==='function') aiApplyEntDefault(ST.saleType||'Crops'); }
+  if (id === 'add-income')  { var d=$('ai-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; var ie=$('ai-ent'); if(ie) ie.innerHTML=entOptions(''); ST._aiEntManual=false; if(typeof aiApplyEntDefault==='function') aiApplyEntDefault(ST.saleType||'Crops'); try{ lsLeaveReset(); lsLeaveRefresh(); }catch(e){} }
   if (id === 'add-expense') { var d=$('ae-date'); if(d&&!d.value) d.value=new Date().toISOString().split('T')[0]; }
   if (typeof langSync === 'function') langSync();
   }, 60);
@@ -12753,6 +12773,7 @@ var SALE_CFG = {
 
 function setSaleType(t) {
   ST.saleType = t;
+  try{ setTimeout(lsLeaveRefresh,0); }catch(e){}
   document.querySelectorAll('.tc[data-st]').forEach(function(c){ c.classList.toggle('on', c.dataset.st === t); });
   if(typeof aiApplyEntDefault==='function') aiApplyEntDefault(t);
   var c = SALE_CFG[t] || SALE_CFG.Crops;
@@ -12921,6 +12942,10 @@ function _dzClear(zoneId, previewId) {
 
 function saveSale() {
   if (!validateSaleForm()) return;
+  /* Snapshot the "did these animals leave" answer synchronously. saveSale's body runs in a
+     setTimeout, and re-entering the income page during that window resets LS_LEAVE — so
+     reading the global inside the timeout loses the farmer's picks. */
+  var _leaveSnap = { on:LS_LEAVE.on, herdId:LS_LEAVE.herdId, cls:LS_LEAVE.cls, animalIds:(LS_LEAVE.animalIds||[]).slice() };
   var btn = document.querySelector('#pg-add-income .btn-pri');
   btnLoading(btn, 'Saving...');
   setTimeout(function() {
@@ -12942,6 +12967,17 @@ function saveSale() {
     var _aiEnt = ($('ai-ent') && $('ai-ent').value) || '';
     ST.txns.unshift({date:dateStr, desc:desc, cat:cat, type:'income', amt:amt, method:method, source:'Income form', qty:sqty||undefined, unit:(sqty&&sunit)?sunit:undefined, ent:_aiEnt||undefined});
     var _aiInc = ST.txns[0];
+    /* audit #3 — the money doors used to bank the cash and leave the herd untouched.
+       lsSellFromTxn posts no money of its own; it records the movement and links the pair. */
+    try{
+      if(cat==='Livestock Sales' && _leaveSnap.on && _aiEnt){
+        var _mv=lsSellFromTxn({herdId:_lsHerdIdFromEnt(_aiEnt), qty:sqty, cls:_leaveSnap.cls,
+                               animalIds:_leaveSnap.animalIds, date:(date&&date!=='Today')?date:new Date().toISOString().slice(0,10),
+                               note:desc});
+        if(_mv) _lsLinkTxnMove(_aiInc, _mv);
+      }
+    }catch(e){}
+    try{ lsLeaveReset(); }catch(e){}
     // Backend write-through; back-patch DB id onto the local row for edit/delete
     try {
       if (window.AI && AI.farm && AI.farm.active()) {
@@ -21403,6 +21439,130 @@ function lsRemClose(){   // closing must still resolve the mismatch (the sale mo
    opts.animalIds — deep-copies those animal records too, because a removal DELETES them
    from ST_LS.animals rather than flagging them. Without the copies there is nothing to
    put back. */
+/* ── One path from a money entry to a herd movement (audit #3) ────────────────────────
+   A livestock sale can be recorded through four doors; only the Livestock one moved the
+   animals. Rather than teach each door to do it, they all call this: it records the
+   movement, links it to the transaction that already carries the money, and posts NOTHING
+   itself. That linkage is what later lets a delete find its movement and lets the
+   reconciliation spot a sale with no animals against it.
+
+   Returns the movement, or null if nothing was done. */
+/* "Did these animals leave the farm?" — shown on a money form only when the category is a
+   livestock sale AND a herd is chosen. Pre-filled from the quantity already entered, so the
+   common case is read-it-and-carry-on. Ticking is what makes the herd follow the money. */
+var LS_LEAVE={on:false, herdId:null, cls:'', animalIds:[]};
+function lsLeaveReset(){ LS_LEAVE={on:false, herdId:null, cls:'', animalIds:[]}; }
+function _lsLeaveHerd(entId){
+  var id=_lsHerdIdFromEnt(entId);
+  return (ST_LS.herd||[]).filter(function(x){return x.id===id && !x.planned;})[0]||null;
+}
+/* qty comes from the money form; unit only matters for the wording */
+function lsLeaveRender(entId, qty, unit){
+  var box=document.getElementById('ai-leave'); if(!box) return;
+  var h=_lsLeaveHerd(entId);
+  if(!h){ box.style.display='none'; box.innerHTML=''; lsLeaveReset(); return; }
+  if(LS_LEAVE.herdId!==h.id){ lsLeaveReset(); LS_LEAVE.herdId=h.id; LS_LEAVE.on=true; }
+  var n=Math.max(0,parseInt(qty,10)||0);
+  var defs=(typeof lsClassDefs==='function'?lsClassDefs(h.type):null)||[];
+  var clsSel='';
+  if(lsHasClasses&&lsHasClasses(h)){
+    clsSel='<div style="margin-top:9px"><label style="font-size:10.5px;font-weight:700;color:var(--t3)">Which class?</label>'+
+      '<select id="ai-leave-cls" onchange="LS_LEAVE.cls=this.value;lsLeaveRefresh()" style="width:100%;padding:9px 11px;border:1.5px solid var(--br);border-radius:9px;font-size:13px;background:#fff">'+
+      '<option value="">Any / not sure</option>'+
+      (h.classes||[]).map(function(c){
+        var lbl=(typeof lsClassMeta==='function'?lsClassMeta(h.type,c.k).label:c.k);
+        return '<option value="'+esc(c.k)+'"'+(LS_LEAVE.cls===c.k?' selected':'')+'>'+esc(lbl)+' \u00b7 '+(c.n||0)+' available</option>';
+      }).join('')+'</select></div>';
+  }
+  box.style.display='block';
+  box.innerHTML='<div class="ai-leave-card">'+
+    '<div class="ai-leave-h">\ud83d\udc04 Did these animals leave the farm?</div>'+
+    '<label class="ai-leave-chk"><input type="checkbox" id="ai-leave-on"'+(LS_LEAVE.on?' checked':'')+' onchange="LS_LEAVE.on=this.checked;lsLeaveRefresh()">'+
+      '<span>Take <b>'+(n||0)+' head</b> out of '+esc(lsHerdName(h))+'</span></label>'+
+    (LS_LEAVE.on?(clsSel+_lsLeavePickerHTML(h)):'')+
+    '<div class="ai-leave-sub">'+(LS_LEAVE.on
+        ? 'Leave this off if the money is for something else \u2014 a deposit, a carcass sale, or animals you already took out.'
+        : 'The herd will not change. You can record the movement later in Livestock.')+'</div>'+
+  '</div>';
+}
+function _lsLeavePickerHTML(h){
+  var all=(typeof lsHerdAnimals==='function'?lsHerdAnimals(h.id):[])||[];
+  var inCls=all.filter(function(a){ return !LS_LEAVE.cls || !a.cls || a.cls===LS_LEAVE.cls; });
+  if(!all.length){
+    return '<div class="ai-leave-none">No animals in this group are tagged, so this is recorded by count only.</div>';
+  }
+  var rows=inCls.map(function(a){
+    var on=LS_LEAVE.animalIds.indexOf(a.id)>=0;
+    var hold=(typeof lsAnimalHoldUntil==='function')?lsAnimalHoldUntil(a):null;
+    return '<div class="ai-leave-row'+(on?' sel':'')+(hold?' held':'')+'" onclick="lsLeaveTog(\''+a.id+'\')">'+
+      '<span class="cb">'+(on?'\u2713':'')+'</span>'+
+      '<span class="tg">\ud83c\udff7\ufe0f '+esc(a.tag)+(a.name?' \u201c'+esc(a.name)+'\u201d':'')+'</span>'+
+      '<span class="st '+(hold?'hold':'ok')+'">'+(hold?'\u26d4 hold':'\u2713 clear')+'</span></div>';
+  }).join('');
+  var picked=LS_LEAVE.animalIds.length;
+  var stated=Math.max(0,parseInt((document.getElementById('ai-qty')||{}).value,10)||0);
+  var byCount=Math.max(0,stated-picked);
+  return '<div style="margin-top:9px"><label style="font-size:10.5px;font-weight:700;color:var(--t3)">Which ones? \u2014 optional</label>'+
+    '<div class="ai-leave-list">'+(rows||'<div class="ai-leave-none">None of the tagged animals are in that class \u2014 recorded by count.</div>')+'</div>'+
+    (picked?('<div class="ai-leave-tally"><b>'+Math.max(stated,picked)+' leaving \u00b7 '+picked+' named</b>'+(byCount?', '+byCount+' by count':'')+'.</div>'):'')+
+    '</div>';
+}
+function lsLeaveTog(id){
+  var i=LS_LEAVE.animalIds.indexOf(id);
+  if(i>=0) LS_LEAVE.animalIds.splice(i,1); else LS_LEAVE.animalIds.push(id);
+  lsLeaveRefresh();
+}
+function lsLeaveRefresh(){
+  var ent=(document.getElementById('ai-ent')||{}).value||'';
+  var q=(document.getElementById('ai-qty')||{}).value||0;
+  var u=(document.getElementById('ai-unit')||{}).value||'';
+  lsLeaveRender(ent,q,u);
+}
+function lsSellFromTxn(o){
+  o=o||{};
+  var h=(ST_LS.herd||[]).filter(function(x){return x.id===o.herdId;})[0];
+  if(!h) return null;
+  var qty=Math.max(0,parseInt(o.qty,10)||0);
+  var ids=(o.animalIds||[]).slice();
+  qty=Math.max(qty, ids.length);              // names never shrink the count (see lsMvTagTog)
+  if(!qty) return null;
+  var snap=_lsMoveSnapshot(h, {animalIds:ids});
+  /* Two separate things: the head count always moves, and the named animals additionally
+     come off the register. _lsRemApply only deletes animal records — it does NOT touch
+     h.qty — so calling it alone would strip the tags and leave the count untouched. */
+  _lsAdjustHead(h,'sold',qty,o.cls||'');
+  if(ids.length) _lsRemApply(ids);
+  var uid='m'+Date.now().toString(36)+Math.floor(Math.random()*1e3);
+  ST_LS.moves=ST_LS.moves||[];
+  var mv={id:uid, herd:h.id, reason:'sold', cls:o.cls||undefined, qty:qty,
+          date:o.date||new Date().toISOString().slice(0,10), note:o.note||'',
+          money:0,                 // the money lives on the transaction, not here
+          txnRef:o.txnRef||null,   // ← the link
+          animalIds:ids.length?ids:undefined,
+          undo:snap};
+  mv.undo.moveId=uid;
+  ST_LS.moves.unshift(mv);
+  try{ saveState&&saveState(); }catch(e){}
+  try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
+  return mv;
+}
+/* Stamp both sides of the pair. Transactions carry no id of their own, so the movement id
+   is the anchor and the transaction points back at it. */
+function _lsLinkTxnMove(txn, mv){
+  if(!txn||!mv) return;
+  txn.moveRef=mv.id;
+  mv.txnRef=txn.moveRef?null:(txn.__ref||null);
+  if(!mv.txnRef){ mv.txnRef='tx:'+(txn.date||'')+':'+(txn.amt||0)+':'+(txn.ent||''); txn.__ref=mv.txnRef; }
+}
+/* Was this transaction a livestock sale that should have moved animals? */
+function _lsIsLivestockSale(t){
+  return !!t && t.type==='income' && t.cat==='Livestock Sales' && String(t.ent||'').indexOf('ls:')===0;
+}
+function _lsHerdIdFromEnt(ent){
+  var m=String(ent||'').match(/^ls:(.+)$/); if(!m) return null;
+  var raw=m[1], n=parseInt(raw,10);
+  return (String(n)===raw)?n:raw;
+}
 function _lsMoveSnapshot(h, opts){
   if(!h) return null;
   opts=opts||{};
@@ -29126,6 +29286,11 @@ function renderRecentIncome() {
 // ============================================================
 
 var LANG_PAIRS = [
+  ["Did these animals leave the farm?","Het hierdie diere die plaas verlaat?"],
+  ["Which ones? — optional","Watter een? — opsioneel"],
+  ["Which class?","Watter klas?"],
+  ["Any / not sure","Enige / nie seker"],
+  ["The herd will not change. You can record the movement later in Livestock.","Die kudde sal nie verander nie. Jy kan die beweging later in Vee aanteken."],
   ["Not recorded","Nie aangeteken"],
   ["All female","Almal wyfies"],
   ["All male","Almal mannetjies"],
