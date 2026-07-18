@@ -17544,20 +17544,60 @@ function openEditHerd(idx) {
 // ════════ CAMPS VIEW ════════
 function lsRand0(n){ return 'R'+_grpInt(n); }
 // Farm-wide totals for the strip atop the camps list (value derived = matches cards).
+/* ── Does a group's economics make sense? (audit #6) ─────────────────────────────
+   Two tiers, deliberately different:
+     HARD — arithmetic that cannot be right for any animal on any farm. Excluded.
+     SOFT — buy price under 5% of what that species normally costs. Low, but sometimes
+            genuine (day-old dairy bull calves R200–500, culls, inherited/given stock),
+            so the farmer can confirm it (h.priceOk) and it counts from then on.
+   The 5% line is researched, not guessed: the cheapest mainstream buy in every species
+   sits at 17–45% of its national estimate (day-old chick R8 = 17.5%, goat kid R550 = 27%,
+   weaner ≈R6 600 = 31%, store lamb R1 600 = 45%), so 5% clears them all with room to
+   spare and only catches genuinely marginal animals — which is why it asks, not blocks. */
+function _lsSanity(h){
+  var buy=+h.buy||0, sell=+h.sell||0, mo=Math.max(1,h.months||6);
+  var run=((+h.feed||0)+(+h.vet||0))*mo;
+  var est=0; try{ est=_lsMktPerHead(h.type)||0; }catch(e){}
+  var hard=[], soft=[];
+  if(!buy || !sell) hard.push('a price is missing');
+  if(buy>0 && sell>0 && sell<buy) hard.push('you sell for less than you paid');
+  if(sell>0 && run>sell) hard.push('feed and vet ('+lsRand0(run)+') cost more than it sells for');
+  /* Deliberately no estimate figure here — the guidance line under it quotes a concrete,
+     comparable animal (a weaner, a store lamb). Quoting both reads as two prices for the
+     same beast and confuses more than it explains. */
+  if(!hard.length && buy>0 && est>0 && buy<est*0.05)
+    soft.push(lsRand0(buy)+' a head is far below what '+String(animalBase(h.type)||'these animals').toLowerCase()+' normally cost.');
+  var confirmed=!!h.priceOk;
+  return {hard:hard, soft:soft, confirmed:confirmed, ok:(!hard.length && (!soft.length || confirmed))};
+}
+/* Farm totals. The return is a MEAT return, so it is worked out only from non-dairy groups
+   whose figures pass the check above — dairy earns from milk, and a group with impossible
+   numbers would otherwise drag (or flatter) the whole farm. What was left out is reported
+   so the UI can say so plainly instead of quietly averaging it in. */
 function _lsFarmTotals(){
   var act=(ST_LS.herd||[]).filter(function(h){return !h.planned;});
-  var head=0, val=0, invested=0, expected=0, income=0;
+  var head=0, val=0, income=0;
+  var mInv=0, mExp=0, mInc=0, counted=0, excluded=0, needCheck=0, dairyHead=0, meatGroups=0;
   act.forEach(function(h){
     var qty=h.qty||0;
-    head+=qty;
-    val+=lsHerdValueDerived(h);
-    invested+=qty*((h.buy||0)+((h.feed||0)+(h.vet||0))*(h.months||6));
-    expected+=qty*(h.sell||0);
-    income+=_lsHerdIncome(h.id);
+    head+=qty; val+=lsHerdValueDerived(h); income+=_lsHerdIncome(h.id);
+    var isD=false; try{ isD=_lsRegIsDairy(h); }catch(e){}
+    if(isD){ dairyHead+=qty; return; }
+    meatGroups++;
+    var sn=_lsSanity(h);
+    if(!sn.ok){ if(sn.hard.length) excluded++; else needCheck++; return; }
+    mInv+=qty*((h.buy||0)+((h.feed||0)+(h.vet||0))*(h.months||6));
+    mExp+=qty*(h.sell||0);
+    mInc+=_lsHerdIncome(h.id);
+    counted++;
   });
-  var roi = invested>0 ? Math.round((expected-invested)/invested*100) : 0;
-  var retIncl = invested>0 ? Math.round((expected+income-invested)/invested*100) : 0;
-  return {head:head, val:val, roi:roi, retIncl:retIncl, income:income, camps:(ST_LS.camps||[]).length};
+  var roi     = mInv>0 ? Math.round((mExp-mInv)/mInv*100) : null;
+  var retIncl = mInv>0 ? Math.round((mExp+mInc-mInv)/mInv*100) : null;
+  return {head:head, val:val, roi:roi, retIncl:retIncl, income:income, meatIncome:mInc,
+          meatInv:mInv, meatExp:mExp,
+          camps:(ST_LS.camps||[]).length,
+          meatCounted:counted, meatExcluded:excluded, meatNeedCheck:needCheck,
+          meatGroups:meatGroups, dairyHead:dairyHead};
 }
 function _lsCompactRand(n){
   n=Math.round(n||0);
@@ -17617,24 +17657,134 @@ function _lsKpiPanel(key){
       '<div class="ls-kpimean"><b>Most of your herd value is in '+(top?esc(lsHerdName(top.h)):'your biggest group')+'.</b> At today\u2019s market prices it carries about '+topPct+'% of the total.</div>'+
       '<button class="ls-kpigo" onclick="lsTab(\'register\')">\ud83d\udccb Open the Register \u2192</button>';
   }
-  // roi
-  var invested=0, expected=0, income=0;
-  act.forEach(function(h){ var q=h.qty||0; invested+=q*((h.buy||0)+((h.feed||0)+(h.vet||0))*(h.months||6)); expected+=q*(h.sell||0); income+=_lsHerdIncome(h.id); });
+  // roi — only groups whose figures pass _lsSanity, and never dairy (audit #6)
+  var T=_lsFarmTotals();
+  var invested=T.meatInv, expected=T.meatExp, income=T.meatIncome;
+  var chk=_lsRetChecks();
+  var head='<div class="ls-kpih">\ud83d\udcc8 Return on what you\u2019ve put in</div>';
+  if(T.retIncl==null){
+    return _lsRetCss()+head+
+      '<div class="ls-kpimean"><b>No return to show yet.</b> '+
+      (T.meatGroups ? 'None of your meat groups have figures we can work with \u2014 see below.'
+                    : 'You have no meat groups. Dairy earns from milk, so it is measured on its own.')+'</div>'+
+      _lsRetChecksHTML(chk,T);
+  }
   var gain=expected+income-invested;
-  var roi=invested>0?Math.round(gain/invested*100):0;
-  var pos=roi>=0;
+  var roi=T.retIncl, pos=roi>=0;
   var gpos=Math.max(2,Math.min(98, Math.round((roi+20)/70*100))); // -20..+50 mapped
   var mk=Math.round((0+20)/70*100); // break-even marker
   var gauge='<div class="ls-kpigauge"><i style="width:'+gpos+'%;background:'+(pos?'#40916C':'#C8962C')+'"></i><span class="mk" style="left:'+mk+'%"></span></div>'+
     '<div class="ls-kpiglbl"><span>Break-even 0%</span><span>Good +20%</span><span>Strong +50%</span></div>';
-  return '<div class="ls-kpih">\ud83d\udcc8 Return on what you\u2019ve put in</div>'+
+  var basis=T.meatCounted+' of your '+T.meatGroups+' meat group'+(T.meatGroups===1?'':'s');
+  return _lsRetCss()+head+
     _lsBrow('\ud83d\udcb8','Invested','buy + feed + vet to date',_lsCompactRand(invested),{})+
     _lsBrow('\ud83c\udfaf','Expected at sale','at your target prices',_lsCompactRand(expected),{green:true})+
-    (income>0?_lsBrow('🥛','Income to date','milk, wool & sales already banked',_lsCompactRand(income),{green:true}):'')+
+    (income>0?_lsBrow('\ud83e\udd5b','Income to date','sales already banked',_lsCompactRand(income),{green:true}):'')+
     _lsBrow((gain>=0?'\ud83d\udcc8':'\ud83d\udcc9'),(gain>=0?'Gain':'Shortfall'),'if sold at target',(gain>=0?'+':'\u2212')+_lsCompactRand(Math.abs(gain)),{pos:gain>=0,neg:gain<0})+
     gauge+
-    '<div class="ls-kpimean"><b>'+(pos?'+':'')+roi+'% return incl. income.</b> '+(pos?'If you sell at your target prices you\u2019d make about '+_lsCompactRand(Math.abs(gain))+' over what you\u2019ve put in.':'On current numbers your costs are ahead of expected returns.')+' Income already banked is counted in; expected sale value is still a plan.</div>'+
+    '<div class="ls-kpimean"><b>'+(pos?'+':'')+roi+'% return'+(income>0?' incl. income':'')+'.</b> '+
+      (pos?'If you sell at your target prices you\u2019d make about '+_lsNb(_lsCompactRand(Math.abs(gain)))+' over what you\u2019ve put in.'
+         :'On current numbers your costs are ahead of expected returns.')+
+      ' From '+basis+'.'+
+      (T.dairyHead?' Your '+T.dairyHead+' dairy cows earn from milk, so they are counted on their own.':'')+
+      '</div>'+
+    _lsRetChecksHTML(chk,T)+
     '<button class="ls-kpigo" onclick="lsTab(\'insights\')">\ud83d\udcca See full Insights \u2192</button>';
+}
+
+/* ── The check list: groups left out of the return, and how to put them right ──── */
+function _lsNb(v){ return String(v==null?'':v).replace(/ /g,'\u00a0'); }
+function _lsRetPersist(){ try{ saveState&&saveState(); }catch(e){} try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){} }
+function _lsRetChecks(){
+  var out=[];
+  (ST_LS.herd||[]).forEach(function(h,i){
+    if(h.planned) return;
+    var isD=false; try{ isD=_lsRegIsDairy(h); }catch(e){}
+    if(isD) return;
+    var sn=_lsSanity(h);
+    if(!sn.ok) out.push({i:i, h:h, sn:sn});
+  });
+  return out;
+}
+/* What a sound figure looks like for this species, in money the farmer will recognise.
+   Figures are the researched SA floors used to set the 5% rule in _lsSanity. */
+function _lsRetGuide(h){
+  var b=String(animalBase(h.type)||'').toLowerCase();
+  var isD=false; try{ isD=_lsRegIsDairy(h); }catch(e){}
+  if(isD) return 'A dairy cow earns from milk, not meat. The sell price should be what she fetches when you cull her \u2014 usually R8\u00a0000 to R12\u00a0000.';
+  if(b.indexOf('cattle')>=0) return 'A 200\u00a0kg weaner costs about R6\u00a0600.';
+  if(b.indexOf('sheep')>=0)  return 'A store lamb costs about R1\u00a0600.';
+  if(b.indexOf('goat')>=0)   return 'A goat kid costs about R550.';
+  if(b.indexOf('chicken')>=0||b.indexOf('poultry')>=0||b.indexOf('broiler')>=0) return 'A day-old broiler chick costs about R8.';
+  var est=0; try{ est=_lsMktPerHead(h.type)||0; }catch(e){}
+  return est? ('About '+_lsNb(lsRand0(est))+' a head is normal for '+b+'.') : '';
+}
+function _lsRetChecksHTML(chk,T){
+  if(!chk.length) return '';
+  var farmInv=0;
+  (ST_LS.herd||[]).forEach(function(h){ if(h.planned) return; farmInv+=(h.qty||0)*((h.buy||0)+((h.feed||0)+(h.vet||0))*(h.months||6)); });
+  var rows=chk.map(function(c){
+    var h=c.h, hard=c.sn.hard.length>0;
+    var inv=(h.qty||0)*((h.buy||0)+((h.feed||0)+(h.vet||0))*(h.months||6));
+    var pct=farmInv>0?Math.round(inv/farmInv*100):0;
+    var why=hard?c.sn.hard.join(' \u00b7 '):c.sn.soft.join(' \u00b7 ');
+    why=why.charAt(0).toUpperCase()+why.slice(1);   // reasons are phrases; show them as sentences
+    if(!/[.!?]$/.test(why)) why+='.';
+    var guide=_lsRetGuide(h);
+    return '<div class="ls-rchk '+(hard?'hard':'soft')+'">'+
+      '<div class="ls-rchk-t">'+lsTypeIcon(h.type)+' <b>'+esc(lsHerdName(h))+'</b>'+
+        '<span class="ls-rchk-tag">'+(hard?'Something is wrong':'Looks low')+'</span></div>'+
+      '<div class="ls-rchk-w">'+_lsNb(why)+'</div>'+
+      (inv>0?'<div class="ls-rchk-m">'+_lsNb(lsRand0(inv))+' tied up'+(pct>=5?' \u00b7 '+pct+'% of your herd spend':'')+'</div>':'')+
+      (guide?'<div class="ls-rchk-g">'+guide+'</div>':'')+
+      '<div class="ls-rchk-b">'+
+        (hard?'':'<button class="ls-rchk-yes" onclick="lsRetConfirm('+c.i+')">Yes, that\u2019s right \u2014 count it</button>')+
+        '<button class="ls-rchk-fix" onclick="lsRetFix('+c.i+')">'+(hard?'Fix the figures':'No, let me fix it')+'</button>'+
+      '</div></div>';
+  }).join('');
+  var n=chk.length;
+  return '<div class="ls-rchk-h">'+n+' group'+(n===1?'':'s')+' not counted \u2014 check '+(n===1?'it':'them')+' first</div>'+rows;
+}
+function lsRetOpen(){
+  var cards=document.querySelectorAll('.ls-hero .hstat');
+  if(!cards.length) return;
+  LS_KPI_OPEN=null;
+  lsKpiTog('roi', cards[2]);
+  var p=$('ls-kpipanel'); if(p) setTimeout(function(){ try{ p.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} },60);
+}
+/* "Yes, that's right" — the price is genuinely that low (bobby calf, cull, gift stock).
+   Remembered on the group so we stop asking and it counts from now on. */
+function lsRetConfirm(i){
+  var h=(ST_LS.herd||[])[i]; if(!h) return;
+  h.priceOk=true;
+  _lsRetPersist();
+  try{ renderCamps(); }catch(e){}
+  try{ toast(lsHerdName(h)+' is now counted in your return'); }catch(e){}
+  lsRetOpen();
+}
+function lsRetFix(i){
+  try{ openEditHerd(i); }catch(e){ try{ lsTab('herd','overview'); }catch(e2){} }
+}
+function _lsRetCss(){
+  if(document.getElementById('ls-rchk-css')) return '';
+  var st=document.createElement('style'); st.id='ls-rchk-css';
+  st.textContent=".ls-rchk-h{font-size:12px;font-weight:800;color:#374151;margin:14px 0 8px;padding-top:12px;border-top:1px dashed #E5E7EB}"+
+    ".ls-rchk{border:1px solid #E5E7EB;border-radius:12px;padding:11px 13px;margin-bottom:9px;background:#fff}"+
+    ".ls-rchk.hard{border-color:#E9C4BE;background:#FDF7F6}"+
+    ".ls-rchk.soft{border-color:#EBD9A8;background:#FDFAF1}"+
+    ".ls-rchk-t{font-size:13px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}"+
+    ".ls-rchk-tag{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:999px}"+
+    ".ls-rchk.hard .ls-rchk-tag{background:#FBECEA;color:#C0392B}"+
+    ".ls-rchk.soft .ls-rchk-tag{background:#FBF3DD;color:#8A6A14}"+
+    ".ls-rchk-w{font-size:12px;color:#374151;margin-top:5px;line-height:1.5}"+
+    ".ls-rchk-m{font-size:11.5px;color:#6B7280;margin-top:4px}"+
+    ".ls-rchk-g{font-size:11.5px;color:#6B7280;margin-top:6px;line-height:1.5;border-top:1px dashed #EEF1EF;padding-top:6px}"+
+    ".ls-rchk-b{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap}"+
+    ".ls-rchk-b button{flex:1;min-width:130px;border:0;border-radius:9px;padding:9px 10px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer}"+
+    ".ls-rchk-yes{background:#2D6A4F;color:#fff}"+
+    ".ls-rchk-fix{background:#fff;color:#1B4332;border:1.5px solid #B7CFC0 !important}";
+  try{ document.head.appendChild(st); }catch(e){}
+  return '';
 }
 function renderCamps(){
   var el=$('ls-camps-list'); if(!el) return;
@@ -17645,7 +17795,7 @@ function renderCamps(){
   var loose=act.filter(function(h){return !h.campId || !assigned[h.campId];});
   var totalHead=act.reduce(function(s,h){return s+(h.qty||0);},0);
   var T=_lsFarmTotals();
-  var roiPos=T.retIncl>=0;
+  var roiPos=(T.retIncl!=null && T.retIncl>=0);
   var _att=_lsAttention();
   var html=_lsHeroHTML(_att)+'<div class="ls-kpipanel" id="ls-kpipanel"></div>'+_lsAttnHTML(_att);
   var _plN=(ST_LS.herd||[]).filter(function(h){return h.planned && h.inPlanning;}).length;
@@ -17921,7 +18071,9 @@ function _lsAttention(){
     if(w.wd) items.push({ic:'⛔', tx:'<b>'+esc(c.name)+'</b> is under a medicine withdrawal'+(w.safe?(' — safe to sell from <b>'+lsFmtDate(w.safe)+'</b>'):''), go:"lsTab('health')"});
   });
   var T=_lsFarmTotals();
-  if(T.retIncl<0) items.push({ic:'📉', tx:'Costs are ahead of returns (<b>'+T.retIncl+'%</b> incl. income) — check your target sale prices.', go:"lsTab('insights')"});
+  var _nc=T.meatExcluded+T.meatNeedCheck;
+  if(_nc) items.push({ic:'\ud83d\udd0e', tx:'<b>'+_nc+' group'+(_nc===1?' is':'s are')+'</b> left out of your return \u2014 the figures don\u2019t look right yet.', go:"lsRetOpen()"});
+  else if(T.retIncl!=null && T.retIncl<0) items.push({ic:'\ud83d\udcc9', tx:'Costs are ahead of returns (<b>'+T.retIncl+'%</b>'+(T.meatIncome>0?' incl. income':'')+') \u2014 check your target sale prices.', go:"lsTab('insights')"});
   return items;
 }
 function _lsHeroHTML(att){
@@ -17933,11 +18085,12 @@ function _lsHeroHTML(att){
   var sub = T.head+' head · '+(ST_LS.camps||[]).length+' camp'+((ST_LS.camps||[]).length===1?'':'s')+' · '+_lsSpeciesCount()+' species';
   var camps2=(ST_LS.camps||[]).length; var holds=0; (ST_LS.camps||[]).forEach(function(c){ if(_lsCampWd(lsCampGroups(c.id)).wd) holds++; });
   var sub2=camps2+' camp'+(camps2===1?'':'s')+' · '+(holds?(holds+' on a medicine hold'):'all clear to sell');
-  var roiP=T.retIncl>=0;
+  var hasRet=(T.retIncl!=null); var roiP=hasRet&&T.retIncl>=0;
+  var nCheck=T.meatExcluded+T.meatNeedCheck;
   var stats='<div class="hstats">'+
     '<div class="hstat" onclick="lsKpiTog(\'head\',this)"><div class="hv">'+T.head+'</div><div class="hl">head · '+_lsSpeciesCount()+' species</div></div>'+
     '<div class="hstat" onclick="lsKpiTog(\'val\',this)"><div class="hv">'+_lsCompactRand(T.val)+'</div><div class="hl">herd value</div></div>'+
-    '<div class="hstat" onclick="lsKpiTog(\'roi\',this)"><div class="hv'+(roiP?'':' neg')+'">'+(roiP?'+':'')+T.retIncl+'%</div><div class="hl">return</div></div>'+
+    '<div class="hstat" onclick="lsKpiTog(\'roi\',this)"><div class="hv'+(hasRet?(roiP?'':' neg'):'')+'">'+(hasRet?((roiP?'+':'')+T.retIncl+'%'):'\u2014')+'</div><div class="hl">'+(hasRet?('return'+(nCheck?' \u00b7 '+nCheck+' to check':'')):'return \u00b7 check figures')+'</div></div>'+
   '</div>';
   return '<div class="ls-hero"><div class="hic">'+ic+'</div><div class="htx"><div class="htt">'+ttl+'</div><div class="hsub">'+sub2+'</div></div>'+stats+'</div>';
 }
@@ -28750,6 +28903,23 @@ function renderRecentIncome() {
 // ============================================================
 
 var LANG_PAIRS = [
+  ["Something is wrong","Iets is verkeerd"],
+  ["Looks low","Lyk laag"],
+  ["Yes, that’s right — count it","Ja, dis reg — tel dit"],
+  ["No, let me fix it","Nee, laat my dit regmaak"],
+  ["Fix the figures","Maak die syfers reg"],
+  ["You sell for less than you paid.","Jy verkoop vir minder as wat jy betaal het."],
+  ["A price is missing.","’n Prys ontbreek."],
+  ["A dairy cow earns from milk, not meat. The sell price should be what she fetches when you cull her — usually R8 000 to R12 000.","’n Melkkoei verdien uit melk, nie vleis nie. Die verkoopprys moet wees wat sy haal wanneer jy haar uitskot — gewoonlik R8 000 tot R12 000."],
+  ["A 200 kg weaner costs about R6 600.","’n 200 kg speenkalf kos ongeveer R6 600."],
+  ["A store lamb costs about R1 600.","’n Voerlam kos ongeveer R1 600."],
+  ["A goat kid costs about R550.","’n Boklam kos ongeveer R550."],
+  ["A day-old broiler chick costs about R8.","’n Dagoud braaikuiken kos ongeveer R8."],
+  ["No return to show yet.","Nog geen opbrengs om te wys nie."],
+  ["None of your meat groups have figures we can work with — see below.","Nie een van jou vleisgroepe het syfers waarmee ons kan werk nie — sien hieronder."],
+  ["You have no meat groups. Dairy earns from milk, so it is measured on its own.","Jy het geen vleisgroepe nie. Melk verdien uit melk, so dit word op sy eie gemeet."],
+  ["return · check figures","opbrengs · kontroleer syfers"],
+  ["sales already banked","verkope reeds gebank"],
   ["‹ Back to Overview","‹ Terug na Oorsig"],
   ["‹ Back to Productivity","‹ Terug na Produktiwiteit"],
   ["‹ Back to Stock register","‹ Terug na Voorraadregister"],
