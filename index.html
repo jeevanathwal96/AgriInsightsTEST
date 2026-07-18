@@ -17684,11 +17684,13 @@ function _lsFarmTotals(){
           meatCounted:counted, meatExcluded:excluded, meatNeedCheck:needCheck,
           meatGroups:meatGroups, dairyHead:dairyHead};
 }
+/* Non-breaking space after the R, and inside the grouped digits: at 375px "R 240k" was
+   wrapping to a new line mid-figure in the hero stats, which reads as two numbers. */
 function _lsCompactRand(n){
   n=Math.round(n||0);
-  if(n>=1e6) return 'R '+(n/1e6).toFixed(n>=1e7?0:1)+'m';
-  if(n>=1e3) return 'R '+Math.round(n/1e3)+'k';
-  return 'R '+n.toLocaleString('en-ZA');
+  if(n>=1e6) return 'R\u00a0'+(n/1e6).toFixed(n>=1e7?0:1)+'m';
+  if(n>=1e3) return 'R\u00a0'+Math.round(n/1e3)+'k';
+  return 'R\u00a0'+String(n.toLocaleString('en-ZA')).replace(/[\s,]/g,'\u00a0');
 }
 // ── My Animals: interactive KPI drill-downs ──
 function _lsSpeciesCount(){
