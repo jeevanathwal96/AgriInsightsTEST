@@ -2253,24 +2253,25 @@ select.tx-fctl{padding-right:30px}
 /* Description was 33% while its text averaged half that, leaving ~190px of dead space
    before the category chip (measured at 1440px). Trailing slack now sits in the last
    column, where the eye reads it as margin rather than as a gap mid-row. */
-.tx-tbl th:nth-child(3),.tx-tbl td:nth-child(3){width:24%}
-.tx-tbl th:nth-child(4),.tx-tbl td:nth-child(4){width:23%}
+.tx-tbl th:nth-child(3),.tx-tbl td:nth-child(3){width:30%}
+.tx-tbl th:nth-child(4),.tx-tbl td:nth-child(4){width:17%}
 .tx-tbl th:nth-child(5),.tx-tbl td:nth-child(5){width:13%;text-align:right}
 .tx-tbl th:nth-child(6),.tx-tbl td:nth-child(6){width:27%}
+.tx-tbl .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .tx-tbl tbody tr:last-child td:first-child{border-radius:0 0 0 13px}
 .tx-tbl tbody tr:last-child td:last-child{border-radius:0 0 13px 0}
 .tx-month-hdr{position:sticky;top:var(--tx-mo-top,104px);z-index:4}
 .tx-selcol{width:34px;padding-left:14px!important;padding-right:0!important}
 .tx-selcol input{width:15px;height:15px;cursor:pointer;accent-color:var(--gd)}
 .tx-row-sel td{background:var(--gb)!important}
-.tx-row-need td:first-child{box-shadow:inset 2px 0 0 #EBCF9C}
+/* flagged rows are marked by the amber chip alone \u2014 no row edge */
 .tx-catcell{cursor:pointer}
 .tx-tag-btn{display:inline-flex;align-items:center;gap:5px;cursor:pointer;transition:filter .12s}
 .tx-catcell:hover .tx-tag-btn{filter:brightness(.94)}
 .tx-caret{font-style:normal;font-size:9px;opacity:.55}
 .tx-need-hint{font-size:10.5px;color:#B45309;margin-top:3px;font-weight:600}
 .tx-cat-edit{width:100%;max-width:200px;font-size:12px;padding:5px 7px;border:1.5px solid var(--gd);border-radius:var(--rs);background:#fff;color:var(--t1)}
-.tx-need-btn{margin-top:9px;font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer;font-family:inherit}
+.tx-need-btn{font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer;font-family:inherit}
 .tx-need-btn:hover{background:#FEF3C7}
 .tx-need-btn.on{background:#B45309;color:#fff;border-color:#B45309}
 .tx-need-note{margin:8px 0 10px;font-size:11.5px;line-height:1.55;color:#7C2D12;background:#FFFBEB;border:1px solid #FDE68A;border-radius:9px;padding:9px 11px;max-width:760px}
@@ -2280,6 +2281,10 @@ select.tx-fctl{padding-right:30px}
 .tx-keepbtn{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;margin-left:5px;border-radius:999px;border:1.5px solid var(--br);background:#fff;color:var(--t3);font-size:11px;cursor:pointer;vertical-align:middle;flex:none}
 .tx-keepbtn:hover{border-color:var(--gd);color:var(--gd)}
 .tag.tx-uncat,.tx-uncat{background:transparent;border:1.5px dashed var(--t4);color:var(--t3);font-weight:600}
+.tag.tx-warnchip,.tx-warnchip{background:#FFF4DC;border:1.5px solid #EBCF9C;color:#B45309;font-weight:700;cursor:pointer}
+.tx-warnchip i{font-style:normal;font-size:9px;opacity:.6;margin-left:4px}
+.tx-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:9px}
+.tx-meta > div,.tx-meta > button{margin-top:0!important}
 .tx-menu{position:fixed;z-index:2147483000;background:#fff;border:1.5px solid var(--br);border-radius:11px;box-shadow:0 10px 32px rgba(0,0,0,.14);min-width:230px;max-width:280px;max-height:380px;overflow-y:auto;padding:5px;font-size:12.5px}
 .tx-menu-it{padding:7px 11px;border-radius:7px;cursor:pointer;color:var(--t2)}
 .tx-menu-it:hover{background:var(--bg)}
@@ -4549,8 +4554,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <button id="inc-clear-btn" onclick="clearIncomeFilters()" style="display:none;font-size:12px;padding:7px 11px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t3);background:#fff;cursor:pointer">✕ Clear</button>
         </div>
       </div>
-      <div id="inc-filter-summary" style="display:none;margin-top:8px;font-size:12px;color:var(--t3)"></div>
-      <button id="inc-need-btn" onclick="txNeedToggle('income')" class="tx-need-btn" style="display:none"></button>
+      <div class="tx-meta"><div id="inc-filter-summary" style="display:none;font-size:12px;color:var(--t3)"></div><button id="inc-need-btn" onclick="txNeedToggle('income')" class="tx-need-btn" style="display:none"></button></div>
       <div id="inc-bulk-bar" class="tx-bulk-bar" style="display:none">
         <span class="tx-bulk-n">0 selected</span>
         <select id="inc-bulk-cat" class="tx-bulk-cat"></select>
@@ -4808,8 +4812,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <button id="exp-clear-btn" onclick="clearExpFilters()" style="display:none;font-size:12px;padding:7px 11px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t3);background:#fff;cursor:pointer">✕ Clear</button>
         </div>
       </div>
-      <div id="exp-filter-summary" style="display:none;margin-top:8px;font-size:12px;color:var(--t3)"></div>
-      <button id="exp-need-btn" onclick="txNeedToggle('expense')" class="tx-need-btn" style="display:none"></button>
+      <div class="tx-meta"><div id="exp-filter-summary" style="display:none;font-size:12px;color:var(--t3)"></div><button id="exp-need-btn" onclick="txNeedToggle('expense')" class="tx-need-btn" style="display:none"></button></div>
       <div id="exp-bulk-bar" class="tx-bulk-bar" style="display:none">
         <span class="tx-bulk-n">0 selected</span>
         <select id="exp-bulk-cat" class="tx-bulk-cat"></select>
@@ -7163,8 +7166,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div id="tx-deleted-chip" onclick="txToggleDeleted()" style="display:none;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#B45309;border:1.5px dashed #C8962C;border-radius:8px;padding:5px 9px;cursor:pointer;background:#FEFBF2">🗑 Recently deleted (<span id="tx-deleted-n">0</span>)</div>
   </div>
 
-  <div id="txall-summary" style="margin:2px 0 8px;font-size:12px;color:var(--t3)"></div>
-  <button id="txall-need-btn" onclick="txAllNeedToggle()" class="tx-need-btn" style="display:none;margin-bottom:8px"></button>
+  <div class="tx-meta" style="margin:2px 0 8px"><div id="txall-summary" style="font-size:12px;color:var(--t3)"></div><button id="txall-need-btn" onclick="txAllNeedToggle()" class="tx-need-btn" style="display:none"></button></div>
   <div id="txall-bulk-bar" class="tx-bulk-bar" style="display:none;margin-bottom:10px">
     <span class="tx-bulk-n">0 selected</span>
     <select id="txall-bulk-cat" class="tx-bulk-cat"></select>
@@ -7183,7 +7185,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <th class="tx-selcol"><input type="checkbox" class="tx-selall" title="Select all shown" onchange="txAllSelAll(this.checked)"/></th>
         <th style="width:96px;white-space:nowrap">Date</th>
         <th style="min-width:200px">Description</th>
-        <th style="width:252px">Category</th>
+        <th style="width:200px">Category</th>
         <th style="width:98px;text-align:right;white-space:nowrap">Amount</th>
         <th style="width:90px;white-space:nowrap">Method</th>
         <th style="width:56px"></th>
@@ -10978,6 +10980,7 @@ rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
 
     moTxns.forEach(function(t, ti) {
       var tag = t.cat ? (CAT_TAG[t.cat] || 'tg') : 'tx-uncat';
+      if (_txNeedsLook(t)) tag = 'tx-warnchip';
       var bg = ti % 2 !== 0 ? 'background:var(--bg)' : '';
       var ri = ST.txns.indexOf(t);
       var clip = t.receipt ? ' <span class="txd-clip">\u00b7 \ud83d\udcce</span>' : '';
@@ -10992,8 +10995,7 @@ rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
            a farmer wants here far more often than an explanation. */
         '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'income\')">' +
           '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat||'None') + '<i class="tx-caret">\u25be</i></span>' +
-          (_need ? ' <span class="tx-sug" onclick="event.stopPropagation();txCatApply(' + ri + ', \'' + esc(_need).replace(/'/g,"\\'") + '\')" title="Move to ' + esc(_need) + '">\u2192 ' + esc(_need) + '</span>' +
-          '<span class="tx-keepbtn" onclick="event.stopPropagation();txCatConfirm(' + ri + ')" title="Keep as is \u2014 stop flagging">\u2713</span>' : '') + '</td>' +
+          '</td>' +
         '<td style="font-weight:700;color:var(--gd);text-align:right">+' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
       '</tr>';
@@ -11148,7 +11150,7 @@ function _txCatMenu(idx, anchor, apply){
   if (need){
     h += '<div class="tx-menu-sug" onclick="TX_MENU.apply(\'' + esc(need).replace(/'/g,"\\'") + '\');_txMenuClose()">'+
          '<span>Suggested</span> ' + esc(need) + '</div>';
-    h += '<div class="tx-menu-keep" onclick="TX_MENU.keep();_txMenuClose()">✓ Keep as ' + esc(t.cat||'Uncategorised') + '</div>';
+    h += '<div class="tx-menu-keep" onclick="TX_MENU.keep();_txMenuClose()">✓ Keep as ' + esc(t.cat||'None') + ' \u2014 stop flagging</div>';
   }
   h += cats.map(function(c){
     return '<div class="tx-menu-it' + (c===t.cat?' on':'') + '" onclick="TX_MENU.apply(\'' + esc(c).replace(/'/g,"\\'") + '\');_txMenuClose()">' + esc(c) + '</div>';
@@ -11261,9 +11263,9 @@ function _txNeedButton(kind){
   var noteId = short+'-need-note', note = document.getElementById(noteId);
   if (on && c){
     if (!note){ note = document.createElement('div'); note.id = noteId; note.className = 'tx-need-note';
-                btn.parentNode.insertBefore(note, btn.nextSibling); }
+                (btn.closest('.tx-meta')||btn).parentNode.insertBefore(note, (btn.closest('.tx-meta')||btn).nextSibling); }
     note.innerHTML = 'These ' + c + ' transaction' + (c===1?'':'s') + ' are filed somewhere the description does not point. ' +
-      'Nothing has been changed \u2014 take the \u2192 suggestion, tap \u2713 to keep a row as it is, or click its category to file it elsewhere.';
+      'Nothing has been changed \u2014 click an amber category to choose the right one or keep it as it is.';
   } else if (note){ note.remove(); }
 }
 
@@ -11363,6 +11365,7 @@ var months = [];
 
     moTxns.forEach(function(t, ti) {
       var tag = t.cat ? (CAT_TAG[t.cat] || 'tr') : 'tx-uncat';
+      if (_txNeedsLook(t)) tag = 'tx-warnchip';
       var bg = ti % 2 !== 0 ? 'background:var(--bg)' : '';
       var ri = ST.txns.indexOf(t);
       var clip = t.receipt ? ' <span class="txd-clip">\u00b7 \ud83d\udcce</span>' : '';
@@ -11377,8 +11380,7 @@ var months = [];
            a farmer wants here far more often than an explanation. */
         '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'expense\')">' +
           '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat||'None') + '<i class="tx-caret">\u25be</i></span>' +
-          (_need ? ' <span class="tx-sug" onclick="event.stopPropagation();txCatApply(' + ri + ', \'' + esc(_need).replace(/'/g,"\\'") + '\')" title="Move to ' + esc(_need) + '">\u2192 ' + esc(_need) + '</span>' +
-          '<span class="tx-keepbtn" onclick="event.stopPropagation();txCatConfirm(' + ri + ')" title="Keep as is \u2014 stop flagging">\u2713</span>' : '') + '</td>' +
+          '</td>' +
         '<td style="font-weight:700;color:var(--rd);text-align:right">− ' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
       '</tr>';
@@ -36733,9 +36735,9 @@ function txAllNeedButton(){
   var note=$('txall-need-note');
   if(on&&c){
     if(!note){ note=document.createElement('div'); note.id='txall-need-note'; note.className='tx-need-note';
-               btn.parentNode.insertBefore(note, btn.nextSibling); }
+               (btn.closest('.tx-meta')||btn).parentNode.insertBefore(note, (btn.closest('.tx-meta')||btn).nextSibling); }
     note.innerHTML='These '+c+' transaction'+(c===1?'':'s')+' are filed somewhere the description does not point. '+
-      'Nothing has been changed — take the \u2192 suggestion, tap \u2713 to keep a row as it is, or click its category to file it elsewhere.';
+      'Nothing has been changed — click an amber category to choose the right one or keep it as it is.';
   } else if(note){ note.remove(); }
 }
 
@@ -36929,9 +36931,8 @@ function txRender() {
           '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">'+escHtml(t.desc||'')+'</div>' +
                '<div class="tx-source">'+escHtml(source)+'</div></td>' +
           '<td class="tx-catcell" onclick="event.stopPropagation(); txAllCatOpen('+ri+', this)">' +
-            catTag(t.cat||'Uncategorised') +
-            (need ? ' <span class="tx-sug" onclick="event.stopPropagation();txAllCatApply('+ri+', \''+escHtml(need).replace(/'/g,"\\'")+'\')" title="Move to '+escHtml(need)+'">\u2192 '+escHtml(need)+'</span>'+
-                    '<span class="tx-keepbtn" onclick="event.stopPropagation();txAllCatConfirm('+ri+')" title="Keep as is \u2014 stop flagging">\u2713</span>' : '') + '</td>' +
+            (need ? '<span class="tag tx-warnchip" title="Needs a look \u2014 click to choose">'+escHtml(t.cat||'None')+'<i>\u25be</i></span>'
+                  : catTag(t.cat||'Uncategorised')) + '</td>' +
           '<td style="text-align:right;font-weight:700;color:'+amtCol+'">'+amtSign+fmt(t.amt)+'</td>' +
           '<td style="font-size:12px;color:var(--t3);white-space:nowrap">'+escHtml(t.method||'')+'</td>' +
           '<td><button class="tx-edit-btn" onclick="event.stopPropagation();txStartEdit('+ri+')">✏ Edit</button></td>' +
