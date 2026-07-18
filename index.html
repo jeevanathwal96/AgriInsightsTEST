@@ -2229,6 +2229,49 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
 .tx-search-wrap svg{flex-shrink:0;opacity:.4}
 .tx-search-wrap input{border:none;outline:none;font-size:13px;width:100%;background:transparent;color:var(--t1);font-family:inherit}
 .tx-month-hdr{display:flex;justify-content:space-between;align-items:center;padding:7px 14px;background:var(--bg);border-bottom:1px solid var(--br);font-size:12px;font-weight:700;color:var(--t2)}
+/* ── Transaction list: sticky toolbar + column widths ─────────────────────────────
+   CAREFUL: the wrapping card must NOT have overflow:hidden. It establishes a containing
+   block, which silently disables position:sticky on anything inside — the toolbar just
+   scrolls away and the CSS looks perfectly correct while doing it. Corners are rounded
+   on the children instead. */
+.tx-card{padding:0;position:relative}
+.tx-toolbar{position:sticky;top:0;z-index:6;background:var(--card);padding:14px 16px;border-bottom:1px solid var(--br2);border-radius:13px 13px 0 0}
+.tx-tbl thead th{position:sticky;top:var(--tx-th-top,64px);z-index:5}
+/* Without fixed shares the Description column absorbs every spare pixel and leaves a
+   long empty run before Category. These add to 100% so nothing is left over to absorb. */
+.tx-tbl th:nth-child(2),.tx-tbl td:nth-child(2){width:9%;white-space:nowrap}
+/* Description was 33% while its text averaged half that, leaving ~190px of dead space
+   before the category chip (measured at 1440px). Trailing slack now sits in the last
+   column, where the eye reads it as margin rather than as a gap mid-row. */
+.tx-tbl th:nth-child(3),.tx-tbl td:nth-child(3){width:26%}
+.tx-tbl th:nth-child(4),.tx-tbl td:nth-child(4){width:17%}
+.tx-tbl th:nth-child(5),.tx-tbl td:nth-child(5){width:13%;text-align:right}
+.tx-tbl th:nth-child(6),.tx-tbl td:nth-child(6){width:31%}
+.tx-tbl tbody tr:last-child td:first-child{border-radius:0 0 0 13px}
+.tx-tbl tbody tr:last-child td:last-child{border-radius:0 0 13px 0}
+.tx-month-hdr{position:sticky;top:var(--tx-mo-top,104px);z-index:4}
+.tx-selcol{width:34px;padding-left:14px!important;padding-right:0!important}
+.tx-selcol input{width:15px;height:15px;cursor:pointer;accent-color:var(--gd)}
+.tx-row-sel td{background:var(--gb)!important}
+.tx-row-need td:first-child{box-shadow:inset 3px 0 0 #F59E0B}
+.tx-catcell{cursor:pointer}
+.tx-tag-btn{display:inline-flex;align-items:center;gap:5px;cursor:pointer;transition:filter .12s}
+.tx-catcell:hover .tx-tag-btn{filter:brightness(.94)}
+.tx-caret{font-style:normal;font-size:9px;opacity:.55}
+.tx-need-hint{font-size:10.5px;color:#B45309;margin-top:3px;font-weight:600}
+.tx-cat-edit{width:100%;max-width:200px;font-size:12px;padding:5px 7px;border:1.5px solid var(--gd);border-radius:var(--rs);background:#fff;color:var(--t1)}
+.tx-need-btn{margin-top:9px;font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;border:1.5px solid #FDE68A;background:#FFFBEB;color:#B45309;cursor:pointer;font-family:inherit}
+.tx-need-btn:hover{background:#FEF3C7}
+.tx-need-btn.on{background:#B45309;color:#fff;border-color:#B45309}
+.tx-need-note{margin-top:8px;font-size:11.5px;line-height:1.55;color:#7C2D12;background:#FFFBEB;border:1px solid #FDE68A;border-radius:9px;padding:9px 11px}
+.tx-bulk-bar{display:flex;align-items:center;gap:9px;margin-top:9px;padding:8px 11px;background:var(--gb);border:1.5px solid var(--gl);border-radius:10px;flex-wrap:wrap}
+.tx-bulk-n{flex:0 0 auto}
+.tx-bulk-n{font-size:12px;font-weight:700;color:var(--gd)}
+.tx-bulk-cat{flex:0 0 auto;width:210px;font-size:12px;padding:6px 10px;border-radius:var(--rs);border:1.5px solid var(--br);background:#fff;color:var(--t2)}
+.tx-bulk-go{font-size:12px;font-weight:700;padding:6px 14px;border-radius:var(--rs);border:none;background:var(--gd);color:#fff;cursor:pointer;font-family:inherit}
+.tx-bulk-x{font-size:12px;padding:6px 11px;border-radius:var(--rs);border:1.5px solid var(--br);background:#fff;color:var(--t3);cursor:pointer;font-family:inherit}
+
+
 .tx-month-totals{font-size:11px;font-weight:600;color:var(--t3)}
 .tx-source{font-size:10px;color:var(--t4);margin-top:1px}
 .tx-edit-btn{padding:4px 8px;border:1px solid var(--br);border-radius:6px;background:#fff;font-size:11px;color:var(--t3);cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .12s}
@@ -4455,8 +4498,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div class="ie-comp-foot" id="inc-comp-foot"></div>
     </div>
   </div>
-  <div class="card" style="padding:0;overflow:hidden">
-    <div style="padding:14px 16px;border-bottom:1px solid var(--br2)">
+  <div class="card tx-card">
+    <div class="tx-toolbar">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <div style="font-size:14px;font-weight:700">Income Transactions</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -4471,12 +4514,26 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
             <option>Rental Income</option>
             <option>Other</option>
           </select>
+          <select id="inc-period-filter" title="Period" style="font-size:12px;padding:7px 30px 7px 11px;width:auto;min-width:168px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff" onchange="setTxPeriodSel('income', this.value)">
+            <option value="1">This month</option>
+            <option value="3">Last 3 months</option>
+            <option value="fy">This financial year</option>
+            <option value="12">Last 12 months</option>
+            <option value="all">All time</option>
+          </select>
           <button id="inc-clear-btn" onclick="clearIncomeFilters()" style="display:none;font-size:12px;padding:7px 11px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t3);background:#fff;cursor:pointer">✕ Clear</button>
         </div>
       </div>
       <div id="inc-filter-summary" style="display:none;margin-top:8px;font-size:12px;color:var(--t3)"></div>
+      <button id="inc-need-btn" onclick="txNeedToggle('income')" class="tx-need-btn" style="display:none"></button>
+      <div id="inc-bulk-bar" class="tx-bulk-bar" style="display:none">
+        <span class="tx-bulk-n">0 selected</span>
+        <select id="inc-bulk-cat" class="tx-bulk-cat"></select>
+        <button class="tx-bulk-go" onclick="txBulkApply('income')">Move</button>
+        <button class="tx-bulk-x" onclick="txSelClear('income')">Cancel</button>
+      </div>
     </div>
-    <table class="tbl"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th>Method</th></tr></thead><tbody id="income-tbody"></tbody></table>
+    <table class="tbl tx-tbl"><thead><tr><th class="tx-selcol"><input type="checkbox" class="tx-selall" title="Select all shown" onchange="txSelAll('income', this.checked)"/></th><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th>Method</th></tr></thead><tbody id="income-tbody"></tbody></table>
   </div>
 </div>
 
@@ -4691,8 +4748,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   </div>
 
   <!-- TRANSACTIONS TABLE WITH FILTERS -->
-  <div class="card" style="padding:0;overflow:hidden">
-    <div style="padding:14px 16px;border-bottom:1px solid var(--br2)">
+  <div class="card tx-card">
+    <div class="tx-toolbar">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <div style="font-size:14px;font-weight:700">Expense Transactions</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -4716,18 +4773,26 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
               <option>Co-op transport</option>
               <option>Co-op cut & admin</option>
             </select>
-          <select id="exp-period-filter" style="font-size:12px;padding:7px 10px;width:auto;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff" onchange="filterExpTx()">
-            <option value="">All Time</option>
-            <option>This Month</option>
-            <option>Last 3 Months</option>
-            <option>This Year</option>
+          <select id="exp-period-filter" title="Period" style="font-size:12px;padding:7px 30px 7px 11px;width:auto;min-width:168px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff" onchange="setTxPeriodSel('expense', this.value)">
+            <option value="1">This month</option>
+            <option value="3">Last 3 months</option>
+            <option value="fy">This financial year</option>
+            <option value="12">Last 12 months</option>
+            <option value="all">All time</option>
           </select>
           <button id="exp-clear-btn" onclick="clearExpFilters()" style="display:none;font-size:12px;padding:7px 11px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t3);background:#fff;cursor:pointer">✕ Clear</button>
         </div>
       </div>
       <div id="exp-filter-summary" style="display:none;margin-top:8px;font-size:12px;color:var(--t3)"></div>
+      <button id="exp-need-btn" onclick="txNeedToggle('expense')" class="tx-need-btn" style="display:none"></button>
+      <div id="exp-bulk-bar" class="tx-bulk-bar" style="display:none">
+        <span class="tx-bulk-n">0 selected</span>
+        <select id="exp-bulk-cat" class="tx-bulk-cat"></select>
+        <button class="tx-bulk-go" onclick="txBulkApply('expense')">Move</button>
+        <button class="tx-bulk-x" onclick="txSelClear('expense')">Cancel</button>
+      </div>
     </div>
-    <table class="tbl"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th>Method</th></tr></thead><tbody id="expense-tbody"></tbody></table>
+    <table class="tbl tx-tbl"><thead><tr><th class="tx-selcol"><input type="checkbox" class="tx-selall" title="Select all shown" onchange="txSelAll('expense', this.checked)"/></th><th>Date</th><th>Description</th><th>Category</th><th>Amount</th><th>Method</th></tr></thead><tbody id="expense-tbody"></tbody></table>
   </div>
 </div>
 
@@ -10220,6 +10285,12 @@ function bootAgriInsights() {
   try { _fcFillAllSelects(); } catch(e){}
   // Any expense category without a card gets a home in the fallback picker.
   try { aeFillMore(); } catch(e){}
+  // Transaction lists default to the financial year, not a rolling 6 months.
+  try{
+    if(!ST.expPeriodSel){ ST.expPeriodSel='fy'; ST.expPeriod=String(_txPeriodMonths('fy')); }
+    if(!ST.incPeriodSel){ ST.incPeriodSel='fy'; ST.incPeriod=String(_txPeriodMonths('fy')); }
+    _txSyncPeriodControls('expense'); _txSyncPeriodControls('income');
+  }catch(e){}
   // currentMonth anchors every money view's trailing window. migrateDemoData only
   // sets it on a fresh demo load, so for real (loaded) accounts it stayed stuck at the
   // 'May 2024' default — making the trailing window exclude ALL current data and any
@@ -10814,6 +10885,7 @@ var n = parseInt(ST.incPeriod || '6', 10);
     if (periodMonths.indexOf(lbl) < 0) return false;
     if (cat && t.cat !== cat) return false;
     if (q && (t.desc + ' ' + t.cat).toLowerCase().indexOf(q) < 0) return false;
+    if (ST.incNeedOnly && !_txNeedsLook(t)) return false;
     t._realIdx = ST.txns.indexOf(t);
     return true;
   });
@@ -10822,7 +10894,7 @@ var n = parseInt(ST.incPeriod || '6', 10);
   if (!tbody) return;
 
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--t4);padding:24px">No transactions match your filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t4);padding:24px">No transactions match your filters.</td></tr>';
     return;
   }
 
@@ -10840,7 +10912,7 @@ var months = [];
     var moTxns = byMonth[mo];
     var moTotal = moTxns.reduce(function(s, t) { return s + t.amt; }, 0);
 
-rows += '<tr class="tx-month-row"><td colspan="5" style="padding:0">' +
+rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
       '<div class="tx-month-hdr">' +
         '<span>' + mo + '</span>' +
         '<span class="tx-month-totals" style="color:var(--gd);font-weight:700">+ ' + fmt(moTotal) + '</span>' +
@@ -10852,11 +10924,18 @@ rows += '<tr class="tx-month-row"><td colspan="5" style="padding:0">' +
       var bg = ti % 2 !== 0 ? 'background:var(--bg)' : '';
       var ri = ST.txns.indexOf(t);
       var clip = t.receipt ? ' <span class="txd-clip">\u00b7 \ud83d\udcce</span>' : '';
-      rows += '<tr class="txrow-click" onclick="openTxnDetail(' + ri + ')" style="' + bg + '">' +
+      var _need = _txNeedsLook(t);
+      var _sel  = !!TX_SEL['income'][ri];
+      rows += '<tr id="txrow-income-' + ri + '" class="txrow-click' + (_sel?' tx-row-sel':'') + (_need?' tx-row-need':'') + '" onclick="openTxnDetail(' + ri + ')" style="' + bg + '">' +
+        '<td class="tx-selcol" onclick="event.stopPropagation()"><input type="checkbox" class="tx-sel" data-i="' + ri + '"' + (_sel?' checked':'') + ' onchange="txSelToggle(' + ri + ', \'income\', event)"/></td>' +
         '<td style="font-size:12px;color:var(--t3)">' + t.date + '</td>' +
         '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">' + (t.desc || '') + '</div>' +
              '<div class="tx-source">' + (t.method || '') + clip + '</div></td>' +
-        '<td><span class="tag ' + tag + '">' + esc(t.cat) + '</span></td>' +
+        /* The category cell is a button: clicking it CHANGES the category, which is what
+           a farmer wants here far more often than an explanation. */
+        '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'income\')">' +
+          '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat) + '<i class="tx-caret">\u25be</i></span>' +
+          (_need ? '<div class="tx-need-hint">looks like ' + esc(_need) + '</div>' : '') + '</td>' +
         '<td style="font-weight:700;color:var(--gd);text-align:right">+' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
       '</tr>';
@@ -10864,12 +10943,204 @@ rows += '<tr class="tx-month-row"><td colspan="5" style="padding:0">' +
   });
 
   tbody.innerHTML = rows;
+  /* Count what is actually on screen, plus how many the period holds before the
+     category/search filters narrow it — that difference is the useful number. */
+  try{
+    var _shownTotal = list.reduce(function(a,t){ return a + (t.amt||0); }, 0);
+    var _allInPeriod = ST.txns.filter(function(t){
+      if (t.type !== 'income') return false;
+      var d = parseDate(t.date); if (!d) return false;
+      return periodMonths.indexOf(MO[d.m] + ' ' + d.y) >= 0;
+    }).length;
+    _txFilterSummary('income', list.length, _shownTotal, _allInPeriod);
+  }catch(e){}
 }
 
 function clearIncomeFilters() {
   var s=$('inc-search');      if(s) s.value='';
   var c=$('inc-cat-filter');  if(c) c.selectedIndex=0;
+  setTxPeriodSel('income','fy');            // back to the default period too
   filterIncomeTx();
+}
+
+/* Fills the "showing N of M" line under the toolbar. Called at the end of both filters so
+   the count can never drift from what is actually on screen. */
+/* The toolbar wraps to two rows on narrower windows, so the header's sticky offset has to
+   be measured, not assumed. Recomputed on load and on resize. */
+function _txStickyOffsets(){
+  ['exp','inc'].forEach(function(k){
+    var bar=document.querySelector('#'+k+'-cat-filter');
+    if(!bar) return;
+    var tb=bar.closest('.tx-toolbar'); if(!tb) return;
+    var card=tb.closest('.tx-card'); if(!card) return;
+    var h=Math.round(tb.getBoundingClientRect().height);
+    card.style.setProperty('--tx-th-top', h+'px');
+    var th=card.querySelector('.tx-tbl thead th');
+    var thH=th?Math.round(th.getBoundingClientRect().height):38;
+    card.style.setProperty('--tx-mo-top', (h+thH)+'px');
+  });
+}
+try{ window.addEventListener('resize', function(){ try{ _txStickyOffsets(); }catch(e){} }); }catch(e){}
+/* ── Transaction list: selection, inline recategorise, and the "needs a look" scan ──
+   The category cell is the most valuable click target on this page, so clicking it
+   changes the category rather than explaining anything. Explanation lives behind the
+   "needs a look" button, where a farmer goes looking for it. */
+var TX_SEL = {expense:{}, income:{}};
+
+/* A row "needs a look" when the description points somewhere other than where it is
+   filed. Fallback guesses are ignored — inferCategory always returns SOMETHING, and
+   flagging every row whose fallback differs would bury the real ones. */
+function _txNeedsLook(t){
+  if (!t || !t.desc || t._catOk) return null;
+  var isInc = (t.type === 'income');
+  var guess;
+  try{ guess = inferCategory(t.desc, isInc); }catch(e){ return null; }
+  if (!guess || guess === t.cat) return null;
+  if (guess === 'Other Expenses' || guess === 'Other Income') return null;  // a shrug, not a finding
+  return guess;
+}
+function _txNeedList(kind){
+  return (ST.txns||[]).filter(function(t){ return t.type===kind && _txNeedsLook(t); });
+}
+function txNeedToggle(kind){
+  var k = (kind==='income') ? 'inc' : 'exp';
+  ST[k+'NeedOnly'] = !ST[k+'NeedOnly'];
+  (kind==='income') ? filterIncomeTx() : filterExpTx();
+}
+/* Farmer says the category is right after all — stop flagging it, keep the row as filed. */
+function txCatConfirm(idx, kind){
+  var t = ST.txns[idx]; if (!t) return;
+  t._catOk = true;
+  try{ saveState&&saveState(); }catch(e){}
+  (kind==='income') ? filterIncomeTx() : filterExpTx();
+}
+
+/* ── Inline recategorise ─────────────────────────────────────────────────────────── */
+function txCatOpen(idx, el, kind){
+  var t = ST.txns[idx]; if (!t || !el) return;
+  var cell = el.closest('td'); if (!cell) return;
+  if (cell.querySelector('select')) return;                 // already open
+  var opts = FARM_CATS.filter(function(c){
+    return c.t === (t.type==='income' ? 'inc' : 'exp') || c.t === 'both';
+  }).map(function(c){ return c.n; });
+  if (opts.indexOf(t.cat) < 0) opts.unshift(t.cat);         // never hide where it is now
+  var prev = cell.innerHTML;
+  cell.innerHTML = '<select class="tx-cat-edit" onclick="event.stopPropagation()" ' +
+    'onchange="txCatApply(' + idx + ', this.value, \'' + kind + '\')" ' +
+    'onblur="(' + (kind==='income'?'filterIncomeTx':'filterExpTx') + ')()">' +
+    opts.map(function(c){ return '<option' + (c===t.cat?' selected':'') + '>' + esc(c) + '</option>'; }).join('') +
+    '</select>';
+  var sel = cell.querySelector('select');
+  if (sel){ sel.focus(); try{ sel.showPicker && sel.showPicker(); }catch(e){} }
+}
+function txCatApply(idx, cat, kind){
+  var t = ST.txns[idx]; if (!t || !cat || cat === t.cat) {
+    return (kind==='income') ? filterIncomeTx() : filterExpTx();
+  }
+  var from = t.cat;
+  t.cat = cat;
+  t._catOk = true;                                          // an explicit choice is a confirmation
+  try{ if (typeof dataChanged === 'function') dataChanged('transaction'); }catch(e){}
+  try{ saveState&&saveState(); }catch(e){}
+  (kind==='income') ? filterIncomeTx() : filterExpTx();
+  try{ toast && toast('Moved to ' + cat + ' (was ' + from + ')'); }catch(e){}
+}
+
+/* ── Bulk selection ──────────────────────────────────────────────────────────────── */
+function txSelToggle(idx, kind, ev){
+  if (ev) ev.stopPropagation();
+  var m = TX_SEL[kind]; if (m[idx]) delete m[idx]; else m[idx] = 1;
+  _txSelBar(kind);
+  var row = document.getElementById('txrow-'+kind+'-'+idx);
+  if (row) row.classList.toggle('tx-row-sel', !!m[idx]);    // update ONLY this row
+}
+function txSelAll(kind, on){
+  var m = TX_SEL[kind] = {};
+  if (on){
+    document.querySelectorAll('#'+(kind==='income'?'income':'expense')+'-tbody input.tx-sel').forEach(function(cb){
+      m[cb.getAttribute('data-i')] = 1; cb.checked = true;
+      var r = cb.closest('tr'); if (r) r.classList.add('tx-row-sel');
+    });
+  } else {
+    document.querySelectorAll('#'+(kind==='income'?'income':'expense')+'-tbody input.tx-sel').forEach(function(cb){
+      cb.checked = false; var r = cb.closest('tr'); if (r) r.classList.remove('tx-row-sel');
+    });
+  }
+  _txSelBar(kind);
+}
+function txSelClear(kind){ TX_SEL[kind] = {}; (kind==='income') ? filterIncomeTx() : filterExpTx(); }
+function _txSelCount(kind){ return Object.keys(TX_SEL[kind]||{}).length; }
+function _txSelBar(kind){
+  var bar = document.getElementById((kind==='income'?'inc':'exp')+'-bulk-bar');
+  if (!bar) return;
+  var c = _txSelCount(kind);
+  bar.style.display = c ? '' : 'none';
+  var lbl = bar.querySelector('.tx-bulk-n');
+  if (lbl) lbl.textContent = c + ' selected';
+}
+function txBulkApply(kind){
+  var sel = document.getElementById((kind==='income'?'inc':'exp')+'-bulk-cat');
+  var cat = sel && sel.value; if (!cat) return;
+  var ids = Object.keys(TX_SEL[kind]||{});
+  if (!ids.length) return;
+  var moved = 0;
+  ids.forEach(function(i){
+    var t = ST.txns[+i];
+    if (t && t.cat !== cat){ t.cat = cat; t._catOk = true; moved++; }
+  });
+  TX_SEL[kind] = {};
+  try{ if (typeof dataChanged === 'function') dataChanged('transaction'); }catch(e){}
+  try{ saveState&&saveState(); }catch(e){}
+  (kind==='income') ? filterIncomeTx() : filterExpTx();
+  try{ toast && toast(moved + ' transaction' + (moved===1?'':'s') + ' moved to ' + cat); }catch(e){}
+}
+function _txFillBulkCat(kind){
+  var sel = document.getElementById((kind==='income'?'inc':'exp')+'-bulk-cat');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Move to…</option>' +
+    FARM_CATS.filter(function(c){ return c.t === (kind==='income'?'inc':'exp') || c.t === 'both'; })
+             .map(function(c){ return '<option>' + esc(c.n) + '</option>'; }).join('');
+}
+
+/* The commentary is deliberately behind the button. On the list a flagged row gets an amber
+   edge and a quiet "looks like X"; the reasoning only appears once the farmer asks for it. */
+function _txNeedButton(kind){
+  var short = (kind==='income') ? 'inc' : 'exp';
+  var btn = document.getElementById(short+'-need-btn'); if (!btn) return;
+  var c = _txNeedList(kind).length;
+  var on = !!ST[short+'NeedOnly'];
+  btn.style.display = (c || on) ? '' : 'none';
+  btn.className = 'tx-need-btn' + (on ? ' on' : '');
+  btn.textContent = on ? ('\u2715  Showing ' + c + ' to check') : (c + ' need a look');
+  var noteId = short+'-need-note', note = document.getElementById(noteId);
+  if (on && c){
+    if (!note){ note = document.createElement('div'); note.id = noteId; note.className = 'tx-need-note';
+                btn.parentNode.insertBefore(note, btn.nextSibling); }
+    note.innerHTML = 'These ' + c + ' transaction' + (c===1?'':'s') + ' are filed somewhere the description does not point. ' +
+      'Nothing has been changed \u2014 click a category to move it, or open the row and confirm it is right to stop the reminder.';
+  } else if (note){ note.remove(); }
+}
+
+function _txFilterSummary(kind, shown, shownTotal, allInPeriod){
+  var el=document.getElementById(kind==='income'?'inc-filter-summary':'exp-filter-summary');
+  if(!el) return;
+  var sel=(kind==='income'?ST.incPeriodSel:ST.expPeriodSel)||'fy';
+  var cat=(document.getElementById(kind==='income'?'inc-cat-filter':'exp-cat-filter')||{}).value||'';
+  var q  =((document.getElementById(kind==='income'?'inc-search':'exp-search')||{}).value||'').trim();
+  var filtered=!!(cat||q);
+  var money=(typeof fmt==='function')?fmt(shownTotal):Math.round(shownTotal);
+  var txt;
+  if(filtered) txt='Showing <b>'+shown+'</b> of '+allInPeriod+' transactions \u00b7 '+money
+                  +(cat?' \u00b7 '+cat:'')+(q?' \u00b7 \u201c'+q+'\u201d':'');
+  else         txt='<b>'+shown+'</b> transaction'+(shown===1?'':'s')+' \u00b7 '+money+' \u00b7 '+_txPeriodLabel(sel);
+  el.innerHTML=txt;
+  try{ _txNeedButton(kind); }catch(e){}
+  try{ _txFillBulkCat(kind); }catch(e){}
+  try{ _txSelBar(kind); }catch(e){}
+  try{ _txStickyOffsets(); }catch(e){}
+  el.style.display=shown||filtered?'':'none';
+  var btn=document.getElementById(kind==='income'?'inc-clear-btn':'exp-clear-btn');
+  if(btn) btn.style.display=filtered?'':'none';
 }
 
 function filterExpTx() {
@@ -10897,6 +11168,7 @@ var n = parseInt(ST.expPeriod || '6', 10);
     if (periodMonths.indexOf(lbl) < 0) return false;
     if (cat && t.cat !== cat) return false;
     if (q && (t.desc + ' ' + t.cat).toLowerCase().indexOf(q) < 0) return false;
+    if (ST.expNeedOnly && !_txNeedsLook(t)) return false;
     return true;
   });
 
@@ -10904,7 +11176,7 @@ var n = parseInt(ST.expPeriod || '6', 10);
   if (!tbody) return;
 
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--t4);padding:24px">No transactions match your filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t4);padding:24px">No transactions match your filters.</td></tr>';
     return;
   }
 
@@ -10922,7 +11194,7 @@ var months = [];
     var moTxns = byMonth[mo];
     var moTotal = moTxns.reduce(function(s, t) { return s + t.amt; }, 0);
 
-    rows += '<tr class="tx-month-row"><td colspan="5" style="padding:0">' +
+    rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
       '<div class="tx-month-hdr">' +
         '<span>' + mo + '</span>' +
         '<span class="tx-month-totals" style="color:var(--rd);font-weight:700">− ' + fmt(moTotal) + '</span>' +
@@ -10934,11 +11206,18 @@ var months = [];
       var bg = ti % 2 !== 0 ? 'background:var(--bg)' : '';
       var ri = ST.txns.indexOf(t);
       var clip = t.receipt ? ' <span class="txd-clip">\u00b7 \ud83d\udcce</span>' : '';
-      rows += '<tr class="txrow-click" onclick="openTxnDetail(' + ri + ')" style="' + bg + '">' +
+      var _need = _txNeedsLook(t);
+      var _sel  = !!TX_SEL['expense'][ri];
+      rows += '<tr id="txrow-expense-' + ri + '" class="txrow-click' + (_sel?' tx-row-sel':'') + (_need?' tx-row-need':'') + '" onclick="openTxnDetail(' + ri + ')" style="' + bg + '">' +
+        '<td class="tx-selcol" onclick="event.stopPropagation()"><input type="checkbox" class="tx-sel" data-i="' + ri + '"' + (_sel?' checked':'') + ' onchange="txSelToggle(' + ri + ', \'expense\', event)"/></td>' +
         '<td style="font-size:12px;color:var(--t3)">' + t.date + '</td>' +
         '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">' + (t.desc || '') + '</div>' +
              '<div class="tx-source">' + (t.method || '') + clip + '</div></td>' +
-        '<td><span class="tag ' + tag + '">' + esc(t.cat) + '</span></td>' +
+        /* The category cell is a button: clicking it CHANGES the category, which is what
+           a farmer wants here far more often than an explanation. */
+        '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'expense\')">' +
+          '<span class="tag tx-tag-btn ' + tag + '" title="Click to change category">' + esc(t.cat) + '<i class="tx-caret">\u25be</i></span>' +
+          (_need ? '<div class="tx-need-hint">looks like ' + esc(_need) + '</div>' : '') + '</td>' +
         '<td style="font-weight:700;color:var(--rd);text-align:right">− ' + fmt(t.amt) + '</td>' +
         '<td style="color:var(--t3);font-size:12px">' + (t.method || '') + '</td>' +
       '</tr>';
@@ -10946,11 +11225,23 @@ var months = [];
   });
 
   tbody.innerHTML = rows;
+  /* Count what is actually on screen, plus how many the period holds before the
+     category/search filters narrow it — that difference is the useful number. */
+  try{
+    var _shownTotal = list.reduce(function(a,t){ return a + (t.amt||0); }, 0);
+    var _allInPeriod = ST.txns.filter(function(t){
+      if (t.type !== 'expense') return false;
+      var d = parseDate(t.date); if (!d) return false;
+      return periodMonths.indexOf(MO[d.m] + ' ' + d.y) >= 0;
+    }).length;
+    _txFilterSummary('expense', list.length, _shownTotal, _allInPeriod);
+  }catch(e){}
 }
 
 function clearExpFilters() {
   var s=$('exp-search');     if(s) s.value='';
   var c=$('exp-cat-filter'); if(c) c.selectedIndex=0;
+  setTxPeriodSel('expense','fy');           // back to the default period too
   filterExpTx();
 }
 
@@ -11569,8 +11860,62 @@ function setIncPeriod(p) {
     var b=$('inc-pill-'+x); if(b) b.className='pill'+(p===x?' on':'');
   });
   CHARTS_INITED['income'] = false;
-  lazyInitCharts('income');
-  updateIncPage();
+  try{ lazyInitCharts('income'); }catch(e){}      // a chart failure must not block the list
+  try{ updateIncPage(); }catch(e){}
+  try{ _txSyncPeriodControls('income'); }catch(e){}
+}
+
+/* ── Transaction-list period control ──────────────────────────────────────────────
+   The toolbar's period <select> was DEAD: filterExpTx()/filterIncomeTx() read
+   ST.expPeriod / ST.incPeriod, which only the chart pills ever set, so choosing
+   "This Month" in the dropdown did nothing. Two controls, one of them a placebo.
+
+   Everything downstream does parseInt(ST.expPeriod) and treats it as a month count, so
+   rather than introduce a new period type, "this financial year" is resolved INTO a month
+   count here. Charts, totals and drawers keep working with no change at all. */
+function _txFyMonths(){
+  var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  var parts=String((typeof currentPeriodLabel==='function')?currentPeriodLabel():'').split(' ');
+  var cm=(MN[parts[0]]!==undefined)?MN[parts[0]]:(new Date()).getMonth();
+  var fyStart=((ST.fyStartMonth||3)-1);           // stored 1-12, we want 0-11
+  var months=((cm-fyStart)%12+12)%12 + 1;         // inclusive of the current month
+  return Math.max(1, months);
+}
+function _txPeriodMonths(v){
+  if(v==='fy')  return _txFyMonths();
+  if(v==='all') return 600;                        // 50 years — everything the farm has
+  var n=parseInt(v,10);
+  return (n>0)?n:6;
+}
+function _txPeriodLabel(v){
+  if(v==='fy')  return 'this financial year';
+  if(v==='all') return 'all time';
+  if(v==='1')   return 'this month';
+  return 'the last '+v+' months';
+}
+/* Called by the toolbar select. Stores the CHOICE (so 'fy' survives a month rollover and
+   re-resolves to a new month count) and hands the resolved count to the existing setter. */
+function setTxPeriodSel(kind, v){
+  if(kind==='income'){ ST.incPeriodSel=v; setIncPeriod(String(_txPeriodMonths(v))); }
+  else               { ST.expPeriodSel=v; setExpPeriod(String(_txPeriodMonths(v))); }
+  _txSyncPeriodControls(kind);
+  try{ saveState&&saveState(); }catch(e){}
+}
+/* Keeps pills and dropdown telling the same story. A pill click can land on a month count
+   that no dropdown option maps to, in which case the dropdown shows nothing selected
+   rather than lying about it. */
+function _txSyncPeriodControls(kind){
+  var sel=document.getElementById(kind==='income'?'inc-period-filter':'exp-period-filter');
+  if(!sel) return;
+  var chosen=(kind==='income'?ST.incPeriodSel:ST.expPeriodSel);
+  var months=parseInt((kind==='income'?ST.incPeriod:ST.expPeriod)||'6',10);
+  var want=chosen||'';
+  if(!want || _txPeriodMonths(want)!==months){
+    want='';
+    ['1','3','6','12'].forEach(function(x){ if(parseInt(x,10)===months) want=x; });
+    if(!want && months===_txFyMonths()) want='fy';
+  }
+  sel.value=want;
 }
 
 function setExpPeriod(p) {
@@ -11580,8 +11925,9 @@ function setExpPeriod(p) {
     var b=$('exp-pill-'+x); if(b) b.className='pill'+(p===x?' on':'');
   });
   CHARTS_INITED['expenses'] = false;
-  lazyInitCharts('expenses');
-  updateExpPage();
+  try{ lazyInitCharts('expenses'); }catch(e){}    // a chart failure must not block the list
+  try{ updateExpPage(); }catch(e){}
+  try{ _txSyncPeriodControls('expense'); }catch(e){}
 }
 
 // ============================================================
