@@ -13340,6 +13340,12 @@ function nav(id) {
   var c = $('content');
   if (c) c.scrollTop = 0;
 
+  /* The Transactions table IS this page's visible content — it starts ~300px down, right
+     under the filter bar, where Income/Expenses keep theirs two screens below the fold.
+     So the 60ms defer below is the one case a farmer actually WATCHES the table arrive.
+     Draw it now, before this page switch paints, and the table is simply already there. */
+  if (id === 'transactions'){ try{ txRender(); }catch(e){} }
+
   // Sticky offsets can only be measured while the page is visible; remeasure after
   // the switch has painted.
   try{ requestAnimationFrame(function(){ try{ _txStickyOffsets(); }catch(e){} try{ window._txStuckUpdate && _txStuckUpdate(); }catch(e){} }); }catch(e){}
@@ -13362,7 +13368,7 @@ function nav(id) {
     if (id === 'expenses')    { try { lazyInitCharts('expenses'); } catch (e) {} renderTable('expense'); renderExpBar(); updateExpPage(); }
     if (id === 'cashflow')    { try { lazyInitCharts('cashflow'); } catch (e) {} updateCfPage(); }
     if (id === 'market')      { try { lazyInitCharts('market'); } catch (e) {} renderMyFarm(); renderMktInsight(); if (typeof mktRefreshDateLabels==='function') mktRefreshDateLabels(); }
-    if (id === 'transactions'){ txRender(); if(typeof txRefreshDeletedChip==='function') txRefreshDeletedChip(); }
+    if (id === 'transactions'){ if(typeof txRefreshDeletedChip==='function') txRefreshDeletedChip(); }
   if (id === 'settings')    {
     var sf=$('set-farm');   if(sf) sf.value = ST.farmName   || '';
     var so=$('set-owner');  if(so) so.value = ST.ownerName  || '';
@@ -36796,6 +36802,7 @@ function _txChunkPaint(tbodyId, html, firstRows){
    4-5 back-to-back ~100ms main-thread tasks right after every tab open: the "lag".
    Now the next batch is appended only when the farmer scrolls within ~2 screens of the
    bottom. Never scrolls down → the work never happens. */
+function _txChunkTotal(st){ return (st.total != null) ? st.total : (st.parts ? st.parts.length : 0); }
 function _txChunkWire(){
   if (_txChunkWire._on) return;
   var c = document.getElementById('content'); if (!c) return;
@@ -36803,11 +36810,30 @@ function _txChunkWire(){
   c.addEventListener('scroll', function(){
     if (c.scrollTop + c.clientHeight < c.scrollHeight - 1800) return;
     Object.keys(_TX_CHUNK).forEach(function(k){
-      var st = _TX_CHUNK[k]; if (!st || !st.step || st.i >= st.parts.length) return;
+      var st = _TX_CHUNK[k]; if (!st || !st.step || st.i >= _txChunkTotal(st)) return;
       var tb = document.getElementById(k); if (!tb || tb.offsetParent === null) return;
       st.step(false);
     });
   }, {passive:true});
+}
+/* Same streaming contract as _txChunkPaint, but the HTML for each window is BUILT when
+   that window is needed rather than up front. build(from, count) -> html. */
+function _txLazyPaint(tbodyId, total, build, firstCount){
+  var tb = $(tbodyId); if(!tb) return;
+  var st = _TX_CHUNK[tbodyId] = { i:0, total:total, build:build };
+  var n = Math.min(total, firstCount || 60);
+  tb.innerHTML = build(0, n);
+  st.i = n;
+  st.step = function(sync){
+    if (_TX_CHUNK[tbodyId] !== st) return;          // superseded by a newer render
+    if (st.i >= st.total) return;
+    var want = sync ? (st.total - st.i) : 250;
+    var html = build(st.i, want);
+    st.i = Math.min(st.total, st.i + want);
+    if (html) tb.insertAdjacentHTML('beforeend', html);
+  };
+  st.flush = function(){ st.step(true); };
+  _txChunkWire();
 }
 /* Anything that needs the WHOLE list in the DOM right now (select-all, tests). */
 function _txChunkFlush(){
@@ -37114,9 +37140,10 @@ function txRender() {
   var byMonth = {};
   var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   list.forEach(function(t, i) {
-    // Stash real index in ST.txns for editing
-    var realIdx = ST.txns.indexOf(t);
-    t._realIdx = realIdx;
+    /* _idx was stamped with this row's position in ST.txns during the filter above, so
+       reuse it. The old ST.txns.indexOf(t) here rescanned the whole ledger once per row —
+       a million comparisons on a 1,000-row farm, for a number we already had. */
+    t._realIdx = t._idx;
     var d = parseDate(t.date);
     var key = d ? (MO[d.m] + ' ' + d.y) : t.date;
     if (!byMonth[key]) { byMonth[key] = []; months.push(key); }
@@ -37135,11 +37162,18 @@ function txRender() {
 
   function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-  var rows = '';
-  if (!list.length) {
-    rows = '<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:32px">No transactions match your filter.</td></tr>';
-  } else {
-    months.forEach(function(mo) {
+  /* Build HTML for the rows we are about to SHOW, not for the whole ledger. Building
+     1,000 rows and painting 150 threw ~85% of the string work away every render — and
+     redid it on the next one. seq is a cheap flat list of what to draw; the builders
+     below turn a window of it into HTML on demand. */
+  var seq = [];
+  months.forEach(function(mo) {
+    seq.push({h:mo});
+    byMonth[mo].forEach(function(t, ti) { seq.push({t:t, ti:ti}); });
+  });
+
+  function monthHdrHtml(mo) {
+      var rows = '';
       var moTxns = byMonth[mo];
       var moInc  = moTxns.reduce(function(s,t){ return s+(t.type==='income'?t.amt:0);},0);
       var moExp  = moTxns.reduce(function(s,t){ return s+(t.type==='expense'?t.amt:0);},0);
@@ -37156,8 +37190,11 @@ function txRender() {
           '</span>' +
         '</div>' +
       '</td></tr>';
+      return rows;
+  }
 
-      moTxns.forEach(function(t, ti) {
+  function txnRowHtml(t, ti) {
+        var rows = '';
         var ri       = t._realIdx;
         var isIncome = t.type === 'income';
         var amtCol   = isIncome ? 'var(--gd)' : 'var(--rd)';
@@ -37198,18 +37235,36 @@ function txRender() {
             '</div>' +
           '</td></tr>';
         }
-      });
-    });
+        return rows;
   }
 
+  function buildSlice(from, count) {
+    var out = '', end = Math.min(seq.length, from + count);
+    for (var i = from; i < end; i++) {
+      var e = seq[i];
+      out += e.h ? monthHdrHtml(e.h) : txnRowHtml(e.t, e.ti);
+    }
+    return out;
+  }
+
+  var bannerHtml = '';
   if (TX_BATCH_FILTER) {
     var _bb=(ST.importBatches||[]).find(function(x){return x.id===TX_BATCH_FILTER;});
-    rows = '<tr><td colspan="7" style="padding:10px 14px;background:#F1F5F2;border-bottom:1px solid #DCE7DF">'+
+    bannerHtml = '<tr><td colspan="7" style="padding:10px 14px;background:#F1F5F2;border-bottom:1px solid #DCE7DF">'+
       '<span style="font-size:12.5px;color:var(--t2)">Showing one import: <b>'+escHtml((_bb&&_bb.source)||'import')+'</b></span>'+
       '<button onclick="txClearBatchFilter()" style="margin-left:10px;background:#fff;border:1px solid var(--br);border-radius:6px;padding:4px 11px;font-size:11.5px;font-weight:600;color:var(--gd);cursor:pointer;font-family:inherit">Show all transactions</button>'+
-      '</td></tr>'+rows;
+      '</td></tr>';
   }
-  _txChunkPaint('all-tbody', rows, 150);
+  if (!list.length) {
+    var _tbe = $('all-tbody');
+    if (_tbe) _tbe.innerHTML = bannerHtml +
+      '<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:32px">No transactions match your filter.</td></tr>';
+    try{ delete _TX_CHUNK['all-tbody']; }catch(e){}
+  } else {
+    _txLazyPaint('all-tbody', seq.length, function(from, count){
+      return (from === 0 ? bannerHtml : '') + buildSlice(from, count);
+    }, 60);
+  }
   try{ txAllSummary(list); }catch(e){}
   try{ txAllNeedButton(); }catch(e){}
   try{ txAllSelBar(); }catch(e){}
