@@ -2256,16 +2256,18 @@ select.tx-fctl{padding-right:30px}
 .tx-tbl thead th{position:sticky;top:var(--tx-th-top,64px);z-index:5}
 /* Without fixed shares the Description column absorbs every spare pixel and leaves a
    long empty run before Category. These add to 100% so nothing is left over to absorb. */
-.tx-tbl th:nth-child(2),.tx-tbl td:nth-child(2){width:100px;white-space:nowrap}
+.tx-tbl th:nth-child(2),.tx-tbl td:nth-child(2){width:96px;white-space:nowrap}
 /* Description was 33% while its text averaged half that, leaving ~190px of dead space
    before the category chip (measured at 1440px). Trailing slack now sits in the last
    column, where the eye reads it as margin rather than as a gap mid-row. */
-/* Description has no width: it absorbs ALL the slack, so Method hugs the right edge
-   instead of floating in a 400px-wide column on big screens. */
-.tx-tbl th:nth-child(4),.tx-tbl td:nth-child(4){width:200px}
-.tx-tbl th:nth-child(5),.tx-tbl td:nth-child(5){width:110px;text-align:right}
-.tx-tbl th:nth-child(6),.tx-tbl td:nth-child(6){width:130px;white-space:nowrap}
+/* Percentages so every column breathes evenly as the window widens, instead of one
+   column hoarding the slack. Long descriptions wrap to a second line. */
+.tx-tbl th:nth-child(3),.tx-tbl td:nth-child(3){width:41%;overflow-wrap:anywhere}
+.tx-tbl th:nth-child(4),.tx-tbl td:nth-child(4){width:21%}
+.tx-tbl th:nth-child(5),.tx-tbl td:nth-child(5){width:12%;text-align:right}
+.tx-tbl th:nth-child(6),.tx-tbl td:nth-child(6){width:13%;white-space:nowrap}
 .tx-tbl .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+#tx-tbl td:nth-child(3){overflow-wrap:anywhere}
 .tx-tbl tbody tr:last-child td:first-child{border-radius:0 0 0 13px}
 .tx-tbl tbody tr:last-child td:last-child{border-radius:0 0 13px 0}
 .tx-month-hdr{position:sticky;top:var(--tx-mo-top,104px);z-index:4}
@@ -7195,10 +7197,10 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <thead><tr>
         <th class="tx-selcol"><input type="checkbox" class="tx-selall" title="Select all shown" onchange="txAllSelAll(this.checked)"/></th>
         <th style="width:96px;white-space:nowrap">Date</th>
-        <th style="min-width:200px">Description</th>
-        <th style="width:200px">Category</th>
-        <th style="width:98px;text-align:right;white-space:nowrap">Amount</th>
-        <th style="width:90px;white-space:nowrap">Method</th>
+        <th style="width:38%">Description</th>
+        <th style="width:20%">Category</th>
+        <th style="width:11%;text-align:right;white-space:nowrap">Amount</th>
+        <th style="width:12%;white-space:nowrap">Method</th>
         <th style="width:56px"></th>
       </tr></thead>
       <tbody id="all-tbody"></tbody>
@@ -11082,20 +11084,21 @@ function _txStuckWatch(){
      and a cover that silently fails to engage is exactly the bug this fixes. A passive
      scroll listener + rAF throttle is boring and works everywhere. */
   function update(){
+    if (update._busy) return;                 // offsets tail-calls us; don't recurse
+    update._busy = true;
     pending = false;
+    /* Measure EVERY tick, not just on transitions: the header offset lived or died by a
+       navigation-hook rAF that real sessions can race (seen live: var never set, header
+       tucked 22px under the bar). Offsets are ~6 rect reads; at the scroll throttle
+       that's nothing, and the value can simply never be stale again. */
+    try{ _txStickyOffsets(); }catch(e){}
     var rTop = root.getBoundingClientRect().top;
-    var changed = false;
     document.querySelectorAll('.tx-sentinel').forEach(function(sn){
       var bar = sn.nextElementSibling; if (!bar) return;
       if (sn.offsetParent === null){ bar.classList.remove('is-stuck'); return; }
-      var now = sn.getBoundingClientRect().top < rTop - 1;
-      if (bar.classList.contains('is-stuck') !== now){ changed = true; }
-      bar.classList.toggle('is-stuck', now);
+      bar.classList.toggle('is-stuck', sn.getBoundingClientRect().top < rTop - 1);
     });
-    /* The moment a bar first sticks, re-measure the header offsets — so a value taken
-       before the toolbar finished rendering can never survive into the stuck state.
-       (No recursion: the second update() sees no state change.) */
-    if (changed){ try{ _txStickyOffsets(); }catch(e){} }
+    update._busy = false;
   }
   /* No rAF: in throttled webviews rAF can simply never fire, wedging the pending
      flag and freezing the cover forever. update() is four rect reads — run it inline
@@ -12735,7 +12738,10 @@ function migrateCatMerges(){
     (ST.txns || []).forEach(function(t){
       if (!t || t._premerge) return;
       var to = _catMergeTarget(t.cat, t.type);
-      if (to && to !== t.cat){ t._premerge = t.cat; t.cat = to; n++; }
+      if (to && to !== t.cat){ t._premerge = t.cat; t.cat = to; n++;
+        /* Local-only fixes revert on the next cloud pull; queue the server update too.
+           flushTxnOutbox batches, so even hundreds of rows go out as a few calls. */
+        try{ typeof txnUpdateThrough==='function' && txnUpdateThrough(t); }catch(e){} }
     });
     (ST.recurring || []).forEach(function(r){
       if (!r || r._premerge) return;
@@ -12785,10 +12791,12 @@ function migrateProduceSplit(){
   var n = 0;
   try{
     [ST.txns, ST.deletedTxns].forEach(function(list){
+      var isLive = (list === ST.txns);
       (list || []).forEach(function(t){
         if (!t || t._presplit) return;
         var to = _produceTarget(t);
-        if (to){ t._presplit = t.cat; t.cat = to; n++; }
+        if (to){ t._presplit = t.cat; t.cat = to; n++;
+          if (isLive){ try{ typeof txnUpdateThrough==='function' && txnUpdateThrough(t); }catch(e){} } }
       });
     });
   }catch(e){}
@@ -12809,7 +12817,8 @@ function undoProduceSplit(){
 // Idempotent clean-up of existing transaction + recurring categories (safe to run every boot).
 function migrateCatSpelling(){
   var n=0;
-  try{ if(typeof ST!=='undefined' && ST.txns){ for(var i=0;i<ST.txns.length;i++){ var t=ST.txns[i]; if(t&&t.cat){ var nc=normalizeCat(t.cat); if(nc!==t.cat){ t.cat=nc; n++; } } } } }catch(e){}
+  try{ if(typeof ST!=='undefined' && ST.txns){ for(var i=0;i<ST.txns.length;i++){ var t=ST.txns[i]; if(t&&t.cat){ var nc=normalizeCat(t.cat); if(nc!==t.cat){ t.cat=nc; n++;
+    try{ typeof txnUpdateThrough==='function' && txnUpdateThrough(t); }catch(e2){} } } } } }catch(e){}
   try{ if(typeof ST!=='undefined' && ST.recurring){ ST.recurring.forEach(function(r){ if(r&&r.category){ var nc=normalizeCat(r.category); if(nc!==r.category) r.category=nc; } }); } }catch(e){}
   return n;
 }
