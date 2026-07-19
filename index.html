@@ -2488,6 +2488,33 @@ select.tx-fctl{padding-right:30px}
 .imp-readnote{background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A;border-radius:8px;padding:11px 13px;font-size:12.5px;line-height:1.5;margin-top:12px}
 .imp-hist-tag{display:inline-block;background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A;border-radius:5px;padding:1px 7px;font-size:10.5px;font-weight:600;margin-left:6px;vertical-align:middle}
 .imp-hist-card{background:#fff;border:1px solid var(--gp);border-radius:12px;overflow:hidden}
+/* Undo-an-import dialog — same shape as the import wizard: green header band, dark green
+   icon tile, white body, tinted action bar. */
+#imp-undo-bg{display:none;position:fixed;inset:0;background:rgba(15,40,28,.55);z-index:900;align-items:center;justify-content:center;padding:24px 16px}
+#imp-undo-bg.on{display:flex}
+.iu-card{background:#fff;border-radius:16px;width:100%;max-width:430px;box-shadow:0 12px 32px rgba(0,0,0,.22);overflow:hidden;font-size:13.5px;color:var(--t2);line-height:1.55}
+.iu-hdr{display:flex;align-items:center;gap:11px;padding:16px 20px;background:var(--gb);border-bottom:1px solid var(--gp)}
+.iu-ic{width:38px;height:38px;border-radius:10px;background:var(--gd);color:#fff;display:flex;align-items:center;justify-content:center;font-size:17px;flex:none}
+.iu-ttl b{display:block;font-size:15.5px;color:var(--t1);font-weight:700;line-height:1.3}
+.iu-ttl span{display:block;font-size:11.5px;color:var(--gm);margin-top:2px;font-weight:600}
+.iu-body{padding:18px 20px 8px}
+.iu-body p{margin:0}
+.iu-facts{background:var(--bg);border:1px solid var(--br);border-radius:var(--rs);padding:10px 12px;margin:12px 0 0;font-size:12.5px}
+.iu-facts div{display:flex;justify-content:space-between;gap:14px;padding:3px 0}
+.iu-facts span:last-child{font-weight:700;color:var(--t1);font-variant-numeric:tabular-nums}
+.iu-safe{display:flex;gap:8px;align-items:flex-start;margin-top:12px;padding:9px 11px;background:var(--gb);border:1px solid var(--gp);border-radius:var(--rs);font-size:12.5px;color:var(--gm)}
+.iu-amber{display:flex;gap:8px;align-items:flex-start;margin-top:10px;padding:9px 11px;background:var(--ap);border:1px solid #F0E4C8;border-radius:var(--rs);font-size:12.5px;color:#7A5410}
+.iu-acts{display:flex;gap:9px;align-items:center;padding:13px 20px;background:var(--bg);border-top:1px solid var(--br)}
+.iu-acts button{border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;border:1px solid var(--br);background:#fff;color:var(--t2)}
+.iu-acts button.ghost{border-color:transparent;color:var(--t3);padding-left:0;margin-right:auto}
+.iu-acts button.danger{background:var(--rd);border-color:var(--rd);color:#fff;padding:9px 20px}
+.iu-acts button[disabled]{opacity:.55;cursor:default}
+/* "Put them back" toast — separate element from #undo-toast so the two can't interfere. */
+#imp-undo-toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);z-index:6000;background:#14281F;color:#EAF3ED;border-radius:10px;padding:12px 15px;display:none;align-items:center;gap:12px;max-width:min(460px,92vw);box-shadow:0 10px 24px -10px rgba(0,0,0,.5);font-size:13px}
+#imp-undo-toast.on{display:flex}
+#imp-undo-toast b{color:#fff}
+#imp-undo-toast button{background:transparent;border:1px solid #46604F;color:#CFE6D8;border-radius:7px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;flex:none}
+#imp-undo-toast button.x{border:none;color:#9DB3A6;padding:6px 4px}
 .imp-strip{display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer;font-size:13px}
 .imp-strip:hover{background:#FAFCFA}
 .imp-strip .ic{flex:none;font-size:14px;line-height:1}
@@ -27820,7 +27847,9 @@ async function txdDelete(){
   } else {
     if(!(await appConfirm('Delete this transaction? It moves to Recently deleted and can be restored for 30 days.'))) return;
   }
-  try { ST.deletedTxns = ST.deletedTxns || []; var _d={}; for(var k in t){ _d[k]=t[k]; } _d.deletedAt=Date.now(); ST.deletedTxns.unshift(_d); if(ST.deletedTxns.length>100) ST.deletedTxns=ST.deletedTxns.slice(0,100); } catch(e){}
+  /* Same bin, same cap as a batch undo — the old inline 100-row trim would have evicted
+     a just-undone import the next time a single row was deleted. */
+  try { _txBinPush(t); } catch(e){}
   ST.txns.splice(TXD_IDX, 1);
   txnDeleteThrough(t);
   hideTxnDetail();
@@ -39174,11 +39203,58 @@ function impIsDuplicate(date, amt, desc){
     return t.date===date && Math.abs((t.amt||0)-amt)<0.01 && (t.desc||'').trim().toLowerCase()===d;
   });
 }
+/* ── Undoing an import must be reversible ─────────────────────────────────────────
+   Deleting ONE transaction has always dropped it into Recently deleted for 30 days.
+   Undoing an import deleted hundreds of rows outright — the bigger action was the
+   unrecoverable one. These helpers put a batch undo on the same footing.
+
+   The bin was also capped at 100 rows, so a 604-row import would have lost 504 of them
+   silently. The cap is now big enough to hold a real statement; the 30-day purge in
+   txnPurgeDeleted() is what actually keeps it from growing forever. */
+var TX_BIN_MAX = 3000;
+function _txBinPush(t, batchId){
+  if(!t) return;
+  try{
+    ST.deletedTxns = ST.deletedTxns || [];
+    var d={}; for(var k in t){ if(t.hasOwnProperty(k)) d[k]=t[k]; }
+    d.deletedAt = Date.now();
+    if(batchId) d._binBatch = batchId;         // lets us put a whole import back at once
+    ST.deletedTxns.unshift(d);
+    if(ST.deletedTxns.length>TX_BIN_MAX) ST.deletedTxns=ST.deletedTxns.slice(0,TX_BIN_MAX);
+  }catch(e){}
+}
+/* Put an undone import back: returns them to the ledger and re-queues them for the farm
+   account, then clears them out of the bin. */
+function impRestoreBatch(batchId){
+  if(!batchId) return 0;
+  var bin=ST.deletedTxns||[];
+  var mine=bin.filter(function(d){ return d && d._binBatch===batchId; });
+  if(!mine.length){ try{ toast('Those transactions are no longer in Recently deleted','error'); }catch(e){} return 0; }
+  mine.forEach(function(d){
+    var t={}; for(var k in d){ if(k!=='deletedAt' && k!=='_binBatch') t[k]=d[k]; }
+    delete t.id;                               // the server row was deleted; this is a new one
+    delete t.cuid;
+    ST.txns.unshift(t);
+    var _r=ST.txns[0];
+    try{ if(window.AI && AI.farm && AI.farm.active()) txnWriteThrough(_r, _txnSnapshot(_r)); }catch(e){}
+  });
+  ST.deletedTxns = bin.filter(function(d){ return !(d && d._binBatch===batchId); });
+  try{ saveState&&saveState(); }catch(e){}
+  try{ txRender&&txRender(); }catch(e){}
+  try{ updateDashboardFigures&&updateDashboardFigures(); }catch(e){}
+  try{ txRefreshDeletedChip&&txRefreshDeletedChip(); }catch(e){}
+  try{ toast(mine.length+' transactions put back','success'); }catch(e){}
+  return mine.length;
+}
 function impUndoBatch(id){
   var b=(ST.importBatches||[]).find(function(x){return x.id===id;}); if(!b) return;
   var before=(ST.txns||[]).length;
-  var _removedTx=(ST.txns||[]).filter(function(t){ return t.batch===id; });
-  ST.txns=(ST.txns||[]).filter(function(t){ return t.batch!==id; });
+  /* A row tied to a livestock movement stays: removing it would leave the herd counts
+     pointing at a sale that no longer exists. */
+  var _removedTx=(ST.txns||[]).filter(function(t){ return t.batch===id && !t.moveRef; });
+  var _keptLinked=(ST.txns||[]).filter(function(t){ return t.batch===id && t.moveRef; }).length;
+  _removedTx.forEach(function(t){ _txBinPush(t, id); });      // recoverable for 30 days
+  ST.txns=(ST.txns||[]).filter(function(t){ return t.batch!==id || t.moveRef; });
   // also drop any co-op settlement rows from the same batch
   if(ST.coopSettlements) ST.coopSettlements=ST.coopSettlements.filter(function(s){ return s.batch!==id; });
   // Co-op settlement undo: give back the balance that was paid down against the account
@@ -39211,8 +39287,27 @@ function impUndoBatch(id){
   try{ txRender&&txRender(); }catch(e){}
   try{ updateDashboardFigures&&updateDashboardFigures(); }catch(e){}
   try{ impRenderHistory&&impRenderHistory(); }catch(e){}
-  toast('Removed '+removed+' transactions from '+b.source, 'info');
+  try{ txRefreshDeletedChip&&txRefreshDeletedChip(); }catch(e){}
+  impUndoneToast(id, removed, _keptLinked);
 }
+/* The moment of regret is immediate, so the way back sits right on the confirmation. */
+function impUndoneToast(batchId, n, keptLinked){
+  var el=document.getElementById('imp-undo-toast');
+  if(!el){
+    el=document.createElement('div');
+    el.id='imp-undo-toast';
+    document.body.appendChild(el);
+  }
+  var extra = keptLinked ? (' '+keptLinked+' linked to livestock stayed.') : '';
+  el.innerHTML='<span class="m"><b>'+n+' transaction'+(n===1?'':'s')+' removed.</b>'+esc(extra)+'</span>'+
+    '<button type="button" onclick="impUndoneToastAct(\''+String(batchId).replace(/'/g,"\\'")+'\')">Put them back</button>'+
+    '<button type="button" class="x" onclick="impUndoneToastHide()" aria-label="Dismiss">✕</button>';
+  el.classList.add('on');
+  clearTimeout(impUndoneToast._t);
+  impUndoneToast._t=setTimeout(impUndoneToastHide, 12000);
+}
+function impUndoneToastAct(batchId){ impUndoneToastHide(); impRestoreBatch(batchId); }
+function impUndoneToastHide(){ var el=document.getElementById('imp-undo-toast'); if(el) el.classList.remove('on'); }
 
 // Render the "Imports so far" panel on the Transactions page.
 /* panel:false = collapsed. The Transactions page is about transactions; a farmer who
@@ -39265,6 +39360,7 @@ function impRenderHistory(){
     var head='<div class="imp-hist-row'+(open?' open':'')+'" onclick="impToggleHistBatch(\''+b.id+'\')">'+
       '<span class="imp-hist-chev">\u203A</span>'+
       '<div class="imp-hist-meta"><div class="ihl">'+esc(b.source)+tag+'</div><div class="ihs">'+esc(sub)+'</div></div>'+
+      '<button class="imp-hist-undo" onclick="event.stopPropagation();impViewBatchTxns(\''+b.id+'\')">See them</button>'+
       '<button class="imp-hist-undo" onclick="event.stopPropagation();impConfirmUndo(\''+b.id+'\')">Undo</button>'+
     '</div>';
     var body='';
@@ -39280,11 +39376,64 @@ function impRenderHistory(){
   var foot=batches.length>SHOW?'<button class="imp-hist-toggle" onclick="impToggleHistAll()">'+(showAll?'Show fewer':('Show all '+batches.length+' imports'))+'</button>':'';
   el.innerHTML='<div class="imp-hist-card">'+strip+rows+foot+'</div>';
 }
-async function impConfirmUndo(id){
+/* The old confirm said only "N transactions will be removed", which doesn't tell a farmer
+   whether that's the right batch. Lead with the money, and say it can be undone. */
+function impConfirmUndo(id){
   var b=(ST.importBatches||[]).find(function(x){return x.id===id;}); if(!b) return;
-  if(await appConfirm('Undo this import? '+b.rows+' transactions from '+b.source+' will be removed. This can\u2019t be reversed.')){
-    impUndoBatch(id);
-  }
+  var rows=(ST.txns||[]).filter(function(t){ return t.batch===id; });
+  var linked=rows.filter(function(t){ return t.moveRef; }).length;
+  var going=rows.filter(function(t){ return !t.moveRef; });
+  if(!going.length){ try{ toast('Nothing to remove \u2014 these are all linked to livestock movements','info'); }catch(e){} return; }
+  var inSum=0, outSum=0, edited=0;
+  going.forEach(function(t){
+    if(t.type==='income') inSum+=(t.amt||0); else outSum+=Math.abs(t.amt||0);
+    if(t._catOk || t._premerge || t._presplit) edited++;
+  });
+  var dates=going.map(function(t){ return t.date; });
+  var span=(typeof impSpan==='function')?impSpan(dates):'';
+  var when=''; try{ when=new Date(b.when).toLocaleDateString('en-ZA',{day:'numeric',month:'long'}); }catch(e){}
+
+  var bg=document.getElementById('imp-undo-bg');
+  if(!bg){ bg=document.createElement('div'); bg.id='imp-undo-bg'; document.body.appendChild(bg); }
+  bg.innerHTML=
+    '<div class="iu-card" role="dialog" aria-modal="true" aria-labelledby="iu-title">'+
+      '<div class="iu-hdr"><div class="iu-ic">\u21a9</div><div class="iu-ttl">'+
+        '<b id="iu-title">Remove these '+going.length+' transaction'+(going.length===1?'':'s')+'?</b>'+
+        '<span>'+esc(b.source||'Import')+(when?(' \u00b7 added '+when):'')+'</span></div></div>'+
+      '<div class="iu-body">'+
+        '<p>They came in from this import. Anything you typed in yourself stays.</p>'+
+        '<div class="iu-facts">'+
+          '<div><span>Money in</span><span>\u2212 '+fmt(inSum)+'</span></div>'+
+          '<div><span>Money out</span><span>\u2212 '+fmt(outSum)+'</span></div>'+
+          (span?('<div><span>Dates covered</span><span>'+esc(span)+'</span></div>'):'')+
+        '</div>'+
+        (edited?('<div class="iu-amber"><span>\u270e</span><span>You\u2019ve since changed <b>'+edited+'</b> of these. That work goes too.</span></div>'):'')+
+        (linked?('<div class="iu-amber"><span>\u26a0</span><span><b>'+linked+'</b> linked to livestock movements will stay.</span></div>'):'')+
+        '<div class="iu-safe"><span>\u21a9</span><span>You can put these back from <b>Recently deleted</b> for the next 30 days.</span></div>'+
+      '</div>'+
+      '<div class="iu-acts">'+
+        '<button type="button" class="ghost" onclick="impUndoClose()">Cancel</button>'+
+        '<button type="button" onclick="impUndoClose();impViewBatchTxns(\''+String(id).replace(/'/g,"\\'")+'\')">See them first</button>'+
+        '<button type="button" class="danger" onclick="impUndoGo(\''+String(id).replace(/'/g,"\\'")+'\',this)">Remove</button>'+
+      '</div>'+
+    '</div>';
+  bg.classList.add('on');
+  bg.onclick=function(ev){ if(ev.target===bg) impUndoClose(); };
+  document.addEventListener('keydown', _impUndoKey, true);
+}
+function _impUndoKey(ev){ if(ev.key==='Escape') impUndoClose(); }
+function impUndoClose(){
+  var bg=document.getElementById('imp-undo-bg'); if(bg) bg.classList.remove('on');
+  document.removeEventListener('keydown', _impUndoKey, true);
+}
+/* Lock the buttons so a second tap can't double-remove while the first is still working. */
+function impUndoGo(id, btn){
+  try{
+    var card=btn && btn.closest('.iu-card');
+    if(card){ card.querySelectorAll('button').forEach(function(b){ b.disabled=true; }); }
+    if(btn) btn.textContent='Removing\u2026';
+  }catch(e){}
+  setTimeout(function(){ impUndoClose(); impUndoBatch(id); }, 20);
 }
 // Dashboard doorway: invites bringing in history; retires once anything is imported.
 function impRenderDoorway(){
