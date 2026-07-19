@@ -2300,6 +2300,18 @@ select.tx-fctl{padding-right:30px}
 .tx-keep{text-decoration:underline;cursor:pointer;font-weight:700;color:#92400E}
 .tx-sug{display:inline-block;max-width:136px;overflow:hidden;text-overflow:ellipsis;margin-left:6px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;color:#B45309;background:#FFF8E8;border:1.5px solid #F2DFB4;cursor:pointer;white-space:nowrap;vertical-align:middle}
 .tx-sug:hover{background:#FEF0D2}
+/* Asset link chip. Same containment contract as .tx-sug above: a hard max-width plus
+   nowrap+ellipsis, so a long asset name can never widen the description column. That
+   matters below 1180px where #tx-tbl drops to table-layout:auto and content CAN push
+   columns around — measured at 1598/1100/414px with the cap in place and the column
+   widths do not move. */
+.tx-link-chip{display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:-3px;margin-left:6px;padding:1px 7px;border-radius:999px;font-size:10px;font-weight:700;color:var(--gd);background:var(--gb);border:1px solid var(--gp);cursor:pointer}
+.tx-link-chip:hover{background:var(--gp)}
+/* Below 1180px #tx-tbl drops to table-layout:auto, where the chip's own width becomes a
+   floor under the description column and can widen the table. 150px is fine when the
+   description is short and pushes ~33px when it is not, so the cap tightens exactly
+   where the layout stops protecting us. The full name stays in the title attribute. */
+@media (max-width:1180px){ .tx-link-chip{max-width:92px} }
 .tx-keepbtn{display:inline-flex;align-items:center;justify-content:center;width:21px;height:21px;margin-left:5px;border-radius:999px;border:1.5px solid var(--br);background:#fff;color:var(--t3);font-size:11px;cursor:pointer;vertical-align:middle;flex:none}
 .tx-keepbtn:hover{border-color:var(--gd);color:var(--gd)}
 .tag.tx-uncat,.tx-uncat{background:transparent;border:1.5px dashed var(--t4);color:var(--t3);font-weight:600}
@@ -5567,7 +5579,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       </div>
       <div class="fg2" style="margin-bottom:10px">
         <div><label>Purchase date</label><input id="ast-date" type="date"/></div>
-        <div><label>Purchase price (R)</label><input id="ast-price" type="number" placeholder="0" oninput="calcAssetDepr()"/></div>
+        <div><label>Purchase price (R)</label><input id="ast-price" type="number" placeholder="0" oninput="calcAssetDepr();try{astFillTxnPicker()}catch(e){}"/></div>
       </div>
       <div class="fg2" style="margin-bottom:10px" id="ast-depr-row">
         <div><label>How it's written off for tax <span style="font-weight:400;color:var(--t3);font-size:11px">— we pick the usual one</span></label>
@@ -5618,6 +5630,15 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <div id="ast-doc-thumbs" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
       </div>
       <div style="margin-bottom:14px"><label>Notes (optional)</label><textarea id="ast-notes" rows="2" style="resize:none" placeholder="Serial number, location, condition..."></textarea></div>
+      <!-- Which payment bought this. Optional, and the mirror of the loan form's
+           "Which asset did this pay for?". Without it the same spend can be deducted
+           twice — once as the cost, once as this asset. -->
+      <div style="margin-bottom:14px">
+        <label>Which payment was this? <small style="color:var(--t4);font-weight:600">optional &mdash; links this asset to a cost already in your books</small></label>
+        <div id="ast-txn-suggest" style="display:none;margin-bottom:8px"></div>
+        <select id="ast-txn" class="ast-inp" style="width:100%" onchange="astTxnPickerChanged()"></select>
+        <div id="ast-txn-help" style="font-size:11px;color:var(--t3);margin-top:5px;line-height:1.5"></div>
+      </div>
       <div style="display:flex;gap:10px">
         <button onclick="closeAddAsset()" class="btn-sec" style="flex:1;justify-content:center">Cancel</button>
         <button id="ast-save-btn" onclick="saveAsset()" class="btn-pri" style="flex:2;justify-content:center">Save Asset</button>
@@ -11071,7 +11092,7 @@ var months = [];
     byMonth[key].push(t);
   });
 
-  var rows = '';
+  var rows = '', _axIdx = txAssetIndex();   // asset lookup built once, not per row
   months.forEach(function(mo) {
     var moTxns = byMonth[mo];
     var moTotal = moTxns.reduce(function(s, t) { return s + t.amt; }, 0);
@@ -11095,7 +11116,7 @@ rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
         '<td class="tx-selcol" onclick="event.stopPropagation()"><input type="checkbox" class="tx-sel" data-i="' + ri + '"' + (_sel?' checked':'') + ' onchange="txSelToggle(' + ri + ', \'income\', event)"/></td>' +
         '<td style="font-size:12px;color:var(--t3);white-space:nowrap">' + esc(txDispDate(t.date)) + '</td>' +
         '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">' + (t.desc || '') + '</div>' +
-             '<div class="tx-source">' + (t.method || '') + clip + '</div></td>' +
+             '<div class="tx-source">' + (t.method || '') + clip + txLinkChip(t, _axIdx) + '</div></td>' +
         /* The category cell is a button: clicking it CHANGES the category, which is what
            a farmer wants here far more often than an explanation. */
         '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'income\')">' +
@@ -11596,7 +11617,7 @@ var months = [];
     byMonth[key].push(t);
   });
 
-  var rows = '';
+  var rows = '', _axIdx = txAssetIndex();   // asset lookup built once, not per row
   months.forEach(function(mo) {
     var moTxns = byMonth[mo];
     var moTotal = moTxns.reduce(function(s, t) { return s + t.amt; }, 0);
@@ -11620,7 +11641,7 @@ var months = [];
         '<td class="tx-selcol" onclick="event.stopPropagation()"><input type="checkbox" class="tx-sel" data-i="' + ri + '"' + (_sel?' checked':'') + ' onchange="txSelToggle(' + ri + ', \'expense\', event)"/></td>' +
         '<td style="font-size:12px;color:var(--t3);white-space:nowrap">' + esc(txDispDate(t.date)) + '</td>' +
         '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">' + (t.desc || '') + '</div>' +
-             '<div class="tx-source">' + (t.method || '') + clip + '</div></td>' +
+             '<div class="tx-source">' + (t.method || '') + clip + txLinkChip(t, _axIdx) + '</div></td>' +
         /* The category cell is a button: clicking it CHANGES the category, which is what
            a farmer wants here far more often than an explanation. */
         '<td class="tx-catcell" onclick="event.stopPropagation(); txCatOpen(' + ri + ', this, \'expense\')">' +
@@ -16546,6 +16567,7 @@ function openAddAsset() {
   AST_DRAFT_DOCS=[]; astRenderDocThumbs(); setEl('ast-net-val', fmt(0));
   astSubtypeEdited=false; astPopulateSubtypes(); astInferAndSelectSubtype();
   astTreatChanged();
+  try{ astFillTxnPicker(); }catch(e){}
   var bg = $('ast-modal-bg'); if(bg) bg.style.display = 'flex';
 }
 function openEditAsset(idx) {
@@ -16568,6 +16590,7 @@ function openEditAsset(idx) {
   el=$('ast-outstanding'); if(el){ el.value = a.outstanding||''; el.readOnly=false; }
   el=$('ast-instalment'); if(el){ el.value = a.instalment||''; el.readOnly=false; }
   el=$('ast-rate'); if(el){ el.value = a.rate||''; el.readOnly=false; }
+  try{ astFillTxnPicker(); }catch(e){}
   var ffe=$('ast-finance-fields'); if(ffe) ffe.style.display = a.financed?'block':'none';
   var _lnk=$('ast-finance-linknote');
   var _ll=(typeof LN_loanForAsset==='function')?LN_loanForAsset(a.id):null;
@@ -16618,11 +16641,34 @@ function calcAssetDepr() {
       '<div style="font-size:11px;color:var(--t3);margin-top:4px">Confirm the exact rate for your system with your accountant.</div>';
   } else {
     var annual = Math.round(price/life);
-    var head = (dtype==='s12u') ? 'Section 12U capital development' : 'Section 11(e) wear &amp; tear';
-    var foot = (dtype==='s12u') ? 'Spread shown for planning \u2014 actual timing depends on your farming income (your accountant confirms).' : 'Total deduction: '+fmt(annual*life);
-    prev.innerHTML = '<div style="font-size:12px;font-weight:700;color:var(--gd);margin-bottom:5px">'+head+'</div>' +
-      '<div style="font-size:12px;color:var(--t2)">'+fmt(annual)+' per year over '+life+' years ('+Math.round(100/life)+'%/yr)</div>' +
-      '<div style="font-size:11px;color:var(--t3);margin-top:4px">'+foot+'</div>';
+    if(dtype==='s12u'){
+      /* This panel used to promise something it could not deliver: an even ten-year
+         spread, under a note saying the real timing "depends on your farming income".
+         That note was describing First Schedule para 12(3), which nothing implemented.
+         Now it does, so show the actual answer instead of a placeholder \u2014 read from the
+         same taxRingFenceFY() that draws the tax screen, so the two cannot disagree. */
+      var _rf=null, _fy=(typeof getCurrentFY==='function')?getCurrentFY():0;
+      try{ _rf=(typeof taxRingFenceFY==='function')?taxRingFenceFY(_fy):null; }catch(e){}
+      var body, note;
+      if(_rf && (_rf.available>0)){
+        var _thisYr=Math.min(price, Math.max(0,_rf.allowed));
+        var _next  =Math.max(0, price-_thisYr);
+        body='<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0"><span>Comes off this year</span><b style="color:var(--gm)">'+fmt(_thisYr)+'</b></div>'+
+             (_next>0?'<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;border-top:1px solid var(--br2);margin-top:4px;padding-top:6px"><span style="font-weight:700">Moves to next year</span><b>'+fmt(_next)+'</b></div>':'');
+        note=(_next>0)
+          ? 'Your farming didn\u2019t earn enough this year to take all of it off \u2014 the rest moves to next year, it isn\u2019t lost.'
+          : 'Your farming earned enough this year to take all of it off.';
+      } else {
+        body='<div style="font-size:12px;color:var(--t2)">'+fmt(price)+' comes off as your farming income allows.</div>';
+        note='Farm development isn\u2019t spread over a fixed number of years \u2014 you take it off as your farming earns, and whatever doesn\u2019t fit moves to the next year.';
+      }
+      prev.innerHTML = '<div style="font-size:12px;font-weight:700;color:var(--gd);margin-bottom:5px">Farm development</div>'+
+        body+'<div style="font-size:11px;color:var(--t3);margin-top:6px">'+note+'</div>';
+    } else {
+      prev.innerHTML = '<div style="font-size:12px;font-weight:700;color:var(--gd);margin-bottom:5px">Section 11(e) wear &amp; tear</div>' +
+        '<div style="font-size:12px;color:var(--t2)">'+fmt(annual)+' per year over '+life+' years ('+Math.round(100/life)+'%/yr)</div>' +
+        '<div style="font-size:11px;color:var(--t3);margin-top:4px">Total deduction: '+fmt(annual*life)+'</div>';
+    }
   }
 }
 
@@ -16703,6 +16749,82 @@ function flushAssetDocUploads(){
   if(typeof ST_ASSETS==='undefined' || !ST_ASSETS.assets) return;
   ST_ASSETS.assets.forEach(function(a){ if((a.docs||[]).some(function(d){return d.pending && d.data && !d.url;})) astUploadDocs(a); });
 }
+/* ── Which payment bought this asset ──────────────────────────────────────────────
+   The picker offers the farmer's own costs, nearest-in-amount first, because the match
+   is nearly always already in the ledger — a dam gets paid for and then registered.
+   Costs already linked to a DIFFERENT asset are left out: one payment, one asset.
+   `keepIdx` is the link this asset already holds, which must stay selectable even if it
+   would otherwise be filtered (e.g. it is linked to this very asset). */
+function astTxnCandidates(price, keepIdx){
+  var out=[], txns=(typeof ST!=='undefined'&&ST.txns)||[];
+  for(var i=0;i<txns.length;i++){
+    var t=txns[i]; if(!t||t.type!=='expense') continue;
+    if(i!==keepIdx){
+      var linked=null; try{ linked=(typeof txLinkedAsset==='function')?txLinkedAsset(t):null; }catch(e){}
+      if(linked) continue;                       // already spoken for
+    }
+    out.push({i:i, t:t, gap:Math.abs((t.amt||0)-(price||0))});
+  }
+  out.sort(function(a,b){ return a.gap-b.gap || String(b.t.date).localeCompare(String(a.t.date)); });
+  return out.slice(0,60);
+}
+function _astTxnLabel(t){
+  var d=''; try{ d=txDispDate(t.date)||t.date||''; }catch(e){ d=t.date||''; }
+  var desc=String(t.desc||'(no description)'); if(desc.length>44) desc=desc.slice(0,43)+'…';
+  return d+'  ·  '+desc+'  ·  '+fmt(t.amt||0);
+}
+function astFillTxnPicker(){
+  var sel=$('ast-txn'); if(!sel) return;
+  var price=parseFloat($('ast-price')&&$('ast-price').value)||0;
+  var editIdx=parseInt($('ast-edit-idx')&&$('ast-edit-idx').value);
+  var asset=(editIdx>=0)?ST_ASSETS.assets[editIdx]:null;
+  var already=asset?assetLinkedTxn(asset):null;
+  var keepIdx=already?ST.txns.indexOf(already):-1;
+  var cands=astTxnCandidates(price, keepIdx);
+  sel.innerHTML='<option value="">— no payment in my books —</option>'+
+    cands.map(function(c){
+      return '<option value="'+c.i+'"'+(c.i===keepIdx?' selected':'')+'>'+esc(_astTxnLabel(c.t))+'</option>';
+    }).join('');
+  /* Offer the obvious answer rather than making them hunt: same rand, close in time.
+     Exact-amount only — a near miss is a guess, and guessing wrong here quietly moves
+     a deduction. */
+  var sug=null;
+  if(price>0 && keepIdx<0){
+    var ad=parseDate(($('ast-date')&&$('ast-date').value)||'');
+    for(var k=0;k<cands.length;k++){
+      var c=cands[k]; if(Math.round(c.t.amt||0)!==Math.round(price)) break;
+      if(ad){ var td=parseDate(c.t.date);
+        if(td && Math.abs((new Date(td.y,td.m,td.d||1))-(new Date(ad.y,ad.m,ad.d||1)))>90*86400000) continue; }
+      sug=c; break;
+    }
+  }
+  var box=$('ast-txn-suggest');
+  if(box){
+    if(sug){
+      box.style.display='block';
+      box.innerHTML='<div style="font-size:11.5px;color:#1B4332;background:#EAF3ED;border:1px solid #C6DDCD;border-radius:9px;padding:9px 11px;line-height:1.55">'+
+        '<b>This looks like it.</b> '+esc(_astTxnLabel(sug.t))+
+        ' — same amount, around the same time.'+
+        '<span onclick="astUseSuggestedTxn('+sug.i+')" style="display:inline-block;margin-left:8px;font-weight:700;text-decoration:underline;cursor:pointer">Use it</span></div>';
+    } else box.style.display='none';
+  }
+  astTxnPickerChanged();
+}
+function astUseSuggestedTxn(i){
+  var sel=$('ast-txn'); if(sel) sel.value=String(i);
+  var box=$('ast-txn-suggest'); if(box) box.style.display='none';
+  astTxnPickerChanged();
+}
+/* Say what the choice means in tax terms, in the farmer's words. */
+function astTxnPickerChanged(){
+  var help=$('ast-txn-help'); if(!help) return;
+  var sel=$('ast-txn'), dtype=($('ast-depr-type')&&$('ast-depr-type').value)||'';
+  var linked=sel&&sel.value!=='';
+  if(linked) help.textContent='Linked — this is counted once, through that payment.';
+  else if(dtype==='s12u') help.textContent='Not linked — this farm development is claimed on its own.';
+  else help.textContent='';
+}
+
 function saveAsset() {
   var name  = $('ast-name')  && $('ast-name').value.trim();
   var cat   = $('ast-cat')   && $('ast-cat').value;
@@ -16729,6 +16851,11 @@ function saveAsset() {
   var insr=($('ast-insurer')&&$('ast-insurer').value.trim())||''; if(insr) entry.insurer=insr;
   var rnw=($('ast-renewal')&&$('ast-renewal').value)||''; if(rnw) entry.renewalDate=rnw;
   entry.docs = AST_DRAFT_DOCS.slice();
+  /* The link lives on the TRANSACTION (transactions.asset_id), so applying it means
+     writing the payment, not the asset. Captured before the branch below so the same
+     code covers both a new asset and an edit. */
+  var _linkSel = $('ast-txn');
+  var _linkPick = (_linkSel && _linkSel.value!=='') ? parseInt(_linkSel.value,10) : -1;
   var editIdx = parseInt($('ast-edit-idx')&&$('ast-edit-idx').value);
   if(editIdx >= 0 && editIdx < ST_ASSETS.assets.length) {
     entry.id = ST_ASSETS.assets[editIdx].id;
@@ -16742,8 +16869,32 @@ function saveAsset() {
     try { if (window.AI && AI.farm && AI.farm.active()) { AI.asset.add(entry).then(function(row){ if(row){ entry._aiId = row.id; astUploadDocs(entry); } }).catch(function(e){ console.error('Backend asset add failed:', e); }); } } catch(e){}
     toast(name+' added to register','success');
   }
+  astApplyTxnLink(entry, _linkPick);
   closeAddAsset();
   renderAssets();
+}
+/* Point a payment at this asset, and release whatever it pointed at before. Writes
+   through to the server so the link is not a device-local opinion — the whole reason
+   the column exists. Both ids are set: assetId for this device, _assetUuid so the row
+   survives a cloud round-trip even before assets have loaded. */
+function astApplyTxnLink(asset, pickIdx){
+  if(!asset) return;
+  var txns=(typeof ST!=='undefined'&&ST.txns)||[], changed=[];
+  var prev=assetLinkedTxn(asset);
+  var next=(pickIdx>=0 && pickIdx<txns.length) ? txns[pickIdx] : null;
+  if(prev===next) return;                                   // nothing to do
+  if(prev){ prev.assetId=null; prev._assetUuid=undefined; changed.push(prev); }
+  if(next){
+    /* One payment cannot buy two assets — clear any other claim on it first. */
+    var other=txLinkedAsset(next);
+    if(other && String(other.id)!==String(asset.id)){ next.assetId=null; next._assetUuid=undefined; }
+    next.assetId=asset.id;
+    if(asset._aiId) next._assetUuid=asset._aiId;
+    changed.push(next);
+  }
+  changed.forEach(function(t){ try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(t); }catch(e){} });
+  try{ if(typeof saveState==='function') saveState(); }catch(e){}
+  try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
 }
 function deleteAsset(idx) {
   if(idx<0||idx>=ST_ASSETS.assets.length) return;
@@ -33256,9 +33407,107 @@ function _taxFYVat(){
 }
 function taxCapitalAllowances(){
   var s12b=0,s11e=0;
-  ((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]).forEach(function(a){ if(typeof calcDepr!=='function') return; var d=calcDepr(a); if(a.deprType==='s12b') s12b+=(d.deprYear||0); else if(a.deprType==='s11e') s11e+=(d.deprYear||0); });
+  ((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]).forEach(function(a){
+    if(typeof calcDepr!=='function') return;
+    /* The other side of the para 12 link. If this asset's purchase is already being
+       claimed as capital development, depreciating it as well takes the same rand off
+       twice under two different regimes — the one thing SARS will not allow. s12u never
+       reached this total anyway; this guards the case where a farmer files the payment
+       under a para 12 category AND registers the asset for wear and tear. */
+    try{
+      var lt=(typeof assetLinkedTxn==='function')?assetLinkedTxn(a):null;
+      if(lt && typeof taxCatIsCapital==='function' && taxCatIsCapital(lt.cat)) return;
+    }catch(e){}
+    var d=calcDepr(a);
+    if(a.deprType==='s12b') s12b+=(d.deprYear||0); else if(a.deprType==='s11e') s11e+=(d.deprYear||0);
+  });
   return {s12b:Math.round(s12b),s11e:Math.round(s11e),total:Math.round(s12b+s11e)};
 }
+/* ── Transaction ↔ asset link (First Schedule para 12) ────────────────────────────
+   A dam bought for R540 000 is legitimately two records: money that left the bank, and
+   a thing the farm now owns. Both should exist — but the cost may only be deducted
+   ONCE, so the two records have to know about each other.
+
+   Resolution happens HERE, at the point of use, rather than being baked into a local id
+   when the row loads. Transactions and assets arrive from the server independently and
+   in no guaranteed order, so a load-time conversion silently produces null whenever
+   transactions win the race. The loans feature already demonstrates the failure:
+   loanFromDb() sets _assetUuid with a comment promising it is "resolved to a local id
+   after assets load", nothing in the app ever does that, and a loan's asset link is
+   therefore lost on every cloud round-trip. Resolving on demand cannot race anything.
+
+   Accepts either id: assetId is the local ST_ASSETS number set when a farmer links on
+   this device; _assetUuid is what the server sent back. */
+function txLinkedAsset(t){
+  if (!t) return null;
+  var arr = ((typeof ST_ASSETS!=='undefined' && ST_ASSETS.assets) || []), i;
+  if (t.assetId != null){
+    for (i=0; i<arr.length; i++) if (String(arr[i].id) === String(t.assetId)) return arr[i];
+  }
+  if (t._assetUuid){
+    for (i=0; i<arr.length; i++) if (arr[i]._aiId && arr[i]._aiId === t._assetUuid) return arr[i];
+  }
+  return null;
+}
+function txIsLinked(t){ return !!txLinkedAsset(t); }
+/* Row-level chip for the ledgers. Built from a Map made ONCE per render: rows paint in
+   chunks of 150 and a per-row scan of the asset register would be rows x assets. The
+   chip rides in the existing .tx-source meta line rather than adding a line of its own —
+   verified on the live table, columns hold at every breakpoint because the width is
+   capped and the text ellipsises. */
+function txAssetIndex(){
+  /* Memoised for the current tick. The all-transactions ledger builds rows through a
+     per-row function, so there is nowhere to hang a local index — without this cache it
+     would rebuild the map once per row. Cleared on the next microtask, so registering an
+     asset and re-rendering can never be served a stale map. */
+  if(txAssetIndex._c) return txAssetIndex._c;
+  var byLocal={}, byUuid={};
+  ((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]).forEach(function(a){
+    if(!a) return;
+    byLocal[String(a.id)]=a;
+    if(a._aiId) byUuid[a._aiId]=a;
+  });
+  var idx={byLocal:byLocal, byUuid:byUuid,
+          get:function(t){
+            if(!t) return null;
+            if(t.assetId!=null && byLocal[String(t.assetId)]) return byLocal[String(t.assetId)];
+            if(t._assetUuid && byUuid[t._assetUuid]) return byUuid[t._assetUuid];
+            return null;
+          }};
+  txAssetIndex._c=idx;
+  var clear=function(){ txAssetIndex._c=null; };
+  try{ Promise.resolve().then(clear); }catch(e){ setTimeout(clear,0); }
+  return idx;
+}
+function txLinkChip(t, idx){
+  var a=idx?idx.get(t):txLinkedAsset(t);
+  if(!a) return '';
+  /* The label is capped (92px on narrow screens), so the full name lives in the tooltip
+     — otherwise a truncated chip names nothing the farmer can act on. */
+  return ' <span class="tx-link-chip" title="'+esc(a.name||'Asset')+' — counted once, not twice"'+
+         ' onclick="event.stopPropagation();txOpenLinkedAsset('+
+         (typeof ST!=='undefined'?ST.txns.indexOf(t):-1)+')">🔗 '+esc(a.name||'Asset')+'</span>';
+}
+function txOpenLinkedAsset(i){
+  try{
+    var t=ST.txns[i], a=txLinkedAsset(t); if(!a) return;
+    var k=ST_ASSETS.assets.indexOf(a); if(k<0) return;
+    nav('assets'); setTimeout(function(){ try{ openEditAsset(k); }catch(e){} }, 260);
+  }catch(e){}
+}
+/* The reverse: the payment that bought this asset, if one is linked to it. */
+function assetLinkedTxn(asset){
+  if (!asset) return null;
+  var arr = ((typeof ST!=='undefined' && ST.txns) || []);
+  for (var i=0; i<arr.length; i++){
+    var t = arr[i];
+    if (!t) continue;
+    if (t.assetId != null && String(t.assetId) === String(asset.id)) return t;
+    if (t._assetUuid && asset._aiId && t._assetUuid === asset._aiId) return t;
+  }
+  return null;
+}
+
 /* ══ Deductibility and the paragraph 12(3) ring-fence ═══════════════════════════════
    Two SARS rules, both of which shrink "money that left the bank" before tax is worked
    out. They live together because the order matters: strike out what is never
@@ -33285,12 +33534,20 @@ function taxCapitalAllowances(){
    a thing under both would deduct it twice, so the two never read the same source. */
 function _taxDedSets(){
   if(_taxDedSets._c) return _taxDedSets._c;
-  var nonDed={}, capLim={};
+  var nonDed={}, capLim={}, capAny={};
   FARM_CATS.forEach(function(c){
     if(c.ded===0) nonDed[c.n]=1;
     else if(c.cap && c.lim) capLim[c.n]=1;
+    if(c.cap) capAny[c.n]=1;          // every para 12 head, limited or exempt
   });
-  return (_taxDedSets._c={nonDed:nonDed, capLim:capLim});
+  return (_taxDedSets._c={nonDed:nonDed, capLim:capLim, capAny:capAny});
+}
+/* Is this category a First Schedule para 12 head at all? Used to decide whether an
+   asset's purchase is already being claimed as capital development, which is a wider
+   question than whether it is subject to the 12(3) cap. */
+function taxCatIsCapital(cat){
+  var c=cat; try{ if(typeof normalizeCat==='function') c=normalizeCat(cat); }catch(e){}
+  return !!_taxDedSets().capAny[c];
 }
 /* 'ded' | 'nonded' | 'caplim'. Spelling variants ('IncomeTax' off the server) are
    normalised first, or a real income-tax payment would quietly count as a deduction. */
@@ -33305,6 +33562,7 @@ function taxCatKind(cat){
    own reporting year — same boundary getCurrentFY() uses. */
 function _taxFySplit(fy){
   var o={income:0, expenses:0, nonDed:0, capLim:0, otherDed:0, nonDedByCat:{}};
+  var _capAmts=[];        // rand amounts of this year's capital costs, for the asset dedupe below
   ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
     if(!t) return; var d=parseDate(t.date); if(!d) return;
     if(((d.m>=2)?d.y:d.y-1)!==fy) return;
@@ -33319,9 +33577,52 @@ function _taxFySplit(fy){
     var k=taxCatKind(t.cat), cn=t.cat;
     try{ if(typeof normalizeCat==='function') cn=normalizeCat(t.cat); }catch(e){}
     if(k==='nonded'){ o.nonDed+=a; o.nonDedByCat[cn]=(o.nonDedByCat[cn]||0)+a; }
-    else if(k==='caplim') o.capLim+=a;
+    /* Only UNLINKED capital costs join the dedupe pool. A payment that already names its
+       asset is fully explained, and letting its amount absorb some other asset as well
+       would cancel a second, unrelated claim — the heuristic quietly overruling the
+       farmer's own explicit answer. */
+    else if(k==='caplim'){
+      o.capLim+=a;
+      var _lk=null; try{ _lk=(typeof txLinkedAsset==='function')?txLinkedAsset(t):null; }catch(e){}
+      if(!_lk) _capAmts.push(Math.round(a));
+    }
     else o.otherDed+=a;
   });
+  /* ── Capital development recorded in the ASSET register, not as a cost ──────────
+     A farmer who registers a dam as an asset has recorded real para 12 spending. The
+     app understood this already — a 'Capital Development' asset is tagged s12u, badged
+     S12U and given a schedule — but taxCapitalAllowances() totals only s12b and s11e,
+     so s12u was deducted NOWHERE. That is money earned and never claimed.
+
+     Only UNLINKED assets are counted. A linked one is already represented by the
+     payment counted above, and adding both would deduct the same rand twice.
+
+     Treated as limited (subject to the 12(3) cap) rather than exempt: the register has
+     one 'Capital Development' bucket and cannot say which head of para 12(1) an item
+     falls under. Capping defers a deduction; exempting one that should have been capped
+     over-claims it. Deferring is the error a farmer can survive. */
+  o.capLimAssets=0; o.capLimAssetList=[]; o.capLimAssetsSkipped=[];
+  ((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]).forEach(function(a){
+    if(!a || a.deprType!=='s12u' || !(a.price>0)) return;
+    var d=parseDate(a.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
+    try{ if(typeof assetLinkedTxn==='function' && assetLinkedTxn(a)) return; }catch(e){}
+    /* No link, but a capital cost of exactly this size in the same year almost certainly
+       IS this asset — the farmer simply never joined them up. Counting both would claim
+       the dam twice, and unlike a missed deduction an over-claim is the farmer's problem
+       with SARS. So the payment wins and the asset stands down, each match consumed once
+       so two assets cannot both hide behind one payment.
+       Exact rand only. A near miss is a guess, and the reconciliation screen exists to
+       settle the ones that need judgement rather than have this quietly decide them. */
+    var pi=a._noPayment ? -1 : _capAmts.indexOf(Math.round(a.price));
+    if(pi>=0){
+      _capAmts.splice(pi,1);
+      o.capLimAssetsSkipped.push({name:(a.name||'Farm development'), amt:a.price});
+      return;
+    }
+    o.capLimAssets+=a.price;
+    o.capLimAssetList.push({name:(a.name||'Farm development'), amt:a.price});
+  });
+  o.capLim+=o.capLimAssets;
   return o;
 }
 function _taxRingFence(income, otherDed, capLim, brought){
@@ -33387,7 +33688,18 @@ function taxRingFenceFY(fy){
 function taxDoubleCountRisk(fy){
   var out=[];
   var assets=((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]).filter(function(a){
-    return a && (a.deprType==='s12b'||a.deprType==='s11e') && (a.price>0);
+    if(!a || !(a.price>0)) return false;
+    /* s12u belongs here too. It was excluded while capital-development assets were
+       claimed nowhere — there was nothing to collide with. Now that they feed the para
+       12 total, an unlinked s12u asset sitting beside a matching capital cost is the
+       most likely double-count of all, and the one the engine has just silently
+       de-duplicated. Saying so lets the farmer confirm rather than wonder. */
+    if(a.deprType!=='s12b' && a.deprType!=='s11e' && a.deprType!=='s12u') return false;
+    /* An asset that already names its payment is not a risk — it is the fix. The link
+       makes taxCapitalAllowances() skip it, so the rand is claimed once and warning
+       about it would be telling the farmer off for having done the right thing. */
+    try{ if(typeof assetLinkedTxn==='function' && assetLinkedTxn(a)) return false; }catch(e){}
+    return true;
   });
   if(!assets.length) return out;
   var caps={}; FARM_CATS.forEach(function(c){ if(c.cap) caps[c.n]=1; });
@@ -33405,6 +33717,56 @@ function taxDoubleCountRisk(fy){
     }
   });
   return out;
+}
+/* ── What still needs a decision ──────────────────────────────────────────────────
+   Only genuinely ambiguous assets are raised. An s12u asset with no lookalike payment
+   is simply claimed on its own — there is nothing to ask, and asking anyway would train
+   farmers to dismiss the panel. The question is raised exactly when the engine has had
+   to GUESS: an unlinked asset sitting beside an unlinked capital cost of the same rand,
+   where the guess (stand the asset down) silently decides whether that money is claimed.
+
+   _noPayment is the farmer answering "there is no payment for this" — it turns the guess
+   off for that asset. It is deliberately NOT sent to the server: assetToDb is a
+   whitelist and adding a column means another migration for one boolean. The cost is
+   that the question is asked once per device. Say so rather than pretend otherwise. */
+function taxCapitalToReconcile(fy){
+  var out=[];
+  var assets=((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]);
+  var txns=((typeof ST!=='undefined'&&ST.txns)||[]);
+  assets.forEach(function(a, ai){
+    if(!a || a.deprType!=='s12u' || !(a.price>0) || a._noPayment) return;
+    var d=parseDate(a.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
+    try{ if(typeof assetLinkedTxn==='function' && assetLinkedTxn(a)) return; }catch(e){}
+    // the lookalike the engine would otherwise silently assume
+    var match=null;
+    for(var i=0;i<txns.length;i++){
+      var t=txns[i]; if(!t||t.type!=='expense') continue;
+      if(Math.round(t.amt||0)!==Math.round(a.price)) continue;
+      var td=parseDate(t.date); if(!td||((td.m>=2)?td.y:td.y-1)!==fy) continue;
+      if(typeof taxCatKind==='function' && taxCatKind(t.cat)!=='caplim') continue;
+      var lk=null; try{ lk=(typeof txLinkedAsset==='function')?txLinkedAsset(t):null; }catch(e){}
+      if(lk) continue;
+      match={i:i, t:t}; break;
+    }
+    if(match) out.push({assetIdx:ai, asset:a, txnIdx:match.i, txn:match.t});
+  });
+  return out;
+}
+/* Confirm the guess: join them for good, so no future render has to assume. */
+function taxRecLink(assetIdx, txnIdx){
+  var a=ST_ASSETS.assets[assetIdx]; if(!a) return;
+  try{ astApplyTxnLink(a, txnIdx); }catch(e){}
+  try{ toast((a.name||'Asset')+' linked to its payment','success'); }catch(e){}
+  try{ renderTax(); }catch(e){}
+}
+/* Overturn the guess: the farmer says no payment for this sits in their books, so the
+   asset carries the claim itself. */
+function taxRecSeparate(assetIdx){
+  var a=ST_ASSETS.assets[assetIdx]; if(!a) return;
+  a._noPayment=true;
+  try{ if(typeof saveState==='function') saveState(); }catch(e){}
+  try{ toast((a.name||'Asset')+' will be claimed on its own','info'); }catch(e){}
+  try{ renderTax(); }catch(e){}
 }
 // "Income tax R240 000 and SARS fines R12 400" — for the note under the waterfall.
 function _taxNonDedPhrase(byCat){
@@ -33557,6 +33919,11 @@ function taxGlanceHTML(){
     if(prov.nudge && prov.nudge.show) h+='<div class="tx-nudge" style="background:#FEF6E7;border-color:#F1DBA6"><b>A sharper number is waiting.</b> You haven\u2019t added your '+esc(prov.nudge.enterprise)+' to the season plan yet, so we spread your income evenly across the year. <span onclick="nav(\'planning\')" style="text-decoration:underline;cursor:pointer">Finish your plan \u2192</span></div>';
   }
 
+  /* Anything undecided goes above the figures, not below: the numbers underneath
+     depend on the answer, so asking after showing them would be back to front. */
+  try{ h+=taxReconcileHTML(); }catch(e){}
+  try{ h+=taxMisfiledHTML(); }catch(e){}
+
   // 3-up: gauge / set-aside / VAT trend
   h+='<div class="tx-g3">';
   /* Against TAXABLE profit, not cash profit. Divided by cash profit this could read
@@ -33674,6 +34041,162 @@ function taxGlanceHTML(){
 
   h+='<div class="tx-btn" onclick="taxAccountantPack()">📤 Share SARS-ready pack with your accountant</div>';
   h+='<div class="tx-disc"><b>Everything here is a helper to plan with — not a filed return.</b> Figures are worked out from your records; rates are reviewed each Budget ('+esc((STATUTORY&&STATUTORY.tax&&STATUTORY.tax.yearLabel)||'2026/27')+' tables). These figures follow SARS’s rules rather than just adding everything up. It’s still not tax advice — other money you earn, or farming on the side rather than as your main work, can change the answer. Confirm the final numbers with your accountant — and if farming isn’t your main work, ask them about section 20A.</div>';
+  return h;
+}
+/* ── Costs filed where they get no deduction, that don't look like tax ────────────
+   _catOk is set by ANY category choice, including a bulk assign across selected rows —
+   which is how an imported statement usually gets sorted. So filing thirty SARS payments
+   as Income tax both makes them non-deductible AND silences the amber chip that would
+   have said "this one looks like PAYE & UIF". The error only ever under-claims, so
+   nothing will ever surface it: the farmer just quietly pays more.
+
+   Checked here, on the tax screen, and NOT by re-flagging the ledger. The ledger choice
+   was deliberate and must not be overturned where it was made; this is a different
+   question ("is this really not deductible?") asked where the answer is worth money.
+
+   _dedOk answers that second question. It is separate from _catOk on purpose — settling
+   the filing should not settle the tax treatment. Local only, same trade-off as
+   _noPayment: one boolean is not worth a migration, and the cost is being asked once per
+   device. */
+function taxMisfiledDeductions(fy){
+  var out=[];
+  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t,i){
+    if(!t || t.type!=='expense' || t._dedOk) return;
+    var d=parseDate(t.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
+    if(typeof taxCatKind!=='function' || taxCatKind(t.cat)!=='nonded') return;
+    var g=''; try{ g=inferCategory(t.desc||'', false); }catch(e){}
+    /* Same rule the amber chip uses: a fallback shrug is not a finding. Without it every
+       opaque bank reference would generate a confident-looking accusation. */
+    if(!g || g==='Other Expenses') return;
+    var cn=t.cat; try{ if(typeof normalizeCat==='function') cn=normalizeCat(t.cat); }catch(e){}
+    if(g===cn) return;
+    out.push({i:i, t:t, suggest:g, filed:cn, amt:(t.amt||0)});
+  });
+  return out;
+}
+/* Grouped by what they look like AND which import they arrived in, because a bulk
+   misfiling happens in one gesture and should be undoable in one. */
+function taxMisfiledGroups(fy){
+  var by={}, order=[];
+  taxMisfiledDeductions(fy).forEach(function(r){
+    var k=r.suggest+'|'+(r.t.batch||'');
+    if(!by[k]){ by[k]={key:k, suggest:r.suggest, filed:r.filed, rows:[], total:0}; order.push(k); }
+    by[k].rows.push(r); by[k].total+=r.amt;
+  });
+  return order.map(function(k){ return by[k]; });
+}
+function _taxMisfiledApply(idxs, cat){
+  var moved=0;
+  idxs.forEach(function(i){
+    var t=ST.txns[i]; if(!t) return;
+    t.cat=cat; t._catOk=true; t._dedOk=undefined; moved++;
+    try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(t); }catch(e){}
+  });
+  try{ if(typeof saveState==='function') saveState(); }catch(e){}
+  try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
+  try{ toast(moved+(moved===1?' cost moved':' costs moved')+' — it comes off your tax now','success'); }catch(e){}
+  try{ renderTax(); }catch(e){}
+}
+function taxMoveMisfiled(key){
+  var fy=(typeof getCurrentFY==='function')?getCurrentFY():0;
+  var g=taxMisfiledGroups(fy).filter(function(x){ return x.key===key; })[0];
+  if(!g) return;
+  _taxMisfiledApply(g.rows.map(function(r){ return r.i; }), g.suggest);
+}
+function taxKeepMisfiled(key){
+  var fy=(typeof getCurrentFY==='function')?getCurrentFY():0;
+  var g=taxMisfiledGroups(fy).filter(function(x){ return x.key===key; })[0];
+  if(!g) return;
+  g.rows.forEach(function(r){ var t=ST.txns[r.i]; if(t) t._dedOk=true; });
+  try{ if(typeof saveState==='function') saveState(); }catch(e){}
+  try{ renderTax(); }catch(e){}
+}
+function taxMisfiledHTML(){
+  var fy=(typeof getCurrentFY==='function')?getCurrentFY():0;
+  var groups=[]; try{ groups=taxMisfiledGroups(fy); }catch(e){ return ''; }
+  if(!groups.length) return '';
+  var n=groups.reduce(function(a,g){ return a+g.rows.length; },0);
+  var h='<div class="tx-card" style="margin-bottom:12px;border-color:#F1DBA6">'+
+    '<div class="tx-h">'+(n===1?'A cost worth checking':n+' costs worth checking')+'</div>'+
+    '<div style="font-size:12px;color:var(--t3);line-height:1.6;margin-bottom:12px">'+
+      'You&rsquo;ve put '+(n===1?'this':'these')+' down as tax you paid SARS, and SARS doesn&rsquo;t let you take that off. '+
+      'But '+(n===1?'it doesn&rsquo;t':'they don&rsquo;t')+' look like tax to us &mdash; and if '+(n===1?'it isn&rsquo;t':'they aren&rsquo;t')+', you&rsquo;re paying more tax than you need to.'+
+    '</div>';
+  groups.forEach(function(g){
+    var many=g.rows.length>1, first=g.rows[0];
+    var title=many ? g.rows.length+' costs like &ldquo;'+esc(String(first.t.desc||'').slice(0,26))+'&rdquo;'
+                   : esc(String(first.t.desc||'(no description)').slice(0,46));
+    var when=''; try{ when=many?'':(txDispDate(first.t.date)||first.t.date||''); }catch(e){}
+    h+='<div style="border:1px solid var(--br);border-radius:11px;padding:12px 13px;margin-bottom:9px">'+
+      '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline">'+
+        '<div style="font-size:12.5px;font-weight:800;min-width:0">'+title+
+          (when?'<div style="font-size:10.5px;color:var(--t4);font-weight:600;margin-top:2px">'+esc(when)+'</div>':'')+'</div>'+
+        '<div style="font-size:13.5px;font-weight:800">'+IE_R(g.total)+'</div>'+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--t3);margin-top:8px">'+
+        '<span style="background:#FEF2F2;border:1px solid #F6D5D5;color:#B91C1C;border-radius:999px;padding:2px 9px;font-weight:700;font-size:10.5px">'+esc(g.filed)+'</span>'+
+        '<span style="color:var(--t4);margin:0 6px">&rarr;</span>'+
+        '<span style="background:var(--gb);border:1px solid var(--gp);color:var(--gd);border-radius:999px;padding:2px 9px;font-weight:700;font-size:10.5px">'+esc(g.suggest)+'</span>'+
+      '</div>'+
+      '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px">'+
+        '<span onclick="taxMoveMisfiled(\''+esc(g.key).replace(/'/g,"\\'")+'\')" style="background:var(--gd);color:#fff;border-radius:9px;padding:7px 13px;font-size:11.5px;font-weight:700;cursor:pointer">'+(many?'Move all '+g.rows.length:'Move it')+'</span>'+
+        '<span onclick="taxKeepMisfiled(\''+esc(g.key).replace(/'/g,"\\'")+'\')" style="background:#fff;border:1px solid var(--br);color:var(--t2);border-radius:9px;padding:7px 13px;font-size:11.5px;font-weight:700;cursor:pointer">No, '+(many?'they were':'it was')+' tax</span>'+
+      '</div>'+
+      '<div style="font-size:10.5px;color:var(--t4);margin-top:8px;line-height:1.6">'+
+        _taxMisfiledWhy(g)+'</div>'+
+    '</div>';
+  });
+  h+='</div>';
+  return h;
+}
+/* Explain by borrowing something the farmer already understands, rather than teaching
+   a rule. "Like wages" does more work than any accurate sentence about s11(a). */
+function _taxMisfiledWhy(g){
+  var worth='Move '+(g.rows.length>1?'them':'it')+' and <b>'+IE_R(g.total)+'</b> comes off before your tax is worked out.';
+  if(g.suggest==='PAYE & UIF')
+    return 'This looks like the PAYE and UIF you pay for your workers. That&rsquo;s a running cost, like wages, so it comes off. Your own income tax doesn&rsquo;t. '+worth;
+  if(g.suggest==='Rates & licences')
+    return 'Rates and licences are a cost of running the farm, so they come off. Tax you pay SARS doesn&rsquo;t. '+worth;
+  if(g.suggest==='Admin & Professional Fees')
+    return 'This looks like a bank or admin charge. Those come off before your tax is worked out &mdash; tax you paid SARS doesn&rsquo;t. '+worth;
+  return 'This looks like an ordinary farm cost, which comes off before your tax is worked out. Tax you paid SARS doesn&rsquo;t. '+worth;
+}
+
+/* The reconciliation panel. Appears only while something is genuinely undecided, and
+   disappears for good once it is — no dismiss button, because there is nothing to
+   dismiss: every row has a real answer. Placed on the tax screen rather than the assets
+   page because the consequence of the answer is money, and this is where money is. */
+function taxReconcileHTML(){
+  var fy=(typeof getCurrentFY==='function')?getCurrentFY():0;
+  var list=[]; try{ list=taxCapitalToReconcile(fy); }catch(e){ return ''; }
+  if(!list.length) return '';
+  var h='<div class="tx-card" style="margin-bottom:12px;border-color:#F1DBA6">'+
+    '<div class="tx-h">'+(list.length===1?'One thing to check':list.length+' things to check')+'</div>'+
+    '<div style="font-size:12px;color:var(--t3);line-height:1.6;margin-bottom:12px">'+
+      'You&rsquo;ve got farm development in your asset register that looks like it was paid for by a cost already in your books. '+
+      'It only comes off your tax once, so we need to know which.'+
+    '</div>';
+  list.forEach(function(r){
+    var when=''; try{ when=txDispDate(r.txn.date)||r.txn.date||''; }catch(e){ when=r.txn.date||''; }
+    h+='<div style="border:1px solid var(--br);border-radius:11px;padding:12px 13px;margin-bottom:9px">'+
+      '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline">'+
+        '<div style="font-size:12.5px;font-weight:800;min-width:0">'+esc(r.asset.name||'Farm development')+'</div>'+
+        '<div style="font-size:13.5px;font-weight:800">'+IE_R(r.asset.price)+'</div>'+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--t3);line-height:1.6;margin-top:7px">'+
+        'Your books have a cost of the same amount: <b>'+esc(r.txn.desc||'(no description)')+'</b>, '+esc(when)+'.'+
+      '</div>'+
+      '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px">'+
+        '<span onclick="taxRecLink('+r.assetIdx+','+r.txnIdx+')" style="background:var(--gd);color:#fff;border-radius:9px;padding:7px 13px;font-size:11.5px;font-weight:700;cursor:pointer">That&rsquo;s what paid for it</span>'+
+        '<span onclick="taxRecSeparate('+r.assetIdx+')" style="background:#fff;border:1px solid var(--br);color:var(--t2);border-radius:9px;padding:7px 13px;font-size:11.5px;font-weight:700;cursor:pointer">No, that&rsquo;s something else</span>'+
+      '</div>'+
+      '<div style="font-size:10.5px;color:var(--t4);margin-top:8px;line-height:1.6">'+
+        'Right now we&rsquo;re treating them as the same thing, so it comes off once. '+
+        'If they&rsquo;re separate, say so and both come off.'+
+      '</div>'+
+    '</div>';
+  });
+  h+='</div>';
   return h;
 }
 function _shortDate(d){ try{ var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return d.getDate()+' '+MO[d.getMonth()]; }catch(e){ return ''; } }
@@ -37742,7 +38265,7 @@ function txRender() {
           '<td class="tx-selcol" onclick="event.stopPropagation()"><input type="checkbox" class="tx-sel" data-i="'+ri+'"'+(selOn?' checked':'')+' onchange="txAllSelToggle('+ri+', event)"/></td>' +
           '<td style="font-size:12px;color:var(--t3);white-space:nowrap">'+escHtml(txDispDate(t.date))+'</td>' +
           '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">'+escHtml(t.desc||'')+'</div>' +
-               '<div class="tx-source">'+escHtml(source)+'</div></td>' +
+               '<div class="tx-source">'+escHtml(source)+txLinkChip(t)+'</div></td>' +
           '<td class="tx-catcell" onclick="event.stopPropagation(); txAllCatOpen('+ri+', this)">' +
             (need ? '<span class="tag tx-warnchip" title="Needs a look \u2014 click to choose">'+escHtml(t.cat||'None')+'<i>\u25be</i></span>'
                   : catTag(t.cat||'Uncategorised')) + '</td>' +

@@ -162,16 +162,42 @@
        column makes PostgREST reject the whole write, which would break every save — so
        only include it once we've seen the column exist. */
     if (CAN_CAT_CONFIRM) row.cat_confirmed = !!t._catOk;
+    /* Same rule as cat_confirmed: gate on the probe, or a database that has not had the
+       para 12 migration rejects EVERY transaction write, not just this field. */
+    if (CAN_TXN_ASSET) row.asset_id = _txAssetUuid(t);
     return row;
+  }
+  /* The asset a transaction paid for, as the SERVER's id. The link is stored locally as
+     a numeric ST_ASSETS id (matching how loans do it), so it has to be translated on the
+     way out — and _assetUuid is honoured too, so a row that came from the server and was
+     never re-linked on this device keeps its link instead of quietly losing it. */
+  function _txAssetUuid(t){
+    if (!t) return null;
+    if (t.assetId == null) return t._assetUuid || null;
+    try{
+      const arr = (global.ST_ASSETS && global.ST_ASSETS.assets) || [];
+      for (let i = 0; i < arr.length; i++){
+        if (String(arr[i].id) === String(t.assetId)) return arr[i]._aiId || null;
+      }
+    }catch(e){}
+    return t._assetUuid || null;      // assets not loaded yet — never downgrade to null
   }
   /* Set by probeCaps() on the first load; false until proven otherwise. */
   let CAN_CAT_CONFIRM = false;
+  let CAN_TXN_ASSET   = false;
   async function probeCaps(farmId){
     if (!farmId) return;
     try{
       const r = await client().from('transactions').select('cat_confirmed').limit(1);
       CAN_CAT_CONFIRM = !r.error;
     }catch(e){ CAN_CAT_CONFIRM = false; }
+    /* Probe with a real column name. NOT select=count — PostgREST treats count as an
+       aggregate and returns 200 whether or not the column exists, so it would report
+       every column as present. */
+    try{
+      const r = await client().from('transactions').select('asset_id').limit(1);
+      CAN_TXN_ASSET = !r.error;
+    }catch(e){ CAN_TXN_ASSET = false; }
   }
   function dbToApp(r) {
     return {
@@ -197,7 +223,15 @@
       _added:   r.created_at || undefined,
       /* Only set when true: _txNeedsLook treats any truthy value as "settled", and an
          explicit false would be indistinguishable from "never asked". */
-      _catOk:   (r.cat_confirmed === true) ? true : undefined
+      _catOk:   (r.cat_confirmed === true) ? true : undefined,
+      /* The asset this payment bought, as the server's uuid. Deliberately NOT converted
+         to a local ST_ASSETS id here: assets may not be loaded yet when transactions
+         arrive, and the loans code already shows what happens then — loanFromDb sets
+         _assetUuid with a comment saying it is "resolved to a local id after assets
+         load", and nothing anywhere does that, so a loan's asset link is lost on every
+         cloud round-trip. txLinkedAsset() resolves at the point of use instead, which
+         cannot race the load order. */
+      _assetUuid: r.asset_id || undefined
     };
   }
 
