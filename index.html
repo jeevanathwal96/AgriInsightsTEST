@@ -2235,7 +2235,9 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
    scrolls away and the CSS looks perfectly correct while doing it. Corners are rounded
    on the children instead. */
 .tx-card{padding:0;position:relative}
-.tx-toolbar{position:sticky;top:0;z-index:6;background:#fff;padding:14px 16px;border-bottom:1px solid var(--br2);border-radius:13px 13px 0 0}
+.tx-toolbar{position:sticky;top:0;z-index:6;background:#fff;padding:11px 16px 10px;border-bottom:1px solid var(--br2);border-radius:13px 13px 0 0}
+.tx-toolbar .search-bar{height:36px;box-sizing:border-box;display:flex;align-items:center}
+.tx-toolbar select{height:36px;padding-top:0;padding-bottom:0;box-sizing:border-box}
 /* The Transactions page keeps its filters OUTSIDE the card, so it sticks to the page. */
 .tx-filters{position:sticky;top:0;z-index:7;background:var(--bg);padding:10px 0 9px;align-items:stretch}
 .tx-fgroup{display:flex;align-items:center;gap:6px;flex:0 0 auto}
@@ -2249,14 +2251,15 @@ select.tx-fctl{padding-right:30px}
 .tx-tbl thead th{position:sticky;top:var(--tx-th-top,64px);z-index:5}
 /* Without fixed shares the Description column absorbs every spare pixel and leaves a
    long empty run before Category. These add to 100% so nothing is left over to absorb. */
-.tx-tbl th:nth-child(2),.tx-tbl td:nth-child(2){width:9%;white-space:nowrap}
+.tx-tbl th:nth-child(2),.tx-tbl td:nth-child(2){width:100px;white-space:nowrap}
 /* Description was 33% while its text averaged half that, leaving ~190px of dead space
    before the category chip (measured at 1440px). Trailing slack now sits in the last
    column, where the eye reads it as margin rather than as a gap mid-row. */
-.tx-tbl th:nth-child(3),.tx-tbl td:nth-child(3){width:30%}
-.tx-tbl th:nth-child(4),.tx-tbl td:nth-child(4){width:17%}
-.tx-tbl th:nth-child(5),.tx-tbl td:nth-child(5){width:13%;text-align:right}
-.tx-tbl th:nth-child(6),.tx-tbl td:nth-child(6){width:27%}
+/* Description has no width: it absorbs ALL the slack, so Method hugs the right edge
+   instead of floating in a 400px-wide column on big screens. */
+.tx-tbl th:nth-child(4),.tx-tbl td:nth-child(4){width:200px}
+.tx-tbl th:nth-child(5),.tx-tbl td:nth-child(5){width:110px;text-align:right}
+.tx-tbl th:nth-child(6),.tx-tbl td:nth-child(6){width:130px;white-space:nowrap}
 .tx-tbl .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .tx-tbl tbody tr:last-child td:first-child{border-radius:0 0 0 13px}
 .tx-tbl tbody tr:last-child td:last-child{border-radius:0 0 13px 0}
@@ -2283,7 +2286,7 @@ select.tx-fctl{padding-right:30px}
 .tag.tx-uncat,.tx-uncat{background:transparent;border:1.5px dashed var(--t4);color:var(--t3);font-weight:600}
 .tag.tx-warnchip,.tx-warnchip{background:#FFF4DC;border:1.5px solid #EBCF9C;color:#B45309;font-weight:700;cursor:pointer}
 .tx-warnchip i{font-style:normal;font-size:9px;opacity:.6;margin-left:4px}
-.tx-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:9px}
+.tx-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:7px}
 .tx-meta > div,.tx-meta > button{margin-top:0!important}
 .tx-menu{position:fixed;z-index:2147483000;background:#fff;border:1.5px solid var(--br);border-radius:11px;box-shadow:0 10px 32px rgba(0,0,0,.14);min-width:230px;max-width:280px;max-height:380px;overflow-y:auto;padding:5px;font-size:12.5px}
 .tx-menu-it{padding:7px 11px;border-radius:7px;cursor:pointer;color:var(--t2)}
@@ -2294,6 +2297,8 @@ select.tx-fctl{padding-right:30px}
 .tx-menu-sug:hover{background:#FEF3C7}
 .tx-menu-keep{padding:6px 11px;border-radius:7px;cursor:pointer;color:var(--t3);font-size:11.5px;margin-bottom:4px;border-bottom:1px solid var(--br2)}
 .tx-menu-keep:hover{background:var(--bg)}
+.tx-menu-h{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--t4);padding:7px 11px 3px;border-top:1px solid var(--br2);margin-top:3px}
+.tx-menu-h:first-child{border-top:none;margin-top:0}
 .tx-bulk-bar{display:flex;align-items:center;gap:9px;margin-top:9px;padding:8px 11px;background:var(--gb);border:1.5px solid var(--gl);border-radius:10px;flex-wrap:wrap}
 .tx-bulk-n{flex:0 0 auto}
 .tx-bulk-n{font-size:12px;font-weight:700;color:var(--gd)}
@@ -11057,6 +11062,15 @@ function _txStickyOffsets(){
   }
 }
 try{ window.addEventListener('resize', function(){ try{ _txStickyOffsets(); }catch(e){} }); }catch(e){}
+/* Sticky offsets derive from the bars' rendered heights; watch the bars themselves so
+   ANY height change (wrap, font load, content) re-measures without waiting for a render. */
+try{
+  if (typeof ResizeObserver !== 'undefined'){
+    var _txRO = new ResizeObserver(function(){ try{ _txStickyOffsets(); }catch(e){} });
+    var _bar = document.getElementById('tx-filter-bar'); if (_bar) _txRO.observe(_bar);
+    document.querySelectorAll('.tx-toolbar').forEach(function(el){ _txRO.observe(el); });
+  }
+}catch(e){}
 /* ── Transaction list: selection, inline recategorise, and the "needs a look" scan ──
    The category cell is the most valuable click target on this page, so clicking it
    changes the category rather than explaining anything. Explanation lives behind the
@@ -11142,9 +11156,14 @@ function _txCatMenu(idx, anchor, apply){
   var t = ST.txns[idx]; if (!t || !anchor) return;
   var isInc = (t.type === 'income');
   var used = {}; (ST.txns||[]).forEach(function(x){ if (x.cat) used[x.cat] = (used[x.cat]||0)+1; });
-  var cats = FARM_CATS.filter(function(c){ return c.t === (isInc?'inc':'exp') || c.t === 'both'; })
-    .map(function(c){ return c.n; })
-    .sort(function(a,b){ return (used[b]||0)-(used[a]||0) || (a<b?-1:1); });
+  var all = FARM_CATS.filter(function(c){ return c.t === (isInc?'inc':'exp') || c.t === 'both'; })
+    .map(function(c){ return c.n; });
+  /* Two sections a farmer can predict: the handful this farm actually uses, then the
+     complete list A–Z — so 'Fuel & Oil' is always findable under F even when
+     it is also in Most used. */
+  var most = all.filter(function(c){ return used[c] > 0; })
+    .sort(function(a,b){ return (used[b]||0)-(used[a]||0); }).slice(0,6);
+  var az = all.slice().sort(function(a,b){ return a.localeCompare(b); });
   var need = null; try{ need = _txNeedsLook(t); }catch(e){}
   var h = '';
   if (need){
@@ -11152,9 +11171,14 @@ function _txCatMenu(idx, anchor, apply){
          '<span>Suggested</span> ' + esc(need) + '</div>';
     h += '<div class="tx-menu-keep" onclick="TX_MENU.keep();_txMenuClose()">✓ Keep as ' + esc(t.cat||'None') + ' \u2014 stop flagging</div>';
   }
-  h += cats.map(function(c){
+  function _item(c){
     return '<div class="tx-menu-it' + (c===t.cat?' on':'') + '" onclick="TX_MENU.apply(\'' + esc(c).replace(/'/g,"\\'") + '\');_txMenuClose()">' + esc(c) + '</div>';
-  }).join('');
+  }
+  if (most.length){
+    h += '<div class="tx-menu-h">Most used</div>' + most.map(_item).join('');
+    h += '<div class="tx-menu-h">All categories</div>';
+  }
+  h += az.map(_item).join('');
   var el = document.createElement('div');
   el.className = 'tx-menu';
   el.innerHTML = h;
@@ -11260,13 +11284,9 @@ function _txNeedButton(kind){
   btn.style.display = (c || on) ? '' : 'none';
   btn.className = 'tx-need-btn' + (on ? ' on' : '');
   btn.textContent = on ? ('\u2715  Showing ' + c + ' to check') : (c + ' need a look');
-  var noteId = short+'-need-note', note = document.getElementById(noteId);
-  if (on && c){
-    if (!note){ note = document.createElement('div'); note.id = noteId; note.className = 'tx-need-note';
-                (btn.closest('.tx-meta')||btn).parentNode.insertBefore(note, (btn.closest('.tx-meta')||btn).nextSibling); }
-    note.innerHTML = 'These ' + c + ' transaction' + (c===1?'':'s') + ' are filed somewhere the description does not point. ' +
-      'Nothing has been changed \u2014 click an amber category to choose the right one or keep it as it is.';
-  } else if (note){ note.remove(); }
+  /* No explanation banner: it lived inside the sticky toolbar, so toggling it changed
+     the toolbar height and threw the header offsets out. The amber chips are the UI. */
+  var _n = document.getElementById(short+'-need-note'); if (_n) _n.remove();
 }
 
 /* Human label for a month-count period. The count is internal plumbing — 600 means
@@ -36732,13 +36752,7 @@ function txAllNeedButton(){
   btn.style.display=(c||on)?'':'none';
   btn.className='tx-need-btn'+(on?' on':'');
   btn.textContent = on ? ('✕  Showing '+c+' to check') : (c+' need a look');
-  var note=$('txall-need-note');
-  if(on&&c){
-    if(!note){ note=document.createElement('div'); note.id='txall-need-note'; note.className='tx-need-note';
-               (btn.closest('.tx-meta')||btn).parentNode.insertBefore(note, (btn.closest('.tx-meta')||btn).nextSibling); }
-    note.innerHTML='These '+c+' transaction'+(c===1?'':'s')+' are filed somewhere the description does not point. '+
-      'Nothing has been changed — click an amber category to choose the right one or keep it as it is.';
-  } else if(note){ note.remove(); }
+  var _n=$('txall-need-note'); if(_n) _n.remove();
 }
 
 function txSetTypeFilter(t) {
