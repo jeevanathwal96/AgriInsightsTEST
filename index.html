@@ -2248,8 +2248,8 @@ select.tx-fctl{padding-right:30px}
 .tx-sentinel{height:1px;margin-bottom:-1px}
 /* Applied by the IntersectionObserver below ONLY while the bar is stuck: covers the
    scrollport padding strip above the bar, where rows were visibly scrolling. */
-.tx-filters.is-stuck{box-shadow:0 -64px 0 0 var(--bg)}
-.tx-toolbar.is-stuck{box-shadow:0 -64px 0 0 var(--bg),0 3px 8px rgba(20,30,24,.06)}
+.tx-filters.is-stuck{box-shadow:0 -32px 0 32px var(--bg)}
+.tx-toolbar.is-stuck{box-shadow:0 -32px 0 32px var(--bg),0 3px 8px rgba(20,30,24,.06)}
 .tx-filters > select{flex:0 0 auto;width:auto}
 .tx-filters .tx-search-wrap{flex:0 0 auto}
 #tx-tbl thead th{position:sticky;top:var(--txall-th-top,58px);z-index:5;background:var(--bg)}
@@ -11056,10 +11056,10 @@ function _txStickyOffsets(){
        where it overlaps the toolbar and the first rows — exactly the broken layout this
        shipped with. Keep the previous value (or the CSS default) instead. */
     if (h < 2) return;
-    card.style.setProperty('--tx-th-top', h+'px');
+    card.style.setProperty('--tx-th-top', (h-3)+'px');   // tuck: no sliver from rounding
     var th=card.querySelector('.tx-tbl thead th');
     var thH=th?Math.round(th.getBoundingClientRect().height):38;
-    card.style.setProperty('--tx-mo-top', (h+thH)+'px');
+    card.style.setProperty('--tx-mo-top', (h-3+thH-2)+'px');
   });
   /* The Transactions page keeps its filter bar OUTSIDE the card — measure it too;
      until now nothing ever set --txall-th-top and the 58px default was a guess. */
@@ -11067,10 +11067,10 @@ function _txStickyOffsets(){
   if (fb && tcard){
     var fh=Math.round(fb.getBoundingClientRect().height);
     if (fh >= 2){
-      tcard.style.setProperty('--txall-th-top', fh+'px');
+      tcard.style.setProperty('--txall-th-top', (fh-3)+'px');   // tuck under the bar
       var th2=tcard.querySelector('#tx-tbl thead th');
       var th2H=th2?Math.round(th2.getBoundingClientRect().height):38;
-      tcard.style.setProperty('--tx-mo-top', (fh+th2H)+'px');
+      tcard.style.setProperty('--tx-mo-top', (fh-3+th2H-2)+'px');
     }
   }
   try{ window._txStuckUpdate && _txStuckUpdate(); }catch(e){}
