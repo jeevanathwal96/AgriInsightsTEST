@@ -31759,6 +31759,14 @@ LANG_PAIRS.push(
    'is twee keer in jou boeke — een keer as iets wat jy besit, een keer as ’n koste. SARS laat jou toe om dit op een of ander manier te tel, nie albei nie — hou die regte een en haal die ander uit.'],
   ['These figures follow SARS’s rules rather than just adding everything up. It’s still not tax advice — other money you earn, or farming on the side rather than as your main work, can change the answer.',
    'Hierdie syfers volg SARS se reëls eerder as om net alles bymekaar te tel. Dit is steeds nie belastingadvies nie — ander geld wat jy verdien, of boerdery as bykomstigheid eerder as jou hoofwerk, kan die antwoord verander.'],
+  /* This tail had NO pair and was quietly staying English on the Afrikaans screen —
+     found while adding the s20A pointer. The citation is deliberately parked here, in
+     the sentence that sends the farmer to their accountant, rather than in the plain
+     explanation above it: it gives them something concrete to ask rather than a code to
+     decode, and s20A is a SECOND ring-fence this app cannot compute (it would need the
+     farmer's non-farm income). */
+  ['Confirm the final numbers with your accountant — and if farming isn’t your main work, ask them about section 20A.',
+   'Bevestig die finale syfers met jou rekenmeester — en as boerdery nie jou hoofwerk is nie, vra hulle oor artikel 20A.'],
   ['— choose —',                              '— kies —'],
   ['Not one of these? Choose another category','Nie een van hierdie nie? Kies \u2019n ander kategorie'],
   ['Choose a category',                        'Kies \u2019n kategorie'],
@@ -33665,7 +33673,7 @@ function taxGlanceHTML(){
   h+='<div class="tx-card" style="margin-bottom:12px"><div class="tx-h">Tax-health check</div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px 18px">'+chk.map(function(c){ var col=c[2]===1?'var(--gm)':c[2]===0?'#B45309':'var(--t4)'; return '<div style="display:flex;gap:8px;align-items:center;font-size:12px"><span style="color:'+col+';font-weight:800">'+c[0]+'</span><span style="color:'+(c[2]===0?'#7a4a10':'var(--t2)')+'">'+esc(c[1])+'</span></div>'; }).join('')+'</div></div>';
 
   h+='<div class="tx-btn" onclick="taxAccountantPack()">📤 Share SARS-ready pack with your accountant</div>';
-  h+='<div class="tx-disc"><b>Everything here is a helper to plan with — not a filed return.</b> Figures are worked out from your records; rates are reviewed each Budget ('+esc((STATUTORY&&STATUTORY.tax&&STATUTORY.tax.yearLabel)||'2026/27')+' tables). These figures follow SARS’s rules rather than just adding everything up. It’s still not tax advice — other money you earn, or farming on the side rather than as your main work, can change the answer. Confirm the final numbers with your accountant.</div>';
+  h+='<div class="tx-disc"><b>Everything here is a helper to plan with — not a filed return.</b> Figures are worked out from your records; rates are reviewed each Budget ('+esc((STATUTORY&&STATUTORY.tax&&STATUTORY.tax.yearLabel)||'2026/27')+' tables). These figures follow SARS’s rules rather than just adding everything up. It’s still not tax advice — other money you earn, or farming on the side rather than as your main work, can change the answer. Confirm the final numbers with your accountant — and if farming isn’t your main work, ask them about section 20A.</div>';
   return h;
 }
 function _shortDate(d){ try{ var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return d.getDate()+' '+MO[d.getMonth()]; }catch(e){ return ''; } }
