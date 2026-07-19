@@ -192,6 +192,9 @@
       ent:      r.enterprise || undefined,
       source:   r.source || undefined,
       cuid:     r.client_uid || undefined,
+      /* When the row reached the farm account. Rows that arrived together came from the
+         same import, which is how imports made before we recorded them are grouped. */
+      _added:   r.created_at || undefined,
       /* Only set when true: _txNeedsLook treats any truthy value as "settled", and an
          explicit false would be indistinguishable from "never asked". */
       _catOk:   (r.cat_confirmed === true) ? true : undefined

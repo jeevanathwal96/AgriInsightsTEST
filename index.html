@@ -28,7 +28,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=13"></script>
+<script src="ai-data.js?v=14"></script>
 <script src="ai-auth.js?v=13"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -2488,6 +2488,7 @@ select.tx-fctl{padding-right:30px}
 .imp-readnote{background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A;border-radius:8px;padding:11px 13px;font-size:12.5px;line-height:1.5;margin-top:12px}
 .imp-hist-tag{display:inline-block;background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A;border-radius:5px;padding:1px 7px;font-size:10.5px;font-weight:600;margin-left:6px;vertical-align:middle}
 .imp-hist-card{background:#fff;border:1px solid var(--gp);border-radius:12px;overflow:hidden}
+.imp-hist-hd{padding:8px 16px;background:#FAFAFA;border-top:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--t3)}
 /* Undo-an-import dialog — same shape as the import wizard: green header band, dark green
    icon tile, white body, tinted action bar. */
 #imp-undo-bg{display:none;position:fixed;inset:0;background:rgba(15,40,28,.55);z-index:900;align-items:center;justify-content:center;padding:24px 16px}
@@ -37244,7 +37245,7 @@ function txRender() {
   var list = ST.txns.filter(function(t, i) {
     t._idx = i;  // stash index for edit
     if (TX_TYPE_FILTER !== 'all' && t.type !== TX_TYPE_FILTER) return false;
-    if (TX_BATCH_FILTER && t.batch !== TX_BATCH_FILTER) return false;
+    if (TX_BATCH_FILTER && t.batch !== TX_BATCH_FILTER && t._autoBatch !== TX_BATCH_FILTER) return false;
     if (TX_CAT_FILTER && t.cat !== TX_CAT_FILTER) return false;
     if (TX_FROM || TX_TO) {
       var dd = parseDate(t.date);
@@ -37378,7 +37379,7 @@ function txRender() {
 
   var bannerHtml = '';
   if (TX_BATCH_FILTER) {
-    var _bb=(ST.importBatches||[]).find(function(x){return x.id===TX_BATCH_FILTER;});
+    var _bb=(typeof impFindBatch==='function')?impFindBatch(TX_BATCH_FILTER):null;
     bannerHtml = '<tr><td colspan="7" style="padding:10px 14px;background:#F1F5F2;border-bottom:1px solid #DCE7DF">'+
       '<span style="font-size:12.5px;color:var(--t2)">Showing one import: <b>'+escHtml((_bb&&_bb.source)||'import')+'</b></span>'+
       '<button onclick="txClearBatchFilter()" style="margin-left:10px;background:#fff;border:1px solid var(--br);border-radius:6px;padding:4px 11px;font-size:11.5px;font-weight:600;color:var(--gd);cursor:pointer;font-family:inherit">Show all transactions</button>'+
@@ -39203,6 +39204,57 @@ function impIsDuplicate(date, amt, desc){
     return t.date===date && Math.abs((t.amt||0)-amt)<0.01 && (t.desc||'').trim().toLowerCase()===d;
   });
 }
+/* ── Imports made before we started recording them ────────────────────────────────
+   Older rows carry no import id, but the server stamped each one with the moment it was
+   saved, and rows from a single import land together in a burst. So they are grouped by
+   arrival: a gap longer than IMP_AUTO_GAP starts a new group, and a group only counts as
+   an import if it is big enough that one file is the obvious explanation. Anything
+   smaller is what a farmer typed in by hand, and is left alone.
+
+   The tag is _autoBatch, deliberately underscore-prefixed and absent from _txnSnapshot:
+   it is derived fresh on every load and must never reach the server, where the column is
+   a uuid foreign key that a synthetic id would break. */
+var IMP_AUTO_GAP = 10*60*1000;      // 10 minutes
+var IMP_AUTO_MIN = 5;               // fewer than this and it was hand-typed
+function impAutoGroups(){
+  var rows=(ST.txns||[]).filter(function(t){ return t && !t.batch && t._added; });
+  rows.forEach(function(t){ delete t._autoBatch; });
+  if(!rows.length) return {groups:[], strays:0};
+  rows.sort(function(a,b){ return Date.parse(a._added)-Date.parse(b._added); });
+  var buckets=[], cur=null;
+  rows.forEach(function(t){
+    var ts=Date.parse(t._added);
+    if(!cur || (ts-cur.last)>IMP_AUTO_GAP){ cur={first:ts,last:ts,rows:[]}; buckets.push(cur); }
+    cur.last=ts; cur.rows.push(t);
+  });
+  var groups=[], strays=0;
+  buckets.forEach(function(b){
+    if(b.rows.length<IMP_AUTO_MIN){ strays+=b.rows.length; return; }
+    var id='auto-'+b.first;
+    b.rows.forEach(function(t){ t._autoBatch=id; });
+    var when=''; try{ when=new Date(b.first).toLocaleDateString('en-ZA',{day:'numeric',month:'long'}); }catch(e){}
+    var span=''; try{ span=impSpan(b.rows.map(function(t){return t.date;})); }catch(e){}
+    groups.push({ id:id, auto:true, rows:b.rows.length, when:new Date(b.first).toISOString(),
+                  whenLabel:when, span:span,
+                  source:b.rows.length+' transaction'+(b.rows.length===1?'':'s') });
+  });
+  groups.sort(function(a,b){ return Date.parse(b.when)-Date.parse(a.when); });
+  return {groups:groups, strays:strays};
+}
+/* One lookup for both kinds, so view/undo/confirm don't each need to know the difference. */
+function impFindBatch(id){
+  var real=(ST.importBatches||[]).find(function(x){ return x.id===id; });
+  if(real) return real;
+  if(String(id).indexOf('auto-')===0){
+    var g=impAutoGroups().groups.filter(function(x){ return x.id===id; })[0];
+    if(g) return g;
+  }
+  return null;
+}
+function impBatchRows(id){
+  return (ST.txns||[]).filter(function(t){ return t.batch===id || t._autoBatch===id; });
+}
+
 /* ── Undoing an import must be reversible ─────────────────────────────────────────
    Deleting ONE transaction has always dropped it into Recently deleted for 30 days.
    Undoing an import deleted hundreds of rows outright — the bigger action was the
@@ -39247,14 +39299,17 @@ function impRestoreBatch(batchId){
   return mine.length;
 }
 function impUndoBatch(id){
-  var b=(ST.importBatches||[]).find(function(x){return x.id===id;}); if(!b) return;
+  var b=impFindBatch(id); if(!b) return;
+  var _isAuto=!!b.auto;
   var before=(ST.txns||[]).length;
   /* A row tied to a livestock movement stays: removing it would leave the herd counts
      pointing at a sale that no longer exists. */
-  var _removedTx=(ST.txns||[]).filter(function(t){ return t.batch===id && !t.moveRef; });
-  var _keptLinked=(ST.txns||[]).filter(function(t){ return t.batch===id && t.moveRef; }).length;
+  var _all=impBatchRows(id);
+  var _removedTx=_all.filter(function(t){ return !t.moveRef; });
+  var _keptLinked=_all.length-_removedTx.length;
   _removedTx.forEach(function(t){ _txBinPush(t, id); });      // recoverable for 30 days
-  ST.txns=(ST.txns||[]).filter(function(t){ return t.batch!==id || t.moveRef; });
+  var _gone={}; _removedTx.forEach(function(t){ _gone[(t.cuid||'')+'|'+t.desc+'|'+t.date+'|'+t.amt]=1; });
+  ST.txns=(ST.txns||[]).filter(function(t){ return !_gone[(t.cuid||'')+'|'+t.desc+'|'+t.date+'|'+t.amt] || t.moveRef; });
   // also drop any co-op settlement rows from the same batch
   if(ST.coopSettlements) ST.coopSettlements=ST.coopSettlements.filter(function(s){ return s.batch!==id; });
   // Co-op settlement undo: give back the balance that was paid down against the account
@@ -39265,9 +39320,10 @@ function impUndoBatch(id){
     if(_racct){ _racct.used=(_racct.used||0)+b.coopPaid; _coopRestored=true; }
   }
   ST.importBatches=(ST.importBatches||[]).filter(function(x){ return x.id!==id; });
-  /* Retire the server-side record too, or the next pull brings the batch back. */
+  /* Retire the server-side record too, or the next pull brings the batch back.
+     A group inferred from arrival times has no server record to retire. */
   try{
-    if (window.AI && AI.importBatch && AI.farm && AI.farm.active()){
+    if (!_isAuto && window.AI && AI.importBatch && AI.farm && AI.farm.active()){
       AI.importBatch.remove(id).catch(function(e){ console.warn('Import batch not retired on the farm:', e); });
     }
   }catch(e){}
@@ -39335,7 +39391,9 @@ function impViewBatchTxns(id){
 function impRenderHistory(){
   var el=document.getElementById('tx-import-history'); if(!el) return;
   var batches=(ST.importBatches||[]);
-  if(!batches.length){ el.style.display='none'; el.innerHTML=''; return; }
+  /* Imports made before we recorded them, grouped by the day they arrived. */
+  var _auto={groups:[],strays:0}; try{ _auto=impAutoGroups(); }catch(e){}
+  if(!batches.length && !_auto.groups.length){ el.style.display='none'; el.innerHTML=''; return; }
   el.style.display='block';
   /* Collapsed: one strip naming the most recent import. Expanded: the full list. */
   var _open=!!IMP_HIST_UI.panel;
@@ -39344,8 +39402,10 @@ function impRenderHistory(){
   var strip='<div class="imp-strip'+(_open?' open':'')+'" onclick="impTogglePanel()" '+
       'title="'+(_open?'Hide imports':'Show imports')+'">'+
       '<span class="ic">📥</span><span class="lbl">Imports</span>'+
-      '<span class="cnt">'+batches.length+'</span>'+
-      (_open?'':'<span class="last">Last: '+esc(_last.source||'Import')+(_lastWhen?(', added '+_lastWhen):'')+'</span>')+
+      '<span class="cnt">'+(batches.length+_auto.groups.length)+'</span>'+
+      (_open?'':'<span class="last">'+(batches.length
+          ? ('Last: '+esc(_last.source||'Import')+(_lastWhen?(', added '+_lastWhen):''))
+          : (_auto.groups[0] ? ('Last: '+esc(_auto.groups[0].source)+', added '+esc(_auto.groups[0].whenLabel)) : ''))+'</span>')+
       '<span class="chev">›</span></div>';
   if(!_open){ el.innerHTML='<div class="imp-hist-card">'+strip+'</div>'; return; }
   var SHOW=4, showAll=IMP_HIST_UI.all||batches.length<=SHOW;
@@ -39374,13 +39434,30 @@ function impRenderHistory(){
     return head+body;
   }).join('');
   var foot=batches.length>SHOW?'<button class="imp-hist-toggle" onclick="impToggleHistAll()">'+(showAll?'Show fewer':('Show all '+batches.length+' imports'))+'</button>':'';
-  el.innerHTML='<div class="imp-hist-card">'+strip+rows+foot+'</div>';
+  /* "Added earlier": imports that pre-date the app recording them. Same two buttons as a
+     recorded import, so there is only one thing for a farmer to learn. */
+  var older='';
+  if(_auto.groups.length){
+    older='<div class="imp-hist-hd">Added earlier</div>'+
+      _auto.groups.map(function(g){
+        return '<div class="imp-hist-row">'+
+          '<div class="imp-hist-meta"><div class="ihl">'+esc(g.source)+'</div>'+
+            '<div class="ihs">added '+esc(g.whenLabel)+(g.span?(' · '+esc(g.span)):'')+'</div></div>'+
+          '<button class="imp-hist-undo" onclick="event.stopPropagation();impViewBatchTxns(\''+g.id+'\')">See them</button>'+
+          '<button class="imp-hist-undo" onclick="event.stopPropagation();impConfirmUndo(\''+g.id+'\')">Undo</button>'+
+        '</div>';
+      }).join('');
+      /* No explanation under this list. "983 transactions · added 29 June" already says
+         everything a farmer needs; how the grouping was worked out is our problem, and the
+         count of hand-typed strays is a number nobody was looking for. */
+  }
+  el.innerHTML='<div class="imp-hist-card">'+strip+rows+foot+older+'</div>';
 }
 /* The old confirm said only "N transactions will be removed", which doesn't tell a farmer
    whether that's the right batch. Lead with the money, and say it can be undone. */
 function impConfirmUndo(id){
-  var b=(ST.importBatches||[]).find(function(x){return x.id===id;}); if(!b) return;
-  var rows=(ST.txns||[]).filter(function(t){ return t.batch===id; });
+  var b=impFindBatch(id); if(!b) return;
+  var rows=impBatchRows(id);
   var linked=rows.filter(function(t){ return t.moveRef; }).length;
   var going=rows.filter(function(t){ return !t.moveRef; });
   if(!going.length){ try{ toast('Nothing to remove \u2014 these are all linked to livestock movements','info'); }catch(e){} return; }
