@@ -12787,6 +12787,11 @@ var FARM_CATS = [
   {n:'Milk & Dairy'               , t:'inc'  , vat:'zero' , ec:''         , ic:'#38BDF8'  , tag:'tb'   , tc:'#D8F3DC:#1B4332'    , ss:''       , sd:'', cor:3.4, bor:3.4},
   {n:'Wool & Fibre'               , t:'inc'  , vat:'std'  , ec:''         , ic:'#A855F7'  , tag:'tp'   , tc:'#D8F3DC:#1B4332'    , ss:''       , sd:'', cor:3.6, bor:3.6},
   {n:'Government Grant'           , t:'inc'  , vat:'none' , ec:''         , ic:'#3B82F6'  , tag:'tb'   , tc:''                   , ss:''       , sd:'', cor:4, bor:4},
+  /* The server has had a Subsidies row all along (it resolves to a real category_id);
+     only the registry was missing it, so the app could never offer it and any row that
+     arrived under it looked uncategorised. Filed as INCOME — a subsidy is money received,
+     and it sits beside Government Grant, which it is most often confused with. */
+  {n:'Subsidies'                  , t:'inc'  , vat:'none' , ec:''         , ic:'#60A5FA'  , tag:'tb'   , tc:''                   , ss:''       , sd:'', cor:4.5, bor:4.5},
   {n:'Agritourism'                , t:'inc'  , vat:''     , ec:''         , ic:'#7C3AED'  , tag:'tp'   , tc:''                   , ss:''       , sd:'', cor:5},
   {n:'Rental Income'              , t:'inc'  , vat:'std'  , ec:''         , ic:'#0891B2'  , tag:'tp'   , tc:'#D8F3DC:#1B4332'    , ss:''       , sd:'', cor:6, bor:5},
   /* Fresh, unprocessed fruit and vegetables are zero-rated basic foodstuffs (VAT Act Sch 2 Pt B)
@@ -31722,6 +31727,39 @@ LANG_PAIRS.push(
   ['SARS fines & interest',                    'SARS-boetes & rente'],
   ['PAYE & UIF',                               'LBS & WVF'],
   ['Rates & licences',                         'Eiendomsbelasting & lisensies'],
+  /* Tax split + ring-fence copy (2026-07). The long sentences are paired WHOLE: they are
+     assembled inline around a rand figure, so the pair has to match the contiguous run of
+     English either side of it or half the sentence stays untranslated. Simulated against
+     the real engine before shipping — see the note above about 'Inkomste tax'. */
+  ['Subsidies',                                'Subsidies'],
+  /* These two are the waterfall's own row labels. They looked paired at a glance because
+     the same strings appear in the wf[] array that builds the rows — they were not. */
+  ['Gross farming income',                     'Bruto boerdery-inkomste'],
+  ['Taxable profit',                           'Belasbare wins'],
+  ['Running costs',                            'Lopende koste'],
+  ['Farm improvements',                        'Plaasverbeterings'],
+  ['of taxable profit',                        'van belasbare wins'],
+  ['Not lost.',                                'Nie verlore nie.'],
+  ['Worth a check.',                           'Die moeite werd om na te gaan.'],
+  /* Afrikaans matches the plain-language English, register for register: no 'aftrekking'
+     (deduction) either, just 'kom af' — costs come off. Both plural and singular tails
+     are paired in full; the substring engine only matches contiguous runs, so a partial
+     pair would leave half a sentence in English. */
+  ['Some tax you paid is in your books, but it doesn’t come off here — SARS doesn’t let you take that off.',
+   'Sommige belasting wat jy betaal het is in jou boeke, maar dit kom nie hier af nie — SARS laat jou nie toe om dit af te trek nie.'],
+  ['are in your books, but they don’t come off here — SARS doesn’t let you take those off.',
+   'is in jou boeke, maar hulle kom nie hier af nie — SARS laat jou nie toe om dit af te trek nie.'],
+  ['is in your books, but it doesn’t come off here — SARS doesn’t let you take that off.',
+   'is in jou boeke, maar dit kom nie hier af nie — SARS laat jou nie toe om dit af te trek nie.'],
+  ['of last year’s farm improvements moved into this year — it’s already counted above.',
+   'van verlede jaar se plaasverbeterings het na hierdie jaar geskuif — dit tel reeds hierbo.'],
+  ['of your farm improvements is more than your farming earned this year, so SARS moves it to next year — you get it then instead.',
+   'van jou plaasverbeterings is meer as wat jou boerdery vanjaar verdien het, so SARS skuif dit na volgende jaar — jy kry dit dan eerder.'],
+  ['is in your books twice — once as something you own, once as a cost. SARS lets you count it one way or the other, not both — keep the right one and take out the other.',
+   'is twee keer in jou boeke — een keer as iets wat jy besit, een keer as ’n koste. SARS laat jou toe om dit op een of ander manier te tel, nie albei nie — hou die regte een en haal die ander uit.'],
+  ['These figures follow SARS’s rules rather than just adding everything up. It’s still not tax advice — other money you earn, or farming on the side rather than as your main work, can change the answer.',
+   'Hierdie syfers volg SARS se reëls eerder as om net alles bymekaar te tel. Dit is steeds nie belastingadvies nie — ander geld wat jy verdien, of boerdery as bykomstigheid eerder as jou hoofwerk, kan die antwoord verander.'],
+  ['— choose —',                              '— kies —'],
   ['Not one of these? Choose another category','Nie een van hierdie nie? Kies \u2019n ander kategorie'],
   ['Choose a category',                        'Kies \u2019n kategorie'],
   ['Licks, hay, silage, pellets',              'Lekke, hooi, kuilvoer, korrels'],
@@ -33134,9 +33172,20 @@ function taxProvEstimate(){
      estimate stays internally consistent whether it came from the plan or the run-rate.
      annualProfit stays CASH profit — it is what the farmer's own books say, and other
      screens read it. taxableProfit is the figure tax is actually charged on. */
+  /* Only RUNNING costs get annualised, because only running costs recur. A run-rate is
+     the wrong instrument for the other two:
+       · Capital development is a one-off project — you build the dam once. Scaling it
+         invents spending that will never happen and inflates the para 12 claim mid-season.
+       · Income tax and SARS penalties land on fixed dates, not monthly. Doubling an
+         August provisional payment made the note tell a farmer their books hold twice
+         the tax they actually recorded — a false claim about their own records.
+     Both are therefore taken at their ACTUAL year-to-date figures. This does not move the
+     tax estimate (non-deductibles cancel from both sides of the taxable-profit sum); it
+     makes the improvement claim and the on-screen note honest. */
   var _sp=_taxFySplit(fy), _scale=(ytd.expenses>0)?(annualExpense/ytd.expenses):1;
-  var annualNonDed=Math.round(_sp.nonDed*_scale), annualCapLim=Math.round(_sp.capLim*_scale);
-  var annualOtherDed=Math.max(0, annualExpense-annualNonDed-annualCapLim);
+  var annualOtherDed=Math.round(_sp.otherDed*_scale);
+  var annualCapLim=Math.round(_sp.capLim);
+  var annualNonDed=Math.round(_sp.nonDed);
   var ringFence=_taxRingFence(annualIncome, annualOtherDed, annualCapLim, taxCarryForwardInto(fy));
   var taxableProfit=ringFence.taxable;
   var annualTax=(typeof calcAnnualIncomeTax==='function')?calcAnnualIncomeTax(Math.max(0,taxableProfit),entity):0;
@@ -33255,8 +33304,13 @@ function _taxFySplit(fy){
     if(t.type==='income'){ o.income+=a; return; }
     if(t.type!=='expense') return;              // account payments are cash, not a P&L line
     o.expenses+=a;
-    var k=taxCatKind(t.cat);
-    if(k==='nonded'){ o.nonDed+=a; o.nonDedByCat[t.cat]=(o.nonDedByCat[t.cat]||0)+a; }
+    /* Key the breakdown by the DISPLAY name, not the raw stored one. The server keeps
+       category CODES ('IncomeTax', 'SARSfines&interest'), so keying on t.cat put those
+       unspaced strings straight into a sentence a farmer reads. Two spellings of the
+       same category would also have totalled as two separate lines. */
+    var k=taxCatKind(t.cat), cn=t.cat;
+    try{ if(typeof normalizeCat==='function') cn=normalizeCat(t.cat); }catch(e){}
+    if(k==='nonded'){ o.nonDed+=a; o.nonDedByCat[cn]=(o.nonDedByCat[cn]||0)+a; }
     else if(k==='caplim') o.capLim+=a;
     else o.otherDed+=a;
   });
@@ -33308,6 +33362,41 @@ function taxRingFenceFY(fy){
   r.income=Math.round(s.income); r.expenses=Math.round(s.expenses);
   r.capLimSpend=Math.round(s.capLim); r.nonDed=Math.round(s.nonDed); r.nonDedByCat=s.nonDedByCat;
   return r;
+}
+/* Para 12 reads TRANSACTIONS; taxCapitalAllowances() reads ST_ASSETS. Nothing stops the
+   same spend being entered in both places — a farmer who logs a new dam as a purchase AND
+   registers it as an asset has done nothing wrong — but it would then be deducted twice,
+   once as depreciation and once as capital development. The engine cannot merge them:
+   they are different regimes over different records, and guessing which one the farmer
+   meant would be worse than asking. So it says so instead.
+
+   Deliberately conservative — only an exact rand-for-rand match inside the same tax year
+   is flagged. A false alarm on a tax screen costs more trust than a missed one, and an
+   exact amount repeated across both records is already a strong signal.
+
+   Only s12b / s11e assets can double-count: taxCapitalAllowances() totals nothing else,
+   so an asset on any other depreciation type is not being claimed and cannot collide. */
+function taxDoubleCountRisk(fy){
+  var out=[];
+  var assets=((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]).filter(function(a){
+    return a && (a.deprType==='s12b'||a.deprType==='s11e') && (a.price>0);
+  });
+  if(!assets.length) return out;
+  var caps={}; FARM_CATS.forEach(function(c){ if(c.cap) caps[c.n]=1; });
+  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
+    if(!t||t.type!=='expense') return;
+    var d=parseDate(t.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
+    var cn=t.cat; try{ if(typeof normalizeCat==='function') cn=normalizeCat(t.cat); }catch(e){}
+    if(!caps[cn]) return;
+    for(var i=0;i<assets.length;i++){
+      var a=assets[i], ad=parseDate(a.date);
+      if(Math.round(a.price)!==Math.round(t.amt||0)) continue;
+      if(ad && ((ad.m>=2)?ad.y:ad.y-1)!==fy) continue;
+      out.push({amount:Math.round(t.amt||0), cat:cn, desc:(t.desc||''), asset:(a.name||'an asset')});
+      break;
+    }
+  });
+  return out;
 }
 // "Income tax R240 000 and SARS fines R12 400" — for the note under the waterfall.
 function _taxNonDedPhrase(byCat){
@@ -33491,17 +33580,33 @@ function taxGlanceHTML(){
        shown when something was actually struck out, so most farms never meet the idea. */
     if(prov.nonDed>0){ var _ndp=_taxNonDedPhrase(prov.nonDedByCat);
       h+='<div style="font-size:11px;color:var(--t3);line-height:1.5;margin-top:9px;padding-top:9px;border-top:1px solid var(--br2)">'+
-         (_ndp?_ndp+' '+(Object.keys(prov.nonDedByCat||{}).length>1?'are':'is'):'Some tax you paid is')+
-         ' recorded in your books but not taken off here — SARS doesn’t allow them as a deduction.</div>'; }
+         /* Plain words: a farmer doesn't have "deductions", they have costs that come off
+            before tax. The whole tail switches on plurality, not just the verb — "it
+            doesn't come off" vs "they don't come off" — and each full variant is a
+            LANG_PAIR, because the substring engine matches contiguous runs. */
+         (_ndp
+            ? _ndp + (Object.keys(prov.nonDedByCat||{}).length>1
+                ? ' are in your books, but they don’t come off here — SARS doesn’t let you take those off.'
+                : ' is in your books, but it doesn’t come off here — SARS doesn’t let you take that off.')
+            : 'Some tax you paid is in your books, but it doesn’t come off here — SARS doesn’t let you take that off.')+
+         '</div>'; }
     /* Para 12(3) carry-forward. "Not lost" because that is the one thing a farmer who
        has just been capped needs to know, and the concept stays hidden until it bites. */
-    if(_rf.brought>0) h+='<div style="font-size:11px;color:var(--t3);line-height:1.5;margin-top:7px"><b>'+IE_R(_rf.brought)+'</b> of improvement spending carried in from last year and is claimed above.</div>';
+    if(_rf.brought>0) h+='<div style="font-size:11px;color:var(--t3);line-height:1.5;margin-top:7px"><b>'+IE_R(_rf.brought)+'</b> of last year’s farm improvements moved into this year — it’s already counted above.</div>';
   } else h+='<div style="flex:1;display:flex;align-items:center;font-size:12.5px;color:var(--t3)">Appears once there’s a profit to tax.</div>';
   /* Deliberately OUTSIDE the profit branch. A farm that has just spent more on
      improvements than it earned has no taxable profit — and is precisely the farm that
      needs to be told the money is not lost. Gating this on a profit would go silent at
      the one moment the message matters. */
-  if(_rf.carried>0) h+='<div style="font-size:11px;color:#7a4a10;background:#FEF6E7;border:1px solid #F1DBA6;border-radius:9px;padding:8px 10px;line-height:1.5;margin-top:9px"><b>Not lost.</b> '+IE_R(_rf.carried)+' of your farm improvements is more than this year’s farming income can absorb, so SARS carries it into next year — you claim it then.</div>';
+  if(_rf.carried>0) h+='<div style="font-size:11px;color:#7a4a10;background:#FEF6E7;border:1px solid #F1DBA6;border-radius:9px;padding:8px 10px;line-height:1.5;margin-top:9px"><b>Not lost.</b> '+IE_R(_rf.carried)+' of your farm improvements is more than your farming earned this year, so SARS moves it to next year — you get it then instead.</div>';
+  /* Same spend in the books twice, under two regimes. Shown here because this is the
+     card where the improvement claim is made, so the farmer sees the warning against the
+     figure it affects rather than somewhere else on the page. */
+  var _dc=taxDoubleCountRisk((typeof getCurrentFY==='function')?getCurrentFY():0);
+  if(_dc.length) h+='<div style="font-size:11px;color:#7a4a10;background:#FEF6E7;border:1px solid #F1DBA6;border-radius:9px;padding:8px 10px;line-height:1.5;margin-top:9px"><b>Worth a check.</b> '+
+    _dc.slice(0,3).map(function(x){ return esc(x.desc||x.cat)+' '+IE_R(x.amount); }).join(', ')+
+    (_dc.length>3?' and '+(_dc.length-3)+' more':'')+
+    ' is in your books twice — once as something you own, once as a cost. SARS lets you count it one way or the other, not both — keep the right one and take out the other.</div>';
   h+='</div>';
   h+='<div class="tx-card"><div class="tx-h">Your tax year — what’s ahead 📅</div>';
   var cal=[]; if(wk) cal.push(['Aug','Provisional 1st','IRP6','#B45309',prov.ok]); var _n=_txNow();
@@ -33560,7 +33665,7 @@ function taxGlanceHTML(){
   h+='<div class="tx-card" style="margin-bottom:12px"><div class="tx-h">Tax-health check</div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px 18px">'+chk.map(function(c){ var col=c[2]===1?'var(--gm)':c[2]===0?'#B45309':'var(--t4)'; return '<div style="display:flex;gap:8px;align-items:center;font-size:12px"><span style="color:'+col+';font-weight:800">'+c[0]+'</span><span style="color:'+(c[2]===0?'#7a4a10':'var(--t2)')+'">'+esc(c[1])+'</span></div>'; }).join('')+'</div></div>';
 
   h+='<div class="tx-btn" onclick="taxAccountantPack()">📤 Share SARS-ready pack with your accountant</div>';
-  h+='<div class="tx-disc"><b>Everything here is a helper to plan with — not a filed return.</b> Figures are worked out from your records; rates are reviewed each Budget ('+esc((STATUTORY&&STATUTORY.tax&&STATUTORY.tax.yearLabel)||'2026/27')+' tables). These figures follow SARS’s rules rather than simply adding everything up, but this is not tax advice — other income, s20A, or farming as a sideline can change the answer. Confirm the final numbers with your accountant.</div>';
+  h+='<div class="tx-disc"><b>Everything here is a helper to plan with — not a filed return.</b> Figures are worked out from your records; rates are reviewed each Budget ('+esc((STATUTORY&&STATUTORY.tax&&STATUTORY.tax.yearLabel)||'2026/27')+' tables). These figures follow SARS’s rules rather than just adding everything up. It’s still not tax advice — other money you earn, or farming on the side rather than as your main work, can change the answer. Confirm the final numbers with your accountant.</div>';
   return h;
 }
 function _shortDate(d){ try{ var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return d.getDate()+' '+MO[d.getMonth()]; }catch(e){ return ''; } }
@@ -38761,7 +38866,10 @@ function inferCategory(desc, isIncome){
   if(/milk|melk|clover|dairy|suiwel|cream|cheese|kaas/.test(d)) return 'Milk & Dairy';
   if(/wool|wol|shear|skeer|mohair|sybok|bkb/.test(d)) return 'Wool & Fibre';
   if(/livestock|vee|cattle|bees|sheep|skaap|goat|bok|pig|vark|poultry|beef|lamb|calf|calves|weaner|speculator|feedlot|bonsmara|brahman|auction|abattoir/.test(d)) return 'Livestock Sales';
-    if(/daff|government|grant|subsid|agriseta/.test(d)) return 'Government Grant';
+    /* 'subsid' first: it now has its own home, and it was the odd one out in this list —
+       the rest are grants, which are a different thing to a subsidy on your books. */
+    if(/subsid/.test(d)) return 'Subsidies';
+    if(/daff|government|grant|agriseta/.test(d)) return 'Government Grant';
     if(/rental|rent |lease|huur|grazing lease|weidinghuur|servitude|erfdiens/.test(d)) return 'Rental Income';
     if(/refund|rebate/.test(d)) return 'Other Income';
     return 'Other Income';
