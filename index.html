@@ -14458,12 +14458,84 @@ var ST_LOANAPP = {
 };
 var LN_ASSETS_FALLBACK = 13300000;
 function LN_assetsTotal(){ try{ var t=0; (ST_ASSETS.assets||[]).forEach(function(a){ t+=a.price||0; }); return t||LN_ASSETS_FALLBACK; }catch(e){ return LN_ASSETS_FALLBACK; } }
+/* Interest THIS month, on what is owed now — this was always right. */
 function LN_intM(l){ return Math.round((l.balance||0)*(l.rate||0)/100/12); }
+
+/* ── Interest in PAST months ──────────────────────────────────────────────────────
+   Interest accrues on the balance outstanding at the time, so a loan three years into
+   its term owed far more in month 1 than it does today. Reading today's balance for
+   every month overstates early interest and understates how much has been paid off.
+
+   Three ways to date the schedule, best first:
+     1. the start month the farmer gave us;
+     2. solve for it — step forward from the original amount at this rate and payment
+        until the balance reaches today's, which says how many months have passed;
+     3. neither available, so fall back to today's balance (the old behaviour) rather
+        than invent a history. */
+function _lnYM(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+function _lnToday(){ return (typeof APP_TODAY!=='undefined' && APP_TODAY) ? new Date(APP_TODAY) : new Date(); }
+function LN_monthsElapsed(l){
+  var B=+(l.borrowed||0), bal=+(l.balance||0), P=+(l.payment||0), r=(+(l.rate||0))/100/12;
+  if(!(B>bal) || !(P>0) || !(r>0)) return null;      // nothing to solve from
+  if(P <= B*r) return null;                          // payment never clears interest
+  var b=B, n=0;
+  while(b>bal && n<600){ b = b*(1+r) - P; n++; }     // 50 years is the sanity stop
+  return (n>0 && n<600) ? n : null;
+}
+/* First month of the loan as 'YYYY-MM', or null if we genuinely cannot tell. */
+function LN_startYM(l){
+  if(l && l.startYM && /^\d{4}-\d{2}$/.test(l.startYM)) return l.startYM;
+  var n=LN_monthsElapsed(l); if(n==null) return null;
+  var d=_lnToday(); d.setDate(1); d.setMonth(d.getMonth()-n);
+  return _lnYM(d);
+}
+/* Opening balance and interest for each month from the start up to and including ym. */
+function LN_scheduleTo(l, ym){
+  var start=LN_startYM(l); if(!start) return null;
+  var B=+(l.borrowed||l.balance||0), P=+(l.payment||0), r=(+(l.rate||0))/100/12;
+  if(!(B>0) || !(r>0)) return null;
+  var sp=start.split('-'), tp=String(ym).split('-');
+  var months=(+tp[0]-+sp[0])*12 + (+tp[1]-+sp[1]);
+  if(months<0) return null;                          // ym is before the loan existed
+  var out=[], b=B;
+  for(var i=0;i<=months && i<600;i++){
+    var int=b*r;
+    out.push({ym:(function(){ var d=new Date(+sp[0], +sp[1]-1+i, 1); return _lnYM(d); })(), opening:b, interest:int});
+    b = Math.max(0, b + int - P);
+  }
+  return out;
+}
+/* Interest for one specific month. Falls back to today's balance when undatable. */
+function LN_intForMonth(l, ym){
+  var s=LN_scheduleTo(l, ym);
+  if(!s || !s.length) return LN_intM(l);
+  var hit=s[s.length-1];
+  return (hit && hit.ym===ym) ? Math.round(hit.interest) : LN_intM(l);
+}
+/* Interest across a run of months, inclusive. months = ['2026-03', ...]. */
+function LN_intForMonths(l, months){
+  if(!months || !months.length) return 0;
+  var s=LN_scheduleTo(l, months[months.length-1]);
+  if(!s){ return LN_intM(l)*months.length; }         // undatable: old behaviour, honestly flat
+  var by={}; s.forEach(function(x){ by[x.ym]=x.interest; });
+  var t=0; months.forEach(function(m){ t += (by[m]!=null? by[m] : LN_intM(l)); });
+  return Math.round(t);
+}
 function LN_capM(l){ return Math.max(0,(l.payment||0)-LN_intM(l)); }
 function LN_totalOwed(){ var t=0; ST_LOANS.loans.forEach(function(l){ t+=l.balance||0; }); t+=LN_odUsedTotal(); t+=LN_coUsedTotal(); return t; }
 function LN_monthlyPay(){ var t=0; ST_LOANS.loans.forEach(function(l){ t+=l.payment||0; }); return t; }
 function LN_monthlyInterest(){ var t=0; ST_LOANS.loans.forEach(function(l){ t+=LN_intM(l); }); t+=LN_odInterestTotal(); t+=LN_coInterestTotal(); return t; }
-function LN_annualInterest(){ return LN_monthlyInterest()*12; }
+/* The last 12 months, each on its own balance — not this month multiplied by twelve. */
+function LN_annualInterest(){
+  var d=_lnToday(); d.setDate(1);
+  var months=[]; for(var i=11;i>=0;i--){ var m=new Date(d.getFullYear(), d.getMonth()-i, 1); months.push(_lnYM(m)); }
+  var t=0;
+  (ST_LOANS.loans||[]).forEach(function(l){ t += LN_intForMonths(l, months); });
+  /* Overdraft and co-op balances revolve rather than amortise, so a flat rate on the
+     current balance is the right treatment for them. */
+  t += (LN_odInterestTotal()+LN_coInterestTotal())*12;
+  return Math.round(t);
+}
 function LN_equityPct(){ var a=LN_assetsTotal(); if(!a) return 0; return Math.round((a-LN_totalOwed())/a*1000)/10; }
 function LN_R(n){ n=Math.round(n); return (n<0?'\u2212R':'R')+_grpInt(n); }
 function LN_Rk(n){ n=Math.round(n); var v=Math.abs(n); if(v>=1e6) return 'R'+(n/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'m'; if(v>=1e4) return 'R'+Math.round(n/1e3)+'k'; return LN_R(n); }
@@ -15868,6 +15940,7 @@ function lnAddHTML(){
      '<div class="ln-frow"><label>What kind?</label><select id="ln-f-type" class="ln-inp">'+opts(types, L?L.type:null)+'</select></div></div>';
   h+='<div class="ln-two"><div class="ln-frow"><label>How much did you borrow?</label><input id="ln-f-borrowed" class="ln-inp" inputmode="numeric" placeholder="R 0"'+(L?av(L.borrowed):'')+'></div>'+
      '<div class="ln-frow"><label>How much do you still owe?</label><input id="ln-f-balance" class="ln-inp" inputmode="numeric" placeholder="R 0"'+(L?av(L.balance):'')+'></div></div>';
+  h+='<div class="ln-frow"><label>When did the loan start? <small style="color:var(--t4);font-weight:600">optional — lets us work out the interest you paid in past months</small></label><input id="ln-f-start" class="ln-inp" type="month"'+(L&&L.startYM?(' value="'+L.startYM+'"'):'')+'></div>';
   h+='<div class="ln-two"><div class="ln-frow"><label>Interest rate (% a year)</label><input id="ln-f-rate" class="ln-inp" inputmode="decimal" placeholder="e.g. 12.5"'+(L?av(L.rate):'')+'></div>'+
      '<div class="ln-frow"><label>What do you pay a month?</label><input id="ln-f-pay" class="ln-inp" inputmode="numeric" placeholder="R 0"'+(L?av(L.payment):'')+'></div></div>';
   h+='<div class="ln-frow"><label>Which asset did this pay for? <small style="color:var(--t4);font-weight:600">optional \u2014 links this loan to something on your Assets page</small></label><select id="ln-f-asset" class="ln-inp">'+_lnAssetOptions(L?L.assetId:null)+'</select></div>';
@@ -15892,7 +15965,9 @@ function lnSaveLoan(){
   var loan={ id: editing?editing.id:('ln'+(ST_LOANS.nextId++)), icon: editing?editing.icon:'\uD83C\uDFE6', name:name,
     lender:($('ln-f-lender')&&$('ln-f-lender').value)||'Other',
     type:($('ln-f-type')&&$('ln-f-type').value)||'Loan', assetId: assetIdRaw?parseInt(assetIdRaw,10):null,
-    borrowed:lnNum('ln-f-borrowed'), balance:lnNum('ln-f-balance'), rate:lnNum('ln-f-rate'), payment:lnNum('ln-f-pay'), next: editing?editing.next:'next month' };
+    borrowed:lnNum('ln-f-borrowed'), balance:lnNum('ln-f-balance'), rate:lnNum('ln-f-rate'), payment:lnNum('ln-f-pay'),
+    startYM: (function(){ var e=document.getElementById('ln-f-start'); return (e&&e.value)?e.value:(editing?editing.startYM:undefined); })(),
+    next: editing?editing.next:'next month' };
   if(!loan.borrowed) loan.borrowed=loan.balance;
   if(LN_FORM_FF && LN_FORM_FF.items && LN_FORM_FF.items.length) loan.fundsFor=LN_FORM_FF;
   else if(editing && editing.fundsFor) loan.fundsFor=editing.fundsFor;
