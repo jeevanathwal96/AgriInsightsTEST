@@ -211,7 +211,7 @@
       return (data || []).filter(b => b.status !== 'undone').map(b => ({
         id:     b.id,
         source: b.source || 'Import',
-        rows:   (b.count != null) ? Number(b.count) : 0,
+        rows:   (b.txn_count != null) ? Number(b.txn_count) : 0,
         when:   b.imported_at || null,
         kind:  (b.meta && b.meta.kind)  || 'file',
         span:  (b.meta && b.meta.span)  || '',
@@ -224,7 +224,7 @@
         id:          batch.id,
         farm_id:     fid,
         source:      batch.source || 'Import',
-        count:       batch.rows || 0,
+        txn_count:   batch.rows || 0,
         status:      'active',
         imported_at: batch.when || new Date().toISOString(),
         meta:        { kind: batch.kind || 'file', span: batch.span || '', note: batch.note || '' }
