@@ -2245,6 +2245,11 @@ details.ls-taglist>summary .ls-tag-add{font-size:11px;font-weight:800;color:var(
 select.tx-fctl{padding-right:30px}
 .tx-filters .tx-search-wrap{flex:1 1 200px;max-width:320px;display:flex;align-items:center;height:38px;box-sizing:border-box}
 .tx-filter-sep{display:none}
+.tx-sentinel{height:1px;margin-bottom:-1px}
+/* Applied by the IntersectionObserver below ONLY while the bar is stuck: covers the
+   scrollport padding strip above the bar, where rows were visibly scrolling. */
+.tx-filters.is-stuck{box-shadow:0 -64px 0 0 var(--bg)}
+.tx-toolbar.is-stuck{box-shadow:0 -64px 0 0 var(--bg),0 3px 8px rgba(20,30,24,.06)}
 .tx-filters > select{flex:0 0 auto;width:auto}
 .tx-filters .tx-search-wrap{flex:0 0 auto}
 #tx-tbl thead th{position:sticky;top:var(--txall-th-top,58px);z-index:5;background:var(--bg)}
@@ -4534,7 +4539,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
   </div>
   <div class="card tx-card">
-    <div class="tx-toolbar">
+    <div class="tx-sentinel"></div><div class="tx-toolbar">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <div style="font-size:14px;font-weight:700">Income Transactions</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -4783,7 +4788,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
   <!-- TRANSACTIONS TABLE WITH FILTERS -->
   <div class="card tx-card">
-    <div class="tx-toolbar">
+    <div class="tx-sentinel"></div><div class="tx-toolbar">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <div style="font-size:14px;font-weight:700">Expense Transactions</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -7143,6 +7148,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <div id="tx-import-history" style="display:none;margin-bottom:14px"></div>
 
   <!-- Filters -->
+  <div class="tx-sentinel"></div>
   <div class="tx-filters" id="tx-filter-bar">
     <div class="tx-fgroup">
       <button class="pill on" id="txf-all"    onclick="txSetTypeFilter('all')">All</button>
@@ -10336,6 +10342,8 @@ function bootAgriInsights() {
   try { _fcFillAllSelects(); } catch(e){}
   // Any expense category without a card gets a home in the fallback picker.
   try { aeFillMore(); } catch(e){}
+  // Gap-covers engage only while a bar is actually stuck.
+  try { _txStuckWatch(); } catch(e){}
   // The Transactions page opens on the financial year rather than everything ever.
   try{
     if(!ST.txPeriodSel) ST.txPeriodSel='fy';
@@ -11060,8 +11068,50 @@ function _txStickyOffsets(){
       tcard.style.setProperty('--tx-mo-top', (fh+th2H)+'px');
     }
   }
+  try{ window._txStuckUpdate && _txStuckUpdate(); }catch(e){}
 }
 try{ window.addEventListener('resize', function(){ try{ _txStickyOffsets(); }catch(e){} }); }catch(e){}
+/* A sticky bar needs its gap-cover ONLY while stuck. Each bar has a 1px sentinel just
+   above it: sentinel visible = at rest (no cover, nothing painted over), sentinel gone =
+   stuck (cover on, padding strip hidden). */
+function _txStuckWatch(){
+  var root = document.getElementById('content'); if (!root) return;
+  var pending = false;
+  /* Scroll-driven, not IntersectionObserver: IO callbacks simply never fire in some
+     embedded/webview environments (verified: zero deliveries even on document.body),
+     and a cover that silently fails to engage is exactly the bug this fixes. A passive
+     scroll listener + rAF throttle is boring and works everywhere. */
+  function update(){
+    pending = false;
+    var rTop = root.getBoundingClientRect().top;
+    var changed = false;
+    document.querySelectorAll('.tx-sentinel').forEach(function(sn){
+      var bar = sn.nextElementSibling; if (!bar) return;
+      if (sn.offsetParent === null){ bar.classList.remove('is-stuck'); return; }
+      var now = sn.getBoundingClientRect().top < rTop - 1;
+      if (bar.classList.contains('is-stuck') !== now){ changed = true; }
+      bar.classList.toggle('is-stuck', now);
+    });
+    /* The moment a bar first sticks, re-measure the header offsets — so a value taken
+       before the toolbar finished rendering can never survive into the stuck state.
+       (No recursion: the second update() sees no state change.) */
+    if (changed){ try{ _txStickyOffsets(); }catch(e){} }
+  }
+  /* No rAF: in throttled webviews rAF can simply never fire, wedging the pending
+     flag and freezing the cover forever. update() is four rect reads — run it inline
+     with a time throttle, plus a trailing call so the final state is always right. */
+  var last = 0;
+  root.addEventListener('scroll', function(){
+    var now = Date.now();
+    if (now - last < 40){
+      if (!pending){ pending = true; setTimeout(function(){ pending = false; update(); }, 60); }
+      return;
+    }
+    last = now; update();
+  }, {passive:true});
+  window._txStuckUpdate = update;
+  update();
+}
 /* Sticky offsets derive from the bars' rendered heights; watch the bars themselves so
    ANY height change (wrap, font load, content) re-measures without waiting for a render. */
 try{
@@ -13162,7 +13212,7 @@ function nav(id) {
 
   // Sticky offsets can only be measured while the page is visible; remeasure after
   // the switch has painted.
-  try{ requestAnimationFrame(function(){ try{ _txStickyOffsets(); }catch(e){} }); }catch(e){}
+  try{ requestAnimationFrame(function(){ try{ _txStickyOffsets(); }catch(e){} try{ window._txStuckUpdate && _txStuckUpdate(); }catch(e){} }); }catch(e){}
 
   setTimeout(function(){
     if (id === 'dashboard')   { renderRecentIncome(); updateDashboardFigures(); try { initDashChart(); } catch (e) { /* Chart.js may have failed to load; non-chart UI still renders */ } }
