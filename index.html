@@ -28,8 +28,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=11"></script>
-<script src="ai-auth.js?v=11"></script>
+<script src="ai-data.js?v=12"></script>
+<script src="ai-auth.js?v=12"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -2479,6 +2479,17 @@ select.tx-fctl{padding-right:30px}
 .imp-readnote{background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A;border-radius:8px;padding:11px 13px;font-size:12.5px;line-height:1.5;margin-top:12px}
 .imp-hist-tag{display:inline-block;background:#FCEFD9;color:#8A5A12;border:1px solid #F0D29A;border-radius:5px;padding:1px 7px;font-size:10.5px;font-weight:600;margin-left:6px;vertical-align:middle}
 .imp-hist-card{background:#fff;border:1px solid var(--gp);border-radius:12px;overflow:hidden}
+.imp-strip{display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer;font-size:13px}
+.imp-strip:hover{background:#FAFCFA}
+.imp-strip .ic{flex:none;font-size:14px;line-height:1}
+.imp-strip .lbl{font-weight:600;color:var(--t1)}
+.imp-strip .cnt{color:var(--t3);font-size:12px}
+.imp-strip .last{color:var(--t4);font-size:11.5px;margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:52%}
+.imp-strip .chev{flex:none;color:#9ca3af;font-size:15px;line-height:1;transition:transform .12s;margin-left:auto}
+.imp-strip .last + .chev{margin-left:10px}
+.imp-strip.open{border-bottom:1px solid #f0f0f0}
+.imp-strip.open .chev{transform:rotate(90deg)}
+@media(max-width:760px){.imp-strip .last{display:none}}
 .imp-hist-hd{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid #f0f0f0;font-size:13px;font-weight:600;color:var(--t1)}
 .imp-hist-count{margin-left:auto;font-size:11.5px;font-weight:500;color:var(--t3)}
 .imp-hist-row{display:flex;align-items:center;gap:10px;padding:11px 16px;cursor:pointer}
@@ -11280,6 +11291,8 @@ function txNeedToggle(kind){
 function txCatConfirm(idx, kind){
   var t = ST.txns[idx]; if (!t) return;
   t._catOk = true;
+  /* Persist it, or the row re-flags on every other device and after the next pull. */
+  try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   kind = kind || t.type;
   (kind==='income') ? filterIncomeTx() : filterExpTx();
@@ -11288,6 +11301,7 @@ function txCatConfirm(idx, kind){
 function txAllCatConfirm(idx){
   var t = ST.txns[idx]; if (!t) return;
   t._catOk = true;
+  try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   txRender();
 }
@@ -11344,7 +11358,9 @@ function _txCatMenu(idx, anchor, apply){
   if (top + Math.min(el.offsetHeight, 380) > innerHeight - 8) top = Math.max(8, r.top - Math.min(el.offsetHeight, 380) - 4);
   el.style.top = top + 'px'; el.style.left = left + 'px';
   TX_MENU = {el:el, apply:apply,
-             keep:function(){ var x=ST.txns[idx]; if(x){ x._catOk=true; try{saveState&&saveState();}catch(e){} }
+             keep:function(){ var x=ST.txns[idx]; if(x){ x._catOk=true;
+                               try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(x); }catch(e){}
+                               try{saveState&&saveState();}catch(e){} }
                              try{ txRender(); }catch(e){} try{ filterExpTx(); }catch(e){} try{ filterIncomeTx(); }catch(e){} }};
   document.addEventListener('mousedown', _txMenuOutside, true);
   document.addEventListener('keydown', _txMenuKey, true);
@@ -31698,9 +31714,11 @@ function _loadOutbox(){
 }
 // Normalised snapshot of a transaction row for the outbox (carries cuid for linkage).
 function _txnSnapshot(o){
+  /* batch and _catOk must ride along or they die on the next cloud pull: batch is what
+     the Imports panel groups by, _catOk is the farmer's "stop flagging this" decision. */
   return { date:o.date, amt:o.amt, cat:o.cat, type:o.type, desc:o.desc, method:o.method,
            qty:o.qty, unit:o.unit, ent:o.ent, source:o.source, ref:o.ref, note:o.note,
-           accountId:o.accountId, cuid:o.cuid };
+           accountId:o.accountId, cuid:o.cuid, batch:o.batch, _catOk:o._catOk };
 }
 function _removeOutboxByOids(oids){
   if(!oids || !oids.length) return;
@@ -31877,6 +31895,7 @@ function flushTxnOutbox(){
       // isn't resurrected by the refetch.
       AI.load.financeCore(AI.farm.active()).then(function(core){
         if(window.ST && core) ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || ST.txns) : (core.txns || ST.txns));
+        if(window.ST && core && core.batches) ST.importBatches = core.batches;
         if(typeof dataChanged === 'function') dataChanged('transaction');
       }).catch(function(){});
     }
@@ -39102,7 +39121,9 @@ function bankEntBulkApply(){ var bs=document.getElementById('bank-imp-entbulk-se
 //  IMPORT BATCHES — every import is one reversible, attributable batch.
 //  Transactions carry t.batch = batch id; undo removes exactly those.
 // ════════════════════════════════════════════════════════════════════
-function impNewBatchId(){ return 'imp_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+/* A real UUID, because the server's import_batch_id column is uuid and the row must be
+   insertable offline and re-syncable without creating a second batch. */
+function impNewBatchId(){ return newCuid(); }
 function impSpanFmt(p1,p2){ var MO=MONTHS_SHORT;
   if(!p2) return p1.d+' '+MO[p1.m]+' '+p1.y;
   if(p1.y===p2.y && p1.m===p2.m) return p1.d+' – '+p2.d+' '+MO[p1.m]+' '+p1.y;
@@ -39122,11 +39143,19 @@ function impRegisterBatch(meta, txnRefs){
   ST.importBatches = ST.importBatches || [];
   var id = impNewBatchId();
   txnRefs.forEach(function(t){ t.batch = id; });
-  ST.importBatches.unshift({
+  var rec = {
     id:id, source:meta.source||'Import', kind:meta.kind||'file',
     rows:txnRefs.length, when:new Date().toISOString(),
     span:meta.span||'', note:meta.note||''
-  });
+  };
+  ST.importBatches.unshift(rec);
+  /* Persist the batch record itself. Without this the id on each transaction points at
+     nothing after a cloud pull, which is why the panel came back empty. */
+  try{
+    if (window.AI && AI.importBatch && AI.farm && AI.farm.active()){
+      AI.importBatch.create(rec).catch(function(e){ console.warn('Import batch not saved to farm:', e); });
+    }
+  }catch(e){}
   return id;
 }
 // Duplicate guard: does an incoming row already exist (same date+amount+desc)?
@@ -39151,6 +39180,12 @@ function impUndoBatch(id){
     if(_racct){ _racct.used=(_racct.used||0)+b.coopPaid; _coopRestored=true; }
   }
   ST.importBatches=(ST.importBatches||[]).filter(function(x){ return x.id!==id; });
+  /* Retire the server-side record too, or the next pull brings the batch back. */
+  try{
+    if (window.AI && AI.importBatch && AI.farm && AI.farm.active()){
+      AI.importBatch.remove(id).catch(function(e){ console.warn('Import batch not retired on the farm:', e); });
+    }
+  }catch(e){}
   // Backend write-through: delete persisted txns (those with a DB id) + settlement rows.
   // Bank-import txns have no id yet (not persisted) so they're skipped harmlessly.
   try {
@@ -39171,7 +39206,11 @@ function impUndoBatch(id){
 }
 
 // Render the "Imports so far" panel on the Transactions page.
-var IMP_HIST_UI = { all:false, open:{} };
+/* panel:false = collapsed. The Transactions page is about transactions; a farmer who
+   isn't chasing an import shouldn't have to scroll past the list. Resets to collapsed on
+   every visit so the default can't quietly drift open. */
+var IMP_HIST_UI = { all:false, open:{}, panel:false };
+function impTogglePanel(){ IMP_HIST_UI.panel=!IMP_HIST_UI.panel; impRenderHistory(); }
 function impToggleHistAll(){ IMP_HIST_UI.all=!IMP_HIST_UI.all; impRenderHistory(); }
 function impToggleHistBatch(id){ IMP_HIST_UI.open[id]=!IMP_HIST_UI.open[id]; impRenderHistory(); }
 function impViewBatchTxns(id){ TX_BATCH_FILTER=id; nav('transactions');
@@ -39182,6 +39221,17 @@ function impRenderHistory(){
   var batches=(ST.importBatches||[]);
   if(!batches.length){ el.style.display='none'; el.innerHTML=''; return; }
   el.style.display='block';
+  /* Collapsed: one strip naming the most recent import. Expanded: the full list. */
+  var _open=!!IMP_HIST_UI.panel;
+  var _last=batches[0]||{};
+  var _lastWhen=''; try{ _lastWhen=new Date(_last.when).toLocaleDateString('en-ZA',{day:'numeric',month:'short'}); }catch(e){}
+  var strip='<div class="imp-strip'+(_open?' open':'')+'" onclick="impTogglePanel()" '+
+      'title="'+(_open?'Hide imports':'Show imports')+'">'+
+      '<span class="ic">📥</span><span class="lbl">Imports</span>'+
+      '<span class="cnt">'+batches.length+'</span>'+
+      (_open?'':'<span class="last">Last: '+esc(_last.source||'Import')+(_lastWhen?(', added '+_lastWhen):'')+'</span>')+
+      '<span class="chev">›</span></div>';
+  if(!_open){ el.innerHTML='<div class="imp-hist-card">'+strip+'</div>'; return; }
   var SHOW=4, showAll=IMP_HIST_UI.all||batches.length<=SHOW;
   var visible=showAll?batches:batches.slice(0,SHOW);
   var rows=visible.map(function(b){
@@ -39207,7 +39257,7 @@ function impRenderHistory(){
     return head+body;
   }).join('');
   var foot=batches.length>SHOW?'<button class="imp-hist-toggle" onclick="impToggleHistAll()">'+(showAll?'Show fewer':('Show all '+batches.length+' imports'))+'</button>':'';
-  el.innerHTML='<div class="imp-hist-card"><div class="imp-hist-hd">\uD83D\uDCE5 Imports so far<span class="imp-hist-count">'+batches.length+' import'+(batches.length===1?'':'s')+'</span></div>'+rows+foot+'</div>';
+  el.innerHTML='<div class="imp-hist-card">'+strip+rows+foot+'</div>';
 }
 async function impConfirmUndo(id){
   var b=(ST.importBatches||[]).find(function(x){return x.id===id;}); if(!b) return;
@@ -39693,7 +39743,11 @@ function coopCommitImport(){
   if(typeof window.nav === 'function'){
     var _origNav = window.nav;
     window.nav = function(id){
-    try{ if(id==='transactions') impRenderHistory(); if(id==='dashboard') impRenderDoorway(); }catch(e){}
+    try{
+      /* Arriving at Transactions always starts collapsed — see IMP_HIST_UI. */
+      if(id==='transactions'){ IMP_HIST_UI.panel=false; impRenderHistory(); }
+      if(id==='dashboard') impRenderDoorway();
+    }catch(e){}
       var r = _origNav.apply(this, arguments);
       setTimeout(function(){
         if(id === 'reports')   renderAIInsights();

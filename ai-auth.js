@@ -119,7 +119,7 @@
       return AI.load.financeCore(AI.farm.active());
     }).then(function (core) {
       // Replace the app's working data with the farm's real data.
-      if (window.ST) { ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || []) : (core.txns || [])); ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; ST.firstRun = false; }
+      if (window.ST) { ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || []) : (core.txns || [])); ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; if (core.batches) ST.importBatches = core.batches; ST.firstRun = false; }
       // currentMonth is a local "trailing window" anchor the backend doesn't persist — financeCore returns it as null,
       // which blanked the boot-time anchor on every sign-in (money views then fell back to a computed default). Re-anchor
       // it to the real current month here. Only sets the label; never shifts transaction dates, so real data is untouched.

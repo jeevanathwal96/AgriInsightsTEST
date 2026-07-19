@@ -140,7 +140,7 @@
 
   // ---- 5. SHAPE MAPPING (app txn <-> db row) -------------------------------
   function appToDb(t, farmId) {
-    return {
+    const row = {
       farm_id:        farmId,
       account_id:     t.accountId || null,
       category_id:    catToId(t.cat),
@@ -155,8 +155,23 @@
       unit:           t.unit || null,
       enterprise:     t.ent || null,
       source:         t.source || null,
+      import_batch_id: t.batch || null,       // which import brought this row in
       client_uid:     t.cuid || null          // idempotency key for offline-safe retries
     };
+    /* "Keep as is" needs a column that older databases don't have. Sending an unknown
+       column makes PostgREST reject the whole write, which would break every save — so
+       only include it once we've seen the column exist. */
+    if (CAN_CAT_CONFIRM) row.cat_confirmed = !!t._catOk;
+    return row;
+  }
+  /* Set by probeCaps() on the first load; false until proven otherwise. */
+  let CAN_CAT_CONFIRM = false;
+  async function probeCaps(farmId){
+    if (!farmId) return;
+    try{
+      const r = await client().from('transactions').select('cat_confirmed').limit(1);
+      CAN_CAT_CONFIRM = !r.error;
+    }catch(e){ CAN_CAT_CONFIRM = false; }
   }
   function dbToApp(r) {
     return {
@@ -176,15 +191,67 @@
       unit:     r.unit || undefined,
       ent:      r.enterprise || undefined,
       source:   r.source || undefined,
-      cuid:     r.client_uid || undefined
+      cuid:     r.client_uid || undefined,
+      /* Only set when true: _txNeedsLook treats any truthy value as "settled", and an
+         explicit false would be indistinguishable from "never asked". */
+      _catOk:   (r.cat_confirmed === true) ? true : undefined
     };
   }
+
+  // ---- import batches -------------------------------------------------------
+  /* The panel's record of "where did these rows come from". Ids are generated client-side
+     as UUIDs so an import works offline and re-syncs without creating duplicates. */
+  const importBatch = {
+    async list(farmId) {
+      const fid = farmId || farm.active(); if (!fid) return [];
+      const { data, error } = await client()
+        .from('import_batches').select('*').eq('farm_id', fid)
+        .order('imported_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).filter(b => b.status !== 'undone').map(b => ({
+        id:     b.id,
+        source: b.source || 'Import',
+        rows:   (b.count != null) ? Number(b.count) : 0,
+        when:   b.imported_at || null,
+        kind:  (b.meta && b.meta.kind)  || 'file',
+        span:  (b.meta && b.meta.span)  || '',
+        note:  (b.meta && b.meta.note)  || ''
+      }));
+    },
+    async create(batch, farmId) {
+      const fid = farmId || farm.active(); if (!fid || !batch) return null;
+      const { data, error } = await client().from('import_batches').insert({
+        id:          batch.id,
+        farm_id:     fid,
+        source:      batch.source || 'Import',
+        count:       batch.rows || 0,
+        status:      'active',
+        imported_at: batch.when || new Date().toISOString(),
+        meta:        { kind: batch.kind || 'file', span: batch.span || '', note: batch.note || '' }
+      }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async remove(id) {
+      if (!id) return;
+      /* Mark rather than delete: the transactions carry this id as a foreign key, and a
+         hard delete would either fail or orphan them depending on the constraint. */
+      const { error } = await client().from('import_batches')
+        .update({ status: 'undone' }).eq('id', id);
+      if (error) throw error;
+    }
+  };
 
   // ---- 6. LOAD FINANCE CORE ------------------------------------------------
   const load = {
     async financeCore(farmId) {
       if (!farmId) throw new Error('No active farm');
       await loadCats(farmId);
+      await probeCaps(farmId);          // learn once whether cat_confirmed exists
+      /* The import panel's records. Never fatal: a farm with no imports, or a database
+         without the table, must still load its transactions. */
+      let impBatches = [];
+      try { impBatches = await importBatch.list(farmId); } catch (e) { impBatches = []; }
 
       const [acc, txn, bud, rec, fst] = await Promise.all([
         client().from('accounts').select('*').eq('farm_id', farmId).order('name'),
@@ -208,6 +275,7 @@
       return {
         accounts:   acc.data || [],
         categories: catMaps.list,
+        batches:    impBatches,
         txns:       (txn.data || []).map(dbToApp),
         budgets:    bObj,
         recurring:  (rec.data || []).map(r => ({
@@ -1274,6 +1342,7 @@
   global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
                 coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave, profile: profile,
                 storage: storage,
+                importBatch: importBatch,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
 })(window);
