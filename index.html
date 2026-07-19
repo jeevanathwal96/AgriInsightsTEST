@@ -2254,6 +2254,13 @@ select.tx-fctl{padding-right:30px}
 .tx-toolbar.is-stuck{box-shadow:0 -32px 0 32px var(--bg),0 3px 8px rgba(20,30,24,.06)}
 .tx-filters > select{flex:0 0 auto;width:auto}
 .tx-filters .tx-search-wrap{flex:0 0 auto}
+/* Fixed layout: column widths come from the header row (all explicitly sized), so the
+   browser never re-scans a thousand rows of cell content to size columns — table layout
+   cost stops growing with the ledger. */
+#tx-tbl,.tx-tbl{table-layout:fixed;width:100%}
+/* Below ~1180px viewport the fixed px+% columns overcommit and clip — fall back to the
+   auto algorithm there (slower but correct); full-screen desktop keeps the fast path. */
+@media (max-width:1180px){ #tx-tbl,.tx-tbl{table-layout:auto} }
 #tx-tbl thead th{position:sticky;top:var(--txall-th-top,58px);z-index:5;background:var(--bg)}
 .tx-tbl thead th{position:sticky;top:var(--tx-th-top,64px);z-index:5}
 /* Without fixed shares the Description column absorbs every spare pixel and leaves a
@@ -13313,6 +13320,22 @@ function nav(id) {
   closeDrop('farm-drop');
   closeDrop('lang-drop');
   closeDrop('notif-drop');
+
+  /* Un-hiding a page forces layout of whatever its tables still hold — with a 1,000-row
+     ledger that was a 320ms freeze BEFORE the fresh render even started. The big tables
+     are re-rendered on every entry anyway, so trim them down while their page is hidden
+     (display:none — removals cost no layout). Keep a screenful so the brief moment
+     before the fresh render still shows rows, not a blank card. */
+  try{
+    ['all-tbody','income-tbody','expense-tbody'].forEach(function(tid){
+      var tb=document.getElementById(tid); if(!tb) return;
+      var host=tb.closest('.pg');
+      if(host && !host.classList.contains('on') && tb.children.length>200){
+        if(typeof _TX_CHUNK!=='undefined') delete _TX_CHUNK[tid];   // cancel queued chunks
+        while(tb.children.length>60) tb.removeChild(tb.lastChild);
+      }
+    });
+  }catch(e){}
 
   var c = $('content');
   if (c) c.scrollTop = 0;
