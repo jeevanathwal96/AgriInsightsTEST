@@ -11185,6 +11185,47 @@ var TX_SEL = {expense:{}, income:{}};
    the server may still carry pre-merge names ('Veterinary') and spelling variants
    ('CropSales'). All three migrations are idempotent; re-run them when the ledger's row
    count changes and something the registry does not recognise is present. */
+/* ── Category ↔ server reconciliation ─────────────────────────────────────────────
+   A category is not text on the transaction row: the server stores category_id, a
+   foreign key into its own `categories` table. Two consequences the app has to respect.
+
+   1. Names that differ only in spacing or case resolve to the SAME category_id, so
+      writing a "corrected" spelling back changes nothing on the server. Queueing those
+      updates cost ~989 futile requests per load and made the ledger look permanently
+      unsynced. _catServerSame() lets the migrations skip them.
+   2. A name with no row in `categories` resolves to NULL, which silently wipes the
+      farmer's choice on the next refresh. _catWillSave() lets the UI say so instead. */
+function _catServerId(cat){
+  if (!cat) return null;
+  try{ if (window.AI && AI._map && typeof AI._map.catToId === 'function') return AI._map.catToId(cat) || null; }catch(e){}
+  return undefined;                      // resolver unavailable — caller must not assume
+}
+function _catServerSame(a, b){
+  if (a === b) return true;
+  if (!a || !b) return false;
+  var ia = _catServerId(a), ib = _catServerId(b);
+  /* Same resolved id => the server row would be unchanged, so the write is pointless.
+     That includes both resolving to null: sending it would wipe a category rather than
+     correct one, which is the opposite of what a spelling fix should do. */
+  if (ia !== undefined && ib !== undefined) return ia === ib;
+  // No resolver (offline/logged out): fall back to the server's own matching rule.
+  var norm = function(s){ return String(s).toLowerCase().replace(/\s+/g,''); };
+  return norm(a) === norm(b);
+}
+/* False only when we can PROVE the category has no home on the server. */
+function _catWillSave(cat){
+  try{ if (!_hasBackend || !_hasBackend()) return true; }catch(e){ return true; }
+  var id = _catServerId(cat);
+  if (id === undefined) return true;     // can't tell — don't cry wolf
+  return !!id;
+}
+function _catWarnIfUnsaveable(cat){
+  if (_catWillSave(cat)) return false;
+  try{ toast('Saved on this device only — your farm account has no "'+cat+'" category yet, so it will not sync.', 'error'); }catch(e){}
+  try{ console.warn('[AgriInsights] category has no server row, category_id would be NULL:', cat); }catch(e){}
+  return true;
+}
+
 function _txMigrateIfNeeded(){
   try{
     /* No row-count shortcut: cloud sync can replace the ledger with the SAME count,
@@ -11328,7 +11369,8 @@ function txCatApply(idx, cat, kind){
   try{ if (typeof dataChanged === 'function') dataChanged('transaction'); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   (kind==='income') ? filterIncomeTx() : filterExpTx();
-  try{ toast && toast('Moved to ' + cat + ' (was ' + from + ')'); }catch(e){}
+  /* Warn instead of quietly losing the choice on the next refresh. */
+  if (!_catWarnIfUnsaveable(cat)) { try{ toast && toast('Moved to ' + cat + ' (was ' + from + ')'); }catch(e){} }
 }
 
 /* ── Bulk selection ──────────────────────────────────────────────────────────────── */
@@ -11379,7 +11421,7 @@ function txBulkApply(kind){
   try{ if (typeof dataChanged === 'function') dataChanged('transaction'); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   (kind==='income') ? filterIncomeTx() : filterExpTx();
-  try{ toast && toast(moved + ' transaction' + (moved===1?'':'s') + ' moved to ' + cat); }catch(e){}
+  if (!_catWarnIfUnsaveable(cat)) { try{ toast && toast(moved + ' transaction' + (moved===1?'':'s') + ' moved to ' + cat); }catch(e){} }
 }
 function _txFillBulkCat(kind){
   var sel = document.getElementById((kind==='income'?'inc':'exp')+'-bulk-cat');
@@ -12858,9 +12900,9 @@ function migrateCatMerges(){
       if (!t || t._premerge) return;
       var to = _catMergeTarget(t.cat, t.type);
       if (to && to !== t.cat){ t._premerge = t.cat; t.cat = to; n++;
-        /* Local-only fixes revert on the next cloud pull; queue the server update too.
-           flushTxnOutbox batches, so even hundreds of rows go out as a few calls. */
-        try{ typeof txnUpdateThrough==='function' && txnUpdateThrough(t); }catch(e){} }
+        /* A real merge lands on a DIFFERENT category_id, so this one must reach the server;
+           a spelling-only change would not, and is skipped. */
+        if(!_catServerSame(t._premerge, to)){ try{ typeof txnUpdateThrough==='function' && txnUpdateThrough(t); }catch(e){} } }
     });
     (ST.recurring || []).forEach(function(r){
       if (!r || r._premerge) return;
@@ -12915,7 +12957,7 @@ function migrateProduceSplit(){
         if (!t || t._presplit) return;
         var to = _produceTarget(t);
         if (to){ t._presplit = t.cat; t.cat = to; n++;
-          if (isLive){ try{ typeof txnUpdateThrough==='function' && txnUpdateThrough(t); }catch(e){} } }
+          if (isLive && !_catServerSame(t._presplit, to)){ try{ typeof txnUpdateThrough==='function' && txnUpdateThrough(t); }catch(e){} } }
       });
     });
   }catch(e){}
@@ -12936,8 +12978,9 @@ function undoProduceSplit(){
 // Idempotent clean-up of existing transaction + recurring categories (safe to run every boot).
 function migrateCatSpelling(){
   var n=0;
-  try{ if(typeof ST!=='undefined' && ST.txns){ for(var i=0;i<ST.txns.length;i++){ var t=ST.txns[i]; if(t&&t.cat){ var nc=normalizeCat(t.cat); if(nc!==t.cat){ t.cat=nc; n++;
-    try{ typeof txnUpdateThrough==='function' && txnUpdateThrough(t); }catch(e2){} } } } } }catch(e){}
+  try{ if(typeof ST!=='undefined' && ST.txns){ for(var i=0;i<ST.txns.length;i++){ var t=ST.txns[i]; if(t&&t.cat){ var oc=t.cat, nc=normalizeCat(t.cat); if(nc!==t.cat){ t.cat=nc; n++;
+    /* Same category_id either way — the server write would be a no-op, so don't queue it. */
+    if(!_catServerSame(oc, nc)){ try{ typeof txnUpdateThrough==='function' && txnUpdateThrough(t); }catch(e2){} } } } } } }catch(e){}
   try{ if(typeof ST!=='undefined' && ST.recurring){ ST.recurring.forEach(function(r){ if(r&&r.category){ var nc=normalizeCat(r.category); if(nc!==r.category) r.category=nc; } }); } }catch(e){}
   return n;
 }
@@ -37029,7 +37072,7 @@ function txAllCatApply(idx, cat){
   try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   txRender();
-  try{ toast&&toast('Moved to '+cat+' (was '+from+')'); }catch(e){}
+  if (!_catWarnIfUnsaveable(cat)) { try{ toast&&toast('Moved to '+cat+' (was '+from+')'); }catch(e){} }
 }
 function txAllNeedButton(){
   var btn=$('txall-need-btn'); if(!btn) return;
