@@ -36784,13 +36784,30 @@ function _txChunkPaint(tbodyId, html, firstRows){
   if (st.i >= parts.length) return;
   function step(sync){
     if (_TX_CHUNK[tbodyId] !== st) return;           // superseded
-    var chunk = '', n = 0, cap = sync ? 1e9 : 300;
+    var chunk = '', n = 0, cap = sync ? 1e9 : 250;
     while (st.i < st.parts.length && n < cap){ chunk += st.parts[st.i]; st.i++; n++; }
     if (chunk) tb.insertAdjacentHTML('beforeend', chunk);
-    if (st.i < st.parts.length) setTimeout(step, 16);
   }
+  st.step = step;
   st.flush = function(){ step(true); };
-  setTimeout(step, 16);
+  _txChunkWire();
+}
+/* v187 streamed the remaining rows on a timer — profiling on real data showed that as
+   4-5 back-to-back ~100ms main-thread tasks right after every tab open: the "lag".
+   Now the next batch is appended only when the farmer scrolls within ~2 screens of the
+   bottom. Never scrolls down → the work never happens. */
+function _txChunkWire(){
+  if (_txChunkWire._on) return;
+  var c = document.getElementById('content'); if (!c) return;
+  _txChunkWire._on = true;
+  c.addEventListener('scroll', function(){
+    if (c.scrollTop + c.clientHeight < c.scrollHeight - 1800) return;
+    Object.keys(_TX_CHUNK).forEach(function(k){
+      var st = _TX_CHUNK[k]; if (!st || !st.step || st.i >= st.parts.length) return;
+      var tb = document.getElementById(k); if (!tb || tb.offsetParent === null) return;
+      st.step(false);
+    });
+  }, {passive:true});
 }
 /* Anything that needs the WHOLE list in the DOM right now (select-all, tests). */
 function _txChunkFlush(){
