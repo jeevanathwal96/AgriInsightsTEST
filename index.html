@@ -2262,12 +2262,15 @@ select.tx-fctl{padding-right:30px}
    column, where the eye reads it as margin rather than as a gap mid-row. */
 /* Percentages so every column breathes evenly as the window widens, instead of one
    column hoarding the slack. Long descriptions wrap to a second line. */
-.tx-tbl th:nth-child(3),.tx-tbl td:nth-child(3){width:41%;overflow-wrap:anywhere}
-.tx-tbl th:nth-child(4),.tx-tbl td:nth-child(4){width:21%}
-.tx-tbl th:nth-child(5),.tx-tbl td:nth-child(5){width:12%;text-align:right}
-.tx-tbl th:nth-child(6),.tx-tbl td:nth-child(6){width:13%;white-space:nowrap}
+.tx-tbl th:nth-child(3),.tx-tbl td:nth-child(3){width:43%;overflow-wrap:anywhere}
+.tx-tbl th:nth-child(4),.tx-tbl td:nth-child(4){width:15%}
+/* Right-aligned number + padding so the amount lands midway between the chip and the
+   method instead of cramming against Method's edge. */
+.tx-tbl th:nth-child(5),.tx-tbl td:nth-child(5){width:13%;text-align:right;padding-right:38px}
+.tx-tbl th:nth-child(6),.tx-tbl td:nth-child(6){width:12%;white-space:nowrap}
 .tx-tbl .tag{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 #tx-tbl td:nth-child(3){overflow-wrap:anywhere}
+#tx-tbl td:nth-child(5){padding-right:38px}
 .tx-tbl tbody tr:last-child td:first-child{border-radius:0 0 0 13px}
 .tx-tbl tbody tr:last-child td:last-child{border-radius:0 0 13px 0}
 .tx-month-hdr{position:sticky;top:var(--tx-mo-top,104px);z-index:4}
@@ -7197,10 +7200,10 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <thead><tr>
         <th class="tx-selcol"><input type="checkbox" class="tx-selall" title="Select all shown" onchange="txAllSelAll(this.checked)"/></th>
         <th style="width:96px;white-space:nowrap">Date</th>
-        <th style="width:38%">Description</th>
-        <th style="width:20%">Category</th>
-        <th style="width:11%;text-align:right;white-space:nowrap">Amount</th>
-        <th style="width:12%;white-space:nowrap">Method</th>
+        <th style="width:41%">Description</th>
+        <th style="width:15%">Category</th>
+        <th style="width:13%;text-align:right;white-space:nowrap;padding-right:38px">Amount</th>
+        <th style="width:11%;white-space:nowrap">Method</th>
         <th style="width:56px"></th>
       </tr></thead>
       <tbody id="all-tbody"></tbody>
@@ -11083,21 +11086,25 @@ function _txStuckWatch(){
      embedded/webview environments (verified: zero deliveries even on document.body),
      and a cover that silently fails to engage is exactly the bug this fixes. A passive
      scroll listener + rAF throttle is boring and works everywhere. */
-  function update(){
-    if (update._busy) return;                 // offsets tail-calls us; don't recurse
-    update._busy = true;
-    pending = false;
-    /* Measure EVERY tick, not just on transitions: the header offset lived or died by a
-       navigation-hook rAF that real sessions can race (seen live: var never set, header
-       tucked 22px under the bar). Offsets are ~6 rect reads; at the scroll throttle
-       that's nothing, and the value can simply never be stale again. */
-    try{ _txStickyOffsets(); }catch(e){}
+  /* Two speeds. The class toggle is six rect reads and MUST run on every scroll event:
+     Chrome fires 'scroll' before that frame paints, so an unthrottled toggle lands in the
+     same frame — throttling it (as shipped in v181/182) let rows flash above the bar for
+     up to ~100ms on real scrolls. The height measurement is heavier and heights do not
+     change mid-scroll, so it stays throttled. */
+  function toggle(){
     var rTop = root.getBoundingClientRect().top;
     document.querySelectorAll('.tx-sentinel').forEach(function(sn){
       var bar = sn.nextElementSibling; if (!bar) return;
       if (sn.offsetParent === null){ bar.classList.remove('is-stuck'); return; }
       bar.classList.toggle('is-stuck', sn.getBoundingClientRect().top < rTop - 1);
     });
+  }
+  function update(){
+    if (update._busy) return;                 // offsets tail-calls us; don't recurse
+    update._busy = true;
+    pending = false;
+    try{ _txStickyOffsets(); }catch(e){}
+    toggle();
     update._busy = false;
   }
   /* No rAF: in throttled webviews rAF can simply never fire, wedging the pending
@@ -11105,9 +11112,10 @@ function _txStuckWatch(){
      with a time throttle, plus a trailing call so the final state is always right. */
   var last = 0;
   root.addEventListener('scroll', function(){
+    toggle();                                  // every event, same-frame, no flash
     var now = Date.now();
-    if (now - last < 40){
-      if (!pending){ pending = true; setTimeout(function(){ pending = false; update(); }, 60); }
+    if (now - last < 80){
+      if (!pending){ pending = true; setTimeout(function(){ pending = false; update(); }, 90); }
       return;
     }
     last = now; update();
