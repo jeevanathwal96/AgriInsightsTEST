@@ -39222,7 +39222,19 @@ var IMP_HIST_UI = { all:false, open:{}, panel:false };
 function impTogglePanel(){ IMP_HIST_UI.panel=!IMP_HIST_UI.panel; impRenderHistory(); }
 function impToggleHistAll(){ IMP_HIST_UI.all=!IMP_HIST_UI.all; impRenderHistory(); }
 function impToggleHistBatch(id){ IMP_HIST_UI.open[id]=!IMP_HIST_UI.open[id]; impRenderHistory(); }
-function impViewBatchTxns(id){ TX_BATCH_FILTER=id; nav('transactions');
+function impViewBatchTxns(id){
+  TX_BATCH_FILTER=id;
+  /* An import is a fixed set of rows, and the page's other filters would silently hide it:
+     a statement from April 2025 opened while the page sits on "this financial year" showed
+     an empty table. Asking to see an import means seeing all of it — widen to all dates and
+     drop the type/category/search filters so the batch is the only thing filtering. */
+  TX_FROM=''; TX_TO=''; ST.txPeriodSel='all';
+  TX_TYPE_FILTER='all'; TX_CAT_FILTER='';
+  ST.txNeedOnly=false;
+  try{ var _s=$('tx-search'); if(_s) _s.value=''; }catch(e){}
+  try{ var _f=$('tx-from'), _t=$('tx-to'); if(_f) _f.value=''; if(_t) _t.value=''; }catch(e){}
+  try{ saveState&&saveState(); }catch(e){}
+  nav('transactions');
   setTimeout(function(){ var b=document.querySelector('#all-tbody button[onclick*="txClearBatchFilter"]'); var t=(b&&b.closest&&b.closest('tr'))||document.querySelector('.tx-search-wrap')||document.getElementById('all-tbody'); if(t&&t.scrollIntoView){ try{ t.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){ t.scrollIntoView(); } } }, 160);
 }
 function impRenderHistory(){
