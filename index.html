@@ -968,8 +968,10 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 /* consistent breakdown row: equal-height cells, donut+list fills the cell (B/companion) */
 .ie-brk{align-items:stretch}
 .ie-brk > .card{display:flex;flex-direction:column}
-.ie-bd-body{flex:1;display:flex;align-items:center;gap:16px}
-.ie-donutwrap{position:relative;flex-shrink:0;width:130px;height:130px}
+.ie-bd-body{flex:1;display:flex;align-items:center;gap:22px}
+.ie-donutwrap{position:relative;flex-shrink:0;width:170px;height:170px}
+/* Keep each legend amount near its label instead of stranded at the card's far edge. */
+#inc-by-source .rl-row,#exp-by-cat .rl-row{max-width:420px}
 .ie-comp-sub{font-size:11.5px;color:var(--t3);margin:-2px 0 8px;line-height:1.4}
 .ie-comp-list{flex:1}
 .ie-comp-row{display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:1px solid var(--br2);cursor:pointer}
@@ -4548,7 +4550,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <div style="font-size:14px;font-weight:700">Income Transactions</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <div class="search-bar" style="width:190px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="inc-search" placeholder="Search..." oninput="filterIncomeTx()"/></div>
+          <div class="search-bar" style="width:190px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="inc-search" placeholder="Search..." oninput="_txDeb('incs',filterIncomeTx)"/></div>
           <select id="inc-cat-filter" style="font-size:12px;padding:7px 10px;width:auto;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff" onchange="filterIncomeTx()">
             <option value="">All Categories</option>
             <option>Crop Sales</option>
@@ -4562,10 +4564,15 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <select id="inc-period-filter" title="Period" style="font-size:12px;padding:7px 30px 7px 11px;width:auto;min-width:168px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff" onchange="setTxPeriodSel('income', this.value)">
             <option value="1">This month</option>
             <option value="3">Last 3 months</option>
+            <option value="6">Last 6 months</option>
             <option value="fy">This financial year</option>
             <option value="12">Last 12 months</option>
             <option value="all">All time</option>
+            <option value="custom">Custom dates</option>
           </select>
+          <input id="inc-from" type="date" class="tx-fctl" onchange="ieSetRange('income')" title="From date"/>
+          <span style="font-size:12px;color:var(--t4)">&ndash;</span>
+          <input id="inc-to" type="date" class="tx-fctl" onchange="ieSetRange('income')" title="To date"/>
           <button id="inc-clear-btn" onclick="clearIncomeFilters()" style="display:none;font-size:12px;padding:7px 11px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t3);background:#fff;cursor:pointer">✕ Clear</button>
         </div>
       </div>
@@ -4797,7 +4804,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <div style="font-size:14px;font-weight:700">Expense Transactions</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <div class="search-bar" style="width:190px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="exp-search" placeholder="Search..." oninput="filterExpTx()"/></div>
+          <div class="search-bar" style="width:190px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="exp-search" placeholder="Search..." oninput="_txDeb('exps',filterExpTx)"/></div>
           <select id="exp-cat-filter" style="font-size:12px;padding:7px 10px;width:auto;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff" onchange="filterExpTx()">
               <option value="">All categories</option>
               <option>Seeds & Planting</option>
@@ -4820,10 +4827,15 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <select id="exp-period-filter" title="Period" style="font-size:12px;padding:7px 30px 7px 11px;width:auto;min-width:168px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t2);background:#fff" onchange="setTxPeriodSel('expense', this.value)">
             <option value="1">This month</option>
             <option value="3">Last 3 months</option>
+            <option value="6">Last 6 months</option>
             <option value="fy">This financial year</option>
             <option value="12">Last 12 months</option>
             <option value="all">All time</option>
+            <option value="custom">Custom dates</option>
           </select>
+          <input id="exp-from" type="date" class="tx-fctl" onchange="ieSetRange('expense')" title="From date"/>
+          <span style="font-size:12px;color:var(--t4)">&ndash;</span>
+          <input id="exp-to" type="date" class="tx-fctl" onchange="ieSetRange('expense')" title="To date"/>
           <button id="exp-clear-btn" onclick="clearExpFilters()" style="display:none;font-size:12px;padding:7px 11px;border-radius:var(--rs);border:1.5px solid var(--br);color:var(--t3);background:#fff;cursor:pointer">✕ Clear</button>
         </div>
       </div>
@@ -7176,7 +7188,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
     <div class="tx-search-wrap">
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input id="tx-search" placeholder="Search..." oninput="txUpdateClearBtn();txRender()"/>
+      <input id="tx-search" placeholder="Search..." oninput="txUpdateClearBtn();_txDeb('txs',txRender)"/>
     </div>
     <button id="tx-clear-btn" onclick="txClearFilters()" style="display:none;padding:6px 12px;border-radius:20px;border:1.5px solid var(--rd);background:var(--rp);color:var(--rd);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">✕ Clear filters</button>
     <div id="tx-deleted-chip" onclick="txToggleDeleted()" style="display:none;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:#B45309;border:1.5px dashed #C8962C;border-radius:8px;padding:5px 9px;cursor:pointer;background:#FEFBF2">🗑 Recently deleted (<span id="tx-deleted-n">0</span>)</div>
@@ -10961,11 +10973,21 @@ var n = parseInt(ST.incPeriod || '6', 10);
     periodMonths.push(MO[mo] + ' ' + yr);
   }
 
+  /* Custom from/to window (typed into the toolbar) replaces the month-count filter. */
+  function _ieInPeriod(d){
+    var rg = IE_RANGE.income;
+    if (rg.from || rg.to){
+      var dn = d.y*10000 + (d.m+1)*100 + (d.d||1);
+      if (rg.from){ var fp=rg.from.split('-'); if (dn < (+fp[0]*10000 + +fp[1]*100 + +fp[2])) return false; }
+      if (rg.to)  { var tp=rg.to.split('-');   if (dn > (+tp[0]*10000 + +tp[1]*100 + +tp[2])) return false; }
+      return true;
+    }
+    return periodMonths.indexOf(MO[d.m] + ' ' + d.y) >= 0;
+  }
   var list = ST.txns.filter(function(t, idx) {
     if (t.type !== 'income') return false;
     var d = parseDate(t.date); if (!d) return false;
-    var lbl = MO[d.m] + ' ' + d.y;
-    if (periodMonths.indexOf(lbl) < 0) return false;
+    if (!_ieInPeriod(d)) return false;
     if (cat && t.cat !== cat) return false;
     if (q && (t.desc + ' ' + t.cat).toLowerCase().indexOf(q) < 0) return false;
     t._realIdx = ST.txns.indexOf(t);
@@ -11030,7 +11052,7 @@ rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
     });
   });
 
-  tbody.innerHTML = rows;
+  _txChunkPaint('income-tbody', rows, 150);
   /* Count what is actually on screen, plus how many the period holds before the
      category/search filters narrow it — that difference is the useful number. */
   try{
@@ -11038,10 +11060,11 @@ rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
     var _allInPeriod = ST.txns.filter(function(t){
       if (t.type !== 'income') return false;
       var d = parseDate(t.date); if (!d) return false;
-      return periodMonths.indexOf(MO[d.m] + ' ' + d.y) >= 0;
+      return _ieInPeriod(d);
     }).length;
     _txFilterSummary('income', list.length, _shownTotal, _allInPeriod);
   }catch(e){}
+  try{ _ieRefreshPeriodUI('income'); }catch(e){}
 }
 
 function clearIncomeFilters() {
@@ -11296,6 +11319,7 @@ function txSelToggle(idx, kind, ev){
   if (row) row.classList.toggle('tx-row-sel', !!m[idx]);    // update ONLY this row
 }
 function txSelAll(kind, on){
+  try{ _txChunkFlush(); }catch(e){}   // "all shown" must mean ALL, not just painted chunks
   var m = TX_SEL[kind] = {};
   if (on){
     document.querySelectorAll('#'+(kind==='income'?'income':'expense')+'-tbody input.tx-sel').forEach(function(cb){
@@ -11410,11 +11434,21 @@ var n = parseInt(ST.expPeriod || '6', 10);
     periodMonths.push(MO[mo] + ' ' + yr);
   }
 
+  /* Custom from/to window (typed into the toolbar) replaces the month-count filter. */
+  function _ieInPeriod(d){
+    var rg = IE_RANGE.expense;
+    if (rg.from || rg.to){
+      var dn = d.y*10000 + (d.m+1)*100 + (d.d||1);
+      if (rg.from){ var fp=rg.from.split('-'); if (dn < (+fp[0]*10000 + +fp[1]*100 + +fp[2])) return false; }
+      if (rg.to)  { var tp=rg.to.split('-');   if (dn > (+tp[0]*10000 + +tp[1]*100 + +tp[2])) return false; }
+      return true;
+    }
+    return periodMonths.indexOf(MO[d.m] + ' ' + d.y) >= 0;
+  }
   var list = ST.txns.filter(function(t) {
     if (t.type !== 'expense') return false;
     var d = parseDate(t.date); if (!d) return false;
-    var lbl = MO[d.m] + ' ' + d.y;
-    if (periodMonths.indexOf(lbl) < 0) return false;
+    if (!_ieInPeriod(d)) return false;
     if (cat && t.cat !== cat) return false;
     if (q && (t.desc + ' ' + t.cat).toLowerCase().indexOf(q) < 0) return false;
     return true;
@@ -11478,7 +11512,7 @@ var months = [];
     });
   });
 
-  tbody.innerHTML = rows;
+  _txChunkPaint('expense-tbody', rows, 150);
   /* Count what is actually on screen, plus how many the period holds before the
      category/search filters narrow it — that difference is the useful number. */
   try{
@@ -11486,10 +11520,11 @@ var months = [];
     var _allInPeriod = ST.txns.filter(function(t){
       if (t.type !== 'expense') return false;
       var d = parseDate(t.date); if (!d) return false;
-      return periodMonths.indexOf(MO[d.m] + ' ' + d.y) >= 0;
+      return _ieInPeriod(d);
     }).length;
     _txFilterSummary('expense', list.length, _shownTotal, _allInPeriod);
   }catch(e){}
+  try{ _ieRefreshPeriodUI('expense'); }catch(e){}
 }
 
 function clearExpFilters() {
@@ -11947,7 +11982,9 @@ function ieSetView(kind, mode){
 //    and list stay balanced and fill the (equal-height) breakdown card. 120–190px.
 function _ieSizeDonut(kind, rowCount){
   var w=$( (kind==='income'?'inc':'exp') + '-donutwrap' ); if(!w) return;
-  var size=Math.max(120, Math.min(190, (rowCount||0)*37));
+  /* 37px-per-row shrank a 3-category farm's donut to the 120px floor — a lost-looking
+     ring in a wide card. Start big and grow gently with the legend instead. */
+  var size=Math.max(170, Math.min(210, 130 + (rowCount||0)*14));
   w.style.width=size+'px'; w.style.height=size+'px';
   try{ var ch=ST.charts && ST.charts[kind==='income'?'incSrc':'expD']; if(ch && ch.resize) ch.resize(); }catch(e){}
 }
@@ -12107,6 +12144,7 @@ function ieSortSave(){
 
 function setIncPeriod(p) {
   closeDrawer('income');
+  try{ IE_RANGE.income={from:'',to:''}; }catch(e){}   // a pill click ends any custom window
   ST.incPeriod = p;
   ['1','3','6','12'].forEach(function(x){
     var b=$('inc-pill-'+x); if(b) b.className='pill'+(p===x?' on':'');
@@ -12143,13 +12181,51 @@ function _txPeriodLabel(v){
   if(v==='fy')  return 'this financial year';
   if(v==='all') return 'all time';
   if(v==='1')   return 'this month';
+  if(v==='custom') return 'custom dates';
   return 'the last '+v+' months';
+}
+/* ── Custom date range on the Income/Expense lists ────────────────────────────
+   Mirrors the Transactions page: the from/to boxes always DISPLAY the resolved
+   window of the chosen preset; typing a date by hand switches the dropdown to
+   "Custom dates" and filters the LIST by that exact range. Charts keep following
+   the pill/preset period — a hand-typed window only narrows the table below. */
+var IE_RANGE = { income:{from:'',to:''}, expense:{from:'',to:''} };
+function ieSetRange(kind){
+  var px = (kind==='income') ? 'inc' : 'exp';
+  IE_RANGE[kind] = { from: ($(px+'-from')||{}).value||'', to: ($(px+'-to')||{}).value||'' };
+  ST[kind==='income'?'incPeriodSel':'expPeriodSel'] = 'custom';
+  var sel = $(px+'-period-filter'); if (sel) sel.value = 'custom';
+  if (kind==='income') filterIncomeTx(); else filterExpTx();
+  try{ saveState&&saveState(); }catch(e){}
+}
+/* Keep dropdown + date boxes narrating the active window (skip boxes being typed in). */
+function _ieRefreshPeriodUI(kind){
+  var px = (kind==='income') ? 'inc' : 'exp';
+  _txSyncPeriodControls(kind);
+  var rg = IE_RANGE[kind];
+  if (rg.from || rg.to) return;                    // custom — the boxes ARE the source
+  var sel = $(px+'-period-filter'); var v = sel && sel.value;
+  if (!v || v==='custom') return;
+  var r = _txRangeFor(v);
+  var f = $(px+'-from'), t = $(px+'-to');
+  try{
+    if (f && document.activeElement!==f) f.value = r.from;
+    if (t && document.activeElement!==t) t.value = r.to;
+  }catch(e){}
 }
 /* Called by the toolbar select. Stores the CHOICE (so 'fy' survives a month rollover and
    re-resolves to a new month count) and hands the resolved count to the existing setter. */
 function setTxPeriodSel(kind, v){
-  if(kind==='income'){ ST.incPeriodSel=v; setIncPeriod(String(_txPeriodMonths(v))); }
-  else               { ST.expPeriodSel=v; setExpPeriod(String(_txPeriodMonths(v))); }
+  var isInc = (kind==='income');
+  if (v==='custom'){                                // wait for the farmer to type dates
+    ST[isInc?'incPeriodSel':'expPeriodSel'] = 'custom';
+    (isInc?filterIncomeTx:filterExpTx)();
+    return;
+  }
+  IE_RANGE[kind] = {from:'',to:''};
+  ST[isInc?'incPeriodSel':'expPeriodSel'] = v;
+  if(isInc) setIncPeriod(String(_txPeriodMonths(v)));
+  else      setExpPeriod(String(_txPeriodMonths(v)));
   _txSyncPeriodControls(kind);
   try{ saveState&&saveState(); }catch(e){}
 }
@@ -12160,6 +12236,9 @@ function _txSyncPeriodControls(kind){
   var sel=document.getElementById(kind==='income'?'inc-period-filter':'exp-period-filter');
   if(!sel) return;
   var chosen=(kind==='income'?ST.incPeriodSel:ST.expPeriodSel);
+  var _rg=IE_RANGE[kind==='income'?'income':'expense'];
+  if(chosen==='custom' && (_rg.from||_rg.to)){ sel.value='custom'; return; }
+  if(chosen==='custom') chosen='';                 // custom chosen but no dates typed yet
   var months=parseInt((kind==='income'?ST.incPeriod:ST.expPeriod)||'6',10);
   var want=chosen||'';
   if(!want || _txPeriodMonths(want)!==months){
@@ -12172,6 +12251,7 @@ function _txSyncPeriodControls(kind){
 
 function setExpPeriod(p) {
   closeDrawer('expense');
+  try{ IE_RANGE.expense={from:'',to:''}; }catch(e){}  // a pill click ends any custom window
   ST.expPeriod = p;
   ['1','3','6','12'].forEach(function(x){
     var b=$('exp-pill-'+x); if(b) b.className='pill'+(p===x?' on':'');
@@ -36665,6 +36745,38 @@ var TX_TYPE_FILTER = 'all';
 var TX_FROM = '';
 var TX_TO = '';
 var TX_BATCH_FILTER = '';
+/* ── Progressive table paint ─────────────────────────────────────────────────
+   A 1,000-row ledger costs 600-800ms to parse + lay out in one innerHTML swap,
+   which froze every tab-open, filter change and search keystroke. Paint the
+   first screenful synchronously, stream the rest in ~300-row chunks; a newer
+   paint for the same tbody supersedes any chunks still queued. */
+var _TX_CHUNK = {};
+function _txChunkPaint(tbodyId, html, firstRows){
+  var tb = $(tbodyId); if(!tb) return;
+  var parts = html.split(/(?=<tr[ >])/);
+  var st = _TX_CHUNK[tbodyId] = { i:0, parts:parts };
+  var first = '';
+  while (st.i < parts.length && st.i < (firstRows||150)){ first += parts[st.i]; st.i++; }
+  tb.innerHTML = first;
+  if (st.i >= parts.length) return;
+  function step(sync){
+    if (_TX_CHUNK[tbodyId] !== st) return;           // superseded
+    var chunk = '', n = 0, cap = sync ? 1e9 : 300;
+    while (st.i < st.parts.length && n < cap){ chunk += st.parts[st.i]; st.i++; n++; }
+    if (chunk) tb.insertAdjacentHTML('beforeend', chunk);
+    if (st.i < st.parts.length) setTimeout(step, 16);
+  }
+  st.flush = function(){ step(true); };
+  setTimeout(step, 16);
+}
+/* Anything that needs the WHOLE list in the DOM right now (select-all, tests). */
+function _txChunkFlush(){
+  Object.keys(_TX_CHUNK).forEach(function(k){ var st=_TX_CHUNK[k]; if(st && st.flush) st.flush(); });
+}
+/* Search boxes re-render the full table; one render per pause, not per keystroke. */
+var _TX_DEB = {};
+function _txDeb(key, fn){ clearTimeout(_TX_DEB[key]); _TX_DEB[key] = setTimeout(fn, 150); }
+
 function txSetRange(){
   TX_FROM = ($('tx-from')||{}).value || '';
   TX_TO   = ($('tx-to')||{}).value || '';
@@ -36770,6 +36882,7 @@ function txAllSelToggle(idx, ev){
   txAllSelBar();
 }
 function txAllSelAll(on){
+  try{ _txChunkFlush(); }catch(e){}   // "all shown" must mean ALL, not just painted chunks
   TX_SEL.all={};
   document.querySelectorAll('#all-tbody input.tx-sel').forEach(function(cb){
     cb.checked=!!on;
@@ -37056,7 +37169,7 @@ function txRender() {
       '<button onclick="txClearBatchFilter()" style="margin-left:10px;background:#fff;border:1px solid var(--br);border-radius:6px;padding:4px 11px;font-size:11.5px;font-weight:600;color:var(--gd);cursor:pointer;font-family:inherit">Show all transactions</button>'+
       '</td></tr>'+rows;
   }
-  var tb = $('all-tbody'); if(tb) tb.innerHTML = rows;
+  _txChunkPaint('all-tbody', rows, 150);
   try{ txAllSummary(list); }catch(e){}
   try{ txAllNeedButton(); }catch(e){}
   try{ txAllSelBar(); }catch(e){}
