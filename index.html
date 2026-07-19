@@ -11192,10 +11192,24 @@ function _txMigrateIfNeeded(){
     var reg = {};
     FARM_CATS.forEach(function(c){ reg[c.n] = 1; });
     var dirty = (ST.txns||[]).some(function(t){ return t && t.cat && !reg[t.cat]; });
-    if (!dirty) return;
-    migrateCatSpelling(); migrateCatMerges(); migrateProduceSplit();
-    try{ _fcFillAllSelects(); }catch(e){}
-    try{ txFillCatSelect(); }catch(e){}
+    if (!dirty || _txMigrateIfNeeded._busy) return;
+    /* Every cloud pull can deliver rows with old category spellings, so this runs on the
+       first visit after each load. Migrating queues a server update per changed row —
+       enough work that doing it here, inside the render, froze the page switch itself
+       before anything appeared. Let the table paint first, then migrate and redraw. */
+    _txMigrateIfNeeded._busy = true;
+    setTimeout(function(){
+      try{
+        migrateCatSpelling(); migrateCatMerges(); migrateProduceSplit();
+        try{ _fcFillAllSelects(); }catch(e){}
+        try{ txFillCatSelect(); }catch(e){}
+      }catch(e){}
+      _txMigrateIfNeeded._busy = false;
+      // redraw whichever ledger the farmer is actually looking at
+      try{ if(document.querySelector('#pg-transactions.on')) txRender(); }catch(e){}
+      try{ if(document.querySelector('#pg-income.on'))       filterIncomeTx(); }catch(e){}
+      try{ if(document.querySelector('#pg-expenses.on'))     filterExpTx(); }catch(e){}
+    }, 50);
   }catch(e){}
 }
 
@@ -31651,10 +31665,25 @@ function _removeOutboxByOids(oids){
   for(var i=TXN_OUTBOX.length-1;i>=0;i--){ if(set[TXN_OUTBOX[i].oid]) TXN_OUTBOX.splice(i,1); }
   _saveOutbox();
 }
-function _saveOutbox(){
+function _saveOutboxNow(){
+  _OB_SAVE_T = null;
   try{ localStorage.setItem(TXN_OUTBOX_KEY, JSON.stringify(TXN_OUTBOX)); }
   catch(e){ if(typeof _saveFailed === 'function') _saveFailed(e); }
 }
+/* Queueing N rows called this N times, and each call re-serialised the WHOLE queue —
+   O(n^2). A category migration touching a few hundred rows froze the page for ~2s on a
+   1,000-row farm. Only the last write in a burst matters, so coalesce them; the queue
+   itself lives in memory and localStorage is just the crash/reload copy. */
+var _OB_SAVE_T = null;
+function _saveOutbox(){
+  if (_OB_SAVE_T) return;
+  _OB_SAVE_T = setTimeout(_saveOutboxNow, 0);
+}
+/* Never let the tab close with the queue only in memory. */
+try{
+  window.addEventListener('pagehide', function(){ if(_OB_SAVE_T) _saveOutboxNow(); });
+  window.addEventListener('beforeunload', function(){ if(_OB_SAVE_T) _saveOutboxNow(); });
+}catch(e){}
 function newCuid(){
   try{ if(window.crypto && crypto.randomUUID) return crypto.randomUUID(); }catch(e){}
   return 'cid-' + Date.now().toString(36) + '-' + Math.random().toString(16).slice(2,10);
