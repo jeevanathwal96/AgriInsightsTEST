@@ -2392,7 +2392,9 @@ select.tx-fctl{padding-right:30px}
 .hub-card .hub-tx small{font-size:11.5px;color:var(--t3)}
 .hub-card .hub-go{color:var(--gd);font-weight:800;font-size:18px;flex:none}
 .imp-bg.on{display:flex}
-.imp-shell{background:#fff;border-radius:var(--rl);width:100%;max-width:780px;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);overflow:hidden;animation:impIn .22s ease-out}
+/* 780px was narrower than the review table needs (7 columns, ~860px), which is what
+   squeezed the columns into each other. Give the wizard room for its widest step. */
+.imp-shell{background:#fff;border-radius:var(--rl);width:100%;max-width:1040px;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);overflow:hidden;animation:impIn .22s ease-out}
 @keyframes impIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .imp-hdr{padding:18px 22px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;gap:12px}
 .imp-hdr-l{display:flex;align-items:center;gap:11px;min-width:0}
@@ -2443,12 +2445,18 @@ select.tx-fctl{padding-right:30px}
 .imp-sample-link:hover{color:var(--gd);text-decoration:underline}
 
 /* Step 3: preview table */
-.imp-prev-wrap{border:1px solid var(--br);border-radius:var(--rs);overflow:hidden;max-height:340px;overflow-y:auto}
-.imp-prev-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+/* overflow:hidden here meant horizontal content was CLIPPED rather than scrolled: once the
+   modal was narrower than the columns needed, cells spilled over each other — the enterprise
+   picker landed on top of the amount. Scroll sideways instead, and hold a floor width so the
+   columns keep their declared sizes rather than being squeezed into each other. */
+.imp-prev-wrap{border:1px solid var(--br);border-radius:var(--rs);max-height:340px;overflow:auto}
+.imp-prev-tbl{width:100%;min-width:860px;border-collapse:collapse;font-size:12.5px;table-layout:fixed}
 .imp-prev-tbl thead{background:var(--bg);position:sticky;top:0;z-index:1}
 .imp-prev-tbl th{padding:8px 10px;font-size:10.5px;font-weight:800;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;text-align:left;border-bottom:1px solid var(--br)}
 .imp-prev-tbl td{padding:7px 10px;border-bottom:1px solid var(--br2);color:var(--t1);vertical-align:middle}
 .imp-prev-tbl td.imp-date,.imp-prev-tbl th.imp-date{white-space:nowrap;width:1%;font-variant-numeric:tabular-nums}
+/* Same global width:100% rule stretches every tick-box in this table. */
+.imp-prev-tbl input[type=checkbox]{width:auto!important}
 .imp-prev-tbl td:nth-child(3){min-width:0;word-break:break-word}
 .imp-prev-tbl tr:last-child td{border-bottom:none}
 .imp-prev-tbl td.r{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
@@ -2459,7 +2467,8 @@ select.tx-fctl{padding-right:30px}
 .imp-prev-tbl input.imp-edit{width:100%;border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 6px;font-family:inherit;font-size:12px;color:var(--t1);font-weight:500}
 .imp-prev-tbl input.imp-edit:hover{border-color:var(--br);background:#fff}
 .imp-prev-tbl input.imp-edit:focus{outline:none;border-color:var(--gl);background:#fff;box-shadow:0 0 0 3px rgba(64,145,108,.13)}
-.imp-prev-tbl input.imp-edit-dt{font-weight:600;color:var(--t2);font-variant-numeric:tabular-nums;width:76px}
+/* 76px cut "28 Mar 2026" down to "28 Mar 202". Fill the column instead of guessing. */
+.imp-prev-tbl input.imp-edit-dt{font-weight:600;color:var(--t2);font-variant-numeric:tabular-nums;width:100%;min-width:0}
 .imp-prev-tbl input.imp-edit-bal{text-align:right;font-variant-numeric:tabular-nums;font-weight:600;color:var(--t3)}
 .imp-amt{display:flex;align-items:center;justify-content:flex-end;gap:4px}
 .imp-sgn{flex:0 0 auto;width:22px;height:28px;border-radius:6px;border:1px solid var(--br);font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;line-height:1;padding:0}
@@ -40910,8 +40919,15 @@ function orExportPackout(){
         <div class="imp-recon" id="bank-imp-recon" style="display:none"></div>
         <div class="imp-summary" id="bank-imp-summary"></div>
         <style>
-        .imp-ent-cell{white-space:nowrap}.imp-entpick{margin-right:6px;vertical-align:middle}
-        .imp-entsel{font-size:11.5px;font-weight:700;padding:5px 6px;border:1.5px solid var(--br);border-radius:7px;background:#fff;max-width:150px;font-family:var(--fn)}
+        /* Clip at the cell edge so the picker can never render on top of the Amount column.
+           The cell stays display:table-cell — making it a flex container drops it out of the
+           table's column model and knocks the whole row out of alignment. */
+        .imp-ent-cell{white-space:nowrap;overflow:hidden}
+        /* A global `input,select,textarea{width:100%}` was stretching this checkbox to the
+           full cell width, shoving the picker beside it clean out of the column and on top
+           of Amount. Checkboxes size themselves. */
+        .imp-entpick{width:auto!important;flex:none;margin-right:6px;vertical-align:middle}
+        .imp-entsel{font-size:11.5px;font-weight:700;padding:5px 6px;border:1.5px solid var(--br);border-radius:7px;background:#fff;font-family:var(--fn);vertical-align:middle;min-width:0;width:calc(100% - 26px);max-width:calc(100% - 26px)}
         .imp-entsel.guess{border-color:var(--am);background:var(--ap)}
         tr.imp-entrow-sel td{background:var(--gb)}
         .imp-enttools{margin:2px 0 10px}
@@ -40931,7 +40947,7 @@ function orExportPackout(){
             <button type="button" class="ghost" onclick="bankEntSelAll(false)">Clear</button>
           </div>
         </div>
-        <div class="imp-prev-wrap"><table class="imp-prev-tbl" id="bank-imp-tbl"><thead><tr><th style="width:24px"></th><th style="width:78px">Date</th><th>Description</th><th style="width:130px">Category</th><th style="width:172px">Enterprise <input type="checkbox" id="bank-imp-entall" onchange="bankEntSelAll(this.checked)" title="Select all rows" style="vertical-align:middle;margin-left:3px"></th><th style="width:132px;text-align:right">Amount</th><th id="bank-imp-th-bal" class="r" style="width:104px;text-align:right">Balance</th></tr></thead><tbody id="bank-imp-tbody"></tbody></table></div>
+        <div class="imp-prev-wrap"><table class="imp-prev-tbl" id="bank-imp-tbl"><thead><tr><th style="width:24px"></th><th style="width:112px">Date</th><th>Description</th><th style="width:130px">Category</th><th style="width:172px">Enterprise <input type="checkbox" id="bank-imp-entall" onchange="bankEntSelAll(this.checked)" title="Select all rows" style="vertical-align:middle;margin-left:3px"></th><th style="width:132px;text-align:right">Amount</th><th id="bank-imp-th-bal" class="r" style="width:104px;text-align:right">Balance</th></tr></thead><tbody id="bank-imp-tbody"></tbody></table></div>
       </div>
     </div>
     <div class="imp-foot">
