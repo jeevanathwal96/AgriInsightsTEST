@@ -32129,11 +32129,22 @@ function _loadOutbox(){
 }
 // Normalised snapshot of a transaction row for the outbox (carries cuid for linkage).
 function _txnSnapshot(o){
-  /* batch and _catOk must ride along or they die on the next cloud pull: batch is what
-     the Imports panel groups by, _catOk is the farmer's "stop flagging this" decision. */
+  /* THE OUTBOX IS A SECOND WHITELIST. Anything missing here is silently dropped on the
+     way to the server, even when appToDb() knows how to map it — the payload queued in
+     the outbox is what eventually reaches AI.txn.update(), not the live row.
+
+     batch and _catOk were already listed: batch is what the Imports panel groups by,
+     _catOk is the farmer's "stop flagging this" decision.
+
+     assetId / _assetUuid and _dedOk were NOT, which meant the asset link and the "no,
+     it was tax" answer saved locally and then died on the next cloud pull — asset_id
+     was written as NULL every time a linked row was updated, because appToDb saw an
+     object that no longer had the field. Any new persisted field must be added here as
+     well as to appToDb; checking only the final mapper is not enough. */
   return { date:o.date, amt:o.amt, cat:o.cat, type:o.type, desc:o.desc, method:o.method,
            qty:o.qty, unit:o.unit, ent:o.ent, source:o.source, ref:o.ref, note:o.note,
-           accountId:o.accountId, cuid:o.cuid, batch:o.batch, _catOk:o._catOk };
+           accountId:o.accountId, cuid:o.cuid, batch:o.batch, _catOk:o._catOk,
+           assetId:o.assetId, _assetUuid:o._assetUuid, _dedOk:o._dedOk };
 }
 function _removeOutboxByOids(oids){
   if(!oids || !oids.length) return;
