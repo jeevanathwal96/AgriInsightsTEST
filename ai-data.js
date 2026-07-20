@@ -165,6 +165,10 @@
     /* Same rule as cat_confirmed: gate on the probe, or a database that has not had the
        para 12 migration rejects EVERY transaction write, not just this field. */
     if (CAN_TXN_ASSET) row.asset_id = _txAssetUuid(t);
+    /* "No, it was tax" — a separate answer from _catOk/cat_confirmed on purpose.
+       Settling where a cost is FILED is not the same as settling whether it comes off
+       your tax, and conflating them is what let a bulk recategorise silence both. */
+    if (CAN_TXN_DEDOK) row.ded_confirmed = !!t._dedOk;
     return row;
   }
   /* The asset a transaction paid for, as the SERVER's id. The link is stored locally as
@@ -183,21 +187,23 @@
     return t._assetUuid || null;      // assets not loaded yet — never downgrade to null
   }
   /* Set by probeCaps() on the first load; false until proven otherwise. */
-  let CAN_CAT_CONFIRM = false;
-  let CAN_TXN_ASSET   = false;
+  let CAN_CAT_CONFIRM  = false;
+  let CAN_TXN_ASSET    = false;
+  let CAN_TXN_DEDOK    = false;
+  let CAN_ASSET_NOPAY  = false;
   async function probeCaps(farmId){
     if (!farmId) return;
-    try{
-      const r = await client().from('transactions').select('cat_confirmed').limit(1);
-      CAN_CAT_CONFIRM = !r.error;
-    }catch(e){ CAN_CAT_CONFIRM = false; }
     /* Probe with a real column name. NOT select=count — PostgREST treats count as an
        aggregate and returns 200 whether or not the column exists, so it would report
        every column as present. */
-    try{
-      const r = await client().from('transactions').select('asset_id').limit(1);
-      CAN_TXN_ASSET = !r.error;
-    }catch(e){ CAN_TXN_ASSET = false; }
+    const has = async (table, col) => {
+      try{ const r = await client().from(table).select(col).limit(1); return !r.error; }
+      catch(e){ return false; }
+    };
+    CAN_CAT_CONFIRM = await has('transactions', 'cat_confirmed');
+    CAN_TXN_ASSET   = await has('transactions', 'asset_id');
+    CAN_TXN_DEDOK   = await has('transactions', 'ded_confirmed');
+    CAN_ASSET_NOPAY = await has('assets',       'no_payment');
   }
   function dbToApp(r) {
     return {
@@ -231,7 +237,10 @@
          load", and nothing anywhere does that, so a loan's asset link is lost on every
          cloud round-trip. txLinkedAsset() resolves at the point of use instead, which
          cannot race the load order. */
-      _assetUuid: r.asset_id || undefined
+      _assetUuid: r.asset_id || undefined,
+      /* Only when true, matching _catOk: an explicit false is indistinguishable from
+         never-asked, and would permanently suppress a question nobody answered. */
+      _dedOk:     (r.ded_confirmed === true) ? true : undefined
     };
   }
 
@@ -489,7 +498,7 @@
 
   // ---- ASSETS --------------------------------------------------------------
   function assetToDb(a) {
-    return {
+    const row = {
       name: a.name, category: a.cat || null, subtype: a.subtype || null,
       purchase_date: a.date || null, price: Number(a.price) || 0,
       depr_type: a.deprType || null,
@@ -504,6 +513,11 @@
       // Persist doc METADATA + Storage path only — never the base64 blob.
       docs: (a.docs && a.docs.length) ? a.docs.map(function(d){ return { id:d.id||null, name:d.name||null, kind:d.kind||null, url:d.url||'' }; }) : null
     };
+    /* The farmer's "there is no payment for this in my books". Without it syncing, the
+       reconcile panel re-asks on every other device — and a question that comes back
+       after you answered it is how a panel earns being ignored. */
+    if (CAN_ASSET_NOPAY) row.no_payment = !!a._noPayment;
+    return row;
   }
   function assetToApp(r) {
     var a = {
@@ -517,6 +531,7 @@
     if (r.insured_value != null) a.insuredValue = Number(r.insured_value);
     if (r.insurer) a.insurer = r.insurer;
     if (r.renewal_date) a.renewalDate = r.renewal_date;
+    if (r.no_payment === true) a._noPayment = true;      // only when true, as above
     return a;
   }
   const asset = {

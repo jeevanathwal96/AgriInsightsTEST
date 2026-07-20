@@ -33826,6 +33826,7 @@ function taxCapitalToReconcile(fy){
   var out=[];
   var assets=((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]);
   var txns=((typeof ST!=='undefined'&&ST.txns)||[]);
+  var _capLoose=_taxRecUnexplainedCapital(fy);     // computed once, not per asset
   assets.forEach(function(a, ai){
     if(!a || a.deprType!=='s12u' || !(a.price>0) || a._noPayment) return;
     var d=parseDate(a.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
@@ -33841,10 +33842,151 @@ function taxCapitalToReconcile(fy){
       if(lk) continue;
       match={i:i, t:t}; break;
     }
-    if(match) out.push({assetIdx:ai, asset:a, txnIdx:match.i, txn:match.t});
+    if(match){ out.push({kind:'match', assetIdx:ai, asset:a, txnIdx:match.i, txn:match.t}); return; }
+    /* No lookalike of the same size — but if unlinked capital costs exist this year, the
+       engine is counting BOTH them and this asset, which is the exact over-claim the
+       exact-amount dedupe was meant to prevent. A dam paid in two instalments hits this:
+       neither R300 000 nor R240 000 matches R540 000, so nothing stands down and the
+       R540 000 is deducted twice with nothing on screen to say so.
+       Ask, and let the farmer pick the payments themselves. */
+    /* Gated on capital costs specifically, not on "any expense exists". Without this
+       every registered asset in a year with any spending raises a question, and a panel
+       that always has something in it is a panel farmers learn to scroll past. */
+    /* Only ask when the unexplained capital spending could plausibly have bought this.
+       90% rather than 100% because a farmer rarely records every last cost of a job —
+       but comfortably short of it means these payments are something else. */
+    if(_capLoose < (a.price||0)*0.9) return;
+    var cands=_taxRecCandidates(a, fy, '');
+    if(cands.length) out.push({kind:'choose', assetIdx:ai, asset:a, candidates:cands});
   });
   return out;
 }
+/* Payments a farmer could plausibly point at this asset: their own unlinked costs from
+   the same tax year, nearest in size first. Deliberately not restricted to capital
+   categories — the payment may well be filed somewhere else, and that is half the reason
+   the automatic match missed it. */
+function _taxRecCandidates(asset, fy, q){
+  var out=[], txns=((typeof ST!=='undefined'&&ST.txns)||[]);
+  q=String(q||'').toLowerCase();
+  for(var i=0;i<txns.length;i++){
+    var t=txns[i]; if(!t||t.type!=='expense') continue;
+    var d=parseDate(t.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) continue;
+    var lk=null; try{ lk=(typeof txLinkedAsset==='function')?txLinkedAsset(t):null; }catch(e){}
+    if(lk && String(lk.id)!==String(asset.id)) continue;
+    if(q && String(t.desc||'').toLowerCase().indexOf(q)<0) continue;
+    out.push({i:i, t:t, gap:Math.abs((t.amt||0)-(asset.price||0))});
+  }
+  out.sort(function(a,b){ return a.gap-b.gap || String(b.t.date).localeCompare(String(a.t.date)); });
+  return out.slice(0,40);
+}
+/* Capital spending this year that nothing accounts for yet — the pool an unexplained
+   asset might have been paid out of.
+
+   Payments that exactly match some OTHER asset are excluded. They are already spoken
+   for: the dedupe in _taxFySplit will stand that asset down against them, so offering
+   the same payment as the answer for a second asset would be inventing a conflict.
+   Without this the panel asks about every registered asset the moment any capital cost
+   exists, which is the noise that teaches farmers to scroll past it. */
+function _taxRecUnexplainedCapital(fy){
+  var txns=((typeof ST!=='undefined'&&ST.txns)||[]);
+  var assets=((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]);
+  var claimed={};
+  assets.forEach(function(a){
+    if(!a || a.deprType!=='s12u' || !(a.price>0) || a._noPayment) return;
+    var d=parseDate(a.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
+    claimed[Math.round(a.price)]=(claimed[Math.round(a.price)]||0)+1;
+  });
+  var total=0;
+  for(var i=0;i<txns.length;i++){
+    var t=txns[i]; if(!t||t.type!=='expense') continue;
+    var d2=parseDate(t.date); if(!d2||((d2.m>=2)?d2.y:d2.y-1)!==fy) continue;
+    if(typeof taxCatKind!=='function' || taxCatKind(t.cat)!=='caplim') continue;
+    var lk=null; try{ lk=(typeof txLinkedAsset==='function')?txLinkedAsset(t):null; }catch(e){}
+    if(lk) continue;
+    var amt=Math.round(t.amt||0);
+    if(claimed[amt]>0){ claimed[amt]--; continue; }   // consumed by an exact-match asset
+    total+=amt;
+  }
+  return total;
+}
+/* ── The manual picker ────────────────────────────────────────────────────────────
+   State lives out here because renderTax() rebuilds the whole tab on every change, so
+   anything held in the DOM would be lost the moment a box is ticked. */
+var TAX_REC_OPEN=null;     // assetIdx whose picker is showing
+var TAX_REC_SEL={};        // assetIdx -> [txn index, ...]
+var TAX_REC_Q={};          // assetIdx -> search text
+function taxRecOpenPicker(ai){
+  TAX_REC_OPEN=ai;
+  if(!TAX_REC_SEL[ai]){
+    /* Pre-tick nothing. Starting empty is the point — a pre-ticked list is the same
+       steer as a green primary button, one layer down. */
+    TAX_REC_SEL[ai]=[];
+  }
+  try{ renderTax(); }catch(e){}
+}
+function taxRecClosePicker(){ TAX_REC_OPEN=null; try{ renderTax(); }catch(e){} }
+function taxRecPickToggle(ai, ti){
+  var sel=TAX_REC_SEL[ai]||(TAX_REC_SEL[ai]=[]);
+  var k=sel.indexOf(ti);
+  if(k>=0) sel.splice(k,1); else sel.push(ti);
+  try{ renderTax(); }catch(e){}
+}
+function taxRecPickSearch(ai, q){
+  TAX_REC_Q[ai]=q;
+  /* Repaint only the picker. renderTax() would rebuild the tab and steal focus from the
+     box mid-word, which makes typing feel broken. */
+  var box=document.getElementById('taxrec-pick-'+ai);
+  if(box){ var a=ST_ASSETS.assets[ai]; if(a) box.innerHTML=_taxRecPickerInner(ai,a); }
+}
+function taxRecPickApply(ai){
+  var a=ST_ASSETS.assets[ai]; if(!a) return;
+  var sel=(TAX_REC_SEL[ai]||[]).slice();
+  if(!sel.length){ try{ toast('Tick the payment (or payments) that bought this first','info'); }catch(e){} return; }
+  try{ astApplyTxnLink(a, sel); }catch(e){}
+  TAX_REC_OPEN=null; delete TAX_REC_SEL[ai]; delete TAX_REC_Q[ai];
+  try{ toast(a.name+' linked to '+sel.length+(sel.length===1?' payment':' payments'),'success'); }catch(e){}
+  try{ renderTax(); }catch(e){}
+}
+function _taxRecPickerInner(ai, asset){
+  var fy=(typeof getCurrentFY==='function')?getCurrentFY():0;
+  var q=TAX_REC_Q[ai]||'', sel=TAX_REC_SEL[ai]||[];
+  var cands=_taxRecCandidates(asset, fy, q);
+  var picked=sel.reduce(function(s,i){ var t=ST.txns[i]; return s+((t&&t.amt)||0); },0);
+  var left=Math.round((asset.price||0)-picked);
+  var tally = !sel.length ? 'Nothing picked yet'
+            : (left<=0 ? 'All '+IE_R(asset.price)+' accounted for ✓'
+                       : 'Picked <b>'+IE_R(picked)+'</b> · '+IE_R(left)+' to go');
+  var h='<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap">'+
+    '<div style="font-size:11.5px;font-weight:800;color:var(--gd)">Which payment bought this?</div>'+
+    '<div style="font-size:11px;font-weight:700;color:'+(left<=0&&sel.length?'var(--gm)':'var(--t3)')+'">'+tally+'</div></div>'+
+    '<input class="taxrec-search" value="'+esc(q)+'" placeholder="Search your costs…" '+
+      'oninput="taxRecPickSearch('+ai+',this.value)"/>';
+  if(!cands.length){
+    h+='<div style="font-size:11px;color:var(--t3);line-height:1.6;margin-top:9px">'+
+       (q?'No costs match “'+esc(q)+'”. ':'')+
+       'If you paid for this before you started using the app, that’s normal — choose '+
+       '<b>No payment in my books</b> and we’ll claim it on its own.</div>';
+  } else {
+    h+='<div class="taxrec-list">'+cands.map(function(c){
+      var on=sel.indexOf(c.i)>=0, when='';
+      try{ when=txDispDate(c.t.date)||c.t.date||''; }catch(e){ when=c.t.date||''; }
+      return '<div class="taxrec-row'+(on?' on':'')+'" onclick="taxRecPickToggle('+ai+','+c.i+')">'+
+        '<span class="taxrec-box">'+(on?'✓':'')+'</span>'+
+        '<span class="taxrec-d">'+esc(when)+'</span>'+
+        '<span class="taxrec-desc">'+esc(c.t.desc||'(no description)')+'</span>'+
+        '<span class="taxrec-a">'+IE_R(c.t.amt||0)+'</span></div>';
+    }).join('')+'</div>';
+  }
+  h+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;align-items:center">'+
+     (cands.length?'<span class="tx-eqbtn" onclick="taxRecPickApply('+ai+')">Link what I&rsquo;ve picked</span>':'')+
+     '<span class="tx-eqbtn" onclick="taxRecSeparate('+ai+')">No payment in my books</span>'+
+     '<span onclick="taxRecClosePicker()" style="font-size:11px;color:var(--t3);text-decoration:underline;cursor:pointer;padding:4px">Cancel</span>'+
+     '</div>'+
+     '<div style="font-size:10.5px;color:var(--t4);margin-top:7px;line-height:1.6">'+
+     'You can tick more than one — big jobs often get paid in parts. They don’t have to add up exactly.</div>';
+  return h;
+}
+
 /* Confirm the guess: join them for good, so no future render has to assume. */
 function taxRecLink(assetIdx, txnIdx){
   var a=ST_ASSETS.assets[assetIdx]; if(!a) return;
@@ -33857,6 +33999,10 @@ function taxRecLink(assetIdx, txnIdx){
 function taxRecSeparate(assetIdx){
   var a=ST_ASSETS.assets[assetIdx]; if(!a) return;
   a._noPayment=true;
+  /* Push it, or the answer is a device-local opinion and the panel asks again on the
+     laptop. Mirrors how the asset form persists an edit. */
+  try{ if(window.AI && AI.farm && AI.farm.active() && a._aiId){
+         AI.asset.update(a._aiId, a).catch(function(e){ console.error('no_payment sync failed:', e); }); } }catch(e){}
   try{ if(typeof saveState==='function') saveState(); }catch(e){}
   try{ toast((a.name||'Asset')+' will be claimed on its own','info'); }catch(e){}
   try{ renderTax(); }catch(e){}
@@ -33939,6 +34085,20 @@ function renderTax(){
     ".tx-disc{background:var(--gb);border:1px solid var(--gp);border-radius:12px;padding:12px 14px;font-size:11.5px;color:var(--gd);line-height:1.55}"+
     ".tx-wi{margin-top:8px;font-size:11.5px;color:var(--t3)}.tx-wi summary{cursor:pointer;color:var(--gm);font-weight:600;list-style:none}.tx-wi summary::-webkit-details-marker{display:none}.tx-wi[open] summary{margin-bottom:4px}"+
     /* Equal-weight answer buttons. Neither is styled as the expected reply. */
+    /* Manual payment picker inside the reconcile card. */
+    ".taxrec-pick{border:1px solid var(--gp);border-radius:11px;background:var(--gb);padding:11px 12px;margin-top:10px}"+
+    ".taxrec-search{width:100%;margin-top:8px;border:1px solid var(--br);border-radius:8px;padding:7px 10px;font:inherit;font-size:11.5px;background:#fff;color:var(--t1);font-family:var(--fn)}"+
+    ".taxrec-list{margin-top:8px;background:#fff;border:1px solid var(--br);border-radius:9px;max-height:210px;overflow-y:auto}"+
+    ".taxrec-row{display:flex;align-items:center;gap:9px;padding:9px 11px;border-bottom:1px solid var(--br2);font-size:11.5px;cursor:pointer}"+
+    ".taxrec-row:last-child{border-bottom:0}"+
+    ".taxrec-row:hover{background:#FAFCFA}"+
+    ".taxrec-row.on{background:var(--gb)}"+
+    ".taxrec-box{width:15px;height:15px;border-radius:4px;border:1.5px solid #C9D4CB;flex:none;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;background:#fff}"+
+    ".taxrec-row.on .taxrec-box{background:var(--gm);border-color:var(--gm)}"+
+    ".taxrec-d{color:var(--t4);width:78px;flex:none;white-space:nowrap}"+
+    ".taxrec-desc{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"+
+    ".taxrec-a{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}"+
+    "@media(max-width:560px){.taxrec-d{display:none}}"+
     ".tx-eqbtn{display:inline-block;background:#fff;border:1px solid #C9D4CB;color:var(--gd);border-radius:9px;padding:7px 13px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.35}"+
     ".tx-eqbtn:hover{background:var(--gb)}"+
     ".tx-eqbtn:focus-visible{outline:2px solid var(--gd);outline-offset:2px}"+
@@ -34204,7 +34364,11 @@ function taxKeepMisfiled(key){
   var fy=(typeof getCurrentFY==='function')?getCurrentFY():0;
   var g=taxMisfiledGroups(fy).filter(function(x){ return x.key===key; })[0];
   if(!g) return;
-  g.rows.forEach(function(r){ var t=ST.txns[r.i]; if(t) t._dedOk=true; });
+  g.rows.forEach(function(r){
+    var t=ST.txns[r.i]; if(!t) return;
+    t._dedOk=true;
+    try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(t); }catch(e){}
+  });
   try{ if(typeof saveState==='function') saveState(); }catch(e){}
   try{ renderTax(); }catch(e){}
 }
@@ -34277,13 +34441,30 @@ function taxReconcileHTML(){
       'It only comes off your tax once, so we need to know which.'+
     '</div>';
   list.forEach(function(r){
-    var when=''; try{ when=txDispDate(r.txn.date)||r.txn.date||''; }catch(e){ when=r.txn.date||''; }
+    var open=(TAX_REC_OPEN===r.assetIdx);
     h+='<div style="border:1px solid var(--br);border-radius:11px;padding:12px 13px;margin-bottom:9px">'+
       '<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline">'+
         '<div style="font-size:12.5px;font-weight:800;min-width:0">'+esc(r.asset.name||'Farm development')+'</div>'+
         '<div style="font-size:13.5px;font-weight:800">'+IE_R(r.asset.price)+'</div>'+
-      '</div>'+
-      '<div style="font-size:11px;color:var(--t3);line-height:1.6;margin-top:7px">'+
+      '</div>';
+    /* Two shapes of doubt, two sentences. "We think we know which" gets a yes/no;
+       "we can't tell" goes straight to the picker rather than pretending to guess. */
+    if(r.kind==='choose'){
+      h+='<div style="font-size:11px;color:var(--t3);line-height:1.6;margin-top:7px">'+
+         'We can&rsquo;t tell which of your costs paid for this, and nothing is linked to it &mdash; '+
+         'so right now it&rsquo;s coming off your tax <b>on its own, on top of</b> the costs you&rsquo;ve recorded.'+
+         '</div>';
+      if(!open) h+='<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px">'+
+         '<span class="tx-eqbtn" onclick="taxRecOpenPicker('+r.assetIdx+')">Pick the payment</span>'+
+         '<span class="tx-eqbtn" onclick="taxRecSeparate('+r.assetIdx+')">No payment in my books</span>'+
+         '</div>';
+      h+='<div id="taxrec-pick-'+r.assetIdx+'" class="taxrec-pick"'+(open?'':' style="display:none"')+'>'+
+         (open?_taxRecPickerInner(r.assetIdx, r.asset):'')+'</div>'+
+         '</div>';
+      return;
+    }
+    var when=''; try{ when=txDispDate(r.txn.date)||r.txn.date||''; }catch(e){ when=r.txn.date||''; }
+    h+='<div style="font-size:11px;color:var(--t3);line-height:1.6;margin-top:7px">'+
         'Your books have a cost of the same amount: <b>'+esc(r.txn.desc||'(no description)')+'</b>, '+esc(when)+'.'+
       '</div>'+
       /* Both answers carry the same weight. A green primary next to a plain secondary
@@ -34295,7 +34476,10 @@ function taxReconcileHTML(){
       '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px">'+
         '<span class="tx-eqbtn" onclick="taxRecLink('+r.assetIdx+','+r.txnIdx+')">Yes &mdash; that paid for it</span>'+
         '<span class="tx-eqbtn" onclick="taxRecSeparate('+r.assetIdx+')">No &mdash; they&rsquo;re separate</span>'+
+        '<span onclick="taxRecOpenPicker('+r.assetIdx+')" style="font-size:11px;color:var(--t3);text-decoration:underline;cursor:pointer;padding:4px 6px">Find a different payment</span>'+
       '</div>'+
+      '<div id="taxrec-pick-'+r.assetIdx+'" class="taxrec-pick"'+(open?'':' style="display:none"')+'>'+
+        (open?_taxRecPickerInner(r.assetIdx, r.asset):'')+'</div>'+
       '<div style="font-size:10.5px;color:var(--t4);margin-top:8px;line-height:1.6">'+
         'Right now we&rsquo;re treating them as the same thing, so it comes off once. '+
         'If they&rsquo;re separate, say so and both come off.'+
