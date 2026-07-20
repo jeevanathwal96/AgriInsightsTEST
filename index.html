@@ -2328,6 +2328,7 @@ select.tx-fctl{padding-right:30px}
 .tx-menu-sug:hover{background:#FEF3C7}
 .tx-menu-keep{padding:6px 11px;border-radius:7px;cursor:pointer;color:var(--t3);font-size:11.5px;margin-bottom:4px;border-bottom:1px solid var(--br2)}
 .tx-menu-keep:hover{background:var(--bg)}
+.tx-menu-title{padding:9px 11px 8px;border-bottom:1px solid var(--br2);margin-bottom:3px;font-size:11.5px;font-weight:800;color:var(--t1);line-height:1.3}.tx-menu-title span{display:block;font-size:10px;font-weight:500;color:var(--t4);margin-top:2px}
 .tx-menu-h{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--t4);padding:7px 11px 3px;border-top:1px solid var(--br2);margin-top:3px}
 .tx-menu-h:first-child{border-top:none;margin-top:0}
 .tx-bulk-bar{display:flex;align-items:center;gap:9px;margin-top:9px;padding:8px 11px;background:var(--gb);border:1.5px solid var(--gl);border-radius:10px;flex-wrap:wrap}
@@ -11383,6 +11384,26 @@ function _txMenuClose(){
 }
 function _txMenuOutside(ev){ if (TX_MENU && !TX_MENU.el.contains(ev.target)) _txMenuClose(); }
 function _txMenuKey(ev){ if (ev.key === 'Escape') _txMenuClose(); }
+/* Mount a popover under an anchor. Extracted from _txCatMenu so a second menu doesn't
+   have to re-implement the four fiddly parts: viewport-flip when there isn't room below,
+   clamping to the right edge, dismiss on outside click, dismiss on Escape. The category
+   menu keeps its own contents and handlers — only the plumbing is shared. */
+function _txMenuMount(anchor, html, handlers){
+  _txMenuClose();
+  if (!anchor) return null;
+  var el = document.createElement('div');
+  el.className = 'tx-menu';
+  el.innerHTML = html;
+  document.body.appendChild(el);
+  var r = anchor.getBoundingClientRect();
+  var top = r.bottom + 4, left = Math.min(r.left, innerWidth - 290);
+  if (top + Math.min(el.offsetHeight, 380) > innerHeight - 8) top = Math.max(8, r.top - Math.min(el.offsetHeight, 380) - 4);
+  el.style.top = top + 'px'; el.style.left = Math.max(8, left) + 'px';
+  TX_MENU = handlers || {}; TX_MENU.el = el;
+  document.addEventListener('mousedown', _txMenuOutside, true);
+  document.addEventListener('keydown', _txMenuKey, true);
+  return el;
+}
 function _txCatMenu(idx, anchor, apply){
   _txMenuClose();
   var t = ST.txns[idx]; if (!t || !anchor) return;
@@ -11411,21 +11432,14 @@ function _txCatMenu(idx, anchor, apply){
     h += '<div class="tx-menu-h">All categories</div>';
   }
   h += az.map(_item).join('');
-  var el = document.createElement('div');
-  el.className = 'tx-menu';
-  el.innerHTML = h;
-  document.body.appendChild(el);
-  var r = anchor.getBoundingClientRect();
-  var top = r.bottom + 4, left = Math.min(r.left, innerWidth - 290);
-  if (top + Math.min(el.offsetHeight, 380) > innerHeight - 8) top = Math.max(8, r.top - Math.min(el.offsetHeight, 380) - 4);
-  el.style.top = top + 'px'; el.style.left = left + 'px';
-  TX_MENU = {el:el, apply:apply,
-             keep:function(){ var x=ST.txns[idx]; if(x){ x._catOk=true;
-                               try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(x); }catch(e){}
-                               try{saveState&&saveState();}catch(e){} }
-                             try{ txRender(); }catch(e){} try{ filterExpTx(); }catch(e){} try{ filterIncomeTx(); }catch(e){} }};
-  document.addEventListener('mousedown', _txMenuOutside, true);
-  document.addEventListener('keydown', _txMenuKey, true);
+  /* Plumbing lives in _txMenuMount now — this function only decides what goes inside. */
+  _txMenuMount(anchor, h, {
+    apply: apply,
+    keep: function(){ var x=ST.txns[idx]; if(x){ x._catOk=true;
+                        try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(x); }catch(e){}
+                        try{saveState&&saveState();}catch(e){} }
+                      try{ txRender(); }catch(e){} try{ filterExpTx(); }catch(e){} try{ filterIncomeTx(); }catch(e){} }
+  });
 }
 
 function txCatOpen(idx, el, kind){
@@ -16778,7 +16792,21 @@ function astFillTxnPicker(){
   var price=parseFloat($('ast-price')&&$('ast-price').value)||0;
   var editIdx=parseInt($('ast-edit-idx')&&$('ast-edit-idx').value);
   var asset=(editIdx>=0)?ST_ASSETS.assets[editIdx]:null;
-  var already=asset?assetLinkedTxn(asset):null;
+  /* A dropdown can only express ONE payment. When an asset already has several — paid
+     in instalments — showing the first and saving would quietly discard the rest. So
+     the form steps aside and says so rather than pretending it can represent this. */
+  var linked=asset?assetLinkedTxns(asset):[];
+  var wrap=sel.parentNode, note=$('ast-txn-help'), sug=$('ast-txn-suggest');
+  if(linked.length>1){
+    sel.style.display='none'; sel.setAttribute('data-multi','1');
+    if(sug) sug.style.display='none';
+    if(note) note.innerHTML='<b>'+linked.length+' payments</b> are linked to this asset, adding up to <b>'+
+      IE_R(linked.reduce(function(a,t){return a+(t.amt||0);},0))+'</b>. '+
+      'Change them on the Tax &amp; SARS page, or <span onclick="astUnlinkAllFromForm()" style="color:var(--gd);font-weight:700;text-decoration:underline;cursor:pointer">unlink them all</span>.';
+    return;
+  }
+  sel.style.display=''; sel.removeAttribute('data-multi');
+  var already=linked.length?linked[0]:null;
   var keepIdx=already?ST.txns.indexOf(already):-1;
   var cands=astTxnCandidates(price, keepIdx);
   sel.innerHTML='<option value="">— no payment in my books —</option>'+
@@ -16809,6 +16837,15 @@ function astFillTxnPicker(){
     } else box.style.display='none';
   }
   astTxnPickerChanged();
+}
+/* The way out when the form has stepped aside: clear every link at once, which puts
+   the asset back to being claimed on its own and hands the dropdown back. */
+function astUnlinkAllFromForm(){
+  var editIdx=parseInt($('ast-edit-idx')&&$('ast-edit-idx').value);
+  var asset=(editIdx>=0)?ST_ASSETS.assets[editIdx]:null; if(!asset) return;
+  astApplyTxnLink(asset, []);
+  try{ toast('Unlinked — this asset is counted on its own now','info'); }catch(e){}
+  astFillTxnPicker();
 }
 function astUseSuggestedTxn(i){
   var sel=$('ast-txn'); if(sel) sel.value=String(i);
@@ -16855,7 +16892,10 @@ function saveAsset() {
      writing the payment, not the asset. Captured before the branch below so the same
      code covers both a new asset and an edit. */
   var _linkSel = $('ast-txn');
-  var _linkPick = (_linkSel && _linkSel.value!=='') ? parseInt(_linkSel.value,10) : -1;
+  /* When the form stepped aside for a multi-payment asset, the dropdown holds nothing
+     meaningful — applying it would replace several real links with one empty answer. */
+  var _linkMulti = !!(_linkSel && _linkSel.getAttribute('data-multi'));
+  var _linkPick = (!_linkMulti && _linkSel && _linkSel.value!=='') ? parseInt(_linkSel.value,10) : -1;
   var editIdx = parseInt($('ast-edit-idx')&&$('ast-edit-idx').value);
   if(editIdx >= 0 && editIdx < ST_ASSETS.assets.length) {
     entry.id = ST_ASSETS.assets[editIdx].id;
@@ -16869,7 +16909,7 @@ function saveAsset() {
     try { if (window.AI && AI.farm && AI.farm.active()) { AI.asset.add(entry).then(function(row){ if(row){ entry._aiId = row.id; astUploadDocs(entry); } }).catch(function(e){ console.error('Backend asset add failed:', e); }); } } catch(e){}
     toast(name+' added to register','success');
   }
-  astApplyTxnLink(entry, _linkPick);
+  if(!_linkMulti) astApplyTxnLink(entry, _linkPick);
   closeAddAsset();
   renderAssets();
 }
@@ -16877,21 +16917,37 @@ function saveAsset() {
    through to the server so the link is not a device-local opinion — the whole reason
    the column exists. Both ids are set: assetId for this device, _assetUuid so the row
    survives a cloud round-trip even before assets have loaded. */
-function astApplyTxnLink(asset, pickIdx){
+/* Set the FULL set of payments for an asset. Takes an array of ledger indices; pass []
+   to unlink everything. The single-index form still works for the asset form's dropdown.
+
+   Replacing the whole set rather than diffing one link is what makes this safe. The old
+   single-link version cleared `assetLinkedTxn(asset)` — the FIRST match only — so on an
+   asset paid in two instalments, choosing a different payment in the form left the
+   second instalment attached, and answering "no payment in my books" left one behind
+   silently contradicting the answer. Both were reproduced before this rewrite. */
+function astApplyTxnLink(asset, pick){
   if(!asset) return;
-  var txns=(typeof ST!=='undefined'&&ST.txns)||[], changed=[];
-  var prev=assetLinkedTxn(asset);
-  var next=(pickIdx>=0 && pickIdx<txns.length) ? txns[pickIdx] : null;
-  if(prev===next) return;                                   // nothing to do
-  if(prev){ prev.assetId=null; prev._assetUuid=undefined; changed.push(prev); }
-  if(next){
-    /* One payment cannot buy two assets — clear any other claim on it first. */
-    var other=txLinkedAsset(next);
-    if(other && String(other.id)!==String(asset.id)){ next.assetId=null; next._assetUuid=undefined; }
-    next.assetId=asset.id;
-    if(asset._aiId) next._assetUuid=asset._aiId;
-    changed.push(next);
-  }
+  var txns=(typeof ST!=='undefined'&&ST.txns)||[];
+  var idxs=(pick==null) ? [] : (Object.prototype.toString.call(pick)==='[object Array]' ? pick : [pick]);
+  idxs=idxs.filter(function(i){ return i>=0 && i<txns.length; });
+  var want=idxs.map(function(i){ return txns[i]; });
+  var have=assetLinkedTxns(asset);
+  var changed=[];
+  // release every payment this asset held that is not in the new set
+  have.forEach(function(t){
+    if(want.indexOf(t)>=0) return;
+    t.assetId=null; t._assetUuid=undefined; changed.push(t);
+  });
+  // claim the new ones, taking each off whatever asset held it before
+  want.forEach(function(t){
+    if(have.indexOf(t)>=0) return;                       // already ours, nothing to write
+    var other=txLinkedAsset(t);
+    if(other && String(other.id)!==String(asset.id)){ t.assetId=null; t._assetUuid=undefined; }
+    t.assetId=asset.id;
+    if(asset._aiId) t._assetUuid=asset._aiId;
+    changed.push(t);
+  });
+  if(!changed.length) return;
   changed.forEach(function(t){ try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(t); }catch(e){} });
   try{ if(typeof saveState==='function') saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
@@ -33485,8 +33541,39 @@ function txLinkChip(t, idx){
   /* The label is capped (92px on narrow screens), so the full name lives in the tooltip
      — otherwise a truncated chip names nothing the farmer can act on. */
   return ' <span class="tx-link-chip" title="'+esc(a.name||'Asset')+' — counted once, not twice"'+
-         ' onclick="event.stopPropagation();txOpenLinkedAsset('+
-         (typeof ST!=='undefined'?ST.txns.indexOf(t):-1)+')">🔗 '+esc(a.name||'Asset')+'</span>';
+         ' onclick="event.stopPropagation();txLinkMenu('+
+         (typeof ST!=='undefined'?ST.txns.indexOf(t):-1)+',this)">🔗 '+esc(a.name||'Asset')+'</span>';
+}
+/* Tapping the chip opens a small menu rather than jumping straight to the asset.
+   Undoing a link previously meant leaving the ledger, finding the asset, opening its
+   form and clearing a dropdown — four steps to reverse one. Xero puts its reject path
+   ("Keep all") beside the destructive action for the same reason: the way out of a
+   wrong match should cost about as much as making it.
+   A menu, not a hover ×, because half of this is used on a phone. */
+function txLinkMenu(i, anchor){
+  var t=ST.txns[i], a=txLinkedAsset(t); if(!t||!a||!anchor) return;
+  var k=ST_ASSETS.assets.indexOf(a);
+  /* Not .tx-menu-h — that class is a section label and uppercases its contents, which
+     turns a farmer's asset name into shouting. This is a title, so it gets its own. */
+  var h='<div class="tx-menu-title">'+esc(a.name||'Asset')+
+        '<span>Counted once &mdash; through this payment</span></div>'+
+        '<div class="tx-menu-it" onclick="TX_MENU.open();_txMenuClose()">Open this asset</div>'+
+        '<div class="tx-menu-it" onclick="TX_MENU.unlink();_txMenuClose()">Unlink'+
+        '<div style="font-size:10px;color:var(--t4);font-weight:500">Count the payment and the asset separately</div></div>';
+  _txMenuMount(anchor, h, {
+    open:   function(){ if(k>=0){ nav('assets'); setTimeout(function(){ try{ openEditAsset(k); }catch(e){} },260); } },
+    unlink: function(){ txUnlinkAsset(i); }
+  });
+}
+function txUnlinkAsset(i){
+  var t=ST.txns[i]; if(!t) return;
+  var a=txLinkedAsset(t);
+  t.assetId=null; t._assetUuid=undefined;
+  try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(t); }catch(e){}
+  try{ if(typeof saveState==='function') saveState(); }catch(e){}
+  try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
+  try{ toast('Unlinked from '+((a&&a.name)||'the asset')+' — both are counted on their own now','info'); }catch(e){}
+  try{ txRender(); }catch(e){} try{ filterExpTx(); }catch(e){} try{ filterIncomeTx(); }catch(e){}
 }
 function txOpenLinkedAsset(i){
   try{
@@ -33495,18 +33582,24 @@ function txOpenLinkedAsset(i){
     nav('assets'); setTimeout(function(){ try{ openEditAsset(k); }catch(e){} }, 260);
   }catch(e){}
 }
-/* The reverse: the payment that bought this asset, if one is linked to it. */
-function assetLinkedTxn(asset){
-  if (!asset) return null;
+/* The reverse: EVERY payment linked to this asset. Plural on purpose — a big job is
+   commonly paid in instalments, so one asset can legitimately have several payments
+   against it. The singular helper below is kept for callers that only need to know
+   "is this linked at all", but anything that MUTATES links must use this one: clearing
+   only the first of several is how a farmer ends up with links they never chose. */
+function assetLinkedTxns(asset){
+  var out = [];
+  if (!asset) return out;
   var arr = ((typeof ST!=='undefined' && ST.txns) || []);
   for (var i=0; i<arr.length; i++){
     var t = arr[i];
     if (!t) continue;
-    if (t.assetId != null && String(t.assetId) === String(asset.id)) return t;
-    if (t._assetUuid && asset._aiId && t._assetUuid === asset._aiId) return t;
+    if ((t.assetId != null && String(t.assetId) === String(asset.id)) ||
+        (t._assetUuid && asset._aiId && t._assetUuid === asset._aiId)) out.push(t);
   }
-  return null;
+  return out;
 }
+function assetLinkedTxn(asset){ var a = assetLinkedTxns(asset); return a.length ? a[0] : null; }
 
 /* ══ Deductibility and the paragraph 12(3) ring-fence ═══════════════════════════════
    Two SARS rules, both of which shrink "money that left the bank" before tax is worked
@@ -33845,6 +33938,10 @@ function renderTax(){
     ".tx-nudge{background:#FFF3E0;border:1px solid #F5D9A8;border-left:4px solid #B45309;border-radius:0 10px 10px 0;padding:11px 14px;font-size:12.5px;color:#7a4a10;margin-bottom:12px}"+
     ".tx-disc{background:var(--gb);border:1px solid var(--gp);border-radius:12px;padding:12px 14px;font-size:11.5px;color:var(--gd);line-height:1.55}"+
     ".tx-wi{margin-top:8px;font-size:11.5px;color:var(--t3)}.tx-wi summary{cursor:pointer;color:var(--gm);font-weight:600;list-style:none}.tx-wi summary::-webkit-details-marker{display:none}.tx-wi[open] summary{margin-bottom:4px}"+
+    /* Equal-weight answer buttons. Neither is styled as the expected reply. */
+    ".tx-eqbtn{display:inline-block;background:#fff;border:1px solid #C9D4CB;color:var(--gd);border-radius:9px;padding:7px 13px;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit;line-height:1.35}"+
+    ".tx-eqbtn:hover{background:var(--gb)}"+
+    ".tx-eqbtn:focus-visible{outline:2px solid var(--gd);outline-offset:2px}"+
     ".tax-panel{display:none}.tax-panel.on{display:block}"+
     ".tx-cta{display:flex;gap:12px;align-items:center;border-radius:12px;padding:14px 16px;color:#fff;cursor:pointer;background:linear-gradient(135deg,#2D6A4F,#1B4332);margin-bottom:10px}.tx-cta .ic{font-size:22px}.tx-cta .t{font-size:13.5px;font-weight:800}.tx-cta .s{font-size:11px;opacity:.9}"+
     ".tx-tile{background:rgba(255,255,255,.13);border-radius:11px;padding:9px 13px;text-align:center;min-width:88px}.tx-tile .k{font-size:10px;opacity:.75}.tx-tile .v{font-size:17px;font-weight:800}"+
@@ -34139,8 +34236,11 @@ function taxMisfiledHTML(){
         '<span style="background:var(--gb);border:1px solid var(--gp);color:var(--gd);border-radius:999px;padding:2px 9px;font-weight:700;font-size:10.5px">'+esc(g.suggest)+'</span>'+
       '</div>'+
       '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px">'+
-        '<span onclick="taxMoveMisfiled(\''+esc(g.key).replace(/'/g,"\\'")+'\')" style="background:var(--gd);color:#fff;border-radius:9px;padding:7px 13px;font-size:11.5px;font-weight:700;cursor:pointer">'+(many?'Move all '+g.rows.length:'Move it')+'</span>'+
-        '<span onclick="taxKeepMisfiled(\''+esc(g.key).replace(/'/g,"\\'")+'\')" style="background:#fff;border:1px solid var(--br);color:var(--t2);border-radius:9px;padding:7px 13px;font-size:11.5px;font-weight:700;cursor:pointer">No, '+(many?'they were':'it was')+' tax</span>'+
+        /* Same equal-weight rule as the reconcile panel, and it matters more here:
+           accepting a wrong suggestion moves a real tax payment into a deductible
+           category and UNDER-taxes the farmer, which is their problem with SARS. */
+        '<span class="tx-eqbtn" onclick="taxMoveMisfiled(\''+esc(g.key).replace(/'/g,"\\'")+'\')">'+(many?'Move all '+g.rows.length:'Move it')+'</span>'+
+        '<span class="tx-eqbtn" onclick="taxKeepMisfiled(\''+esc(g.key).replace(/'/g,"\\'")+'\')">No, '+(many?'they were':'it was')+' tax</span>'+
       '</div>'+
       '<div style="font-size:10.5px;color:var(--t4);margin-top:8px;line-height:1.6">'+
         _taxMisfiledWhy(g)+'</div>'+
@@ -34186,9 +34286,15 @@ function taxReconcileHTML(){
       '<div style="font-size:11px;color:var(--t3);line-height:1.6;margin-top:7px">'+
         'Your books have a cost of the same amount: <b>'+esc(r.txn.desc||'(no description)')+'</b>, '+esc(when)+'.'+
       '</div>'+
+      /* Both answers carry the same weight. A green primary next to a plain secondary
+         tells the farmer which one we expect, and that asymmetry is what produces blind
+         acceptance — cognitive-forcing work (ACM 10.1145/3449287) measured overreliance
+         dropping 0.64 to 0.48 when the interface stops steering at the moment of choice.
+         Equal weighting is the mildest version of that: nothing is hidden or delayed,
+         the answer just isn't pre-made. */
       '<div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:10px">'+
-        '<span onclick="taxRecLink('+r.assetIdx+','+r.txnIdx+')" style="background:var(--gd);color:#fff;border-radius:9px;padding:7px 13px;font-size:11.5px;font-weight:700;cursor:pointer">That&rsquo;s what paid for it</span>'+
-        '<span onclick="taxRecSeparate('+r.assetIdx+')" style="background:#fff;border:1px solid var(--br);color:var(--t2);border-radius:9px;padding:7px 13px;font-size:11.5px;font-weight:700;cursor:pointer">No, that&rsquo;s something else</span>'+
+        '<span class="tx-eqbtn" onclick="taxRecLink('+r.assetIdx+','+r.txnIdx+')">Yes &mdash; that paid for it</span>'+
+        '<span class="tx-eqbtn" onclick="taxRecSeparate('+r.assetIdx+')">No &mdash; they&rsquo;re separate</span>'+
       '</div>'+
       '<div style="font-size:10.5px;color:var(--t4);margin-top:8px;line-height:1.6">'+
         'Right now we&rsquo;re treating them as the same thing, so it comes off once. '+
