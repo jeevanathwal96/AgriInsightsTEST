@@ -6683,7 +6683,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <div class="or-tabs">
     <div class="or-tab on" id="or-tab-overview" onclick="orSetTab('overview')" data-t="or.tab.overview">Overview</div>
     <div class="or-tab" id="or-tab-blocks" onclick="orSetTab('blocks')" data-t="or.tab.blocks">Blocks</div>
-    <div class="or-tab" id="or-tab-spray" onclick="orSetTab('spray')" data-t="or.tab.spray">Spray &amp; Inputs</div>
+    <div class="or-tab" id="or-tab-spray" onclick="orSetTab('spray')" data-t="or.tab.spray">Spray &amp; Safety</div>
     <div class="or-tab" id="or-tab-harvest" onclick="orSetTab('harvest')" data-t="or.tab.harvest">Harvest &amp; Pack</div>
     <div class="or-tab" id="or-tab-comply" onclick="orSetTab('comply')" data-t="or.tab.comply">Compliance</div>
   </div>
@@ -43108,7 +43108,7 @@ function orSafePickStripHTML(){
   return '<div class="or-sp"><div class="or-sp-h">🧺 Safe to pick today <span class="n">'+clear+' of '+bearing.length+' clear</span> <span class="more" onclick="orSetTab(\'spray\')">Full market view ›</span></div><div class="or-sp-chips">'+chips+'</div></div>';
 }
 function orSeasonRibbonHTML(){
-  var blocks=orActiveBlocks().filter(function(b){ return orPickWindow(b); });
+  var blocks=orActiveBlocks().filter(function(b){ return !b.plan && b.tons>0 && orPickWindow(b); });
   if(blocks.length<2) return '';
   blocks=blocks.slice().sort(function(a,b){ return orPickWindow(a).s - orPickWindow(b).s; });
   var now=new Date().getMonth();
