@@ -1366,6 +1366,33 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .bgt-cleft{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .bgt-cleft .amt{font-size:12.5px;font-weight:800;color:var(--t1);font-variant-numeric:tabular-nums}
 .bgt-cats-empty{font-size:12.5px;color:var(--t3);padding:8px 2px}
+/* Cross-link: "will the cash last?" line on Budgets */
+.bgt-cashlink{display:flex;align-items:center;gap:14px;border-radius:var(--rl);padding:14px 18px;border:1px solid;margin-bottom:14px}
+.bgt-cashlink.info{background:var(--bp);border-color:#BFDBFE}
+.bgt-cashlink.warn{background:#FFF8E6;border-color:#FDE68A}
+.bgt-cashlink.setup{background:var(--br2);border-color:var(--t4);border-style:dashed}
+.bgt-cl-ic{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:#fff;box-shadow:var(--sh)}
+.bgt-cl-body{flex:1;min-width:0}
+.bgt-cl-h{font-size:13.5px;font-weight:800;color:var(--t1);line-height:1.25}
+.bgt-cashlink.info .bgt-cl-h{color:#1E3A8A}
+.bgt-cashlink.warn .bgt-cl-h{color:#92400E}
+.bgt-cl-s{font-size:12px;color:var(--t3);margin-top:3px;line-height:1.5}
+.bgt-cl-s b{color:var(--t2);font-weight:800}
+.bgt-cl-cta{border:1.5px solid var(--br);background:#fff;border-radius:var(--rs);padding:9px 14px;font-size:12.5px;font-weight:800;color:var(--t2);font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.bgt-cashlink.info .bgt-cl-cta{border-color:#93C5FD;color:#1E40AF}
+.bgt-cashlink.warn .bgt-cl-cta{border-color:#FCD34D;color:#92400E}
+/* "on budget?" pointer back on Money Flow */
+#cf-onbudget.cf-ob{display:flex;align-items:center;gap:14px;border-radius:var(--rl);padding:14px 18px;margin-bottom:14px;background:var(--gb);border:1px solid var(--gp)}
+#cf-onbudget.cf-ob.warn{background:#FFF8E6;border-color:#FDE68A}
+#cf-onbudget .cf-ob-ic{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:#fff;box-shadow:var(--sh)}
+#cf-onbudget .cf-ob-body{flex:1;min-width:0}
+#cf-onbudget .cf-ob-h{font-size:13.5px;font-weight:800;color:var(--gd);line-height:1.25}
+#cf-onbudget.cf-ob.warn .cf-ob-h{color:#92400E}
+#cf-onbudget .cf-ob-s{font-size:12px;color:var(--t3);margin-top:3px;line-height:1.5}
+#cf-onbudget .cf-ob-cta{border:1.5px solid var(--gp);background:#fff;border-radius:var(--rs);padding:9px 14px;font-size:12.5px;font-weight:800;color:var(--gd);font-family:inherit;cursor:pointer;white-space:nowrap;flex-shrink:0}
+#cf-onbudget.cf-ob.warn .cf-ob-cta{border-color:#FCD34D;color:#92400E}
+#cf-bb-confirm{background:var(--gd);color:#fff;border:none}
+@media (max-width:600px){.bgt-cashlink,#cf-onbudget.cf-ob{flex-wrap:wrap}}
 
 @media (max-width:780px){
   .bgt-kpi-strip{grid-template-columns:1fr;gap:10px}
@@ -5402,6 +5429,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
     <div class="bgt-flags" id="bgt-flags" style="display:none"></div>
 
+    <div class="bgt-cashlink" id="bgt-cashlink" style="display:none"></div>
+
     <div class="bgt-card" id="bgt-mountain-card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
         <div><div class="bgt-card-h">Your season picture</div><div class="bgt-card-s">Are you where you planned to be by now?</div></div>
@@ -7512,6 +7541,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="cf-bb-sub" id="cf-bb-sub">The forecast below starts from this. Update it whenever you like.</div>
     <div class="cf-bb-input">
       <span class="cf-bb-cur">R</span><input id="cf-bb-val" type="text" inputmode="numeric" placeholder="e.g. 642 000">
+      <button onclick="cfConfirmBankBalance()" id="cf-bb-confirm" style="display:none">That’s right ✓</button>
       <button onclick="cfSaveBankBalance()" id="cf-bb-save">Save</button>
     </div>
   </div>
@@ -7524,6 +7554,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div class="cf-a-s" id="cf-fwd-answer-s">Calculating your projected balance.</div>
     </div>
   </div>
+
+  <div id="cf-onbudget" style="display:none"></div>
 
   <!-- new: single cash-on-hand line + built-from-data strip -->
   <div class="cfl-card" id="cfl-line-card" style="display:none">
@@ -27002,6 +27034,7 @@ function renderBudgetsPage() {
     bgtRenderHero(c);
     bgtRenderKpis(c);
     bgtRenderFlags(c);
+    bgtRenderCashLink();
     bgtApplyMode();
     bgtRenderMonths(c);
     bgtRenderSetupRow(c);
@@ -31247,6 +31280,7 @@ if (!hasTxns && !hasPlan && !hasRecurring) {
 if (fwdChart)   fwdChart.style.display   = '';
   if (recurPanel) recurPanel.style.display = '';
   renderCfBankBalance();
+  renderCfOnBudget();
 
   var p = ST.cfFwdPeriod || '6';
   var n = parseInt(p, 10);
@@ -31442,17 +31476,105 @@ function cfCurrentCashEstimate(){
   if (typeof ST.openingBalance==='number') b+=ST.openingBalance;
   return b;
 }
+// ── Cross-link Budgets ⇄ Money Flow + bank-balance anchor ──
+// Read-only cash outlook from the SAME forecast Money Flow draws, so Budgets
+// can never disagree with it. Trough of the base (plan-driven) projection.
+function bgtCashOutlook() {
+  try {
+    if (typeof buildCfForecast !== 'function') return {ok:false};
+    var balSet = (typeof ST.bankBalance === 'number' && !isNaN(ST.bankBalance));
+    var months = buildCfForecast(6);
+    if (!months || !months.length) return {ok:false, balSet:balSet};
+    var minIdx = 0, i;
+    for (i = 1; i < months.length; i++) if (months[i].balance < months[minIdx].balance) minIdx = i;
+    var m = months[minIdx];
+    var full = (typeof _cfMonthFull === 'function') ? _cfMonthFull(m.name) : m.name;
+    return {ok:true, balSet:balSet, name:m.name, full:full, balance:m.balance, negative:m.balance < 0};
+  } catch(e) { return {ok:false}; }
+}
+
+// The "will the cash last?" line on Budgets — state-aware, deep-links to Money Flow.
+function bgtRenderCashLink() {
+  var box = $('bgt-cashlink'); if (!box) return;
+  var o = bgtCashOutlook();
+  if (!o.ok) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var html, cls;
+  if (!o.balSet) {
+    cls = 'bgt-cashlink setup';
+    html = '<div class="bgt-cl-ic">💧</div><div class="bgt-cl-body">' +
+      '<div class="bgt-cl-h">Will the cash last? Set your bank balance once and this line comes alive.</div>' +
+      '<div class="bgt-cl-s">A quick one-time step — then this page tells you if the money holds up, not just if the profit does.</div>' +
+      '</div><button class="bgt-cl-cta" onclick="nav(\'cashflow\')">Set it up →</button>';
+  } else if (o.negative) {
+    cls = 'bgt-cashlink warn';
+    html = '<div class="bgt-cl-ic">⚠️</div><div class="bgt-cl-body">' +
+      '<div class="bgt-cl-h">Watch the cash — tight in ' + o.full + '. Down to about −' + bgtFmt(Math.abs(o.balance)) + '.</div>' +
+      '<div class="bgt-cl-s">Your profit plan may look fine, but the timing bites. Line up cover before then.</div>' +
+      '</div><button class="bgt-cl-cta" onclick="nav(\'cashflow\')">See what’s driving it →</button>';
+  } else {
+    cls = 'bgt-cashlink info';
+    html = '<div class="bgt-cl-ic">💧</div><div class="bgt-cl-body">' +
+      '<div class="bgt-cl-h">Will the cash last? Yes. Leanest month: ' + o.full + ' · ' + bgtFmt(o.balance) + ' in the bank.</div>' +
+      '<div class="bgt-cl-s">Reads live from your Money Flow forecast — profit and cash both hold up.</div>' +
+      '</div><button class="bgt-cl-cta" onclick="nav(\'cashflow\')">See the forecast →</button>';
+  }
+  box.className = cls;
+  box.innerHTML = html;
+  box.style.display = 'flex';
+  try { if (typeof langSync === 'function') langSync(box); } catch(e) {}
+}
+
+// The "on budget?" pointer back on Money Flow. Read-only — does NOT touch the
+// budget-status hysteresis (never calls bgtStatus), just reads the projection.
+function renderCfOnBudget() {
+  var box = $('cf-onbudget'); if (!box) return;
+  if (typeof bgtCompute !== 'function') { box.style.display = 'none'; return; }
+  var c;
+  try { c = bgtCompute(); } catch(e) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  if (c.annualIn <= 0 && c.annualOut <= 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var projNet = c.projIn - c.projOut;
+  var bad = (c.expIn > 0 && -c.aheadIn / c.expIn > 0.06) || (c.expOut > 0 && -c.aheadOut / c.expOut > 0.06);
+  box.className = 'cf-ob' + (bad ? ' warn' : '');
+  box.innerHTML = '<div class="cf-ob-ic">🎯</div><div class="cf-ob-body">' +
+    '<div class="cf-ob-h">On budget? Your year is heading for ' + bgtFmt(projNet) + '.</div>' +
+    '<div class="cf-ob-s">' + (bad ? 'Worth a look — the profit story needs attention this month.' : 'Income and spending are tracking your plan.') + '</div>' +
+    '</div><button class="cf-ob-cta" onclick="nav(\'budgets\')">Open your budget →</button>';
+  box.style.display = 'flex';
+  try { if (typeof langSync === 'function') langSync(box); } catch(e) {}
+}
+
+// One-tap confirm of the estimated balance (shown only while it's an estimate).
+function cfConfirmBankBalance() {
+  var inp = $('cf-bb-val');
+  var val = inp ? parseFloat((inp.value || '').replace(/[^0-9.\-]/g, '')) : NaN;
+  if (isNaN(val)) val = (typeof cfCurrentCashEstimate === 'function') ? cfCurrentCashEstimate() : 0;
+  ST.bankBalance = val;
+  if (typeof saveState === 'function') saveState();
+  renderCfForecast();
+  toast('Bank balance confirmed — forecast updated', 'success');
+}
+
 function renderCfBankBalance(){
   var inp=$('cf-bb-val'); if(!inp) return;
   var sub=$('cf-bb-sub');
+  var confirmBtn=$('cf-bb-confirm');
   if (typeof ST.bankBalance==='number' && !isNaN(ST.bankBalance)){
     inp.value = Math.round(ST.bankBalance).toLocaleString('en-ZA').replace(/,/g,' ');
     if(sub) sub.textContent = 'The forecast below starts from this. Update it whenever you like.';
+    if(confirmBtn) confirmBtn.style.display='none';
   } else {
-    // prefill with the computed estimate so the farmer can confirm or correct it
+    // Confirm-in-one-tap only makes sense when we actually have a positive
+    // estimate to stand behind; a new farm with no history just types it in.
     var est=cfCurrentCashEstimate();
-    inp.value = Math.round(est).toLocaleString('en-ZA').replace(/,/g,' ');
-    if(sub) sub.innerHTML = 'We\u2019ve estimated this from your records \u2014 <b>check it against your bank and tap Save</b> so the forecast is accurate.';
+    if(est>0){
+      inp.value = Math.round(est).toLocaleString('en-ZA').replace(/,/g,' ');
+      if(sub) sub.innerHTML = 'We\u2019ve estimated <b>R'+Math.round(est).toLocaleString('en-ZA').replace(/,/g,' ')+'</b> from your records \u2014 confirm it, or type the real figure so the forecast is accurate.';
+      if(confirmBtn) confirmBtn.style.display='';
+    } else {
+      inp.value = '';
+      if(sub) sub.innerHTML = 'Type your current bank balance so the forecast starts from the right place.';
+      if(confirmBtn) confirmBtn.style.display='none';
+    }
   }
 }
 function cfSaveBankBalance(){
@@ -32949,6 +33071,43 @@ LANG_PAIRS.push(
    'Tik ’n ry om sy transaksies te sien · tik die teiken om dit te verander.'],
   ['No category targets yet — set your annual target first, or add one here.',
    'Nog geen kategoriedoelwitte nie — stel eers jou jaardoelwit, of voeg een hier by.']
+);
+
+/* ── Budgets ⇄ Money Flow cross-link + bank balance (2026-07) ──
+   Copy is assembled around month names + rand figures. Each pair is a WHOLE
+   contiguous English run; the interpolated month/amount sit between paired runs
+   separated by " · " / " −" (no letters), so nothing is left half-translated. */
+LANG_PAIRS.push(
+  ['Will the cash last? Yes. Leanest month:', 'Sal die kontant hou? Ja. Maerste maand:'],
+  ['in the bank.',                             'in die bank.'],
+  ['Reads live from your Money Flow forecast — profit and cash both hold up.',
+   'Lees regstreeks uit jou Geldvloei-vooruitskatting — wins en kontant hou albei.'],
+  ['See the forecast →',                       'Sien die vooruitskatting →'],
+  ['Watch the cash — tight in',                'Hou die kontant dop — knap in'],
+  ['Down to about −',                          'Af tot omtrent −'],
+  ['Your profit plan may look fine, but the timing bites. Line up cover before then.',
+   'Jou winsplan lyk dalk reg, maar die tydsberekening byt. Reël dekking voor dan.'],
+  ['See what’s driving it →',                  'Sien wat dit dryf →'],
+  ['Will the cash last? Set your bank balance once and this line comes alive.',
+   'Sal die kontant hou? Stel jou bankbalans een keer en hierdie reël kom lewendig.'],
+  ['A quick one-time step — then this page tells you if the money holds up, not just if the profit does.',
+   '’n Vinnige eenmalige stap — dan sê hierdie blad of die geld hou, nie net of die wins hou nie.'],
+  ['Set it up →',                              'Stel dit op →'],
+  ['On budget? Your year is heading for',      'Op begroting? Jou jaar is op pad na'],
+  ['Worth a look — the profit story needs attention this month.',
+   'Die moeite werd om na te kyk — die winsverhaal kort aandag hierdie maand.'],
+  ['Income and spending are tracking your plan.',
+   'Inkomste en besteding volg jou plan.'],
+  ['Open your budget →',                       'Maak jou begroting oop →'],
+  ['That’s right ✓',                           'Dis reg ✓'],
+  ['Bank balance confirmed — forecast updated','Bankbalans bevestig — vooruitskatting bygewerk'],
+  ['We’ve estimated',                          'Ons het geskat'],
+  ['from your records — confirm it, or type the real figure so the forecast is accurate.',
+   'uit jou rekords — bevestig dit, of tik die werklike syfer sodat die vooruitskatting akkuraat is.'],
+  ['Type your current bank balance so the forecast starts from the right place.',
+   'Tik jou huidige bankbalans sodat die vooruitskatting van die regte plek af begin.'],
+  ['The forecast below starts from this. Update it whenever you like.',
+   'Die vooruitskatting hieronder begin hiervandaan. Werk dit by wanneer jy wil.']
 );
 
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
