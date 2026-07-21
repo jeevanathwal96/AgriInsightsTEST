@@ -4165,6 +4165,19 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 .or-att-chosen .fn small{color:var(--t4);font-weight:600;margin-left:5px}
 .or-att-chosen button{border:none;background:none;color:var(--t4);font-size:15px;cursor:pointer;flex:none;font-family:inherit}
 .or-att-inline{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;color:var(--gm);border:1px solid var(--br);border-radius:7px;padding:1px 7px;margin-left:6px;cursor:pointer;white-space:nowrap;background:#fff}
+/* record-log modal timeline (matches the record-log mockup) */
+.or-mtl{border-left:2px solid var(--br);margin:6px 0 6px 6px;padding-left:16px}
+.or-mtl-ev{position:relative;padding:2px 0 12px}
+.or-mtl-ev:last-child{padding-bottom:2px}
+.or-mtl-ev:before{content:"";position:absolute;left:-23px;top:3px;width:11px;height:11px;border-radius:50%;background:var(--gm);border:2px solid #fff;box-shadow:0 0 0 1px var(--gp)}
+.or-mtl-ev.reg:before{background:#C8962C;box-shadow:0 0 0 1px #E9D6A6}
+.or-mtl-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.or-mtl-top .d{font-size:11px;font-weight:800;color:var(--t1)}
+.or-mtl-top .by{font-size:10.5px;color:var(--t4);margin-left:auto}
+.or-mtl-type{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;border-radius:5px;padding:1px 7px;background:#EEF0F2;color:#52606D}
+.or-mtl-type.check{background:#E0F2FE;color:#075985}.or-mtl-type.spray{background:#FBF3DD;color:#854F0B}.or-mtl-type.reg{background:#F3E8FF;color:#6B21A8}
+.or-mtl-note{font-size:12.5px;color:var(--t2);margin-top:3px}
+.or-mtl-att{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--gm);border:1px solid var(--br);border-radius:7px;padding:3px 8px;margin-top:6px;cursor:pointer;background:#fff}
 </style>
 
 </head>
@@ -33563,6 +33576,9 @@ LANG_PAIRS.push(
   ["Save entry","Stoor inskrywing"],
   ["Choose file","Kies lêer"],
   ["History","Geskiedenis"],
+  ["Control applied","Beheer toegepas"],
+  ["Trap check","Valstrik-kontrole"],
+  ["Inspection","Inspeksie"],
   ["optional","opsioneel"]
 );
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
@@ -44100,9 +44116,10 @@ function orOpenComply(key){
   if(c.log){ h+='<div class="or-mlbl">Latest</div><div class="or-mlog">'+c.log+'</div>'; }
   if(c.type==='pest'||c.type==='control'){
     if(!c.checks) c.checks=[];
-    if(c.checks.length){ h+='<div class="or-mlbl">History</div>'+c.checks.map(function(ck){ var att=ck.att?' <span class="or-att-inline" onclick="orOpenAttachment(\''+ck.att.id+'\')">📎 '+esc(ck.att.name)+'</span>':''; return '<div class="or-mline"><b>'+esc(ck.date||'')+'</b> — '+esc(ck.note||'')+(ck.by?' <span style="color:var(--t4)">· '+esc(ck.by)+'</span>':'')+att+'</div>'; }).join(''); }
+    if(c.checks.length){ h+='<div class="or-mlbl">History</div><div class="or-mtl">'+c.checks.map(function(ck){ var att=ck.att?'<div class="or-mtl-att" onclick="orOpenAttachment(\''+ck.att.id+'\')">📎 '+esc(ck.att.name)+' ›</div>':''; var tp=ck.ctype?'<span class="or-mtl-type '+orCtypeClass(ck.ctype)+'">'+esc(ck.ctype)+'</span>':''; return '<div class="or-mtl-ev'+(orCtypeClass(ck.ctype)==='reg'?' reg':'')+'"><div class="or-mtl-top"><span class="d">'+esc(ck.date||'')+'</span>'+tp+(ck.by?'<span class="by">'+esc(ck.by)+'</span>':'')+'</div><div class="or-mtl-note">'+esc(ck.note||'')+'</div>'+att+'</div>'; }).join('')+'</div>'; }
     h+='<div class="or-mlbl">Log a new entry</div>'+
-       '<div class="or-fg2" style="margin-bottom:8px"><input type="date" class="or-mdate" id="or-chk-date" value="'+new Date().toISOString().slice(0,10)+'"><input class="or-mdate" id="or-chk-note" placeholder="'+(c.type==='control'?'reading / note, e.g. 0.4 moths/trap':'e.g. 3 moths in trap 4')+'"></div>'+
+       '<div class="or-fg2" style="margin-bottom:8px"><input type="date" class="or-mdate" id="or-chk-date" value="'+new Date().toISOString().slice(0,10)+'"><select class="or-mdate" id="or-chk-type">'+['Trap check','Control applied','Inspection'].map(function(o){return '<option>'+o+'</option>';}).join('')+'</select></div>'+
+       '<input class="or-mdate" id="or-chk-note" placeholder="'+(c.type==='control'?'reading / note, e.g. 0.4 moths/trap':'e.g. 3 moths in trap 4')+'" style="width:100%;margin-bottom:8px">'+
        orAttachField('chk',c.type==='control'?'trap sheet, mix record…':'trap report or photo')+
        '<button class="btn-pri" onclick="orSaveCheck()" style="margin-top:2px">＋ Save entry</button>';
   }
@@ -44115,7 +44132,8 @@ function orOpenComply(key){
   h+='<div style="display:flex;gap:10px;margin-top:18px"><button class="btn-pri" onclick="orCloseModal()">Done</button></div></div>';
   orModalHTML(h);
 }
-function orSaveCheck(){ var v=($('or-chk-note')||{}).value; var att=orAttachTake('chk'); if(!v && !att){ if(typeof orToast==='function') orToast('Add a note or a document first','info'); return; } var dv=($('or-chk-date')||{}).value; var dt=dv?new Date(dv):new Date(); var c=ST_FRUIT.comply[OR_MODAL_CTX.key]; c.checks=c.checks||[]; c.checks.unshift({date:orFmtDM(dt),iso:dt.toISOString().slice(0,10),note:v||'(document only)',by:'You',att:att||null}); orSave(); orOpenComply(OR_MODAL_CTX.key); orToast('Entry logged ✓'); }
+function orCtypeClass(t){ t=(t||'').toLowerCase(); if(t.indexOf('registr')>=0) return 'reg'; if(t.indexOf('control')>=0||t.indexOf('spray')>=0) return 'spray'; if(t.indexOf('trap')>=0||t.indexOf('check')>=0) return 'check'; return 'insp'; }
+function orSaveCheck(){ var v=($('or-chk-note')||{}).value; var att=orAttachTake('chk'); if(!v && !att){ if(typeof orToast==='function') orToast('Add a note or a document first','info'); return; } var dv=($('or-chk-date')||{}).value; var ty=($('or-chk-type')||{}).value||'Check'; var dt=dv?new Date(dv):new Date(); var c=ST_FRUIT.comply[OR_MODAL_CTX.key]; c.checks=c.checks||[]; c.checks.unshift({date:orFmtDM(dt),iso:dt.toISOString().slice(0,10),ctype:ty,note:v||'(document only)',by:'You',att:att||null}); orSave(); orOpenComply(OR_MODAL_CTX.key); orToast('Entry logged ✓'); }
 function orSaveReading(){ var v=parseFloat(($('or-wtr-read')||{}).value); if(isNaN(v)) return; var c=ST_FRUIT.comply.water; c.readings=c.readings||[]; c.readings.unshift({date:'today',m3:Math.round(v).toLocaleString('en-ZA')}); c.log=Math.round(v).toLocaleString('en-ZA')+' of 480,000 m\u00b3 used this year'; orSave(); orOpenComply('water'); orRenderComply(); orToast('Meter reading saved'); }
 
 function orOpenBlock(id){
