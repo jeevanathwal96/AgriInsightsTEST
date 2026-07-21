@@ -5375,7 +5375,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div class="bgt-legend">
         <span class="bgt-leg"><i class="dash"></i><span>The curve you planned</span></span>
         <span class="bgt-leg"><i id="bgt-leg-act"></i><span>What actually happened</span></span>
-        <span class="bgt-leg"><i class="dot" id="bgt-leg-proj"></i><span>Where you&#8217;re heading</span></span>
+        <span class="bgt-leg"><i id="bgt-leg-proj" style="opacity:.45"></i><span>Where you&#8217;re heading</span></span>
       </div>
       <div class="bgt-cap" id="bgt-cap"></div>
     </div>
@@ -27096,17 +27096,44 @@ function bgtRenderMountain() {
   }
 
   var noAct = (c.ytdIn === 0 && c.ytdOut === 0);
+  // Year-end gap between projection and plan drives the wedge + end labels.
+  // Within 1.5% the two endings are one story: collapse to "≈ on plan".
+  var projEnd = proj[proj.length - 1];
+  var relGap = ct[11] > 0 ? Math.abs(projEnd - ct[11]) / ct[11] : 0;
+  var onPlan = relGap <= 0.015;
+  var endGood = mode === 'in' ? projEnd >= ct[11] : projEnd <= ct[11];
   var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" aria-label="Season money picture">';
   if (!noAct) svg += '<polygon points="' + X(0) + ',' + Y(0) + ' ' + pts(ca) + ' ' + X(idx) + ',' + Y(0) + '" fill="' + col + '" fill-opacity="0.22"/>';
-  svg += '<polyline points="' + pts(ct) + '" fill="none" stroke="#9CA3AF" stroke-width="2.5" stroke-dasharray="7 6" stroke-linejoin="round"/>';
+  // Gap wedge: the space between plan and projection, tinted by whether the
+  // year would end on the good or bad side. Only drawn when there is a real gap.
+  if (!noAct && !onPlan) {
+    var wedge = '';
+    for (i = idx; i < 12; i++) wedge += X(i).toFixed(1) + ',' + Y(proj[i - idx]).toFixed(1) + ' ';
+    for (i = 11; i >= idx; i--) wedge += X(i).toFixed(1) + ',' + Y(ct[i]).toFixed(1) + ' ';
+    svg += '<polygon points="' + wedge + '" fill="' + (endGood ? '#40916C' : '#B45309') + '" fill-opacity="0.14"/>';
+  }
+  svg += '<polyline points="' + pts(ct) + '" fill="none" stroke="#6B7280" stroke-width="2.5" stroke-dasharray="10 7" stroke-linejoin="round"/>';
   if (!noAct) {
     svg += '<polyline points="' + pts(ca) + '" fill="none" stroke="' + col + '" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>';
-    svg += '<polyline points="' + pts(proj, idx) + '" fill="none" stroke="' + col + '" stroke-width="2.5" stroke-dasharray="2 7" stroke-linecap="round"/>';
+    // Projection: solid and faded — colour + weight tell it apart from the
+    // dashed plan even where the two run together.
+    svg += '<polyline points="' + pts(proj, idx) + '" fill="none" stroke="' + col + '" stroke-width="2.5" stroke-opacity="0.42" stroke-linecap="round" stroke-linejoin="round"/>';
+    if (!onPlan) svg += '<circle cx="' + X(11) + '" cy="' + Y(projEnd) + '" r="4.5" fill="' + col + '" fill-opacity="0.5"/>';
   }
   svg += '<line x1="' + X(idx) + '" y1="' + (noAct ? T : Y(ca[idx]) + 8) + '" x2="' + X(idx) + '" y2="' + (H - B) + '" stroke="#D1D5DB" stroke-width="1.5"/>';
   if (!noAct) svg += '<circle cx="' + X(idx) + '" cy="' + Y(ca[idx]) + '" r="7" fill="' + col + '" stroke="#fff" stroke-width="2.5"/>';
   svg += '<text x="' + X(idx) + '" y="' + (H - B + 20) + '" text-anchor="middle" font-size="11" font-weight="800" fill="#1B4332">' + (af ? 'VANDAG' : 'TODAY') + '</text>';
-  svg += '<text x="' + (X(11) + 10) + '" y="' + (Y(ct[11]) + 4) + '" font-size="12.5" font-weight="800" fill="#374151">🏁 ' + (af ? 'Doelwit ' : 'Goal ') + bgtFmt(ct[11]) + '</text>';
+  // End labels: both numbers live at the right edge, so the story stays
+  // readable even where the lines touch mid-chart.
+  if (noAct || onPlan) {
+    svg += '<text x="' + (X(11) + 10) + '" y="' + (Y(ct[11]) + 4) + '" font-size="12.5" font-weight="800" fill="#374151">🏁 ' + (af ? 'Doelwit ' : 'Goal ') + bgtFmt(ct[11]) +
+      (onPlan && !noAct ? ' · ≈ ' + (af ? 'op plan' : 'on plan') : '') + '</text>';
+  } else {
+    var yPlan = Y(ct[11]), yYou = Y(projEnd);
+    if (Math.abs(yPlan - yYou) < 17) yYou = yPlan + (yYou >= yPlan ? 17 : -17);
+    svg += '<text x="' + (X(11) + 10) + '" y="' + (yPlan + 4) + '" font-size="12" font-weight="700" fill="#6B7280">🏁 ' + (af ? 'Plan ' : 'Plan ') + bgtFmt(ct[11]) + '</text>';
+    svg += '<text x="' + (X(11) + 10) + '" y="' + (yYou + 4) + '" font-size="12" font-weight="800" fill="' + (endGood ? '#2D6A4F' : '#B45309') + '">' + (af ? 'Jy ' : 'You ') + bgtFmt(projEnd) + '</text>';
+  }
   [0,3,6,9,11].forEach(function(n) {
     if (Math.abs(n - idx) < 1) return;
     svg += '<text x="' + X(n) + '" y="' + (H - B + 20) + '" text-anchor="middle" font-size="10.5" font-weight="600" fill="#9CA3AF">' + c.fyMonths[n].split(' ')[0] + '</text>';
@@ -27458,38 +27485,38 @@ function bgtSaveMonth() {
   if (chIn || chOut) { dataChanged('budget'); toast('Month updated', 'success'); }
 }
 
-// ── Print: bank-ready budget vs actual one-pager ──
+// ── Print: bank-ready budget vs actual — uses the app's printWindow preview,
+//    same as the P&L / Cash Flow statements and the asset register ──
 function bgtPrint() {
   var c = BGT_LAST || bgtCompute();
-  var w = window.open('', '_blank');
-  if (!w) { toast('Pop-up blocked — allow pop-ups to print', 'error'); return; }
-  var farm = '';
-  try { farm = (ST.profile && (ST.profile.farmName || ST.profile.name)) || ST.farmName || ''; } catch(e) {}
+  var farm = (typeof FARM !== 'undefined' && FARM && FARM.name) ? FARM.name : 'Farm';
   var rows = '', i;
   for (i = 0; i < 12; i++) {
     var m = c.fyMonths[i], past = i <= c.pac.idx;
+    var nb = (c.tIn[m]||0) - (c.tOut[m]||0);
+    var na = (c.aIn[m]||0) - (c.aOut[m]||0);
     rows += '<tr><td>' + m + '</td>' +
-      '<td>' + bgtFmt(c.tIn[m]||0)  + '</td><td>' + (past ? bgtFmt(c.aIn[m]||0)  : '–') + '</td>' +
-      '<td>' + bgtFmt(c.tOut[m]||0) + '</td><td>' + (past ? bgtFmt(c.aOut[m]||0) : '–') + '</td>' +
-      '<td>' + bgtFmt((c.tIn[m]||0)-(c.tOut[m]||0)) + '</td><td>' + (past ? bgtFmt((c.aIn[m]||0)-(c.aOut[m]||0)) : '–') + '</td></tr>';
+      '<td class="amt">' + bgtFmt(c.tIn[m]||0)  + '</td><td class="amt">' + (past ? bgtFmt(c.aIn[m]||0)  : '–') + '</td>' +
+      '<td class="amt">' + bgtFmt(c.tOut[m]||0) + '</td><td class="amt">' + (past ? bgtFmt(c.aOut[m]||0) : '–') + '</td>' +
+      '<td class="amt">' + bgtFmt(nb) + '</td><td class="amt' + (past && na < 0 ? ' neg' : '') + '">' + (past ? bgtFmt(na) : '–') + '</td></tr>';
   }
-  w.document.write('<!DOCTYPE html><html><head><title>Budget vs actual</title><style>' +
-    'body{font-family:-apple-system,Segoe UI,sans-serif;color:#111827;padding:28px;font-size:13px}' +
-    'h1{font-size:19px;margin:0 0 2px}h2{font-size:13px;font-weight:400;color:#6B7280;margin:0 0 18px}' +
-    'table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}' +
-    'th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6B7280;text-align:right;padding:7px 9px;border-bottom:2px solid #111827}' +
-    'th:first-child,td:first-child{text-align:left}td{padding:6px 9px;border-bottom:1px solid #E5E7EB;text-align:right}' +
-    'tfoot td{font-weight:700;border-top:2px solid #111827;border-bottom:none}' +
-    '.note{margin-top:14px;font-size:11px;color:#6B7280}' +
-    '</style></head><body>' +
-    '<h1>' + (farm ? farm + ' — ' : '') + 'Budget vs actual</h1>' +
-    '<h2>' + c.fyMonths[0] + ' – ' + c.fyMonths[11] + ' financial year · printed ' + new Date().toLocaleDateString() + '</h2>' +
-    '<table><thead><tr><th>Month</th><th>Income budget</th><th>Income actual</th><th>Spend budget</th><th>Spend actual</th><th>Net budget</th><th>Net actual</th></tr></thead>' +
-    '<tbody>' + rows + '</tbody>' +
-    '<tfoot><tr><td>Year</td><td>' + bgtFmt(c.annualIn) + '</td><td>' + bgtFmt(c.ytdIn) + '</td><td>' + bgtFmt(c.annualOut) + '</td><td>' + bgtFmt(c.ytdOut) + '</td><td>' + bgtFmt(c.annualNet) + '</td><td>' + bgtFmt(c.ytdNet) + '</td></tr></tfoot></table>' +
-    '<div class="note">Actual columns run to the current month. Produced by AgriInsights — figures come from the farm’s own captured records.</div>' +
-    '<script>window.print()<\/script></body></html>');
-  w.document.close();
+  var projNet = c.projIn - c.projOut;
+  var html =
+    '<h1>Budget vs Actual</h1>' +
+    '<div class="meta">' + farm + ' &nbsp;&middot;&nbsp; ' + c.fyMonths[0] + ' – ' + c.fyMonths[11] + ' financial year &nbsp;&middot;&nbsp; prepared ' + new Date().toLocaleDateString('en-ZA') + '</div>' +
+    '<button onclick="window.print()" style="background:#1B4332;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;margin-bottom:20px">🖨 Print / Save as PDF</button>' +
+    '<h2>Month by month</h2>' +
+    '<table><tr><th>Month</th><th class="amt">Income budget</th><th class="amt">Income actual</th><th class="amt">Spend budget</th><th class="amt">Spend actual</th><th class="amt">Net budget</th><th class="amt">Net actual</th></tr>' +
+    rows +
+    '<tr class="total"><td>YEAR</td><td class="amt">' + bgtFmt(c.annualIn) + '</td><td class="amt">' + bgtFmt(c.ytdIn) + '</td><td class="amt">' + bgtFmt(c.annualOut) + '</td><td class="amt">' + bgtFmt(c.ytdOut) + '</td><td class="amt">' + bgtFmt(c.annualNet) + '</td><td class="amt">' + bgtFmt(c.ytdNet) + '</td></tr></table>' +
+    '<h2>Position at a glance</h2>' +
+    '<table>' +
+    '<tr><td>Income so far vs plan-to-date</td><td class="amt' + (c.aheadIn >= 0 ? ' pos' : ' neg') + '">' + (c.aheadIn >= 0 ? '+' : '−') + bgtFmt(Math.abs(c.aheadIn)) + '</td></tr>' +
+    '<tr><td>Spending so far vs plan-to-date</td><td class="amt' + (c.aheadOut >= 0 ? ' pos' : ' neg') + '">' + (c.aheadOut >= 0 ? '−' : '+') + bgtFmt(Math.abs(c.aheadOut)) + '</td></tr>' +
+    '<tr class="total"><td>Projected year-end net (if the rest of the year goes to plan)</td><td class="amt">' + bgtFmt(projNet) + '</td></tr>' +
+    '</table>' +
+    '<p style="font-size:12px;color:#666;margin-top:18px">Actual columns run to the current month. Prepared from AgriInsights — figures come from the farm’s own captured records, to be confirmed against source documents.</p>';
+  printWindow('Budget vs Actual — ' + farm, html);
 }
 
 // ── Retained setup helpers (annual totals, patterns, pull-from-plan) ──
