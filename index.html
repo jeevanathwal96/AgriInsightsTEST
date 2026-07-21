@@ -4156,6 +4156,15 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 .or-arch-rec .rby{font-size:10.5px;color:var(--t4);font-weight:600;flex:none;padding-top:2px}
 .or-arch-empty{text-align:center;color:var(--t4);font-size:12.5px;padding:22px}
 @media(max-width:560px){.or-arch-rec .rd{width:52px}}
+/* attachment capture + inline chips */
+.or-attbtn{border:1.5px dashed var(--gl);background:var(--gb);color:var(--gd);border-radius:10px;padding:9px 14px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;width:100%}
+.or-attbtn:hover{background:var(--gp)}
+.or-att-chosen{display:flex;align-items:center;gap:9px;border:1px solid var(--br);border-radius:9px;padding:7px 11px;margin-top:8px;background:#fff;font-size:12px}
+.or-att-chosen .fi{width:28px;height:28px;border-radius:7px;background:#EAF3DE;display:flex;align-items:center;justify-content:center;font-size:13px;flex:none}
+.or-att-chosen .fn{flex:1;min-width:0;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.or-att-chosen .fn small{color:var(--t4);font-weight:600;margin-left:5px}
+.or-att-chosen button{border:none;background:none;color:var(--t4);font-size:15px;cursor:pointer;flex:none;font-family:inherit}
+.or-att-inline{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;color:var(--gm);border:1px solid var(--br);border-radius:7px;padding:1px 7px;margin-left:6px;cursor:pointer;white-space:nowrap;background:#fff}
 </style>
 
 </head>
@@ -33543,6 +33552,19 @@ LANG_PAIRS.push(
   ["records","rekords"],
   ["record","rekord"]
 );
+/* Documents upgrade copy (simulated clean). */
+LANG_PAIRS.push(
+  ["weighbridge slip or delivery note","weegbrug-strokie of afleweringsnota"],
+  ["mix sheet or operator record","mengblad of operateur-rekord"],
+  ["Attach a document / photo","Heg 'n dokument / foto aan"],
+  ["trap sheet, mix record…","valstrik-blad, mengrekord…"],
+  ["Log a new entry","Teken 'n nuwe inskrywing aan"],
+  ["trap report or photo","valstrik-verslag of foto"],
+  ["Save entry","Stoor inskrywing"],
+  ["Choose file","Kies lêer"],
+  ["History","Geskiedenis"],
+  ["optional","opsioneel"]
+);
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
 
 // Key-based dictionary — elements tagged data-t translate exactly and reversibly
@@ -43764,7 +43786,15 @@ var OR_BUYER_SCHEMES=[
 function orP3Ensure(){
   if(!ST_FRUIT.comply) return;
   OR_EXPORT_CONTROLS.forEach(function(c){
-    if(!ST_FRUIT.comply[c.key]) ST_FRUIT.comply[c.key]={ic:c.ic,title:c.title,what:c.desc+'. '+(c.market!=='All export'?('Required for '+c.market+' market'+(/·/.test(c.market)?'s':'')+'.'):'Traceability for every export carton.'),type:'control',cropcat:(c.cat==='*'?'':c.cat),market:c.market,status:c.status,statusTag:(c.tag==='amber'?'amber':'green'),expiry:'',docs:[]};
+    var e=ST_FRUIT.comply[c.key]||{};
+    // Always (re)write the canonical fields so partial/legacy entries self-heal; keep user docs & edited status.
+    ST_FRUIT.comply[c.key]={
+      ic:c.ic, title:c.title,
+      what:c.desc+'. '+(c.market!=='All export'?('Required for '+c.market+' market'+(/·/.test(c.market)?'s':'')+'.'):'Traceability for every export carton.'),
+      type:'control', cropcat:(c.cat==='*'?'':c.cat), market:c.market,
+      status:e.status||c.status, statusTag:e.statusTag||(c.tag==='amber'?'amber':'green'),
+      expiry:e.expiry||'', docs:(e.docs&&e.docs.length)?e.docs:[]
+    };
   });
   if(!ST_FRUIT.buyerSchemes) ST_FRUIT.buyerSchemes={grasp:true,rainforest:false,tesco:false,brcgs:false};
   if(!ST_FRUIT.orRecMode) ST_FRUIT.orRecMode='status';
@@ -43849,14 +43879,14 @@ function orAllRecords(){
   var out=[];
   try{ (ST_FRUIT.harvest||[]).forEach(function(h){
     var blk=h.bid?((orBlockById(h.bid)||{}).name||orParseBlk(h.t)):orParseBlk(h.t);
-    out.push({iso:h.dateISO||null,type:'pick',tlabel:'Pick',block:blk,note:h.s||'',by:h.to||'',att:null,season:orSeasonOf(h.dateISO)});
+    out.push({iso:h.dateISO||null,type:'pick',tlabel:'Pick',block:blk,note:h.s||'',by:h.to||'',att:h.att||null,season:orSeasonOf(h.dateISO)});
   }); }catch(e){}
   try{ OR_CAT_ORDER.forEach(function(cat){ (ST_FRUIT.sprayDiary[cat]||[]).forEach(function(x){
     var blk=x.bid?((orBlockById(x.bid)||{}).name||orParseBlk(x.s)):orParseBlk(x.s);
-    out.push({iso:x.dateISO||null,type:'spray',tlabel:'Spray',block:blk,note:x.t||'',by:orParseBy(x.s),att:null,season:orSeasonOf(x.dateISO)});
+    out.push({iso:x.dateISO||null,type:'spray',tlabel:'Spray',block:blk,note:x.t||'',by:orParseBy(x.s),att:x.att||null,season:orSeasonOf(x.dateISO)});
   }); }); }catch(e){}
   try{ Object.keys(ST_FRUIT.comply||{}).forEach(function(k){ var c=ST_FRUIT.comply[k]; if(!c) return;
-    (c.docs||[]).forEach(function(dc){ out.push({iso:dc.iso||null,type:(c.type==='pest'?'check':'inspection'),tlabel:(c.type==='pest'?'Check':'Record'),block:'',note:c.title+' — '+(dc.name||'document'),by:'',att:dc.name||null,season:orSeasonOf(dc.iso)}); });
+    (c.docs||[]).forEach(function(dc){ out.push({iso:dc.iso||null,type:(c.type==='pest'?'check':'inspection'),tlabel:(c.type==='pest'?'Check':'Record'),block:'',note:(c.title||'Record')+' — '+(dc.name||'document'),by:'',att:(dc.id?dc:null),season:orSeasonOf(dc.iso)}); });
     (c.checks||[]).forEach(function(ck){ var iso=ck.iso||ck.dateISO||null; out.push({iso:iso,type:'check',tlabel:'Check',block:ck.block||'',note:c.title+(ck.note?(' — '+ck.note):(ck.reading?(' — '+ck.reading):'')),by:ck.by||'',att:ck.att||null,season:orSeasonOf(iso)}); });
   }); }catch(e){}
   return out;
@@ -43866,7 +43896,7 @@ function orArchMatch(r){
   if(OR_ARCH.att && !r.att) return false;
   if(OR_ARCH.season!=='all' && r.season!==OR_ARCH.season) return false;
   var q=(OR_ARCH.q||'').trim().toLowerCase();
-  if(q){ var hay=((r.note||'')+' '+(r.block||'')+' '+(r.by||'')+' '+(r.att||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
+  if(q){ var hay=((r.note||'')+' '+(r.block||'')+' '+(r.by||'')+' '+((r.att&&r.att.name)||'')).toLowerCase(); if(hay.indexOf(q)<0) return false; }
   return true;
 }
 function orArchSeasons(recs){
@@ -43878,7 +43908,7 @@ function orArchSeasons(recs){
 function orArchRow(r){
   var dt=r.iso?new Date(r.iso):null;
   var dlabel=(dt&&!isNaN(dt.getTime()))?(orFmtDM(dt)+'<br>'+dt.getFullYear()):'—';
-  var att=r.att?'<div class="or-arch-att">📎 '+esc(r.att)+'</div>':'';
+  var att=r.att?('<div class="or-arch-att"'+(r.att.id?(' onclick="orOpenAttachment(\''+r.att.id+'\')"'):'')+'>📎 '+esc(r.att.name||'document')+(r.att.id?' <span style="color:var(--gm)">›</span>':'')+'</div>'):'';
   return '<div class="or-arch-rec"><div class="rd">'+dlabel+'</div><div class="rmid"><div class="rtop"><span class="or-arch-type '+r.type+'">'+esc(r.tlabel)+'</span>'+(r.block?'<span class="rblk">'+esc(r.block)+'</span>':'')+'</div><div class="rnote">'+esc(r.note)+'</div>'+att+'</div>'+(r.by?'<div class="rby">'+esc(r.by)+'</div>':'')+'</div>';
 }
 function orRenderArchive(){
@@ -43907,11 +43937,12 @@ function orArchCycleSeason(){
   orRenderArchive();
 }
 function orOpenArchive(){
+  if(typeof orP3Ensure==='function'){ try{ orP3Ensure(); }catch(e){} }
   OR_ARCH={q:'',type:'all',att:false,season:'all',open:{}};
   var body=$('or-arch-body'); if(!body) return;
   body.innerHTML=''+
    '<div class="or-arch-hd"><div class="or-arch-ic">🗂️</div><div><div class="or-arch-t">All records</div><div class="or-arch-s">Every spray, pick &amp; check — across all blocks &amp; seasons</div></div>'+
-     '<div class="or-arch-act"><button class="btn-sec" onclick="orExportAudit()">📋 Export audit pack</button><button class="or-arch-x" onclick="orCloseArchive()">✕</button></div></div>'+
+     '<div class="or-arch-act"><button class="btn-sec" onclick="orArchExport()">📋 Export audit pack</button><button class="or-arch-x" onclick="orCloseArchive()">✕</button></div></div>'+
    '<div class="or-arch-tools"><div class="or-arch-search"><span>🔎</span><input id="or-arch-q" placeholder="Search notes, products, operators…" oninput="orArchSearch(this.value)"></div>'+
      '<div class="or-arch-ssel" onclick="orArchCycleSeason()">📅 <span id="or-arch-seasonlbl">All seasons</span> ▾</div></div>'+
    '<div class="or-arch-chips" id="or-arch-chips">'+
@@ -43973,18 +44004,89 @@ function orCloseModal(){ var bg=$('or-modal-bg'); if(bg) bg.classList.remove('on
 function orDocKind(n){n=(n||'').toLowerCase();if(/\.(jpg|jpeg|png|gif|webp|heic)$/.test(n))return 'image';if(/\.pdf$/.test(n))return 'pdf';return 'file';}
 function orDocList(arr,empty){
   if(!arr||!arr.length) return '<div class="or-docempty">'+empty+'</div>';
-  return arr.map(function(d,i){return '<div class="or-doc"><div class="or-docic">'+(d.kind==='image'?'\uD83D\uDDBC\uFE0F':d.kind==='pdf'?'\uD83D\uDCC4':'\uD83D\uDCCE')+'</div><div style="flex:1"><div class="or-docnm">'+d.name+'</div><div class="or-docmeta">'+(d.size?d.size+' \u00b7 ':'')+'added '+d.added+(d.expiry?' \u00b7 expires '+d.expiry:'')+'</div></div><button class="or-othx" onclick="orRemoveDoc('+i+')">\u00d7</button></div>';}).join('');
+  return arr.map(function(d,i){var op=d.id?(' onclick="orOpenAttachment(\''+d.id+'\')" style="cursor:pointer" title="Open"':'');return '<div class="or-doc"'+op+'><div class="or-docic">'+(d.kind==='image'?'\uD83D\uDDBC\uFE0F':d.kind==='pdf'?'\uD83D\uDCC4':'\uD83D\uDCCE')+'</div><div style="flex:1"><div class="or-docnm">'+d.name+(d.id?' <span style="font-size:10px;color:var(--gm);font-weight:700">Open \u203A</span>':'')+'</div><div class="or-docmeta">'+(d.size?d.size+' \u00b7 ':'')+'added '+(d.added||'today')+(d.expiry?' \u00b7 expires '+d.expiry:'')+'</div></div><button class="or-othx" onclick="event.stopPropagation();orRemoveDoc('+i+')">\u00d7</button></div>';}).join('');
 }
 function orCurDocs(){ if(OR_MODAL_CTX.type==='comply') return ST_FRUIT.comply[OR_MODAL_CTX.key].docs; var b=orBlockById(OR_MODAL_CTX.key); b.docs=b.docs||[]; return b.docs; }
 function orTriggerDoc(){ var f=$('or-doc-file'); if(f){ f.value=''; f.click(); } }
+/* ===== Documents upgrade: IndexedDB file storage + real attachments ===== */
+var OR_DB_NAME='agri_files', OR_DB_STORE='files', _orDB=null;
+function orDBOpen(){
+  return new Promise(function(res,rej){
+    if(_orDB) return res(_orDB);
+    if(typeof indexedDB==='undefined'||!indexedDB) return rej('no-idb');
+    var rq=indexedDB.open(OR_DB_NAME,1);
+    rq.onupgradeneeded=function(e){ var db=e.target.result; if(!db.objectStoreNames.contains(OR_DB_STORE)) db.createObjectStore(OR_DB_STORE); };
+    rq.onsuccess=function(e){ _orDB=e.target.result; res(_orDB); };
+    rq.onerror=function(){ rej(rq.error||'idb-error'); };
+  });
+}
+function orDBPut(id,dataURL){ return orDBOpen().then(function(db){ return new Promise(function(res,rej){ var tx=db.transaction(OR_DB_STORE,'readwrite'); tx.objectStore(OR_DB_STORE).put(dataURL,id); tx.oncomplete=function(){res(id);}; tx.onerror=function(){rej(tx.error);}; }); }); }
+function orDBGet(id){ return orDBOpen().then(function(db){ return new Promise(function(res,rej){ var tx=db.transaction(OR_DB_STORE,'readonly'); var rq=tx.objectStore(OR_DB_STORE).get(id); rq.onsuccess=function(){res(rq.result||null);}; rq.onerror=function(){rej(rq.error);}; }); }); }
+function orDBDel(id){ return orDBOpen().then(function(db){ return new Promise(function(res){ try{ var tx=db.transaction(OR_DB_STORE,'readwrite'); tx.objectStore(OR_DB_STORE).delete(id); tx.oncomplete=function(){res();}; tx.onerror=function(){res();}; }catch(e){ res(); } }); }).catch(function(){}); }
+function orDataURLtoBlob(d){ try{ var a=d.split(','),m=(a[0].match(/:(.*?);/)||[])[1]||'application/octet-stream',b=atob(a[1]),n=b.length,u=new Uint8Array(n); while(n--) u[n]=b.charCodeAt(n); return new Blob([u],{type:m}); }catch(e){ return null; } }
+function orOpenAttachment(id){
+  if(!id) return;
+  orDBGet(id).then(function(d){
+    if(!d){ if(typeof orToast==='function') orToast('File not found — it may have been added on another device','info'); return; }
+    var blob=orDataURLtoBlob(d); if(!blob){ return; }
+    var url=URL.createObjectURL(blob); var w=window.open(url,'_blank'); if(!w){ if(typeof orToast==='function') orToast('Allow pop-ups to open documents','info'); }
+    setTimeout(function(){ try{ URL.revokeObjectURL(url); }catch(e){} },60000);
+  }).catch(function(){ if(typeof orToast==='function') orToast('Could not open the file','error'); });
+}
+/* Read a File → store bytes in IndexedDB → return a lightweight ref {id,name,kind,size,iso,added}. */
+function orAttachFile(file){
+  return new Promise(function(res,rej){
+    var r=new FileReader();
+    r.onload=function(e){
+      var id='af'+Date.now().toString(36)+Math.random().toString(16).slice(2,7);
+      var kb=file.size/1024, sz=kb>=1024?(kb/1024).toFixed(1)+' MB':Math.max(1,Math.round(kb))+' KB';
+      orDBPut(id,e.target.result).then(function(){
+        res({id:id,name:file.name,kind:orDocKind(file.name),size:sz,iso:new Date().toISOString().slice(0,10),added:orFmtDM(new Date())});
+      }).catch(rej);
+    };
+    r.onerror=function(){ rej(r.error); };
+    r.readAsDataURL(file);
+  });
+}
+/* Pending-attachment field for log forms (pick/spray/check). */
+var OR_ATT_PENDING={};
+function orAttachField(pfx,hint){
+  return '<div class="or-frow"><label class="or-flbl">Attach a document / photo <span class="or-fh">optional'+(hint?(' — '+hint):'')+'</span></label>'+
+    '<input type="file" id="or-att-'+pfx+'" accept="image/*,application/pdf" style="display:none" onchange="orAttachPick(\''+pfx+'\',this)">'+
+    '<button type="button" class="or-attbtn" onclick="document.getElementById(\'or-att-'+pfx+'\').click()">📎 Choose file</button>'+
+    '<div id="or-att-chip-'+pfx+'"></div></div>';
+}
+function orAttachPick(pfx,inp){
+  var f=inp.files&&inp.files[0]; if(!f) return;
+  if(f.size>8*1024*1024){ if(typeof orToast==='function') orToast('File too big — max 8MB','error'); inp.value=''; return; }
+  var chip=$('or-att-chip-'+pfx); if(chip) chip.innerHTML='<div class="or-att-chosen">⏳ uploading '+esc(f.name)+'…</div>';
+  orAttachFile(f).then(function(att){ OR_ATT_PENDING[pfx]=att; var el=$('or-att-chip-'+pfx); if(el) el.innerHTML='<div class="or-att-chosen"><span class="fi">📄</span><span class="fn">'+esc(att.name)+' <small>'+att.size+'</small></span><button onclick="orAttachClear(\''+pfx+'\')">✕</button></div>'; })
+    .catch(function(){ if(typeof orToast==='function') orToast('Could not attach the file','error'); var el=$('or-att-chip-'+pfx); if(el) el.innerHTML=''; });
+}
+function orAttachClear(pfx){ var a=OR_ATT_PENDING[pfx]; if(a&&a.id) orDBDel(a.id); OR_ATT_PENDING[pfx]=null; var el=$('or-att-chip-'+pfx); if(el) el.innerHTML=''; }
+function orAttachTake(pfx){ var a=OR_ATT_PENDING[pfx]||null; OR_ATT_PENDING[pfx]=null; return a; }
+/* Season-scoped export from the archive (respects current filters/season). */
+function orArchExport(){
+  var recs=orAllRecords().filter(orArchMatch).sort(function(a,b){ return (b.iso||'').localeCompare(a.iso||''); });
+  var scope=(OR_ARCH.season==='all')?'all seasons':(OR_ARCH.season+' season');
+  var withDoc=recs.filter(function(r){return r.att;}).length;
+  var rows=recs.map(function(r){ var dt=r.iso?new Date(r.iso):null; var d=(dt&&!isNaN(dt.getTime()))?(orFmtDM(dt)+' '+dt.getFullYear()):'—'; return '<tr><td>'+d+'</td><td>'+esc(r.tlabel)+'</td><td>'+esc(r.block||'')+'</td><td>'+esc(r.note||'')+'</td><td>'+(r.att?esc(r.att.name||'yes'):'')+'</td></tr>'; }).join('');
+  var win=window.open('','_blank'); if(!win){ if(typeof orToast==='function') orToast('Allow pop-ups to export the audit pack','info'); return; }
+  win.document.write('<html><head><title>Audit pack — '+scope+'</title><style>body{font-family:system-ui,sans-serif;padding:24px;color:#111827}h1{font-size:18px;margin:0 0 4px}p.meta{color:#6B7280;font-size:12px;margin:0 0 14px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #E5E7EB;padding:6px 9px;text-align:left;vertical-align:top}th{background:#F3F6F4;font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#6B7280}tr:nth-child(even) td{background:#FCFDFC}.f{font-size:11px;color:#6B7280;margin-top:14px}</style></head><body><h1>Orchard records — '+scope+'</h1><p class="meta">'+recs.length+' records · '+withDoc+' with documents · generated '+new Date().toLocaleDateString()+'</p><table><tr><th>Date</th><th>Type</th><th>Block</th><th>Note</th><th>Document</th></tr>'+rows+'</table><p class="f">Documents are stored securely in the app on this device — open each record in AgriInsights to view or download its attachment.</p></body></html>');
+  win.document.close();
+}
+
 function orDocChosen(inp){
   var arr=orCurDocs();
-  Array.prototype.forEach.call(inp.files,function(f){ arr.push({name:f.name,kind:orDocKind(f.name),size:Math.round(f.size/1024)+' KB',added:'today'}); });
-  orSave();
-  if(OR_MODAL_CTX.type==='comply'){ orOpenComply(OR_MODAL_CTX.key); orRenderComply(); } else { orOpenBlock(OR_MODAL_CTX.key); }
-  orToast('Document saved');
+  var files=Array.prototype.slice.call(inp.files);
+  if(typeof orToast==='function') orToast('Saving '+files.length+' document'+(files.length===1?'':'s')+'…','info');
+  Promise.all(files.map(function(f){ return orAttachFile(f).then(function(att){ arr.push(att); }); })).then(function(){
+    orSave();
+    if(OR_MODAL_CTX.type==='comply'){ orOpenComply(OR_MODAL_CTX.key); orRenderComply(); } else { orOpenBlock(OR_MODAL_CTX.key); }
+    orToast('Document saved');
+  }).catch(function(){ if(typeof orToast==='function') orToast('Could not save the document','error'); });
 }
-function orRemoveDoc(i){ var arr=orCurDocs(); arr.splice(i,1); orSave(); if(OR_MODAL_CTX.type==='comply'){ orOpenComply(OR_MODAL_CTX.key); orRenderComply(); } else { orOpenBlock(OR_MODAL_CTX.key); } }
+function orRemoveDoc(i){ var arr=orCurDocs(); var d=arr[i]; if(d&&d.id&&typeof orDBDel==='function') orDBDel(d.id); arr.splice(i,1); orSave(); if(OR_MODAL_CTX.type==='comply'){ orOpenComply(OR_MODAL_CTX.key); orRenderComply(); } else { orOpenBlock(OR_MODAL_CTX.key); } }
 function orSetExpiry(v){ if(OR_MODAL_CTX.type==='comply'){ ST_FRUIT.comply[OR_MODAL_CTX.key].expiry=v; orSave(); } }
 
 function orOpenComply(key){
@@ -43996,10 +44098,13 @@ function orOpenComply(key){
     h+='</div>';
   }
   if(c.log){ h+='<div class="or-mlbl">Latest</div><div class="or-mlog">'+c.log+'</div>'; }
-  if(c.type==='pest'){
+  if(c.type==='pest'||c.type==='control'){
     if(!c.checks) c.checks=[];
-    if(c.checks.length){ h+='<div class="or-mlbl">Recent checks</div>'+c.checks.map(function(ck){return '<div class="or-mline"><b>'+ck.date+'</b> — '+ck.note+'</div>';}).join(''); }
-    h+='<div class="or-mlbl">Log a trap count / inspection</div><div style="display:flex;gap:8px"><input class="or-mdate" id="or-chk-note" placeholder="e.g. 3 moths in trap 4" style="flex:1"><button class="btn-pri" onclick="orSaveCheck()">Save</button></div>';
+    if(c.checks.length){ h+='<div class="or-mlbl">History</div>'+c.checks.map(function(ck){ var att=ck.att?' <span class="or-att-inline" onclick="orOpenAttachment(\''+ck.att.id+'\')">📎 '+esc(ck.att.name)+'</span>':''; return '<div class="or-mline"><b>'+esc(ck.date||'')+'</b> — '+esc(ck.note||'')+(ck.by?' <span style="color:var(--t4)">· '+esc(ck.by)+'</span>':'')+att+'</div>'; }).join(''); }
+    h+='<div class="or-mlbl">Log a new entry</div>'+
+       '<div class="or-fg2" style="margin-bottom:8px"><input type="date" class="or-mdate" id="or-chk-date" value="'+new Date().toISOString().slice(0,10)+'"><input class="or-mdate" id="or-chk-note" placeholder="'+(c.type==='control'?'reading / note, e.g. 0.4 moths/trap':'e.g. 3 moths in trap 4')+'"></div>'+
+       orAttachField('chk',c.type==='control'?'trap sheet, mix record…':'trap report or photo')+
+       '<button class="btn-pri" onclick="orSaveCheck()" style="margin-top:2px">＋ Save entry</button>';
   }
   if(key==='water'){
     if(!c.readings) c.readings=[];
@@ -44010,7 +44115,7 @@ function orOpenComply(key){
   h+='<div style="display:flex;gap:10px;margin-top:18px"><button class="btn-pri" onclick="orCloseModal()">Done</button></div></div>';
   orModalHTML(h);
 }
-function orSaveCheck(){ var v=($('or-chk-note')||{}).value; if(!v) return; var c=ST_FRUIT.comply[OR_MODAL_CTX.key]; c.checks=c.checks||[]; c.checks.unshift({date:'today',note:v}); orSave(); orOpenComply(OR_MODAL_CTX.key); orToast('Check logged'); }
+function orSaveCheck(){ var v=($('or-chk-note')||{}).value; var att=orAttachTake('chk'); if(!v && !att){ if(typeof orToast==='function') orToast('Add a note or a document first','info'); return; } var dv=($('or-chk-date')||{}).value; var dt=dv?new Date(dv):new Date(); var c=ST_FRUIT.comply[OR_MODAL_CTX.key]; c.checks=c.checks||[]; c.checks.unshift({date:orFmtDM(dt),iso:dt.toISOString().slice(0,10),note:v||'(document only)',by:'You',att:att||null}); orSave(); orOpenComply(OR_MODAL_CTX.key); orToast('Entry logged ✓'); }
 function orSaveReading(){ var v=parseFloat(($('or-wtr-read')||{}).value); if(isNaN(v)) return; var c=ST_FRUIT.comply.water; c.readings=c.readings||[]; c.readings.unshift({date:'today',m3:Math.round(v).toLocaleString('en-ZA')}); c.log=Math.round(v).toLocaleString('en-ZA')+' of 480,000 m\u00b3 used this year'; orSave(); orOpenComply('water'); orRenderComply(); orToast('Meter reading saved'); }
 
 function orOpenBlock(id){
@@ -44061,6 +44166,7 @@ function orOpenSprayForm(){
     '<div class="or-frow"><label class="or-flbl">What did you spray?</label><input class="or-finp" id="or-sp-prod" placeholder="e.g. Delegate"></div>'+
     '<div class="or-fg2"><div class="or-frow"><label class="or-flbl">What for? <span class="or-fh">optional</span></label><input class="or-finp" id="or-sp-for" placeholder="e.g. False Codling Moth"></div><div class="or-frow"><label class="or-flbl">Date sprayed</label><input class="or-finp" id="or-sp-date" type="date"></div></div>'+
     '<div class="or-fg2"><div class="or-frow"><label class="or-flbl">Days to wait (PHI)</label><input class="or-finp" id="or-sp-phi" type="number" value="14"></div><div class="or-frow"><label class="or-flbl">Cost <span class="or-fh">optional — posts to expenses</span></label><input class="or-finp" id="or-sp-cost" inputmode="decimal" placeholder="R 0"></div></div>'+
+    orAttachField('sp','mix sheet or operator record')+
     '<div style="display:flex;gap:10px;margin-top:8px"><button class="btn-pri" onclick="orSaveSpray()">Save spray</button><button class="btn-sec" onclick="orCloseModal()">Cancel</button></div></div>';
   orModalHTML(h);
   var di=$('or-sp-date'); if(di&&!di.value) di.value=new Date().toISOString().split('T')[0];
@@ -44071,7 +44177,7 @@ function orSaveSpray(){
   var cost=parseFloat($('or-sp-cost').value)||0;
   var dt=new Date($('or-sp-date').value||new Date()); var cat=b.cat;
   ST_FRUIT.sprayDiary[cat]=ST_FRUIT.sprayDiary[cat]||[];
-  ST_FRUIT.sprayDiary[cat].unshift({id:'os'+Date.now().toString(36),ic:'\uD83E\uDDEA',t:prod+(forx?' — for '+forx:''),s:b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray'),phi:{eu:days,uk:days,us:Math.max(0,days-7),local:0},bid:b.id,product:prod,forx:forx,dateISO:dt.toISOString().slice(0,10)});
+  ST_FRUIT.sprayDiary[cat].unshift({id:'os'+Date.now().toString(36),ic:'\uD83E\uDDEA',t:prod+(forx?' — for '+forx:''),s:b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray'),phi:{eu:days,uk:days,us:Math.max(0,days-7),local:0},bid:b.id,product:prod,forx:forx,dateISO:dt.toISOString().slice(0,10),att:orAttachTake('sp')});
   ST_FRUIT.phi[cat]=ST_FRUIT.phi[cat]||[];
   var safe={eu:orFmtDM(orAddDays(dt,days)),uk:orFmtDM(orAddDays(dt,days)),us:orFmtDM(orAddDays(dt,Math.max(0,days-7))),local:orFmtDM(dt)};
   var ex=ST_FRUIT.phi[cat].filter(function(r){return r.n.indexOf(b.name)===0;})[0];
@@ -44089,6 +44195,7 @@ function orOpenPickForm(){
     '<div class="or-fg2"><div class="or-frow"><label class="or-flbl">How much picked (tons)</label><input class="or-finp" id="or-pk-tons" inputmode="decimal" placeholder="38"></div><div class="or-frow"><label class="or-flbl">Cartons packed <span class="or-fh">optional</span></label><input class="or-finp" id="or-pk-cartons" inputmode="decimal" placeholder="2540"></div></div>'+
     '<div class="or-fg2"><div class="or-frow"><label class="or-flbl">Date</label><input class="or-finp" id="or-pk-date" type="date"></div><div class="or-frow"><label class="or-flbl">Picking labour cost <span class="or-fh">optional — to Workers</span></label><input class="or-finp" id="or-pk-labour" inputmode="decimal" placeholder="R 0"></div></div>'+
     '<div class="or-fg2"><div class="or-frow"><label class="or-flbl">How many pickers? <span class="or-fh">optional</span></label><input class="or-finp" id="or-pk-pickers" inputmode="numeric" placeholder="e.g. 12"></div><div class="or-frow"><label class="or-flbl">Sold to / packhouse <span class="or-fh">optional</span></label><input class="or-finp" id="or-pk-to" placeholder="e.g. SRCC packhouse"></div></div>'+
+    orAttachField('pk','weighbridge slip or delivery note')+
     '<div style="display:flex;gap:10px;margin-top:8px"><button class="btn-pri" onclick="orSavePick()">Save pick</button><button class="btn-sec" onclick="orCloseModal()">Cancel</button></div></div>';
   orModalHTML(h);
   var di=$('or-pk-date'); if(di&&!di.value) di.value=new Date().toISOString().split('T')[0];
@@ -44100,7 +44207,7 @@ function orSavePick(){
   var dt=new Date($('or-pk-date').value||new Date()); var to=$('or-pk-to').value;
   var net=orNetPer(b);
   var money=(b.cat==='berry')?tons*1000*net:(b.cat==='veg'?tons*net:cartons*net);
-  ST_FRUIT.harvest.unshift({id:'oh'+Date.now().toString(36),ic:b.icon,t:OR_CATS[b.cat].nm+' \u00b7 '+b.name+' — '+orFmtDM(dt),s:tons+' t'+(cartons?' \u00b7 '+cartons.toLocaleString('en-ZA')+' cartons':'')+(to?' \u00b7 '+to:''),r:money?orRm(money):'\u2014',bid:b.id,tn:tons,cat:b.cat,tons:tons,cartons:cartons,to:to,money:money,dateISO:dt.toISOString().slice(0,10)});
+  ST_FRUIT.harvest.unshift({id:'oh'+Date.now().toString(36),ic:b.icon,t:OR_CATS[b.cat].nm+' \u00b7 '+b.name+' — '+orFmtDM(dt),s:tons+' t'+(cartons?' \u00b7 '+cartons.toLocaleString('en-ZA')+' cartons':'')+(to?' \u00b7 '+to:''),r:money?orRm(money):'\u2014',bid:b.id,tn:tons,cat:b.cat,tons:tons,cartons:cartons,to:to,money:money,dateISO:dt.toISOString().slice(0,10),att:orAttachTake('pk')});
   var dstr=orFmtDM(dt)+' '+dt.getFullYear();
   if(money>0 && typeof queueOrSave==='function'){
     queueOrSave({date:dstr,desc:b.name+' — '+(cartons?cartons.toLocaleString('en-ZA')+' cartons':tons+' t'),cat:'Fruit Sales',type:'income',amt:Math.round(money),method:'Bank Deposit'});
