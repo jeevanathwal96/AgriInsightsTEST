@@ -1334,11 +1334,48 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .bgt-plan-helper-btn.out{background:var(--or)}
 .bgt-plan-helper-btn.out:hover{background:#C2570A}
 
+
+/* Phase 2 — cards as the switch, needs-a-look strip, category envelopes */
+.bgt-kpi.selv{border:2px solid var(--selc,var(--gd));box-shadow:0 6px 16px rgba(27,67,50,.13)}
+.bgt-kpi.selv::after{content:'';position:absolute;left:0;right:0;bottom:0;height:4px;background:var(--selc,var(--gd))}
+.bgt-flags{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.bgt-flags .lab{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--t3)}
+.bgt-flag{border:1px solid #FDE68A;background:#FFF8E6;color:#B45309;font-size:11.5px;font-weight:800;border-radius:99px;padding:5px 12px;cursor:pointer;font-family:inherit}
+.bgt-flag:hover{box-shadow:var(--shm)}
+.bgt-grph{display:flex;align-items:baseline;gap:10px;padding:12px 4px 8px;flex-wrap:wrap}
+.bgt-grph b{font-size:13px;font-weight:800;color:var(--t1)}
+.bgt-grph .why{font-size:11px;color:var(--t3)}
+.bgt-grph .tot{margin-left:auto;font-size:11.5px;font-weight:700;color:var(--t3)}
+.bgt-grph .tot b{font-size:11.5px;color:var(--t2)}
+.bgt-colhead{display:grid;grid-template-columns:minmax(130px,1.1fr) 1.6fr 88px 88px 150px;gap:12px;padding:0 14px 6px;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.bgt-colhead .num{text-align:right}
+.bgt-rows{background:#fff;border:1px solid var(--br);border-radius:var(--rl);overflow:hidden}
+.bgt-row{display:grid;grid-template-columns:minmax(130px,1.1fr) 1.6fr 88px 88px 150px;gap:12px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--br2);cursor:pointer}
+.bgt-row:last-child{border-bottom:none}
+.bgt-row:hover{background:var(--bg)}
+.bgt-cnm{font-size:12.5px;font-weight:800;color:var(--t1)}
+.bgt-cbar{position:relative;height:12px;background:var(--br2);border-radius:99px}
+.bgt-cfill{position:absolute;left:0;top:0;bottom:0;border-radius:99px;max-width:100%}
+.bgt-cfill.in{background:var(--gl)}
+.bgt-cfill.out{background:var(--or)}
+.bgt-cfill.over{background:var(--rd)}
+.bgt-ctick{position:absolute;top:-3px;bottom:-3px;width:2.5px;border-radius:2px;background:var(--t1)}
+.bgt-cnum{font-size:12.5px;font-weight:700;color:var(--t2);text-align:right;font-variant-numeric:tabular-nums}
+.bgt-cnum.strong{font-weight:800;color:var(--t1)}
+.bgt-cnum.tap{text-decoration:underline dotted;text-underline-offset:3px}
+.bgt-cleft{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.bgt-cleft .amt{font-size:12.5px;font-weight:800;color:var(--t1);font-variant-numeric:tabular-nums}
+.bgt-cats-empty{font-size:12.5px;color:var(--t3);padding:8px 2px}
+
 @media (max-width:780px){
   .bgt-kpi-strip{grid-template-columns:1fr;gap:10px}
   .bgt-months{grid-template-columns:repeat(6,1fr)}
   .bgt-target-row{grid-template-columns:1fr}
   .bgt-sheet-grid{grid-template-columns:1fr}
+  .bgt-colhead{display:none}
+  .bgt-row{grid-template-columns:1fr;gap:8px}
+  .bgt-cnum{display:none}
+  .bgt-cleft{align-items:flex-start}
 }
 
 .year-sum{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:16px;box-shadow:var(--sh)}
@@ -5340,14 +5377,14 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
 
     <div class="bgt-kpi-strip" id="bgt-kpis">
-      <div class="bgt-kpi kpi-tap" style="--stripe:var(--gl)" onclick="kpiOpen('bgtIn')"><span class="kpi-i">&#9432;</span>
+      <div class="bgt-kpi kpi-tap" id="bgt-kpi-card-in" style="--stripe:var(--gl);--selc:var(--gd)" onclick="setBudgetTab('in')"><span class="kpi-i" onclick="event.stopPropagation();kpiOpen('bgtIn')">&#9432;</span>
         <div class="bgt-kpi-l"><span>Income</span><span id="bgt-kpi-in-chip"></span></div>
         <div class="bgt-kpi-v" id="bgt-kpi-in-v">&#8212;</div>
         <div class="bgt-kpi-t" id="bgt-kpi-in-t"></div>
         <div class="bgt-track"><div class="bgt-fill" id="bgt-kpi-in-fill" style="--fillc:var(--gl);width:0%"></div><div class="bgt-tick" id="bgt-kpi-in-tick" style="display:none"></div></div>
         <div class="bgt-trackfoot"><span id="bgt-kpi-in-f1"></span><span id="bgt-kpi-in-f2"></span></div>
       </div>
-      <div class="bgt-kpi kpi-tap" style="--stripe:var(--or)" onclick="kpiOpen('bgtOut')"><span class="kpi-i">&#9432;</span>
+      <div class="bgt-kpi kpi-tap" id="bgt-kpi-card-out" style="--stripe:var(--or);--selc:var(--or)" onclick="setBudgetTab('out')"><span class="kpi-i" onclick="event.stopPropagation();kpiOpen('bgtOut')">&#9432;</span>
         <div class="bgt-kpi-l"><span>Spending</span><span id="bgt-kpi-out-chip"></span></div>
         <div class="bgt-kpi-v" id="bgt-kpi-out-v">&#8212;</div>
         <div class="bgt-kpi-t" id="bgt-kpi-out-t"></div>
@@ -5363,13 +5400,12 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       </div>
     </div>
 
+    <div class="bgt-flags" id="bgt-flags" style="display:none"></div>
+
     <div class="bgt-card" id="bgt-mountain-card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
         <div><div class="bgt-card-h">Your season picture</div><div class="bgt-card-s">Are you where you planned to be by now?</div></div>
-        <div class="bgt-seg" role="tablist">
-          <button class="bgt-segb on" id="bgt-seg-in" onclick="setBudgetTab('in')">Income</button>
-          <button class="bgt-segb" id="bgt-seg-out" onclick="setBudgetTab('out')">Spending</button>
-        </div>
+        <span class="bgt-chip mut" id="bgt-mode-chip">Showing Income — tap a card above to switch</span>
       </div>
       <div id="bgt-mountain"></div>
       <div class="bgt-legend">
@@ -5378,6 +5414,15 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <span class="bgt-leg"><i id="bgt-leg-proj" style="opacity:.45"></i><span>Where you&#8217;re heading</span></span>
       </div>
       <div class="bgt-cap" id="bgt-cap"></div>
+    </div>
+
+    <div class="bgt-card" id="bgt-cats-card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+        <div><div class="bgt-card-h" id="bgt-cats-title">Where the money comes from</div><div class="bgt-card-s">Follows the card you tapped above — Income or Spending</div></div>
+        <button class="bgt-btn" onclick="bgtAddCat()">+ Add category budget</button>
+      </div>
+      <div id="bgt-cats"></div>
+      <div class="bgt-card-s" style="margin-top:10px">Tap a row to see its transactions · tap the target to change it.</div>
     </div>
 
     <div class="bgt-card" id="bgt-months-card">
@@ -5485,6 +5530,19 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <button class="bgt-btn" onclick="bgtCloseMonth()">Cancel</button>
         <button class="bgt-btn pri" onclick="bgtSaveMonth()">Save changes</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Add a category budget -->
+  <div class="bgt-sheetwrap" id="bgt-addcat-wrap" onclick="if(event.target===this)bgtAddCatClose()">
+    <div class="bgt-sheet" style="width:min(440px,100%)" role="dialog" aria-modal="true">
+      <div class="bgt-sheet-hd"><div class="bgt-sheet-t">Add a category budget</div><button class="bgt-sheet-x" onclick="bgtAddCatClose()" aria-label="Close">&#215;</button></div>
+      <div class="bgt-sheet-sub" id="bgt-addcat-sub"></div>
+      <label class="bgt-target-label">Which category?</label>
+      <select id="bgt-addcat-sel"></select>
+      <label class="bgt-target-label" style="margin-top:12px">Amount for the year</label>
+      <div class="bgt-sheet-inwrap"><span class="bgt-sheet-r">R</span><input class="bgt-sheet-in" id="bgt-addcat-amt" type="number" inputmode="numeric"></div>
+      <div class="bgt-sheet-foot"><span></span><button class="bgt-btn" onclick="bgtAddCatClose()">Cancel</button><button class="bgt-btn pri" onclick="bgtAddCatSave()">Save</button></div>
     </div>
   </div>
 
@@ -26854,10 +26912,8 @@ var BGT_FULL_MONTH = {Jan:'January',Feb:'February',Mar:'March',Apr:'April',May:'
 // wrapper at the foot of the file re-translates after it runs.
 function setBudgetTab(tab) {
   BGT_MODE = (tab === 'out') ? 'out' : 'in';
-  var si = $('bgt-seg-in'), so = $('bgt-seg-out');
-  if (si) si.className = 'bgt-segb' + (BGT_MODE === 'in' ? ' on' : '');
-  if (so) so.className = 'bgt-segb' + (BGT_MODE === 'out' ? ' on' : '');
-  bgtRenderMountain();
+  BGT_MODE_USER = true;   // the farmer chose — stop auto-picking this session
+  bgtApplyMode();
 }
 
 // Legacy no-op (old hint banner is gone; kept so stored state and old calls stay harmless)
@@ -26942,9 +26998,11 @@ function renderBudgetsPage() {
   if (isFirst) {
     bgtRenderFirstRun(c);
   } else {
+    bgtAutoMode(c);
     bgtRenderHero(c);
     bgtRenderKpis(c);
-    bgtRenderMountain();
+    bgtRenderFlags(c);
+    bgtApplyMode();
     bgtRenderMonths(c);
     bgtRenderSetupRow(c);
     bgtRenderDrift(c);
@@ -27483,6 +27541,258 @@ function bgtSaveMonth() {
   if (chOut) ST.budgets.expensePattern = 'custom';
   bgtCloseMonth();
   if (chIn || chOut) { dataChanged('budget'); toast('Month updated', 'success'); }
+}
+
+// ── Phase 2: category envelopes — cards are the switch, problems come to you ──
+var BGT_MODE_USER = false;  // set once the farmer taps a card; auto-pick stands down
+
+var BGT_INCOME_CATS  = ['Crop Sales','Fruit Sales','Livestock Sales','Milk & Dairy','Wool & Fibre','Government Grant','Agritourism','Rental Income','Other'];
+var BGT_EXPENSE_CATS = ['Seeds & Planting','Fertiliser','Crop Protection','Veterinary & Animal Health','Animal Feed','Livestock Purchases','Fuel & Oil','Labour & Wages','Machinery & Repairs','Irrigation & Water','Land & Rental','Insurance','Admin & Professional Fees','Loan Repayments','Co-op levies','Co-op storage & handling','Co-op transport','Other Expenses'];
+// Lumpy categories are judged against their whole season, never the month —
+// the fertiliser lump in Oct or the wool cheque in Aug must not cry wolf.
+var BGT_CAT_LUMP = {
+  income:  {'Crop Sales':1,'Fruit Sales':1,'Livestock Sales':1,'Wool & Fibre':1},
+  expense: {'Seeds & Planting':1,'Fertiliser':1,'Crop Protection':1,'Livestock Purchases':1,'Co-op levies':1,'Co-op storage & handling':1,'Co-op transport':1}
+};
+
+function bgtCatStore(side) {
+  if (!ST.budgets.catTargets) ST.budgets.catTargets = {};
+  if (!ST.budgets.catTargets[side]) ST.budgets.catTargets[side] = {};
+  return ST.budgets.catTargets[side];
+}
+
+// Last year's per-category totals — the pre-fill for category targets
+function bgtLastYearCatMix(side, c) {
+  var map = {}, out = {}, total = 0;
+  c.fyMonths.forEach(function(m) { var p = m.split(' '); map[p[0] + ' ' + (parseInt(p[1],10) - 1)] = 1; });
+  ST.txns.forEach(function(t) {
+    var d = parseDate(t.date); if (!d) return;
+    if (!map[MONTH_LABELS_SHORT[d.m] + ' ' + d.y]) return;
+    if ((side === 'income') !== (t.type === 'income')) return;
+    var cat = t.cat || 'Other';
+    out[cat] = (out[cat]||0) + (t.amt||0); total += t.amt||0;
+  });
+  return {mix:out, total:total};
+}
+
+// Effective per-category targets: the farmer's saved figures win; otherwise
+// last year's mix scaled to this year's annual target. Derived values are
+// shown but not persisted until the farmer edits one.
+function bgtCatTargets(side, c) {
+  var store = bgtCatStore(side), out = {}, k, hasStore = false;
+  for (k in store) { if (store[k] > 0) { hasStore = true; break; } }
+  if (hasStore) { for (k in store) { if (store[k] > 0) out[k] = store[k]; } return out; }
+  var annual = side === 'income' ? c.annualIn : c.annualOut;
+  if (annual <= 0) return out;
+  var ly = bgtLastYearCatMix(side, c);
+  if (ly.total <= 0) return out;
+  for (k in ly.mix) out[k] = Math.round(annual * ly.mix[k] / ly.total);
+  return out;
+}
+
+// One pass over this year's transactions → actuals per category, both sides
+function bgtCatActuals(c) {
+  var inb = {}, outb = {}, idx = {};
+  c.fyMonths.forEach(function(m, i) { if (i <= c.pac.idx) idx[m] = 1; });
+  ST.txns.forEach(function(t) {
+    var d = parseDate(t.date); if (!d) return;
+    if (!idx[MONTH_LABELS_SHORT[d.m] + ' ' + d.y]) return;
+    var cat = t.cat || 'Other';
+    if (t.type === 'income') inb[cat] = (inb[cat]||0) + (t.amt||0);
+    else outb[cat] = (outb[cat]||0) + (t.amt||0);
+  });
+  return {income:inb, expense:outb};
+}
+
+// Rows, verdicts and flags for both sides, cached per render. Steady categories
+// pace against the elapsed fraction of the year; lumpy ones only against their
+// full-season figure. During the grace period nothing is judged.
+function bgtCatData(c) {
+  if (c._cats) return c._cats;
+  var actuals = bgtCatActuals(c);
+  var elapsed = Math.max(0, Math.min(1, (c.pac.idx + c.pac.frac) / 12));
+  var noAct = (c.ytdIn === 0 && c.ytdOut === 0);
+  var res = {income:{rows:[],flags:[]}, expense:{rows:[],flags:[]}};
+  ['income','expense'].forEach(function(side) {
+    var isIn = side === 'income';
+    var targets = bgtCatTargets(side, c), act = actuals[side];
+    var names = {}, k;
+    for (k in targets) names[k] = 1;
+    for (k in act) names[k] = 1;
+    Object.keys(names).forEach(function(cat) {
+      var t = targets[cat]||0, a = act[cat]||0;
+      if (t <= 0 && a <= 0) return;
+      var lump = !!(BGT_CAT_LUMP[side][cat]);
+      var v, flag = null, flagAmt = 0;
+      if (noAct) {
+        v = {cls:'mut', txt:'planned'};
+      } else if (lump) {
+        if (t > 0 && a > t + Math.max(t*0.02, 1000)) {
+          if (isIn) v = {cls:'good', txt:'✓ ' + bgtFmt(a-t) + ' past goal'};
+          else { v = {cls:'warn', txt:'▲ ' + bgtFmt(a-t) + ' over target'}; flag = '▲ ' + cat + ' — ' + bgtFmt(a-t) + ' over target'; flagAmt = a-t; }
+        }
+        else if (t > 0 && a >= t*0.98) v = {cls:'good', txt: isIn ? '✓ target reached' : '✓ spent as planned'};
+        else if (a > 0) v = {cls:'mut', txt:'season under way'};
+        else v = {cls:'mut', txt:'still to come'};
+      } else {
+        var exp = t * elapsed;
+        var tol = Math.max(exp * 0.10, 1000);
+        var diff = a - exp;
+        if (t <= 0) v = {cls:'mut', txt:'no target'};
+        else if (isIn) {
+          if (diff < -tol) { v = {cls:'warn', txt:'▲ ' + bgtFmt(-diff) + ' behind pace'}; flag = '▲ ' + cat + ' — ' + bgtFmt(-diff) + ' behind pace'; flagAmt = -diff; }
+          else if (diff > tol) v = {cls:'good', txt:'✓ ' + bgtFmt(diff) + ' ahead of pace'};
+          else v = {cls:'good', txt:'✓ on pace'};
+        } else {
+          if (diff > tol) { v = {cls:'warn', txt:'▲ ' + bgtFmt(diff) + ' over pace'}; flag = '▲ ' + cat + ' — ' + bgtFmt(diff) + ' over pace'; flagAmt = diff; }
+          else if (diff < -tol) v = {cls:'good', txt:'✓ ' + bgtFmt(-diff) + ' under pace'};
+          else v = {cls:'good', txt:'✓ on pace'};
+        }
+      }
+      res[side].rows.push({cat:cat, target:t, act:a, lump:lump,
+        tickPct: (!lump && t > 0) ? Math.min(100, Math.round(elapsed*100)) : 0, v:v});
+      if (flag) res[side].flags.push({side:side, cat:cat, txt:flag, amt:flagAmt});
+    });
+    res[side].rows.sort(function(a,b) { return (b.target - a.target) || (b.act - a.act); });
+  });
+  c._cats = res;
+  return res;
+}
+
+// Auto-attention: with no choice made this session, open on the side that is
+// doing worse — whole-farm pacing first, then the biggest flagged category.
+function bgtAutoMode(c) {
+  if (BGT_MODE_USER) return;
+  if (c.ytdIn === 0 && c.ytdOut === 0) { BGT_MODE = 'in'; return; }
+  var behind = c.expIn  > 0 ? Math.max(0, -c.aheadIn  / c.expIn)  : 0;
+  var over   = c.expOut > 0 ? Math.max(0, -c.aheadOut / c.expOut) : 0;
+  if (Math.max(behind, over) > 0.02) { BGT_MODE = over >= behind ? 'out' : 'in'; return; }
+  var d = bgtCatData(c), top = null;
+  d.income.flags.concat(d.expense.flags).forEach(function(f) { if (!top || f.amt > top.amt) top = f; });
+  BGT_MODE = top ? (top.side === 'income' ? 'in' : 'out') : 'in';
+}
+
+function bgtRenderFlags(c) {
+  var box = $('bgt-flags'); if (!box) return;
+  var d = bgtCatData(c);
+  var flags = d.expense.flags.concat(d.income.flags);
+  flags.sort(function(a,b) { return b.amt - a.amt; });
+  flags = flags.slice(0, 4);
+  if (!flags.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'flex';
+  box.innerHTML = '<span class="lab">Needs a look</span>' + flags.map(function(f) {
+    return '<button type="button" class="bgt-flag" onclick="setBudgetTab(\'' + (f.side === 'income' ? 'in' : 'out') + '\')">' + f.txt + '</button>';
+  }).join('');
+}
+
+// Everything that follows the farmer's selected side, in one place
+function bgtApplyMode() {
+  var ki = $('bgt-kpi-card-in'), ko = $('bgt-kpi-card-out');
+  if (ki) ki.classList.toggle('selv', BGT_MODE === 'in');
+  if (ko) ko.classList.toggle('selv', BGT_MODE === 'out');
+  var mc = $('bgt-mode-chip');
+  if (mc) mc.textContent = (BGT_MODE === 'in' ? 'Showing Income' : 'Showing Spending') + ' — tap a card above to switch';
+  var col = BGT_MODE === 'in' ? '#40916C' : '#E07B2A';
+  ['bgt-mountain-card','bgt-cats-card'].forEach(function(id) {
+    var el = $(id); if (el) el.style.borderTop = '3px solid ' + col;
+  });
+  bgtRenderMountain();
+  bgtRenderCats();
+}
+
+function bgtRenderCats() {
+  var host = $('bgt-cats'); if (!host) return;
+  var c = BGT_LAST || bgtCompute();
+  var side = BGT_MODE === 'in' ? 'income' : 'expense';
+  var isIn = side === 'income';
+  setEl('bgt-cats-title', isIn ? 'Where the money comes from' : 'Where the money goes');
+  var rows = bgtCatData(c)[side].rows;
+  if (!rows.length) {
+    host.innerHTML = '<div class="bgt-cats-empty">No category targets yet — set your annual target first, or add one here.</div>';
+    return;
+  }
+  var lumps = rows.filter(function(r){ return r.lump; });
+  var steads = rows.filter(function(r){ return !r.lump; });
+  var cols = isIn ? ['Target','Received','Still to come'] : ['Plan','Spent','Left'];
+  function group(title, why, list) {
+    if (!list.length) return '';
+    var tp = 0, ta = 0;
+    list.forEach(function(r){ tp += r.target; ta += r.act; });
+    var h = '<div class="bgt-grph"><b>' + title + '</b><span class="why">' + why + '</span><span class="tot">' + bgtFmt(ta) + ' of <b>' + bgtFmt(tp) + '</b></span></div>';
+    h += '<div class="bgt-colhead"><span>Category</span><span>Season progress</span><span class="num">' + cols[0] + '</span><span class="num">' + cols[1] + '</span><span class="num">' + cols[2] + '</span></div>';
+    h += '<div class="bgt-rows">';
+    list.forEach(function(r) {
+      var pct = r.target > 0 ? Math.min(100, r.act / r.target * 100) : (r.act > 0 ? 100 : 0);
+      var over = !isIn && r.target > 0 && r.act > r.target;
+      var left = Math.max(0, r.target - r.act);
+      var catEsc = r.cat.replace(/'/g, "\\'");
+      h += '<div class="bgt-row" onclick="bgtCatRowTap(\'' + side + '\',\'' + catEsc + '\')">' +
+        '<div class="bgt-cname"><div class="bgt-cnm">' + r.cat + '</div></div>' +
+        '<div class="bgt-cbar"><div class="bgt-cfill ' + (over ? 'over' : (isIn ? 'in' : 'out')) + '" style="width:' + pct + '%"></div>' +
+          (r.tickPct > 0 ? '<div class="bgt-ctick" style="left:' + r.tickPct + '%"></div>' : '') + '</div>' +
+        '<div class="bgt-cnum tap" onclick="event.stopPropagation();bgtEditCat(\'' + side + '\',\'' + catEsc + '\')">' + bgtFmt(r.target) + '</div>' +
+        '<div class="bgt-cnum strong">' + bgtFmt(r.act) + '</div>' +
+        '<div class="bgt-cleft"><span class="amt">' + bgtFmt(left) + '</span>' + bgtChip(r.v.cls, r.v.txt) + '</div>' +
+      '</div>';
+    });
+    return h + '</div>';
+  }
+  host.innerHTML =
+    group(isIn ? '🌾 Big lumps' : '🌱 Season lumps', 'judged against the season — quiet until their moment', lumps) +
+    group('📅 Steady through the year', isIn ? 'should arrive every month — chase gaps early' : 'steadier month to month — watch the tick', steads);
+}
+
+function bgtCatRowTap(side, cat) {
+  try {
+    if (side === 'income') {
+      nav('income');
+      var s = $('inc-cat-filter'); if (s) { s.value = cat; if (typeof filterIncomeTx === 'function') filterIncomeTx(); }
+    } else {
+      nav('expenses');
+      var s2 = $('exp-cat-filter'); if (s2) { s2.value = cat; if (typeof filterExpTx === 'function') filterExpTx(); }
+    }
+  } catch(e) {}
+}
+
+async function bgtEditCat(side, cat) {
+  var c = BGT_LAST || bgtCompute();
+  var cur = bgtCatTargets(side, c)[cat] || 0;
+  var input = await appPrompt(side === 'income' ? 'Income target' : 'Spending budget', Math.round(cur), {sub:cat + ' — for the whole year', prefix:'R'});
+  if (input === null) return;
+  var val = parseFloat(String(input).replace(/[^\d.\-]/g, '')) || 0;
+  bgtCatSet(side, cat, val, c);
+}
+
+function bgtCatSet(side, cat, val, c) {
+  // The first edit adopts the derived set, so changing one number
+  // doesn't silently zero all the other categories.
+  var store = bgtCatStore(side), has = false, k;
+  for (k in store) { if (store[k] > 0) { has = true; break; } }
+  if (!has) { var eff = bgtCatTargets(side, c); for (k in eff) store[k] = eff[k]; }
+  store[cat] = Math.round(val);
+  dataChanged('budget');
+}
+
+function bgtAddCat() {
+  var c = BGT_LAST || bgtCompute();
+  var side = BGT_MODE === 'in' ? 'income' : 'expense';
+  var all = side === 'income' ? BGT_INCOME_CATS : BGT_EXPENSE_CATS;
+  var have = bgtCatTargets(side, c);
+  var sel = $('bgt-addcat-sel');
+  if (sel) sel.innerHTML = all.filter(function(x) { return !(have[x] > 0); }).map(function(x) { return '<option>' + x + '</option>'; }).join('');
+  setEl('bgt-addcat-sub', side === 'income' ? 'A yearly target for one income category.' : 'A yearly budget for one spending category.');
+  var amt = $('bgt-addcat-amt'); if (amt) amt.value = '';
+  var w = $('bgt-addcat-wrap'); if (w) w.classList.add('open');
+  try { if (typeof langSync === 'function') langSync(w); } catch(e) {}
+}
+function bgtAddCatClose() { var w = $('bgt-addcat-wrap'); if (w) w.classList.remove('open'); }
+function bgtAddCatSave() {
+  var sel = $('bgt-addcat-sel'), amt = $('bgt-addcat-amt');
+  var cat = sel && sel.value, val = parseFloat(amt && amt.value) || 0;
+  bgtAddCatClose();
+  if (!cat || val <= 0) return;
+  bgtCatSet(BGT_MODE === 'in' ? 'income' : 'expense', cat, val, BGT_LAST || bgtCompute());
+  toast('Category budget added', 'success');
 }
 
 // ── Print: bank-ready budget vs actual — uses the app's printWindow preview,
@@ -32593,6 +32903,54 @@ LANG_PAIRS.push(
   ['Pull from my plan',                         'Trek uit my plan']
 );
 
+/* ── Budgets phase 2 — category envelopes copy (2026-07) ──
+   Full pairs for every new user-visible string, same rule as the block above. */
+LANG_PAIRS.push(
+  ['Rental Income',                             'Huurinkomste'],
+  ['Agritourism',                               'Agritoerisme'],
+  ['Needs a look',                              'Verdien ’n kykie'],
+  ['Showing Income',                            'Wys Inkomste'],
+  ['Showing Spending',                          'Wys Besteding'],
+  ['tap a card above to switch',                'tik ’n kaart hierbo om te wissel'],
+  ['Where the money comes from',                'Waar die geld vandaan kom'],
+  ['Where the money goes',                      'Waarheen die geld gaan'],
+  ['Follows the card you tapped above — Income or Spending',
+   'Volg die kaart wat jy hierbo getik het — Inkomste of Besteding'],
+  ['Add a category budget',                     'Voeg ’n kategoriebegroting by'],
+  ['Add category budget',                       'Voeg kategoriebegroting by'],
+  ['Which category?',                           'Watter kategorie?'],
+  ['Amount for the year',                       'Bedrag vir die jaar'],
+  ['A yearly target for one income category.',  '’n Jaarlikse doelwit vir een inkomstekategorie.'],
+  ['A yearly budget for one spending category.','’n Jaarlikse begroting vir een bestedingskategorie.'],
+  ['Category budget added',                     'Kategoriebegroting bygevoeg'],
+  ['Big lumps',                                 'Groot bedrae'],
+  ['Season lumps',                              'Seisoenbedrae'],
+  ['Steady through the year',                   'Bestendig deur die jaar'],
+  ['judged against the season — quiet until their moment',
+   'beoordeel teen die seisoen — stil tot hul oomblik'],
+  ['should arrive every month — chase gaps early',
+   'moet elke maand opdaag — jaag gapings vroeg na'],
+  ['steadier month to month — watch the tick',  'meer bestendig maand tot maand — hou die merkie dop'],
+  ['Season progress',                           'Seisoenvordering'],
+  ['Received',                                  'Ontvang'],
+  ['Still to come',                             'Kom nog'],
+  ['still to come',                             'kom nog'],
+  ['season under way',                          'seisoen aan die gang'],
+  ['target reached',                            'teiken bereik'],
+  ['spent as planned',                          'bestee soos beplan'],
+  ['over target',                               'oor teiken'],
+  ['no target',                                 'geen teiken'],
+  ['Spent',                                     'Bestee'],
+  ['Left',                                      'Oor'],
+  ['Target',                                    'Teiken'],
+  ['Category',                                  'Kategorie'],
+  ['for the whole year',                        'vir die hele jaar'],
+  ['Tap a row to see its transactions · tap the target to change it.',
+   'Tik ’n ry om sy transaksies te sien · tik die teiken om dit te verander.'],
+  ['No category targets yet — set your annual target first, or add one here.',
+   'Nog geen kategoriedoelwitte nie — stel eers jou jaardoelwit, of voeg een hier by.']
+);
+
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
 
 // Key-based dictionary — elements tagged data-t translate exactly and reversibly
@@ -37313,6 +37671,8 @@ var PAGE_TOURS = {
       text:'Three cards show the year so far. The black tick on each bar is where your plan says you should be today — so a quiet winter month doesn’t look like a crisis.', pos:'smart' },
     { target:'bgt-mountain-card', title:'The money mountain', icon:'⛰️', tab:'in',
       text:'The green mountain is money that has come in, growing through the year. Stay on top of the grey dashed line and you’re ahead of plan. Switch to Spending to see costs the same way.', pos:'smart' },
+    { target:'bgt-cats-card', title:'Every category, judged fairly', icon:'🧾',
+      text:'Income and spending split into the same categories you already record with. Steady ones are watched month by month; big seasonal ones are only judged against their season — so nothing cries wolf.', pos:'smart' },
     { target:'bgt-months-card', title:'Month by month', icon:'🗓️',
       text:'Finished months get a simple verdict. Tap any month to fine-tune its target — you choose whether the year total stays the same or moves with your change.', pos:'smart' },
     { target:'bgt-setup-row', title:'Your targets live here', icon:'✏️',
