@@ -1353,6 +1353,8 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .bgt-row{display:grid;grid-template-columns:minmax(130px,1.1fr) 1.6fr 88px 88px 150px;gap:12px;align-items:center;padding:11px 14px;border-bottom:1px solid var(--br2);cursor:pointer}
 .bgt-row:last-child{border-bottom:none}
 .bgt-row:hover{background:var(--bg)}
+.bgt-row-flash{animation:bgtRowFlash 1.8s ease-out}
+@keyframes bgtRowFlash{0%,40%{background:#FFF4D6;box-shadow:inset 0 0 0 2px #F5A623}100%{background:transparent;box-shadow:none}}
 .bgt-cnm{font-size:12.5px;font-weight:800;color:var(--t1)}
 .bgt-cbar{position:relative;height:12px;background:var(--br2);border-radius:99px}
 .bgt-cfill{position:absolute;left:0;top:0;bottom:0;border-radius:99px;max-width:100%}
@@ -5504,6 +5506,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div class="bgt-target-helper" id="bgt-in-pattern-helper"></div>
         </div>
       </div>
+      <button class="bgt-btn pri" style="width:100%;margin-top:16px;padding:12px;font-size:13.5px" onclick="bgtSaveTargetBox('in')">&#10003; Save income target</button>
     </div>
 
     <div class="bgt-plan-helper out" id="bgt-plan-helper-out">
@@ -5528,8 +5531,9 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
           <div class="bgt-target-helper" id="bgt-out-pattern-helper"></div>
         </div>
       </div>
+      <button class="bgt-btn pri" style="width:100%;margin-top:16px;padding:12px;font-size:13.5px;background:var(--or);border-color:var(--or)" onclick="bgtSaveTargetBox('out')">&#10003; Save spending budget</button>
     </div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:14px"><button class="bgt-btn" onclick="bgtToggleSetup()">Done</button></div>
+    <div style="display:flex;justify-content:center;margin-bottom:14px"><button class="bgt-btn" style="background:transparent;border:none;color:var(--t3)" onclick="bgtToggleSetup()">Close without changing</button></div>
   </div>
 
   <!-- Month editor sheet -->
@@ -27433,6 +27437,19 @@ function bgtToggleSetup(forceOpen) {
   }
 }
 
+// Per-box confirm: the typed total already saves live on each keystroke, so
+// this just spreads it across the months, confirms, and closes the editor —
+// whichever box you confirm, both boxes' figures are already persisted.
+function bgtSaveTargetBox(side) {
+  var inp = side === 'in' ? $('bgt-annual-input') : $('bgt-annual-exp-input');
+  var val = inp ? (parseFloat(inp.value) || 0) : 0;
+  var pat = side === 'in' ? (ST.budgets.incomePattern || 'harvest') : (ST.budgets.expensePattern || 'planting');
+  if (val > 0 && pat !== 'custom') applyBudgetPattern(side);
+  toast((side === 'in' ? 'Income target' : 'Spending budget') + ' saved', 'success');
+  var p = $('bgt-setup-panel'); if (p) p.classList.remove('open');
+  renderBudgetsPage();
+}
+
 function bgtFillEditor(c) {
   var ft = (typeof getFarmType === 'function') ? getFarmType() : 'generic';
   var copy = BUDGET_COPY[ft] || BUDGET_COPY.generic;
@@ -27588,6 +27605,14 @@ var BGT_CAT_LUMP = {
   expense: {'Seeds & Planting':1,'Fertiliser':1,'Crop Protection':1,'Livestock Purchases':1,'Co-op levies':1,'Co-op storage & handling':1,'Co-op transport':1}
 };
 
+// Catch-all / residual buckets ("Other", "Other Income", uncategorised…).
+// These are never a budget line a farmer manages, so they get no auto-target
+// and never raise a "Needs a look" flag — a big "Other" from messy history
+// must not swallow the year's target and then cry wolf.
+function bgtIsResidualCat(cat) {
+  return /^(other|uncategori[sz]ed|misc|miscellaneous|general|sundry)\b/i.test(String(cat || '').trim());
+}
+
 function bgtCatStore(side) {
   if (!ST.budgets.catTargets) ST.budgets.catTargets = {};
   if (!ST.budgets.catTargets[side]) ST.budgets.catTargets[side] = {};
@@ -27618,8 +27643,19 @@ function bgtCatTargets(side, c) {
   var annual = side === 'income' ? c.annualIn : c.annualOut;
   if (annual <= 0) return out;
   var ly = bgtLastYearCatMix(side, c);
-  if (ly.total <= 0) return out;
-  for (k in ly.mix) out[k] = Math.round(annual * ly.mix[k] / ly.total);
+  // Split across REAL categories only — a residual "Other" bucket from messy
+  // history shouldn't take a share of the target (and then flag as behind).
+  var basis = 0;
+  for (k in ly.mix) if (!bgtIsResidualCat(k)) basis += ly.mix[k];
+  // If last year was mostly uncategorised, the mix is too unreliable to split a
+  // target from — splitting across the few real categories would over-inflate
+  // them and raise false "behind" flags. Leave categories untargeted instead;
+  // the farmer can add targets per category when they want them.
+  if (basis <= 0 || basis < ly.total * 0.5) return out;
+  for (k in ly.mix) {
+    if (bgtIsResidualCat(k)) continue;
+    out[k] = Math.round(annual * ly.mix[k] / basis);
+  }
   return out;
 }
 
@@ -27656,9 +27692,13 @@ function bgtCatData(c) {
       var t = targets[cat]||0, a = act[cat]||0;
       if (t <= 0 && a <= 0) return;
       var lump = !!(BGT_CAT_LUMP[side][cat]);
+      var resid = bgtIsResidualCat(cat);
       var v, flag = null, flagAmt = 0;
       if (noAct) {
         v = {cls:'mut', txt:'planned'};
+      } else if (resid) {
+        // Catch-all: shown so the money isn't hidden, but never paced or flagged.
+        v = {cls:'mut', txt: a > 0 ? 'tracked, not targeted' : 'no target'};
       } else if (lump) {
         if (t > 0 && a > t + Math.max(t*0.02, 1000)) {
           if (isIn) v = {cls:'good', txt:'✓ ' + bgtFmt(a-t) + ' past goal'};
@@ -27682,8 +27722,8 @@ function bgtCatData(c) {
           else v = {cls:'good', txt:'✓ on pace'};
         }
       }
-      res[side].rows.push({cat:cat, target:t, act:a, lump:lump,
-        tickPct: (!lump && t > 0) ? Math.min(100, Math.round(elapsed*100)) : 0, v:v});
+      res[side].rows.push({cat:cat, target:t, act:a, lump:lump, resid:resid,
+        tickPct: (!lump && !resid && t > 0) ? Math.min(100, Math.round(elapsed*100)) : 0, v:v});
       if (flag) res[side].flags.push({side:side, cat:cat, txt:flag, amt:flagAmt});
     });
     res[side].rows.sort(function(a,b) { return (b.target - a.target) || (b.act - a.act); });
@@ -27714,8 +27754,30 @@ function bgtRenderFlags(c) {
   if (!flags.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
   box.style.display = 'flex';
   box.innerHTML = '<span class="lab">Needs a look</span>' + flags.map(function(f) {
-    return '<button type="button" class="bgt-flag" onclick="setBudgetTab(\'' + (f.side === 'income' ? 'in' : 'out') + '\')">' + f.txt + '</button>';
+    var cat = String(f.cat).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return '<button type="button" class="bgt-flag" onclick="bgtFlagTap(\'' + (f.side === 'income' ? 'in' : 'out') + '\',\'' + cat + '\')">' + f.txt + '</button>';
   }).join('');
+}
+
+// Tapping a "Needs a look" chip switches to that side AND scrolls to the exact
+// category row and flashes it — otherwise, if already on that side, the tap
+// looks like it does nothing.
+function bgtFlagTap(side, cat) {
+  setBudgetTab(side);
+  setTimeout(function() {
+    var card = $('bgt-cats-card');
+    var rows = document.querySelectorAll('#bgt-cats .bgt-row'), hit = null, i;
+    for (i = 0; i < rows.length; i++) {
+      var nm = rows[i].querySelector('.bgt-cnm');
+      if (nm && nm.textContent === cat) { hit = rows[i]; break; }
+    }
+    var target = hit || card;
+    if (target && target.scrollIntoView) target.scrollIntoView({behavior:'smooth', block:'center'});
+    if (hit) {
+      hit.classList.add('bgt-row-flash');
+      setTimeout(function(){ hit.classList.remove('bgt-row-flash'); }, 1800);
+    }
+  }, 70);
 }
 
 // Everything that follows the farmer's selected side, in one place
@@ -27759,13 +27821,15 @@ function bgtRenderCats() {
       var over = !isIn && r.target > 0 && r.act > r.target;
       var left = Math.max(0, r.target - r.act);
       var catEsc = r.cat.replace(/'/g, "\\'");
+      var tgtCell = (r.resid && r.target <= 0) ? '—' : bgtFmt(r.target);
+      var leftCell = (r.resid && r.target <= 0) ? '—' : bgtFmt(left);
       h += '<div class="bgt-row" onclick="bgtCatRowTap(\'' + side + '\',\'' + catEsc + '\')">' +
         '<div class="bgt-cname"><div class="bgt-cnm">' + r.cat + '</div></div>' +
-        '<div class="bgt-cbar"><div class="bgt-cfill ' + (over ? 'over' : (isIn ? 'in' : 'out')) + '" style="width:' + pct + '%"></div>' +
+        '<div class="bgt-cbar"><div class="bgt-cfill ' + (over ? 'over' : (isIn ? 'in' : 'out')) + '" style="width:' + (r.resid ? 0 : pct) + '%"></div>' +
           (r.tickPct > 0 ? '<div class="bgt-ctick" style="left:' + r.tickPct + '%"></div>' : '') + '</div>' +
-        '<div class="bgt-cnum tap" onclick="event.stopPropagation();bgtEditCat(\'' + side + '\',\'' + catEsc + '\')">' + bgtFmt(r.target) + '</div>' +
+        '<div class="bgt-cnum tap" onclick="event.stopPropagation();bgtEditCat(\'' + side + '\',\'' + catEsc + '\')">' + tgtCell + '</div>' +
         '<div class="bgt-cnum strong">' + bgtFmt(r.act) + '</div>' +
-        '<div class="bgt-cleft"><span class="amt">' + bgtFmt(left) + '</span>' + bgtChip(r.v.cls, r.v.txt) + '</div>' +
+        '<div class="bgt-cleft"><span class="amt">' + leftCell + '</span>' + bgtChip(r.v.cls, r.v.txt) + '</div>' +
       '</div>';
     });
     return h + '</div>';
@@ -33062,6 +33126,7 @@ LANG_PAIRS.push(
   ['spent as planned',                          'bestee soos beplan'],
   ['over target',                               'oor teiken'],
   ['no target',                                 'geen teiken'],
+  ['tracked, not targeted',                     'nagespoor, nie geteiken nie'],
   ['Spent',                                     'Bestee'],
   ['Left',                                      'Oor'],
   ['Target',                                    'Teiken'],
@@ -33107,7 +33172,12 @@ LANG_PAIRS.push(
   ['Type your current bank balance so the forecast starts from the right place.',
    'Tik jou huidige bankbalans sodat die vooruitskatting van die regte plek af begin.'],
   ['The forecast below starts from this. Update it whenever you like.',
-   'Die vooruitskatting hieronder begin hiervandaan. Werk dit by wanneer jy wil.']
+   'Die vooruitskatting hieronder begin hiervandaan. Werk dit by wanneer jy wil.'],
+  ['Save income target',                       'Stoor inkomstedoelwit'],
+  ['Save spending budget',                     'Stoor bestedingsbegroting'],
+  ['Close without changing',                   'Sluit sonder om te verander'],
+  ['Income target saved',                      'Inkomstedoelwit gestoor'],
+  ['Spending budget saved',                    'Bestedingsbegroting gestoor']
 );
 
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
