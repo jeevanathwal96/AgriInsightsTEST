@@ -43809,7 +43809,7 @@ function orP3Ensure(){
       what:c.desc+'. '+(c.market!=='All export'?('Required for '+c.market+' market'+(/·/.test(c.market)?'s':'')+'.'):'Traceability for every export carton.'),
       type:'control', cropcat:(c.cat==='*'?'':c.cat), market:c.market,
       status:e.status||c.status, statusTag:e.statusTag||(c.tag==='amber'?'amber':'green'),
-      expiry:e.expiry||'', docs:(e.docs&&e.docs.length)?e.docs:[]
+      expiry:e.expiry||'', docs:(e.docs&&e.docs.length)?e.docs:[], checks:(e.checks&&e.checks.length)?e.checks:[], log:e.log||''
     };
   });
   if(!ST_FRUIT.buyerSchemes) ST_FRUIT.buyerSchemes={grasp:true,rainforest:false,tesco:false,brcgs:false};
@@ -44107,7 +44107,7 @@ function orSetExpiry(v){ if(OR_MODAL_CTX.type==='comply'){ ST_FRUIT.comply[OR_MO
 
 function orOpenComply(key){
   orComplyEnsure(); OR_MODAL_CTX={type:'comply',key:key}; var c=ST_FRUIT.comply[key];
-  var h='<div class="or-mhd"><div class="or-mic">'+c.ic+'</div><div><div class="or-mt">'+c.title+'</div><div class="or-ms">'+c.what+'</div></div><button class="or-mx" onclick="orCloseModal()">\u00d7</button></div><div class="or-mbd">';
+  var h='<div class="or-mhd"><div class="or-mic">'+c.ic+'</div><div><div class="or-mt">'+c.title+'</div><div class="or-ms">'+orComplyTags(c)+c.what+'</div></div><button class="or-mx" onclick="orCloseModal()">\u00d7</button></div><div class="or-mbd">';
   if(c.type==='cert'||(c.type==='record'&&c.expiry!==undefined)){
     h+='<div class="or-mlbl">Status</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="or-tag '+c.statusTag+'">'+c.status+'</span>';
     if(c.expiry!==undefined&&c.expiry!=='') h+='<label style="font-size:12px;color:var(--t3)">Expiry / renewal date <input type="date" class="or-mdate" value="'+c.expiry+'" onchange="orSetExpiry(this.value)"></label>';
@@ -44116,7 +44116,6 @@ function orOpenComply(key){
   if(c.log){ h+='<div class="or-mlbl">Latest</div><div class="or-mlog">'+c.log+'</div>'; }
   if(c.type==='pest'||c.type==='control'){
     if(!c.checks) c.checks=[];
-    if(c.checks.length){ h+='<div class="or-mlbl">History</div><div class="or-mtl">'+c.checks.map(function(ck){ var att=ck.att?'<div class="or-mtl-att" onclick="orOpenAttachment(\''+ck.att.id+'\')">📎 '+esc(ck.att.name)+' ›</div>':''; var tp=ck.ctype?'<span class="or-mtl-type '+orCtypeClass(ck.ctype)+'">'+esc(ck.ctype)+'</span>':''; return '<div class="or-mtl-ev'+(orCtypeClass(ck.ctype)==='reg'?' reg':'')+'"><div class="or-mtl-top"><span class="d">'+esc(ck.date||'')+'</span>'+tp+(ck.by?'<span class="by">'+esc(ck.by)+'</span>':'')+'</div><div class="or-mtl-note">'+esc(ck.note||'')+'</div>'+att+'</div>'; }).join('')+'</div>'; }
     h+='<div class="or-mlbl">Log a new entry</div>'+
        '<div class="or-fg2" style="margin-bottom:8px"><input type="date" class="or-mdate" id="or-chk-date" value="'+new Date().toISOString().slice(0,10)+'"><select class="or-mdate" id="or-chk-type">'+['Trap check','Control applied','Inspection'].map(function(o){return '<option>'+o+'</option>';}).join('')+'</select></div>'+
        '<input class="or-mdate" id="or-chk-note" placeholder="'+(c.type==='control'?'reading / note, e.g. 0.4 moths/trap':'e.g. 3 moths in trap 4')+'" style="width:100%;margin-bottom:8px">'+
@@ -44128,11 +44127,19 @@ function orOpenComply(key){
     if(c.readings.length){ h+='<div class="or-mlbl">Meter readings</div>'+c.readings.map(function(r){return '<div class="or-mline"><b>'+r.date+'</b> — '+r.m3+' m\u00b3</div>';}).join(''); }
     h+='<div class="or-mlbl">Log this month\u2019s reading</div><div style="display:flex;gap:8px"><input class="or-mdate" id="or-wtr-read" inputmode="decimal" placeholder="m\u00b3 on the meter" style="flex:1"><button class="btn-pri" onclick="orSaveReading()">Save</button></div>';
   }
-  h+='<div class="or-mlbl">Documents on file</div>'+orDocList(c.docs,c.type==='pest'?'No documents yet. Attach a trap report or inspection sheet.':'No documents yet. Attach your certificate or report.')+'<div class="or-adddoc" onclick="orTriggerDoc()">\uFF0B Add document or photo</div><div style="font-size:11.5px;color:var(--t3);margin-top:10px">Saved here and pulled into your audit pack automatically.</div>';
+  h+='<div class="or-mlbl">Documents on file</div>'+orDocList(c.docs,c.type==='pest'?'No documents yet. Attach a trap report or inspection sheet.':'No documents yet. Attach your certificate or report.')+'<div class="or-adddoc" onclick="orTriggerDoc()">\uFF0B Add document or photo</div><div style="font-size:11.5px;color:var(--t3);margin-top:10px">🗂️ Every entry &amp; document flows into your Export audit pack — one tap, nothing to scramble for.</div>';
+  if(c.type==='pest'||c.type==='control') h+=orChecksTimeline(c);
   h+='<div style="display:flex;gap:10px;margin-top:18px"><button class="btn-pri" onclick="orCloseModal()">Done</button></div></div>';
   orModalHTML(h);
 }
 function orCtypeClass(t){ t=(t||'').toLowerCase(); if(t.indexOf('registr')>=0) return 'reg'; if(t.indexOf('control')>=0||t.indexOf('spray')>=0) return 'spray'; if(t.indexOf('trap')>=0||t.indexOf('check')>=0) return 'check'; return 'insp'; }
+function orComplyTags(c){ if(c.type!=='control'&&c.type!=='pest') return ''; var t=''; if(c.cropcat&&typeof OR_CATS!=='undefined'&&OR_CATS[c.cropcat]) t+='<span class="or-req citrus">'+OR_CATS[c.cropcat].nm+'</span>'; if(c.market) t+='<span class="or-req eu">'+esc(c.market)+'</span>'; return t?(t+' '):''; }
+function orChecksTimeline(c){
+  if(!(c.checks&&c.checks.length)) return '';
+  var n=c.checks.length, dn=c.checks.filter(function(k){return k.att;}).length;
+  var cnt='<span style="font-weight:700;color:var(--t4);text-transform:none;letter-spacing:0;margin-left:8px">'+n+' entr'+(n===1?'y':'ies')+(dn?' · '+dn+' with a document':'')+'</span>';
+  return '<div class="or-mlbl">History'+cnt+'</div><div class="or-mtl">'+c.checks.map(function(ck){ var att=ck.att?'<div class="or-mtl-att" onclick="orOpenAttachment(\''+ck.att.id+'\')">📎 '+esc(ck.att.name)+' ›</div>':''; var tp=ck.ctype?'<span class="or-mtl-type '+orCtypeClass(ck.ctype)+'">'+esc(ck.ctype)+'</span>':''; return '<div class="or-mtl-ev'+(orCtypeClass(ck.ctype)==='reg'?' reg':'')+'"><div class="or-mtl-top"><span class="d">'+esc(ck.date||'')+'</span>'+tp+(ck.by?'<span class="by">'+esc(ck.by)+'</span>':'')+'</div><div class="or-mtl-note">'+esc(ck.note||'')+'</div>'+att+'</div>'; }).join('')+'</div>';
+}
 function orSaveCheck(){ var v=($('or-chk-note')||{}).value; var att=orAttachTake('chk'); if(!v && !att){ if(typeof orToast==='function') orToast('Add a note or a document first','info'); return; } var dv=($('or-chk-date')||{}).value; var ty=($('or-chk-type')||{}).value||'Check'; var dt=dv?new Date(dv):new Date(); var c=ST_FRUIT.comply[OR_MODAL_CTX.key]; c.checks=c.checks||[]; c.checks.unshift({date:orFmtDM(dt),iso:dt.toISOString().slice(0,10),ctype:ty,note:v||'(document only)',by:'You',att:att||null}); orSave(); orOpenComply(OR_MODAL_CTX.key); orToast('Entry logged ✓'); }
 function orSaveReading(){ var v=parseFloat(($('or-wtr-read')||{}).value); if(isNaN(v)) return; var c=ST_FRUIT.comply.water; c.readings=c.readings||[]; c.readings.unshift({date:'today',m3:Math.round(v).toLocaleString('en-ZA')}); c.log=Math.round(v).toLocaleString('en-ZA')+' of 480,000 m\u00b3 used this year'; orSave(); orOpenComply('water'); orRenderComply(); orToast('Meter reading saved'); }
 
