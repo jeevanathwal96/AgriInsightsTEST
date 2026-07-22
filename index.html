@@ -3321,7 +3321,7 @@ select.he-cell.he-warn{border-color:#e6b45f;background-color:#fff7ea;color:#8a5a
 .crop-land .nm{font-size:14px;font-weight:800}.crop-land .meta{font-size:11.5px;color:var(--t3);margin-top:1px}
 .crop-ic{font-size:26px;line-height:1}
 .crop-stage{font-size:9.5px;font-weight:800;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;display:inline-block}
-.s-grow{background:var(--gp);color:var(--gd)}.s-harv{background:var(--ap,#FEF3C7);color:var(--am,#B45309)}.s-plan{background:var(--pp);color:var(--pu)}.s-fallow{background:var(--br2);color:var(--t3)}
+.s-grow{background:var(--gp);color:var(--gd)}.s-harv{background:var(--ap,#FEF3C7);color:var(--am,#B45309)}.s-plan{background:var(--pp);color:var(--pu)}.s-fallow{background:var(--br2);color:var(--t3)}.s-done{background:var(--gb);color:var(--gm)}
 .crop-land .grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 12px;font-size:12px;margin-top:8px}
 .crop-land .grid .k{color:var(--t3)}.crop-land .grid .vv{font-weight:700;text-align:right}
 .crop-progress{height:6px;background:var(--br2);border-radius:99px;margin-top:9px;overflow:hidden}.crop-progress i{display:block;height:100%;background:var(--gl)}
@@ -8471,7 +8471,7 @@ var ST_CROP = {
 };
 
 /* ---------- helpers ---------- */
-function cropFmtR(n){ return 'R' + _grpInt(n); }
+function cropFmtR(n){ return (n<0?'−R':'R') + _grpInt(n); }
 function cropLandById(id){ for(var i=0;i<ST_CROP.lands.length;i++) if(ST_CROP.lands[i].id===id) return ST_CROP.lands[i]; return null; }
 function cropIcon(type){ var c=ST_CROP.cropTypes.filter(function(x){return x.t===type;})[0]; return c?c.i:'\uD83C\uDF31'; }
 function cropPrice(type){ return ST_CROP.prices[type] || 0; }
@@ -8487,8 +8487,8 @@ function cropLandIncomePerHa(l){ var p=cropLandPrice(l); return p ? cropLandYiel
 function cropLandGMperHa(l){ return cropLandIncomePerHa(l) - (l.inputPerHa||0); }
 function cropExpectedTons(){ return ST_CROP.lands.filter(cropPlanted).reduce(function(s,l){return s+cropLandYield(l)*(l.area||0);},0); }
 function cropForecastGM(){ return ST_CROP.lands.filter(cropPlanted).reduce(function(s,l){return s+cropLandGMperHa(l)*(l.area||0);},0); }
-function cropStageLabel(s){ return {growing:'Growing',harvest:'Ready to harvest',planned:'Planned',fallow:'Fallow / grazing'}[s] || s; }
-function cropStageClass(s){ return {growing:'s-grow',harvest:'s-harv',planned:'s-plan',fallow:'s-fallow'}[s] || 's-fallow'; }
+function cropStageLabel(s){ return {growing:'Growing',harvest:'Ready to harvest',harvested:'Harvested',planned:'Planned',fallow:'Fallow / grazing'}[s] || s; }
+function cropStageClass(s){ return {growing:'s-grow',harvest:'s-harv',harvested:'s-done',planned:'s-plan',fallow:'s-fallow'}[s] || 's-fallow'; }
 // Effective stage: a growing land auto-advances to 'harvest' once its harvest date passes
 function cropEffStage(l){
   if(l.stage==='growing' && l.harvest){
@@ -8614,6 +8614,27 @@ function demoRepairCrops(){
     var isSeed=cs.every(function(c){ return c && c.crop==='Maize (white)' && !c.linkId
       && String(c.plant||'').indexOf('Oct')===0 && String(c.harvest||'').indexOf('May')===0; });
     if(isSeed) demoAlignForecast();
+  }catch(e){}
+}
+/* Re-anchor the seeded Crops-tab lands/events/inputs to the current SA summer grain season.
+   The seed was authored for the 2024/25 season (plant Nov 2024, harvest May 2025); with the
+   clock now real (LS_TODAY = APP_TODAY) those dates read as a past season and every progress
+   bar would sit at 100%. Fires ONLY on the exact untouched seed fingerprint (Vlakte planted
+   2024-11-18, harvest 2025-05-15) — a real farm's data never matches — and once shifted the
+   dates no longer match, so it is idempotent and safe to run on every boot. */
+function demoRepairCropLands(){
+  try{
+    if(typeof ST_CROP==='undefined' || !ST_CROP.lands) return;
+    var L=ST_CROP.lands;
+    var seed=L.filter(function(x){return x && x.name==='Vlakte' && x.planted==='2024-11-18' && x.harvest==='2025-05-15';})[0];
+    if(!seed) return;
+    var now=APP_TODAY, curY=now.getFullYear(), m=now.getMonth();   // 0=Jan; SA summer harvests ~May
+    var yrShift=(m>=5 ? curY : curY-1) - 2024;                     // straddle "now" with the Nov→May season
+    if(!yrShift) return;
+    var shiftY=function(s){ return (s && /^\d{4}-/.test(s)) ? (parseInt(s.slice(0,4),10)+yrShift)+s.slice(4) : s; };
+    L.forEach(function(x){ if(x){ x.planted=shiftY(x.planted); x.harvest=shiftY(x.harvest); } });
+    (ST_CROP.events||[]).forEach(function(e){ if(e) e.date=shiftY(e.date); });
+    (ST_CROP.inputs||[]).forEach(function(i){ if(i) i.date=shiftY(i.date); });
   }catch(e){}
 }
 // Jump from a land to its line in Planning (and flash it)
@@ -9166,6 +9187,7 @@ function cropRenderOverview(){
     var ylabel = planned ? 'Target yield' : (l.actualYield!=null?'Actual yield':'Expected yield');
     var yval = fallow ? '\u2014' : (cropLandYield(l)+' t/ha');
     var gmLabel = planned ? 'Budgeted margin / ha' : 'Gross margin / ha';
+    var gmNeg = l.crop && cropLandGMperHa(l) < 0;
     var gmVal = l.crop ? cropFmtR(cropLandGMperHa(l))+'/ha' : '\u2014';
     var grid = fallow
       ? '<div class="grid"><div class="k">Status</div><div class="vv">Resting / grazing</div><div class="k">Last crop</div><div class="vv">'+esc(l.prevCrop||'\u2014')+'</div></div>'
@@ -9181,7 +9203,7 @@ function cropRenderOverview(){
         '<div class="top"><div><div class="nm">'+esc(l.name)+'</div><div class="meta">'+(l.area||0)+' ha'+(l.crop?(' \u00b7 '+esc(l.crop)+(l.cultivar?(' ('+esc(l.cultivar)+(l.gmo?', Bt':'')+')'):(l.gmo?' (Bt)':''))):'')+'</div></div><span class="crop-ic">'+(l.crop?cropIcon(l.crop):'\uD83C\uDF31')+'</span></div>'+
         '<span class="crop-stage '+cropStageClass(est)+'">'+cropStageLabel(est)+'</span>'+
         grid+prog+
-        '<div class="crop-gm"><span class="lab">'+gmLabel+'</span><span class="val">'+gmVal+'</span></div>'+
+        '<div class="crop-gm"><span class="lab">'+gmLabel+'</span><span class="val"'+(gmNeg?' style="color:var(--rd)"':'')+'>'+gmVal+'</span></div>'+
         (cropLandExcluded(l) ? '<div style="margin-top:9px;display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--pu);background:var(--pp);border:1px solid #e9c9da;border-radius:20px;padding:2px 8px">\uD83D\uDD2E Scenario</div>' : '')+
         (cropForecastable(l) ? '<div onclick="event.stopPropagation();cropViewInPlanning('+l.id+')" style="margin-top:9px;font-size:11.5px;font-weight:700;color:var(--gl);display:flex;align-items:center;gap:5px;cursor:pointer">\uD83D\uDDD3\uFE0F View in Planning \u203a</div>' : '')+
       '</div>';
@@ -9273,7 +9295,7 @@ function cropRenderCompliance(){
     else if(due.state==='soon') dueBadge='<span class="due soon" style="font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;background:var(--ap);color:var(--am)">\uD83D\uDFE1 '+due.label+'</span>';
     else if(due.state==='ok') dueBadge='<span class="due ok" style="font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;background:var(--gp);color:var(--gd)">'+due.label+'</span>';
     else { var fixCount=it.kv.filter(function(kv){return /\u26a0/.test(kv[1]);}).length; dueBadge='<span class="cact">'+(it.status==='g'?'Open \u203a':(fixCount?(fixCount+' to fix \u203a'):'Review \u203a'))+'</span>'; }
-    var kv=it.kv.map(function(pp){return '<span class="k">'+pp[0]+'</span><span class="v">'+pp[1]+'</span>';}).join('');
+    var kv=it.kv.map(function(pp){return '<span class="k">'+esc(pp[0])+'</span><span class="v">'+esc(pp[1])+'</span>';}).join('');
     var logBtn = cropComplianceCadence(it.id) ? '<button onclick="event.stopPropagation();cropOpenComplianceLog(\''+it.id+'\')" style="margin-top:10px;font-size:11.5px;font-weight:700;background:var(--gb);border:1px solid var(--gp);color:var(--gd);border-radius:8px;padding:6px 11px;cursor:pointer">\uD83D\uDDD3\uFE0F Log a check / upload photo</button>' : '';
     return '<div class="crop-citem" onclick="cropOpenCompliance(\''+it.id+'\')" style="cursor:pointer">'+
       '<div class="ch"><span class="cstat '+dot+'"></span><div class="ct">'+it.t+'<div class="law">'+it.law+'</div></div>'+dueBadge+'</div>'+
@@ -9352,7 +9374,7 @@ function cropRenderComplianceModal(){
   else if(combined.state==='soon') dueBox='<div style="border:1px solid #f5e3a8;background:var(--ap);border-radius:10px;padding:10px 12px;font-size:12px;font-weight:700;color:var(--am);margin-bottom:12px">\uD83D\uDFE1 '+(combined.source==='doc'?'Document: ':'')+combined.label+'</div>';
 
   // ---- Current readout ----
-  var kv=it.kv.map(function(pp){return '<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0"><span style="color:var(--t3)">'+pp[0]+'</span><span style="font-weight:700">'+pp[1]+'</span></div>';}).join('');
+  var kv=it.kv.map(function(pp){return '<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0"><span style="color:var(--t3)">'+esc(pp[0])+'</span><span style="font-weight:700">'+esc(pp[1])+'</span></div>';}).join('');
 
   // ---- Editable fields ----
   var fields=(it.fields||[]).map(function(f){
@@ -9570,19 +9592,68 @@ function cropSaveLand(){
 }
 
 function cropQuickPlant(){ ST_CROP.activeTab='add'; cropSetTab('add'); }
-async function cropQuickHarvest(){
+/* The Lands-tab quick action used to harvest growing[0] \u2014 the FIRST growing land in array
+   order \u2014 with no picker, so a farmer meaning to harvest one field silently harvested another.
+   Now it opens a picker (or goes straight through when there's only one candidate). */
+function cropQuickHarvest(){ cropHarvestPick(); }
+function cropHarvestPick(){
   var growing=ST_CROP.lands.filter(function(l){var e=cropEffStage(l);return e==='growing'||e==='harvest';});
   if(!growing.length){ toast('No lands ready to harvest','info'); return; }
-  var l=growing[0];
-  var y= await appPrompt('Record harvest for '+l.name+' \u2014 actual yield (t/ha)?', l.targetYield||'');
+  if(growing.length===1){ cropDoHarvest(growing[0]); return; }
+  var ov=$('crop-harv-overlay');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='crop-harv-overlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML='<div id="crop-harv-card" style="background:#fff;border-radius:18px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px -12px rgba(0,0,0,.3)"></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click',function(ev){ if(ev.target===ov) ov.style.display='none'; });
+  }
+  ov.style.display='flex';
+  var rows=growing.map(function(l){
+    var e=cropEffStage(l);
+    var status=(e==='harvest')?'<span class="crop-stage s-harv">Ready</span>':'<span class="crop-stage s-grow">Growing</span>';
+    return '<div onclick="cropHarvestChoose('+l.id+')" style="display:flex;align-items:center;gap:11px;padding:12px 14px;border:1px solid var(--br);border-radius:12px;margin-bottom:8px;cursor:pointer">'+
+      '<span style="font-size:22px">'+(l.crop?cropIcon(l.crop):'\ud83c\udf31')+'</span>'+
+      '<div style="flex:1;min-width:0"><div style="font-weight:800;font-size:14px">'+esc(l.name)+'</div>'+
+      '<div style="font-size:11.5px;color:var(--t3)">'+(l.area||0)+' ha'+(l.crop?(' \u00b7 '+esc(l.crop)):'')+'</div></div>'+status+'</div>';
+  }).join('');
+  $('crop-harv-card').innerHTML='<div style="padding:16px 18px;color:#fff;background:linear-gradient(135deg,var(--gm),var(--gd))"><div style="font-size:17px;font-weight:800">\ud83c\udf3e Record a harvest</div><div style="font-size:12px;opacity:.9;margin-top:2px">Which land did you harvest?</div></div><div style="padding:14px 16px">'+rows+'</div>';
+}
+function cropHarvestChoose(id){ var ov=$('crop-harv-overlay'); if(ov) ov.style.display='none'; var l=cropLandById(id); if(l) cropDoHarvest(l); }
+/* Shared harvest logic. Two things used to be broken here: the harvest recorded NO income
+   (so a successful crop never reached Money Flow, and the forecast margin fell the moment a
+   crop paid off), and the land was wiped straight to fallow with no realized-margin state.
+   Now it captures the money and holds the land in a 'Harvested' state showing what it made. */
+async function cropDoHarvest(l){
+  if(!l) return;
+  var prev=l.crop;
+  var y= await appPrompt('Record harvest for '+l.name+' \u2014 actual yield (t/ha)?', l.targetYield||'', {sub:'How much came off this land?'});
   if(y===null) return; y=parseFloat(y); if(isNaN(y)||y<0){ toast('Enter a valid yield','error'); return; }
-  l.actualYield=y; l.stage='fallow'; var prev=l.crop;
-  var qpi=cropFindPlanLine(l);
-  if(qpi>=0){ ST_PLAN.crops[qpi].yield=y; delete ST_PLAN.crops[qpi].linkId; }
+  var tons=Math.round(y*(l.area||0)*10)/10;
+  var suggest=Math.round(y*(l.area||0)*(cropLandPrice(l)||0));
+  var money= await appPrompt('Money in from this harvest? Leave blank if you haven\u2019t been paid yet.',
+                             suggest>0?suggest:'', {prefix:'R', sub:tons+' t off '+l.name+(suggest>0?' \u00b7 estimate at your price':'')});
+  var moneyNum=(money===null||String(money).trim()==='') ? 0 : (parseFloat(String(money).replace(/[^0-9.]/g,''))||0);
+  var todayISO=LS_TODAY.toISOString().slice(0,10);
+  l.actualYield=y;
+  var pIdx=cropFindPlanLine(l);
+  if(pIdx>=0){ ST_PLAN.crops[pIdx].yield=y; delete ST_PLAN.crops[pIdx].linkId; }
   l.planId=null;
-  ST_CROP.events.unshift({id:cropNextId(ST_CROP.events,'ce'), land:l.id, kind:'harvested', date:LS_TODAY.toISOString().slice(0,10), note:prev+' '+y+' t/ha', tons:Math.round(y*l.area*10)/10, yield:y});
-  l.prevCrop=prev; l.crop='';
-  dataChanged('crop'); toast('Harvest recorded \u2014 '+l.name,'success');
+  ST_CROP.events.unshift({id:cropNextId(ST_CROP.events,'ce'), land:l.id, kind:'harvested', date:todayISO, note:prev+' '+y+' t/ha', tons:tons, yield:y});
+  if(moneyNum>0){
+    ST_CROP.events.unshift({id:cropNextId(ST_CROP.events,'ce'), land:l.id, kind:'delivered', date:todayISO, note:'Sold \u2014 '+cropFmtR(moneyNum), tons:tons});
+    ST.txns=ST.txns||[];
+    var _desc=(prev||'Crop')+' \u2014 '+l.name;
+    var _entTag='crop:'+(prev||'');
+    var _tx={date:lsFmtDate(LS_TODAY), desc:_desc, cat:'Crop Sales', type:'income', amt:moneyNum, method:'Bank Deposit', source:'Crop harvest', ent:_entTag, qty:tons||undefined, unit:tons?'Tons':undefined};
+    ST.txns.unshift(_tx);
+    try{ if(window.AI && AI.farm && AI.farm.active()) txnWriteThrough(_tx, {date:todayISO, amt:moneyNum, cat:'Crop Sales', type:'income', desc:_desc, method:'Bank Deposit', ent:_entTag, source:'Crop harvest', qty:tons||undefined, unit:tons?'Tons':undefined}); }catch(e){}
+  }
+  /* Keep the crop on the land in a 'Harvested' state so the card shows realized yield/margin
+     instead of vanishing to fallow. The farmer resets it to rest or plants next season via Edit. */
+  l.stage='harvested'; l.prevCrop=prev;
+  dataChanged('crop');
+  toast(moneyNum>0?('Harvest recorded \u2014 '+l.name+' \u00b7 '+cropFmtR(moneyNum)+' in'):('Harvest recorded \u2014 '+l.name),'success');
 }
 function cropLogInput(){
   var planted=ST_CROP.lands.filter(cropPlanted);
@@ -9689,9 +9760,10 @@ function cropRenderLandModal(){
     }
     dl+=DT+'Last season</dt>'+DD+esc(l.prevCrop||'\u2014')+'</dd>';
 
-    var gmRow = l.crop ? ('<div style="margin:4px 20px 0;border:1px solid #cfe9d8;background:var(--gb);border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">' +
+    var _gmHa = cropLandGMperHa(l), _gmNegM = _gmHa < 0;
+    var gmRow = l.crop ? ('<div style="margin:4px 20px 0;border:1px solid '+(_gmNegM?'#f2c7c1':'#cfe9d8')+';background:'+(_gmNegM?'var(--rp)':'var(--gb)')+';border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center">' +
         '<span style="font-size:12px;color:var(--t3);font-weight:600">Gross margin / ha</span>' +
-        '<span style="font-size:18px;font-weight:800;color:var(--gd)">'+cropFmtR(cropLandGMperHa(l))+'</span></div>') : '';
+        '<span style="font-size:18px;font-weight:800;color:'+(_gmNegM?'var(--rd)':'var(--gd)')+'">'+cropFmtR(_gmHa)+'</span></div>') : '';
     var excl=cropLandExcluded(l);
     var scenRow = cropHasPlanLine(l) ? ('<div style="margin:10px 20px 0;border:1px '+(excl?'dashed #c4b5d4':'solid var(--br)')+';background:'+(excl?'#FCFAFD':'#fff')+';border-radius:12px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;gap:10px">' +
         '<div><div style="font-size:12.5px;font-weight:700;color:'+(excl?'var(--pu)':'var(--t1)')+'">'+(excl?'\uD83D\uDD2E Scenario \u2014 not in forecast':'\u2713 Counted in your forecast')+'</div>' +
@@ -9762,15 +9834,8 @@ function cropSaveLandEdit(){
 
 async function cropHarvestLand(){
   var l=cropLandById(CROP_LAND_IDX); if(!l) return;
-  var y= await appPrompt('Record harvest for '+l.name+' \u2014 actual yield (t/ha)?', l.targetYield||'');
-  if(y===null) return; y=parseFloat(y); if(isNaN(y)||y<0){ toast('Enter a valid yield','error'); return; }
-  l.actualYield=y; var prev=l.crop;
-  var pIdx=cropFindPlanLine(l);
-  if(pIdx>=0){ ST_PLAN.crops[pIdx].yield=y; delete ST_PLAN.crops[pIdx].linkId; }
-  l.planId=null;
-  ST_CROP.events.unshift({id:cropNextId(ST_CROP.events,'ce'), land:l.id, kind:'harvested', date:LS_TODAY.toISOString().slice(0,10), note:prev+' '+y+' t/ha', tons:Math.round(y*l.area*10)/10, yield:y});
-  l.stage='fallow'; l.prevCrop=prev; l.crop='';
-  dataChanged('crop'); cropRenderLandModal(); toast('Harvest recorded \u2014 '+l.name,'success');
+  await cropDoHarvest(l);       // picker not needed \u2014 this is already the open land
+  cropRenderLandModal();
 }
 
 async function cropDeleteLand(){
@@ -9789,7 +9854,7 @@ async function cropDeleteLand(){
 /* ===================================================================
    REPORTS — reuse the livestock full-screen report shell (lsShowReport)
    =================================================================== */
-function cropRand(n){ return 'R '+_grpInt(n); }
+function cropRand(n){ return (n<0?'−R ':'R ')+_grpInt(n); }
 
 function openCropGMReport(){
   var planted=ST_CROP.lands.filter(cropPlanted);
@@ -9797,7 +9862,7 @@ function openCropGMReport(){
   planted.forEach(function(l){
     var inc=cropLandIncomePerHa(l)*l.area, inp=(l.inputPerHa||0)*l.area, gm=inc-inp;
     T.area+=l.area; T.inc+=inc; T.inp+=inp; T.gm+=gm;
-    rows+='<tr><td>'+escTxHtml(l.name)+'</td><td>'+escTxHtml(l.crop)+'</td><td class="amt">'+l.area+'</td><td class="amt">'+cropLandYield(l)+'</td><td class="amt">'+(cropPrice(l.crop)?cropRand(cropPrice(l.crop)):'\u2014')+'</td><td class="amt">'+cropRand(l.inputPerHa)+'</td><td class="amt">'+cropRand(cropLandGMperHa(l))+'</td><td class="amt pos">'+cropRand(gm)+'</td></tr>';
+    rows+='<tr><td>'+escTxHtml(l.name)+'</td><td>'+escTxHtml(l.crop)+'</td><td class="amt">'+l.area+'</td><td class="amt">'+cropLandYield(l)+'</td><td class="amt">'+(cropPrice(l.crop)?cropRand(cropPrice(l.crop)):'\u2014')+'</td><td class="amt">'+cropRand(l.inputPerHa)+'</td><td class="amt '+(cropLandGMperHa(l)<0?'neg':'')+'">'+cropRand(cropLandGMperHa(l))+'</td><td class="amt '+(gm<0?'neg':'pos')+'">'+cropRand(gm)+'</td></tr>';
   });
   var html='<h1>Gross Margin per Hectare</h1>'+
     '<div class="lsr-meta">'+escTxHtml(FARM.name||'Farm')+' \u00b7 season '+ST_CROP.season+' \u00b7 figures to '+lsFmtDate(LS_TODAY)+'</div>'+
@@ -10863,6 +10928,7 @@ function bootAgriInsights() {
   try { if (ST.budgets) ST.budgets.currentMonth = MONTH_LABELS_SHORT[APP_TODAY.getMonth()] + ' ' + APP_TODAY.getFullYear(); } catch(e){}
   try { cropInitialPlanSync(!loaded); } catch(e){}
   try { demoRepairCrops(); } catch(e){}
+  try { demoRepairCropLands(); } catch(e){}
   try { if(typeof planSyncToCurrentYear==='function') planSyncToCurrentYear(); } catch(e){}
   attachAutosave();
   registerServiceWorker();
@@ -14509,7 +14575,14 @@ function saveSale() {
        lsSellFromTxn posts no money of its own; it records the movement and links the pair. */
     try{
       if(cat==='Livestock Sales' && _leaveSnap.on && _aiEnt){
-        var _mv=lsSellFromTxn({herdId:_lsHerdIdFromEnt(_aiEnt), qty:sqty, cls:_leaveSnap.cls,
+        /* qty here is a HEAD COUNT. The money form's quantity can be Tons/kg (carcass or
+           weight sales), so only treat it as head when the unit says so — otherwise a
+           "4 500 kg" sale would remove 4 500 head and zero the herd. When the count is
+           unknown (weight sale, no tagged animals picked), pass 0: lsSellFromTxn records
+           no movement, and reconciliation later asks the farmer for the real head count. */
+        var _headUnit = !sunit || /^(head|hd|unit)$/i.test(String(sunit).trim());
+        var _headQty = _headUnit ? sqty : 0;
+        var _mv=lsSellFromTxn({herdId:_lsHerdIdFromEnt(_aiEnt), qty:_headQty, cls:_leaveSnap.cls,
                                animalIds:_leaveSnap.animalIds, date:(date&&date!=='Today')?date:new Date().toISOString().slice(0,10),
                                note:desc});
         if(_mv) _lsLinkTxnMove(_aiInc, _mv);
@@ -23101,7 +23174,12 @@ function toggleSell() {
 }
 
 /* ===== Livestock: compliance, Option A overview, register (web) ===== */
-var LS_TODAY = new Date(2024,4,20);
+/* Was frozen at 2024-05-20. That single constant made spray pre-harvest intervals never
+   clear ("don't harvest" forever), stamped every harvest/compliance record in the past,
+   and made due-day maths read as hundreds of days. Crop AND livestock date logic reads
+   this, so alias it to the app's real clock (APP_TODAY) — one "today" for the whole app.
+   Demo data seeded with 2024 dates now reads as past seasons (honest) rather than frozen. */
+var LS_TODAY = APP_TODAY;
 function lsHerdById(id){ for(var i=0;i<ST_LS.herd.length;i++){ if(ST_LS.herd[i].id===id) return ST_LS.herd[i]; } return null; }
 function lsHerdName(h){ return h ? (h.name||h.type) : ''; }
 // ════════════════════════════════════════════════════════════════════
@@ -23302,7 +23380,11 @@ function lsLeaveRender(entId, qty, unit){
   var h=_lsLeaveHerd(entId);
   if(!h){ box.style.display='none'; box.innerHTML=''; lsLeaveReset(); return; }
   if(LS_LEAVE.herdId!==h.id){ lsLeaveReset(); LS_LEAVE.herdId=h.id; LS_LEAVE.on=true; }
-  var n=Math.max(0,parseInt(qty,10)||0);
+  /* The money quantity is only a head count when the unit says so. For weight sales
+     (Tons/kg) we can't infer how many animals left, so don't show or use a head count
+     derived from the weight — the farmer picks tagged animals or records it in Livestock. */
+  var _headUnit=!unit || /^(head|hd|unit)$/i.test(String(unit).trim());
+  var n=_headUnit ? Math.max(0,parseInt(qty,10)||0) : 0;
   var defs=(typeof lsClassDefs==='function'?lsClassDefs(h.type):null)||[];
   var clsSel='';
   if(lsHasClasses&&lsHasClasses(h)){
@@ -23318,7 +23400,7 @@ function lsLeaveRender(entId, qty, unit){
   box.innerHTML='<div class="ai-leave-card">'+
     '<div class="ai-leave-h">\ud83d\udc04 Did these animals leave the farm?</div>'+
     '<label class="ai-leave-chk"><input type="checkbox" id="ai-leave-on"'+(LS_LEAVE.on?' checked':'')+' onchange="LS_LEAVE.on=this.checked;lsLeaveRefresh()">'+
-      '<span>Take <b>'+(n||0)+' head</b> out of '+esc(lsHerdName(h))+'</span></label>'+
+      '<span>'+(_headUnit?('Take <b>'+(n||0)+' head</b> out of '+esc(lsHerdName(h))):('Pick which animals left '+esc(lsHerdName(h))+' <b>(sold by weight)</b>'))+'</span></label>'+
     (LS_LEAVE.on?(clsSel+_lsLeavePickerHTML(h)):'')+
     '<div class="ai-leave-sub">'+(LS_LEAVE.on
         ? 'Leave this off if the money is for something else \u2014 a deposit, a carcass sale, or animals you already took out.'
@@ -23340,7 +23422,11 @@ function _lsLeavePickerHTML(h){
       '<span class="st '+(hold?'hold':'ok')+'">'+(hold?'\u26d4 hold':'\u2713 clear')+'</span></div>';
   }).join('');
   var picked=LS_LEAVE.animalIds.length;
-  var stated=Math.max(0,parseInt((document.getElementById('ai-qty')||{}).value,10)||0);
+  /* Only read ai-qty as a head count when the unit is head; for weight sales the count
+     comes only from the animals the farmer actually picks. */
+  var _pu=(document.getElementById('ai-unit')||{}).value||'';
+  var _puHead=!_pu || /^(head|hd|unit)$/i.test(String(_pu).trim());
+  var stated=_puHead ? Math.max(0,parseInt((document.getElementById('ai-qty')||{}).value,10)||0) : picked;
   var byCount=Math.max(0,stated-picked);
   return '<div style="margin-top:9px"><label style="font-size:10.5px;font-weight:700;color:var(--t3)">Which ones? \u2014 optional</label>'+
     '<div class="ai-leave-list">'+(rows||'<div class="ai-leave-none">None of the tagged animals are in that class \u2014 recorded by count.</div>')+'</div>'+
@@ -33729,7 +33815,8 @@ function _txnSnapshot(o){
   return { date:o.date, amt:o.amt, cat:o.cat, type:o.type, desc:o.desc, method:o.method,
            qty:o.qty, unit:o.unit, ent:o.ent, source:o.source, ref:o.ref, note:o.note,
            accountId:o.accountId, cuid:o.cuid, batch:o.batch, _catOk:o._catOk,
-           assetId:o.assetId, _assetUuid:o._assetUuid, _dedOk:o._dedOk };
+           assetId:o.assetId, _assetUuid:o._assetUuid, _dedOk:o._dedOk,
+           moveRef:o.moveRef, moneyOnly:o.moneyOnly };
 }
 function _removeOutboxByOids(oids){
   if(!oids || !oids.length) return;
@@ -33775,10 +33862,25 @@ function _hasBackend(){ return !!(window.AI && AI.farm && AI.farm.active() && AI
 window.preservePendingTxns = function(backendTxns){
   var out = (backendTxns || []).slice();
   try{
-    var have = {};
-    for(var i=0;i<out.length;i++){ var c = out[i] && out[i].cuid; if(c) have[c] = true; }
+    // App-only flags have no DB column (appToDb omits them by design — an unknown column
+    // would be a PostgREST 42703 and break all sync), so a cloud pull returns rows without
+    // them. Re-overlay them from the matching local row by cuid so links and the farmer's
+    // decisions survive a pull: moveRef/moneyOnly (livestock sale ↔ movement link), assetId/
+    // _assetUuid (asset link), _dedOk (the "no, it was tax" answer), _catOk ("stop flagging").
+    // Without this, an already-synced sale re-flags as unmatched after a pull and the fix-it
+    // card removes a SECOND set of animals.
+    var LOCAL_ONLY = ['moveRef','moneyOnly','assetId','_assetUuid','_dedOk','_catOk'];
     var local = (window.ST && ST.txns) || [];
-    for(var j=0;j<local.length;j++){ var r = local[j]; if(r && r.cuid && !have[r.cuid]) out.push(r); }
+    var byCuid = {};
+    for(var j=0;j<local.length;j++){ var r = local[j]; if(r && r.cuid) byCuid[r.cuid] = r; }
+    var have = {};
+    for(var i=0;i<out.length;i++){
+      var b = out[i]; if(!b || !b.cuid) continue;
+      have[b.cuid] = true;
+      var lr = byCuid[b.cuid];
+      if(lr){ for(var k=0;k<LOCAL_ONLY.length;k++){ var f=LOCAL_ONLY[k]; if(b[f]==null && lr[f]!=null) b[f]=lr[f]; } }
+    }
+    for(var m=0;m<local.length;m++){ var lo = local[m]; if(lo && lo.cuid && !have[lo.cuid]) out.push(lo); }
   }catch(e){}
   return out;
 };
