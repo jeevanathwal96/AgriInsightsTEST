@@ -3327,6 +3327,40 @@ select.he-cell.he-warn{border-color:#e6b45f;background-color:#fff7ea;color:#8a5a
 .crop-progress{height:6px;background:var(--br2);border-radius:99px;margin-top:9px;overflow:hidden}.crop-progress i{display:block;height:100%;background:var(--gl)}
 .crop-gm{margin-top:11px;border-top:1px solid var(--br2);padding-top:10px;display:flex;justify-content:space-between;align-items:center}
 .crop-gm .lab{font-size:11px;color:var(--t3);font-weight:600}.crop-gm .val{font-size:15px;font-weight:800;color:var(--gd)}
+/* Crops Overview redesign: per-crop money band + 4-fact card money + section header note */
+.cr-band{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:2px 0 8px}
+.cr-bcard{background:#fff;border:1px solid var(--br);border-radius:13px;padding:11px 13px;cursor:pointer;transition:box-shadow .12s}
+.cr-bcard:hover{box-shadow:0 4px 14px rgba(0,0,0,.08)}
+.cr-bcard .h{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:var(--t2)}
+.cr-bcard .h .ic{width:24px;height:24px;border-radius:7px;background:var(--gb);display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.cr-bcard .v{font-size:20px;font-weight:800;color:var(--gd);margin-top:7px;line-height:1;font-variant-numeric:tabular-nums}
+.cr-bcard .v.neg{color:var(--rd)}
+.cr-bcard .s{font-size:10.5px;color:var(--t3);margin-top:4px}
+.cr-sech{display:flex;align-items:baseline;gap:10px;margin:18px 2px 9px}
+.cr-sech .t{font-size:13px;font-weight:800;color:var(--t2)}
+.cr-sech .r{margin-left:auto;font-size:11px;font-weight:600;color:var(--gm)}
+.cr-seg{display:inline-flex;background:var(--br2);border-radius:8px;padding:3px;gap:2px;margin-left:8px}
+.cr-seg button{border:none;background:transparent;font-family:inherit;font-size:11px;font-weight:700;color:var(--t3);padding:4px 10px;border-radius:6px;cursor:pointer}
+.cr-seg button.on{background:#fff;color:var(--gd);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.cr-safestrip{display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#fff;border:1px solid var(--br);border-radius:12px;padding:10px 13px;margin-bottom:12px}
+.cr-safestrip .t{font-size:12px;font-weight:800;color:var(--t2);margin-right:2px}
+.cr-pill{display:inline-flex;align-items:center;border-radius:99px;padding:4px 11px;font-size:11.5px;font-weight:800}
+.cr-pill.ok{background:var(--gp);color:var(--gd)}
+.cr-pill.warn{background:var(--ap,#FEF3C7);color:var(--am,#B45309)}
+.cr-repeatbtn{border:1px solid var(--br);background:#fff;border-radius:9px;padding:0 12px;height:32px;font-size:12px;font-weight:700;color:var(--t2);font-family:inherit;cursor:pointer}
+.cr-chero{display:flex;gap:18px;align-items:center;background:#fff;border:1px solid var(--br);border-radius:14px;padding:15px 18px;margin-bottom:14px}
+.cr-ring{width:60px;height:60px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center}
+.cr-ring i{background:#fff;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-style:normal;font-weight:800;font-size:13px;color:var(--gd)}
+.cr-chero .tt{font-weight:800;font-size:15px;color:var(--t1)}
+.cr-chero .ss{font-size:12.5px;color:var(--t3);margin-top:3px;line-height:1.5}
+.cr-xlink{margin-top:10px;font-size:11.5px;font-weight:800;color:var(--gm);cursor:pointer;display:inline-flex;gap:5px}
+.crop-land .cr-top{display:flex;align-items:center;gap:11px}
+.crop-land .cr-av{width:38px;height:38px;border-radius:11px;background:var(--gb);display:flex;align-items:center;justify-content:center;font-size:20px;flex:none}
+.crop-land .cr-right{margin-left:auto;text-align:right}
+.crop-land .cr-money{font-size:15px;font-weight:800;font-variant-numeric:tabular-nums}
+.crop-land .cr-money.mut{color:var(--t4);font-size:12.5px}
+.crop-land .cr-sub2{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:var(--t3);margin-top:5px}
+.crop-land .cr-sub2 b{color:var(--t2)}
 .crop-tbl{width:100%;border-collapse:collapse;font-size:12px}
 .crop-tbl th,.crop-tbl td{padding:8px;border-bottom:1px solid var(--br2);text-align:left;vertical-align:top}
 .crop-tbl th{font-size:10px;text-transform:uppercase;color:var(--t3);font-weight:800;letter-spacing:.03em}
@@ -6784,14 +6818,12 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 <div class="pg" id="pg-crop">
   <div class="page-hdr">
     <div><div class="page-title">Crops</div><div class="page-sub" id="crop-tab-sub">Your lands, yields and margins</div></div>
-    <button class="btn-pri" onclick="cropSetTab('add')">+ Add Crop</button>
+    <button class="btn-pri" onclick="cropSetTab('add')">＋ Plant a land</button>
   </div>
   <div class="tabs" style="margin-bottom:16px">
     <div class="tab on" id="crop-tab-overview" onclick="cropSetTab('overview')">Overview</div>
-    <div class="tab" id="crop-tab-lands" onclick="cropSetTab('lands')">Lands</div>
     <div class="tab" id="crop-tab-inputs" onclick="cropSetTab('inputs')">Inputs &amp; Spray</div>
     <div class="tab" id="crop-tab-comply" onclick="cropSetTab('comply')">Compliance</div>
-    <div class="tab" id="crop-tab-add" onclick="cropSetTab('add')">Add Crop</div>
   </div>
   <div id="crop-view-overview"></div>
   <div id="crop-view-lands" style="display:none"></div>
@@ -8628,8 +8660,12 @@ function demoRepairCropLands(){
     var L=ST_CROP.lands;
     var seed=L.filter(function(x){return x && x.name==='Vlakte' && x.planted==='2024-11-18' && x.harvest==='2025-05-15';})[0];
     if(!seed) return;
-    var now=APP_TODAY, curY=now.getFullYear(), m=now.getMonth();   // 0=Jan; SA summer harvests ~May
-    var yrShift=(m>=5 ? curY : curY-1) - 2024;                     // straddle "now" with the Nov→May season
+    var now=APP_TODAY, curY=now.getFullYear(), m=now.getMonth();   // 0=Jan
+    /* SA summer grain plants ~Nov (year P) and harvests ~May (P+1). Anchor to the most recent
+       planting so the plant date is never in the future: P = this year once Nov arrives, else
+       last year. Jan–May then reads as mid/late growing (best demo), Jun–Oct as harvest-ready —
+       both coherent — instead of "planted next November" showing under a Growing bar. */
+    var yrShift=((m>=10 ? curY : curY-1)) - 2024;                  // seed plant year is 2024
     if(!yrShift) return;
     var shiftY=function(s){ return (s && /^\d{4}-/.test(s)) ? (parseInt(s.slice(0,4),10)+yrShift)+s.slice(4) : s; };
     L.forEach(function(x){ if(x){ x.planted=shiftY(x.planted); x.harvest=shiftY(x.harvest); } });
@@ -9157,6 +9193,7 @@ function renderCrop(){
   cropSetTab(ST_CROP.activeTab || 'overview');
 }
 function cropSetTab(tab){
+  if(tab==='lands'){ ST_CROP.ovView='table'; tab='overview'; }   // Lands merged into Overview's table view
   ST_CROP.activeTab = tab;
   ['overview','lands','inputs','comply','add'].forEach(function(t){
     var b=$('crop-tab-'+t); if(b) b.classList.toggle('on', t===tab);
@@ -9171,50 +9208,220 @@ function cropSetTab(tab){
   if(tab==='add')      cropRenderAddForm();
 }
 
+/* ===================== Crops Overview (redesign) =====================
+   Mirrors the Livestock "Concept A" overview: a hero with tappable stats and drill panels,
+   an amber "needs attention" card whose every row deep-links, an Orchards-style per-crop
+   money band, and 4-fact land cards (detail one click deep via the existing land modal).
+   All figures come from existing helpers; the clock is real so PHI/harvest dates are correct.
+   Copy avoids the LANG_PAIRS substring traps ("head"/"figure") that mangle Afrikaans. */
+function _cropIncomeBanked(){
+  if(typeof ST==='undefined'||!ST.txns) return 0;
+  return ST.txns.reduce(function(s,t){ return s + ((t&&t.type==='income'&&String(t.ent||'').indexOf('crop:')===0)?(+t.amt||0):0); },0);
+}
+function _cropPhiByLand(){
+  var by={};
+  cropActivePHI().forEach(function(inp){ var l=cropLandById(inp.land); if(!l) return; var safe=cropInputSafe(inp); if(!safe) return; if(!by[inp.land] || safe>by[inp.land].safe) by[inp.land]={land:l, safe:safe}; });
+  return by;
+}
+function _cropOverviewTotals(){
+  var lands=ST_CROP.lands||[];
+  var active=lands.filter(cropPlanted);
+  var plantedArea=0, expValue=0, putIn=0, paying=0, payTotal=0, byCrop={};
+  active.forEach(function(l){
+    var area=l.area||0; plantedArea+=area;
+    var inc=cropLandIncomePerHa(l)*area, inp=(l.inputPerHa||0)*area;
+    expValue+=inc; putIn+=inp;
+    var est=cropEffStage(l);
+    if(est!=='planned'){ payTotal++; if(cropLandGMperHa(l)>=0) paying++; }
+    var key=l.crop||'\u2014';
+    var o=byCrop[key]||(byCrop[key]={crop:key, icon:cropIcon(l.crop), area:0, value:0, gm:0, n:0});
+    o.area+=area; o.value+=inc; o.gm+=(inc-inp); o.n++;
+  });
+  var forecastGM=expValue-putIn;
+  return { landCount:active.length, plantedArea:Math.round(plantedArea*10)/10, expValue:expValue, putIn:putIn,
+           forecastGM:forecastGM, marginPct:(putIn>0?Math.round(forecastGM/putIn*100):null),
+           paying:paying, payTotal:payTotal, income:_cropIncomeBanked(), byCrop:byCrop,
+           cropCount:Object.keys(byCrop).filter(function(k){return k!=='\u2014';}).length,
+           phiLands:Object.keys(_cropPhiByLand()).length };
+}
+function _cropAttention(){
+  var items=[], phi=_cropPhiByLand();
+  Object.keys(phi).forEach(function(k){ var e=phi[k];
+    items.push({ic:'\u26D4', tx:'<b>'+esc(e.land.name)+'</b> \u2014 do not harvest before <b>'+lsFmtDate(e.safe)+'</b> (spray waiting period)', go:"cropSetTab('inputs')"}); });
+  (typeof cropComplianceDueList==='function'?cropComplianceDueList():[]).forEach(function(x){
+    items.push({ic:'\uD83D\uDCCB', tx:'<b>'+esc(x.t)+'</b> '+(x.due.state==='over'?'is overdue':'is due soon')+(x.due.label?(' \u2014 '+esc(x.due.label)):''), go:"cropSetTab('comply')"}); });
+  (ST_CROP.lands||[]).forEach(function(l){ if(l.crop){ var est=cropEffStage(l);
+    if(est!=='planned'&&est!=='fallow'&&est!=='harvested'&&cropLandGMperHa(l)<0)
+      items.push({ic:'\uD83D\uDCC9', tx:'<b>'+esc(l.name)+'</b> is forecast to run at a loss (<b>'+cropFmtR(cropLandGMperHa(l))+'/ha</b>)', go:"cropOpenLand("+l.id+")"}); } });
+  var ready=(ST_CROP.lands||[]).filter(function(l){return cropEffStage(l)==='harvest';});
+  if(ready.length) items.push({ic:'\uD83C\uDF3E', tx:'<b>'+ready.length+' land'+(ready.length===1?'':'s')+'</b> ready to harvest \u2014 '+esc(ready.slice(0,3).map(function(l){return l.name;}).join(', ')), go:"cropHarvestPick()"});
+  return items;
+}
+function _cropHeroHTML(att, T){
+  var n=att.length, name='';
+  try{ name=String((ST&&ST.owner)||'').trim().split(' ')[0]||''; }catch(e){}
+  var ttl = n ? (n+' thing'+(n===1?'':'s')+' need'+(n===1?'s':'')+' you today') : ('All clear across your lands'+(name?', '+esc(name):''));
+  var ic = n ? '\u26A0' : '\u2713';
+  var readyN=(ST_CROP.lands||[]).filter(function(l){return cropEffStage(l)==='harvest';}).length;
+  var sub = T.landCount+' land'+(T.landCount===1?'':'s')+' \u00b7 '+(T.phiLands?(T.phiLands+' inside a spray wait'):'all clear to harvest')+(readyN?(' \u00b7 '+readyN+' ready'):'');
+  var hasM=(T.marginPct!=null), mp=hasM&&T.marginPct>=0;
+  var stats='<div class="hstats">'+
+    '<div class="hstat" onclick="cropKpiTog(\'area\',this)"><div class="hv">'+T.plantedArea+' ha</div><div class="hl">planted \u00b7 '+T.cropCount+' crop'+(T.cropCount===1?'':'s')+'</div></div>'+
+    '<div class="hstat" onclick="cropKpiTog(\'value\',this)"><div class="hv">'+_lsCompactRand(T.expValue)+'</div><div class="hl">expected value</div></div>'+
+    '<div class="hstat" onclick="cropKpiTog(\'margin\',this)"><div class="hv'+(hasM?(mp?'':' neg'):'')+'">'+(hasM?((mp?'+':'')+T.marginPct+'%'):'\u2014')+'</div><div class="hl">'+(hasM?'margin vs put in':'margin \u00b7 add prices')+'</div></div>'+
+    '<div class="hstat" onclick="cropKpiTog(\'paying\',this)"><div class="hv">'+T.paying+' / '+T.payTotal+'</div><div class="hl">lands paying their way</div></div>'+
+  '</div>';
+  return '<div class="ls-hero"><div class="hic">'+ic+'</div><div class="htx"><div class="htt">'+ttl+'</div><div class="hsub">'+sub+'</div></div>'+stats+'</div>'+
+    '<div class="ls-kpipanel" id="crop-kpipanel"></div>';
+}
+var CROP_KPI_OPEN=null;
+function cropKpiTog(key, el){
+  var p=$('crop-kpipanel'); if(!p) return;
+  var cards=document.querySelectorAll('#crop-view-overview .ls-hero .hstat');
+  for(var i=0;i<cards.length;i++) cards[i].classList.remove('sel');
+  if(CROP_KPI_OPEN===key){ p.classList.remove('open'); p.innerHTML=''; CROP_KPI_OPEN=null; return; }
+  CROP_KPI_OPEN=key; if(el) el.classList.add('sel');
+  p.style.setProperty('--ax', ({area:'12%',value:'37%',margin:'62%',paying:'87%'}[key])||'50%');
+  p.innerHTML=_cropKpiPanel(key); p.classList.add('open');
+}
+function _cropSignedCompact(n){ return (n<0?'\u2212':'+')+_lsCompactRand(Math.abs(n)); }
+function _cropKpiPanel(key){
+  var T=_cropOverviewTotals();
+  if(key==='area'){
+    var ks=Object.keys(T.byCrop).filter(function(k){return k!=='\u2014';}).sort(function(a,b){return T.byCrop[b].area-T.byCrop[a].area;});
+    var tot=ks.reduce(function(s,k){return s+T.byCrop[k].area;},0)||1;
+    var rows=ks.map(function(k){var o=T.byCrop[k]; return _lsBrow(o.icon||'\uD83C\uDF31', k, o.n+' land'+(o.n===1?'':'s'), (Math.round(o.area*10)/10)+' ha', {bar:o.area/tot*100, col:'#40916C'});}).join('');
+    return '<div class="ls-kpih">\uD83C\uDF31 Your '+T.plantedArea+' ha by crop</div>'+rows+'<div class="ls-kpimean"><b>'+T.plantedArea+' ha planted across '+T.cropCount+' crop'+(T.cropCount===1?'':'s')+'.</b> Tap a crop band below to jump to its lands.</div>';
+  }
+  if(key==='value'){
+    var la=(ST_CROP.lands||[]).filter(cropPlanted).map(function(l){return {l:l, v:cropLandIncomePerHa(l)*(l.area||0)};}).sort(function(a,b){return b.v-a.v;});
+    var mx=(la[0]&&la[0].v)||1;
+    var rows2=la.map(function(o){return _lsBrow(cropIcon(o.l.crop), o.l.name, o.l.crop||'', _lsCompactRand(o.v), {bar:o.v/mx*100, col:'#C8962C'});}).join('');
+    return '<div class="ls-kpih">\uD83D\uDCB0 Expected value by land</div>'+rows2+'<div class="ls-kpimean"><b>Most of your value sits in '+esc(la[0]?la[0].l.name:'')+'.</b> Values use your own price where set, else the SAFEX reference.</div>';
+  }
+  if(key==='margin'){
+    var g=T.forecastGM;
+    var rows3=_lsBrow('\uD83E\uDDFE','Put in so far','seed, fertiliser, spray, fuel', _lsCompactRand(T.putIn), {})+
+      _lsBrow('\uD83D\uDCC8','Expected at harvest','yield \u00D7 price', _lsCompactRand(T.expValue), {})+
+      _lsBrow('\uD83C\uDFE6','Income banked','crop sales recorded', _lsCompactRand(T.income), {})+
+      _lsBrow(g>=0?'\u2705':'\u26A0\uFE0F','Gain over what you put in','', _cropSignedCompact(g), {pos:g>=0,neg:g<0});
+    var cand=(ST_CROP.lands||[]).filter(function(l){return l.crop && cropEffStage(l)!=='fallow' && cropPrice(l.crop)>0 && cropLandYield(l)>0;}).sort(function(a,b){return (b.area||0)-(a.area||0);})[0];
+    var safex='';
+    if(cand){ var be=Math.round((cand.inputPerHa||0)/cropLandYield(cand));
+      safex='<div class="ls-kpimean" style="background:var(--gb);border:1px solid #cfe9d8"><b>At today\u2019s SAFEX R'+_grpInt(cropPrice(cand.crop))+'/t, '+esc(cand.name)+' clears '+cropFmtR(Math.round(cropLandGMperHa(cand)))+'/ha</b> \u2014 your break-even is about R'+_grpInt(be)+'/t.</div>'; }
+    var verdict = (T.marginPct==null)?'<div class="ls-kpimean">Add a price to each land to see your margin.</div>':
+      ('<div class="ls-kpimean"><b>'+(g>=0?('Your lands are set to pay back '+_lsCompactRand(g)+' over what you put in.'):('Right now your lands are forecast to lose '+_lsCompactRand(Math.abs(g))+'.'))+'</b></div>');
+    return '<div class="ls-kpih">\uD83D\uDCCA Where your margin comes from</div>'+rows3+safex+verdict+'<div class="ls-kpigo" onclick="openCropGMReport()">Open the Gross Margin report \u2192</div>';
+  }
+  if(key==='paying'){
+    var lands=(ST_CROP.lands||[]).filter(function(l){return l.crop && cropEffStage(l)!=='planned';});
+    var rows4=lands.map(function(l){var gg=cropLandGMperHa(l); return _lsBrow(gg>=0?'\u2705':'\u26A0\uFE0F', l.name, l.crop||'', cropFmtR(gg)+'/ha', {pos:gg>=0,neg:gg<0});}).join('');
+    return '<div class="ls-kpih">\u2696\uFE0F Which lands pay their way</div>'+rows4+'<div class="ls-kpimean"><b>'+T.paying+' of '+T.payTotal+' lands</b> cover their growing costs at your target prices.</div>';
+  }
+  return '';
+}
+function _cropRollupHTML(T){
+  var ks=Object.keys(T.byCrop).filter(function(k){return k!=='\u2014';});
+  if(ks.length<2) return '';
+  ks.sort(function(a,b){return T.byCrop[b].value-T.byCrop[a].value;});
+  var cards=ks.map(function(k){ var o=T.byCrop[k]; var perha=o.area?Math.round(o.gm/o.area):0;
+    return '<div class="cr-bcard" data-crop="'+esc(k)+'" onclick="cropScrollToCrop(this)">'+
+      '<div class="h"><span class="ic">'+(o.icon||'\uD83C\uDF31')+'</span>'+esc(k)+'</div>'+
+      '<div class="v'+(o.value<0?' neg':'')+'">'+cropFmtR(o.value)+'</div>'+
+      '<div class="s">'+(Math.round(o.area*10)/10)+' ha \u00b7 '+o.n+' land'+(o.n===1?'':'s')+' \u00b7 '+cropFmtR(perha)+'/ha</div></div>';
+  }).join('');
+  return '<div class="cr-sech"><span class="t">Money by crop</span><span class="r">tap a crop to jump to its lands</span></div><div class="cr-band">'+cards+'</div>';
+}
+function cropScrollToCrop(el){
+  var k=el&&el.getAttribute('data-crop'); if(!k) return;
+  var sel=(window.CSS&&CSS.escape)?CSS.escape(k):k.replace(/"/g,'\\"');
+  var card=document.querySelector('#crop-view-overview .crop-land[data-crop="'+sel+'"]');
+  if(card&&card.scrollIntoView){ card.scrollIntoView({behavior:'smooth',block:'center'}); card.style.boxShadow='0 0 0 3px var(--gl)'; setTimeout(function(){ card.style.boxShadow=''; },1200); }
+}
+function _cropLandRank(l){
+  var est=cropEffStage(l);
+  if(_cropPhiByLand()[l.id]) return 0;
+  if(est==='harvest') return 1;
+  if(l.crop && est!=='planned' && est!=='fallow' && est!=='harvested' && cropLandGMperHa(l)<0) return 2;
+  if(est==='growing') return 3;
+  if(est==='harvested') return 4;
+  if(est==='planned') return 5;
+  return 6;
+}
+function _cropLandCard(l){
+  var est=cropEffStage(l), planned=est==='planned', fallow=est==='fallow';
+  var phi=_cropPhiByLand()[l.id];
+  var chipCls, chip;
+  if(phi){ chipCls='s-harv'; chip='\u26D4 wait to '+lsFmtDate(phi.safe); }
+  else { chipCls=cropStageClass(est); chip=cropStageLabel(est); }
+  var money = (planned) ? '<div class="cr-money mut">Not planted yet</div>'
+            : (fallow||!l.crop) ? '<div class="cr-money mut">\u2014</div>'
+            : '<div class="cr-money">'+_lsCompactRand(cropLandIncomePerHa(l)*(l.area||0))+'</div>';
+  var meta=(l.area||0)+' ha'+(l.crop?(' \u00b7 '+esc(l.crop)+(l.cultivar?(' '+esc(l.cultivar)):'')+(l.gmo?' (Bt)':'')):'');
+  var top='<div class="cr-top"><div class="cr-av">'+(l.crop?cropIcon(l.crop):'\uD83C\uDF31')+'</div>'+
+      '<div style="min-width:0"><div class="nm">'+esc(l.name)+'</div><div class="meta">'+meta+'</div></div>'+
+      '<div class="cr-right">'+money+'<div style="margin-top:3px"><span class="crop-stage '+chipCls+'">'+chip+'</span></div></div></div>';
+  var body='';
+  if(!planned && !fallow && l.crop){
+    body='<div class="crop-progress" style="margin-top:10px"><i style="width:'+cropGrowthPct(l)+'%;background:'+(phi?'var(--am,#B45309)':'var(--gl)')+'"></i></div>'+
+      '<div class="cr-sub2"><span>'+(est==='harvest'?'Ready to harvest':(est==='harvested'?'Harvested':'Harvest \u00b7 '+cropDispDate(l.harvest)))+'</span><span><b>'+cropFmtR(cropLandGMperHa(l))+'/ha</b></span></div>';
+  } else if(planned){
+    body='<div class="cr-sub2" style="margin-top:10px"><span>Budgeted margin '+cropFmtR(cropLandGMperHa(l))+'/ha \u2014 out of season totals until planted</span></div>';
+  } else {
+    body='<div class="cr-sub2" style="margin-top:10px"><span>Resting \u00b7 last crop '+esc(l.prevCrop||'\u2014')+'</span></div>';
+  }
+  return '<div class="crop-land" data-crop="'+esc(l.crop||'')+'" onclick="cropOpenLand('+l.id+')">'+top+body+
+    '<div style="text-align:center;font-size:10.5px;color:var(--t4);margin-top:8px">Tap for details \u25BE</div></div>';
+}
 function cropRenderOverview(){
   var el=$('crop-view-overview'); if(!el) return;
-  var html=''+
-    '<div class="crop-kpis">'+
-      cropKpi('Lands planted', ST_CROP.lands.filter(cropPlanted).length, false, 'cropLands')+
-      cropKpi('Total area', cropAreaPlanted()+' ha', false, 'cropArea')+
-      cropKpi('Expected yield', Math.round(cropExpectedTons()).toLocaleString('en-ZA')+' t', false, 'cropYield')+
-      cropKpi('Forecast gross margin', cropFmtR(cropForecastGM()), true, 'cropMargin')+
-    '</div>'+
-    '<div class="crop-sec-h">Lands this season</div><div class="crop-lands">';
-  ST_CROP.lands.forEach(function(l){
-    var est = cropEffStage(l);
-    var planned = est==='planned', fallow=est==='fallow';
-    var ylabel = planned ? 'Target yield' : (l.actualYield!=null?'Actual yield':'Expected yield');
-    var yval = fallow ? '\u2014' : (cropLandYield(l)+' t/ha');
-    var gmLabel = planned ? 'Budgeted margin / ha' : 'Gross margin / ha';
-    var gmNeg = l.crop && cropLandGMperHa(l) < 0;
-    var gmVal = l.crop ? cropFmtR(cropLandGMperHa(l))+'/ha' : '\u2014';
-    var grid = fallow
-      ? '<div class="grid"><div class="k">Status</div><div class="vv">Resting / grazing</div><div class="k">Last crop</div><div class="vv">'+esc(l.prevCrop||'\u2014')+'</div></div>'
-      : '<div class="grid">'+
-          '<div class="k">'+(planned?'Plant from':'Planted')+'</div><div class="vv">'+(planned?cropDispDate(l.harvest)&&'Next season':cropDispDate(l.planted))+'</div>'+
-          '<div class="k">Est. harvest</div><div class="vv">'+(est==='harvest'?'Now':cropDispDate(l.harvest))+'</div>'+
-          '<div class="k">'+ylabel+'</div><div class="vv">'+yval+'</div>'+
-          '<div class="k">'+(planned?'Budget input':'Input cost')+'</div><div class="vv">'+cropFmtR(l.inputPerHa)+'/ha</div>'+
-        '</div>';
-    var prog = (!planned && !fallow) ? '<div class="crop-progress"><i style="width:'+cropGrowthPct(l)+'%"></i></div>' : '';
-    html+=''+
-      '<div class="crop-land" onclick="cropOpenLand('+l.id+')">'+
-        '<div class="top"><div><div class="nm">'+esc(l.name)+'</div><div class="meta">'+(l.area||0)+' ha'+(l.crop?(' \u00b7 '+esc(l.crop)+(l.cultivar?(' ('+esc(l.cultivar)+(l.gmo?', Bt':'')+')'):(l.gmo?' (Bt)':''))):'')+'</div></div><span class="crop-ic">'+(l.crop?cropIcon(l.crop):'\uD83C\uDF31')+'</span></div>'+
-        '<span class="crop-stage '+cropStageClass(est)+'">'+cropStageLabel(est)+'</span>'+
-        grid+prog+
-        '<div class="crop-gm"><span class="lab">'+gmLabel+'</span><span class="val"'+(gmNeg?' style="color:var(--rd)"':'')+'>'+gmVal+'</span></div>'+
-        (cropLandExcluded(l) ? '<div style="margin-top:9px;display:inline-block;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--pu);background:var(--pp);border:1px solid #e9c9da;border-radius:20px;padding:2px 8px">\uD83D\uDD2E Scenario</div>' : '')+
-        (cropForecastable(l) ? '<div onclick="event.stopPropagation();cropViewInPlanning('+l.id+')" style="margin-top:9px;font-size:11.5px;font-weight:700;color:var(--gl);display:flex;align-items:center;gap:5px;cursor:pointer">\uD83D\uDDD3\uFE0F View in Planning \u203a</div>' : '')+
-      '</div>';
-  });
-  html+='</div>'+
+  var lands=ST_CROP.lands||[];
+  if(!lands.length){
+    el.innerHTML='<div style="text-align:center;padding:40px 20px;background:#fff;border:1px dashed var(--br);border-radius:var(--rl)"><div style="font-size:30px">\uD83C\uDF31</div><div style="font-weight:800;margin:8px 0 4px">Nothing planted yet</div><div style="font-size:13px;color:var(--t3);margin-bottom:14px">Plant your first land and this page shows what it costs, yields and earns.</div><button class="btn-pri" onclick="cropSetTab(\'add\')">\uFF0B Plant a land</button></div>';
+    return;
+  }
+  var T=_cropOverviewTotals();
+  var att=_cropAttention();
+  var sorted=lands.slice().sort(function(a,b){ var r=_cropLandRank(a)-_cropLandRank(b); return r!==0?r:((b.area||0)-(a.area||0)); });
+  var ov=(ST_CROP.ovView==='table')?'table':'cards';
+  var _seg='<span class="cr-seg"><button class="'+(ov==='cards'?'on':'')+'" onclick="cropSetOvView(\'cards\')">\ud83c\udccf Cards</button><button class="'+(ov==='table'?'on':'')+'" onclick="cropSetOvView(\'table\')">\u2630 Table</button></span>';
+  var _grow=(ov==='table') ? _cropLandTable(sorted) : ('<div class="crop-lands">'+sorted.map(_cropLandCard).join('')+'</div>');
+  el.innerHTML=''+
+    _cropHeroHTML(att,T)+
+    _lsAttnHTML(att)+
+    _cropRollupHTML(T)+
+    '<div class="cr-sech"><span class="t">What\u2019s growing where</span><span class="r" style="display:flex;align-items:center;gap:8px">'+T.landCount+' land'+(T.landCount===1?'':'s')+' \u00b7 '+T.plantedArea+' ha'+_seg+'</span></div>'+
+    _grow+
     '<div class="crop-sec-h">Reports</div>'+
     cropCta('gm-r','\uD83D\uDCCA','Gross Margin per Hectare Report','Income less direct inputs, per land and per hectare \u2014 your most important crop number.','openCropGMReport()')+
     cropCta('spray','\uD83E\uDDEA','Spray Program & Pre-Harvest Interval Audit','Every agrochemical applied with PHI/MRL safe-to-harvest dates \u2014 export & GlobalGAP.','openCropSprayReport()')+
     cropCta('cost','\uD83E\uDDFE','Crop Input Cost Report (SARS)','Seed, fertiliser, chemicals & fuel \u2014 Section 11(a) deductions and diesel-rebate litres.','openCropInputCostReport()')+
     cropCta('water','\uD83D\uDCA7','Water Use Return','Registered vs metered abstraction \u2014 for your National Water Act water-use report.','openCropWaterReport()');
-  el.innerHTML=html;
+}
+function cropSetOvView(v){ ST_CROP.ovView=(v==='table')?'table':'cards'; if(typeof saveState==='function'){ try{ saveState(); }catch(e){} } cropRenderOverview(); }
+/* Table view of the same lands \u2014 the Lands register, one toggle from the cards. Click a row
+   for the full land detail (same modal as a card). Scroll-wrapped so a narrow window never
+   crushes it. */
+function _cropLandTable(sorted){
+  var rows=sorted.map(function(l){
+    var est=cropEffStage(l), planned=est==='planned', fallow=est==='fallow';
+    var phi=_cropPhiByLand()[l.id];
+    var chipCls = phi?'s-harv':cropStageClass(est);
+    var chip = phi?('\u26D4 wait to '+lsFmtDate(phi.safe)):cropStageLabel(est);
+    var yld = fallow ? '\u2014' : (cropLandYield(l)+' t/ha');
+    var gmNeg = l.crop && !fallow && !planned && cropLandGMperHa(l)<0;
+    var gm = (l.crop && !fallow) ? (cropFmtR(cropLandGMperHa(l))+'/ha') : '\u2014';
+    var val = (planned||fallow||!l.crop) ? '\u2014' : cropFmtR(cropLandIncomePerHa(l)*(l.area||0));
+    return '<tr onclick="cropOpenLand('+l.id+')" style="cursor:pointer">'+
+      '<td><b>'+esc(l.name)+'</b></td>'+
+      '<td class="r">'+(l.area||0)+' ha</td>'+
+      '<td>'+(l.crop?esc(l.crop)+(l.cultivar?' \u00B7 '+esc(l.cultivar):'')+(l.gmo?' (Bt)':''):'\u2014')+'</td>'+
+      '<td><span class="crop-stage '+chipCls+'">'+chip+'</span></td>'+
+      '<td class="r">'+yld+'</td>'+
+      '<td class="r"'+(gmNeg?' style="color:var(--rd)"':'')+'>'+gm+'</td>'+
+      '<td class="r">'+val+'</td></tr>';
+  }).join('');
+  return '<div style="overflow-x:auto;border:1px solid var(--br);border-radius:13px;background:#fff"><table class="crop-tbl" style="min-width:660px"><thead><tr><th>Land</th><th class="r">Area</th><th>Crop / cultivar</th><th>Status</th><th class="r">Yield</th><th class="r">Margin/ha</th><th class="r">Expected value</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
 }
 function cropKpi(l,v,acc,id){ return '<div class="crop-kpi'+(acc?' acc':'')+(id?' kpi-tap':'')+'"'+(id?' onclick="kpiOpen(\''+id+'\')" style="position:relative"':'')+'>'+(id?'<span class="kpi-i">\u24D8</span>':'')+'<div class="l">'+l+'</div><div class="v">'+v+'</div></div>'; }
 function cropCta(cls,ic,t,s,onclick){ return '<button class="crop-rpt-cta '+cls+'" onclick="'+onclick+'"><span class="ic">'+ic+'</span><span class="tx"><span class="t">'+t+'</span><span class="s">'+s+'</span></span><span class="ar">\u203a</span></button>'; }
@@ -9244,12 +9451,25 @@ function cropRenderLands(){
 
 function cropRenderInputs(){
   var el=$('crop-view-inputs'); if(!el) return;
-  var active=cropActivePHI();
-  var ban = active.length
-    ? '<div class="crop-miniban"><span>\u23F3</span><span>'+active.length+' land'+(active.length>1?'s':'')+' inside a pre-harvest interval \u2014 don\u2019t harvest '+active.map(function(i){var l=cropLandById(i.land);return esc(l?l.name:'?');}).join(', ')+' before its safe date.</span></div>'
-    : '';
+  var phiByLand=_cropPhiByLand(), phiLands=Object.keys(phiByLand).length;
+  /* Safe-to-harvest strip (Orchards pattern): one chip per cropped land \u2014 \u2713 clear or \u26D4 with
+     the safe date. Counts LANDS, fixing the old banner that counted spray records and read
+     "2 lands \u2026 Vlakte, Vlakte". */
+  var strip=(ST_CROP.lands||[]).filter(function(l){ var e=cropEffStage(l); return l.crop && e!=='fallow' && e!=='planned'; })
+    .map(function(l){ var p=phiByLand[l.id];
+      return p ? '<span class="cr-pill warn">\u26D4 '+esc(l.name)+' \u2014 wait to '+lsFmtDate(p.safe)+'</span>'
+               : '<span class="cr-pill ok">\u2713 '+esc(l.name)+'</span>'; }).join('');
+  var stripHtml = strip ? ('<div class="cr-safestrip"><span class="t">Safe to harvest?</span>'+strip+'</div>') : '';
+  var inputs=ST_CROP.inputs||[];
+  var complete=inputs.filter(function(i){ var needBatch=!(i.kind==='fertiliser'||i.kind==='seed'); var okBatch=!needBatch||!!(i.batch&&String(i.batch).trim()); return okBatch && !!(i.by&&String(i.by).trim()); }).length;
+  var kpis='<div class="crop-kpis">'+
+    cropKpi('Applications this season', inputs.length)+
+    cropKpi('Input & spray spend', cropFmtR(cropInputCostTotal()), true)+
+    cropKpi('Lands inside a spray wait', phiLands)+
+    cropKpi('Records complete', complete+' / '+inputs.length)+
+  '</div>';
   var filt=ST_CROP.filter;
-  var list=ST_CROP.inputs.slice().sort(function(a,b){return a.date<b.date?1:-1;}).filter(function(i){
+  var list=inputs.slice().sort(function(a,b){return a.date<b.date?1:-1;}).filter(function(i){
     if(filt==='all') return true;
     if(filt==='phi') return cropInputActive(i);
     return i.kind===filt;
@@ -9266,13 +9486,30 @@ function cropRenderInputs(){
       '<td>'+(i.phi?i.phi+' d':'None')+'</td><td class="'+safeCls+'">'+safe+'</td></tr>';
   }).join('') || '<tr><td colspan="9" style="color:var(--t3)">No applications match this filter.</td></tr>';
   function chip(k,lbl){ return '<span class="crop-chip'+(filt===k?' on':'')+'" onclick="cropSetFilter(\''+k+'\')">'+lbl+'</span>'; }
-  el.innerHTML=''+ban+
-    '<div class="crop-kpis k3">'+cropKpi('Applications logged', ST_CROP.inputs.length)+cropKpi('Input spend (season)', cropFmtR(cropInputCostTotal()), true)+cropKpi('Within PHI now', active.length)+'</div>'+
-    '<div class="crop-chips">'+chip('all','All')+chip('phi','Within PHI')+chip('seed','Seed')+chip('fertiliser','Fertiliser')+chip('herbicide','Herbicide')+chip('fungicide','Fungicide')+chip('insecticide','Insecticide')+'<button class="crop-logbtn" onclick="cropLogInput()">+ Log application</button></div>'+
-    '<table class="crop-tbl"><thead><tr><th>Date</th><th>Land</th><th>Product \u00b7 reg</th><th>Type</th><th>Rate</th><th>Batch</th><th>By</th><th>PHI</th><th>Safe harvest</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+  el.innerHTML=''+ stripHtml + kpis +
+    '<div class="crop-chips">'+chip('all','All')+chip('phi','Within PHI')+chip('seed','Seed')+chip('fertiliser','Fertiliser')+chip('herbicide','Herbicide')+chip('fungicide','Fungicide')+chip('insecticide','Insecticide')+
+      '<button class="crop-logbtn" onclick="cropLogInput()">+ Log application</button><button class="cr-repeatbtn" onclick="cropRepeatLastInput()">\u21BA Repeat last</button></div>'+
+    '<div style="overflow-x:auto;border:1px solid var(--br);border-radius:13px;background:#fff"><table class="crop-tbl" style="min-width:820px"><thead><tr><th>Date</th><th>Land</th><th>Product \u00b7 reg</th><th>Type</th><th>Rate</th><th>Batch</th><th>By</th><th>PHI</th><th>Safe harvest</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '<div class="crop-infonote">Each line records the <b>cost</b> (your SARS S11(a) deduction) <b>and</b> the registered product, rate, batch, applicator and pre-harvest interval \u2014 so the safe-to-harvest date, export-residue (MRL) compliance and the Act 36 spray record all come from one entry.</div>'+
-    '<div class="crop-divider"></div><div class="crop-rpt-label">Report</div>'+
-    cropCta('spray','\uD83E\uDDEA','Spray Program & Pre-Harvest Interval Audit','Full application register with PHI/MRL safe-to-harvest dates \u2014 export & GlobalGAP.','openCropSprayReport()');
+    '<div class="crop-divider"></div><div class="crop-rpt-label">Reports for this tab</div>'+
+    cropCta('spray','\uD83E\uDDEA','Spray Program & Pre-Harvest Interval Audit','Full application register with PHI/MRL safe-to-harvest dates \u2014 export & GlobalGAP.','openCropSprayReport()')+
+    cropCta('cost','\uD83E\uDDFE','Crop Input Cost Report (SARS)','Seed, fertiliser, chemicals & fuel \u2014 Section 11(a) deductions and diesel-rebate litres.','openCropInputCostReport()')+
+    '<div onclick="cropSetTab(\'overview\')" style="margin-top:8px;font-size:12px;font-weight:700;color:var(--gm);cursor:pointer">All crop reports on the Overview \u2192</div>';
+}
+/* Pre-fill the log modal from the most recent application \u2014 most spray programs repeat the
+   same product/rate a few weeks apart. Land, batch and date stay fresh for the farmer to set. */
+function cropRepeatLastInput(){
+  var inputs=(ST_CROP.inputs||[]).slice().sort(function(a,b){return a.date<b.date?1:-1;});
+  var last=inputs[0];
+  if(!last){ toast('No previous application to repeat','info'); return; }
+  cropLogInput();
+  var set=function(id,v){ var e=document.getElementById(id); if(e&&v!=null&&v!=='') e.value=v; };
+  set('ci-product', last.product); set('ci-reg', last.reg); set('ci-kind', last.kind);
+  set('ci-rate', last.rate); set('ci-by', last.by); set('ci-cert', last.operatorCert);
+  set('ci-for', last.targetFor); set('ci-phi', last.phi); set('ci-cost', last.costPerHa);
+  Array.prototype.forEach.call(document.querySelectorAll('.ci-land-cb'), function(c){ c.checked=false; });
+  var cb=document.querySelector('.ci-land-cb[value="'+last.land+'"]'); if(cb) cb.checked=true;
+  toast('Repeating your last application \u2014 check the lands, batch & date','info');
 }
 function cropSetFilter(f){ ST_CROP.filter=f; cropRenderInputs(); }
 
@@ -9284,12 +9521,15 @@ function cropRenderCompliance(){
   '</div>';
   if(ST_CROP.complyView==='audit'){ el.innerHTML=toggle+cropRenderAuditLog(); return; }
   var sc=cropComplianceScore();
-  var label = sc.total===0 ? 'Nothing tracked yet' : (sc.ok===sc.total ? 'Fully compliant' : (sc.ok>=sc.total-2 ? 'Mostly compliant' : 'Needs attention'));
+  var label = sc.total===0 ? 'Nothing tracked yet' : (sc.ok===sc.total ? 'Your farm is fully in order' : (sc.ok>=sc.total-2 ? 'Your farm is mostly in order' : 'A few areas need attention'));
   var tracked=cropComplianceTrackedIds();
-  var items=tracked.map(function(it){
+  /* Farm-wide areas already live in another tab; cross-link rather than keep a second copy
+     that can drift. The card stays (data is preserved) but points to its canonical home. */
+  var xmap={ ohs:{go:"nav('workers')", lbl:'Managed in Workers'}, diesel:{go:"nav('tax')", lbl:'Managed in Tax'} };
+  var itemObjs=tracked.map(function(it){
     var due=cropComplianceCombinedDue(it.id);
-    // dot escalates to overdue/soon when a check or document is due
     var dot = (due.state==='over') ? 'r' : ((due.state==='soon'||it.status==='a') ? 'a' : 'g');
+    var rank = (due.state==='over') ? 0 : (due.state==='soon' ? 1 : (it.status==='a' ? 2 : 3));
     var dueBadge = '';
     if(due.state==='over') dueBadge='<span class="due over" style="font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;background:var(--rp);color:var(--rd)">\uD83D\uDD34 '+due.label+'</span>';
     else if(due.state==='soon') dueBadge='<span class="due soon" style="font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;background:var(--ap);color:var(--am)">\uD83D\uDFE1 '+due.label+'</span>';
@@ -9297,18 +9537,28 @@ function cropRenderCompliance(){
     else { var fixCount=it.kv.filter(function(kv){return /\u26a0/.test(kv[1]);}).length; dueBadge='<span class="cact">'+(it.status==='g'?'Open \u203a':(fixCount?(fixCount+' to fix \u203a'):'Review \u203a'))+'</span>'; }
     var kv=it.kv.map(function(pp){return '<span class="k">'+esc(pp[0])+'</span><span class="v">'+esc(pp[1])+'</span>';}).join('');
     var logBtn = cropComplianceCadence(it.id) ? '<button onclick="event.stopPropagation();cropOpenComplianceLog(\''+it.id+'\')" style="margin-top:10px;font-size:11.5px;font-weight:700;background:var(--gb);border:1px solid var(--gp);color:var(--gd);border-radius:8px;padding:6px 11px;cursor:pointer">\uD83D\uDDD3\uFE0F Log a check / upload photo</button>' : '';
-    return '<div class="crop-citem" onclick="cropOpenCompliance(\''+it.id+'\')" style="cursor:pointer">'+
+    var xl = xmap[it.id] ? '<div class="cr-xlink" onclick="event.stopPropagation();'+xmap[it.id].go+'">'+xmap[it.id].lbl+' \u2192</div>' : '';
+    var html='<div class="crop-citem" onclick="cropOpenCompliance(\''+it.id+'\')" style="cursor:pointer">'+
       '<div class="ch"><span class="cstat '+dot+'"></span><div class="ct">'+it.t+'<div class="law">'+it.law+'</div></div>'+dueBadge+'</div>'+
-      '<div class="cd">'+esc(it.desc)+'</div><div class="crop-kv2">'+kv+'</div>'+logBtn+'</div>';
-  }).join('');
+      '<div class="cd">'+esc(it.desc)+'</div><div class="crop-kv2">'+kv+'</div>'+logBtn+xl+'</div>';
+    return {rank:rank, html:html};
+  });
+  itemObjs.sort(function(a,b){return a.rank-b.rank;});   // needs-attention first
+  var items=itemObjs.map(function(o){return o.html;}).join('');
   if(!tracked.length) items='<div class="crop-infonote" style="margin:0">You haven\u2019t chosen any areas to track yet. Tap \u201cChoose what to track\u201d below to start.</div>';
-  el.innerHTML=toggle+
-    '<div class="crop-score"><div class="big">'+sc.ok+'/'+sc.total+'</div><div><div class="lab"><b>'+label+'</b> for the '+ST_CROP.season+' season.</div><div class="lab" style="color:var(--t3);margin-top:2px">'+(sc.total-sc.ok)+' item'+((sc.total-sc.ok)===1?'':'s')+' to review.'+(function(){var dl=cropComplianceDueList();return dl.length?' <b style="color:var(--rd)">\uD83D\uDD14 '+dl.length+' check'+(dl.length>1?'s':'')+' due/overdue.</b>':'';})()+' Tap any area to enter records or log a check.</div></div></div>'+
+  var pct=sc.total?Math.round(sc.ok/sc.total*100):0;
+  var dl=cropComplianceDueList();
+  var nextDl = dl.length ? (' \u00B7 next deadline: <b>'+esc(dl[0].t)+(dl[0].due.label?(' \u2014 '+esc(dl[0].due.label)):'')+'</b>') : ' \u00B7 nothing due right now';
+  var hero='<div class="cr-chero"><div class="cr-ring" style="background:conic-gradient(var(--gm) 0 '+pct+'%, var(--br2) '+pct+'% 100%)"><i>'+sc.ok+'/'+sc.total+'</i></div>'+
+    '<div style="min-width:0"><div class="tt">'+label+'</div><div class="ss">'+sc.ok+' of '+sc.total+' areas up to date'+nextDl+(dl.length?(' \u00B7 <b style="color:var(--rd)">'+dl.length+' due/overdue</b>'):'')+'</div></div></div>';
+  el.innerHTML=toggle+ hero +
     '<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 10px"><div class="crop-sec-h" style="margin:0">Legislation &amp; certification tracker</div>'+
       '<button onclick="cropManageCompliance()" style="font-size:12px;font-weight:700;background:var(--gb);border:1px solid var(--gp);color:var(--gd);border-radius:8px;padding:6px 11px;cursor:pointer">\u2699\uFE0F Choose what to track</button></div>'+
     '<div class="crop-clist">'+items+'</div>'+
-    '<div class="crop-divider"></div><div class="crop-rpt-label">Report</div>'+
+    '<div class="crop-divider"></div><div class="crop-rpt-label">Reports for this tab</div>'+
     cropCta('spray','\uD83D\uDEE1\uFE0F','Compliance Audit Pack','One printable pack of all the above \u2014 for inspectors, export buyers, your co-op or bank.','openCropComplianceReport()')+
+    cropCta('water','\uD83D\uDCA7','Water Use Return','Registered vs metered abstraction \u2014 for your National Water Act water-use report.','openCropWaterReport()')+
+    '<div onclick="cropSetTab(\'overview\')" style="margin-top:8px;font-size:12px;font-weight:700;color:var(--gm);cursor:pointer">All crop reports on the Overview \u2192</div>'+
     '<div class="crop-infonote" style="margin-top:14px">Plain-language status only. Exact legal thresholds (refuge %, water limits, refund rate) are entered or looked up, never assumed.</div>';
 }
 
@@ -9658,14 +9908,14 @@ async function cropDoHarvest(l){
 function cropLogInput(){
   var planted=ST_CROP.lands.filter(cropPlanted);
   if(!planted.length){ toast('Plant a land first','info'); return; }
-  var landOpts=planted.map(function(l){return '<option value="'+l.id+'">'+esc(l.name)+' ('+(l.area||0)+' ha)</option>';}).join('');
+  var landBoxes=planted.map(function(l,ix){return '<label style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--br);border-radius:9px;margin-bottom:6px;cursor:pointer;font-size:13px"><input type="checkbox" class="ci-land-cb" value="'+l.id+'"'+(ix===0?' checked':'')+' style="width:17px;height:17px;flex:none">'+esc(l.name)+' <span style="color:var(--t4)">'+(l.area||0)+' ha</span></label>';}).join('');
   var kinds=[['herbicide','Herbicide'],['fungicide','Fungicide'],['insecticide','Insecticide'],['fertiliser','Fertiliser'],['seed','Seed']];
   var kindOpts=kinds.map(function(k){return '<option value="'+k[0]+'">'+k[1]+'</option>';}).join('');
   var today=LS_TODAY.toISOString().slice(0,10);
   function lbl(t,opt){ return '<label style="display:block;font-size:10.5px;font-weight:800;color:var(--gm);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">'+t+(opt?' <span style="color:var(--t4);font-weight:600;text-transform:none;letter-spacing:0">optional</span>':'')+'</label>'; }
   var inpCss='width:100%;height:38px;border:1px solid var(--br);border-radius:9px;background:#fff;padding:0 11px;font-size:13.5px;font-family:inherit;box-sizing:border-box';
   var body=''+
-    '<div style="margin-bottom:12px">'+lbl('Which land?')+'<select id="ci-land" style="'+inpCss+'">'+landOpts+'</select></div>'+
+    '<div style="margin-bottom:12px">'+lbl('Which lands? — tick all it went on')+'<div id="ci-lands">'+landBoxes+'</div><div style="font-size:10.5px;color:var(--t4);margin-top:2px">Cost is per hectare — one record per land, each with the same batch, operator &amp; wait period.</div></div>'+
     '<div style="margin-bottom:12px">'+lbl('What did you apply?')+'<input id="ci-product" placeholder="e.g. Karate Zeon" style="'+inpCss+'"></div>'+
     '<div style="display:flex;gap:10px;margin-bottom:12px"><div style="flex:1">'+lbl('Registration no.',true)+'<input id="ci-reg" placeholder="L7723 (on the label)" style="'+inpCss+'"></div>'+
       '<div style="flex:1">'+lbl('Type')+'<select id="ci-kind" style="'+inpCss+'">'+kindOpts+'</select></div></div>'+
@@ -9683,33 +9933,41 @@ function cropLogInput(){
   cropModalShell('Log an application', body, footer);
 }
 function cropInputFormSave(){
-  var l=cropLandById(parseInt(($('ci-land')||{}).value,10)); if(!l){ toast('Pick a land','error'); return; }
+  var landIds=Array.prototype.slice.call(document.querySelectorAll('.ci-land-cb:checked')).map(function(c){return parseInt(c.value,10);}).filter(function(x){return !isNaN(x);});
+  if(!landIds.length){ toast('Tick at least one land','error'); return; }
   var product=(($('ci-product')||{}).value||'').trim(); if(!product){ toast('What did you apply?','error'); return; }
   var kind=(($('ci-kind')||{}).value||'herbicide');
   var phi=parseInt(($('ci-phi')||{}).value,10)||0;
   var cost=parseFloat(($('ci-cost')||{}).value)||0;
   var date=(($('ci-date')||{}).value)||LS_TODAY.toISOString().slice(0,10);
   var forVal=(($('ci-for')||{}).value||'').trim();
-  ST_CROP.inputs.unshift({ id:cropNextId(ST_CROP.inputs,'ci'), land:l.id, date:date, product:product,
-    reg:(($('ci-reg')||{}).value||'').trim(), kind:kind, rate:(($('ci-rate')||{}).value||'').trim(),
-    batch:(($('ci-batch')||{}).value||'').trim(), by:(($('ci-by')||{}).value||'').trim()||(FARM.owner||''),
-    operatorCert:(($('ci-cert')||{}).value||'').trim(), targetFor:forVal,
-    phi:phi, costPerHa:cost });
-  // Sync the cost to Money Flow as a real SARS expense line (mirrors orchard/livestock)
-  var total = cost * (l.area||0);
-  if(total>0){
-    var catMap={seed:'Seeds & Planting',fertiliser:'Fertiliser',herbicide:'Crop Protection',fungicide:'Crop Protection',insecticide:'Crop Protection'};
-    var cat=catMap[kind]||'Crop Protection';
-    var desc=product+' \u2014 '+(l.name||'land')+(forVal?(' ('+forVal+')'):'');
-    var entTag = l.crop ? ('crop:'+l.crop) : undefined;
-    ST.txns=ST.txns||[];
-    ST.txns.unshift({ date:cropDispDate(date), desc:desc, cat:cat, type:'expense', amt:total, method:'Bank Debit', source:'Crop input', ent:entTag });
-    var _ciTx=ST.txns[0];
-    try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_ciTx, {date:_lsTxnISO(date),amt:total,cat:cat,type:'expense',desc:desc,method:'Bank Debit',ent:entTag,source:'Crop input'}); } }catch(e){}
-  }
+  var reg=(($('ci-reg')||{}).value||'').trim(), rate=(($('ci-rate')||{}).value||'').trim(),
+      batch=(($('ci-batch')||{}).value||'').trim(), by=(($('ci-by')||{}).value||'').trim()||(FARM.owner||''),
+      cert=(($('ci-cert')||{}).value||'').trim();
+  var catMap={seed:'Seeds & Planting',fertiliser:'Fertiliser',herbicide:'Crop Protection',fungicide:'Crop Protection',insecticide:'Crop Protection'};
+  var cat=catMap[kind]||'Crop Protection';
+  /* One tank mix can cover several lands. The rate is per-hectare, so each land gets its own
+     record (same batch/operator/wait period) and its own cost = per-ha \u00d7 its hectares \u2014 exactly
+     what the PHI audit and SARS report need. */
+  var totalAll=0, n=0;
+  landIds.forEach(function(lid){
+    var l=cropLandById(lid); if(!l) return; n++;
+    ST_CROP.inputs.unshift({ id:cropNextId(ST_CROP.inputs,'ci'), land:l.id, date:date, product:product,
+      reg:reg, kind:kind, rate:rate, batch:batch, by:by, operatorCert:cert, targetFor:forVal, phi:phi, costPerHa:cost });
+    var total = cost * (l.area||0);
+    if(total>0){
+      totalAll+=total;
+      var desc=product+' \u2014 '+(l.name||'land')+(forVal?(' ('+forVal+')'):'');
+      var entTag = l.crop ? ('crop:'+l.crop) : undefined;
+      ST.txns=ST.txns||[];
+      ST.txns.unshift({ date:cropDispDate(date), desc:desc, cat:cat, type:'expense', amt:total, method:'Bank Debit', source:'Crop input', ent:entTag });
+      var _ciTx=ST.txns[0];
+      try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_ciTx, {date:_lsTxnISO(date),amt:total,cat:cat,type:'expense',desc:desc,method:'Bank Debit',ent:entTag,source:'Crop input'}); } }catch(e){}
+    }
+  });
   ST_CROP.filter='all'; dataChanged('crop');
   cropCloseModal();
-  toast(total>0?('Application logged \u2014 R'+_grpInt(Math.round(total))+' to expenses'):'Application logged','success');
+  toast(totalAll>0?('Logged on '+n+' land'+(n===1?'':'s')+' \u2014 R'+_grpInt(Math.round(totalAll))+' to expenses'):('Application logged on '+n+' land'+(n===1?'':'s')),'success');
 }
 var CROP_LAND_IDX = -1;
 var CROP_LAND_EDIT = false;
@@ -38516,8 +38774,8 @@ var PAGE_TOURS = {
       text:'Everything for your crops in one place. The Overview lists each land with its crop, area, growth stage and the expected gross margin for the season.', pos:'center' },
     { target:'crop-view-overview', title:'Margins at a glance', icon:'📈', tab:'overview',
       text:'Each land card shows expected income, input cost and gross margin per hectare — so you can see which fields are pulling their weight long before the season ends.', pos:'smart' },
-    { target:'crop-tab-lands', title:'Lands register', icon:'🗺️', tab:'lands',
-      text:'Your register of every field — area, current crop and rotation history. Tap a land to record a planting or harvest, or to link it to your plan.', tip:'Keeping rotation history helps with agronomy and with the rotation records some buyers ask for.', pos:'smart' },
+    { target:'crop-view-overview', title:'Lands register', icon:'🗺️', tab:'lands',
+      text:'Switch the Overview to ☰ Table for your register of every field — area, crop, status, yield and margin. Tap any row to record a planting or harvest, or to link it to your plan.', tip:'The Cards view is for a quick glance; the Table view is the full register — same lands, one toggle.', pos:'smart' },
     { target:'crop-tab-inputs', title:'Inputs & spray log', icon:'🧪', tab:'inputs',
       text:'Log every spray and input — product, rate, batch number, operator and pre-harvest interval. Each entry feeds your cost per hectare and doubles as your Act 36 spray record.', tip:'Recording the pre-harvest interval lets the app warn you if a harvest is logged too soon after a spray.', pos:'smart' },
     { target:'crop-tab-comply', title:'Compliance tracker', icon:'✅', tab:'comply', onEnter:'tourComplyTracker',
