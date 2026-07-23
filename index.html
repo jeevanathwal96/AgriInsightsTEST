@@ -5597,7 +5597,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <!-- Dynamic metrics -->
   <div class="metrics m5" style="margin-bottom:16px">
     <div class="mc"><div class="mc-lbl">Total Income</div><div class="mc-val g" id="rpt-income">R1 328 750</div><div class="mc-chg" id="rpt-income-lbl" style="color:var(--t3)">May 2024</div></div>
-    <div class="mc"><div class="mc-lbl">Total Expenses</div><div class="mc-val" style="color:var(--rd)" id="rpt-expenses">R1 043 320</div><div class="mc-chg" style="color:var(--t3)">May 2024</div></div>
+    <div class="mc"><div class="mc-lbl">Total Expenses</div><div class="mc-val" style="color:var(--rd)" id="rpt-expenses">R1 043 320</div><div class="mc-chg" id="rpt-expenses-lbl" style="color:var(--t3)">May 2024</div></div>
     <div class="mc"><div class="mc-lbl">Gross Profit</div><div class="mc-val b" id="rpt-gross">R285 430</div><div class="mc-chg" style="color:var(--t3)">Before allowances</div></div>
     <div class="mc"><div class="mc-lbl">Net Profit</div><div class="mc-val g" id="rpt-net">R223 090</div><div class="mc-chg" style="color:var(--t3)">After tax provision</div></div>
     <div class="mc"><div class="mc-lbl">Net Margin</div><div class="mc-val p" id="rpt-margin">16.8%</div><div class="mc-chg" style="color:var(--t3)">This period</div></div>
@@ -34938,6 +34938,8 @@ function updateRptDisplay() {
   setEl('rpt-net',      IE_R(R.netProfitBT));
   setEl('rpt-margin',   R.netMargin+'%');
   setEl('rpt-income-lbl', lbl);
+  setEl('rpt-expenses-lbl', lbl);
+  var _ss=$('rpt-stmt-sub'); if(_ss) _ss.innerHTML='Showing figures for <strong>'+lbl+'</strong> — preview inline or open to print.';
 
 var tbody = $('rpt-cmp-tbody');
   if (tbody) {
@@ -38030,7 +38032,7 @@ var TOUR_STEPS = [
     icon:   '📝',
     title:  'Transactions — Every entry in one place',
     desc:   'Every sale and expense you record lands here in one searchable list, newest first — whether you added it from the + button, a bank import or any other screen.',
-    tip:    'Filter by income or expense, tap a category to narrow down, or search by description, date or amount. Tap any row to open, edit or delete it — changes sync across every screen and report instantly.',
+    tip:    'Filter by income or expense, pick a category from the dropdown to narrow down, or search by description, date or amount. Tap any row to open, edit or delete it — changes sync across every screen and report instantly.',
     pos:    'right'
   },
   {
@@ -38096,7 +38098,7 @@ var TOUR_STEPS = [
     page:   'reports',
     icon:   '📋',
     title:  'Reports — Print-ready for SARS',
-    desc:   'Three official statements — Profit & Loss, Cash Flow and Tax Summary — all calculated from your recorded transactions. Click any one for a full print preview. Further down, the Accountant Pack bundles your year-end exports.',
+    desc:   'Four official statements — Income & Expenses, Profit & Loss, Cash Flow and Tax Summary — all calculated from your recorded transactions. Click any one for a full print preview. Further down, the Accountant Pack bundles your year-end exports.',
     tip:    'The Accountant Pack previews everything your accountant needs — P&L, transactions, general ledger, asset register and a Pastel/Xero import — then downloads it in one go, or invite your accountant by email.',
     pos:    'right'
   },
@@ -38144,7 +38146,7 @@ var TOUR_STEPS = [
     page:   'profit',
     icon:   '📊',
     title:  'Your Profit Margins — what each part of your farm earns',
-    desc:   "This is where the money makes sense. It works out the profit of every crop, herd and fruit block on its own — per hectare, per animal and per block — so you can see which parts carry the farm and which are just keeping you busy.",
+    desc:   "This is where the money makes sense. It works out the profit of every crop, herd and fruit block on its own — per hectare for crops, per livestock unit for herds and per hectare for orchards — so you can see which parts carry the farm and which are just keeping you busy.",
     tip:    "Three views: At a glance ranks your earners; Details drills into one part of your farm (cost make-up, field-by-field, vs the regional benchmark); What-if lets you drag price, yield and cost sliders to test a season before it happens.",
     pos:    'right'
   },
@@ -38956,10 +38958,25 @@ function aiDemoRibbon(){
 }
 function aiDemoStart(){
   window.__AI_GUEST = true;
+  // Guest layout guards: lift the bottom-right FABs above the ribbon, and hide the floating
+  // "Demo this page" pill (it overlaps the header controls) — tab demos stay reachable via the 🗺️ tours menu.
+  try{
+    document.body.classList.add('ai-guest');
+    if(!document.getElementById('ai-demo-style')){ var _st=document.createElement('style'); _st.id='ai-demo-style'; _st.textContent='body.ai-guest #qc-fab,body.ai-guest #tours-fab{bottom:82px !important}'; document.head.appendChild(_st); }
+    if(window.ST) ST.showTourBtn=false;
+    var _ptf=document.getElementById('page-tour-fixed'); if(_ptf){ _ptf.classList.add('hidden'); _ptf.style.display='none'; }
+  }catch(e){}
   try{ var ov=document.getElementById('ob-overlay'); if(ov) ov.style.display='none'; }catch(e){}
   try{ if(window.ST) ST.firstRun=false; }catch(e){}
   aiDemoRibbon();
   try{ if(typeof ST!=='undefined' && ST.lang==='af' && typeof applyLangNodes==='function') applyLangNodes(document.getElementById('ai-demo-ribbon'),0,1); }catch(e){}
+  // Keep the DEMO ribbon from covering tour cards: hide it while a tour runs, restore after.
+  try{
+    var _rH=function(){var r=document.getElementById('ai-demo-ribbon'); if(r) r.style.display='none';};
+    var _rS=function(){var r=document.getElementById('ai-demo-ribbon'); if(r) r.style.display='flex';};
+    [['tourStart',_rH],['startPageTour',_rH]].forEach(function(p){ var n=p[0]; if(typeof window[n]==='function' && !window[n].__demoWrapped){ var o=window[n]; window[n]=function(){ p[1](); return o.apply(this,arguments); }; window[n].__demoWrapped=true; } });
+    [['tourEnd',_rS],['tourCompleteClose',_rS],['pageTourEnd',_rS]].forEach(function(p){ var n=p[0]; if(typeof window[n]==='function' && !window[n].__demoWrapped){ var o=window[n]; window[n]=function(){ var res=o.apply(this,arguments); p[1](); return res; }; window[n].__demoWrapped=true; } });
+  }catch(e){}
   // First visit only: play the animated user demo once. Replay any time via "Watch demo".
   try{
     if(localStorage.getItem('ai_guest_toured')!=='1'){
