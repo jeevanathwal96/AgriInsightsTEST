@@ -4870,7 +4870,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
 
     <!-- 4 high-level YTD figures -->
-    <div class="season-kpis">
+    <div class="season-kpis" id="dash-season-kpis">
       <div class="skpi kpi-tap" onclick="kpiOpen('seasonIncome')" style="position:relative"><span class="kpi-i">&#9432;</span>
         <div class="skpi-lbl">Year-to-date Income</div>
         <div class="skpi-val" id="season-ytd-income">R0</div>
@@ -5573,7 +5573,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Export All Reports
       </button>
-      <button onclick="previewSARSExport()" style="display:flex;align-items:center;gap:6px;background:#7C3AED;color:#fff;border:none;border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>SARS IT12 Pre-fill Export</button>
+      <button id="rpt-sars-it12" onclick="previewSARSExport()" style="display:flex;align-items:center;gap:6px;background:#7C3AED;color:#fff;border:none;border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>SARS IT12 Pre-fill Export</button>
     </div>
   </div>
 
@@ -6710,7 +6710,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
   <!-- ── HERD sub-segment (Overview / Productivity / Records) ── -->
   <div id="ls-view-herd" style="display:none">
-    <div class="pf-tabs" style="max-width:440px">
+    <div class="pf-tabs" id="ls-hsub-nav" style="max-width:440px">
       <button id="ls-hsub-overview"     class="on" onclick="lsHerdSub('overview')">Overview</button>
       <button id="ls-hsub-productivity"            onclick="lsHerdSub('productivity')">Productivity</button>
       <button id="ls-hsub-records"                 onclick="lsHerdSub('records')">Records</button>
@@ -38895,13 +38895,14 @@ document.addEventListener('click', function(e) {
   }
 });
 
+function orTourShowCompare(){ try{ if(typeof orBlocksView==='function') orBlocksView('compare'); }catch(e){} }
 var PAGE_TOURS = {
   workers: [
     { target:'wk-ov-kpis', tab:'ov', title:'Your team & wage bill', icon:'👥',
       text:'Your whole team lives here. The cards up top show this month’s wage bill, how many workers are on the books, what advances they owe you back, and how many contracts are on file.',
       tip:'Add a worker once and we use those details everywhere — payroll, your costs and compliance all read the same record.', pos:'smart' },
     { target:'wkp-wk', tab:'wk', title:'Everyone on the books', icon:'📋',
-      text:'Permanent and seasonal workers together, each with their pay, UIF and contract status. Add someone with the green button, and tell us once who mainly works on which part of the farm — no daily timesheets.',
+      text:'Permanent and seasonal workers together, each with their pay and contract status. Add someone with the green button, and tell us once who mainly works on which part of the farm — no daily timesheets.',
       tip:'That “works on” tag is how a worker’s pay flows into Profit by Crop & Herd.', pos:'smart' },
     { target:'wk-pay-table', tab:'pr', title:'Run the month', icon:'💰',
       text:'This month’s pay is filled in for you. UIF, any advance or savings, and a minimum-wage check are all worked out — tap a worker for their payslip. “Add to my farm costs” posts it to Labour & Wages, and you can undo a run if you mis-tap.',
@@ -38919,13 +38920,15 @@ var PAGE_TOURS = {
       text:'Everything on one screen — your profit for the month, cashflow, budget progress and where your income and costs are coming from. It updates the moment you add a transaction.',
       tip:'The big green/red card at the very top answers the one question every farmer asks: Am I making money this month?', pos:'center' },
     { target:'dash-combo-stripe', title:'Am I making money this month?', icon:'💵',
-      text:'The headline card: your profit for the month in one number, green when you\u2019re ahead and red when you\u2019re behind, with your margin, transaction count and days to your next tax payment beside it.',
+      text:'The headline card: your profit for the month in one number, green when you\u2019re ahead and red when you\u2019re behind, with your margin, transaction count and how many days are left in the month beside it.',
       tip:'This is the first thing to check each morning — everything else on the page explains the story behind it.', pos:'bottom' },
     { target:'dash-cf-grid', title:'Your key numbers', icon:'💰',
-      text:'These four cards show this month\'s income, expenses, profit and transaction count — all live from your recorded data.',
-      tip:'Tap any of these cards to jump straight to the relevant page for more detail.', pos:'smart' },
+      text:'These cards show this month\'s income, expenses and profit, with the transaction count underneath — all live from your recorded data.',
+      tip:'Tap any card to open a plain-language breakdown, with a link through to the full page.', pos:'smart' },
+    { target:'dash-season-kpis', title:'Zooming out — the season so far', icon:'🗓️',
+      text:'The Season So Far zone gives you the longer view — your income, expenses and profit for the year to date, with your margin — so a quiet month doesn’t read as a crisis and a strong one doesn’t hide a thin year. Tap any card to see the split.', pos:'smart' },
     { target:'dashChart', title:'6-month performance chart', icon:'📈',
-      text:'The bar chart shows your money in (green), money out (red) and profit line (dark) over the selected period. Use the 3M / 6M / 12M pills to change the view.',
+      text:'The bar chart shows your money in (green), money out (red) and profit line (dark) over the selected period. Use the 1M / 3M / 6M / 12M pills to change the view.',
       pos:'smart' },
     { target:'dash-inc-sources', title:'Where your money comes from — and goes', icon:'🥧',
       text:'Two cards side by side: your income broken down by source, and your costs broken down by category, for the same period as the chart. A quick read on what\u2019s carrying you and what\u2019s eating you.',
@@ -38952,7 +38955,7 @@ var PAGE_TOURS = {
     { target:'incomeChart', title:'Income chart', icon:'📊',
       text:'Bar chart of monthly income over your selected period. Taller bars = bigger income months. Hover over any bar for the exact amount.', pos:'smart' },
     { target:'incSourceDonut', title:'Income by source', icon:'🥧',
-      text:'The donut chart breaks your income into categories — Crop Sales, Livestock, Grants, Rental. The legend shows the rand value and percentage for each.',
+      text:'The donut chart breaks your income into categories — Crop Sales, Fruit Sales, Livestock, Grants, Agritourism, Rental and more. The legend shows the rand value and percentage for each.',
       tip:'A healthy farm should have income from at least 2-3 sources. Heavy reliance on one crop adds seasonal risk.', pos:'smart' },
     { target:'inc-seg-wrap', title:'By enterprise', icon:'🌾',
       text:'Switch "Whole farm" to "By enterprise" and the same chart splits your income by crop, herd or orchard block instead of by category — so you can see which part of the farm actually earned it. Anything not tagged yet shows as a nudge with a one-tap "Sort ›" to link it.',
@@ -38977,7 +38980,7 @@ var PAGE_TOURS = {
       text:'This is expenses ÷ income as a percentage. A ratio above 80% means you are keeping less than 20 cents of every rand earned.',
       tip:'South African grain farms typically target an expense ratio of 60–70%. Anything above 85% means your margins are dangerously thin.', pos:'smart' },
     { target:'exp-metric-ha', title:'Two more numbers worth knowing', icon:'📐',
-      text:"Biggest Category flags whatever's eating the most this period. Expenses per Hectare lets you compare your cost of farming against last season, or against a neighbour, on the same basis.",
+      text:"Expenses per Hectare lets you compare your cost of farming against last season, or against a neighbour, on the same basis. The card beside it — Biggest Category — flags whatever's eating the most this period.",
       pos:'smart' },
     { target:'expChart', title:'Expenses chart', icon:'📊',
       text:'Monthly expense bars for your selected period. Look for months where costs spike — that usually means planting inputs or machinery repairs.', pos:'smart' },
@@ -39002,6 +39005,8 @@ var PAGE_TOURS = {
       text:'Enter your actual bank balance here and the whole forecast starts from that number, so the runway ahead matches your real account — not just what’s been logged.', pos:'smart' },
     { target:'cfl-line-card', title:'Cash on hand, month by month', icon:'📉', tab:'forecast',
       text:'A line showing your projected balance ahead — dips below the line mean a tight month. Switch to Bars for the same numbers as columns instead.', tip:'Tap any point on the line to see exactly what’s driving that month’s balance.', pos:'smart' },
+    { target:'cf-fwd-rows', title:'Next 6 months, month by month', icon:'📅', tab:'forecast',
+      text:'Each coming month as a bar — green when the balance is healthy, amber when it’s getting tight, red if it dips below zero. Tap a month to see exactly what’s driving it, so a squeeze three months out is something you plan for, not discover.', pos:'smart' },
     { target:'cfl-wi-card', title:'What-if — stress-test the season', icon:'🎚️', tab:'forecast',
       text:'Try Bad year or Good year, or drag the sliders yourself — commodity prices, yield, costs — and watch the whole forecast move live. Base always returns you to your real plan.', tip:'This is the same what-if engine as Profit and Planning, just applied to your cash runway.', pos:'smart' },
     { target:'cf-recur-panel', title:'Recurring items', icon:'🔁', tab:'forecast',
@@ -39009,7 +39014,7 @@ var PAGE_TOURS = {
   ],
   reports: [
     { target:'pg-reports', title:'Reports overview', icon:'📋',
-      text:'Three SARS-standard reports generated automatically from your recorded transactions. No manual calculations — just click and print.',
+      text:'Four SARS-standard reports generated automatically from your recorded transactions. No manual calculations — just click and print.',
       pos:'center' },
     { target:'rpt-type-monthly', title:'Period selector', icon:'🗓️',
       text:'Switch between monthly, quarterly, yearly, or set your own Custom range. Use the arrows to navigate to any previous period. All figures come from your actual transactions.',
@@ -39017,9 +39022,11 @@ var PAGE_TOURS = {
     { page:'reports', target:'rpt-income', title:'Report summary figures', icon:'💰',
       text:'The headline numbers for your selected period — income, expenses, gross profit, net profit and margin. These match what would appear on your official statements.',
       pos:'smart' },
-    { target:'rpt-stmt-cards', title:'The three statements', icon:'📄',
-      text:'Click P&L Statement, Cash Flow Statement or Tax Summary to open a full print preview. The Tax Summary includes VAT 201 figures and Section 11 deduction calculations.',
-      tip:'Your accountant needs these three documents for your annual tax return. Keep them up to date throughout the year to avoid a rush at year-end.', pos:'smart' },
+    { target:'rpt-stmt-cards', title:'The four statements', icon:'📄',
+      text:'Click Income & Expenses, P&L Statement, Cash Flow Statement or Tax Summary to open a full print preview. The Tax Summary includes VAT 201 figures and Section 26 farming-income and capital-allowance calculations.',
+      tip:'Your accountant needs these documents for your annual tax return. Keep them up to date throughout the year to avoid a rush at year-end.', pos:'smart' },
+    { target:'rpt-sars-it12', title:'SARS IT12 pre-fill export', icon:'🧾',
+      text:'One tap builds a pre-filled IT12 income-tax pack from your year’s records — the figures SARS expects, laid out for your annual return, so you or your accountant aren’t rebuilding them by hand.', pos:'smart' },
     { target:'acc-pack', title:'Accountant Pack', icon:'📦',
       text:'Further down the page, the Accountant Pack bundles your year-end exports. Tap the Year-end pack to preview everything first — Profit & Loss, transactions, general ledger, asset register and a Pastel import — then download it all in one go.',
       tip:'You can also export directly for Pastel or Xero, or invite your accountant by email so they can pull the records themselves.', pos:'smart' },
@@ -39062,19 +39069,29 @@ var PAGE_TOURS = {
   ],
   orchards: [
     { target:'pg-orchards', title:'Orchards, Fruit & Veg', icon:'🍊', tab:'overview',
-      text:'Everything for your fruit, berry and veg blocks in one place — what each block brings in, when to pick, and your spray and certificate records.', pos:'center' },
-    { target:'or-ov-blocks', title:'Your season at a glance', icon:'📊', tab:'overview',
-      text:'The Overview shows your forecast money back for the season, your average per hectare, and a “Needs your attention” list — blocks falling behind, certificates about to expire, or fruit that’s ready to pick.', tip:'“Money back” is what the packhouse and agent actually pay you — after commission, packing, shipping and levies.', pos:'smart' },
-    { target:'or-bl-blocks', title:'Your blocks', icon:'🌳', tab:'blocks',
-      text:'Every block shows its total money back as the headline, with rand-per-hectare underneath, grouped by fruit type. Tap a block to see or change its tonnage, export %, carton size and pricing.', tip:'Every figure is worked out from your pricing and tonnage — change a price and the money back updates everywhere, the same number on every page.', pos:'smart' },
-    { target:'or-wf-body', title:'Harvest & Pack', icon:'📦', tab:'harvest',
-      text:'Work out what a pick is really worth — choose a block, enter tonnage and cartons, and see the net per carton after costs. Logging a pick records the fruit sale as income and can post the picking labour in one step.', pos:'smart' },
-    { target:'or-cmp-kpis', title:'Compliance & certificates', icon:'✅', tab:'comply',
-      text:'Keep your GlobalG.A.P, PUC, spray and other certificates in one place, with expiry reminders so a lapsed certificate never costs you a market.', pos:'center' }
+      text:'Everything for your fruit, berry and veg blocks in one place — what each block brings in, when it’s clear to pick, how audit-ready it is, and your spray and certificate records.', pos:'center' },
+    { target:'or-kpis', title:'Your season, at a glance', icon:'📊', tab:'overview',
+      text:'The command strip up top: your forecast money back for the season, your average per hectare, and how many blocks are clear to pick right now — the one-line answer to “where does my season stand?”', tip:'“Money back” is what the packhouse and agent actually pay you — after commission, packing, shipping and levies.', pos:'smart' },
+    { target:'or-ov-blocks', title:'What needs you today', icon:'⚠️', tab:'overview',
+      text:'Below the numbers, a “needs your attention” list surfaces what’s time-sensitive — blocks slipping behind where they should be, certificates about to expire, or fruit inside a spray waiting-period. Clear this list and your season is on track.', pos:'smart' },
+    { target:'or-bl-blocks', title:'Your blocks, at a glance', icon:'🌳', tab:'blocks',
+      text:'Each block is a clean card — its money back as the headline, rand-per-hectare underneath — grouped by fruit type. Tap a card to open its tonnage, export %, carton size and pricing. Use the chips up top to filter to citrus, fruit, berries or veg.', tip:'Change a price and the money back updates everywhere — the same number on every page.', pos:'smart' },
+    { target:'or-bl-compare', title:'Compare & benchmark', icon:'📈', tab:'blocks', onEnter:'orTourShowCompare',
+      text:'Switch to Compare and every block lines up in one table — money back, rand-per-hectare and yield side by side — so you can see which blocks are carrying the season and which are lagging the pack.', pos:'smart' },
+    { target:'or-phi-list', title:'Safe to pick — every market', icon:'🚦', tab:'spray',
+      text:'A traffic-light for each block across your markets — EU, UK, local and more: green means clear to pick, amber means a spray rule still has it waiting. Log every spray in the diary below — it feeds this grid and doubles as your Act 36 record.', tip:'Each market has its own waiting period, so a block can be clear for local sale but not yet for the EU.', pos:'smart' },
+    { target:'or-estvact', title:'How the harvest is tracking', icon:'📦', tab:'harvest',
+      text:'The progress board compares what you estimated against what you’ve actually brought in, block by block — so you spot a block coming in light long before the season closes.', pos:'smart' },
+    { target:'or-wf-body', title:'What one packed unit pays', icon:'🧮', tab:'harvest',
+      text:'Work out what a pick is really worth — choose a block, enter tonnage and cartons, and see the net per carton after costs. The pack-out card above splits your grades, and “All records” opens the full season archive. Logging a pick records the fruit sale as income and can post the picking labour in one step.', pos:'smart' },
+    { target:'or-audit-meter', title:'How audit-ready you are', icon:'✅', tab:'comply',
+      text:'A block-by-block readiness score built from the records an auditor checks — spray logs, safe-to-pick, pest status, documents and operator training — with anything outstanding flagged to fix. Your certificates and watched pests sit just below, and one record set serves GlobalG.A.P. & SIZA.', pos:'center' }
   ],
     livestock: [
     { target:'ls-camps-list', title:'Your animals at a glance', icon:'🐄', tab:'camps',
       text:'The three cards up top show your total head, herd value at today’s market prices, and ROI on what you’ve spent. Tap any card to break it down — by species, by group, or invested-vs-expected.', tip:'Herd value updates automatically off AMT market prices.', pos:'smart' },
+    { target:'ls-hsub-nav', title:'Three views under one Herd tab', icon:'🗂️', tab:'camps',
+      text:'The Herd tab holds three sub-views — a camps-and-animals view, Productivity (calving, weaning and off-take rates) and Records (the SARS-style movement register). Tap between them up here; the rest of this tour opens each one in turn.', pos:'smart' },
     { target:'ls-camps-list', title:'Each camp, broken down', icon:'📊', tab:'camps',
       text:'Every camp shows what’s grazing there and what it’s worth. Tap a make-up bar to open the class breakdown — cows, heifers, bulls, calves — each with its value. A red flag warns when animals are under a medicine withdrawal and not safe to sell.', pos:'smart' },
     { target:'ls-tab-health', title:'Health & treatments', icon:'💉', tab:'health',
@@ -39119,13 +39136,13 @@ var PAGE_TOURS = {
       text:'Your total asset value, the tax value left after write-off, and the yearly write-off you can claim from SARS \u2014 all worked out for you and kept up to date.',
       tip:'Section 12B gives 50/30/20 accelerated write-off on most farming gear; Section 11(e) is straight-line wear and tear. Both lower your taxable income \u2014 the app picks the right one per asset.', pos:'smart' },
     { target:'ast-tbody', title:'Tap any asset to open it', icon:'📋', tab:'register',
-      text:'Each row shows the category, what you paid, what it\u2019s worth now and this year\u2019s depreciation. Filter by category up top, or tap a row to see the full detail.',
+      text:'Each row shows the category, what you paid, its current tax value and this year\u2019s depreciation. Filter by category up top, or tap a row to see the full detail.',
       tip:'The detail view shows a depreciation forecast, what you still owe the bank, whether it\u2019s properly insured, and any photos of the invoice or policy you\u2019ve stored. If a loan on your Loans page is linked to this asset, its real balance and rate show here instead of an estimate.', pos:'smart' },
     { target:'ast-add-btn', title:'Adding an asset is easy', icon:'➕', tab:'register',
       text:'Type what it is and the app suggests the right SARS treatment, the usual write-off period and a plain-language note \u2014 no tax knowledge needed. You can also record finance, insurance and snap a photo of the invoice.',
       tip:'It handles land, vehicles, machinery, irrigation, storage, solar, dams and fencing \u2014 each with the correct tax treatment already chosen.', pos:'smart' },
     { target:'ast-lender-btn', title:'Lender Pack for the bank', icon:'🏦', tab:'register',
-      text:'Applying for finance? Export a clean schedule of every asset \u2014 its value, what you owe and the equity you own outright \u2014 ready to hand to Land Bank, ABSA or your co-op.', pos:'smart' },
+      text:'Applying for finance? This opens a lender-ready view of your farm\u2019s finances \u2014 what your assets are worth, what you owe and the equity you own outright \u2014 to support a Land Bank, ABSA or co-op application. To export just the asset list, use Print.', pos:'smart' },
     { target:'ast-tab-insights', title:'Insights — answers, not numbers', icon:'📊', tab:'insights',
       text:'Now the Insights tab. Three headline tiles up top: what your assets are worth, how much you own outright vs the bank, and your tax write-off this year. Tap any tile to see the split.', pos:'smart' },
     { target:'ast-view-insights', title:'Tap any chart to see inside', icon:'👆', tab:'insights',
@@ -39135,8 +39152,10 @@ var PAGE_TOURS = {
   transactions: [
     { target:'pg-transactions', title:'All your transactions', icon:'📝',
       text:'Every sale and expense in one searchable list, newest first. Whatever you record from the + button or any other screen lands here.', pos:'center' },
+    { target:'tx-summary-strip', title:'Your month at a glance', icon:'📊',
+      text:'A running total of income, expenses and profit for the period — the quick read before you dive into the list. Up in the header you can also import a bank or co-op statement, and select rows to re-categorise several at once.', pos:'smart' },
     { target:'tx-filter-bar', title:'Filter & search', icon:'🔍',
-      text:'Filter by income or expense, tap a category chip to narrow further, or search by description, date or amount. The red “Clear filters” button resets everything in one tap.', pos:'smart' },
+      text:'Filter by income or expense, pick a category from the dropdown to narrow further, or search by description, date or amount. The red “Clear filters” button resets everything in one tap.', pos:'smart' },
     { target:'tx-tbl', title:'Tap a row to open it', icon:'👁️',
       text:'Tap any transaction to see its full detail — category, method, date and any receipt. From there you can edit or delete it.',
       tip:'Editing works from anywhere — the same detail opens from the Income and Expenses pages too, and a change syncs across every screen and report instantly.', pos:'smart' }
@@ -39182,7 +39201,7 @@ var PAGE_TOURS = {
     { target:'tax-tab-glance', title:'From profit to tax, and your year ahead', icon:'📅', tab:'glance',
       text:'A waterfall shows exactly how your farming income becomes taxable profit and then tax. Next to it, a calendar of what’s actually due — provisional payments, VAT returns, worker tax — each with its SARS form name and days to go.', pos:'smart' },
     { target:'tax-tab-reports', title:'Reports — the actual SARS forms', icon:'📄', tab:'reports',
-      text:'Pull the real numbers for your IRP6 provisional return, your VAT201, and Section 11(e) / 12B depreciation — for any month, quarter or year, ready to hand to your accountant.', pos:'smart' },
+      text:'Pull the real numbers for your IT12 income-tax pre-fill, your EMP201 payroll return, your VAT201, and Section 11(e) / 12B depreciation — for any month, quarter or year, ready to hand to your accountant.', pos:'smart' },
     { target:'tax-tab-whatif', title:'What-if — plan before the money moves', icon:'🎚️', tab:'whatif',
       text:'Test a change in income or expenses and see your tax liability move before it happens — useful before a big sale, an equipment purchase, or year-end tax planning with your accountant.', pos:'smart' }
   ],
@@ -39192,7 +39211,7 @@ var PAGE_TOURS = {
     { target:'pf-tabbtn-glance', title:'Three views, one page', icon:'🗂️', tab:'glance',
       text:"At a glance ranks your earners. Details drills into one part of your farm. What-if lets you test a season before it happens. We start on At a glance.", pos:'smart' },
     { target:'pf-tab-glance', title:'At a glance — who earns what', icon:'🌽', tab:'glance',
-      text:"Each part of your farm is ranked by what it earns — per hectare for crops, per animal for herds, per block for orchards — so you can fairly compare a maize land against a dairy herd. Up top you see your whole-farm profit with your best and weakest earners.",
+      text:"Each part of your farm is ranked by what it earns — per hectare for crops, per livestock unit for herds, per hectare for orchards — so you can fairly compare a maize land against a dairy herd. Up top you see your whole-farm profit with your best and weakest earners.",
       tip:'The more you tag costs to a crop or herd on your Income and Expenses pages — including labour — the more this shifts from an estimate to your real, measured margin.', pos:'smart' },
     { target:'pf-tab-details', title:'Details — drill into one part of your farm', icon:'🔎', tab:'details',
       text:"Pick a part of your farm and see where the cost goes. For orchards you’ll see money back, minus growing costs, equals gross margin — the same basis as your crops and herds, so the whole-farm profit adds up honestly.", tip:'The green box at the bottom says what it all means in plain words.', pos:'smart' },
