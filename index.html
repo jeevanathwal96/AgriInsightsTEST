@@ -29,7 +29,7 @@
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
 <script src="ai-data.js?v=14"></script>
-<script src="ai-auth.js?v=13"></script>
+<script src="ai-auth.js?v=14"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -8155,7 +8155,14 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
 var APP_TODAY = new Date();
 var APP_VERSION = 1;
-var SAVE_KEY = 'agri_state_v' + APP_VERSION;
+// ── Guest demo mode (no login) ── set very early so storage keys isolate the guest sandbox.
+// __AI_GUEST is true when the URL carries ?demo=1, or a prior demo session set the flag on this device.
+try {
+  if (new URLSearchParams(location.search).get('demo') === '1') localStorage.setItem('ai_guest','1');
+  window.__AI_GUEST = (localStorage.getItem('ai_guest') === '1');
+} catch(e){ window.__AI_GUEST = false; }
+// A guest's edits live under a SEPARATE key so they can never bleed into a real account's data or outbox.
+var SAVE_KEY = (window.__AI_GUEST ? 'agri_demo_guest_v' : 'agri_state_v') + APP_VERSION;
 var SAVE_TIMER = null;
 var LAST_SAVED_AT = null;
 var STATE_LOADED_FROM_DISK = false;
@@ -34301,6 +34308,10 @@ LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
 
 // Key-based dictionary — elements tagged data-t translate exactly and reversibly
 var I18N = {"nav.group.daily":{"en":"Daily","af":"Daagliks"},"nav.dashboard":{"en":"Dashboard","af":"Tuisblad"},"nav.transactions":{"en":"Transactions","af":"Transaksies"},"nav.group.money":{"en":"Money","af":"Geld"},"nav.income":{"en":"Income","af":"Inkomste"},"nav.expenses":{"en":"Expenses","af":"Uitgawes"},"nav.cashflow":{"en":"Money Flow","af":"Geldvloei"},"nav.budgets":{"en":"Budgets","af":"Begrotings"},"nav.loans":{"en":"Loans & Debt","af":"Lenings & Skuld"},"nav.tax":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.title":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.sub":{"en":"What to set aside, what’s due and when — in plain words.","af":"Wat om weg te sit, wat betaalbaar is en wanneer — in eenvoudige taal."},"nav.reports":{"en":"Reports","af":"Verslae"},"nav.group.farm":{"en":"My Farm","af":"My Plaas"},"nav.planning":{"en":"Planning","af":"Beplanning"},"nav.crop":{"en":"Crops","af":"Gewasse"},"nav.orchards":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"nav.livestock":{"en":"Livestock","af":"Vee"},"nav.profit":{"en":"Profit","af":"Wins"},"nav.assets":{"en":"Assets","af":"Bates"},"nav.workers":{"en":"Workers","af":"Werkers"},"nav.group.market":{"en":"Market","af":"Mark"},"nav.market":{"en":"Market Prices","af":"Markpryse"},"nav.settings":{"en":"Settings","af":"Instellings"},"offline.sub":{"en":"Working offline. Data syncs when online.","af":"Werk vanlyn. Data sinkroniseer wanneer aanlyn."},"or.title":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"or.sub":{"en":"Trees, vines, berries and veg — what each block costs, yields and earns","af":"Bome, wingerde, bessies en groente — wat elke blok kos, lewer en verdien"},"or.tab.overview":{"en":"Overview","af":"Oorsig"},"or.tab.blocks":{"en":"Blocks","af":"Blokke"},"or.tab.spray":{"en":"Spray & Safety","af":"Spuit & Veiligheid"},"or.tab.harvest":{"en":"Harvest & Pack","af":"Oes & Pak"},"or.tab.comply":{"en":"Compliance","af":"Voldoening"},"or.tab.add":{"en":"＋ Add block","af":"＋ Voeg blok by"},"or.add.btn":{"en":"＋ Add block","af":"＋ Voeg blok by"},"or.view.cards":{"en":"Cards","af":"Kaarte"},"or.view.compare":{"en":"Compare","af":"Vergelyk"},"or.spray.safe":{"en":"Safe to pick — all markets","af":"Veilig om te pluk — alle markte"},"or.spray.safesub":{"en":"Green = clear to pick · amber = waiting on a spray rule","af":"Groen = reg om te pluk · amber = wag op ’n spuitreël"},"or.local":{"en":"Local","af":"Plaaslik"},"or.spray.diary":{"en":"Spray diary","af":"Spuitdagboek"},"or.spray.log":{"en":"＋ Log spray","af":"＋ Teken spuit aan"},"or.harvest.calc":{"en":"What one packed unit pays you","af":"Wat een verpakte eenheid jou betaal"},"or.harvest.calcsub":{"en":"Edit any number — your money-back updates live","af":"Wysig enige getal — jou geld-terug werk regstreeks by"},"or.harvest.block":{"en":"Block","af":"Blok"},"or.harvest.recent":{"en":"Recent picks","af":"Onlangse oeste"},"or.harvest.log":{"en":"＋ Log pick","af":"＋ Teken oes aan"},"or.arch.all":{"en":"🗂️ All records","af":"🗂️ Alle rekords"},"or.cmp.certs":{"en":"Certificates & audits","af":"Sertifikate & oudits"},"or.cmp.pests":{"en":"Pests & diseases watched","af":"Plae & siektes dopgehou"},"or.cmp.other":{"en":"Other records on file","af":"Ander rekords op lêer"},"or.add.title":{"en":"Add a block","af":"Voeg ’n blok by"},"or.add.sub":{"en":"Tell us what you're growing — we set up the rest","af":"Sê vir ons wat jy kweek — ons stel die res op"},"or.add.tree":{"en":"Tree / vine","af":"Boom / wingerdstok"},"or.add.treesub":{"en":"citrus, avo, apple…","af":"sitrus, avo, appel…"},"or.add.berry":{"en":"Berry","af":"Bessie"},"or.add.berrysub":{"en":"blueberry, rasp…","af":"bloubessie, framb…"},"or.add.veg":{"en":"Vegetable","af":"Groente"},"or.add.vegsub":{"en":"replanted each season","af":"elke seisoen herplant"},"or.add.name":{"en":"Block name","af":"Bloknaam"},"or.add.crop":{"en":"What are you growing?","af":"Wat kweek jy?"},"or.add.area":{"en":"Area (ha)","af":"Oppervlakte (ha)"},"or.add.spacing":{"en":"Spacing","af":"Spasiëring"},"or.add.yield":{"en":"Target yield once mature","af":"Teiken-opbrengs wanneer volgroei"},"or.add.save":{"en":"Save block","af":"Stoor blok"},"or.add.spray":{"en":"Do you spray this block?","af":"Spuit jy hierdie blok?"},"or.add.spray.y":{"en":"Yes — we spray","af":"Ja — ons spuit"},"or.add.spray.n":{"en":"No — organic / no-spray","af":"Nee — organies / geen spuit"},"or.add.markets":{"en":"Where do you sell it?","af":"Waar verkoop jy dit?"},"or.add.markets.h":{"en":"pick all that apply","af":"kies almal wat geld"},"or.add.markets.note":{"en":"Export markets bring stricter safe-to-pick rules and extra certificates. Local-only skips them.","af":"Uitvoermarkte bring strenger veilig-om-te-pluk reëls en ekstra sertifikate. Slegs plaaslik slaan dit oor."},"hero.h":{"en":"Let's grow your profit this season.","af":"Kom ons groei jou wins hierdie seisoen."},"offline.title":{"en":"Offline Mode","af":"Vanlyn-modus"},"or.add.root":{"en":"Rootstock","af":"Onderstam"},"or.add.carton":{"en":"Carton size","af":"Kartongrootte"},"or.add.estab":{"en":"What it cost to establish","af":"Wat dit gekos het om te vestig"},"sync.last":{"en":"Saved","af":"Gestoor"},"crop.tab.inputs":{"en":"Inputs & Spray","af":"Insette & Spuit"},"crop.plant.btn":{"en":"＋ Plant a land","af":"＋ Plant ’n land"}};
+I18N['demo.ribbon']={en:"You’re exploring a sample farm — nothing here is saved to an account.",af:"Jy verken ’n voorbeeldplaas — niks hier word by ’n rekening gestoor nie."};
+I18N['demo.watch']={en:"▶ Watch demo",af:"▶ Kyk demo"};
+I18N['demo.restart']={en:"↺ Restart demo",af:"↺ Herbegin demo"};
+I18N['demo.create']={en:"Create your farm →",af:"Skep jou plaas →"};
 
 var SKIP_TAGS = {SCRIPT:1, STYLE:1, SVG:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1};
 
@@ -34412,7 +34423,7 @@ var heroH = $('hero-h-el') || document.querySelector('[data-t="hero.h"]');
 // This replaces the old in-memory OFFLINE_QUEUE that lost data on reload and never
 // actually pushed queued rows to the backend.
 var IS_ONLINE = navigator.onLine !== false;
-var TXN_OUTBOX_KEY = 'agri_txn_outbox_v1';
+var TXN_OUTBOX_KEY = window.__AI_GUEST ? 'agri_demo_guest_outbox_v1' : 'agri_txn_outbox_v1';
 var TXN_OUTBOX = [];
 // Back-compat alias: anything that still reads OFFLINE_QUEUE.length sees the outbox.
 var OFFLINE_QUEUE = TXN_OUTBOX;
@@ -37183,6 +37194,7 @@ function lazyInitCharts(page) {
 
 // ============================================================
 function shareWhatsApp() {
+  if (window.aiDemoBlock && aiDemoBlock('Sharing')) return;
   var R = computeRPT();
   var period = (typeof getPeriodLabel === 'function') ? getPeriodLabel() : 'May 2024';
   var farm   = (typeof FARM !== 'undefined') ? FARM.name : 'Doringkloof Boerdery';
@@ -38897,6 +38909,66 @@ document.addEventListener('click', function(e) {
 
 function orTourShowCompare(){ try{ if(typeof orBlocksView==='function') orBlocksView('compare'); }catch(e){} }
 function orTourShowCards(){ try{ if(typeof orBlocksView==='function') orBlocksView('cards'); }catch(e){} }
+
+// ============================================================
+// GUEST DEMO MODE (no login) — see __AI_GUEST set at boot.
+// Farmers reach this only via the "Explore the demo" button / ?demo=1.
+// Signed-in farmers (real accounts) never enter here, so the demo
+// ribbon and guards never show for them.
+// ============================================================
+function aiDemoBlock(label){
+  if(!window.__AI_GUEST) return false;
+  try{ if(typeof toast==='function') toast((label||'That')+' isn’t available in the demo — it’s a preview with sample data.','info'); }catch(e){}
+  return true;
+}
+window.aiDemoBlock = aiDemoBlock;
+function aiDemoRestart(){
+  try{ localStorage.removeItem(SAVE_KEY); localStorage.removeItem(TXN_OUTBOX_KEY); localStorage.removeItem('ai_guest_toured'); }catch(e){}
+  try{ localStorage.setItem('ai_guest','1'); }catch(e){}
+  location.href = location.pathname + '?demo=1';
+}
+function aiDemoExit(){
+  // leave guest mode → the real sign-in overlay. The guest sandbox stays under its own key, untouched.
+  try{ localStorage.removeItem('ai_guest'); }catch(e){}
+  location.href = location.pathname;
+}
+function aiDemoWatch(){
+  try{ localStorage.removeItem('ai_guest_toured'); }catch(e){}
+  try{ if(typeof tourStart==='function') tourStart(); }catch(e){}
+}
+function aiDemoRibbon(){
+  if(document.getElementById('ai-demo-ribbon')) return;
+  var bs='padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit';
+  var gold='padding:6px 13px;border-radius:8px;border:1px solid #C8962C;background:#C8962C;color:#12271b;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit';
+  var bar=document.createElement('div');
+  bar.id='ai-demo-ribbon';
+  bar.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:99990;background:#1B4332;color:#fff;display:flex;align-items:center;gap:14px;padding:9px 16px;font-family:inherit;font-size:13px;box-shadow:0 -4px 16px rgba(0,0,0,.18)';
+  bar.innerHTML=
+    '<span style="font-weight:800;letter-spacing:.04em">🌱 DEMO</span>'+
+    '<span style="opacity:.86" data-t="demo.ribbon">You’re exploring a sample farm — nothing here is saved to an account.</span>'+
+    '<span style="margin-left:auto;display:flex;gap:8px">'+
+      '<button style="'+bs+'" onclick="aiDemoWatch()" data-t="demo.watch">▶ Watch demo</button>'+
+      '<button style="'+bs+'" onclick="aiDemoRestart()" data-t="demo.restart">↺ Restart demo</button>'+
+      '<button style="'+gold+'" onclick="aiDemoExit()" data-t="demo.create">Create your farm →</button>'+
+    '</span>';
+  document.body.appendChild(bar);
+  document.body.style.paddingBottom='54px';
+}
+function aiDemoStart(){
+  window.__AI_GUEST = true;
+  try{ var ov=document.getElementById('ob-overlay'); if(ov) ov.style.display='none'; }catch(e){}
+  try{ if(window.ST) ST.firstRun=false; }catch(e){}
+  aiDemoRibbon();
+  try{ if(typeof ST!=='undefined' && ST.lang==='af' && typeof applyLangNodes==='function') applyLangNodes(document.getElementById('ai-demo-ribbon'),0,1); }catch(e){}
+  // First visit only: play the animated user demo once. Replay any time via "Watch demo".
+  try{
+    if(localStorage.getItem('ai_guest_toured')!=='1'){
+      localStorage.setItem('ai_guest_toured','1');
+      if(typeof tourStart==='function') setTimeout(function(){ try{ tourStart(); }catch(e){} },900);
+    }
+  }catch(e){}
+}
+window.aiDemoStart = aiDemoStart;
 var PAGE_TOURS = {
   workers: [
     { target:'wk-ov-kpis', tab:'ov', title:'Your team & wage bill', icon:'👥',
@@ -41913,6 +41985,7 @@ function accExportGL(){
 }
 
 function accInviteAccountant(){
+  if (window.aiDemoBlock && aiDemoBlock('Inviting your accountant')) return;
   var input = document.getElementById('acc-email');
   var box   = document.getElementById('acc-invited');
   var btn   = document.getElementById('acc-inv-btn');

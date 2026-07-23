@@ -48,12 +48,21 @@
         '<input id="ai-pass" type="password" autocomplete="current-password" placeholder="Your password"/>' +
         '<button id="ai-signin">Sign in</button>' +
         '<div class="msg" id="ai-msg"></div>' +
+        '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #dfe3da;text-align:center">' +
+          '<div style="font-size:12px;color:#6b716a;margin-bottom:9px">Just want to look around first?</div>' +
+          '<button id="ai-demo" style="background:' + GOLD + ';color:#12271b;font-weight:800;margin-top:0">🌱 Explore the demo</button>' +
+        '</div>' +
       '</div>';
     document.body.appendChild(o);
 
     document.getElementById('ai-signin').addEventListener('click', doSignIn);
     document.getElementById('ai-pass').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') doSignIn();
+    });
+    var demoBtn = document.getElementById('ai-demo');
+    if (demoBtn) demoBtn.addEventListener('click', function () {
+      try { localStorage.setItem('ai_guest', '1'); } catch (e) {}
+      location.href = location.pathname + '?demo=1';
     });
   }
 
@@ -87,6 +96,8 @@
 
   // ---- sign in -------------------------------------------------------------
   function doSignIn() {
+    // Signing in with a real account always leaves guest mode behind.
+    try { localStorage.removeItem('ai_guest'); window.__AI_GUEST = false; } catch (e) {}
     var btn = document.getElementById('ai-signin');
     var email = (document.getElementById('ai-email').value || '').trim();
     var pass = document.getElementById('ai-pass').value || '';
@@ -209,6 +220,14 @@
     if (!window.AI) { msg('Backend not loaded (check ai-data.js).', 'err'); return; }
     // Run AFTER the app's own boot has populated ST (setTimeout defers past it).
     setTimeout(function () {
+      // Guest demo mode (?demo=1 / ai_guest flag): no login, no backend. Hide the sign-in
+      // overlay and hand off to the app's guarded demo runtime. Never calls getSession /
+      // signIn / setActive, so _hasBackend() stays false and nothing reaches Supabase.
+      if (window.__AI_GUEST) {
+        var od = document.getElementById('ai-auth'); if (od) od.style.display = 'none';
+        try { if (typeof window.aiDemoStart === 'function') window.aiDemoStart(); } catch (e) {}
+        return;
+      }
       // Offline boot with a cached session: don't trap the user on a login they can't
       // complete offline — reveal their already-loaded local data.
       if (navigator.onLine === false && _hasPersistedSession()) { _offlineReveal(); return; }
