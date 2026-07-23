@@ -38896,6 +38896,7 @@ document.addEventListener('click', function(e) {
 });
 
 function orTourShowCompare(){ try{ if(typeof orBlocksView==='function') orBlocksView('compare'); }catch(e){} }
+function orTourShowCards(){ try{ if(typeof orBlocksView==='function') orBlocksView('cards'); }catch(e){} }
 var PAGE_TOURS = {
   workers: [
     { target:'wk-ov-kpis', tab:'ov', title:'Your team & wage bill', icon:'👥',
@@ -39005,8 +39006,8 @@ var PAGE_TOURS = {
       text:'Enter your actual bank balance here and the whole forecast starts from that number, so the runway ahead matches your real account — not just what’s been logged.', pos:'smart' },
     { target:'cfl-line-card', title:'Cash on hand, month by month', icon:'📉', tab:'forecast',
       text:'A line showing your projected balance ahead — dips below the line mean a tight month. Switch to Bars for the same numbers as columns instead.', tip:'Tap any point on the line to see exactly what’s driving that month’s balance.', pos:'smart' },
-    { target:'cf-fwd-rows', title:'Next 6 months, month by month', icon:'📅', tab:'forecast',
-      text:'Each coming month as a bar — green when the balance is healthy, amber when it’s getting tight, red if it dips below zero. Tap a month to see exactly what’s driving it, so a squeeze three months out is something you plan for, not discover.', pos:'smart' },
+    { target:'cf-fwd-answer', title:'Your runway, in one line', icon:'🧭', tab:'forecast',
+      text:'The plain-language verdict up top: whether your cash stays positive all year and which month is leanest — so a tight patch three months out is something you plan for, not discover. The month-by-month chart below tells the same story in detail.', pos:'smart' },
     { target:'cfl-wi-card', title:'What-if — stress-test the season', icon:'🎚️', tab:'forecast',
       text:'Try Bad year or Good year, or drag the sliders yourself — commodity prices, yield, costs — and watch the whole forecast move live. Base always returns you to your real plan.', tip:'This is the same what-if engine as Profit and Planning, just applied to your cash runway.', pos:'smart' },
     { target:'cf-recur-panel', title:'Recurring items', icon:'🔁', tab:'forecast',
@@ -39070,11 +39071,11 @@ var PAGE_TOURS = {
   orchards: [
     { target:'pg-orchards', title:'Orchards, Fruit & Veg', icon:'🍊', tab:'overview',
       text:'Everything for your fruit, berry and veg blocks in one place — what each block brings in, when it’s clear to pick, how audit-ready it is, and your spray and certificate records.', pos:'center' },
-    { target:'or-kpis', title:'Your season, at a glance', icon:'📊', tab:'overview',
-      text:'The command strip up top: your forecast money back for the season, your average per hectare, and how many blocks are clear to pick right now — the one-line answer to “where does my season stand?”', tip:'“Money back” is what the packhouse and agent actually pay you — after commission, packing, shipping and levies.', pos:'smart' },
-    { target:'or-ov-blocks', title:'What needs you today', icon:'⚠️', tab:'overview',
+    { target:'or-ov-money', title:'Your season, at a glance', icon:'📊', tab:'overview',
+      text:'The headline up top: your forecast money back for the season, with your average per hectare and crop estimate just below — the one-line answer to “where does my season stand?”', tip:'“Money back” is what the packhouse and agent actually pay you — after commission, packing, shipping and levies.', pos:'smart' },
+    { target:'or-ov-attn', title:'What needs you today', icon:'⚠️', tab:'overview',
       text:'Below the numbers, a “needs your attention” list surfaces what’s time-sensitive — blocks slipping behind where they should be, certificates about to expire, or fruit inside a spray waiting-period. Clear this list and your season is on track.', pos:'smart' },
-    { target:'or-bl-blocks', title:'Your blocks, at a glance', icon:'🌳', tab:'blocks',
+    { target:'or-bl-blocks', title:'Your blocks, at a glance', icon:'🌳', tab:'blocks', onEnter:'orTourShowCards',
       text:'Each block is a clean card — its money back as the headline, rand-per-hectare underneath — grouped by fruit type. Tap a card to open its tonnage, export %, carton size and pricing. Use the chips up top to filter to citrus, fruit, berries or veg.', tip:'Change a price and the money back updates everywhere — the same number on every page.', pos:'smart' },
     { target:'or-bl-compare', title:'Compare & benchmark', icon:'📈', tab:'blocks', onEnter:'orTourShowCompare',
       text:'Switch to Compare and every block lines up in one table — money back, rand-per-hectare and yield side by side — so you can see which blocks are carrying the season and which are lagging the pack.', pos:'smart' },
@@ -43982,7 +43983,7 @@ function orDashboardHTML(){
   var bearing=orActiveBlocks().filter(function(b){return !b.plan && b.tons>0;});
   var paying=bearing.filter(function(b){return orBlockTotal(b)>orOpsCost(b);}).length;
   var avgHa=t.prodHa?Math.round(t.money/t.prodHa):0;
-  var hero='<div class="kpi-tap" onclick="kpiOpen(\'orMoneyBack\')" style="position:relative;cursor:pointer;background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;border-radius:16px;padding:17px 18px;margin-bottom:11px"><span class="kpi-i" style="border-color:rgba(255,255,255,.5);color:rgba(255,255,255,.85)">\u24D8</span>'+
+  var hero='<div class="kpi-tap" id="or-ov-money" onclick="kpiOpen(\'orMoneyBack\')" style="position:relative;cursor:pointer;background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;border-radius:16px;padding:17px 18px;margin-bottom:11px"><span class="kpi-i" style="border-color:rgba(255,255,255,.5);color:rgba(255,255,255,.85)">\u24D8</span>'+
     '<div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:rgba(255,255,255,.82)">Forecast money back \u00b7 this season</div>'+
     '<div style="font-size:31px;font-weight:800;font-family:Georgia,serif;margin:3px 0 2px">'+orRm(t.money)+'</div>'+
     '<div style="font-size:11.5px;color:rgba(255,255,255,.85)">after packing, levy &amp; agent \u00b7 '+bearing.length+' bearing block'+(bearing.length!==1?'s':'')+' \u00b7 '+t.prodHa.toFixed(1)+' ha</div></div>';
@@ -44166,7 +44167,7 @@ function orAttentionHTML(){
   }catch(e){}
   if(!rows.length) return '';
   var body=rows.map(function(r){ return '<div class="or-arow"><div class="or-adot '+r[0]+'">'+r[1]+'</div><div class="or-atext">'+r[2]+'</div></div>'; }).join('');
-  return '<div style="font-size:13px;font-weight:800;color:var(--t2);margin:6px 2px 9px">Needs your attention</div><div class="or-attn">'+body+'</div>';
+  return '<div style="font-size:13px;font-weight:800;color:var(--t2);margin:6px 2px 9px">Needs your attention</div><div class="or-attn" id="or-ov-attn">'+body+'</div>';
 }
 function orTopEarnersHTML(){
   var bearing=orActiveBlocks().filter(function(b){return !b.plan && b.tons>0;}).sort(function(a,b){return orBlockTotal(b)-orBlockTotal(a);});
