@@ -29,7 +29,7 @@
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
 <script src="ai-data.js?v=14"></script>
-<script src="ai-auth.js?v=14"></script>
+<script src="ai-auth.js?v=15"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -4617,7 +4617,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="tcc-ic">✅</div>
     <div class="tcc-h">Overview complete!</div>
     <div class="tcc-p">You’ve seen the whole app. Every tab also has its own <b>detailed walkthrough</b> — handy when you want to go deeper on Crops, Money Flow or Compliance.</div>
-    <div class="tcc-hl">&#x1F446; Look for <b>“▶ Demo this page”</b> at the top of any screen to start that tab’s walkthrough.</div>
+    <div class="tcc-hl">&#x1F5FA;&#xFE0F; Tap the <b>🗺️ map button</b> in the bottom-right corner any time — it lists every tab’s walkthrough, so you can open the one you want to see.</div>
     <div class="tcc-row">
       <button class="tcc-b1" onclick="tourCompleteDemoNow()">Demo this page now</button>
       <button class="tcc-b2" onclick="tourCompleteClose()">Got it</button>
@@ -4832,7 +4832,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
   <!-- Bottom card grid (Budget / Quick Actions — month-focused) -->
   <div class="b3">
-    <div class="card">
+    <div class="card" id="dash-budget-card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div class="sec-title" style="margin:0">Budget vs Actual</div>
         <span style="font-size:11px;color:var(--t3)" id="dash-budget-period"></span>
@@ -38094,6 +38094,15 @@ var TOUR_STEPS = [
     pos:    'right'
   },
   {
+    target: 'nav-tax',
+    page:   'tax',
+    icon:   '🧾',
+    title:  'Tax & SARS — what to set aside, and when',
+    desc:   "Everything SARS, in plain words — provisional tax, VAT, payroll and depreciation — worked out from what you've already recorded. It shows what to set aside each month and what's due when, so a payment never sneaks up on you.",
+    tip:    "Three tabs: At a glance (what you owe and when), Reports (the actual SARS forms — IT12, EMP201, VAT201) and What-if (test a big sale or an equipment purchase before it happens).",
+    pos:    'right'
+  },
+  {
     target: 'nav-reports',
     page:   'reports',
     icon:   '📋',
@@ -38424,7 +38433,10 @@ function tourScrollTo(targetId, done){
   var vh = window.innerHeight;
   var comfy = r.top >= 64 && r.bottom <= vh - 64;
   if (comfy) { done(false); return; }
-  try { el.scrollIntoView({ behavior:'smooth', block:'center', inline:'nearest' }); }
+  // Instant (not smooth) so the target is at its final resting position when tourPosition
+  // measures it — a smooth scroll is still animating when the spotlight is placed, which
+  // left the cutout misaligned (below the box it should highlight) on every scrolled step.
+  try { el.scrollIntoView({ behavior:'auto', block:'center', inline:'nearest' }); }
   catch(e) { try { el.scrollIntoView(); } catch(e2){} }
   done(true);
 }
@@ -38958,6 +38970,10 @@ function aiDemoRibbon(){
 }
 function aiDemoStart(){
   window.__AI_GUEST = true;
+  // Hardening: a guest never touches the backend even if a real Supabase session is cached on
+  // this device — force "no active farm" so _hasBackend() is false and no read (refreshFromCloud)
+  // or write (outbox flush / relational saveAll) can reach or overwrite a real account.
+  try{ if(window.AI && AI.farm && typeof AI.farm.active==='function' && !AI.farm.__guestNulled){ AI.farm.active = function(){ return null; }; AI.farm.__guestNulled = true; } }catch(e){}
   // Guest layout guards: lift the bottom-right FABs above the ribbon, and hide the floating
   // "Demo this page" pill (it overlaps the header controls) — tab demos stay reachable via the 🗺️ tours menu.
   try{
@@ -39023,7 +39039,7 @@ var PAGE_TOURS = {
     { target:'dash-inc-sources', title:'Where your money comes from — and goes', icon:'🥧',
       text:'Two cards side by side: your income broken down by source, and your costs broken down by category, for the same period as the chart. A quick read on what\u2019s carrying you and what\u2019s eating you.',
       tip:'Tap \u201cView all income\u201d or \u201cView all expenses\u201d to jump to the full page.', pos:'smart' },
-    { target:'bp-income-fill', title:'Budget progress bars', icon:'🎯',
+    { target:'dash-budget-card', title:'Budget progress bars', icon:'🎯',
       text:'The coloured bars show how your actual income and expenses compare to your budget targets for this month. Green = on track, amber = close, red = over.',
       tip:'Set budget targets in the Budgets tab to make these bars meaningful.', pos:'smart' },
     { target:'prov-tax-card', title:'Provisional tax estimate', icon:'📋',

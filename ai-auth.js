@@ -253,6 +253,7 @@
   // ---- Tier-1 cross-device: re-pull from the cloud when the app regains focus ----
   var _lastRefresh = 0, _refreshing = false;
   function refreshFromCloud(){
+    if (window.__AI_GUEST) return;                                            // guest demo: never pull account data into the sandbox
     if (_refreshing) return;
     if (navigator.onLine === false) return;                                   // offline: outbox handles it
     if (!(window.AI && AI.farm && AI.farm.active()) || !_hasPersistedSession()) return;  // signed-in only
