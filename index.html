@@ -8182,9 +8182,12 @@ var APP_VERSION = 1;
 try {
   if (new URLSearchParams(location.search).get('demo') === '1') localStorage.setItem('ai_guest','1');
   window.__AI_GUEST = (localStorage.getItem('ai_guest') === '1');
+  // Discard the v1 guest sandbox — on devices used before the account-isolation hardening it may
+  // hold a real account's data. Wiping it guarantees the demo always boots from the clean sample seed.
+  if (window.__AI_GUEST) { try{ localStorage.removeItem('agri_demo_guest_v1'); localStorage.removeItem('agri_demo_guest_outbox_v1'); }catch(_){} }
 } catch(e){ window.__AI_GUEST = false; }
 // A guest's edits live under a SEPARATE key so they can never bleed into a real account's data or outbox.
-var SAVE_KEY = (window.__AI_GUEST ? 'agri_demo_guest_v' : 'agri_state_v') + APP_VERSION;
+var SAVE_KEY = window.__AI_GUEST ? 'agri_demo_guest_v2' : ('agri_state_v' + APP_VERSION);
 var SAVE_TIMER = null;
 var LAST_SAVED_AT = null;
 var STATE_LOADED_FROM_DISK = false;
@@ -34464,7 +34467,7 @@ var heroH = $('hero-h-el') || document.querySelector('[data-t="hero.h"]');
 // This replaces the old in-memory OFFLINE_QUEUE that lost data on reload and never
 // actually pushed queued rows to the backend.
 var IS_ONLINE = navigator.onLine !== false;
-var TXN_OUTBOX_KEY = window.__AI_GUEST ? 'agri_demo_guest_outbox_v1' : 'agri_txn_outbox_v1';
+var TXN_OUTBOX_KEY = window.__AI_GUEST ? 'agri_demo_guest_outbox_v2' : 'agri_txn_outbox_v1';
 var TXN_OUTBOX = [];
 // Back-compat alias: anything that still reads OFFLINE_QUEUE.length sees the outbox.
 var OFFLINE_QUEUE = TXN_OUTBOX;
