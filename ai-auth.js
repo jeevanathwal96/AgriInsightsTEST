@@ -73,14 +73,7 @@
   function hideOverlay() {
     var o = document.getElementById('ai-auth');
     if (o) o.style.display = 'none';
-    if (!document.getElementById('ai-signout')) {
-      var b = document.createElement('button');
-      b.id = 'ai-signout'; b.textContent = 'Sign out';
-      b.addEventListener('click', function () {
-        AI.auth.signOut().then(function () { location.reload(); });
-      });
-      document.body.appendChild(b);
-    }
+    // Sign-out now lives in the header avatar menu (appSignOut) — no floating button.
   }
 
   // ---- offline session: reveal the cached app instead of trapping on login ----

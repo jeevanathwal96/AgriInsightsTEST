@@ -994,6 +994,11 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 
 .notif-panel{display:none;position:absolute;top:calc(100% + 8px);right:0;background:#fff;border:1px solid var(--br);border-radius:var(--rl);box-shadow:var(--shl);width:310px;z-index:200;overflow:hidden}
 .notif-panel.on{display:block}
+.udrop-item{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:8px;font-size:14px;color:var(--t1);cursor:pointer;transition:background .12s}
+.udrop-item:hover{background:var(--bg)}
+.udrop-item .ic{font-size:15px;width:18px;text-align:center;flex-shrink:0}
+.udrop-item.danger{color:var(--rd)}
+.udrop-item.danger:hover{background:var(--rp)}
 .notif-hdr{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--br2)}
 .notif-item{padding:11px 16px;border-bottom:1px solid var(--br2);background:var(--gb);cursor:pointer}
 .notif-item:hover{background:#e6f4ec}
@@ -4617,7 +4622,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="tcc-ic">✅</div>
     <div class="tcc-h">Overview complete!</div>
     <div class="tcc-p">You’ve seen the whole app. Every tab also has its own <b>detailed walkthrough</b> — handy when you want to go deeper on Crops, Money Flow or Compliance.</div>
-    <div class="tcc-hl">&#x1F5FA;&#xFE0F; Tap the <b>🗺️ map button</b> in the bottom-right corner any time — it lists every tab’s walkthrough, so you can open the one you want to see.</div>
+    <div class="tcc-hl">&#x1F5FA;&#xFE0F; Tap the <b>map button</b> in the bottom-right corner any time — it lists every tab’s walkthrough, so you can open the one you want to see.</div>
     <div class="tcc-row">
       <button class="tcc-b1" onclick="tourCompleteDemoNow()">Demo this page now</button>
       <button class="tcc-b2" onclick="tourCompleteClose()">Got it</button>
@@ -4716,7 +4721,24 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
             <div class="notif-empty"><div class="notif-empty-em">🔔</div>Loading…</div>
           </div>        </div>
       </div>
-      <div class="avatar" id="user-avatar" onclick="nav('settings')">JM</div>
+      <div style="position:relative">
+        <div class="avatar" id="user-avatar" onclick="toggleDrop('user-drop')" title="Account">JM</div>
+        <div class="notif-panel" id="user-drop" style="width:238px">
+          <div style="padding:13px 15px;border-bottom:1px solid var(--br);display:flex;gap:11px;align-items:center">
+            <div class="avatar" id="user-drop-av" style="width:38px;height:38px;background:var(--gb);color:var(--gd)">JM</div>
+            <div style="min-width:0;flex:1">
+              <div id="user-drop-name" style="font-size:14px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Your farm</div>
+              <div id="user-drop-farm" style="font-size:12px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+            </div>
+          </div>
+          <div style="padding:6px">
+            <div class="udrop-item" onclick="closeDrop('user-drop');nav('settings')"><span class="ic">⚙️</span> Settings</div>
+            <div class="udrop-item" onclick="closeDrop('user-drop');toggleToursMenu()"><span class="ic">🗺️</span> Page tours &amp; help</div>
+            <div style="height:1px;background:var(--br);margin:6px 4px"></div>
+            <div class="udrop-item danger" onclick="appSignOut()"><span class="ic">🚪</span> Log out</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -8560,7 +8582,11 @@ var ST_CROP = {
   events: [
     {id:'ce1', land:2, kind:'planted', date:'2024-12-06', note:'Sunflower AGSUN 5278'},
     {id:'ce2', land:5, kind:'harvested', date:'2024-04-18', note:'Sunflower 1.7 t/ha', tons:25.5, yield:1.7},
-    {id:'ce3', land:5, kind:'delivered', date:'2024-04-20', note:'Senwes silo', tons:25.5, cert:'SNW-4471'}
+    {id:'ce3', land:5, kind:'delivered', date:'2024-04-20', note:'Senwes silo', tons:25.5, cert:'SNW-4471'},
+    {id:'ce4', land:1, kind:'planted', date:'2024-11-18', note:'White maize PAN 3Q-740 (Bt)'},
+    {id:'ce5', land:3, kind:'planted', date:'2024-11-22', note:'Soybeans DM 6.8i (irrigated)'},
+    {id:'ce6', land:6, kind:'planted', date:'2024-11-20', note:'White maize DKC 80-40'},
+    {id:'ce7', land:3, kind:'harvested', date:'2025-05-02', note:'Soybeans 2.6 t/ha', tons:182, yield:2.6}
   ],
   // Inputs & spray applications
   inputs: [
@@ -8568,7 +8594,12 @@ var ST_CROP = {
     {id:'ci2', land:1, date:'2025-03-02', product:'Abacus fungicide', reg:'L9120', kind:'fungicide', rate:'1.5 l/ha', batch:'', by:'S. Khumalo', operatorCert:'P2', phi:42, costPerHa:380},
     {id:'ci3', land:2, date:'2025-01-11', product:'Bromoxynil + atrazine', reg:'L4451', kind:'herbicide', rate:'2.0 l/ha', batch:'BX2210', by:'J. Dube', operatorCert:'', phi:0, costPerHa:210},
     {id:'ci4', land:1, date:'2024-11-18', product:'KYNOCH 2:3:2 (22)', reg:'K0231', kind:'fertiliser', rate:'320 kg/ha', batch:'', by:'J. Dube', operatorCert:'', phi:0, costPerHa:3200},
-    {id:'ci5', land:1, date:'2024-11-18', product:'PAN 3Q-740 seed (Bt)', reg:'Certified', kind:'seed', rate:'32 000 s/ha', batch:'SD5567', by:'J. Dube', operatorCert:'', phi:0, costPerHa:2100}
+    {id:'ci5', land:1, date:'2024-11-18', product:'PAN 3Q-740 seed (Bt)', reg:'Certified', kind:'seed', rate:'32 000 s/ha', batch:'SD5567', by:'J. Dube', operatorCert:'', phi:0, costPerHa:2100},
+    {id:'ci6', land:3, date:'2024-11-22', product:'MAP (fertiliser)', reg:'K1120', kind:'fertiliser', rate:'150 kg/ha', batch:'', by:'J. Dube', operatorCert:'', phi:0, costPerHa:2600},
+    {id:'ci7', land:3, date:'2025-01-08', product:'Roundup (glyphosate)', reg:'L8199', kind:'herbicide', rate:'2.0 l/ha', batch:'GLY3301', by:'S. Khumalo', operatorCert:'P2', phi:0, costPerHa:180},
+    {id:'ci8', land:6, date:'2024-11-20', product:'KYNOCH 2:3:2 (22)', reg:'K0231', kind:'fertiliser', rate:'340 kg/ha', batch:'', by:'J. Dube', operatorCert:'', phi:0, costPerHa:3400},
+    {id:'ci9', land:6, date:'2024-11-20', product:'DKC 80-40 seed (Bt)', reg:'Certified', kind:'seed', rate:'30 000 s/ha', batch:'SD6012', by:'J. Dube', operatorCert:'', phi:0, costPerHa:2050},
+    {id:'ci10', land:2, date:'2025-02-14', product:'Bumper (propiconazole)', reg:'L5533', kind:'fungicide', rate:'0.5 l/ha', batch:'BP1180', by:'S. Khumalo', operatorCert:'P2', phi:30, costPerHa:240}
   ],
   // Compliance records (status derived where possible; doc flags stored)
   compliance: {
@@ -14178,7 +14209,10 @@ function syncTopbarFarm(){
   }catch(e){}
 }
 function userInitials(name){ var n=String(name||'').trim(); if(!n) return 'F'; var p=n.split(/\s+/); return (p.length>1 ? (p[0].charAt(0)+p[p.length-1].charAt(0)) : p[0].slice(0,2)).toUpperCase(); }
-function updateUserAvatar(){ var el=document.getElementById('user-avatar'); if(!el) return; el.textContent=userInitials(ST.ownerName); }
+function updateUserAvatar(){ var el=document.getElementById('user-avatar'); if(!el) return; var ini=userInitials(ST.ownerName); el.textContent=ini;
+  var da=document.getElementById('user-drop-av'); if(da) da.textContent=ini;
+  var dn=document.getElementById('user-drop-name'); if(dn) dn.textContent=ST.ownerName||'Your farm';
+  var df=document.getElementById('user-drop-farm'); if(df) df.textContent=(window.FARM&&FARM.name)||ST.farmName||''; }
 function updateTopbarGreeting() {
   var el = document.getElementById('topbar-greeting');
   if (!el) return;
@@ -15426,9 +15460,12 @@ var ST_LOANS = {
 // they add. Everything else derives from records. Persists via saveState/loadState (localStorage);
 // degrades gracefully with no backend wiring.
 var ST_LOANAPP = {
-  req: { mode:'amount', amount:null, purpose:'', margin:null, term:null, rate:null, addedIncome:null, addedFrom:null },
-  income: { y1:null, y2:null, y3:null, drawMo:null, off:null },
-  estimates: {}, track: [], savedAt: null
+  req: { mode:'amount', amount:1200000, purpose:'Machinery', margin:2.25, term:7, rate:12.75, addedIncome:0, addedFrom:2 },
+  income: { y1:1850000, y2:1980000, y3:2100000, drawMo:35000, off:0 },
+  estimates: { crops:2400000, debtors:680000 },
+  track: { back1:{income:4200000, costs:2950000}, back2:{income:3850000, costs:2780000} },
+  landWater: { ownedHa:340, leasedHa:95, tenure:'Title deed T4471/2009, Portions 3 and 7 of the farm Vlakte 214, Reitz district, Free State', water:'Registered — 480 000 m³/yr, Wilge River scheme (WUL-FS-2291); balance rain-fed' },
+  savedAt: '2026-07-20T09:15:00.000Z'
 };
 var LN_ASSETS_FALLBACK = 13300000;
 function LN_assetsTotal(){ try{ var t=0; (ST_ASSETS.assets||[]).forEach(function(a){ t+=a.price||0; }); return t||LN_ASSETS_FALLBACK; }catch(e){ return LN_ASSETS_FALLBACK; } }
@@ -26572,7 +26609,11 @@ var ST_PLAN = {
   ],
   crops: [
     {crop:'Maize (white)', field:'Top Camp',    ha:500, plant:'May 2024', harvest:'Oct 2024', yield:6,   price:2758, inputCost:4500, otherCost:1200, repeat:'annual'},
-    {crop:'Soybeans',      field:'River Block', ha:300, plant:'Dec 2024', harvest:'Mar 2025', yield:2.5, price:8965, inputCost:5200, otherCost:1400, repeat:'annual'}
+    {crop:'Soybeans',      field:'River Block', ha:300, plant:'Dec 2024', harvest:'Mar 2025', yield:2.5, price:8965, inputCost:5200, otherCost:1400, repeat:'annual'},
+    {crop:'Sunflower',    field:'Rietkuil',      ha:90, plant:'Dec 2024', harvest:'Apr 2025', yield:1.8, price:9200, inputCost:5800, otherCost:1600, repeat:'annual'},
+    {crop:'Soybeans',     field:'Langfontein',   ha:70, plant:'Nov 2024', harvest:'Apr 2025', yield:2.6, price:8500, inputCost:6800, otherCost:2100, repeat:'annual'},
+    {crop:'Wheat',        field:'Onderste land', ha:60, plant:'Jun 2024', harvest:'Nov 2024', yield:4.0, price:5800, inputCost:7400, otherCost:2100, repeat:'annual'},
+    {crop:'White maize',  field:'Grootvlei',     ha:80, plant:'Nov 2024', harvest:'Apr 2025', yield:4.6, price:3200, inputCost:9800, otherCost:2600, repeat:'annual'}
   ],
   // Livestock events — auctions, breeding stock, dipping, wool clips, etc.
   // type: 'sell' | 'buy' | 'income' | 'cost'
@@ -39002,6 +39043,17 @@ function aiDemoStart(){
   }catch(e){}
 }
 window.aiDemoStart = aiDemoStart;
+// Sign out from the header avatar menu. In guest demo it just exits the demo; for a real
+// account it signs out of Supabase and reloads to the sign-in screen.
+function appSignOut(){
+  try{ closeDrop('user-drop'); }catch(e){}
+  if(window.__AI_GUEST){ try{ localStorage.removeItem('ai_guest'); }catch(e){} location.href = location.pathname; return; }
+  try{
+    if(window.AI && AI.auth && AI.auth.signOut){ AI.auth.signOut().then(function(){ location.reload(); }).catch(function(){ location.reload(); }); }
+    else { location.reload(); }
+  }catch(e){ location.reload(); }
+}
+window.appSignOut = appSignOut;
 var PAGE_TOURS = {
   workers: [
     { target:'wk-ov-kpis', tab:'ov', title:'Your team & wage bill', icon:'👥',
@@ -43754,7 +43806,12 @@ var ST_FRUIT = {
     f6:{price:210,comm:8,pack:58,ship:30,levy:0.55,levyName:'Hortgro',others:[{label:'Other costs',amt:0}],local:{price:2400,comm:5,trans:180,other:0}},
     f10:{price:225,comm:8,pack:56,ship:28,levy:0.55,levyName:'Hortgro',others:[{label:'Other costs',amt:0}],local:{price:2300,comm:5,trans:170,other:0}},
     f7:{price:95,comm:10,pack:22,ship:14,levy:0.30,levyName:'Berries ZA',others:[{label:'Other costs',amt:0}],local:{price:30000,comm:8,trans:800,other:0}},
-    f8:{price:3650,comm:7.5,pack:250,ship:400,levy:0,levyName:'',others:[{label:'Other costs',amt:0}]}
+    f8:{price:3650,comm:7.5,pack:250,ship:400,levy:0,levyName:'',others:[{label:'Other costs',amt:0}]},
+    f2:{price:155,comm:8,pack:46,ship:27,levy:1.64,levyName:'CGA',others:[{label:'Other costs',amt:0}],local:{price:2100,comm:5,trans:170,other:0}},
+    f3:{price:138,comm:8,pack:45,ship:26,levy:1.64,levyName:'CGA',others:[{label:'Other costs',amt:0}],local:{price:1700,comm:5,trans:160,other:0}},
+    f4:{price:168,comm:8,pack:40,ship:22,levy:1.64,levyName:'CGA',others:[{label:'Other costs',amt:0}],local:{price:2600,comm:5,trans:150,other:0}},
+    f5:{price:150,comm:8,pack:44,ship:26,levy:1.64,levyName:'CGA',others:[{label:'Other costs',amt:0}],local:{price:1900,comm:5,trans:160,other:0}},
+    f9:{price:2200,comm:7.5,pack:180,ship:300,levy:0,levyName:'',others:[{label:'Other costs',amt:0}]}
   },
   comply: {
     gap:{ic:'\uD83C\uDF0D',title:'GLOBALG.A.P. (food safety)',what:'Proves your fruit is safe and traceable. Required for EU & UK markets. Renewed by a yearly audit.',type:'cert',status:'Expires 12 Jul 2026',statusTag:'amber',expiry:'2026-07-12',docs:[{name:'GLOBALGAP-certificate-2024.pdf',kind:'pdf',added:'12 Jul 2024'}]},
