@@ -8180,8 +8180,12 @@ var APP_VERSION = 1;
 // ── Guest demo mode (no login) ── set very early so storage keys isolate the guest sandbox.
 // __AI_GUEST is true when the URL carries ?demo=1, or a prior demo session set the flag on this device.
 try {
-  if (new URLSearchParams(location.search).get('demo') === '1') localStorage.setItem('ai_guest','1');
-  window.__AI_GUEST = (localStorage.getItem('ai_guest') === '1');
+  // Demo mode is driven by the URL ONLY (?demo=1). It must never be sticky: a persisted flag
+  // hijacked normal visits to the plain URL and hid the sign-in overlay, locking a real user
+  // out of their own account. The guest's sandbox data still persists under its own key, so
+  // returning to the demo link restores their tinkering.
+  window.__AI_GUEST = (new URLSearchParams(location.search).get('demo') === '1');
+  if (window.__AI_GUEST) localStorage.setItem('ai_guest','1'); else localStorage.removeItem('ai_guest');
   // Discard the v1 guest sandbox — on devices used before the account-isolation hardening it may
   // hold a real account's data. Wiping it guarantees the demo always boots from the clean sample seed.
   if (window.__AI_GUEST) { try{ localStorage.removeItem('agri_demo_guest_v1'); localStorage.removeItem('agri_demo_guest_outbox_v1'); }catch(_){} }
