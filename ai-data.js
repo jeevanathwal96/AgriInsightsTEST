@@ -289,6 +289,25 @@
   };
 
   // ---- 6. LOAD FINANCE CORE ------------------------------------------------
+  /* PostgREST caps every select at `max-rows` (1000 on Supabase) — a farm with more rows
+     than that silently loaded only the first 1000, understating every total, report and tax
+     figure with no warning. selectAll() pages through with .range() until a short page comes
+     back. buildQuery must return a FRESH builder each call (a builder can't be re-awaited).
+     Returns the same {data, error} shape as a normal select, so call sites barely change. */
+  async function selectAll(buildQuery, pageSize) {
+    pageSize = pageSize || 1000;
+    let out = [], from = 0;
+    for (;;) {
+      const r = await buildQuery().range(from, from + pageSize - 1);
+      if (r.error) return { data: null, error: r.error };
+      const rows = r.data || [];
+      out = out.concat(rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+    return { data: out, error: null };
+  }
+
   const load = {
     async financeCore(farmId) {
       if (!farmId) throw new Error('No active farm');
@@ -301,7 +320,7 @@
 
       const [acc, txn, bud, rec, fst] = await Promise.all([
         client().from('accounts').select('*').eq('farm_id', farmId).order('name'),
-        client().from('transactions').select('*').eq('farm_id', farmId).order('txn_date', { ascending: false }),
+        selectAll(() => client().from('transactions').select('*').eq('farm_id', farmId).order('txn_date', { ascending: false })),
         client().from('budget_months').select('*').eq('farm_id', farmId),
         client().from('recurring').select('*').eq('farm_id', farmId).order('name'),
         client().from('farms').select('budget_income_pattern,budget_expense_pattern,budget_current_month').eq('id', farmId).single()
@@ -770,10 +789,10 @@
       client().from('herds').select('*').eq('farm_id',farmId).order('created_at'),
       client().from('herd_classes').select('*').eq('farm_id',farmId),
       client().from('livestock_benchmarks').select('*').eq('farm_id',farmId),
-      client().from('livestock_moves').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
-      client().from('livestock_treatments').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
-      client().from('animals').select('*').eq('farm_id',farmId).order('created_at'),
-      client().from('livestock_health').select('*').eq('farm_id',farmId).order('created_at',{ascending:false})
+      selectAll(() => client().from('livestock_moves').select('*').eq('farm_id',farmId).order('created_at',{ascending:false})),
+      selectAll(() => client().from('livestock_treatments').select('*').eq('farm_id',farmId).order('created_at',{ascending:false})),
+      selectAll(() => client().from('animals').select('*').eq('farm_id',farmId).order('created_at')),
+      selectAll(() => client().from('livestock_health').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}))
     ]);
     for(const r of [cp,hd,hc,bm,mv,tr,an,he]) if(r.error) throw r.error;
     var byHerd={};
@@ -783,7 +802,7 @@
     // Breeding — queried separately & resiliently: a farm whose Supabase hasn't run the
     // livestock_breeding migration must still load all its other livestock data.
     var breedings=[];
-    try{ var bd=await client().from('livestock_breedings').select('*').eq('farm_id',farmId).order('created_at'); if(!bd.error) breedings=(bd.data||[]).map(breedingFromDb); }
+    try{ var bd=await selectAll(() => client().from('livestock_breedings').select('*').eq('farm_id',farmId).order('created_at')); if(!bd.error) breedings=(bd.data||[]).map(breedingFromDb); }
     catch(e){ /* table not migrated yet — ignore */ }
     return { camps:(cp.data||[]).map(campFromDb), herds:herds, benchmarks:benchmarks,
              moves:(mv.data||[]).map(moveFromDb), treatments:(tr.data||[]).map(treatFromDb),
@@ -884,15 +903,15 @@
     farmId = farmId || farm.active();
     const [ld,ev,ip,cfg,cs,ca,cl,cd,cr,cp] = await Promise.all([
       client().from('crop_lands').select('*').eq('farm_id',farmId).order('created_at'),
-      client().from('crop_events').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
-      client().from('crop_inputs').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
+      selectAll(() => client().from('crop_events').select('*').eq('farm_id',farmId).order('created_at',{ascending:false})),
+      selectAll(() => client().from('crop_inputs').select('*').eq('farm_id',farmId).order('created_at',{ascending:false})),
       client().from('farms').select('crop_season').eq('id',farmId).single(),
       client().from('crop_compliance_settings').select('*').eq('farm_id',farmId),
       client().from('crop_compliance_areas').select('*').eq('farm_id',farmId),
-      client().from('crop_compliance_logs').select('*').eq('farm_id',farmId).order('sort_idx'),
-      client().from('crop_compliance_docs').select('*').eq('farm_id',farmId).order('sort_idx'),
-      client().from('crop_compliance_readings').select('*').eq('farm_id',farmId).order('sort_idx'),
-      client().from('crop_compliance_log_photos').select('*').eq('farm_id',farmId).order('sort_idx')
+      selectAll(() => client().from('crop_compliance_logs').select('*').eq('farm_id',farmId).order('sort_idx')),
+      selectAll(() => client().from('crop_compliance_docs').select('*').eq('farm_id',farmId).order('sort_idx')),
+      selectAll(() => client().from('crop_compliance_readings').select('*').eq('farm_id',farmId).order('sort_idx')),
+      selectAll(() => client().from('crop_compliance_log_photos').select('*').eq('farm_id',farmId).order('sort_idx'))
     ]);
     for(const r of [ld,ev,ip]) if(r.error) throw r.error;
     for(const r of [cs,ca,cl,cd,cr,cp]) if(r&&r.error) throw r.error;
@@ -998,15 +1017,15 @@
     farmId = farmId || farm.active();
     const [bl,dc,pr,po,sp,hv,ci,cd,cc,cr,cfg] = await Promise.all([
       client().from('orchard_blocks').select('*').eq('farm_id',farmId).order('created_at'),
-      client().from('orchard_block_docs').select('*').eq('farm_id',farmId).order('sort_idx'),
+      selectAll(() => client().from('orchard_block_docs').select('*').eq('farm_id',farmId).order('sort_idx')),
       client().from('orchard_pricing').select('*').eq('farm_id',farmId),
       client().from('orchard_pricing_others').select('*').eq('farm_id',farmId).order('sort_idx'),
-      client().from('orchard_sprays').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
-      client().from('orchard_harvest').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
+      selectAll(() => client().from('orchard_sprays').select('*').eq('farm_id',farmId).order('created_at',{ascending:false})),
+      selectAll(() => client().from('orchard_harvest').select('*').eq('farm_id',farmId).order('created_at',{ascending:false})),
       client().from('orchard_compliance_items').select('*').eq('farm_id',farmId),
       client().from('orchard_compliance_docs').select('*').eq('farm_id',farmId).order('sort_idx'),
-      client().from('orchard_compliance_checks').select('*').eq('farm_id',farmId).order('sort_idx'),
-      client().from('orchard_compliance_readings').select('*').eq('farm_id',farmId).order('sort_idx'),
+      selectAll(() => client().from('orchard_compliance_checks').select('*').eq('farm_id',farmId).order('sort_idx')),
+      selectAll(() => client().from('orchard_compliance_readings').select('*').eq('farm_id',farmId).order('sort_idx')),
       client().from('farms').select('orchard_market').eq('id',farmId).single()
     ]);
     for(const r of [bl,dc,pr,po,sp,hv,ci,cd,cc,cr]) if(r.error) throw r.error;
