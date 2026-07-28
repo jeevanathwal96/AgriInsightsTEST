@@ -12078,7 +12078,7 @@ var n = parseInt(ST.incPeriod || '6', 10);
   if (!tbody) return;
 
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t4);padding:24px">No transactions match your filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t4);padding:24px">'+((typeof ST!=='undefined'&&ST.txns&&ST.txns.length)?'No transactions match your filters.':'Nothing here yet. Add your first sale or expense with the + button.')+'</td></tr>';
     return;
   }
 
@@ -12616,7 +12616,7 @@ var n = parseInt(ST.expPeriod || '6', 10);
   if (!tbody) return;
 
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t4);padding:24px">No transactions match your filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--t4);padding:24px">'+((typeof ST!=='undefined'&&ST.txns&&ST.txns.length)?'No transactions match your filters.':'Nothing here yet. Add your first sale or expense with the + button.')+'</td></tr>';
     return;
   }
 
@@ -16332,6 +16332,17 @@ function laEntryStanding(){ laEntryClose(); laStartReport(false); }
 function laEntrySavedBuild(){ laEntryClose(); laStartReport(true); }
 
 function lnGlanceHTML(){
+  /* A farm with no debt used to get a summary full of zeros, which reads as broken rather
+     than as good news. Say so plainly, and keep the Add tab one tap away. */
+  var _nL=((ST_LOANS.loans||[]).length), _nO=((ST_LOANS.overdrafts||[]).length),
+      _nC=((typeof LN_coAccts==='function')?(LN_coAccts()||[]).length:((ST_LOANS.coopAccounts||[]).length));
+  if(!_nL && !_nO && !_nC){
+    return '<div style="background:#fff;border:1px dashed var(--br);border-radius:var(--rl);padding:38px 22px;text-align:center">'+
+      '<div style="font-size:30px;margin-bottom:8px">&#127974;</div>'+
+      '<div style="font-weight:800;color:var(--t2);margin-bottom:4px">No debt on the books</div>'+
+      '<div style="font-size:13px;color:var(--t3);margin-bottom:16px;line-height:1.6">Nothing owed to a bank or co-op is recorded here.<br>Add a loan, overdraft or co-op account and this page will show what it costs you and how fast you are paying it off.</div>'+
+      '<button class="btn-pri" onclick="lnTab(\'add\')">Add a loan or overdraft</button></div>';
+  }
   var owed=LN_totalOwed(), eq=LN_equityPct(), pay=LN_monthlyPay(), intMo=LN_monthlyInterest(), capMo=pay-intMo, intYr=LN_annualInterest();
   var ODS=ST_LOANS.overdrafts||[]; var odLimit=0, odUsed=0; ODS.forEach(function(o){ odLimit+=o.limit||0; odUsed+=o.used||0; });
   var odAvail=Math.max(0,odLimit-odUsed), odPct=odLimit?Math.round(odUsed/odLimit*100):0, odInt=(typeof LN_odInterestTotal==='function')?LN_odInterestTotal():0;
@@ -18792,7 +18803,15 @@ function wkSetPaye(label,wid,amt){ wkPayState(); ST_WORK.paye[label]=ST_WORK.pay
 function wkSeasDaysFor(label,wid){ return (((ST_WORK.seasonal||{})[label])||{})[wid]||0; }
 function wkSetSeasDays(label,wid,days){ wkPayState(); ST_WORK.seasonal[label]=ST_WORK.seasonal[label]||{}; ST_WORK.seasonal[label][wid]=days; }
 function wkAboveThreshold(w){ wkPayState(); return w.basis==='month' && (w.amt*12)>ST_WORK.taxThreshold; }
-function wkSdlApplies(){ var g=wkList().filter(function(w){return w.basis==='month';}).reduce(function(a,w){return a+(w.amt||0);},0); return g*12>500000; }
+/* SDL is levied on the FULL payroll (wkPRMonthTotals charges it on gross + seasGross), so the
+   R500k threshold has to use the same base. Testing permanent base pay alone told a farm with
+   R450k permanent + R300k seasonal it was "under R500k/yr" when it is in fact liable. */
+function wkSdlApplies(){
+  var g=wkList().filter(function(w){return w.basis==='month';}).reduce(function(a,w){return a+(w.amt||0);},0);
+  var s=0;
+  try{ var L=(typeof wkMonthLabel==='function')?wkMonthLabel():''; (wkSeasList()||[]).forEach(function(w){ var d=(typeof wkSeasDaysFor==='function')?(wkSeasDaysFor(L,w.id)||0):0; if(d>0) s+=d*(w.amt||0); }); }catch(e){}
+  return (g+s)*12>500000;
+}
 function wkMonthsBetween(a,b){ return (b.getFullYear()-a.getFullYear())*12 + (b.getMonth()-a.getMonth()) + 1; }
 function wkTaxYear(){ var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date(); var y=d.getFullYear(); var sy=(d.getMonth()>=2)?y:y-1; return { sy:sy, label:sy+'/'+String(sy+1).slice(2), start:new Date(sy,2,1) }; }
 function wkMonthsInTY(w){ var ty=wkTaxYear(); var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date(); var st=ty.start; if(w.start){ var ws=new Date(w.start); if(ws>st) st=ws; } return Math.max(0,Math.min(12,wkMonthsBetween(new Date(st.getFullYear(),st.getMonth(),1), d))); }
@@ -28470,6 +28489,11 @@ function bgtSheetTxns() { bgtCloseMonth(); nav('transactions'); }
 function bgtApplyMonthChange(target, fyMonths, i, val, keepTotal, todayIdx) {
   var m = fyMonths[i], old = target[m]||0, delta = val - old;
   if (!delta) return false;
+  /* "Keep the year total" clamps each later month at zero, so a large edit can run out of
+     room and silently change the annual total (a R1.2m budget could become R1.3m with no
+     warning). We can't spread what isn't there — but we can say so instead of hiding it. */
+  var _wantTotal = null;
+  if (keepTotal) { _wantTotal = 0; for (var _q = 0; _q < 12; _q++) _wantTotal += target[fyMonths[_q]]||0; }
   target[m] = val;
   if (keepTotal) {
     var idxs = [], sum = 0, j;
@@ -28491,6 +28515,14 @@ function bgtApplyMonthChange(target, fyMonths, i, val, keepTotal, todayIdx) {
           target[mk] = Math.max(0, (target[mk]||0) + each);
         });
       }
+    }
+  }
+  if (_wantTotal !== null) {
+    var _got = 0; for (var _r = 0; _r < 12; _r++) _got += target[fyMonths[_r]]||0;
+    var _drift = Math.round(_got - _wantTotal);
+    if (Math.abs(_drift) > 1) {
+      try { toast('The later months could not absorb all of that change, so your year total moved by '
+        + (_drift > 0 ? '+' : '-') + 'R' + _grpInt(Math.abs(_drift)) + '.', 'info'); } catch(e){}
     }
   }
   return true;
@@ -30617,6 +30649,11 @@ function renderMyFarm() {
   if(rows.length){
     html+='<div style="border:1px solid var(--br);border-radius:var(--rl);overflow:hidden;background:#fff">'+rows.join('')+'</div>'+
       '<div style="text-align:center;font-size:11.5px;color:var(--t3);margin-top:9px">Tap a row to see the detail \u00b7 full price list is in the tabs below</div>';
+  } else {
+    /* The farm has crops or livestock, but none of them matched a market price \u2014 without this
+       branch the page showed a lone "R0k" hero and nothing else, which reads as broken. */
+    html+='<div style="background:#fff;border:1px dashed var(--br);border-radius:var(--rl);padding:22px;text-align:center;font-size:13px;color:var(--t3);line-height:1.6">'+
+      'We do not have a market price for what you farm yet.<br>Browse the full price list in the tabs below.</div>';
   }
   el.innerHTML=html;
 }
@@ -40397,7 +40434,11 @@ function monthBreakdown(monthLabel) {
   return { incRows:incRows, expRows:expRows, totalInc:totalInc, totalExp:totalExp };
 }
 
-function fmtK(n) {
+/* Renamed from fmtK: a `var fmtK` earlier in this same script overwrites the hoisted
+   declaration at load, so this copy was unreachable dead code (verified live —
+   fmtK(1500) returns "R2k", this version's toFixed(1) would give "R1.5k").
+   Kept, not deleted, so nothing is lost; renamed so the shadowing hazard is gone. */
+function fmtKLegacyOneDecimal(n) {
   if (n >= 1000000) return 'R' + (n/1000000).toFixed(1) + 'M';
   if (n >= 1000)    return 'R' + (n/1000).toFixed(1) + 'k';
   return 'R' + Math.round(n);
@@ -41280,7 +41321,7 @@ function txRender() {
   if (!list.length) {
     var _tbe = $('all-tbody');
     if (_tbe) _tbe.innerHTML = bannerHtml +
-      '<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:32px">No transactions match your filter.</td></tr>';
+      '<tr><td colspan="7" style="text-align:center;color:var(--t3);padding:32px">'+((typeof ST!=='undefined'&&ST.txns&&ST.txns.length)?'No transactions match your filter.':'Nothing here yet. Add your first sale or expense with the + button.')+'</td></tr>';
     try{ delete _TX_CHUNK['all-tbody']; }catch(e){}
   } else {
     _txLazyPaint('all-tbody', seq.length, function(from, count){
