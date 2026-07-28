@@ -1630,6 +1630,24 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 #ob-step-4 .ob-tour-title{font-size:12.5px}
 #ob-step-4 .ob-tour-sub{font-size:11.5px}
 #ob-step-4 .ob-actions{margin-top:0;padding:12px 0 6px;border-top:1px solid rgba(0,0,0,.07)}
+.ob-consent{background:#F7F6F1;border:1px solid #DFE3DA;border-radius:12px;padding:13px 15px;margin:18px 0 4px;max-width:560px}
+.ob-consent-row{display:flex;gap:11px;align-items:flex-start;cursor:pointer;font-size:12.5px;line-height:1.55;color:#3D4A42}
+.ob-consent-row input{margin-top:2px;flex:none;width:17px;height:17px;cursor:pointer;accent-color:#1B4332}
+.ob-consent-row b{color:#1B4332;text-decoration:underline;cursor:pointer;font-weight:700}
+.ob-consent-warn{display:none;margin-top:8px;font-size:12px;font-weight:700;color:#A32D2D}
+.ob-consent.warn{border-color:#E24B4A;background:#FCEBEB}
+.ob-consent.warn .ob-consent-warn{display:block}
+.aipol-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;display:none;align-items:center;justify-content:center;padding:20px}
+.aipol-bg.on{display:flex}
+.aipol-card{background:#fff;border-radius:16px;width:660px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.aipol-hd{padding:16px 20px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;gap:10px}
+.aipol-body{padding:18px 22px;overflow-y:auto;font-size:13px;line-height:1.65;color:var(--t2)}
+.aipol-body h4{font-size:13.5px;font-weight:800;color:var(--t1);margin:16px 0 5px}
+.aipol-body h4:first-child{margin-top:0}
+.aipol-body p{margin:0 0 9px}
+.aipol-body ul{margin:0 0 9px;padding-left:19px}
+.aipol-body li{margin-bottom:4px}
+.aipol-note{background:#FAEEDA;border:1px solid #EF9F27;border-radius:9px;padding:10px 12px;font-size:12px;color:#633806;margin-bottom:14px}
 .ob-btn-pri{padding:15px 24px;background:#1B4332;color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;letter-spacing:-.1px}
 .ob-btn-pri:hover{background:#2D6A4F;transform:translateY(-1px);box-shadow:0 4px 12px rgba(27,67,50,.25)}
 .ob-btn-sec{padding:12px 20px;background:transparent;color:#6B7280;border:1.5px solid #E5E7EB;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit}
@@ -4595,6 +4613,14 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
         <div class="ob-tour-list" id="ob-tour-list">
           <!-- Populated by JS based on mode -->
+        </div>
+
+        <div class="ob-consent" id="ob-consent-block">
+          <label class="ob-consent-row" for="ob-consent-chk">
+            <input type="checkbox" id="ob-consent-chk" onchange="obConsentToggle()"/>
+            <span data-t="ob.consent.text">I have read and accept the <b onclick="event.preventDefault();aiPolicyOpen('privacy')">Privacy Policy</b> and <b onclick="event.preventDefault();aiPolicyOpen('terms')">Terms of Use</b>. I understand how my farm’s information is stored, and that where I record worker details I remain responsible for them under POPIA.</span>
+          </label>
+          <div class="ob-consent-warn" id="ob-consent-warn" data-t="ob.consent.warn">Please accept to continue.</div>
         </div>
 
         <div class="ob-actions">
@@ -7628,6 +7654,21 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       </div>
     </div>
 
+    <!-- Privacy & terms (POPIA) -->
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:14px;font-weight:800" data-t="set.legal">Privacy &amp; terms</div>
+          <div style="font-size:12px;color:var(--t3)" data-t="set.legal.sub">How your information is stored and used</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-sec" onclick="aiPolicyOpen('privacy')">Privacy Policy</button>
+          <button class="btn-sec" onclick="aiPolicyOpen('terms')">Terms of Use</button>
+        </div>
+      </div>
+      <div id="set-consent-line" style="font-size:11.5px;color:var(--t4);margin-top:9px"></div>
+    </div>
+
     <!-- Farm details -->
     <div class="set-card">
       <div class="set-h"><span class="ic">🏡</span>Farm details</div>
@@ -8994,7 +9035,9 @@ function cropAddWaterReading(){
   cropRenderComplianceModal();
   toast('Reading logged','success');
 }
-function cropDeleteWaterReading(date){
+async function cropDeleteWaterReading(date){
+  // A water reading is part of the water-use licence record an inspector may ask for.
+  if(!(await appConfirm('Delete this meter reading? It forms part of your water-use record.'))) return;
   var R=ST_CROP.compliance.waterReadings||[];
   ST_CROP.compliance.waterReadings=R.filter(function(r){return r.date!==date;});
   dataChanged('crop'); cropRenderComplianceModal();
@@ -11850,10 +11893,18 @@ recurring: [
 
 // Canonical SA number grouping — does its own spacing so it never depends on the
 // device's en-ZA locale support (which groups inconsistently across browsers/WebViews).
-function _grpInt(n){ n=Math.round(Math.abs(n||0)); return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'\u00a0'); }
+function _grpInt(n){ n=Number(n); if(!isFinite(n)) n=0; n=Math.round(Math.abs(n)); return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'\u00a0'); }
 function _grp2(n){ n=Math.abs(n||0); var r=Math.round(n*100)/100; var i=Math.floor(r); var d=Math.round((r-i)*100); return _grpInt(i)+','+String(d).padStart(2,'0'); }
-var fmt = function(n){ return 'R' + _grpInt(n); };
-var fmtK = function(n){ var v=Math.abs(n); return v>=1000000?'R'+(v/1000000).toFixed(1)+'M':v>=1000?'R'+(v/1000).toFixed(0)+'k':'R'+v; };
+/* A transaction with no category (common after a bank import) used to be grouped under the
+   object key "null", which then rendered as a breakdown row literally labelled "null" —
+   R44 971 of real money on one test account. Group under a readable label instead. */
+function _catOf(t){ var c = t && t.cat; return (c === null || c === undefined || c === '') ? 'Uncategorised' : c; }
+window._catOf = _catOf;
+/* fmt() carries the sign: _grpInt stays absolute (34 callers deliberately pass Math.abs and
+   render direction themselves), so only the raw-value callers gain the minus they were losing.
+   SA convention is -R1 234, so the sign sits outside the R. */
+var fmt = function(n){ var v=Number(n); if(!isFinite(v)) v=0; return (v<0?'-':'') + 'R' + _grpInt(v); };
+var fmtK = function(n){ var x=Number(n); if(!isFinite(x)) x=0; var s=(x<0?'-':''), v=Math.abs(x); return s+(v>=1000000?'R'+(v/1000000).toFixed(1)+'M':v>=1000?'R'+(v/1000).toFixed(0)+'k':'R'+Math.round(v)); };
 var $ = function(id){ return document.getElementById(id); };
 
 // ============================================================
@@ -11910,7 +11961,7 @@ function txSummary(monthLabel) {
     if (t.type === 'income')  income   += t.amt;
     else if (t.type === 'expense') expenses += t.amt;
     else return; // account payments etc. are cash movements, not P&L lines
-    byCat[t.cat] = (byCat[t.cat] || 0) + t.amt;
+    byCat[_catOf(t)] = (byCat[_catOf(t)] || 0) + t.amt;
   });
   return { income: income, expenses: expenses, profit: income - expenses, byCat: byCat };
 }
@@ -11954,7 +12005,7 @@ function topExpCat() {
     var d = parseDate(t.date); if (!d || t.type !== 'expense') return;
     var label = MONTH_NAMES[('0'+(d.m+1)).slice(-2)] + ' ' + d.y;
     if (label !== month) return;
-    cats[t.cat] = (cats[t.cat] || 0) + t.amt;
+    cats[_catOf(t)] = (cats[_catOf(t)] || 0) + t.amt;
   });
   var top = {cat:'—', amt:0};
   Object.keys(cats).forEach(function(k) { if (cats[k] > top.amt) top = {cat:k, amt:cats[k]}; });
@@ -11969,7 +12020,7 @@ function expByCat() {
     var d = parseDate(t.date); if (!d || t.type !== 'expense') return;
     var label = MONTH_NAMES[('0'+(d.m+1)).slice(-2)] + ' ' + d.y;
     if (label !== month) return;
-    cats[t.cat] = (cats[t.cat] || 0) + t.amt;
+    cats[_catOf(t)] = (cats[_catOf(t)] || 0) + t.amt;
     total += t.amt;
   });
   return {cats: cats, total: total};
@@ -12663,7 +12714,7 @@ var parts = (curMonth||'May 2024').split(' ');
     if (t.type === 'income')  income   += t.amt;
     else if (t.type === 'expense') expenses += t.amt;
     else return; // account payments etc. are cash movements, not P&L lines
-    byCat[t.cat] = (byCat[t.cat] || 0) + t.amt;
+    byCat[_catOf(t)] = (byCat[_catOf(t)] || 0) + t.amt;
   });
   return { income: income, expenses: expenses, profit: income - expenses, byCat: byCat, months: periodMonths.length };
 }
@@ -12770,7 +12821,7 @@ var expCats = {};
     if (t.type !== 'expense') return;
     var d = parseDate(t.date); if (!d) return;
     var tl = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.m]+' '+d.y;
-    if (periodMonths.indexOf(tl) >= 0) expCats[t.cat] = (expCats[t.cat]||0) + t.amt;
+    if (periodMonths.indexOf(tl) >= 0) expCats[_catOf(t)] = (expCats[_catOf(t)]||0) + t.amt;
   });
   var topCat = {cat:'\u2014', amt:0};
   Object.keys(expCats).forEach(function(k){ if(expCats[k]>topCat.amt) topCat={cat:k,amt:expCats[k]}; });
@@ -12825,7 +12876,7 @@ var COLORS = (typeof EXP_CAT_COLORS !== 'undefined' && EXP_CAT_COLORS) ? EXP_CAT
     var d = parseDate(t.date); if (!d) return;
     var lbl = MO[d.m] + ' ' + d.y;
     if (periodMonths.indexOf(lbl) < 0) return;
-    cats[t.cat] = (cats[t.cat] || 0) + t.amt;
+    cats[_catOf(t)] = (cats[_catOf(t)] || 0) + t.amt;
   });
 
   var total  = Object.keys(cats).reduce(function(s,k){ return s+cats[k]; }, 0);
@@ -12892,14 +12943,14 @@ var IE_ENT_COLORS = ['#1B4332','#2D6A4F','#40916C','#74A892','#8FBF9F','#A7C957'
 var _IE_MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 var _IE_MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
 
-function _ieK(n){ n=Math.round(Math.abs(n));
+function _ieK(n){ n=Number(n); if(!isFinite(n)) n=0; n=Math.round(Math.abs(n));
   if(n>=1e6){ var m=n/1e6; return 'R'+(m>=10?m.toFixed(1):m.toFixed(2)).replace(/\.?0+$/,'')+'m'; }
   if(n>=1000){ return 'R'+Math.round(n/1000)+'k'; }
   return 'R'+n; }
 function _ieLabelOf(t){ var d=parseDate(t.date); if(!d) return ''; return _IE_MO[d.m]+' '+d.y; }
 function _ieShiftLabel(label, deltaMonths){ var p=String(label).split(' '); var mo=_IE_MN[p[0]]; var y=parseInt(p[1],10);
   if(mo===undefined||isNaN(y)) return label; var tot=mo+deltaMonths; var ny=y+Math.floor(tot/12); var nm=((tot%12)+12)%12; return _IE_MO[nm]+' '+ny; }
-function _ieCats(label, type){ var o={}; (ST.txns||[]).forEach(function(t){ if(t.type!==type) return; if(_ieLabelOf(t)!==label) return; o[t.cat]=(o[t.cat]||0)+t.amt; }); return o; }
+function _ieCats(label, type){ var o={}; (ST.txns||[]).forEach(function(t){ if(t.type!==type) return; if(_ieLabelOf(t)!==label) return; o[_catOf(t)]=(o[_catOf(t)]||0)+t.amt; }); return o; }
 function _ieTotal(label, type){ var s=0; (ST.txns||[]).forEach(function(t){ if(t.type!==type) return; if(_ieLabelOf(t)!==label) return; s+=t.amt; }); return s; }
 function _ieNowFY(){ var pl=(currentPeriodLabel()).split(' '); var fyStart=(ST.fyStartMonth||3)-1;
   var nowM=_IE_MN[pl[0]]!==undefined?_IE_MN[pl[0]]:4, nowY=parseInt(pl[1],10)||2024;
@@ -13623,7 +13674,7 @@ var prev       = txSummary(prevMonthLabel(month));
     function escTxt(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
     function topCats(type, n){
       var m = {};
-      monthTxns.forEach(function(t){ if(t.type===type) m[t.cat]=(m[t.cat]||0)+t.amt; });
+      monthTxns.forEach(function(t){ if(t.type===type) m[_catOf(t)]=(m[_catOf(t)]||0)+t.amt; });
       return Object.keys(m).map(function(k){ return {cat:k, amt:m[k]}; })
         .sort(function(a,b){ return b.amt-a.amt; }).slice(0,n);
     }
@@ -14088,7 +14139,7 @@ function renderDashExpCats() {
     var d = parseDate(t.date); if (!d || t.type !== 'expense') return;
     var lbl = MONTH_NAMES[('0'+(d.m+1)).slice(-2)] + ' ' + d.y;
     if (months.indexOf(lbl) < 0) return;
-    cats[t.cat] = (cats[t.cat] || 0) + t.amt;
+    cats[_catOf(t)] = (cats[_catOf(t)] || 0) + t.amt;
   });
 
   var total = Object.keys(cats).reduce(function(s,k){return s+cats[k];}, 0);
@@ -14131,7 +14182,7 @@ function renderDashIncSources() {
     var d = parseDate(t.date); if (!d || t.type !== 'income') return;
     var lbl = MONTH_NAMES[('0'+(d.m+1)).slice(-2)] + ' ' + d.y;
     if (months.indexOf(lbl) < 0) return;
-    cats[t.cat] = (cats[t.cat] || 0) + t.amt;
+    cats[_catOf(t)] = (cats[_catOf(t)] || 0) + t.amt;
   });
 
   var total = Object.keys(cats).reduce(function(s,k){return s+cats[k];}, 0);
@@ -14190,16 +14241,22 @@ function getCurrentFY() {
   var parts = (currentPeriodLabel()).split(' ');
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
   var m = MN[parts[0]]!==undefined ? MN[parts[0]] : 4;
-  var y = parseInt(parts[1],10) || 2024;
-  return m >= 2 ? y : y - 1;
+  var y = parseInt(parts[1],10) || (window.APP_TODAY ? APP_TODAY.getFullYear() : new Date().getFullYear());
+  /* Honour the farmer's own year-end. This used to hardcode March, so a farmer on (say) a July
+     year-end got Budgets/Reports on Mar–Feb while Income/Expenses and VAT ran Jul–Jun — every
+     "this financial year" total disagreed with every other one. ST.fyStartMonth is 1-12. */
+  var sm = (window.ST && ST.fyStartMonth) ? (ST.fyStartMonth - 1) : 2;   // 0-based; SA farming default = March
+  return m >= sm ? y : y - 1;
 }
 function getFYMonths(fy) {
 
   var months = [];
-  var labels = ['Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb'];
+  var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var sm = (window.ST && ST.fyStartMonth) ? (ST.fyStartMonth - 1) : 2;   // same anchor as getCurrentFY
   for (var i=0; i<12; i++) {
-    var yr = i < 10 ? fy : fy+1;
-    months.push(labels[i] + ' ' + yr);
+    var k  = sm + i;
+    var yr = k < 12 ? fy : fy + 1;
+    months.push(MO[k % 12] + ' ' + yr);
   }
   return months;
 }
@@ -14228,6 +14285,14 @@ function updateTopbarGreeting() {
 }
 
 function syncSettingsHeader(){
+  // Show what was accepted, so there's a visible record of consent.
+  try{
+    var cl=$('set-consent-line');
+    if(cl){ var c=(window.ST&&ST.consent)||null;
+      cl.textContent = c&&c.acceptedAt
+        ? ('Accepted version '+c.policyVersion+' on '+new Date(c.acceptedAt).toLocaleDateString('en-ZA'))
+        : 'Not yet accepted on this farm.'; }
+  }catch(e){}
   var nm=$('set-id-name'), sb=$('set-id-sub'); if(!nm||!sb) return;
   var v=function(id){ var e=$(id); return e&&e.value!=null?String(e.value).trim():''; };
   nm.textContent = v('set-farm') || ST.farmName || 'Your farm';
@@ -16793,7 +16858,9 @@ function lnSaveOverdraft(){
   }
   LN_OD_EDIT_ID=null; LN_FORM_FF=null; saveState(); ST_LOANS.activeTab='myloans'; renderLoans();
 }
-function lnRemoveOverdraft(id){
+async function lnRemoveOverdraft(id){
+  // Deletes from the backend too — confirm first.
+  if(!(await appConfirm('Delete this overdraft? It is gone for good, and any linked history goes with it.'))) return;
   ST_LOANS.overdrafts=(ST_LOANS.overdrafts||[]).filter(function(o){return o.id!==id;});
   try { if (window.AI && AI.farm && AI.farm.active()) { AI.loans.remove('overdrafts', id).catch(function(e){ console.error('Backend overdraft delete failed:', e); }); } } catch(e){}
   if(LN_OD_UI&&LN_OD_UI[id]) delete LN_OD_UI[id];
@@ -16923,7 +16990,9 @@ function lnSaveCoopAcct(){
   }
   LN_CO_EDIT_ID=null; LN_ADD_KIND='loan'; LN_FORM_FF=null; saveState(); ST_LOANS.activeTab='myloans'; renderLoans();
 }
-function lnRemoveCoopAcct(id){
+async function lnRemoveCoopAcct(id){
+  // Deletes from the backend too — confirm first.
+  if(!(await appConfirm('Delete this co-op account? It is gone for good, and any linked history goes with it.'))) return;
   ST_LOANS.coopAccounts=(ST_LOANS.coopAccounts||[]).filter(function(o){return o.id!==id;});
   try { if (window.AI && AI.farm && AI.farm.active()) { AI.loans.remove('coop_accounts', id).catch(function(e){ console.error('Backend co-op delete failed:', e); }); } } catch(e){}
   if(LN_OD_UI&&LN_OD_UI[id]) delete LN_OD_UI[id];
@@ -18033,9 +18102,13 @@ function renderWkRegister(){ wkSync();
 function wkUIF(gross){ return Math.round(Math.min(gross||0,STATUTORY.uifCeiling.value)*STATUTORY.uifRate.value*100)/100; }   // 1%, capped at the UIF ceiling
 function wkTodayStr(){ var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date(); var mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return d.getDate()+' '+mo[d.getMonth()]+' '+d.getFullYear(); }
 function wkMonthLabel(){ var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date(); var mo=['January','February','March','April','May','June','July','August','September','October','November','December']; return mo[d.getMonth()]+' '+d.getFullYear(); }
-function wkPayRows(){
+/* labelOverride lets a caller build the rows for a SPECIFIC month. Multi-month payroll
+   reports used to build these once from the CURRENT month and then add that same figure
+   once per month in the range, inflating gross/UIF/SDL on EMP201 submissions. Omitting the
+   argument keeps the previous current-month behaviour, so existing callers are unchanged. */
+function wkPayRows(labelOverride){
   var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
-  var label=(typeof wkMonthLabel==='function')?wkMonthLabel():'';
+  var label=labelOverride||((typeof wkMonthLabel==='function')?wkMonthLabel():'');
   var bonusMap=(ST_WORK.bonus&&ST_WORK.bonus[label])||{};
   var extraMap=(ST_WORK.extra&&ST_WORK.extra[label])||{};
   return wkList().filter(function(w){ return w.basis==='month'; }).map(function(w){
@@ -18839,7 +18912,7 @@ function wkPRMonthTotals(){
   var labels=wkPRLabels(); var single=labels.length===1; var rows=wkPayRows();
   var t={gross:0,uif:0,adv:0,sav:0,paye:0,net:0,seasGross:0,seasUif:0,rows:rows,labels:labels,single:single,n:labels.length};
   labels.forEach(function(L){
-    rows.forEach(function(r){ t.gross+=r.gross; t.uif+=r.uif; t.paye+=wkPayeFor(L,r.w.id); if(single){ t.adv+=r.advRepay; t.sav+=r.savings; } });
+    wkPayRows(L).forEach(function(r){ t.gross+=r.gross; t.uif+=r.uif; t.paye+=wkPayeFor(L,r.w.id); if(single){ t.adv+=r.advRepay; t.sav+=r.savings; } });
     wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); t.seasGross+=g; t.seasUif+=wkSeasUif(g,days,w); } });
   });
   t.net=t.gross-t.uif-t.paye-t.adv-t.sav;
@@ -18883,7 +18956,10 @@ function wkPRRegister(){
   if(!single){
     var rows=wkPayRows(); var n=labels.length;
     var tg=0,tu=0,tp=0,tn=0;
-    var trs=rows.map(function(r){ var gross=r.gross*n, uif=r.uif*n, paye=0; labels.forEach(function(L){ paye+=wkPayeFor(L,r.w.id); }); var net=gross-uif-paye; tg+=gross;tu+=uif;tp+=paye;tn+=net;
+    var _byLabel={}; labels.forEach(function(L){ _byLabel[L]=wkPayRows(L); });
+    var trs=rows.map(function(r){ var gross=0, uif=0, paye=0;
+      labels.forEach(function(L){ var lr=_byLabel[L]||[]; for(var i=0;i<lr.length;i++){ if(lr[i].w.id===r.w.id){ gross+=lr[i].gross; uif+=lr[i].uif; break; } } paye+=wkPayeFor(L,r.w.id); });
+      var net=gross-uif-paye; tg+=gross;tu+=uif;tp+=paye;tn+=net;
       var nm=wkE(r.w.name)+(wkAboveThreshold(r.w)?' <span class="pr-flag" title="Annual pay above the tax threshold \u2014 confirm PAYE on the SARS tables">\u26a0</span>':'');
       return '<tr><td>'+nm+'</td><td>'+wkMoney(gross)+'</td><td>'+uif.toFixed(2)+'</td><td>'+wkMoney(paye)+'</td><td>'+wkMoney(net)+'</td></tr>'; }).join('');
     var foot='<tr class="tot"><td>Totals</td><td>'+wkMoney(tg)+'</td><td>'+tu.toFixed(2)+'</td><td>'+wkMoney(tp)+'</td><td>'+wkMoney(tn)+'</td></tr>';
@@ -24147,7 +24223,7 @@ function lsTrSafe(t){ var d=new Date(t.date+'T00:00:00'); d.setDate(d.getDate()+
 function lsTrDaysLeft(t){ return Math.ceil((lsTrSafe(t)-LS_TODAY)/86400000); }
 function lsTrActive(t){ return (Math.max(t.meat||0,t.milk||0)>0) && lsTrDaysLeft(t)>0; }
 function lsFmtDate(d){ var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear(); }
-function lsCompact(n){ if(n>=1e6) return 'R'+(n/1e6).toFixed(2)+'m'; if(n>=1e3) return 'R'+Math.round(n/1e3)+'k'; return 'R'+Math.round(n); }
+function lsCompact(n){ n=Number(n); if(!isFinite(n)) n=0; if(n>=1e6) return 'R'+(n/1e6).toFixed(2)+'m'; if(n>=1e3) return 'R'+Math.round(n/1e3)+'k'; return 'R'+Math.round(n); }
 function lsHerdMarketVal(h){ var mp=MARKET_PRICES[animalBase(h.type)]; return mp?(h.qty*mp.price*(mp.avgKg||380)):0; }
 function lsHerdROI(h){ var cost=h.qty*(h.buy+(h.feed+h.vet)*(h.months||6)); var rev=h.qty*h.sell; return cost>0?Math.round(((rev-cost)/cost)*100):0; }
 function lsHerdIcon(h){ return animalIcon(h.type); }
@@ -30519,7 +30595,7 @@ function renderMyFarm() {
     return;
   }
 
-  function fmtBig(n){ var a=Math.abs(n); return a>=1e6 ? 'R'+(n/1e6).toFixed(2)+'m' : 'R'+Math.round(n/1000)+'k'; }
+  function fmtBig(n){ n=Number(n); if(!isFinite(n)) n=0; var a=Math.abs(n); return a>=1e6 ? 'R'+(n/1e6).toFixed(2)+'m' : 'R'+Math.round(n/1000)+'k'; }
   var total=0, rows=[];
 
   farmCrops.forEach(function(c, i){
@@ -30660,7 +30736,7 @@ function mktTrendCard(cur, ref, refLabel, unit, good, signedPct, seedStr){
 function mktOpenDetail(type, idx){
   var body=$('mkt-detail-body'); var modal=$('mkt-detail-modal'); if(!body||!modal) return;
   var za=function(n){ return Math.round(n).toLocaleString('en-ZA'); };
-  var fmtBig=function(n){ var a=Math.abs(n); return a>=1e6?'R'+(n/1e6).toFixed(2)+'m':'R'+za(n/1000)+'k'; };
+  var fmtBig=function(n){ n=Number(n); if(!isFinite(n)) n=0; var a=Math.abs(n); return a>=1e6?'R'+(n/1e6).toFixed(2)+'m':'R'+za(n/1000)+'k'; };
   var html='';
 
   if(type==='crop'){
@@ -30766,7 +30842,7 @@ function renderIncBySource() {
     var d = parseDate(t.date); if (!d) return;
     var lbl = MO[d.m] + ' ' + d.y;
     if (periodMonths.indexOf(lbl) < 0) return;
-    cats[t.cat] = (cats[t.cat] || 0) + t.amt;
+    cats[_catOf(t)] = (cats[_catOf(t)] || 0) + t.amt;
   });
 
   var total  = Object.keys(cats).reduce(function(s,k){ return s+cats[k]; }, 0);
@@ -34360,6 +34436,9 @@ I18N['demo.ribbon']={en:"You’re exploring a sample farm — nothing here is sa
 I18N['demo.watch']={en:"▶ Watch demo",af:"▶ Kyk demo"};
 I18N['demo.restart']={en:"↺ Restart demo",af:"↺ Herbegin demo"};
 I18N['demo.create']={en:"Create your farm →",af:"Skep jou plaas →"};
+I18N['ob.consent.warn']={en:"Please accept to continue.",af:"Aanvaar asseblief om voort te gaan."};
+I18N['set.legal']={en:"Privacy & terms",af:"Privaatheid & voorwaardes"};
+I18N['set.legal.sub']={en:"How your information is stored and used",af:"Hoe jou inligting gestoor en gebruik word"};
 
 var SKIP_TAGS = {SCRIPT:1, STYLE:1, SVG:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1};
 
@@ -34918,13 +34997,13 @@ function computeRPT() {
     if (!rptInPeriod(d, info)) return;
     if (t.type === 'income') {
       totalIncome += t.amt;
-      byIncCat[t.cat] = (byIncCat[t.cat]||0) + t.amt;
+      byIncCat[_catOf(t)] = (byIncCat[_catOf(t)]||0) + t.amt;
       if (FARM.vat) vatOut += IE_split(t.amt, t.cat).vat;
     } else {
       var isCOS = ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].indexOf(t.cat) >= 0;
       if (isCOS) totalCOS += t.amt; else totalOpex += t.amt;
       if (FARM.vat) vatIn += IE_split(t.amt, t.cat).vat;
-      byCat[t.cat] = (byCat[t.cat]||0) + t.amt;
+      byCat[_catOf(t)] = (byCat[_catOf(t)]||0) + t.amt;
       if (t.cat === 'Loan Repayments') loanIntSum += _rptLoanInterest(t);
     }
   });
@@ -34942,8 +35021,14 @@ function computeRPT() {
   }
   var grossProfit  = totalIncome - totalCOS;
   var netProfitBT  = grossProfit - totalOpex;
-  var taxRate      = netProfitBT > 0 ? (netProfitBT > 1500000 ? 0.28 : 0.21) : 0;
-  var taxAmount    = Math.max(0, netProfitBT * taxRate);
+  /* Use the app's own SARS engine (bands, rebate, threshold, entity type) instead of a flat
+     rate. The old 28%/21% step created a R105k cliff at R1.5m — R1 more income cost R105 000 —
+     and 28% contradicted STATUTORY.company.rate (27%). taxRate is still returned (5 render
+     sites) but is now the EFFECTIVE rate, which is what those labels actually mean. */
+  var taxAmount    = (typeof calcAnnualIncomeTax === 'function')
+                       ? calcAnnualIncomeTax(netProfitBT, (window.ST && ST.entityType) || 'sole')
+                       : Math.max(0, netProfitBT * 0.21);
+  var taxRate      = netProfitBT > 0 ? (taxAmount / netProfitBT) : 0;
   var netProfitAT  = netProfitBT - taxAmount;
   var grossMargin  = totalIncome > 0 ? (grossProfit/totalIncome*100).toFixed(1) : '0.0';
   var netMargin    = totalIncome > 0 ? (netProfitBT/totalIncome*100).toFixed(1) : '0.0';
@@ -35839,7 +35924,7 @@ function _taxFYProfit(offset){
   var _p=(currentPeriodLabel()).split(' '), MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
   var now={m:MN[_p[0]]!==undefined?MN[_p[0]]:4,y:parseInt(_p[1],10)||2024}, fyStart=(ST.fyStartMonth||3)-1;
   var curFY=(now.m>=fyStart?now.y:now.y-1)+(offset||0), inc=0,exp=0,byCat={};
-  (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var fy=(d.m>=fyStart?d.y:d.y-1); if(fy!==curFY) return; if(t.type==='income') inc+=t.amt; else if(t.type==='expense'){ exp+=t.amt; byCat[t.cat]=(byCat[t.cat]||0)+t.amt; } });
+  (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var fy=(d.m>=fyStart?d.y:d.y-1); if(fy!==curFY) return; if(t.type==='income') inc+=t.amt; else if(t.type==='expense'){ exp+=t.amt; byCat[_catOf(t)]=(byCat[_catOf(t)]||0)+t.amt; } });
   return {income:inc,expenses:exp,profit:inc-exp,byCat:byCat};
 }
 function _taxFYVat(){
@@ -36961,7 +37046,7 @@ function _txRerenderReports(){ var el=document.getElementById('tax-tab-reports')
 
 function _txFyIE(fy){
   var inc=0,exp=0,byCat={};
-  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var f=(d.m>=2)?d.y:d.y-1; if(f!==fy) return; if(t.type==='income') inc+=t.amt; else if(t.type==='expense'){ exp+=t.amt; byCat[t.cat]=(byCat[t.cat]||0)+t.amt; } });
+  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var f=(d.m>=2)?d.y:d.y-1; if(f!==fy) return; if(t.type==='income') inc+=t.amt; else if(t.type==='expense'){ exp+=t.amt; byCat[_catOf(t)]=(byCat[_catOf(t)]||0)+t.amt; } });
   return {income:inc,expenses:exp,profit:inc-exp,byCat:byCat};
 }
 
@@ -37955,6 +38040,8 @@ function obBuildTour() {
 }
 
 function obFinish() {
+  // POPIA: the farm is only created once the Privacy Policy & Terms are accepted.
+  if (typeof obConsentOk === 'function' && !obConsentOk()) return;
   var farmName = ($('ob-farm')     && $('ob-farm').value.trim())     || 'My Farm';
   var owner    = ($('ob-owner')    && $('ob-owner').value.trim())    || 'Farmer';
   var ha       = parseFloat($('ob-ha') && $('ob-ha').value) || 0;
@@ -39061,6 +39148,84 @@ function appSignOut(){
   }catch(e){ location.reload(); }
 }
 window.appSignOut = appSignOut;
+
+/* ============================================================
+   PRIVACY POLICY & TERMS (POPIA)
+   Shown at onboarding before a new farm is created, and from Settings.
+   DRAFT — the bracketed placeholders must be completed and the wording
+   reviewed by a South African attorney before farmers accept it.
+   Bump AI_POLICY_VERSION whenever the wording changes materially; the
+   accepted version is stored per farm so you can prove what was agreed.
+   ============================================================ */
+var AI_POLICY_VERSION = '1.0-draft';
+var AI_POLICY_PLACEHOLDER = '<div class="aipol-note"><b>Draft — to be completed before the pilot.</b> Replace every [bracketed] item and have the wording checked by an attorney. Confirm where the database is hosted: if it is outside South Africa, section 72 of POPIA applies and must be disclosed here.</div>';
+function aiPolicyPrivacyHTML(){
+  return AI_POLICY_PLACEHOLDER+
+  '<h4>Who looks after your information</h4><p>AgriInsights is operated by <b>[REGISTERED BUSINESS NAME]</b> ([REGISTRATION NUMBER]), [ADDRESS]. Our Information Officer is <b>[NAME]</b>, reachable at <b>[EMAIL]</b>. We process personal information in line with the Protection of Personal Information Act 4 of 2013 (POPIA).</p>'+
+  '<h4>What we collect</h4><ul>'+
+  '<li><b>About you:</b> your name, email address, farm name, province, farm size and tax details you enter.</li>'+
+  '<li><b>Your farm records:</b> income, expenses, crops, livestock, orchards, assets, loans and the documents you upload.</li>'+
+  '<li><b>About your workers:</b> if you use the Workers section — names, pay, UIF details, contracts, leave and deductions.</li>'+
+  '<li><b>Technical:</b> sign-in records and basic device information needed to keep your account secure.</li></ul>'+
+  '<h4>Why we process it</h4><p>To provide the service: to calculate your profit, cash flow, budgets and tax estimates, to produce your reports and compliance records, and to keep your data safe and synced across your devices. We do not sell your information, and we do not use your farm data for advertising.</p>'+
+  '<h4>Your workers’ information — an important point</h4><p>Where you record worker details, <b>you</b> remain the responsible party under POPIA and we act as your operator: we process that information only on your instruction, and only to run the service for you. You are responsible for telling your workers what you record and why, and for having a lawful basis to record it. We can generate a worker notice to help you do this.</p>'+
+  '<h4>Who we share it with</h4><p>Only with service providers needed to run AgriInsights — our hosting and database provider, and email delivery. They process it under contract and may not use it for their own purposes. We share information with SARS or another authority only where the law requires it, or where you choose to export or send a report yourself.</p>'+
+  '<h4>Where it is stored</h4><p>Your data is stored in our hosted database at <b>[HOSTING PROVIDER AND COUNTRY/REGION]</b>. [If this is outside South Africa, state the section 72 basis for the transfer here.]</p>'+
+  '<h4>How long we keep it</h4><p>We keep your farm records for as long as your account is active, and afterwards for as long as the law requires — financial records generally for five years, in line with SARS requirements. You can ask us to delete your account and data at any time; we will delete what we are not legally required to keep.</p>'+
+  '<h4>How we protect it</h4><p>Your data is encrypted in transit. Access is restricted to your own account by database-level security rules, so no other farm can read your records. Access to production systems is limited to authorised personnel.</p>'+
+  '<h4>Your rights</h4><p>You may ask us to confirm what we hold about you, to correct or delete it, or to object to processing. You may also complain to the Information Regulator (South Africa): <b>complaints.IR@justice.gov.za</b>. To exercise any of these, contact <b>[EMAIL]</b>.</p>'+
+  '<h4>Giving us your information</h4><p>Providing your farm details is voluntary, but without them the app cannot calculate your figures or produce your reports.</p>'+
+  '<h4>Changes</h4><p>If we change this policy materially we will ask you to accept the new version when you next sign in. Version '+AI_POLICY_VERSION+'.</p>';
+}
+function aiPolicyTermsHTML(){
+  return AI_POLICY_PLACEHOLDER+
+  '<h4>The agreement</h4><p>These terms are between you and <b>[REGISTERED BUSINESS NAME]</b> ([REGISTRATION NUMBER]) for your use of AgriInsights. By accepting them you confirm you are authorised to act for the farm you set up.</p>'+
+  '<h4>Pilot software</h4><p>AgriInsights is currently provided as a <b>pilot</b>. Features may change, and figures may be adjusted as we improve the calculations. Please tell us about anything that looks wrong.</p>'+
+  '<h4>Your data is yours</h4><p>You keep ownership of everything you record. You can export it at any time, and you can ask us to delete it. We use it only to provide the service to you.</p>'+
+  '<h4>Guidance, not professional advice</h4><p>AgriInsights helps you organise your records and estimate figures such as tax, budgets and margins. These are <b>estimates to help you plan</b> — they are not accounting, tax, legal or financial advice, and they do not replace your accountant. Confirm any figure with your accountant before you file it or rely on it for a decision. Compliance features help you keep records; they do not guarantee that an audit or inspection will pass.</p>'+
+  '<h4>Your responsibilities</h4><ul>'+
+  '<li>Keep your sign-in details secure and do not share your account.</li>'+
+  '<li>Make sure what you record is accurate — your reports are only as good as the figures you enter.</li>'+
+  '<li>Where you record worker information, comply with POPIA and labour law, including telling your workers what you keep and why.</li></ul>'+
+  '<h4>Processing worker information on your behalf</h4><p>Where you record information about other people, you are the responsible party and we are your operator under section 21 of POPIA. We will process that information only on your documented instruction, keep it confidential, apply the security measures described in our Privacy Policy, and notify you without undue delay if we become aware of a security compromise affecting it.</p>'+
+  '<h4>Availability</h4><p>We aim to keep the service available and your data backed up, but we cannot promise uninterrupted access during the pilot. Keep your own copies of anything critical — you can export your records at any time.</p>'+
+  '<h4>Limits</h4><p>To the extent the law allows, we are not liable for indirect or consequential loss, or for decisions taken on the basis of estimates produced by the app. Nothing here limits liability that cannot lawfully be limited.</p>'+
+  '<h4>Ending it</h4><p>You may stop using AgriInsights at any time and ask for your data to be deleted. We may suspend an account that is used unlawfully.</p>'+
+  '<h4>Governing law</h4><p>These terms are governed by the laws of the Republic of South Africa. Version '+AI_POLICY_VERSION+'.</p>';
+}
+function aiPolicyOpen(which){
+  var bg=document.getElementById('aipol-bg');
+  if(!bg){
+    bg=document.createElement('div'); bg.className='aipol-bg'; bg.id='aipol-bg';
+    bg.onclick=function(e){ if(e.target===bg) aiPolicyClose(); };
+    bg.innerHTML='<div class="aipol-card"><div class="aipol-hd"><div style="font-size:15px;font-weight:800" id="aipol-title"></div><button class="btn-sec" onclick="aiPolicyClose()">Close</button></div><div class="aipol-body" id="aipol-body" data-notranslate></div></div>';
+    document.body.appendChild(bg);
+  }
+  document.getElementById('aipol-title').textContent = (which==='terms')?'Terms of Use':'Privacy Policy';
+  document.getElementById('aipol-body').innerHTML = (which==='terms')?aiPolicyTermsHTML():aiPolicyPrivacyHTML();
+  document.getElementById('aipol-body').scrollTop=0;
+  bg.classList.add('on');
+}
+function aiPolicyClose(){ var bg=document.getElementById('aipol-bg'); if(bg) bg.classList.remove('on'); }
+function obConsentToggle(){
+  var chk=document.getElementById('ob-consent-chk'), box=document.getElementById('ob-consent-block');
+  if(chk && chk.checked && box) box.classList.remove('warn');
+}
+// Returns false (and flags the block) when the farmer hasn't accepted yet.
+function obConsentOk(){
+  var chk=document.getElementById('ob-consent-chk');
+  if(chk && !chk.checked){
+    var box=document.getElementById('ob-consent-block');
+    if(box){ box.classList.add('warn'); try{ box.scrollIntoView({block:'center'}); }catch(e){} }
+    return false;
+  }
+  try{
+    if(window.ST) ST.consent={ policyVersion:AI_POLICY_VERSION, acceptedAt:new Date().toISOString() };
+  }catch(e){}
+  return true;
+}
+window.aiPolicyOpen=aiPolicyOpen; window.aiPolicyClose=aiPolicyClose;
+window.obConsentToggle=obConsentToggle; window.obConsentOk=obConsentOk;
 var PAGE_TOURS = {
   workers: [
     { target:'wk-ov-kpis', tab:'ov', title:'Your team & wage bill', icon:'👥',
@@ -39911,7 +40076,7 @@ function _sarsByCat(fy){
     if (t.type !== 'expense') return;
     var d = parseDate(t.date); if (!d) return;
     if (((d.m >= 2) ? d.y : d.y - 1) !== fy) return;
-    byCat[t.cat] = (byCat[t.cat] || 0) + t.amt;
+    byCat[_catOf(t)] = (byCat[_catOf(t)] || 0) + t.amt;
     if (t.cat === 'Loan Repayments' && typeof _rptLoanInterest === 'function'){
       loanPaid += (t.amt || 0);
       loanInt  += _rptLoanInterest(t);
@@ -40218,10 +40383,10 @@ function monthBreakdown(monthLabel) {
   var income = {}, expenses = {}, totalInc = 0, totalExp = 0;
   txns.forEach(function(t) {
     if (t.type === 'income') {
-      income[t.cat]  = (income[t.cat]  || 0) + t.amt;
+      income[_catOf(t)]  = (income[_catOf(t)]  || 0) + t.amt;
       totalInc += t.amt;
     } else {
-      expenses[t.cat] = (expenses[t.cat] || 0) + t.amt;
+      expenses[_catOf(t)] = (expenses[_catOf(t)] || 0) + t.amt;
       totalExp += t.amt;
     }
   });
@@ -40407,6 +40572,7 @@ function renderDashSummary() {
   var af       = lang === 'af';
 
   function fmtR(n) {
+    n = Number(n); if (!isFinite(n)) n = 0;
     if (n >= 1000000) return 'R' + (n/1000000).toFixed(1) + 'M';
     if (n >= 1000)    return 'R' + (n/1000).toFixed(0) + 'k';
     return 'R' + Math.round(n);
@@ -41949,7 +42115,7 @@ function wkPRTag(){ var L=wkPRLabels(); return (L.length===1)?L[0].replace(/\s+/
 function wkPRExportRegister(){
   var labels=wkPRLabels(); var single=labels.length===1; var rows=wkPayRows(); var data=[];
   labels.forEach(function(L){
-    rows.forEach(function(r){ var paye=wkPayeFor(L,r.w.id); var other=single?(r.advRepay+r.savings):0; var net=r.gross-r.uif-paye-other; data.push([L, r.w.name, r.gross.toFixed(2), r.uif.toFixed(2), paye.toFixed(2), other.toFixed(2), net.toFixed(2)]); });
+    wkPayRows(L).forEach(function(r){ var paye=wkPayeFor(L,r.w.id); var other=single?(r.advRepay+r.savings):0; var net=r.gross-r.uif-paye-other; data.push([L, r.w.name, r.gross.toFixed(2), r.uif.toFixed(2), paye.toFixed(2), other.toFixed(2), net.toFixed(2)]); });
     wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); var u=wkSeasUif(g,days,w); data.push([L, w.name+' (seasonal '+days+'d)', g.toFixed(2), u.toFixed(2), '0.00','0.00',(g-u).toFixed(2)]); } });
   });
   wkDownload('Payroll_register_'+wkPRTag(), toCSV(['Month','Employee','Gross (R)','UIF 1% (R)','PAYE (R)','Other deductions (R)','Net pay (R)'], data));
@@ -41961,7 +42127,7 @@ function wkPRExportUif(){
 }
 function wkPRExportEmp201(){
   var labels=wkPRLabels(); var rows=wkPayRows(); var data=[];
-  labels.forEach(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var tot=paye+uif2+sdl; data.push([L, paye.toFixed(2), sdl.toFixed(2), uif2.toFixed(2), tot.toFixed(2)]); });
+  labels.forEach(function(L){ var paye=0,uif=0,gross=0; wkPayRows(L).forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var tot=paye+uif2+sdl; data.push([L, paye.toFixed(2), sdl.toFixed(2), uif2.toFixed(2), tot.toFixed(2)]); });
   wkDownload('EMP201_'+wkPRTag(), toCSV(['Month','PAYE (R)','SDL (R)','UIF 1%+1% (R)','Total payable (R)'], data));
 }
 function wkPRPrint(){
@@ -41975,7 +42141,8 @@ function wkPRPrint(){
     var sr=''; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(focus,w.id); if(days>0){ var g=days*(w.amt||0); var u=wkSeasUif(g,days,w); sr+='<tr><td>'+wkE(w.name)+' ('+days+'d)</td><td>'+g.toFixed(2)+'</td><td>'+u.toFixed(2)+'</td><td>0.00</td><td>0.00</td><td>'+(g-u).toFixed(2)+'</td></tr>'; } });
     regTable='<table><thead><tr><th>Employee</th><th>Gross</th><th>UIF 1%</th><th>PAYE</th><th>Other</th><th>Net</th></tr></thead><tbody>'+rr+sr+'</tbody></table>';
   } else {
-    var n=labels.length; var rr=rows.map(function(r){ var gross=r.gross*n, uif=r.uif*n, paye=0; labels.forEach(function(L){ paye+=wkPayeFor(L,r.w.id); }); var net=gross-uif-paye; return '<tr><td>'+wkE(r.w.name)+'</td><td>'+gross.toFixed(2)+'</td><td>'+uif.toFixed(2)+'</td><td>'+paye.toFixed(2)+'</td><td>'+net.toFixed(2)+'</td></tr>'; }).join('');
+    var n=labels.length; var _bl={}; labels.forEach(function(L){ _bl[L]=wkPayRows(L); });
+    var rr=rows.map(function(r){ var gross=0, uif=0, paye=0; labels.forEach(function(L){ var lr=_bl[L]||[]; for(var i=0;i<lr.length;i++){ if(lr[i].w.id===r.w.id){ gross+=lr[i].gross; uif+=lr[i].uif; break; } } paye+=wkPayeFor(L,r.w.id); }); var net=gross-uif-paye; return '<tr><td>'+wkE(r.w.name)+'</td><td>'+gross.toFixed(2)+'</td><td>'+uif.toFixed(2)+'</td><td>'+paye.toFixed(2)+'</td><td>'+net.toFixed(2)+'</td></tr>'; }).join('');
     regTable='<p style="font-size:11px;color:#6B7280">Totals per worker across '+n+' months.</p><table><thead><tr><th>Employee</th><th>Gross</th><th>UIF 1%</th><th>PAYE</th><th>Net</th></tr></thead><tbody>'+rr+'</tbody></table>';
   }
   var empSec;
@@ -43868,8 +44035,8 @@ var OR_NET_BY_CAT = {citrus:59,fruit:47.6,berry:49.2,veg:2726};
 var OR_MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 var OR_CUR_WF = null;
 
-function orR(n){var neg=n<0;n=Math.abs(Math.round(n));var s=n>=1000?n.toLocaleString('en-ZA'):''+n;return (neg?'\u2212R ':'R ')+s;}
-function orRm(n){n=Math.round(n);var v=Math.abs(n);if(v>=1e6)return (n<0?'\u2212R':'R')+(n/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'m';if(v>=1e3)return (n<0?'\u2212R':'R')+Math.round(n/1e3)+'k';return (n<0?'\u2212R':'R')+v;}
+function orR(n){n=Number(n);if(!isFinite(n))n=0;var neg=n<0;n=Math.abs(Math.round(n));var s=n>=1000?n.toLocaleString('en-ZA'):''+n;return (neg?'\u2212R ':'R ')+s;}
+function orRm(n){n=Number(n);if(!isFinite(n))n=0;n=Math.round(n);var v=Math.abs(n);if(v>=1e6)return (n<0?'\u2212R':'R')+(n/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'m';if(v>=1e3)return (n<0?'\u2212R':'R')+Math.round(n/1e3)+'k';return (n<0?'\u2212R':'R')+v;}
 function orR2(n){return (n<0?'\u2212':'')+_grp2(n);}
 function orFmtDM(d){return d.getDate()+' '+OR_MON[d.getMonth()];}
 function orAddDays(d,n){var x=new Date(d.getTime());x.setDate(x.getDate()+n);return x;}
@@ -45068,7 +45235,10 @@ function orDocChosen(inp){
     orToast('Document saved');
   }).catch(function(){ if(typeof orToast==='function') orToast('Could not save the document','error'); });
 }
-function orRemoveDoc(i){ var arr=orCurDocs(); var d=arr[i]; if(d&&d.id&&typeof orDBDel==='function') orDBDel(d.id); arr.splice(i,1); orSave(); if(OR_MODAL_CTX.type==='comply'){ orOpenComply(OR_MODAL_CTX.key); orRenderComply(); } else { orOpenBlock(OR_MODAL_CTX.key); } }
+async function orRemoveDoc(i){ var arr=orCurDocs(); var d=arr[i];
+  // orDBDel wipes the stored file itself — there is no undo.
+  if(!(await appConfirm('Delete this document? The file is gone for good.'))) return;
+  if(d&&d.id&&typeof orDBDel==='function') orDBDel(d.id); arr.splice(i,1); orSave(); if(OR_MODAL_CTX.type==='comply'){ orOpenComply(OR_MODAL_CTX.key); orRenderComply(); } else { orOpenBlock(OR_MODAL_CTX.key); } }
 function orSetExpiry(v){ if(OR_MODAL_CTX.type==='comply'){ ST_FRUIT.comply[OR_MODAL_CTX.key].expiry=v; orSave(); } }
 
 function orOpenComply(key){
@@ -45838,7 +46008,7 @@ function orExportPackout(){
 <script id="kpi-detail-js">
 (function(){
   var REG={}; window.KPI_REG=REG;
-  function rand(n){n=Math.round(n);var neg=n<0;n=Math.abs(n);return (neg?'\u2212R':'R')+n.toLocaleString('en-ZA');}
+  function rand(n){n=Number(n);if(!isFinite(n))n=0;n=Math.round(n);var neg=n<0;n=Math.abs(n);return (neg?'\u2212R':'R')+n.toLocaleString('en-ZA');}
   function ic(t){return t==='good'?'\u2713':(t==='watch'?'!':'i');}
   window.kpiBuild=function(s){
     var warn=!!s.warn,h='<div class="kdt-dt">';
@@ -45994,7 +46164,7 @@ function orExportPackout(){
   };
 
   // ---------- Registry: Dashboard cashflow wave ----------
-  function _dashCats(type){ var month=(typeof currentPeriodLabel==='function')?currentPeriodLabel():''; var cats={}; if(typeof ST==='undefined'||!ST.txns) return cats; ST.txns.forEach(function(t){ if(t.type!==type) return; var d=parseDate(t.date); if(!d) return; var lbl=MONTH_NAMES[('0'+(d.m+1)).slice(-2)]+' '+d.y; if(lbl!==month) return; cats[t.cat]=(cats[t.cat]||0)+t.amt; }); return cats; }
+  function _dashCats(type){ var month=(typeof currentPeriodLabel==='function')?currentPeriodLabel():''; var cats={}; if(typeof ST==='undefined'||!ST.txns) return cats; ST.txns.forEach(function(t){ if(t.type!==type) return; var d=parseDate(t.date); if(!d) return; var lbl=MONTH_NAMES[('0'+(d.m+1)).slice(-2)]+' '+d.y; if(lbl!==month) return; cats[_catOf(t)]=(cats[_catOf(t)]||0)+t.amt; }); return cats; }
   function _dashRows(cats){ var keys=Object.keys(cats).sort(function(a,b){return cats[b]-cats[a];}); var max=keys.length?cats[keys[0]]:1; return {keys:keys, rows:keys.slice(0,5).map(function(k,i){return {nm:k, amt:fmt(cats[k]), pct:max?Math.round(cats[k]/max*100):0, cls:(i>0?'gold':'')};})}; }
   REG.dashMoneyIn=function(){
     var month=currentPeriodLabel(), cur=txSummary(month), prev=txSummary(prevMonthLabel(month));
@@ -46091,7 +46261,7 @@ function orExportPackout(){
     var MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
     var nowM=MN[p[0]]!==undefined?MN[p[0]]:new Date().getMonth(), nowY=parseInt(p[1],10)||new Date().getFullYear();
     var fyStart=(ST.fyStartMonth||3)-1, currentFY=nowM>=fyStart?nowY:nowY-1, cats={};
-    ST.txns.forEach(function(t){ if(t.type!==type) return; var d=parseDate(t.date); if(!d) return; var fy=d.m>=fyStart?d.y:d.y-1; if(fy!==currentFY) return; cats[t.cat]=(cats[t.cat]||0)+(t.amt||0); });
+    ST.txns.forEach(function(t){ if(t.type!==type) return; var d=parseDate(t.date); if(!d) return; var fy=d.m>=fyStart?d.y:d.y-1; if(fy!==currentFY) return; cats[_catOf(t)]=(cats[_catOf(t)]||0)+(t.amt||0); });
     return cats;
   }
   function _seasonRows(cats){ var keys=Object.keys(cats).sort(function(a,b){return cats[b]-cats[a];}); var max=keys.length?cats[keys[0]]:1; return {keys:keys, rows:keys.slice(0,5).map(function(k,i){return {nm:k, amt:fmt(cats[k]), pct:max?Math.round(cats[k]/max*100):0, cls:(i>0?'gold':'')};})}; }
