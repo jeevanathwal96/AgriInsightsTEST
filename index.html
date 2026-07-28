@@ -17491,7 +17491,10 @@ var purchaseYear = parseInt(date.split('-')[0]) || 2020;
   var fy = getCurrentFY ? getCurrentFY() : 2024;
 
   var purchaseMonth = parseInt(date.split('-')[1] || '1') - 1;
-  var purchaseFY    = purchaseMonth >= 2 ? purchaseYear : purchaseYear - 1;
+  /* Honour the farm's own year-end here too — this was a second hardcoded March that the
+     getCurrentFY fix did not reach, so a July-year-end farm mis-dated its purchase FY. */
+  var _fyStart      = (window.ST && ST.fyStartMonth) ? (ST.fyStartMonth - 1) : 2;
+  var purchaseFY    = purchaseMonth >= _fyStart ? purchaseYear : purchaseYear - 1;
   var yearsElapsed  = fy - purchaseFY;
 
   var schedule = [];
@@ -17500,10 +17503,14 @@ var purchaseYear = parseInt(date.split('-')[0]) || 2020;
   if (asset.deprType === 's12b') {
 
     var rates = [0.50, 0.30, 0.20];
+    /* The first allowance falls in the year the asset is brought into use, not the year
+       after. The old `purchaseFY+1+i` / `i < yearsElapsed` pair claimed it a year late, so
+       book value lagged a full year and disagreed with deprYear (which was already right):
+       a R1 050 000 machine read R210 000 in FY2024 when it should have been fully written off. */
     for (var i = 0; i < 3; i++) {
       var d = Math.round(price * rates[i]);
-      schedule.push({yr: purchaseFY+1+i, rate: (rates[i]*100)+'%', amount: d});
-      if (i < yearsElapsed) remaining -= d;
+      schedule.push({yr: purchaseFY+i, rate: (rates[i]*100)+'%', amount: d});
+      if (i <= yearsElapsed) remaining -= d;
     }
     remaining = Math.max(0, remaining);
   } else {
@@ -17511,8 +17518,8 @@ var purchaseYear = parseInt(date.split('-')[0]) || 2020;
     var life = asset.life || 5;
     var annual = Math.round(price / life);
     for (var j = 0; j < life; j++) {
-      schedule.push({yr: purchaseFY+1+j, rate: Math.round(100/life)+'%', amount: annual});
-      if (j < yearsElapsed) remaining -= annual;
+      schedule.push({yr: purchaseFY+j, rate: Math.round(100/life)+'%', amount: annual});
+      if (j <= yearsElapsed) remaining -= annual;
     }
     remaining = Math.max(0, remaining);
   }
@@ -20119,7 +20126,10 @@ function _lsFarmTotals(){
     var sn=_lsSanity(h);
     if(!sn.ok){ if(sn.hard.length) excluded++; else needCheck++; return; }
     mInv+=qty*((h.buy||0)+((h.feed||0)+(h.vet||0))*(h.months||6));
-    mExp+=qty*(h.sell||0);
+    /* Value the herd the same way the herd-value tile does — per class where classes exist —
+       so the two numbers on the same screen agree. Using qty x adult sell price applied the
+       adult price to calves and heifers alike and made the return contradict the value above it. */
+    mExp+=(h.classes&&h.classes.length)?h.classes.reduce(function(s,c){return s+(c.n||0)*(c.v||0);},0):qty*(h.sell||0);
     mInc+=_lsHerdIncome(h.id);
     counted++;
   });
