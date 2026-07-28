@@ -33643,7 +33643,11 @@ var LANG_PAIRS = [
   ['Plant',                                     'Plant'],
   ['Grow',                                      'Groei'],
   ['Harvest',                                   'Oes'],
-  ['Sell',                                      'Verkoop'],
+  /* 'Sold' must precede 'Sell': both translate to "Verkoop", and the reverse (af->en) pass
+     takes the first match, so whichever comes first wins. "Sold" is the string actually
+     rendered (livestock register headers and movement tiles); "Sell" never appears as a
+     standalone label. Without this order, toggling AF then back turned "Sold" into "Sell". */
+  ['Sold',                                      'Verkoop'],
   ['Hectares',                                  'Hektare'],
   ['Planting month',                            'Plantmaand'],
   ['Harvest month',                             'Oesmaand'],
@@ -33687,7 +33691,7 @@ var LANG_PAIRS = [
   ['Opening stock',                             'Openingsvoorraad'],
   ['Births / bought',                           'Geboortes / gekoop'],
   ['Deaths / losses',                           'Sterftes / verliese'],
-  ['Sold',                                      'Verkoop'],
+  ['Sell',                                      'Verkoop'],
   ['Save to Register',                          'Stoor na Register'],
   ['Register Entries',                          'Registerinvoere'],
   ['Total closing stock value',                 'Totale sluitingsvoorraadwaarde'],
@@ -36640,6 +36644,11 @@ function renderTax(){
     document.head.appendChild(st); }
 
   var h='<div class="tx2">'+
+    /* A brand-new farm used to get a full VAT201/provisional scaffold of R0s with no
+       explanation, which reads as broken. Say why it's empty; leave every tab reachable. */
+    (((typeof ST!=='undefined') && ST.txns && ST.txns.length) ? '' :
+      '<div class="tx-nudge" style="margin-bottom:14px">Nothing is recorded yet, so everything below sits at zero. '+
+      'Add your first sale or expense and these estimates fill in on their own.</div>')+
     '<div class="pf-tabs tx-seg" style="max-width:460px">'+
       '<button id="tax-tabbtn-glance" class="'+(TAX_TAB==='glance'?'on':'')+'" onclick="taxTab(\'glance\')">At a glance</button>'+
       '<button id="tax-tabbtn-reports" class="'+(TAX_TAB==='reports'?'on':'')+'" onclick="taxTab(\'reports\')">Reports</button>'+
@@ -41398,7 +41407,9 @@ function txPrint() {
   var rows = ST.txns.map(function(t) {
     var sign = t.type==='income'?'+':'-';
     return '<tr style="border-bottom:1px solid #E5E7EB">'+
-      '<td style="padding:7px 10px;font-size:13px">'+t.date+'</td>'+
+      /* Format the date: this document goes to a bank or SARS, and stored dates are ISO
+         (2026-07-17), which printed raw. txDispDate handles both stored formats. */
+      '<td style="padding:7px 10px;font-size:13px">'+((typeof txDispDate==='function')?txDispDate(t.date):t.date)+'</td>'+
       '<td style="padding:7px 10px;font-size:13px">'+escTxHtml(t.desc||'')+'</td>'+
       '<td style="padding:7px 10px;font-size:13px">'+escTxHtml(t.cat||'')+'</td>'+
       '<td style="padding:7px 10px;font-size:13px;text-align:right;font-weight:600;color:'+(t.type==='income'?'#1B4332':'#DC2626')+'">'+sign+'R '+Math.round(t.amt).toLocaleString('en-ZA')+'</td>'+
