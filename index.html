@@ -8681,7 +8681,7 @@ var ST_CROP = {
 };
 
 /* ---------- helpers ---------- */
-function cropFmtR(n){ return (n<0?'−R':'R') + _grpInt(n); }
+function cropFmtR(n){ return _moneyInt(n); }
 function cropLandById(id){ for(var i=0;i<ST_CROP.lands.length;i++) if(ST_CROP.lands[i].id===id) return ST_CROP.lands[i]; return null; }
 function cropIcon(type){ var c=ST_CROP.cropTypes.filter(function(x){return x.t===type;})[0]; return c?c.i:'\uD83C\uDF31'; }
 function cropPrice(type){ return ST_CROP.prices[type] || 0; }
@@ -10376,7 +10376,7 @@ async function cropDeleteLand(){
 /* ===================================================================
    REPORTS — reuse the livestock full-screen report shell (lsShowReport)
    =================================================================== */
-function cropRand(n){ return (n<0?'−R ':'R ')+_grpInt(n); }
+function cropRand(n){ return _moneyInt(n); }
 
 function openCropGMReport(){
   var planted=ST_CROP.lands.filter(cropPlanted);
@@ -10588,7 +10588,7 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
 /* ===== Profit by Crop & Herd ===== */
 function profitLabelFor(ft){ if(ft==='crops') return 'Profit by Crop'; if(ft==='livestock') return 'Profit by Herd'; return 'Profit by Crop & Herd'; }
 function applyProfitLabel(){ var s=$('nav-profit-label'); if(s) s.textContent='Profit'; var t=$('profit-title'); if(t) t.textContent='Your Profit Margins'; }
-function _pfK(n){ n=Math.round(n||0); var a=Math.abs(n); if(a>=1e6) return 'R'+(n/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'m'; if(a>=1e3) return 'R'+Math.round(n/1e3)+'k'; return fmt(n); }
+function _pfK(n){ return _moneyCompact(n); }
 function _pfCropIcon(c){ var L=(ST_CROP&&ST_CROP.cropTypes)||[]; for(var i=0;i<L.length;i++){ if(L[i].t===c) return L[i].i; } return '\uD83C\uDF31'; }
 function _pfLiveIcon(s){ s=(s||'').toLowerCase(); if(s.indexOf('sheep')>=0||s.indexOf('merino')>=0||s.indexOf('wool')>=0||s.indexOf('mutton')>=0) return '\uD83D\uDC11'; if(s.indexOf('goat')>=0) return '\uD83D\uDC10'; if(s.indexOf('pig')>=0||s.indexOf('pork')>=0) return '\uD83D\uDC16'; return '\uD83D\uDC04'; }
 function _pfLsu(s){ s=(s||'').toLowerCase(); if(s.indexOf('dairy')>=0) return 1.4; if(s.indexOf('cattle')>=0||s.indexOf('beef')>=0) return 1.1; if(s.indexOf('sheep')>=0||s.indexOf('merino')>=0||s.indexOf('wool')>=0||s.indexOf('mutton')>=0) return 0.16; if(s.indexOf('goat')>=0) return 0.16; if(s.indexOf('pig')>=0) return 0.3; if(typeof animalBase==='function' && animalBase(s.charAt(0).toUpperCase()+s.slice(1))==='Game'){} return 1.0; }
@@ -11895,6 +11895,38 @@ recurring: [
 // device's en-ZA locale support (which groups inconsistently across browsers/WebViews).
 function _grpInt(n){ n=Number(n); if(!isFinite(n)) n=0; n=Math.round(Math.abs(n)); return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'\u00a0'); }
 function _grp2(n){ n=Math.abs(n||0); var r=Math.round(n*100)/100; var i=Math.floor(r); var d=Math.round((r-i)*100); return _grpInt(i)+','+String(d).padStart(2,'0'); }
+/* ── Canonical money formatting (item 19) ────────────────────────────────────
+   Twenty-three formatters had drifted into five negative conventions, two thousands
+   separators and two decimal separators — sometimes inside the same card. Every one of
+   them now delegates to these three, so the names and call sites are untouched but the
+   output is one format: space for thousands, comma for cents, minus outside the R.
+   SA convention: R1 234 567 · R1 234 567,89 · R1,23m · -R4 200                          */
+function _moneyInt(n){ var v=Number(n); if(!isFinite(v)) v=0; return (v<0?'-':'')+'R'+_grpInt(v); }
+/* Whole-number percentage shares that always add to 100. Rounding each share on its own
+   made a breakdown column read 101%, which a farmer checking the maths will spot.
+   Largest-remainder: round everything down, then hand the leftover points to the
+   shares with the biggest fractional parts. Rand values are never touched. */
+function _pctShares(values, total){
+  if(!(total>0)) return values.map(function(){ return 0; });
+  var exact=values.map(function(v){ return (Number(v)||0)/total*100; });
+  var floor=exact.map(function(x){ return Math.floor(x); });
+  var left=100-floor.reduce(function(a,b){ return a+b; },0);
+  var order=exact.map(function(x,i){ return {i:i, frac:x-Math.floor(x)}; })
+                 .sort(function(a,b){ return b.frac-a.frac; });
+  for(var k=0; k<left && k<order.length; k++) floor[order[k].i]++;
+  return floor;
+}
+window._pctShares=_pctShares;
+function _moneyCents(n){ var v=Number(n); if(!isFinite(v)) v=0; return (v<0?'-':'')+'R'+_grp2(v); }
+function _moneyCompact(n){
+  var v=Number(n); if(!isFinite(v)) v=0;
+  var s=(v<0?'-':''), a=Math.abs(v);
+  if(a>=1e6){ return s+'R'+(a/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'').replace('.',',')+'m'; }
+  if(a>=1000){ return s+'R'+Math.round(a/1000)+'k'; }
+  return s+'R'+Math.round(a);
+}
+window._moneyInt=_moneyInt; window._moneyCents=_moneyCents; window._moneyCompact=_moneyCompact;
+
 /* A transaction with no category (common after a bank import) used to be grouped under the
    object key "null", which then rendered as a breakdown row literally labelled "null" —
    R44 971 of real money on one test account. Group under a readable label instead. */
@@ -11903,8 +11935,8 @@ window._catOf = _catOf;
 /* fmt() carries the sign: _grpInt stays absolute (34 callers deliberately pass Math.abs and
    render direction themselves), so only the raw-value callers gain the minus they were losing.
    SA convention is -R1 234, so the sign sits outside the R. */
-var fmt = function(n){ var v=Number(n); if(!isFinite(v)) v=0; return (v<0?'-':'') + 'R' + _grpInt(v); };
-var fmtK = function(n){ var x=Number(n); if(!isFinite(x)) x=0; var s=(x<0?'-':''), v=Math.abs(x); return s+(v>=1000000?'R'+(v/1000000).toFixed(1)+'M':v>=1000?'R'+(v/1000).toFixed(0)+'k':'R'+Math.round(v)); };
+var fmt = function(n){ return _moneyInt(n); };
+var fmtK = function(n){ return _moneyCompact(n); };
 var $ = function(id){ return document.getElementById(id); };
 
 // ============================================================
@@ -12898,7 +12930,8 @@ var COLORS = (typeof EXP_CAT_COLORS !== 'undefined' && EXP_CAT_COLORS) ? EXP_CAT
 
 el.innerHTML = sorted.map(function(cat, i) {
     var amt = cats[cat];
-    var pct = total > 0 ? Math.round(amt / total * 100) : 0;
+    /* Largest-remainder so the column adds to exactly 100% (was 101%). */
+    var pct = _pctShares(sorted.map(function(_c){ return cats[_c]; }), total)[sorted.indexOf(cat)];
     var col = colors[i];
     return '<div class="rl-row">' +
       '<div class="rl-left">' +
@@ -12943,10 +12976,7 @@ var IE_ENT_COLORS = ['#1B4332','#2D6A4F','#40916C','#74A892','#8FBF9F','#A7C957'
 var _IE_MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 var _IE_MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
 
-function _ieK(n){ n=Number(n); if(!isFinite(n)) n=0; n=Math.round(Math.abs(n));
-  if(n>=1e6){ var m=n/1e6; return 'R'+(m>=10?m.toFixed(1):m.toFixed(2)).replace(/\.?0+$/,'')+'m'; }
-  if(n>=1000){ return 'R'+Math.round(n/1000)+'k'; }
-  return 'R'+n; }
+function _ieK(n){ return _moneyCompact(n); }
 function _ieLabelOf(t){ var d=parseDate(t.date); if(!d) return ''; return _IE_MO[d.m]+' '+d.y; }
 function _ieShiftLabel(label, deltaMonths){ var p=String(label).split(' '); var mo=_IE_MN[p[0]]; var y=parseInt(p[1],10);
   if(mo===undefined||isNaN(y)) return label; var tot=mo+deltaMonths; var ny=y+Math.floor(tot/12); var nm=((tot%12)+12)%12; return _IE_MO[nm]+' '+ny; }
@@ -14153,7 +14183,8 @@ function renderDashExpCats() {
   var _cmap = catColorMap(sorted, EXP_CAT_COLORS);
   el.innerHTML = sorted.map(function(cat) {
     var amt = cats[cat];
-    var pct = total > 0 ? Math.round(amt / total * 100) : 0;
+    /* Largest-remainder so the column adds to exactly 100% (was 101%). */
+    var pct = _pctShares(sorted.map(function(_c){ return cats[_c]; }), total)[sorted.indexOf(cat)];
     var col = _cmap[cat];
     return '<div style="margin-bottom:10px">' +
       '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">' +
@@ -14196,7 +14227,8 @@ function renderDashIncSources() {
   var _cmap = catColorMap(sorted, INC_CAT_COLORS);
   el.innerHTML = sorted.map(function(cat) {
     var amt = cats[cat];
-    var pct = total > 0 ? Math.round(amt / total * 100) : 0;
+    /* Largest-remainder so the column adds to exactly 100% (was 101%). */
+    var pct = _pctShares(sorted.map(function(_c){ return cats[_c]; }), total)[sorted.indexOf(cat)];
     var col = _cmap[cat];
     return '<div style="margin-bottom:10px">' +
       '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">' +
@@ -15620,8 +15652,8 @@ function LN_annualInterest(){
   return Math.round(t);
 }
 function LN_equityPct(){ var a=LN_assetsTotal(); if(!a) return 0; return Math.round((a-LN_totalOwed())/a*1000)/10; }
-function LN_R(n){ n=Math.round(n); return (n<0?'\u2212R':'R')+_grpInt(n); }
-function LN_Rk(n){ n=Math.round(n); var v=Math.abs(n); if(v>=1e6) return 'R'+(n/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'m'; if(v>=1e4) return 'R'+Math.round(n/1e3)+'k'; return LN_R(n); }
+function LN_R(n){ return _moneyInt(n); }
+function LN_Rk(n){ return _moneyCompact(n); }
 function LN_paidPct(l){ if(!l.borrowed) return 0; return Math.max(0,Math.min(100,Math.round((l.borrowed-l.balance)/l.borrowed*100))); }
 function LN_assetName(id){ try{ var a=(ST_ASSETS.assets||[]).filter(function(x){return x.id===id;})[0]; return a?a.name:''; }catch(e){ return ''; } }
 function LN_loanForAsset(id){ try{ if(typeof ST_LOANS==='undefined'||id==null) return null; var m=ST_LOANS.loans.filter(function(l){return l.assetId===id;}); return m.length?m[0]:null; }catch(e){ return null; } }
@@ -15726,7 +15758,7 @@ function laExistingService(){ try{ return Math.round((LN_monthlyPay()||0)*12); }
 function laTaxOn(profit){ try{ var ent=(typeof ST!=='undefined'&&ST.entityType)||'sole'; return Math.round(calcAnnualIncomeTax(Math.max(0,profit),ent)||0); }catch(e){ return Math.round(Math.max(0,profit)*0.2); } }
 function laMaxLoan(noi,rp,y){ var ms=noi/LA_DMIN-laExistingService(); if(ms<=0) return 0; var r=rp/100/12,n=y*12,mo=ms/12; var P=r<=0?mo*n:mo*(1-Math.pow(1+r,-n))/r; return Math.max(0,Math.floor(P/50000)*50000); }
 function laNum(v){ return parseFloat(String(v==null?'':v).replace(/[^0-9.]/g,''))||0; }
-function laR(n){ n=Math.round(n); var neg=n<0; return (neg?'−R':'R')+_grpInt(Math.abs(n)); }
+function laR(n){ return _moneyInt(n); }
 function laM(n){ var v=Math.round(n/100000)/10; return 'R'+v.toFixed(1).replace(/\.0$/,'')+'m'; }
 function laGrp(el){ var v=laNum(el.value); el.value=v?_grpInt(v):''; }
 
@@ -15896,7 +15928,7 @@ function laBuildReport(){ laPersist(); closeAffordabilityFlow(); laStartReport(t
 
 /* ════════════════ BANKABILITY REPORT + CHECK-YOUR-FIGURES (Stage 2) ════════════════ */
 var LA_REPORT_LOAN=true;
-function laRR(n){ n=Math.round(n||0); var neg=n<0; return (neg?'−R':'R')+_grpInt(Math.abs(n)); }
+function laRR(n){ return _moneyInt(n); }
 function laCropValue(){ try{ var t=0; ((typeof ST_CROP!=='undefined'&&ST_CROP.crops)||[]).forEach(function(c){ if(c && c.ha>0 && c.yield>0){ t+=c.ha*c.yield*_cropPriceOf(c); } }); return Math.round(t); }catch(e){ return 0; } }
 function laRM(n){ var v=Math.round((n||0)/100000)/10; return 'R'+v.toFixed(1).replace(/\.0$/,'')+'m'; }
 
@@ -18015,8 +18047,8 @@ function deleteAsset(idx) {
 // WORKERS SECTION
 // ============================================================
 function wkE(x){ return (typeof escHtml==='function') ? escHtml(String(x==null?'':x)) : String(x==null?'':x).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-function wkMoney(n){ return (typeof fmt==='function') ? fmt(Math.round(n||0)) : ('R'+Math.round(n||0)); }
-function wkMoney2(n){ n=(n||0); var neg=n<0; n=Math.abs(n); var w=Math.floor(n+1e-9); var c=Math.round((n-w)*100); if(c>=100){w+=1;c-=100;} return (neg?'\u2212R':'R')+_grpInt(w)+'.'+(c<10?'0'+c:c); }
+function wkMoney(n){ return _moneyInt(n); }
+function wkMoney2(n){ return _moneyCents(n); }   /* payslips: SA comma decimal, e.g. R5 895,00 */
 function wkInitials(n){ n=(n||'').trim(); if(!n) return '+'; var p=n.split(/\s+/); return ((p[0][0]||'')+(p[1]?p[1][0]:'')).toUpperCase(); }
 function wkColor(i){ var c=['#2D6A4F','#40916C','#C8962C','#7C3AED','#E0930E','#0E7490']; return c[i%c.length]; }
 function wkHourly(w){ if(!w||!w.amt) return 0; if(w.basis==='day'){ return (w.hoursDay? w.amt/w.hoursDay : 0); } var hw=(w.hoursWeek||ST_WORK.hoursWeek||STATUTORY.hoursWeek.value); var hm=hw*52/12; return hm? w.amt/hm : 0; }
@@ -20081,7 +20113,7 @@ function openEditHerd(idx) {
 }
 
 // ════════ CAMPS VIEW ════════
-function lsRand0(n){ return 'R'+_grpInt(n); }
+function lsRand0(n){ return _moneyInt(n); }
 // Farm-wide totals for the strip atop the camps list (value derived = matches cards).
 /* ── Does a group's economics make sense? (audit #6) ─────────────────────────────
    Two tiers, deliberately different:
@@ -20143,12 +20175,7 @@ function _lsFarmTotals(){
 }
 /* Non-breaking space after the R, and inside the grouped digits: at 375px "R 240k" was
    wrapping to a new line mid-figure in the hero stats, which reads as two numbers. */
-function _lsCompactRand(n){
-  n=Math.round(n||0);
-  if(n>=1e6) return 'R\u00a0'+(n/1e6).toFixed(n>=1e7?0:1)+'m';
-  if(n>=1e3) return 'R\u00a0'+Math.round(n/1e3)+'k';
-  return 'R\u00a0'+String(n.toLocaleString('en-ZA')).replace(/[\s,]/g,'\u00a0');
-}
+function _lsCompactRand(n){ return _moneyCompact(n); }
 // ── My Animals: interactive KPI drill-downs ──
 function _lsSpeciesCount(){
   var act=(ST_LS.herd||[]).filter(function(h){return !h.planned;});
@@ -23670,7 +23697,9 @@ function renderHerdCards() {
     var ind='';
     if(h.track){
       var arows=anims.map(function(a){ var s=lsAnimalSafe(a);
-        return '<div class="lsar"><div class="lstag">'+a.tag+'</div><div style="flex:1"><div style="font-size:13px;font-weight:700">'+(a.name||a.tag)+'</div><div style="font-size:11px;color:var(--t3)">'+[(a.sex==='M'?'Male':a.sex==='F'?'Female':''),a.breed].filter(Boolean).join(' \u00b7 ')+'</div></div>'+(s?'<span class="cc cc-wd">\u26d4 safe '+lsFmtDate(s)+'</span>':'<span class="cc cc-ok">\u2713 Clear</span>')+'</div>';
+        return '<div class="lsar"><div class="lstag">'+a.tag+'</div><div style="flex:1"><div style="font-size:13px;font-weight:700">'+(a.name||a.tag)+'</div><div style="font-size:11px;color:var(--t3)">'+[(a.sex==='M'?'Male':a.sex==='F'?'Female':''),a.breed].filter(Boolean).join(' \u00b7 ')+'</div></div>'+/* "safe {date}" read as "this animal is safe" \u2014 on a medicine-withdrawal control that
+   gates sale and slaughter. Say what it actually means. */
+(s?'<span class="cc cc-wd">\u26d4 Hold until '+lsFmtDate(s)+'</span>':'<span class="cc cc-ok">\u2713 Clear</span>')+'</div>';
       }).join('');
       ind='<div class="lsind"><div class="lsind-h"><span>Individual animals \u00b7 '+anims.length+' tagged</span><span class="lk" onclick="event.stopPropagation();lsTagAddOpen('+idx+')">+ Tag animal</span></div>'+(arows||'<div style="font-size:12px;color:var(--t3)">None tagged yet.</div>')+'</div>';
     }
@@ -24252,14 +24281,14 @@ function lsTrSafe(t){ var d=new Date(t.date+'T00:00:00'); d.setDate(d.getDate()+
 function lsTrDaysLeft(t){ return Math.ceil((lsTrSafe(t)-LS_TODAY)/86400000); }
 function lsTrActive(t){ return (Math.max(t.meat||0,t.milk||0)>0) && lsTrDaysLeft(t)>0; }
 function lsFmtDate(d){ var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear(); }
-function lsCompact(n){ n=Number(n); if(!isFinite(n)) n=0; if(n>=1e6) return 'R'+(n/1e6).toFixed(2)+'m'; if(n>=1e3) return 'R'+Math.round(n/1e3)+'k'; return 'R'+Math.round(n); }
+function lsCompact(n){ return _moneyCompact(n); }
 function lsHerdMarketVal(h){ var mp=MARKET_PRICES[animalBase(h.type)]; return mp?(h.qty*mp.price*(mp.avgKg||380)):0; }
 function lsHerdROI(h){ var cost=h.qty*(h.buy+(h.feed+h.vet)*(h.months||6)); var rev=h.qty*h.sell; return cost>0?Math.round(((rev-cost)/cost)*100):0; }
 function lsHerdIcon(h){ return animalIcon(h.type); }
 function lsHerdCompliance(id){
   var tr=lsHerdTreatments(id).filter(lsTrActive);
   var whole=tr.filter(function(t){return t.target!=='tags';});
-  if(whole.length){ var mx=whole.slice().sort(function(a,b){return lsTrSafe(b)-lsTrSafe(a);})[0]; return {cls:'cc-wd',label:'\u26d4 safe '+lsFmtDate(lsTrSafe(mx)),wd:true}; }
+  if(whole.length){ var mx=whole.slice().sort(function(a,b){return lsTrSafe(b)-lsTrSafe(a);})[0]; return {cls:'cc-wd',label:'\u26d4 Hold until '+lsFmtDate(lsTrSafe(mx)),wd:true}; }
   if(tr.length){ var n=0; tr.forEach(function(t){n+=(t.tags?t.tags.length:0);}); return {cls:'cc-wd',label:'\u26d4 '+n+' under withdrawal',wd:true}; }
   return {cls:'cc-ok',label:'\u2713 Clear',wd:false};
 }
@@ -25627,7 +25656,7 @@ function lsYoaLabel(){
   var d = LS_TODAY; var y=d.getFullYear(); var s = d.getMonth()>=2 ? y : y-1;
   return '1 Mar '+s+' – 28 Feb '+(s+1);
 }
-function lsRand(n){ return 'R '+_grpInt(n); }
+function lsRand(n){ return _moneyInt(n); }
 
 /* ---- report shell (full-screen overlay + print + CSV) ---- */
 var LS_RPT = {title:'',html:'',csv:'',file:''};
@@ -25848,7 +25877,7 @@ function renderMedRegister(){
   if(!all.length){ tbl.innerHTML='<div style="text-align:center;color:var(--t3);padding:30px;font-size:13px">No treatments recorded yet.</div>'; return; }
   var rows=all.map(function(t){
     var h=lsHerdById(t.herd); var dl=lsTrDaysLeft(t); var wd=Math.max(t.meat||0,t.milk||0);
-    var status= wd<=0?'<span class="tag tgr">Logged</span>':(dl<=0?'<span class="tag tg">\u2705 Safe</span>':'<span class="tag to">\u26d4 safe '+lsFmtDate(lsTrSafe(t))+'</span>');
+    var status= wd<=0?'<span class="tag tgr">Logged</span>':(dl<=0?'<span class="tag tg">\u2705 Safe</span>':'<span class="tag to">\u26d4 Hold until '+lsFmtDate(lsTrSafe(t))+'</span>');
     var target= t.target==='whole'?'whole herd':(t.target==='tags'?('tag '+(t.tags||[]).join(', ')):(t.head+' head'));
     var wdtxt= wd<=0?'None':('Meat '+(t.meat||0)+'d'+((t.milk||0)?' \u00b7 Milk '+t.milk+'d':''));
     return '<tr><td><div style="font-weight:700">'+t.product+'</div>'+(t.reg?'<span class="lsreglbl">'+t.reg+'</span>':'')+'</td>'+
@@ -26499,7 +26528,7 @@ function renderHealthMed(){
   if(!rows.length){ tbl.innerHTML='<div style="text-align:center;color:var(--t3);padding:30px;font-size:13px">Nothing matches this filter.</div>'; return; }
   tbl.innerHTML='<table class="lsreg"><thead><tr><th style="width:26%">Treatment / event</th><th>Given to</th><th>Date \u00b7 by</th><th class="r">Cost</th><th>Withdrawal</th><th>Status</th></tr></thead><tbody>'+rows.map(function(t){
     var h=lsHerdById(t.herd); var dl=lsTrDaysLeft(t); var wd=Math.max(t.meat||0,t.milk||0);
-    var status= wd<=0?'<span class="tag tgr">Logged</span>':(dl<=0?'<span class="tag tg">\u2705 Safe</span>':'<span class="tag to">\u26d4 safe '+lsFmtDate(lsTrSafe(t))+'</span>');
+    var status= wd<=0?'<span class="tag tgr">Logged</span>':(dl<=0?'<span class="tag tg">\u2705 Safe</span>':'<span class="tag to">\u26d4 Hold until '+lsFmtDate(lsTrSafe(t))+'</span>');
     var target= t.target==='whole'?'whole herd':(t.target==='tags'?('tag '+(t.tags||[]).join(', ')):(t.head+' head'));
     var wdtxt= wd<=0?'None':('Meat '+(t.meat||0)+'d'+((t.milk||0)?' \u00b7 Milk '+t.milk+'d':''));
     var sub= t.reg?'<span class="lsreglbl">'+t.reg+'</span>':'<span style="color:var(--t3);font-size:11px;display:block;margin-top:3px">Health event</span>';
@@ -30911,7 +30940,8 @@ function renderIncBySource() {
 
 el.innerHTML = sorted.map(function(cat, i) {
     var amt = cats[cat];
-    var pct = total > 0 ? Math.round(amt / total * 100) : 0;
+    /* Largest-remainder so the column adds to exactly 100% (was 101%). */
+    var pct = _pctShares(sorted.map(function(_c){ return cats[_c]; }), total)[sorted.indexOf(cat)];
     var col = colors[i];
     return '<div class="rl-row">' +
       '<div class="rl-left">' +
@@ -33558,6 +33588,14 @@ var LANG_PAIRS = [
   ['Labour & Wages',                            'Arbeid & Lone'],
   ['Fuel & Oil',                                'Brandstof & Olie'],
   ['Machinery & Repairs',                       'Masjinerie & Herstelwerk'],
+  /* Added for item 24 — category names and the KPI label that stayed English in Afrikaans. */
+  ['Highest Month',                             'Hoogste Maand'],
+  ['Income tax',                                'Inkomstebelasting'],
+  ['Other Income',                              'Ander Inkomste'],
+  ['Animal Feed',                               'Diervoer'],
+  ['Loan Repayments',                           'Leningterugbetalings'],
+  ['Rental Income',                             'Huurinkomste'],
+  ['Milk & Dairy',                              'Melk & Suiwel'],
   ['Other Expenses',                            'Ander Uitgawes'],
   ['What is this expense for?',                 'Waarvoor is hierdie uitgawe?'],
   ['Expense details',                           'Uitgawebesonderhede'],
@@ -34546,6 +34584,23 @@ function applyLangNodes(root, fromIdx, toIdx) {
     }
     node.nodeValue = txt;
   });
+  /* Dropdown options (item 24). SELECT/OPTION sit in SKIP_TAGS because the substring pass
+     would rewrite an option's text — and code reads select.value, so filtering would break.
+     Translate the LABEL only, exact-match, and pin the value to the English original first
+     so every value=... lookup keeps working in both languages. */
+  if (root.querySelectorAll) {
+    root.querySelectorAll('select option').forEach(function(op){
+      if (op.getAttribute('data-en') === null) {
+        if (!op.hasAttribute('value')) op.setAttribute('value', op.textContent);
+        op.setAttribute('data-en', op.textContent);
+      }
+      var en = op.getAttribute('data-en'), out = en;
+      if (toIdx === 1) {
+        for (var q=0; q<LANG_PAIRS.length; q++) { if (LANG_PAIRS[q][0] === en) { out = LANG_PAIRS[q][1]; break; } }
+      }
+      if (op.textContent !== out) op.textContent = out;
+    });
+  }
   if (root.querySelectorAll) {
     root.querySelectorAll('[placeholder]').forEach(function(el){
       var ph = el.getAttribute('placeholder');
@@ -40164,7 +40219,7 @@ function buildSARSPreviewHTML(fy) {
 
   var sarsMap = _fcPick('s1', function(c){ return {section:c.ss}; });
 
-  var fmt2 = function(n){ return 'R\u00A0'+Math.round(Math.abs(n)).toLocaleString('en-ZA'); };
+  var fmt2 = function(n){ return _moneyInt(Math.abs(n)); };
   var netTaxable = Math.max(0, ytd.income - _sc.total - s12bTotal - s11eTotal);
   var taxEst     = Math.round(netTaxable * (netTaxable > 1500000 ? 0.28 : 0.21));
 
@@ -40263,7 +40318,7 @@ var _sc = _sarsByCat(fy), byCat = _sc.byCat;
 
   var sarsMap = _fcPick('ss', function(c){ return {section:c.ss, desc:c.sd}; });
 
-  var fmt2 = function(n){ return 'R '+Math.round(n).toLocaleString('en-ZA'); };
+  var fmt2 = function(n){ return _moneyInt(n); };
 
   var rows = Object.keys(byCat).map(function(cat) {
     var sm = sarsMap[cat] || {section:'S11(a)', desc:_txCatLabel(cat)};
@@ -41456,11 +41511,7 @@ function escTxHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt
 // ── Shared helpers ───────────────────────────────────────────
 var MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-function fmtZAR(n){
-  n = Math.round(Number(n) || 0);
-  var neg = n < 0;
-  return (neg?'-':'') + 'R' + _grpInt(n);
-}
+function fmtZAR(n){ return _moneyInt(n); }
 
 function parseTxDate(s){
   // '20 May 2024' → {d, m, y} (m is 0-indexed)
@@ -44097,9 +44148,9 @@ var OR_NET_BY_CAT = {citrus:59,fruit:47.6,berry:49.2,veg:2726};
 var OR_MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 var OR_CUR_WF = null;
 
-function orR(n){n=Number(n);if(!isFinite(n))n=0;var neg=n<0;n=Math.abs(Math.round(n));var s=n>=1000?n.toLocaleString('en-ZA'):''+n;return (neg?'\u2212R ':'R ')+s;}
+function orR(n){ return _moneyInt(n); }
 function orRm(n){n=Number(n);if(!isFinite(n))n=0;n=Math.round(n);var v=Math.abs(n);if(v>=1e6)return (n<0?'\u2212R':'R')+(n/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'m';if(v>=1e3)return (n<0?'\u2212R':'R')+Math.round(n/1e3)+'k';return (n<0?'\u2212R':'R')+v;}
-function orR2(n){return (n<0?'\u2212':'')+_grp2(n);}
+function orR2(n){ return _moneyCents(n); }
 function orFmtDM(d){return d.getDate()+' '+OR_MON[d.getMonth()];}
 function orAddDays(d,n){var x=new Date(d.getTime());x.setDate(x.getDate()+n);return x;}
 function orBlockById(id){var a=ST_FRUIT.blocks.filter(function(b){return b.id===id;});return a[0]||null;}
@@ -46070,7 +46121,7 @@ function orExportPackout(){
 <script id="kpi-detail-js">
 (function(){
   var REG={}; window.KPI_REG=REG;
-  function rand(n){n=Number(n);if(!isFinite(n))n=0;n=Math.round(n);var neg=n<0;n=Math.abs(n);return (neg?'\u2212R':'R')+n.toLocaleString('en-ZA');}
+  function rand(n){ return _moneyInt(n); }
   function ic(t){return t==='good'?'\u2713':(t==='watch'?'!':'i');}
   window.kpiBuild=function(s){
     var warn=!!s.warn,h='<div class="kdt-dt">';
@@ -46426,7 +46477,7 @@ function orExportPackout(){
     var closeVal=herds.reduce(function(s,h){return s+(lsHerdMarketVal(h)||h.qty*h.sell);},0);
     return {herds:herds,totIn:totIn,totSold:totSold,totDied:totDied,totOut:totOut,closing:closing,opening:opening,cash:cash,closeVal:closeVal};
   }
-  function _zar(n){ return 'R'+_grpInt(Math.round(n)); }
+  function _zar(n){ return _moneyInt(n); }
   REG.lsClosing=function(){
     var a=_lsReg();
     var rows=a.herds.slice().sort(function(x,y){return (lsHerdMarketVal(y)||y.qty*y.sell)-(lsHerdMarketVal(x)||x.qty*x.sell);}).slice(0,6).map(function(h){var v=lsHerdMarketVal(h)||h.qty*h.sell;return {nm:(h.name||h.type||'Herd')+' \u00b7 '+h.qty+' head', amt:_zar(v), pct:a.closeVal>0?Math.round(v/a.closeVal*100):0};});
