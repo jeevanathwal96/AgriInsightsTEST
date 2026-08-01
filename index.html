@@ -20434,15 +20434,21 @@ function _lsKpiPanel(key){
   var invested=T.meatInv, expected=T.meatExp, income=T.meatIncome;
   var chk=_lsRetChecks();
   var head='<div class="ls-kpih">\ud83d\udcc8 Return on what you\u2019ve put in</div>';
-  if(T.retIncl==null){
+  /* Same condition either way (both are null unless mInv>0), but guard on the value we display. */
+  if(T.roi==null){
     return _lsRetCss()+head+
       '<div class="ls-kpimean"><b>No return to show yet.</b> '+
       (T.meatGroups ? 'None of your meat groups have figures we can work with \u2014 see below.'
                     : 'You have no meat groups. Dairy earns from milk, so it is measured on its own.')+'</div>'+
       _lsRetChecksHTML(chk,T);
   }
-  var gain=expected+income-invested;
-  var roi=T.retIncl, pos=roi>=0;
+  /* Value only. `income` is shown on its own row above and deliberately NOT added here:
+     `invested` counts only animals still in the herd, so adding the proceeds of animals that
+     have left credited a reward against a stake that no longer includes them — a sale at book
+     value raised the gain by the sunk running cost of the sold animals. T.roi is the
+     value-only ratio; T.retIncl is kept on the totals object but no longer displayed. */
+  var gain=expected-invested;
+  var roi=T.roi, pos=roi>=0;
   var gpos=Math.max(2,Math.min(98, Math.round((roi+20)/70*100))); // -20..+50 mapped
   var mk=Math.round((0+20)/70*100); // break-even marker
   var gauge='<div class="ls-kpigauge"><i style="width:'+gpos+'%;background:'+(pos?'#40916C':'#C8962C')+'"></i><span class="mk" style="left:'+mk+'%"></span></div>'+
@@ -20451,10 +20457,10 @@ function _lsKpiPanel(key){
   return _lsRetCss()+head+
     _lsBrow('\ud83d\udcb8','Invested','buy + feed + vet to date',_lsCompactRand(invested),{})+
     _lsBrow('\ud83c\udfaf','Expected at sale','at your target prices',_lsCompactRand(expected),{green:true})+
-    (income>0?_lsBrow('\ud83e\udd5b','Income to date','sales already banked',_lsCompactRand(income),{green:true}):'')+
+    (income>0?_lsBrow('\ud83e\udd5b','Income to date','sales already banked, kept out of the gain',_lsCompactRand(income),{green:true}):'')+
     _lsBrow((gain>=0?'\ud83d\udcc8':'\ud83d\udcc9'),(gain>=0?'Gain':'Shortfall'),'if sold at target',(gain>=0?'+':'\u2212')+_lsCompactRand(Math.abs(gain)),{pos:gain>=0,neg:gain<0})+
     gauge+
-    '<div class="ls-kpimean"><b>'+(pos?'+':'')+roi+'% return'+(income>0?' incl. income':'')+'.</b> '+
+    '<div class="ls-kpimean"><b>'+(pos?'+':'')+roi+'% return.</b> '+
       (pos?'If you sell at your target prices you\u2019d make about '+_lsNb(_lsCompactRand(Math.abs(gain)))+' over what you\u2019ve put in.'
          :'On current numbers your costs are ahead of expected returns.')+
       ' From '+basis+'.'+
@@ -20567,7 +20573,7 @@ function renderCamps(){
   var loose=act.filter(function(h){return !h.campId || !assigned[h.campId];});
   var totalHead=act.reduce(function(s,h){return s+(h.qty||0);},0);
   var T=_lsFarmTotals();
-  var roiPos=(T.retIncl!=null && T.retIncl>=0);
+  var roiPos=(T.roi!=null && T.roi>=0);
   var _att=_lsAttention();
   var html=_lsHeroHTML(_att)+'<div class="ls-kpipanel" id="ls-kpipanel"></div>'+_lsAttnHTML(_att);
   var _plN=(ST_LS.herd||[]).filter(function(h){return h.planned && h.inPlanning;}).length;
@@ -20848,7 +20854,7 @@ function _lsAttention(){
      translates by substring, and the bare pairs head→kop / figure→syfer would mangle an
      otherwise-English sentence into a hybrid when the farmer is in Afrikaans. */
   if(_nc) items.push({ic:'\ud83d\udd0e', tx:'<b>'+_nc+' group'+(_nc===1?'':'s')+'</b> '+(_nc===1?'is':'are')+' left out of your return \u2014 the numbers don\u2019t look right yet.', go:"lsRetOpen()"});
-  else if(T.retIncl!=null && T.retIncl<0) items.push({ic:'\ud83d\udcc9', tx:'Costs are ahead of returns (<b>'+T.retIncl+'%</b>'+(T.meatIncome>0?' incl. income':'')+') \u2014 check your target sale prices.', go:"lsTab('insights')"});
+  else if(T.roi!=null && T.roi<0) items.push({ic:'\ud83d\udcc9', tx:'Costs are ahead of returns (<b>'+T.roi+'%</b>) \u2014 check your target sale prices.', go:"lsTab('insights')"});
   return items;
 }
 function _lsHeroHTML(att){
@@ -20860,12 +20866,12 @@ function _lsHeroHTML(att){
   var sub = T.head+' head · '+(ST_LS.camps||[]).length+' camp'+((ST_LS.camps||[]).length===1?'':'s')+' · '+_lsSpeciesCount()+' species';
   var camps2=(ST_LS.camps||[]).length; var holds=0; (ST_LS.camps||[]).forEach(function(c){ if(_lsCampWd(lsCampGroups(c.id)).wd) holds++; });
   var sub2=camps2+' camp'+(camps2===1?'':'s')+' · '+(holds?(holds+' on a medicine hold'):'all clear to sell');
-  var hasRet=(T.retIncl!=null); var roiP=hasRet&&T.retIncl>=0;
+  var hasRet=(T.roi!=null); var roiP=hasRet&&T.roi>=0;
   var nCheck=T.meatExcluded+T.meatNeedCheck;
   var stats='<div class="hstats">'+
     '<div class="hstat" onclick="lsKpiTog(\'head\',this)"><div class="hv">'+T.head+'</div><div class="hl">head · '+_lsSpeciesCount()+' species</div></div>'+
     '<div class="hstat" onclick="lsKpiTog(\'val\',this)"><div class="hv">'+_lsCompactRand(T.val)+'</div><div class="hl">herd value</div></div>'+
-    '<div class="hstat" onclick="lsKpiTog(\'roi\',this)"><div class="hv'+(hasRet?(roiP?'':' neg'):'')+'">'+(hasRet?((roiP?'+':'')+T.retIncl+'%'):'\u2014')+'</div><div class="hl">'+(hasRet?('return'+(nCheck?' \u00b7 '+nCheck+' to check':'')):'return \u00b7 check figures')+'</div></div>'+
+    '<div class="hstat" onclick="lsKpiTog(\'roi\',this)"><div class="hv'+(hasRet?(roiP?'':' neg'):'')+'">'+(hasRet?((roiP?'+':'')+T.roi+'%'):'\u2014')+'</div><div class="hl">'+(hasRet?('return'+(nCheck?' \u00b7 '+nCheck+' to check':'')):'return \u00b7 check figures')+'</div></div>'+
   '</div>';
   return '<div class="ls-hero"><div class="hic">'+ic+'</div><div class="htx"><div class="htt">'+ttl+'</div><div class="hsub">'+sub2+'</div></div>'+stats+'</div>';
 }
@@ -34762,6 +34768,7 @@ LANG_PAIRS.push(
   ["Prepare my file","Berei my lêer voor"],
   ["Delete account","Skrap rekening"],
   ["What you get.","Wat jy kry."],
+  ["sales already banked, kept out of the gain","verkope reeds gebank, buite die wins gehou"],
   /* Item 14 — stating an absent benchmark. Whole sentences: "benchmark"/"seasons" alone would
      half-translate this into English-Afrikaans mush. */
   ["We do not have a South African benchmark for this crop yet, so this chart shows your own seasons only.","Ons het nog nie ’n Suid-Afrikaanse maatstaf vir hierdie gewas nie, dus wys hierdie grafiek net jou eie seisoene."],
