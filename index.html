@@ -785,6 +785,9 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pf-fl{height:100%;border-radius:7px}
 .pf-note{font-size:11px;color:var(--t4);margin-top:9px;line-height:1.5}
 .pf-benchsrc{font-size:10.5px;color:var(--t3);margin-top:7px;line-height:1.5}
+/* Stating a missing benchmark, not a sourced one — muted and italic so it reads as a note
+   about the data rather than as data. */
+.pf-benchnone{font-style:italic;color:var(--t4)}
 .pf-benchsrc .bench-chip{font-size:9px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:1px 6px;border-radius:8px;vertical-align:1px;margin-left:3px}
 .pf-tbl{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
 .pf-tbl th{text-align:right;font-size:9.5px;text-transform:uppercase;letter-spacing:.03em;color:var(--t3);border-bottom:2px solid var(--br);padding:7px 7px}
@@ -10851,16 +10854,32 @@ var BENCH = {
   }
 };
 // Resolve a benchmark entry against the farm's province: region value → national → fallback.
-function _benchResolve(entry, fallbackV){
-  if(!entry) return {v:fallbackV, conf:'est', src:'', asOf:BENCH.asOf, region:'', band:null};
+/* NEVER invents a figure. It used to take a fallbackV and, for any crop with no entry, hand back
+   85% of the farmer's OWN gross margin labelled "SA average" — a circular number that made every
+   farmer beat the country by exactly 17.6% whatever they did, and on a loss claimed the average
+   SA farm loses money. Worse, _benchSrcHTML() suppressed the source line whenever src was empty,
+   so the invented figure was the ONE case that carried no provenance at all.
+   Now: no entry → has:false, v:null. Callers must render the absence, not paper over it.
+   Adding a real benchmark is therefore data-only — put it in BENCH.crop and it lights up. */
+function _benchResolve(entry){
+  if(!entry) return {v:null, has:false, conf:'', src:'', asOf:BENCH.asOf, region:'', band:null};
   var r=(typeof ST!=='undefined' && ST.province) ? ST.province : '';
   var hasR = entry.region && entry.region[r]!=null;
-  return {v:(hasR?entry.region[r]:entry.national), conf:entry.conf||'est', src:entry.src||'',
+  var v = hasR ? entry.region[r] : entry.national;
+  if(v==null) return {v:null, has:false, conf:'', src:'', asOf:BENCH.asOf, region:'', band:null};
+  return {v:v, has:true, conf:entry.conf||'est', src:entry.src||'',
           asOf:BENCH.asOf, region:(hasR?r:''), band:entry.band||null};
 }
 function _benchLabel(m){ return (m && m.region) ? m.region : 'SA average'; }
 // conf → farmer-facing word + pill colour.
 function _benchWord(conf){ return conf==='est' ? 'guide' : 'benchmark'; }
+/* Shown in place of the source line when we have no benchmark. Saying so plainly is better than
+   a blank space, which reads as an oversight rather than an honest gap. */
+function _benchNoneHTML(kind){
+  return '<div class="pf-benchsrc pf-benchnone">'+(kind==='live'
+    ? 'We do not have a South African benchmark for this herd yet, so this chart shows your own seasons only.'
+    : 'We do not have a South African benchmark for this crop yet, so this chart shows your own seasons only.')+'</div>';
+}
 function _benchSrcHTML(m){
   if(!m || !m.src) return '';
   var col = m.conf==='high' ? 'var(--gd)' : (m.conf==='med' ? '#9A6212' : '#5C655E');
@@ -10870,7 +10889,7 @@ function _benchSrcHTML(m){
     ' <span class="bench-chip" style="background:'+bg+';color:'+col+'">'+m.conf+'</span></div>';
 }
 function _pfKindLabel(k){ k=(k||'other'); return k.charAt(0).toUpperCase()+k.slice(1); }
-function _pfBenchCropMeta(c){ return _benchResolve(BENCH.crop[c.crop], Math.round(c.gmHa*0.85)); }
+function _pfBenchCropMeta(c){ return _benchResolve(BENCH.crop[c.crop]); }
 function _pfBenchCrop(c){ return _pfBenchCropMeta(c).v; }
 function _pfLiveKey(l){ var s=((l.type||'')+' '+(l.name||'')).toLowerCase();
   if(s.indexOf('dairy')>=0) return 'dairy';
@@ -10881,7 +10900,10 @@ function _pfLiveKey(l){ var s=((l.type||'')+' '+(l.name||'')).toLowerCase();
   if(s.indexOf('dorper')>=0||s.indexOf('mutton')>=0) return 'sheepMutton';
   if(s.indexOf('sheep')>=0||s.indexOf('lamb')>=0) return 'sheep';
   return 'other'; }
-function _pfBenchLiveMeta(l){ return _benchResolve(BENCH.live[_pfLiveKey(l)], 5000); }
+/* BENCH.live has an 'other' entry and _pfLiveKey falls back to it, so this resolves for every
+   herd type today — the old flat 5000/LSU fallback was unreachable. Dropped it anyway rather
+   than leave a magic number waiting to surface if that 'other' entry is ever removed. */
+function _pfBenchLiveMeta(l){ return _benchResolve(BENCH.live[_pfLiveKey(l)]); }
 function _pfBenchLive(l){ return _pfBenchLiveMeta(l).v; }
 function _pfHist(cur,key){ var seed=0,i; key=String(key||''); for(i=0;i<key.length;i++) seed+=key.charCodeAt(i); var j=((seed%7)-3)/100; var mult=[0.70,0.83,0.92,1.0], fys=['FY22','FY23','FY24','FY25']; return mult.map(function(m,i){ var f=m+(i<3?j*(3-i):0); return {fy:fys[i], v:Math.round(cur*Math.max(0.4,f))}; }); }
 function _pfLandsOf(crop, opts){ var out=[]; var inclPlanned=!!(opts&&opts.includePlanned); (ST_CROP&&ST_CROP.lands||[]).forEach(function(l){ if(l.crop!==crop) return; if(l.stage==='fallow') return; var isPlanned=(l.stage==='planned'); if(isPlanned && !inclPlanned) return; /* Same A1/C1 fix as _pfCropEnts — this drill-down must agree with the summary above it. */
@@ -10984,10 +11006,13 @@ function _pfDetailCropHTML(c){
   }
   h+='</div>';
   h+='<div class="pf-sub"><div class="pf-subt">\uD83D\uDCC8 Margin per hectare \u2014 by season</div>';
-  var tmx=Math.max.apply(null,hist.map(function(x){return x.v;}).concat(bench,1));
-  h+='<div class="pf-trwrap"><div class="pf-bench" style="bottom:'+Math.round(bench/tmx*100)+'%"><span>'+esc(_benchLabel(bm))+' \u2248 '+_pfK(bench)+'/ha</span></div><div class="pf-trbars">';
+  /* No benchmark -> no dashed line at all. Drawing one from an invented number was the bug. */
+  var tmx=Math.max.apply(null,hist.map(function(x){return x.v;}).concat(bm.has?bench:[],1));
+  h+='<div class="pf-trwrap">'+(bm.has
+      ? '<div class="pf-bench" style="bottom:'+Math.round(bench/tmx*100)+'%"><span>'+esc(_benchLabel(bm))+' \u2248 '+_pfK(bench)+'/ha</span></div>'
+      : '')+'<div class="pf-trbars">';
   hist.forEach(function(x,i){ h+='<div class="pf-trb"><span class="vv">'+_pfK(x.v)+'</span><div class="bar" style="height:'+Math.max(6,Math.round(x.v/tmx*100))+'%;background:'+(i===hist.length-1?'#1B4332':'#74C69D')+'"></div><span class="yr">'+x.fy+'</span></div>'; });
-  h+='</div></div><div class="pf-note">Past seasons are sample data \u2014 your real trend fills in as you complete each season.</div>'+_benchSrcHTML(bm)+'</div>';
+  h+='</div></div><div class="pf-note">Past seasons are sample data \u2014 your real trend fills in as you complete each season.</div>'+(bm.has?_benchSrcHTML(bm):_benchNoneHTML('crop'))+'</div>';
   h+='<div class="pf-sub"><div class="pf-subt">\u2696\ufe0f Break-even</div>';
   if(c.price>0 && c.area>0 && c.tons>0){
     var beY=Math.round((c.cost/c.area)/c.price*10)/10, cush=c.price-c.cop, curY=Math.round(c.tons/c.area*10)/10;
@@ -11324,10 +11349,12 @@ function _pfDetailLiveHTML(l){
   if(l.labour>0){ h+='<div class="pf-note" style="margin-top:8px"><b>Tagged labour:</b> '+_pfK(l.labour)+'/yr for workers tagged to '+esc(l.name)+' \u2014 counted in this herd\u2019s margin, not in shared farm costs.</div>'; }
   h+='<div class="pf-note">Total '+fmt(tot)+'/head against a '+fmt(l.sellHead)+' sale price.</div></div>';
   h+='<div class="pf-sub"><div class="pf-subt">\uD83D\uDCC8 Margin per grazing unit \u2014 by season</div>';
-  var tmx=Math.max.apply(null,hist.map(function(x){return x.v;}).concat(bench,1));
-  h+='<div class="pf-trwrap"><div class="pf-bench" style="bottom:'+Math.round(bench/tmx*100)+'%"><span>'+esc(_benchLabel(bm))+' \u2248 '+_pfK(bench)+'/LSU</span></div><div class="pf-trbars">';
+  var tmx=Math.max.apply(null,hist.map(function(x){return x.v;}).concat(bm.has?bench:[],1));
+  h+='<div class="pf-trwrap">'+(bm.has
+      ? '<div class="pf-bench" style="bottom:'+Math.round(bench/tmx*100)+'%"><span>'+esc(_benchLabel(bm))+' \u2248 '+_pfK(bench)+'/LSU</span></div>'
+      : '')+'<div class="pf-trbars">';
   hist.forEach(function(x,i){ h+='<div class="pf-trb"><span class="vv">'+_pfK(x.v)+'</span><div class="bar" style="height:'+Math.max(6,Math.round(x.v/tmx*100))+'%;background:'+(i===hist.length-1?'#1B4332':'#74C69D')+'"></div><span class="yr">'+x.fy+'</span></div>'; });
-  h+='</div></div><div class="pf-note">Past seasons are sample data.</div>'+_benchSrcHTML(bm)+'</div>';
+  h+='</div></div><div class="pf-note">Past seasons are sample data.</div>'+(bm.has?_benchSrcHTML(bm):_benchNoneHTML('live'))+'</div>';
   if(l.costHead>0){
     var lcush=(l.sellHead||0)-l.costHead;
     h+='<div class="pf-sub"><div class="pf-subt">⚖️ Break-even</div>';
@@ -34735,6 +34762,10 @@ LANG_PAIRS.push(
   ["Prepare my file","Berei my lêer voor"],
   ["Delete account","Skrap rekening"],
   ["What you get.","Wat jy kry."],
+  /* Item 14 — stating an absent benchmark. Whole sentences: "benchmark"/"seasons" alone would
+     half-translate this into English-Afrikaans mush. */
+  ["We do not have a South African benchmark for this crop yet, so this chart shows your own seasons only.","Ons het nog nie ’n Suid-Afrikaanse maatstaf vir hierdie gewas nie, dus wys hierdie grafiek net jou eie seisoene."],
+  ["We do not have a South African benchmark for this herd yet, so this chart shows your own seasons only.","Ons het nog nie ’n Suid-Afrikaanse maatstaf vir hierdie trop nie, dus wys hierdie grafiek net jou eie seisoene."],
   /* Settings section headings + consent chip. "Accepted" is capitalised deliberately —
      the consent line below it says "accepted" lower-case so the two cannot collide. */
   ["Not yet accepted on this farm.","Nog nie op hierdie plaas aanvaar nie."],
