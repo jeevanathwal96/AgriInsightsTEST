@@ -28565,6 +28565,14 @@ function bgtRenderMountain() {
 
   // Hover / tap detail per month
   var tip = document.createElement('div'); tip.className = 'bgt-tip'; host.appendChild(tip);
+  var NS = 'http://www.w3.org/2000/svg', svgEl = host.querySelector('svg'), xLine = null, xDot = null;
+  if (svgEl) {
+    var xg = document.createElementNS(NS, 'g'); xg.setAttribute('style', 'display:none;pointer-events:none');
+    xLine = document.createElementNS(NS, 'line'); xLine.setAttribute('stroke', 'rgba(27,67,50,0.28)'); xLine.setAttribute('stroke-width', '1.5'); xLine.setAttribute('stroke-dasharray', '3 4');
+    xDot = document.createElementNS(NS, 'circle'); xDot.setAttribute('r', '6.5'); xDot.setAttribute('fill', '#fff'); xDot.setAttribute('stroke-width', '3');
+    xg.appendChild(xLine); xg.appendChild(xDot); svgEl.appendChild(xg);
+  }
+  function bgtCrossHide() { if (xLine && xLine.parentNode) xLine.parentNode.style.display = 'none'; }
   host.querySelectorAll('rect[data-i]').forEach(function(r) {
     function show(ev) {
       var n = +r.getAttribute('data-i');
@@ -28576,6 +28584,14 @@ function bgtRenderMountain() {
         (mode === 'in' ? (af ? 'Ingekom: ' : 'Came in: ') : (af ? 'Bestee: ' : 'Spent: ')) + '<b>' + bgtFmt(a) + '</b><br>' +
         (af ? 'Plan sê: ' : 'Plan says: ') + bgtFmt(ct[n]) + '<br>' +
         '<span style="font-weight:800;color:' + (goodM ? '#8FD6AC' : '#F5B97F') + '">' + (goodM ? '✓ ' : '▲ ') + bgtFmt(Math.abs(dd)) + '</span>';
+      if (xLine) {
+        var cxp = X(n), cyp, lo = T, hi, sc;
+        if (BGT_MTN_MODE === 'rib') { cyp = Yr(rval[n]); hi = zeroY; sc = '#40916C'; }
+        else { cyp = Y(a); hi = H - B; sc = col; }
+        xLine.setAttribute('x1', cxp); xLine.setAttribute('x2', cxp); xLine.setAttribute('y1', lo); xLine.setAttribute('y2', hi);
+        xDot.setAttribute('cx', cxp); xDot.setAttribute('cy', cyp); xDot.setAttribute('stroke', sc);
+        xLine.parentNode.style.display = '';
+      }
       var b = host.getBoundingClientRect();
       var cx = (ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX);
       var cy = (ev.touches && ev.touches[0] ? ev.touches[0].clientY : ev.clientY);
@@ -28585,8 +28601,8 @@ function bgtRenderMountain() {
     }
     r.addEventListener('mousemove', show);
     r.addEventListener('touchstart', show, {passive:true});
-    r.addEventListener('mouseleave', function(){ tip.style.opacity = 0; });
-    r.addEventListener('touchend',   function(){ setTimeout(function(){ tip.style.opacity = 0; }, 1500); });
+    r.addEventListener('mouseleave', function(){ tip.style.opacity = 0; bgtCrossHide(); });
+    r.addEventListener('touchend',   function(){ setTimeout(function(){ tip.style.opacity = 0; bgtCrossHide(); }, 1500); });
   });
 }
 
