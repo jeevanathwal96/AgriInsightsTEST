@@ -10619,17 +10619,56 @@ function _pfTaggedLabourTotal(){
 // Sum of real EXPENSE transactions tagged to an enterprise (excludes labour — that is added via wkEnterpriseLabour).
 function entTaggedCost(code){ if(!code) return 0; var t=0; try{ (ST.txns||[]).forEach(function(x){ if(x && x.ent===code && x.type==='expense' && x.cat!=='Labour & Wages' && x.cat!=='Labour'){ t+=x.amt||0; } }); }catch(e){} return Math.round(t); }
 function _pfSrcBadge(pct){ pct=pct||0; if(pct>=66) return '<span class="pf-src real">Real costs</span>'; if(pct>0) return '<span class="pf-src part">Part real</span>'; return '<span class="pf-src budget">Budget cost</span>'; }
-function _pfCropEnts(){
+/* Three states, because a crop can be wholly planned, partly planned (some lands in the ground,
+   some not) or wholly in the ground. On farms with no tagged spend every crop shows the same
+   grey "Budget cost" badge, so THIS badge is the only thing marking an estimate apart. */
+function _pfPlannedBadge(c){
+  if(!c || !(c.plannedArea>0)) return '';
+  if((c.plannedPct||0)>=100) return '<span class="pf-src planned">Planned</span>';
+  return '<span class="pf-src planned">Part planned · '+c.plannedArea+' ha</span>';
+}
+/* Solid bar for what is in the ground, diagonal hatch for what is only planned, split at the
+   planned area share so a part-planned crop reads as part estimate at a glance. */
+function _pfPlannedFill(c, col){
+  var HATCH='repeating-linear-gradient(135deg,#9CA3AF 0 6px,#C9CED6 6px 12px)';
+  if(!c || !(c.plannedArea>0)) return col;
+  if((c.plannedPct||0)>=100) return HATCH;
+  var solid=100-(c.plannedPct||0);
+  return 'linear-gradient(90deg,'+col+' 0 '+solid+'%,transparent '+solid+'%),'+HATCH;
+}
+function _pfCropEnts(opts){
   if(typeof entOn==="function" && !entOn("crops")) return [];
+  /* Planned lands stay EXCLUDED unless the caller opts in. Every pre-existing caller passes
+     no argument, so Reports, the forecast (_ffCrops), labour allocation and the animated demo
+     are unchanged by construction — only the Profit tab's crop card opts in. */
+  var inclPlanned=!!(opts&&opts.includePlanned);
   var by={},order=[];
   (ST_CROP&&ST_CROP.lands||[]).forEach(function(l){
-    if(!l.crop) return; if(l.stage==='planned'||l.stage==='fallow') return;
-    var price=(ST_CROP.prices&&ST_CROP.prices[l.crop])||0;
-    var yld=l.actualYield||l.targetYield||0, area=l.area||0;
-    if(!by[l.crop]){ by[l.crop]={crop:l.crop,area:0,tons:0,income:0,cost:0,budgetCost:0,price:price}; order.push(l.crop); }
+    if(!l.crop) return; if(l.stage==='fallow') return;
+    var isPlanned=(l.stage==='planned'); if(isPlanned && !inclPlanned) return;
+    /* A1 — honour the land's own price (e.g. a forward contract) exactly as the Crops tab does.
+       Using the crop reference alone discarded the farmer's own price, and its `||0` fallback
+       silently valued any crop with no reference entry at R0.
+       C1 — `actualYield || targetYield` treated a RECORDED yield of 0 as missing, so a failed
+       crop displayed its target income. cropLandYield() respects a real zero. */
+    var price=(typeof cropLandPrice==='function')?cropLandPrice(l):((ST_CROP.prices&&ST_CROP.prices[l.crop])||0);
+    var yld=(typeof cropLandYield==='function')?cropLandYield(l):((l.actualYield!=null?l.actualYield:l.targetYield)||0);
+    var area=l.area||0;
+    if(!by[l.crop]){ by[l.crop]={crop:l.crop,area:0,tons:0,income:0,cost:0,budgetCost:0,plannedArea:0,plannedCount:0,price:price,refPrice:(ST_CROP.prices&&ST_CROP.prices[l.crop])||0}; order.push(l.crop); }
     var e=by[l.crop]; e.area+=area; e.tons+=area*yld; e.income+=area*yld*price; e.budgetCost+=area*(l.inputPerHa||0);
+    if(isPlanned){ e.plannedArea+=area; e.plannedCount++; }
   });
-  return order.map(function(c){ var e=by[c]; e.labour=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('crop:'+c):0; e.taggedCost=entTaggedCost('crop:'+c); var effInput=Math.max(e.taggedCost, e.budgetCost||0); e.sourcePct=(effInput>0)?Math.min(100,Math.round(e.taggedCost/effInput*100)):0; e.cost=effInput+e.labour; e.gm=e.income-e.cost; e.gmHa=e.area?Math.round(e.gm/e.area):0; e.cop=e.tons?Math.round(e.cost/e.tons):0; e.icon=_pfCropIcon(c); e.finance=(typeof LN_cropFinance==='function')?LN_cropFinance(c):0; return e; });
+  return order.map(function(c){ var e=by[c];
+    /* Lands of one crop can now carry different prices, so the crop-level price shown on the
+       break-even note and the what-if slider is the weighted average actually realised. */
+    e.price = e.tons>0 ? Math.round(e.income/e.tons) : (e.refPrice||e.price||0);
+    e.labour=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('crop:'+c):0; e.taggedCost=entTaggedCost('crop:'+c); var effInput=Math.max(e.taggedCost, e.budgetCost||0); e.sourcePct=(effInput>0)?Math.min(100,Math.round(e.taggedCost/effInput*100)):0; e.cost=effInput+e.labour; e.gm=e.income-e.cost; e.gmHa=e.area?Math.round(e.gm/e.area):0; e.cop=e.tons?Math.round(e.cost/e.tons):0; e.icon=_pfCropIcon(c); e.finance=(typeof LN_cropFinance==='function')?LN_cropFinance(c):0;
+    /* Tagged spend is keyed by crop NAME only (ent:'crop:White maize') — the data model has no
+       land-level tagging — so a crop that is PART planned cannot have its real costs separated
+       from its budgeted ones. We keep it as one row and show the mixture (plannedPct) rather
+       than invent an allocation the farmer never recorded. The drill-down lists the lands. */
+    e.plannedPct=e.area>0?Math.round((e.plannedArea||0)/e.area*100):0;
+    return e; });
 }
 function _pfLiveEnts(){
   if(typeof entOn==="function" && !entOn("livestock")) return [];
@@ -10650,6 +10689,10 @@ function _pfOverheads(){ var t=0; (ST.recurring||[]).forEach(function(r){ if(r.t
 
 /* ===== Profit drill-down (#1), trend+benchmark (#3), what-if (#4) ===== */
 var PF_CROPS_SORTED=[], PF_LIVE_SORTED=[], PF_ORCH_SORTED=[], PF_OPEN={crop:-1,live:-1}, PF_CURC=null, PF_CURL=null, PF_CURO=null, PF_WI_GRP='crop', PF_DET_GRP='crop';
+/* View-only preference, deliberately a plain module var like PF_WI_GRP above: it is NEVER
+   written to ST or FARM, so it is never saved, never synced to the cloud and never pushed to
+   the farmer's other devices. It resets to "in the ground" on every load — the safe default. */
+var PF_INCL_PLANNED=false;
 // ════════════════════════════════════════════════════════════════════════
 // AGRI_BENCH — sourced South African industry benchmarks (single source of truth).
 // Every default in the app should trace to a citable figure or be flagged 'est'.
@@ -10755,7 +10798,10 @@ function _pfLiveKey(l){ var s=((l.type||'')+' '+(l.name||'')).toLowerCase();
 function _pfBenchLiveMeta(l){ return _benchResolve(BENCH.live[_pfLiveKey(l)], 5000); }
 function _pfBenchLive(l){ return _pfBenchLiveMeta(l).v; }
 function _pfHist(cur,key){ var seed=0,i; key=String(key||''); for(i=0;i<key.length;i++) seed+=key.charCodeAt(i); var j=((seed%7)-3)/100; var mult=[0.70,0.83,0.92,1.0], fys=['FY22','FY23','FY24','FY25']; return mult.map(function(m,i){ var f=m+(i<3?j*(3-i):0); return {fy:fys[i], v:Math.round(cur*Math.max(0.4,f))}; }); }
-function _pfLandsOf(crop){ var out=[]; (ST_CROP&&ST_CROP.lands||[]).forEach(function(l){ if(l.crop!==crop) return; if(l.stage==='planned'||l.stage==='fallow') return; var price=(ST_CROP.prices&&ST_CROP.prices[crop])||0; var yld=l.actualYield||l.targetYield||0; out.push({name:l.name||'Field', area:l.area||0, yld:yld, input:l.inputPerHa||0, gmHa:Math.round(yld*price-(l.inputPerHa||0))}); }); return out; }
+function _pfLandsOf(crop, opts){ var out=[]; var inclPlanned=!!(opts&&opts.includePlanned); (ST_CROP&&ST_CROP.lands||[]).forEach(function(l){ if(l.crop!==crop) return; if(l.stage==='fallow') return; var isPlanned=(l.stage==='planned'); if(isPlanned && !inclPlanned) return; /* Same A1/C1 fix as _pfCropEnts — this drill-down must agree with the summary above it. */
+      var price=(typeof cropLandPrice==='function')?cropLandPrice(l):((ST_CROP.prices&&ST_CROP.prices[crop])||0);
+      var yld=(typeof cropLandYield==='function')?cropLandYield(l):((l.actualYield!=null?l.actualYield:l.targetYield)||0);
+      out.push({name:l.name||'Field', area:l.area||0, yld:yld, input:l.inputPerHa||0, gmHa:Math.round(yld*price-(l.inputPerHa||0)), planned:isPlanned}); }); return out; }
 function _pfInputsOf(crop){ var ids={}; (ST_CROP&&ST_CROP.lands||[]).forEach(function(l){ if(l.crop===crop) ids[l.id]=1; }); var by={},order=[],tot=0; (ST_CROP&&ST_CROP.inputs||[]).forEach(function(ip){ if(!ids[ip.land]) return; var c=ip.costPerHa||0; if(c<=0) return; var k=ip.kind||'other'; if(by[k]==null){by[k]=0;order.push(k);} by[k]+=c; tot+=c; }); return {rows:order.map(function(k){return {kind:k,cost:by[k]};}).sort(function(a,b){return b.cost-a.cost;}), tot:tot}; }
 
 function _pfSlider(id,min,max,step,val,fn){ return '<input type="range" id="'+id+'" min="'+min+'" max="'+max+'" step="'+step+'" value="'+val+'" oninput="'+fn+'()">'; }
@@ -10764,6 +10810,9 @@ function _pfDelta(now,base){ var d=now-base; if(Math.abs(d)<1) return '<span cla
 var PF_TAB='glance'; var PF_WI_SEL={kind:'crop',idx:0};
 function pfTab(name){ PF_TAB=name; ['glance','details','whatif'].forEach(function(t){ var p=$('pf-tab-'+t), b=$('pf-tabbtn-'+t); if(p) p.classList.toggle('on',t===name); if(b) b.classList.toggle('on',t===name); }); var c=$('content'); if(c) c.scrollTop=0; }
 function pfGo(kind, idx){ pfTab('details'); pfSelectDetail(kind, idx); }
+/* Toggling re-renders the whole Profit tab, which rebuilds PF_CROPS_SORTED from the same list
+   the card draws — so pfGo(ci) indices stay aligned in both states. */
+function pfSetPlanned(on){ PF_INCL_PLANNED=!!on; PF_OPEN={crop:-1,live:-1}; if(typeof renderProfit==='function') renderProfit(); }
 
 function _pfGroups(which){
   var g=[];
@@ -10823,7 +10872,10 @@ function pfSelectWhatIf(kind, idx){
 function pfResetWhatIf(){ pfSelectWhatIf(PF_WI_SEL.kind, PF_WI_SEL.idx); }
 
 function _pfDetailCropHTML(c){
-  var lands=_pfLandsOf(c.crop), inp=_pfInputsOf(c.crop), hist=_pfHist(c.gmHa,c.crop), bm=_pfBenchCropMeta(c), bench=bm.v, h='';
+  /* The drill-down is the escape hatch for a part-planned crop: the summary row cannot separate
+     real from budgeted costs (tagging is by crop name), but here the lands are listed one by one
+     and the planned ones are badged, so the farmer can always see which is which. */
+  var lands=_pfLandsOf(c.crop,{includePlanned:PF_INCL_PLANNED}), inp=_pfInputsOf(c.crop), hist=_pfHist(c.gmHa,c.crop), bm=_pfBenchCropMeta(c), bench=bm.v, h='';
   h+='<div class="pf-sub"><div class="pf-subt">\uD83D\uDCB0 What makes up the cost</div>';
   if(inp.tot>0){ inp.rows.forEach(function(r){ var pc=Math.round(r.cost/inp.tot*100); h+='<div class="pf-mk"><span class="mkn">'+esc(_pfKindLabel(r.kind))+'</span><div class="mktk"><div class="mkfl" style="width:'+Math.max(4,pc)+'%"></div></div><span class="mkv">'+pc+'%</span></div>'; });
     h+='<div class="pf-note">From input applications logged on your Crops page ('+fmt(inp.tot)+'/ha recorded so far). Log more for a fuller split.</div>'; }
@@ -10831,10 +10883,17 @@ function _pfDetailCropHTML(c){
   if(c.labour>0){ h+='<div class="pf-mk"><span class="mkn">Tagged labour</span><div class="mktk"></div><span class="mkv">'+_pfK(c.labour)+'/yr</span></div><div class="pf-note">Pay for workers tagged to '+esc(c.crop)+' \u2014 counted in this crop\u2019s margin, not in shared farm costs.</div>'; }
   h+='</div>';
   h+='<div class="pf-sub"><div class="pf-subt">\uD83D\uDDFA\uFE0F Field by field</div>';
-  if(lands.length){ var minGm=Math.min.apply(null,lands.map(function(x){return x.gmHa;})); var mx=Math.max.apply(null,lands.map(function(x){return x.gmHa;}).concat(1));
-    lands.forEach(function(f){ var weak=lands.length>1&&f.gmHa===minGm; var pct=Math.max(4,Math.round(f.gmHa/mx*100));
-      h+='<div class="pf-fld"><div class="pf-fldh"><span class="fn">'+esc(f.name)+(weak?' <span class="weakpill">weakest</span>':'')+' <small>'+f.area+' ha \u00b7 '+f.yld+' t/ha</small></span><span class="fv" style="color:'+(weak?'var(--rd)':'var(--gm)')+'">'+fmt(f.gmHa)+'/ha</span></div><div class="pf-tk" style="height:11px"><div class="pf-fl" style="width:'+pct+'%;background:'+(weak?'#E74C3C':'#40916C')+'"></div></div></div>'; });
-    if(lands.length>1){ var wk=lands.filter(function(x){return x.gmHa===minGm;})[0]; h+='<div class="pf-note"><b>'+esc(wk.name)+'</b> earns the least per hectare \u2014 worth checking its soil, inputs or yield before next season.</div>'; }
+  /* Planned lands are estimates, so they must neither win nor lose the "weakest" call. Ranking a
+     budget against actuals and telling the farmer to go fix the budgeted one would be a wrong
+     recommendation — the same class of error as valuing a crop at a price it is not sold at.
+     "Weakest" is therefore computed only over lands actually in the ground. */
+  if(lands.length){ var _realL=lands.filter(function(x){ return !x.planned; });
+    var minGm=_realL.length?Math.min.apply(null,_realL.map(function(x){return x.gmHa;})):null;
+    var mx=Math.max.apply(null,lands.map(function(x){return x.gmHa;}).concat(1));
+    lands.forEach(function(f){ var weak=(_realL.length>1 && !f.planned && f.gmHa===minGm); var pct=Math.max(4,Math.round(f.gmHa/mx*100));
+      h+='<div class="pf-fld"><div class="pf-fldh"><span class="fn">'+esc(f.name)+(weak?' <span class="weakpill">weakest</span>':'')+(f.planned?' <span class="pf-src planned">Planned</span>':'')+' <small>'+f.area+' ha · '+f.yld+' t/ha</small></span><span class="fv" style="color:'+(weak?'var(--rd)':'var(--gm)')+'">'+fmt(f.gmHa)+'/ha</span></div><div class="pf-tk" style="height:11px"><div class="pf-fl" style="width:'+pct+'%;background:'+(f.planned?'repeating-linear-gradient(135deg,#9CA3AF 0 6px,#C9CED6 6px 12px)':(weak?'#E74C3C':'#40916C'))+'"></div></div></div>'; });
+    if(_realL.length>1){ var wk=_realL.filter(function(x){return x.gmHa===minGm;})[0]; h+='<div class="pf-note"><b>'+esc(wk.name)+'</b> earns the least per hectare — worth checking its soil, inputs or yield before next season.</div>'; }
+    else if(lands.length>1) h+='<div class="pf-note">Only one field is in the ground this season — the rest are still planned, so there is nothing to compare yet.</div>';
     else h+='<div class="pf-note">Your only '+esc(c.crop)+' field this season.</div>';
   }
   h+='</div>';
@@ -11310,14 +11369,28 @@ function renderProfit(){
     el.innerHTML='<div style="background:#fff;border:1px solid var(--br);border-radius:16px;padding:40px 24px;text-align:center;color:var(--t3);box-shadow:0 1px 3px rgba(0,0,0,.05)"><div style="font-size:30px;margin-bottom:8px">\uD83C\uDF31</div><div style="font-weight:700;color:var(--t2);margin-bottom:4px">No crops or herds yet</div>Add a crop under <b>Crops</b> or a herd under <b>Livestock</b> and this page will show what each one earns.</div>';
     return;
   }
-  var sc=crops.slice().sort(function(a,b){return b.gmHa-a.gmHa;}); PF_CROPS_SORTED=sc;
+  /* "Which crop pays best?" is a per-hectare RANKING and prints no total, so it may list planned
+     crops without contradicting anything. The farm's money totals below (totalGM, profit, the
+     KPIs) keep using `crops` — in-the-ground only — so no headline figure ever counts a crop
+     that has not been planted. PF_CROPS_SORTED tracks the CARD so pfGo(ci) opens the right crop. */
+  var _pfHasPlanned=false;
+  try{ (ST_CROP&&ST_CROP.lands||[]).forEach(function(l){ if(l.crop && l.stage==='planned') _pfHasPlanned=true; }); }catch(e){}
+  var _pfShowPlanned=(PF_INCL_PLANNED && _pfHasPlanned && _ft!=='livestock');
+  var cropsCard=_pfShowPlanned?_pfCropEnts({includePlanned:true}):crops;
+  var _pfPlD=null;
+  if(_pfShowPlanned){
+    var _ci=0,_cg=0,_pa=0,_pn=0; cropsCard.forEach(function(c){ _ci+=c.income; _cg+=c.gm; _pa+=c.plannedArea||0; _pn+=c.plannedCount||0; });
+    var _bi=0,_bg=0; crops.forEach(function(c){ _bi+=c.income; _bg+=c.gm; });
+    _pfPlD={income:_ci-_bi, gm:_cg-_bg, area:_pa, n:_pn};
+  }
+  var sc=cropsCard.slice().sort(function(a,b){return b.gmHa-a.gmHa;}); PF_CROPS_SORTED=sc;
   var sl=live.slice().sort(function(a,b){return b.gmLsu-a.gmLsu;}); PF_LIVE_SORTED=sl;
   PF_ORCH_SORTED=so;
   var overheads=_pfOverheads();
   var totalGM=0; crops.forEach(function(c){totalGM+=c.gm;}); live.forEach(function(l){totalGM+=l.gm;}); orch.forEach(function(o){totalGM+=o.gm;});
   var profit=totalGM-overheads;
 
-  var html='<style>.pf-src{display:inline-block;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 6px;border-radius:5px;margin-left:4px;vertical-align:middle}.pf-src.real{background:#EAF3E4;color:#2E7D4F}.pf-src.part{background:#FFF8E6;color:#B45309}.pf-src.budget{background:#F3F4F6;color:#6B7280}.pf-srcleg{font-size:10px;color:var(--t4);margin-top:8px;line-height:1.5}</style><div class="pf-tabs">'+
+  var html='<style>.pf-src{display:inline-block;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 6px;border-radius:5px;margin-left:4px;vertical-align:middle}.pf-src.real{background:#EAF3E4;color:#2E7D4F}.pf-src.part{background:#FFF8E6;color:#B45309}.pf-src.budget{background:#F3F4F6;color:#6B7280}.pf-src.planned{background:transparent;color:#6B7280;border:1px dashed #C9CED6;padding:1px 5px}.pf-srcleg{font-size:10px;color:var(--t4);margin-top:8px;line-height:1.5}.pf-plhd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.pf-pldelta{font-size:11px;color:var(--t3);background:var(--gb);border:1px solid var(--gp);border-radius:8px;padding:7px 10px;margin:10px 0 0;line-height:1.45}</style><div class="pf-tabs">'+
     '<button id="pf-tabbtn-glance" class="'+(PF_TAB==='glance'?'on':'')+'" onclick="pfTab(\'glance\')">At a glance</button>'+
     '<button id="pf-tabbtn-details" class="'+(PF_TAB==='details'?'on':'')+'" onclick="pfTab(\'details\')">Details</button>'+
     '<button id="pf-tabbtn-whatif" class="'+(PF_TAB==='whatif'?'on':'')+'" onclick="pfTab(\'whatif\')">What-if</button>'+
@@ -11346,9 +11419,10 @@ function renderProfit(){
   }
   if(sc.length){
     var cmax=Math.max.apply(null,sc.map(function(c){return c.gmHa;}).concat(1));
-    html+='<div class="pf-card"><div class="pf-ct">Which crop pays best?</div><div class="pf-cw">Gross margin per hectare \u2014 income minus the costs that belong to that crop.</div><div class="pf-srcleg"><b style="color:#2E7D4F">Real costs</b> = built from actual spend you tagged to the crop · <b style="color:#6B7280">Budget cost</b> = from your planting budget until you tag real purchases.</div>';
+    html+='<div class="pf-card"><div class="pf-plhd"><div><div class="pf-ct">Which crop pays best?</div><div class="pf-cw">Gross margin per hectare — income minus the costs that belong to that crop.</div></div>'+((_pfHasPlanned&&_ft!=='livestock')?'<div class="ie-seg" id="pf-planned-seg"><button class="'+(PF_INCL_PLANNED?'':'on')+'" onclick="pfSetPlanned(false)">In the ground</button><button class="'+(PF_INCL_PLANNED?'on':'')+'" onclick="pfSetPlanned(true)">Incl. planned</button></div>':'')+'</div>'+((_pfShowPlanned&&_pfPlD)?'<div class="pf-pldelta"><b>'+_pfPlD.n+' planned crop'+(_pfPlD.n===1?'':'s')+'</b> · '+_pfPlD.area+' ha. Income <b>+'+fmt(Math.round(_pfPlD.income))+'</b>, margin <b>+'+fmt(Math.round(_pfPlD.gm))+'</b>. Not spent or earned yet.</div>':'')+'<div class="pf-srcleg"><b style="color:#2E7D4F">Real costs</b> = built from actual spend you tagged to the crop · <b style="color:#6B7280">Budget cost</b> = from your planting budget until you tag real purchases.'+(_pfShowPlanned?' A crop marked <b>Planned</b> is not in the ground yet — its whole figure is an estimate from your planting budget.':'')+'</div>';
     sc.forEach(function(c,ci){ var pct=Math.max(4,Math.round(c.gmHa/cmax*100)); var col=c.gmHa>=cmax*0.66?'#40916C':(c.gmHa>=cmax*0.4?'#E07B2A':'#C8962C');
-      html+='<div class="pf-bar tap" onclick="pfGo(\'crop\','+ci+')"><div class="pf-bh"><div class="n">'+c.icon+' '+esc(c.crop)+' <small style="color:var(--t4);font-weight:600;font-size:10.5px">\u00b7 '+c.area+' ha</small> '+_pfSrcBadge(c.sourcePct)+'</div><div class="v">'+fmt(c.gmHa)+'<small>/ha</small> \u00b7 '+_pfK(c.gm)+' <span class="pf-chev">\u203A</span></div></div><div class="pf-tk"><div class="pf-fl" style="width:'+pct+'%;background:'+col+'"></div></div></div>';
+      var _plB=_pfPlannedBadge(c), _plF=_pfPlannedFill(c,col);
+      html+='<div class="pf-bar tap" onclick="pfGo(\'crop\','+ci+')"><div class="pf-bh"><div class="n">'+c.icon+' '+esc(c.crop)+' <small style="color:var(--t4);font-weight:600;font-size:10.5px">\u00b7 '+c.area+' ha</small> '+_plB+_pfSrcBadge(c.sourcePct)+'</div><div class="v">'+fmt(c.gmHa)+'<small>/ha</small> \u00b7 '+_pfK(c.gm)+' <span class="pf-chev">\u203A</span></div></div><div class="pf-tk"><div class="pf-fl" style="width:'+pct+'%;background:'+_plF+'"></div></div></div>';
     });
     html+='<div class="pf-godrill">Tap a crop to see its details</div></div>';
   }
@@ -34517,7 +34591,18 @@ LANG_PAIRS.push(
   ["Weighting","Weging"],
   ["Documents","Dokumente"],
   ["Training","Opleiding"],
-  ["Attach","Heg aan"]
+  ["Attach","Heg aan"],
+  /* Planned-crop toggle (Profit tab). Whole phrases and whole sentences only — LANG_PAIRS is a
+     substring pass, so short generic words here would leak into unrelated copy. Longest-first
+     sorting means these fire before the word-level pairs get a chance to half-translate them. */
+  ["A crop marked Planned is not in the ground yet — its whole figure is an estimate from your planting budget.","’n Gewas gemerk Beplan is nog nie in die grond nie — die hele syfer is ’n skatting uit jou plantbegroting."],
+  ["Only one field is in the ground this season — the rest are still planned, so there is nothing to compare yet.","Net een land is hierdie seisoen in die grond — die res is nog beplan, dus is daar nog niks om te vergelyk nie."],
+  ["Not spent or earned yet.","Nog nie bestee of verdien nie."],
+  ["planned crops","beplande gewasse"],
+  ["planned crop","beplande gewas"],
+  ["Part planned","Deels beplan"],
+  ["Incl. planned","Met beplande"],
+  ["In the ground","In die grond"]
 );
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
 
