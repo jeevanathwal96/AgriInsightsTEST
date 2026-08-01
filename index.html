@@ -1452,7 +1452,18 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .plan-fin .pf-wi-note{font-size:11.5px;color:var(--t3);text-align:right;line-height:1.4}
 
 /* Settings page */
-.set-wrap{max-width:1180px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}.set-wrap>.set-id,.set-wrap>.set-span,.set-wrap>.set-save-row{grid-column:1/-1}.set-ihint{position:relative;display:inline-flex;vertical-align:middle}.set-i{width:16px;height:16px;border-radius:50%;border:1.5px solid #BFD3C7;background:#fff;color:var(--gm);font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-style:italic}.set-i:hover{background:#E8F1EC}.set-ihint.open .set-i{background:var(--gm);color:#fff;border-color:var(--gm)}.set-pop{display:none;position:absolute;top:24px;left:-8px;width:290px;max-width:78vw;background:#fff;border:1px solid var(--br);border-radius:12px;box-shadow:0 12px 30px rgba(17,24,39,.14);padding:13px 15px;font-size:12px;line-height:1.55;color:var(--t3);font-weight:500;font-style:normal;text-align:left;white-space:normal;z-index:60}.set-ihint.open .set-pop{display:block}.set-pop:before{content:"";position:absolute;top:-6px;left:12px;width:11px;height:11px;background:#fff;border-left:1px solid var(--br);border-top:1px solid var(--br);transform:rotate(45deg)}.set-pop b{color:var(--t1);font-weight:800}.set-catrow{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px dashed var(--br2)}.set-catrow:first-of-type{margin-top:8px;border-top:0}.set-catrow b{color:var(--gd)}@media(max-width:900px){.set-wrap{grid-template-columns:1fr}}
+.set-wrap{max-width:1180px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:start}.set-wrap>.set-id,.set-wrap>.set-span,.set-wrap>.set-save-row{grid-column:1/-1}
+/* Settings is grouped into labelled sections, each an independent 2-up row. Auto-flowing every
+   card through one big grid left an odd card stranded and opened a 581x342 hole; a row per pair
+   cannot do that. align-items:stretch matches the two cards in a row so their bottoms line up. */
+.set-stack{max-width:1180px}
+.set-sec{font-size:11px;font-weight:800;color:var(--gm);text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--gp);padding-bottom:6px;margin:26px 0 12px}
+.set-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:stretch;margin-bottom:18px}
+.set-row>.set-id,.set-row>.set-span,.set-row>.set-save-row{grid-column:1/-1}
+.set-consent-chip{display:inline-block;font-size:8.5px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;padding:2px 6px;border-radius:5px;margin-left:6px;vertical-align:middle}
+.set-consent-chip.no{background:#FFF8E6;color:#B45309}
+.set-consent-chip.yes{background:#EAF3E4;color:#2E7D4F}
+@media(max-width:900px){.set-row{grid-template-columns:1fr}}.set-ihint{position:relative;display:inline-flex;vertical-align:middle}.set-i{width:16px;height:16px;border-radius:50%;border:1.5px solid #BFD3C7;background:#fff;color:var(--gm);font-size:10px;font-weight:800;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;font-style:italic}.set-i:hover{background:#E8F1EC}.set-ihint.open .set-i{background:var(--gm);color:#fff;border-color:var(--gm)}.set-pop{display:none;position:absolute;top:24px;left:-8px;width:290px;max-width:78vw;background:#fff;border:1px solid var(--br);border-radius:12px;box-shadow:0 12px 30px rgba(17,24,39,.14);padding:13px 15px;font-size:12px;line-height:1.55;color:var(--t3);font-weight:500;font-style:normal;text-align:left;white-space:normal;z-index:60}.set-ihint.open .set-pop{display:block}.set-pop:before{content:"";position:absolute;top:-6px;left:12px;width:11px;height:11px;background:#fff;border-left:1px solid var(--br);border-top:1px solid var(--br);transform:rotate(45deg)}.set-pop b{color:var(--t1);font-weight:800}.set-catrow{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px dashed var(--br2)}.set-catrow:first-of-type{margin-top:8px;border-top:0}.set-catrow b{color:var(--gd)}@media(max-width:900px){.set-wrap{grid-template-columns:1fr}}
 .set-id{background:var(--gd);border-radius:var(--rl);padding:16px 18px;color:#F7F6F1;display:flex;align-items:center;gap:14px}
 .set-id .ico{width:46px;height:46px;border-radius:12px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
 .set-id .nm{font-size:17px;font-weight:800;font-family:Georgia,serif}
@@ -7680,170 +7691,185 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div><div class="page-title">Settings</div><div class="page-sub">Your farm, tax setup and app preferences</div></div>
   </div>
 
-  <div class="set-wrap">
+  <div class="set-stack">
 
-    <!-- Farm identity banner -->
-    <div class="set-id">
-      <div class="ico">🌾</div>
-      <div style="flex:1;min-width:0">
-        <div class="nm" id="set-id-name"></div>
-        <div class="sb" id="set-id-sub"></div>
-      </div>
-    </div>
-
-    <!-- Privacy & terms (POPIA) -->
-    <div class="card" style="margin-bottom:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-        <div>
-          <div style="font-size:14px;font-weight:800" data-t="set.legal">Privacy &amp; terms</div>
-          <div style="font-size:12px;color:var(--t3)" data-t="set.legal.sub">How your information is stored and used</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn-sec" onclick="aiPolicyOpen('privacy')">Privacy Policy</button>
-          <button class="btn-sec" onclick="aiPolicyOpen('terms')">Terms of Use</button>
-        </div>
-      </div>
-      <div id="set-consent-line" style="font-size:11.5px;color:var(--t4);margin-top:9px"></div>
-    </div>
-
-    <!-- Farm details -->
-    <div class="set-card">
-      <div class="set-h"><span class="ic">🏡</span>Farm details</div>
-      <div class="fg2" style="margin-bottom:12px">
-        <div><label>Farm name</label><input id="set-farm" value="" oninput="syncSettingsHeader()"/></div>
-        <div><label>Owner / farmer name</label><input id="set-owner" value="" oninput="syncSettingsHeader()"/></div>
-      </div>
-      <div class="fg2">
-        <div><label>Farm size (hectares)</label><input id="set-ha" type="number" value="" oninput="syncSettingsHeader()"/></div>
-        <div><label>Province</label>
-          <select id="set-province" onchange="syncSettingsHeader()">
-            <option selected>Eastern Cape</option><option>Western Cape</option><option>Northern Cape</option>
-            <option>Free State</option><option>North West</option><option>Limpopo</option>
-            <option>Mpumalanga</option><option>Gauteng</option><option>KwaZulu-Natal</option>
-          </select>
+    <div class="set-row">
+      <!-- Farm identity banner -->
+      <div class="set-id">
+        <div class="ico">🌾</div>
+        <div style="flex:1;min-width:0">
+          <div class="nm" id="set-id-name"></div>
+          <div class="sb" id="set-id-sub"></div>
         </div>
       </div>
     </div>
 
-    <!-- Tax & VAT -->
-    <div class="set-card">
-      <div class="set-h"><span class="ic">📋</span>Tax &amp; VAT</div>
-      <div class="fg2" style="margin-bottom:12px">
-        <div><label>Financial year start</label>
-          <select id="set-fystart">
-            <option value="3">March (SA standard)</option>
-            <option value="1">January</option>
-            <option value="4">April</option>
-            <option value="7">July</option>
-          </select>
+    <div class="set-sec">Your farm</div>
+    <div class="set-row">
+      <!-- Farm details -->
+      <div class="set-card">
+        <div class="set-h"><span class="ic">🏡</span>Farm details</div>
+        <div class="fg2" style="margin-bottom:12px">
+          <div><label>Farm name</label><input id="set-farm" value="" oninput="syncSettingsHeader()"/></div>
+          <div><label>Owner / farmer name</label><input id="set-owner" value="" oninput="syncSettingsHeader()"/></div>
         </div>
-        <div><label>VAT registered</label>
-          <select id="set-vat" onchange="_setVatCatVis()">
-            <option value="yes">Yes – 15% VAT</option>
-            <option value="no">No – not VAT registered</option>
-          </select>
-        </div>
-      </div>
-      <div><label>Business type (for tax) <span class="set-ihint"><button type="button" class="set-i" onclick="setPop(this,event)" aria-label="Why we ask">i</button><span class="set-pop"><b>Why we ask:</b> it sets how your provisional-tax estimate is worked out. A sole proprietor is taxed in your own name at personal rates; a company pays the flat company rate. Not sure? Leave it as is and confirm with your accountant.</span></span></label>
-          <select id="set-entity">
-            <option value="sole">Sole proprietor (taxed in your own name)</option>
-            <option value="company">Company / (Pty) Ltd</option>
-            <option value="sbc">Small Business Corporation (SARS-approved)</option>
-            <option value="trust">Trust</option>
-          </select>
-      </div>
-      <div class="fg2">
-        <div><label>Income tax number (SARS) <span class="set-ihint"><button type="button" class="set-i" onclick="setPop(this,event)" aria-label="What is this">i</button><span class="set-pop"><b>Your 10-digit SARS reference.</b> It's on any letter from SARS or on eFiling under 'My Profile'. We use it only to label the tax reports you export.</span></span></label><input id="set-taxno" placeholder="e.g. 1234567890"/></div>
-        <div><label>VAT registration number</label><input id="set-vatno" placeholder="e.g. 4123456789"/></div>
-      </div>
-      <div id="set-vatcat-wrap" style="display:none;margin-top:12px">
-        <label>How often you file VAT <span style="font-weight:600;color:var(--t4)">— your VAT category</span> <span class="set-ihint"><button type="button" class="set-i" onclick="setPop(this,event)" aria-label="About VAT categories">i</button><span class="set-pop"><b>How often SARS wants your VAT201 return.</b> It's on your VAT registration letter or on SARS eFiling. Most farmers file every 2 months — SARS decides whether you're A or B, so check which months your last return covered.<span class="set-catrow"><b>A / B</b><span>Every 2 months</span></span><span class="set-catrow"><b>D</b><span>Every 6 months (farming)</span></span><span class="set-catrow"><b>C</b><span>Every month</span></span><span class="set-catrow"><b>E</b><span>Once a year</span></span></span></span></label>
-        <select id="set-vatcat">
-          <option value="A">Every 2 months — Category A (ends Jan, Mar, May, Jul, Sep, Nov)</option>
-          <option value="B">Every 2 months — Category B (ends Feb, Apr, Jun, Aug, Oct, Dec)</option>
-          <option value="D">Every 6 months — Category D (the farming cycle)</option>
-          <option value="C">Every month — Category C</option>
-          <option value="E">Once a year — Category E</option>
-        </select>
-    </div>
-    </div>
-
-    <!-- App preferences -->
-    <div class="set-card set-span">
-      <div class="set-h"><span class="ic">⚙️</span>App preferences</div>
-      <div class="fg2" style="margin-bottom:6px">
-        <div><label>Language</label>
-          <select id="set-lang" onchange="applyLang(this.value)">
-            <option value="en">English</option>
-            <option value="af">Afrikaans</option>
-          </select>
-        </div>
-        <div style="grid-column:1 / -1"><label>What you farm</label>
-          <div class="set-toggles" id="set-ent-toggles" style="margin-top:6px">
-            <div class="set-trow"><div><div class="tl">🌾 Crops</div><div class="ts">Maize, wheat, soya, sunflower, pastures</div></div>
-              <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-ent-crops" onchange="onSetEnterprise('crops',this.checked)"/><div class="toggle-track"></div></label></div>
-            <div class="set-trow"><div><div class="tl">🍊 Orchards, Fruit &amp; Veg</div><div class="ts">Citrus, apples, berries, vegetables</div></div>
-              <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-ent-orchards" onchange="onSetEnterprise('orchards',this.checked)"/><div class="toggle-track"></div></label></div>
-            <div class="set-trow"><div><div class="tl">🐄 Livestock</div><div class="ts">Cattle, sheep, goats, dairy</div></div>
-              <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-ent-livestock" onchange="onSetEnterprise('livestock',this.checked)"/><div class="toggle-track"></div></label></div>
+        <div class="fg2">
+          <div><label>Farm size (hectares)</label><input id="set-ha" type="number" value="" oninput="syncSettingsHeader()"/></div>
+          <div><label>Province</label>
+            <select id="set-province" onchange="syncSettingsHeader()">
+              <option selected>Eastern Cape</option><option>Western Cape</option><option>Northern Cape</option>
+              <option>Free State</option><option>North West</option><option>Limpopo</option>
+              <option>Mpumalanga</option><option>Gauteng</option><option>KwaZulu-Natal</option>
+            </select>
           </div>
         </div>
       </div>
-      <div style="font-size:11.5px;color:var(--t3);margin:0 0 6px;line-height:1.45" id="set-farm-enterprise-hint">We keep your data — switch an enterprise back on and everything returns. Keep at least one on.</div>
+      <!-- Tax & VAT -->
+      <div class="set-card">
+        <div class="set-h"><span class="ic">📋</span>Tax &amp; VAT</div>
+        <div class="fg2" style="margin-bottom:12px">
+          <div><label>Financial year start</label>
+            <select id="set-fystart">
+              <option value="3">March (SA standard)</option>
+              <option value="1">January</option>
+              <option value="4">April</option>
+              <option value="7">July</option>
+            </select>
+          </div>
+          <div><label>VAT registered</label>
+            <select id="set-vat" onchange="_setVatCatVis()">
+              <option value="yes">Yes – 15% VAT</option>
+              <option value="no">No – not VAT registered</option>
+            </select>
+          </div>
+        </div>
+        <div><label>Business type (for tax) <span class="set-ihint"><button type="button" class="set-i" onclick="setPop(this,event)" aria-label="Why we ask">i</button><span class="set-pop"><b>Why we ask:</b> it sets how your provisional-tax estimate is worked out. A sole proprietor is taxed in your own name at personal rates; a company pays the flat company rate. Not sure? Leave it as is and confirm with your accountant.</span></span></label>
+            <select id="set-entity">
+              <option value="sole">Sole proprietor (taxed in your own name)</option>
+              <option value="company">Company / (Pty) Ltd</option>
+              <option value="sbc">Small Business Corporation (SARS-approved)</option>
+              <option value="trust">Trust</option>
+            </select>
+        </div>
+        <div class="fg2">
+          <div><label>Income tax number (SARS) <span class="set-ihint"><button type="button" class="set-i" onclick="setPop(this,event)" aria-label="What is this">i</button><span class="set-pop"><b>Your 10-digit SARS reference.</b> It's on any letter from SARS or on eFiling under 'My Profile'. We use it only to label the tax reports you export.</span></span></label><input id="set-taxno" placeholder="e.g. 1234567890"/></div>
+          <div><label>VAT registration number</label><input id="set-vatno" placeholder="e.g. 4123456789"/></div>
+        </div>
+        <div id="set-vatcat-wrap" style="display:none;margin-top:12px">
+          <label>How often you file VAT <span style="font-weight:600;color:var(--t4)">— your VAT category</span> <span class="set-ihint"><button type="button" class="set-i" onclick="setPop(this,event)" aria-label="About VAT categories">i</button><span class="set-pop"><b>How often SARS wants your VAT201 return.</b> It's on your VAT registration letter or on SARS eFiling. Most farmers file every 2 months — SARS decides whether you're A or B, so check which months your last return covered.<span class="set-catrow"><b>A / B</b><span>Every 2 months</span></span><span class="set-catrow"><b>D</b><span>Every 6 months (farming)</span></span><span class="set-catrow"><b>C</b><span>Every month</span></span><span class="set-catrow"><b>E</b><span>Once a year</span></span></span></span></label>
+          <select id="set-vatcat">
+            <option value="A">Every 2 months — Category A (ends Jan, Mar, May, Jul, Sep, Nov)</option>
+            <option value="B">Every 2 months — Category B (ends Feb, Apr, Jun, Aug, Oct, Dec)</option>
+            <option value="D">Every 6 months — Category D (the farming cycle)</option>
+            <option value="C">Every month — Category C</option>
+            <option value="E">Once a year — Category E</option>
+          </select>
+      </div>
+      </div>
+    </div>
 
-      <div class="set-toggles">
-        <div class="set-trow">
-          <div><div class="tl">Simple View</div><div class="ts">Hide advanced tabs — keeps Dashboard, Income, Expenses, Money Flow and Reports.</div></div>
-          <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-simple-view" onchange="setSimpleView(this.checked)"/><div class="toggle-track"></div></label>
+    <div class="set-sec">How the app works</div>
+    <div class="set-row">
+      <!-- App preferences -->
+      <div class="set-card set-span">
+        <div class="set-h"><span class="ic">⚙️</span>App preferences</div>
+        <div class="fg2" style="margin-bottom:6px">
+          <div><label>Language</label>
+            <select id="set-lang" onchange="applyLang(this.value)">
+              <option value="en">English</option>
+              <option value="af">Afrikaans</option>
+            </select>
+          </div>
+          <div style="grid-column:1 / -1"><label>What you farm</label>
+            <div class="set-toggles" id="set-ent-toggles" style="margin-top:6px">
+              <div class="set-trow"><div><div class="tl">🌾 Crops</div><div class="ts">Maize, wheat, soya, sunflower, pastures</div></div>
+                <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-ent-crops" onchange="onSetEnterprise('crops',this.checked)"/><div class="toggle-track"></div></label></div>
+              <div class="set-trow"><div><div class="tl">🍊 Orchards, Fruit &amp; Veg</div><div class="ts">Citrus, apples, berries, vegetables</div></div>
+                <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-ent-orchards" onchange="onSetEnterprise('orchards',this.checked)"/><div class="toggle-track"></div></label></div>
+              <div class="set-trow"><div><div class="tl">🐄 Livestock</div><div class="ts">Cattle, sheep, goats, dairy</div></div>
+                <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-ent-livestock" onchange="onSetEnterprise('livestock',this.checked)"/><div class="toggle-track"></div></label></div>
+            </div>
+          </div>
         </div>
-        <!-- "Page tour button" toggle retired with the pill — guides now live on the 🗺️ button (bottom-right). -->
-        <div class="set-trow">
-          <div><div class="tl">"How to add" demo buttons</div><div class="ts">Guided demo buttons on the Income and Expenses pages.</div></div>
-          <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-demo-btn" checked onchange="ST.showDemoBtn=this.checked;updateDemoBtnVisibility()"/><div class="toggle-track"></div></label>
-        </div>
-        <div class="set-trow">
-          <div><div class="tl">Share diagnostics</div><div class="ts">Keep the last few errors on this device so you can send them to support if something breaks. <span id="set-diag-count">0</span> saved · <span onclick="diagCopy()" style="color:var(--gm);font-weight:700;cursor:pointer">Copy</span> · <span onclick="diagClear()" style="color:var(--t3);cursor:pointer">Clear</span></div></div>
-          <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-diag" onchange="setDiagnostics(this.checked)"/><div class="toggle-track"></div></label>
+        <div style="font-size:11.5px;color:var(--t3);margin:0 0 6px;line-height:1.45" id="set-farm-enterprise-hint">We keep your data — switch an enterprise back on and everything returns. Keep at least one on.</div>
+
+        <div class="set-toggles">
+          <div class="set-trow">
+            <div><div class="tl">Simple View</div><div class="ts">Hide advanced tabs — keeps Dashboard, Income, Expenses, Money Flow and Reports.</div></div>
+            <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-simple-view" onchange="setSimpleView(this.checked)"/><div class="toggle-track"></div></label>
+          </div>
+          <!-- "Page tour button" toggle retired with the pill — guides now live on the 🗺️ button (bottom-right). -->
+          <div class="set-trow">
+            <div><div class="tl">"How to add" demo buttons</div><div class="ts">Guided demo buttons on the Income and Expenses pages.</div></div>
+            <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-demo-btn" checked onchange="ST.showDemoBtn=this.checked;updateDemoBtnVisibility()"/><div class="toggle-track"></div></label>
+          </div>
+          <div class="set-trow">
+            <div><div class="tl">Share diagnostics</div><div class="ts">Keep the last few errors on this device so you can send them to support if something breaks. <span id="set-diag-count">0</span> saved · <span onclick="diagCopy()" style="color:var(--gm);font-weight:700;cursor:pointer">Copy</span> · <span onclick="diagClear()" style="color:var(--t3);cursor:pointer">Clear</span></div></div>
+            <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-diag" onchange="setDiagnostics(this.checked)"/><div class="toggle-track"></div></label>
+          </div>
         </div>
       </div>
     </div>
 
-
-    <!-- Your data (POPIA s23) — a safe action, so it sits ABOVE the danger rows -->
-    <div class="card set-span" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-      <div>
-        <div style="font-size:13px;font-weight:800">Download all my data</div>
-        <div style="font-size:11px;color:var(--t3);margin-top:2px;line-height:1.5">A complete copy of everything AgriInsights holds for your farm. Yours to keep.</div>
+    <div class="set-sec">Your data &amp; privacy</div>
+    <div class="set-row">
+      <!-- Privacy & terms (POPIA) -->
+      <div class="set-card">
+        <!-- data-t sits on its OWN span: applyLangNodes skips any element that has a child
+             element, so putting it on .set-h (which holds the icon and the chip) would silently
+             stop translating. Both keys already exist in I18N. -->
+        <div class="set-h"><span class="ic">🔒</span><span data-t="set.legal">Privacy &amp; terms</span><span id="set-consent-chip"></span></div>
+        <div style="font-size:12px;color:var(--t3);margin:-8px 0 13px" data-t="set.legal.sub">How your information is stored and used</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sec" onclick="aiPolicyOpen('privacy')">Privacy Policy</button>
+          <button class="btn-sec" onclick="aiPolicyOpen('terms')">Terms of Use</button>
+        </div>
+        <div id="set-consent-line" style="font-size:11.5px;color:var(--t4);margin-top:10px"></div>
       </div>
-      <button class="btn-sec" onclick="aiExportOpen()">Prepare my file</button>
-    </div>
-    <!-- Start fresh (clear demo/explore data) -->
-    <div class="set-danger" style="border-color:#E4C97A;background:#FBF3DD">
-      <div><div class="dt" style="color:#8A6A14">Clear data &amp; start fresh</div><div class="ds" style="color:#9A7A2A">Removes the demo data so you can start entering your own farm's records.</div></div>
-      <button onclick="startFresh()" style="background:#fff;border:1.5px solid #BA7517;color:#8A6A14;border-radius:var(--rs);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Start fresh</button>
-    </div>
-
-    <!-- Danger zone -->
-    <div class="set-danger">
-      <div><div class="dt">Reset to the demo farm</div><div class="ds">Wipes every change made on this device and reloads the fresh demo farm.</div></div>
-      <button onclick="appConfirm('Reset to the demo farm? All changes on this device will be erased.').then(function(o){if(o)clearData();})" style="background:#fff;border:1.5px solid var(--rd);color:var(--rd);border-radius:var(--rs);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Reset</button>
-    </div>
-
-    <!-- Account deletion (POPIA s24). Heavier than the two rows above deliberately:
-         those clear THIS DEVICE, this one reaches the server and every device. -->
-    <div class="set-perm set-span">
-      <div>
-        <div class="dt">Delete my farm and account</div>
-        <div class="ds">Erases your farm from AgriInsights and from our servers, on every device you use. We will confirm with you first, and this cannot be undone.</div>
+      <!-- Your data (POPIA s23) -->
+      <div class="set-card">
+        <div class="set-h"><span class="ic">📦</span>Your data</div>
+        <div style="font-size:12px;color:var(--t3);margin:-8px 0 13px">A complete copy of everything AgriInsights holds for your farm. Yours to keep.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-sec" onclick="aiExportOpen()">Download all my data</button>
+        </div>
       </div>
-      <button class="btn" onclick="aiDeleteOpen()">Delete account</button>
     </div>
 
-    <!-- Save -->
-    <div class="set-save-row">
-      <span id="settings-saved-msg" style="display:none;color:var(--gl);font-size:13px;font-weight:600">✓ Saved!</span>
-      <button class="btn-pri" onclick="saveSettings()" id="settings-save-btn">Save settings</button>
+    <div class="set-sec">Danger zone</div>
+    <div class="set-row">
+      <!-- Start fresh (clear demo/explore data) -->
+      <div class="set-danger" style="border-color:#E4C97A;background:#FBF3DD">
+        <div><div class="dt" style="color:#8A6A14">Clear data &amp; start fresh</div><div class="ds" style="color:#9A7A2A">Removes the demo data so you can start entering your own farm's records.</div></div>
+        <button onclick="startFresh()" style="background:#fff;border:1.5px solid #BA7517;color:#8A6A14;border-radius:var(--rs);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Start fresh</button>
+      </div>
+      <!-- Danger zone -->
+      <div class="set-danger">
+        <div><div class="dt">Reset to the demo farm</div><div class="ds">Wipes every change made on this device and reloads the fresh demo farm.</div></div>
+        <button onclick="appConfirm('Reset to the demo farm? All changes on this device will be erased.').then(function(o){if(o)clearData();})" style="background:#fff;border:1.5px solid var(--rd);color:var(--rd);border-radius:var(--rs);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Reset</button>
+      </div>
     </div>
+
+    <div class="set-row">
+      <!-- Account deletion (POPIA s24). Heavier than the two rows above deliberately:
+           those clear THIS DEVICE, this one reaches the server and every device. -->
+      <div class="set-perm set-span">
+        <div>
+          <div class="dt">Delete my farm and account</div>
+          <div class="ds">Erases your farm from AgriInsights and from our servers, on every device you use. We will confirm with you first, and this cannot be undone.</div>
+        </div>
+        <button class="btn" onclick="aiDeleteOpen()">Delete account</button>
+      </div>
+    </div>
+
+    <div class="set-row">
+      <!-- Save -->
+      <div class="set-save-row">
+        <span id="settings-saved-msg" style="display:none;color:var(--gl);font-size:13px;font-weight:600">✓ Saved!</span>
+        <button class="btn-pri" onclick="saveSettings()" id="settings-save-btn">Save settings</button>
+      </div>
+    </div>
+
 
   </div>
 </div>
@@ -14453,11 +14479,21 @@ function updateTopbarGreeting() {
 function syncSettingsHeader(){
   // Show what was accepted, so there's a visible record of consent.
   try{
+    var c=(window.ST&&ST.consent)||null;
     var cl=$('set-consent-line');
-    if(cl){ var c=(window.ST&&ST.consent)||null;
+    if(cl){
       cl.textContent = c&&c.acceptedAt
-        ? ('Accepted version '+c.policyVersion+' on '+new Date(c.acceptedAt).toLocaleDateString('en-ZA'))
+        /* Lower-case "accepted" here on purpose: the chip's capitalised "Accepted" is a
+           LANG_PAIRS key, and replacement is case-sensitive, so this line cannot collide. */
+        ? ('Version '+c.policyVersion+' accepted on '+new Date(c.acceptedAt).toLocaleDateString('en-ZA'))
         : 'Not yet accepted on this farm.'; }
+    /* The chip lives in its OWN element on purpose: the line above is written with textContent,
+       which would strip any markup put inside it. An unaccepted farm is a live compliance gap,
+       so it gets a chip on the card title rather than muted grey text further down. */
+    var ch=$('set-consent-chip');
+    if(ch) ch.innerHTML = (c&&c.acceptedAt)
+      ? '<span class="set-consent-chip yes">Accepted</span>'
+      : '<span class="set-consent-chip no">Not accepted</span>';
   }catch(e){}
   var nm=$('set-id-name'), sb=$('set-id-sub'); if(!nm||!sb) return;
   var v=function(id){ var e=$(id); return e&&e.value!=null?String(e.value).trim():''; };
@@ -34695,6 +34731,18 @@ LANG_PAIRS.push(
   ["Prepare my file","Berei my lêer voor"],
   ["Delete account","Skrap rekening"],
   ["What you get.","Wat jy kry."],
+  /* Settings section headings + consent chip. "Accepted" is capitalised deliberately —
+     the consent line below it says "accepted" lower-case so the two cannot collide. */
+  ["Not yet accepted on this farm.","Nog nie op hierdie plaas aanvaar nie."],
+  ["Your data & privacy","Jou data & privaatheid"],
+  ["How the app works","Hoe die app werk"],
+  ["Not accepted","Nie aanvaar nie"],
+  ["Danger zone","Gevaarsone"],
+  ["Your data","Jou data"],
+  ["Your farm","Jou plaas"],
+  ["Accepted","Aanvaar"],
+  ["One .json file holding the complete record. You have no attached documents yet.","Een .json-lêer wat die volledige rekord hou. Jy het nog geen aangehegte dokumente nie."],
+  ["One .json file holding the complete record, and your attached documents.","Een .json-lêer wat die volledige rekord hou, en jou aangehegte dokumente."],
   ["Lands & crop records","Lande & gewasrekords"],
   ["Workers & payroll","Werkers & betaalstaat"],
   ["Attached documents","Aangehegte dokumente"],
@@ -39628,8 +39676,11 @@ function aiExportOpen(){
     '<div class="aidl-bd">'+
       '<div class="aidl-inv">'+inv+'</div>'+
       '<label class="aidl-opt"><input type="checkbox" id="aidl-csv" checked> Also give me spreadsheets my accountant can open (CSV)</label>'+
-      '<div class="aidl-note ok"><b>What you get.</b> One <b>.json</b> file holding the complete record, and'+
-        (files.length?' your '+files.length+' attached document'+(files.length===1?'':'s')+'.':' — you have no attached documents yet.')+
+      /* Kept as two whole sentences with no inline <b> inside them: markup would split the
+         text node and LANG_PAIRS would only ever see the fragments. */
+      '<div class="aidl-note ok"><b>What you get.</b> '+
+        (files.length?'One .json file holding the complete record, and your attached documents.'
+                     :'One .json file holding the complete record. You have no attached documents yet.')+
         ' Your browser may ask permission to save more than one file.</div>'+
       '<div id="aidl-prog" class="aidl-prog"></div>'+
     '</div>'+
@@ -39684,7 +39735,10 @@ function aiExportRun(){
         try{
           var keys={};
           d.rows.forEach(function(r){ if(r&&typeof r==='object') for(var k in r){ if(Object.prototype.hasOwnProperty.call(r,k)) keys[k]=1; } });
-          var hdr=Object.keys(keys);
+          /* The .json carries every field — that is the s23 record. The CSV is the copy a farmer
+             or their accountant actually opens, so internal plumbing (_added, _catOk, _dedOk…)
+             is left out of it. Nothing is withheld: it is all still in the json. */
+          var hdr=Object.keys(keys).filter(function(k){ return k.charAt(0)!=='_'; });
           if(!hdr.length) return;
           var rows=d.rows.map(function(r){ return hdr.map(function(k){
             var v=r?r[k]:'';
