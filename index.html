@@ -11384,6 +11384,10 @@ function renderProfit(){
     _pfPlD={income:_ci-_bi, gm:_cg-_bg, area:_pa, n:_pn};
   }
   var sc=cropsCard.slice().sort(function(a,b){return b.gmHa-a.gmHa;}); PF_CROPS_SORTED=sc;
+  /* The KPI headlines are claims about what the farm HAS earned, so they must never be driven by
+     an estimate — a planned crop has earned nothing, and calling it the "Best earner" would be a
+     falsehood, not a view. `scReal` is always the in-the-ground list, whatever the card shows. */
+  var scReal=crops.slice().sort(function(a,b){return b.gmHa-a.gmHa;});
   var sl=live.slice().sort(function(a,b){return b.gmLsu-a.gmLsu;}); PF_LIVE_SORTED=sl;
   PF_ORCH_SORTED=so;
   var overheads=_pfOverheads();
@@ -11399,16 +11403,16 @@ function renderProfit(){
   // ===== GLANCE =====
   html+='<div id="pf-tab-glance" class="pf-panel'+(PF_TAB==='glance'?' on':'')+'">';
   var best, bestTxt='';
-  if(sc.length){ best=sc[0]; bestTxt=fmt(best.gmHa)+'/ha gross margin'; }
+  if(scReal.length){ best=scReal[0]; bestTxt=fmt(best.gmHa)+'/ha gross margin'; }
   else if(sl.length){ best=sl[0]; bestTxt=fmt(best.gmLsu)+'/LSU gross margin'; }
   else if(so.length){ best=so[0]; bestTxt=fmt(best.gmHa)+'/ha gross margin'; }
   var watch, watchSub='';
-  if(sc.length){ var th=null; sc.forEach(function(c){ if(c.price>0){ var cu=c.price-c.cop; if(th===null||cu<th.cu) th={c:c,cu:cu}; } }); if(th){ watch=th.c.crop; watchSub=fmt(th.cu)+'/ton above cost'; } }
+  if(scReal.length){ var th=null; scReal.forEach(function(c){ if(c.price>0){ var cu=c.price-c.cop; if(th===null||cu<th.cu) th={c:c,cu:cu}; } }); if(th){ watch=th.c.crop; watchSub=fmt(th.cu)+'/ton above cost'; } }
   if(!watch && sl.length){ var lw=sl.slice().sort(function(a,b){return a.marginHead-b.marginHead;})[0]; watch=lw.name; watchSub=IE_R(lw.marginHead)+'/head margin'; }
   html+='<div class="pf-kpis">'+
     '<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfFarmProfit\')"><span class="kpi-i">\u24D8</span><div class="l">Farm profit this season</div><div class="v">'+_pfK(profit)+'</div><div class="s">after '+_pfK(overheads)+' shared costs</div></div>'+
     '<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfBestEarner\')"><span class="kpi-i">\u24D8</span><div class="l">Best earner</div><div class="v">'+esc(best.crop||best.name)+'</div><div class="s">'+bestTxt+'</div></div>'+
-    (watch?'<div class="pf-kpi warn kpi-tap" onclick="kpiOpen(\'pfThird\')"><span class="kpi-i">\u24D8</span><div class="l">Watch</div><div class="v">'+esc(watch)+'</div><div class="s">'+watchSub+'</div></div>':'<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfThird\')"><span class="kpi-i">\u24D8</span><div class="l">Crops &amp; herds</div><div class="v">'+(sc.length+sl.length)+'</div><div class="s">tracked this season</div></div>')+
+    (watch?'<div class="pf-kpi warn kpi-tap" onclick="kpiOpen(\'pfThird\')"><span class="kpi-i">\u24D8</span><div class="l">Watch</div><div class="v">'+esc(watch)+'</div><div class="s">'+watchSub+'</div></div>':'<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfThird\')"><span class="kpi-i">\u24D8</span><div class="l">Crops &amp; herds</div><div class="v">'+(scReal.length+sl.length)+'</div><div class="s">tracked this season</div></div>')+
   '</div>';
   // U9: untagged income never reaches an enterprise margin — surface it
   var _pfValid={}; try { (typeof entList==='function'?entList():[]).forEach(function(e){ if(e&&e.code) _pfValid[e.code]=1; }); } catch(e){}
@@ -11447,8 +11451,8 @@ function renderProfit(){
     '<div class="pf-flow"><div class="seg pf-gm"><div class="l">All gross margins</div><div class="v">'+_pfK(totalGM)+'</div></div><div class="op">\u2212</div><div class="seg pf-co"><div class="l">Shared costs</div><div class="v">'+_pfK(overheads)+'</div></div><div class="op">=</div><div class="seg pf-pr"><div class="l">Farm profit</div><div class="v">'+_pfK(profit)+'</div></div></div>'+
     '<div class="pf-sw" style="margin-top:12px"><b>So what:</b> Your crops, orchards and herds made <b>'+_pfK(totalGM)+'</b> gross margin, but shared overheads take <b>'+pct+'c of every margin rand</b>, leaving <b>'+_pfK(profit)+'</b> profit.</div><div class="pf-cw" style="margin-top:10px;font-size:11px;line-height:1.5">Loan payments count as <b>interest only</b> here \u2014 paying off a loan isn\u2019t a running cost, so it doesn\u2019t reduce your profit. You\u2019ll still see the full payment go out in <b>Money Flow</b>.</div>'+((typeof _pfTaggedLabourTotal==='function'&&_pfTaggedLabourTotal()>0)?'<div class="pf-cw" style="margin-top:10px;font-size:11px;line-height:1.5"><b>Tagged labour</b> ('+_pfK(_pfTaggedLabourTotal())+'/yr) is counted inside the crops and herds it\u2019s tagged to \u2014 already in their margins above and taken out of shared costs.</div>':'')+'</div>';
   var ins=[];
-  if(sc.length>=2){ ins.push('<b>'+esc(sc[0].crop)+'</b> earns the most per hectare ('+fmt(sc[0].gmHa)+'/ha); <b>'+esc(sc[sc.length-1].crop)+'</b> the least ('+fmt(sc[sc.length-1].gmHa)+'/ha) \u2014 worth weighing when you plan next season\u2019s rotation.'); }
-  var thin=null; sc.forEach(function(c){ if(c.price>0){ var cu=c.price-c.cop; if(thin===null||cu<thin.cu) thin={c:c,cu:cu}; } });
+  if(scReal.length>=2){ ins.push('<b>'+esc(scReal[0].crop)+'</b> earns the most per hectare ('+fmt(scReal[0].gmHa)+'/ha); <b>'+esc(scReal[scReal.length-1].crop)+'</b> the least ('+fmt(scReal[scReal.length-1].gmHa)+'/ha) \u2014 worth weighing when you plan next season\u2019s rotation.'); }
+  var thin=null; scReal.forEach(function(c){ if(c.price>0){ var cu=c.price-c.cop; if(thin===null||cu<thin.cu) thin={c:c,cu:cu}; } });
   if(thin){ ins.push('<b>'+esc(thin.c.crop)+'</b> has the thinnest cushion: it costs <b>'+fmt(thin.c.cop)+'/ton</b> to produce against a <b>'+fmt(thin.c.price)+'/ton</b> price. Below '+fmt(thin.c.cop)+'/ton you\u2019d lose money.'); }
   if(sl.length>=2){ ins.push('Per grazing unit, <b>'+esc(sl[0].name)+'</b> returns the most ('+fmt(sl[0].gmLsu)+'/LSU). Small stock often beat cattle per LSU \u2014 worth weighing in your stocking mix.'); }
   if(ins.length){ html+='<div class="pf-card"><div class="pf-ct">What this tells you</div>'+ins.map(function(x){return '<div class="pf-sw">'+x+'</div>';}).join('')+'</div>'; }
