@@ -20835,7 +20835,9 @@ function _lsCampWho(groups, c){
   var chips=groups.map(function(h){
     var isOpen=(open===h.id);
     var w=_lsHerdWd(h.id);
-    var st=w.wd?'<span class="ls-gst hold">⛔ '+(w.safe?lsFmtDate(w.safe).replace(/ \d{4}$/,''):'held')+'</span>':'';
+    /* A bare "⛔ 16 Aug" left it unclear whether that date was the start or the end of the hold,
+     on a control that gates selling and slaughter. Short wording + a hover explanation. */
+  var st=w.wd?'<span class="ls-gst hold" title="Under a medicine withdrawal — not safe to sell until this date">⛔ '+(w.safe?'Hold to '+lsFmtDate(w.safe).replace(/ \d{4}$/,''):'On hold')+'</span>':'';
     var chip='<div class="ls-gchip'+(isOpen?' open':'')+'" onclick="event.stopPropagation();lsChipTog(\''+c.id+'\','+h.id+')">'+
       '<span class="ic">'+lsHerdIcon(h)+'</span><span class="nm">'+esc(lsHerdName(h))+'</span>'+
       '<span class="meta">'+(h.qty||0)+' head · '+_lsCompactRand(lsHerdValueDerived(h))+'</span>'+st+'<span class="chev">'+(isOpen?'▾':'▸')+'</span></div>';
@@ -20966,7 +20968,7 @@ function _lsCampCard(c){
   var meta=[ (c.ha?c.ha+' ha':''), typeSummary ].filter(Boolean).join(' · ');
   var campVal=groups.reduce(function(s,h){return s+lsHerdValueDerived(h);},0);
   var cw=_lsCampWd(groups);
-  var chip = groups.length===0 ? '' : cw.wd ? '<span class="ls-cchip warn">⛔ '+(cw.safe?lsFmtDate(cw.safe):'held')+'</span>' : '<span class="ls-cchip ok">✓ clear</span>';
+  var chip = groups.length===0 ? '' : cw.wd ? '<span class="ls-cchip warn" title="Under a medicine withdrawal — not safe to sell until this date">⛔ '+(cw.safe?'Hold to '+lsFmtDate(cw.safe):'On hold')+'</span>' : '<span class="ls-cchip ok">✓ clear</span>';
   var donut=_lsCampDonut(groups);
   var av=_lsCampAvatar(groups);
   var single=groups.length===1;
@@ -41206,11 +41208,10 @@ function txSetCatFilter(c) {
 }
 
 // ── Summary strip ──────────────────────────────────────────────
+/* A 24th formatter, found during live verification — it rendered 'R 0' with its own spacing
+   in the transactions summary strip. Now delegates like the rest (item 19). */
 function txFmtK(n) {
-  if (!n) return 'R 0';
-  if (n>=1000000) return 'R'+(n/1000000).toFixed(1)+'M';
-  if (n>=1000)    return 'R'+(n/1000).toFixed(0)+'k';
-  return 'R'+Math.round(n);
+  return _moneyCompact(n);
 }
 
 function txUpdateSummary() {
