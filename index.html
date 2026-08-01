@@ -32304,8 +32304,9 @@ function cfLinePeek(i){
   var g=document.getElementById('cfl-tip'); if(!g) return;
   var bg=document.getElementById('cfl-tip-bg'), tx=document.getElementById('cfl-tip-tx'), t2=document.getElementById('cfl-tip-t2'); if(!bg||!tx) return;
   var hasFlow=(p.inc!=null || p.exp!=null);
-  var s1=p.name+' · '+(p.val<0?'−':'')+fmtK(Math.abs(p.val));
-  var s2=''; if(hasFlow){ var net=(p.inc||0)-(p.exp||0); s2='in +'+fmtK(p.inc||0)+' · out −'+fmtK(p.exp||0)+' · '+(net>=0?'+':'−')+fmtK(Math.abs(net)); }
+  var _net=(p.inc||0)-(p.exp||0), _bars=(CF_CHART_MODE==='bars');
+  var s1=_bars?(p.name+' · '+(_net>=0?'Profit ':'Loss ')+fmtK(Math.abs(_net))):(p.name+' · '+(p.val<0?'−':'')+fmtK(Math.abs(p.val)));
+  var s2=''; if(hasFlow){ s2='in +'+fmtK(p.inc||0)+' · out −'+fmtK(p.exp||0); if(!_bars) s2+=' · '+(_net>=0?'+':'−')+fmtK(Math.abs(_net)); }
   tx.textContent=s1; if(t2) t2.textContent=s2;
   var w=Math.max(s1.length*7.2, s2.length*5.7)+22, h=hasFlow?39:22, top=p.y-10-h; if(top<24) top=p.y+10;
   var x=Math.max(82, Math.min(938-w, p.x-w/2));
@@ -32354,34 +32355,48 @@ function renderCfLineView(n){
 
 var CF_CHART_MODE='line';
 function cfChartMode(m){ CF_CHART_MODE=(m==='bars')?'bars':'line'; var bl=$('cfl-mode-line'), bb=$('cfl-mode-bars'); if(bl) bl.classList.toggle('on',CF_CHART_MODE==='line'); if(bb) bb.classList.toggle('on',CF_CHART_MODE==='bars'); cfLineRedraw(); }
-function _cfSetLegend(mode){ var el=$('cfl-legend'); if(!el) return; el.innerHTML=(mode==='bars')?'Each bar is that month’s <b>net</b> — money in minus money out. <span style="color:#c0392b;font-weight:800">Red</span> months you spend more than you earn. Tap a month for the breakdown.':'One line: your <b>estimated cash</b> as income and costs land through the year. <span style="color:#c9791f;font-weight:800">Amber</span> is below your safety buffer; <span style="color:#c0392b;font-weight:800">red</span> is short. Tap a month for the breakdown.'; }
+function _cfSetLegend(mode){ var el=$('cfl-legend'); if(!el) return; el.innerHTML=(mode==='bars')?'<span style="color:#2d6a4f;font-weight:800">Green bars up</span> are months you made money, <span style="color:#c0392b;font-weight:800">red bars down</span> are months you lost it — height is how much. Tap a month for the breakdown.':'One line: your <b>estimated cash</b> as income and costs land through the year. <span style="color:#c9791f;font-weight:800">Amber</span> is below your safety buffer; <span style="color:#c0392b;font-weight:800">red</span> is short. Tap a month for the breakdown.'; }
 function cfLineRedraw(){ var months=_cfScenMonths(); if(!months.length) return; if(CF_CHART_MODE==='bars') drawCfBars(months, CF_FWD_N); else drawCfLine(months, CF_FWD_N); }
 
 function drawCfBars(months, n){
-  var W=960,H=270,padL=80,padR=22,padT=26,padB=42;
-  var nets=months.map(function(m){return (m.income||0)-(m.expenses||0);});
+  var W=960,H=270,padL=82,padR=22,padT=28,padB=46;
+  var incs=months.map(function(m){return m.income||0;});
+  var exps=months.map(function(m){return m.expenses||0;});
+  var nets=months.map(function(m,i){return incs[i]-exps[i];});
   var bals=months.map(function(m){return m.balance;});
   var minIdx=0; for(var k=1;k<bals.length;k++){ if(bals[k]<bals[minIdx]) minIdx=k; }
   if(CF_SEL_M<0||CF_SEL_M>=months.length) CF_SEL_M=minIdx;
-  var maxAbs=Math.max.apply(null, nets.map(function(v){return Math.abs(v);}).concat([1]));
-  var mid=padT+(H-padT-padB)*0.5, halfH=(H-padT-padB)*0.40;
-  var nn=months.length, slotW=(W-padL-padR)/nn, bw=Math.min(48, slotW*0.52);
+  var maxAbs=1; for(var a=0;a<nets.length;a++){ if(Math.abs(nets[a])>maxAbs) maxAbs=Math.abs(nets[a]); } maxAbs*=1.20;
+  var top=padT+18, bot=H-padB-6, mid=(top+bot)/2, half=(bot-top)/2;
+  var nn=months.length, slotW=(W-padL-padR)/nn, bw=Math.min(54, slotW*0.54);
   var out='';
-  out+='<text x="'+(padL-8)+'" y="'+(padT+8)+'" text-anchor="end" font-size="10.5" fill="#8a978f" font-weight="700">+'+fmtK(maxAbs)+'</text>';
-  out+='<line x1="'+padL+'" y1="'+mid+'" x2="'+(W-padR)+'" y2="'+mid+'" stroke="#d0d8d0" stroke-width="1.5"/>';
-  out+='<text x="'+(padL-8)+'" y="'+(mid+4)+'" text-anchor="end" font-size="10.5" fill="#8a978f" font-weight="700">R0</text>';
-  out+='<text x="'+(padL-8)+'" y="'+(H-padB-2)+'" text-anchor="end" font-size="10.5" fill="#8a978f" font-weight="700">−'+fmtK(maxAbs)+'</text>';
+  out+='<defs><linearGradient id="cfProfG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#40916c"/><stop offset="1" stop-color="#2d6a4f"/></linearGradient>'+
+       '<linearGradient id="cfLossG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e05a4b"/><stop offset="1" stop-color="#c0392b"/></linearGradient></defs>';
+  // faint profit (green) / loss (red) zones + break-even baseline
+  out+='<rect x="'+padL+'" y="'+top+'" width="'+(W-padL-padR)+'" height="'+(mid-top)+'" fill="rgba(45,106,79,.05)"/>';
+  out+='<rect x="'+padL+'" y="'+mid+'" width="'+(W-padL-padR)+'" height="'+(bot-mid)+'" fill="rgba(192,57,43,.055)"/>';
+  out+='<text x="'+(padL-10)+'" y="'+(top+13)+'" text-anchor="end" font-size="11" fill="#2d6a4f" font-weight="800">Profit</text>';
+  out+='<text x="'+(padL-10)+'" y="'+(mid+4)+'" text-anchor="end" font-size="10.5" fill="#8a978f" font-weight="700">R0</text>';
+  out+='<text x="'+(padL-10)+'" y="'+(bot-4)+'" text-anchor="end" font-size="11" fill="#c0392b" font-weight="800">Loss</text>';
+  out+='<line x1="'+padL+'" y1="'+mid+'" x2="'+(W-padR)+'" y2="'+mid+'" stroke="#c4cec4" stroke-width="1.6"/>';
   CF_PTS=[];
-  for(var i=0;i<nn;i++){ var cx=padL+slotW*(i+0.5), v=nets[i], h=Math.abs(v)/maxAbs*halfH, on=(i===CF_SEL_M), pos=(v>=0), y=pos?(mid-h):mid, col=pos?'#1b4332':'#c0392b';
-    CF_PTS.push({x:cx, y:pos?y:(mid+h), name:months[i].name, val:v});
+  for(var i=0;i<nn;i++){ var cx=padL+slotW*(i+0.5), on=(i===CF_SEL_M), isNow=(i===0);
+    var net=nets[i], prof=net>=0, h=Math.max(3, Math.abs(net)/maxAbs*half), by=prof?(mid-h):mid;
+    CF_PTS.push({x:cx, y:prof?(by-6):(by+h+6), name:months[i].name, val:net, inc:incs[i], exp:exps[i]});
     out+='<rect x="'+(cx-slotW/2)+'" y="'+padT+'" width="'+slotW+'" height="'+(H-padT-padB)+'" fill="transparent" onclick="cfLineSel('+i+')" onmouseover="cfLinePeek('+i+')" onmouseout="cfLineTipHide()" style="cursor:pointer"/>';
-    out+='<rect x="'+(cx-bw/2)+'" y="'+y+'" width="'+bw+'" height="'+Math.max(1.5,h)+'" rx="4" fill="'+col+'" opacity="'+(on?1:0.85)+'"'+(on?' stroke="#14281f" stroke-width="1"':'')+' style="pointer-events:none"/>';
-    out+='<text x="'+cx+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10.5" fill="'+(i===minIdx?'#c0392b':(on?'#1b4332':'#8a978f'))+'" font-weight="'+(on||i===minIdx?'800':'700')+'" style="pointer-events:none">'+months[i].name+'</text>';
-    out+='<text x="'+cx+'" y="'+(pos?(y-5):(y+h+13))+'" text-anchor="middle" font-size="9.5" fill="'+col+'" font-weight="800" style="pointer-events:none">'+(pos?'+':'−')+fmtK(Math.abs(v))+'</text>';
+    var op=on?1:(isNow?0.97:0.85);
+    var stk=on?' stroke="#14281f" stroke-width="1.4"':'';
+    out+='<rect x="'+(cx-bw/2)+'" y="'+by+'" width="'+bw+'" height="'+h+'" rx="5" fill="url(#'+(prof?'cfProfG':'cfLossG')+')" opacity="'+op+'"'+stk+' style="pointer-events:none"/>';
+    // headline profit/loss amount at the bar end
+    var ncol=prof?'#256149':'#b02a1c', ny=prof?(by-9):(mid+h+16);
+    out+='<text x="'+cx+'" y="'+ny+'" text-anchor="middle" font-size="12.5" fill="'+ncol+'" font-weight="800" style="pointer-events:none">'+(prof?'+':'−')+fmtK(Math.abs(net))+'</text>';
+    // month name + quiet money-in/out context
+    out+='<text x="'+cx+'" y="'+(H-padB+18)+'" text-anchor="middle" font-size="10.5" fill="'+((on||isNow)?'#1b4332':'#8a978f')+'" font-weight="'+((on||isNow)?'800':'700')+'" style="pointer-events:none">'+months[i].name+'</text>';
+    out+='<text x="'+cx+'" y="'+(H-padB+31)+'" text-anchor="middle" font-size="9" fill="#adb5a5" font-weight="600" style="pointer-events:none">in '+fmtK(incs[i])+' · out '+fmtK(exps[i])+'</text>';
   }
   out+=_cfTipSvg();
   var host=$('cfl-line'); if(host) host.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" class="cfl-svg" xmlns="http://www.w3.org/2000/svg">'+out+'</svg>';
-  setEl('cfl-line-title','Money in vs out — next '+n+(n===1?' month':' months'));
+  setEl('cfl-line-title','Profit or loss each month — next '+n+(n===1?' month':' months'));
   _cfSetLegend('bars');
   cfLineHeadline(months, minIdx);
   cfBdRender(months, minIdx);
