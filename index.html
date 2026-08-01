@@ -11556,6 +11556,17 @@ function renderProfit(){
   if(_pfUnalloc>0){
     html+='<div class="pf-card" style="border-color:#F1DBA6;background:#FEFBF2"><div style="display:flex;align-items:flex-start;gap:9px"><span style="font-size:18px">\uD83C\uDFF7\uFE0F</span><div style="flex:1"><div style="font-weight:800;color:var(--t1);font-size:13.5px">'+fmt(Math.round(_pfUnalloc))+' income not linked to an enterprise</div><div style="font-size:11.5px;color:var(--t3);margin-top:2px">'+_pfUnN+' transaction'+(_pfUnN===1?'':'s')+' aren\u2019t counted in the margins below. <span onclick="pfShowUnalloc()" style="color:var(--gm);font-weight:800;cursor:pointer;text-decoration:underline">Tag them \u2192</span></div></div></div></div>';
   }
+  /* Same treatment as the untagged-income nudge above: name what we cannot count, and why.
+     These crops were filtered out of `crops` before any total or sort saw them. */
+  if(_pfNoPrice.length){
+    var _npNames=_pfNoPrice.map(function(c){ return esc(c.crop)+' \u00b7 '+c.area+' ha \u00b7 '+_pfK(Math.round(c.cost))+' spent'; }).join('<br>');
+    html+='<div class="pf-card" style="border-color:#F1DBA6;background:#FEFBF2"><div style="display:flex;align-items:flex-start;gap:9px"><span style="font-size:18px">\ud83c\udff7\ufe0f</span><div style="flex:1">'+
+      '<div style="font-weight:800;color:var(--t1);font-size:13.5px">Crops with no price set</div>'+
+      '<div style="font-size:11.5px;color:var(--t2);margin-top:4px;line-height:1.6">'+_npNames+'</div>'+
+      '<div style="font-size:11.5px;color:var(--t3);margin-top:5px">We know what you have spent, but not what these crops earn, so they are left out of the figures above. '+
+      '<span onclick="nav(\'crops\')" style="color:var(--gm);font-weight:800;cursor:pointer;text-decoration:underline">Set a price \u2192</span></div>'+
+      '</div></div></div>';
+  }
   if(sc.length){
     var cmax=Math.max.apply(null,sc.map(function(c){return c.gmHa;}).concat(1));
     html+='<div class="pf-card"><div class="pf-plhd"><div><div class="pf-ct">Which crop pays best?</div><div class="pf-cw">Gross margin per hectare — income minus the costs that belong to that crop.</div></div>'+((_pfHasPlanned&&_ft!=='livestock')?'<div class="ie-seg" id="pf-planned-seg"><button class="'+(PF_INCL_PLANNED?'':'on')+'" onclick="pfSetPlanned(false)">In the ground</button><button class="'+(PF_INCL_PLANNED?'on':'')+'" onclick="pfSetPlanned(true)">Incl. planned</button></div>':'')+'</div>'+((_pfShowPlanned&&_pfPlD)?'<div class="pf-pldelta"><b>'+_pfPlD.n+' planned crop'+(_pfPlD.n===1?'':'s')+'</b> · '+_pfPlD.area+' ha. Income <b>+'+fmt(Math.round(_pfPlD.income))+'</b>, margin <b>+'+fmt(Math.round(_pfPlD.gm))+'</b>. Not spent or earned yet.</div>':'')+'<div class="pf-srcleg"><b style="color:#2E7D4F">Real costs</b> = built from actual spend you tagged to the crop · <b style="color:#6B7280">Budget cost</b> = from your planting budget until you tag real purchases.'+(_pfShowPlanned?' A crop marked <b>Planned</b> is not in the ground yet — its whole figure is an estimate from your planting budget.':'')+'</div>';
@@ -46853,15 +46864,6 @@ function orExportPackout(){
     var sc=e.crops.slice().sort(function(a,b){return b.gmHa-a.gmHa;});
     var sl=e.live.slice().sort(function(a,b){return b.gmLsu-a.gmLsu;});
     var watch=null,cushion=null;
-    if(_pfNoPrice.length){
-    var _npNames=_pfNoPrice.map(function(c){ return esc(c.crop)+' \u00b7 '+c.area+' ha \u00b7 '+_pfK(Math.round(c.cost))+' spent'; }).join('<br>');
-    html+='<div class="pf-card" style="border-color:#F1DBA6;background:#FEFBF2"><div style="display:flex;align-items:flex-start;gap:9px"><span style="font-size:18px">\ud83c\udff7\ufe0f</span><div style="flex:1">'+
-      '<div style="font-weight:800;color:var(--t1);font-size:13.5px">Crops with no price set</div>'+
-      '<div style="font-size:11.5px;color:var(--t2);margin-top:4px;line-height:1.6">'+_npNames+'</div>'+
-      '<div style="font-size:11.5px;color:var(--t3);margin-top:5px">We know what you have spent, but not what these crops earn, so they are left out of the figures above. '+
-      '<span onclick="nav(\'crops\')" style="color:var(--gm);font-weight:800;cursor:pointer;text-decoration:underline">Set a price \u2192</span></div>'+
-      '</div></div></div>';
-  }
   if(sc.length){ var th=null; sc.forEach(function(c){ if(c.price>0){ var cu=c.price-c.cop; if(th===null||cu<th.cu) th={c:c,cu:cu}; } }); if(th){ watch=th.c.crop; cushion=th; } }
     if(!watch && sl.length){ var lw=sl.slice().sort(function(a,b){return a.marginHead-b.marginHead;})[0]; watch=lw.name; }
     if(watch){
