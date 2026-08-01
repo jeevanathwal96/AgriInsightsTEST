@@ -10417,13 +10417,23 @@ function cropRenderLandModal(){
   cropEditPriceTouched=false;
   (function(){ var box=$('cle-price-chip'); if(!box) return; var ref=cropPrice(l.crop);
     if(ref>0){ box.innerHTML='<div onclick="cropEditUseMarket('+l.id+')" style="display:inline-flex;align-items:center;gap:7px;margin-top:8px;background:var(--gb);border:1px solid #cfe9d8;border-radius:99px;padding:5px 11px;font-size:11.5px;font-weight:700;color:var(--gd);cursor:pointer">\uD83D\uDCB9 SAFEX \u2248 R'+_grpInt(ref)+'/t<span style=\"background:var(--gd);color:#fff;border-radius:99px;padding:2px 8px;font-size:10px\">Use</span></div>'; }
-    else { box.innerHTML='<div style="margin-top:7px;font-size:11px;color:var(--t4)">No SAFEX reference \u2014 enter your own price.</div>'; }
+    else { box.innerHTML='<div style="margin-top:8px;display:flex;align-items:flex-start;gap:8px;font-size:11.5px;line-height:1.5;background:#FFF8E6;color:#7a4a10;border:1px solid #F3D9A6;border-radius:8px;padding:8px 11px">\ud83d\udca1<span>We have no market price for this crop. Yours is the only figure that can be right \u2014 without it we cannot work out what this land earns.</span></div>'; }
   })();
   try{ if(typeof langSync==='function') langSync($('crop-land-overlay')); }catch(e){}   // translate land modal in Afrikaans
 }
 
-function cropSaveLandEdit(){
+/* A crop with neither a SAFEX reference nor a price the farmer entered cannot be valued at all.
+   We warn rather than block: someone setting up a block may genuinely not know their price yet.
+   Downstream we then say "unknown" instead of quietly treating it as R0 a ton. */
+async function cropSaveLandEdit(){
   var l=cropLandById(CROP_LAND_IDX); if(!l) return;
+  var _pCrop=$('cle-crop').value, _pVal=parseFloat($('cle-price') && $('cle-price').value)||0;
+  if(_pCrop && _pVal<=0 && (typeof cropPrice!=='function' || cropPrice(_pCrop)<=0)){
+    var _ok=await appConfirm('Save without a price?',
+      {sub:_pCrop+' \u2014 we have no market price for it, so until you add one this land will not be counted in what your farm earns.',
+       okLabel:'Save anyway', danger:false});
+    if(!_ok) return;
+  }
   var nm=($('cle-name').value||'').trim(); if(!nm){ toast('Name the land','error'); return; }
   var newCrop=$('cle-crop').value;
   if(newCrop && newCrop!==l.crop && l.crop) l.prevCrop=l.crop;
@@ -10743,8 +10753,9 @@ function _pfCropEnts(opts){
     var price=(typeof cropLandPrice==='function')?cropLandPrice(l):((ST_CROP.prices&&ST_CROP.prices[l.crop])||0);
     var yld=(typeof cropLandYield==='function')?cropLandYield(l):((l.actualYield!=null?l.actualYield:l.targetYield)||0);
     var area=l.area||0;
-    if(!by[l.crop]){ by[l.crop]={crop:l.crop,area:0,tons:0,income:0,cost:0,budgetCost:0,plannedArea:0,plannedCount:0,price:price,refPrice:(ST_CROP.prices&&ST_CROP.prices[l.crop])||0}; order.push(l.crop); }
+    if(!by[l.crop]){ by[l.crop]={crop:l.crop,area:0,tons:0,income:0,cost:0,budgetCost:0,plannedArea:0,plannedCount:0,pricedArea:0,price:price,refPrice:(ST_CROP.prices&&ST_CROP.prices[l.crop])||0}; order.push(l.crop); }
     var e=by[l.crop]; e.area+=area; e.tons+=area*yld; e.income+=area*yld*price; e.budgetCost+=area*(l.inputPerHa||0);
+    if(price>0) e.pricedArea+=area;
     if(isPlanned){ e.plannedArea+=area; e.plannedCount++; }
   });
   return order.map(function(c){ var e=by[c];
@@ -10757,6 +10768,11 @@ function _pfCropEnts(opts){
        from its budgeted ones. We keep it as one row and show the mixture (plannedPct) rather
        than invent an allocation the farmer never recorded. The drill-down lists the lands. */
     e.plannedPct=e.area>0?Math.round((e.plannedArea||0)/e.area*100):0;
+    /* No land of this crop has a price we can use, so its income is UNKNOWN, not zero. Callers
+       must not read e.income/e.gm as fact — renderProfit drops these from the ranking and the
+       farm totals and names them instead, rather than booking a phantom loss the size of the
+       input budget. */
+    e.noPrice = !(e.pricedArea>0);
     return e; });
 }
 function _pfLiveEnts(){
@@ -11473,6 +11489,12 @@ function renderProfit(){
   applyProfitLabel();
   var el=$('profit-body'); if(!el) return;
   var crops=_pfCropEnts(), live=_pfLiveEnts();
+  /* A crop with no price has a KNOWN cost and an UNKNOWN income. Leaving it in would book a
+     phantom loss the size of its input budget — dragging farm profit down, taking bottom place
+     in the ranking and stealing the "Watch" slot on the strength of a number nobody supplied.
+     Pull them out here, before any total or sort sees them, and name them in a nudge instead. */
+  var _pfNoPrice = crops.filter(function(c){ return c.noPrice; });
+  crops = crops.filter(function(c){ return !c.noPrice; });
   var _ft=(typeof getFarmType==='function')?getFarmType():'mixed';
   if(_ft==='livestock') crops=[];
   if(_ft==='crops') live=[];
@@ -11489,7 +11511,7 @@ function renderProfit(){
   var _pfHasPlanned=false;
   try{ (ST_CROP&&ST_CROP.lands||[]).forEach(function(l){ if(l.crop && l.stage==='planned') _pfHasPlanned=true; }); }catch(e){}
   var _pfShowPlanned=(PF_INCL_PLANNED && _pfHasPlanned && _ft!=='livestock');
-  var cropsCard=_pfShowPlanned?_pfCropEnts({includePlanned:true}):crops;
+  var cropsCard=_pfShowPlanned?_pfCropEnts({includePlanned:true}).filter(function(c){ return !c.noPrice; }):crops;
   var _pfPlD=null;
   if(_pfShowPlanned){
     var _ci=0,_cg=0,_pa=0,_pn=0; cropsCard.forEach(function(c){ _ci+=c.income; _cg+=c.gm; _pa+=c.plannedArea||0; _pn+=c.plannedCount||0; });
@@ -29375,10 +29397,14 @@ function stCropRows(){
   var by={},order=[];
   (typeof ST_CROP!=='undefined'&&ST_CROP.lands||[]).forEach(function(l){
     if(!l.crop || l.stage==='planned' || l.stage==='fallow') return;
-    var price=(ST_CROP.prices&&ST_CROP.prices[l.crop])||0;
-    if(!by[l.crop]){ by[l.crop]={crop:l.crop,area:0,plRev:0,acRev:0,budget:0,harvArea:0,tY:0,aY:0}; order.push(l.crop); }
+    /* Honour a land's own price (a forward contract) exactly as the Crops and Profit tabs do.
+       Using the crop reference alone meant a farmer who had recorded R3 800/t saw Profit use it
+       and this tracker quietly use R3 200 — the same farm reporting two answers. */
+    var price=(typeof cropLandPrice==='function')?cropLandPrice(l):((ST_CROP.prices&&ST_CROP.prices[l.crop])||0);
+    if(!by[l.crop]){ by[l.crop]={crop:l.crop,area:0,plRev:0,acRev:0,budget:0,harvArea:0,tY:0,aY:0,pricedArea:0}; order.push(l.crop); }
     var e=by[l.crop], a=l.area||0, ty=l.targetYield||0, ay=(l.actualYield!=null?l.actualYield:ty);
     e.area+=a; e.plRev+=a*ty*price; e.acRev+=a*ay*price; e.budget+=a*(l.inputPerHa||0);
+    if(price>0) e.pricedArea+=a;
     e.tY+=a*ty; e.aY+=a*ay; if(l.actualYield!=null) e.harvArea+=a;
   });
   return order.map(function(c){
@@ -29389,10 +29415,16 @@ function stCropRows(){
     // shown in the drill-down table only, as "what you've logged so far".
     var plCost=e.budget+lab, acCost=e.budget+lab;
     var planned=Math.round(e.plRev-plCost), tracking=Math.round(e.acRev-acCost);
+    /* With no price, revenue is unknown — not zero. Reporting plan and actual as minus the whole
+       input budget booked a loss nobody predicted and dragged the farm's variance down with it.
+       Zero on both sides keeps this crop out of the sums; the driver line explains the gap. */
+    var noPrice = !(e.pricedArea>0);
+    if(noPrice){ planned=0; tracking=0; }
     var prog=e.area?Math.round(e.harvArea/e.area*100):0;
     var tY=e.area?e.tY/e.area:0, aY=e.area?e.aY/e.area:0, st=stStatusOf(planned,tracking,prog);
     var drv;
-    if(prog<=0) drv='Still growing — on your plan of '+(Math.round(tY*10)/10)+' tons a hectare';
+    if(noPrice) drv='No price set for this crop, so we cannot work out what it earns — add one on the Crops page.';
+    else if(prog<=0) drv='Still growing — on your plan of '+(Math.round(tY*10)/10)+' tons a hectare';
     else { var yd=tY?Math.round((aY-tY)/tY*100):0; drv=(Math.round(aY*10)/10)+' tons a hectare'+(yd!==0?' — '+(yd>0?'up ':'down ')+Math.abs(yd)+'% on plan':' — on plan'); }
     var byK=stCropInputByKind(c), logged=0; for(var _lk in byK) logged+=byK[_lk];
     var budLine=logged>0?(stK(logged)+' logged of your '+stK(Math.round(e.budget))+' input budget'+(e.budget?' · '+Math.round(logged/e.budget*100)+'% applied':'')):'';
@@ -34768,6 +34800,16 @@ LANG_PAIRS.push(
   ["Prepare my file","Berei my lêer voor"],
   ["Delete account","Skrap rekening"],
   ["What you get.","Wat jy kry."],
+  /* Crop price prompt + "unknown, not worthless" fallback. Whole sentences: "Set"->"Gestel" and
+     "crop"->"gewas" otherwise turn every one of these into English-Afrikaans mush. */
+  ["We have no market price for this crop. Yours is the only figure that can be right \u2014 without it we cannot work out what this land earns.","Ons het geen markprys vir hierdie gewas nie. Joune is die enigste syfer wat reg kan wees \u2014 daarsonder kan ons nie bereken wat hierdie land verdien nie."],
+  ["We know what you have spent, but not what these crops earn, so they are left out of the figures above.","Ons weet wat jy bestee het, maar nie wat hierdie gewasse verdien nie, dus word hulle uit die syfers hierbo gelaat."],
+  ["No price set for this crop, so we cannot work out what it earns \u2014 add one on the Crops page.","Geen prys vir hierdie gewas nie, dus kan ons nie bereken wat dit verdien nie \u2014 voeg een op die Gewasse-bladsy by."],
+  ["we have no market price for it, so until you add one this land will not be counted in what your farm earns.","ons het geen markprys daarvoor nie, dus sal hierdie land nie tel in wat jou plaas verdien nie totdat jy een byvoeg."],
+  ["Crops with no price set","Gewasse sonder \u2019n prys"],
+  ["Save without a price?","Stoor sonder \u2019n prys?"],
+  ["Set a price \u2192","Stel \u2019n prys \u2192"],
+  ["Save anyway","Stoor in elk geval"],
   ["sales already banked, kept out of the gain","verkope reeds gebank, buite die wins gehou"],
   /* Item 14 — stating an absent benchmark. Whole sentences: "benchmark"/"seasons" alone would
      half-translate this into English-Afrikaans mush. */
@@ -46811,7 +46853,16 @@ function orExportPackout(){
     var sc=e.crops.slice().sort(function(a,b){return b.gmHa-a.gmHa;});
     var sl=e.live.slice().sort(function(a,b){return b.gmLsu-a.gmLsu;});
     var watch=null,cushion=null;
-    if(sc.length){ var th=null; sc.forEach(function(c){ if(c.price>0){ var cu=c.price-c.cop; if(th===null||cu<th.cu) th={c:c,cu:cu}; } }); if(th){ watch=th.c.crop; cushion=th; } }
+    if(_pfNoPrice.length){
+    var _npNames=_pfNoPrice.map(function(c){ return esc(c.crop)+' \u00b7 '+c.area+' ha \u00b7 '+_pfK(Math.round(c.cost))+' spent'; }).join('<br>');
+    html+='<div class="pf-card" style="border-color:#F1DBA6;background:#FEFBF2"><div style="display:flex;align-items:flex-start;gap:9px"><span style="font-size:18px">\ud83c\udff7\ufe0f</span><div style="flex:1">'+
+      '<div style="font-weight:800;color:var(--t1);font-size:13.5px">Crops with no price set</div>'+
+      '<div style="font-size:11.5px;color:var(--t2);margin-top:4px;line-height:1.6">'+_npNames+'</div>'+
+      '<div style="font-size:11.5px;color:var(--t3);margin-top:5px">We know what you have spent, but not what these crops earn, so they are left out of the figures above. '+
+      '<span onclick="nav(\'crops\')" style="color:var(--gm);font-weight:800;cursor:pointer;text-decoration:underline">Set a price \u2192</span></div>'+
+      '</div></div></div>';
+  }
+  if(sc.length){ var th=null; sc.forEach(function(c){ if(c.price>0){ var cu=c.price-c.cop; if(th===null||cu<th.cu) th={c:c,cu:cu}; } }); if(th){ watch=th.c.crop; cushion=th; } }
     if(!watch && sl.length){ var lw=sl.slice().sort(function(a,b){return a.marginHead-b.marginHead;})[0]; watch=lw.name; }
     if(watch){
       var rows=null;
