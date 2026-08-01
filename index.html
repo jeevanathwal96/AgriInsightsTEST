@@ -1235,6 +1235,9 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .bgt-tip{position:absolute;pointer-events:none;background:#111827;color:#fff;font-size:11px;line-height:1.45;border-radius:8px;padding:8px 11px;opacity:0;transition:opacity .12s;max-width:230px;z-index:5}
 .bgt-tip b{font-weight:800}
 .bgt-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;font-weight:600;color:var(--t2);margin-top:10px}
+.bgt-mtn-toggle{display:inline-flex;background:var(--gb,#f0faf4);border:1px solid #e2e8e4;border-radius:11px;padding:3px;gap:3px}
+.bgt-mtn-toggle button{border:0;background:transparent;font:inherit;font-size:12.5px;font-weight:700;color:#7c8474;padding:5px 13px;border-radius:8px;cursor:pointer}
+.bgt-mtn-toggle button.on{background:#fff;color:#1b4332;box-shadow:0 0 0 1.5px #40916c inset,0 1px 2px rgba(20,50,35,.06)}
 .bgt-leg{display:flex;align-items:center;gap:6px}
 .bgt-leg i{display:inline-block;width:16px;height:0;border-top:2.5px solid var(--gl)}
 .bgt-leg i.dash{border-top-style:dashed;border-top-color:var(--t4)}
@@ -5912,10 +5915,13 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="bgt-card" id="bgt-mountain-card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px">
         <div><div class="bgt-card-h">Your season picture</div><div class="bgt-card-s">Are you where you planned to be by now?</div></div>
-        <span class="bgt-chip mut" id="bgt-mode-chip">Showing Income — tap a card above to switch</span>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <span class="bgt-chip mut" id="bgt-mode-chip">Showing Income — tap a card above to switch</span>
+          <div class="bgt-mtn-toggle"><button id="bgt-mtn-run" class="on" onclick="bgtMtnMode('run')">Runway</button><button id="bgt-mtn-rib" onclick="bgtMtnMode('rib')">Ribbon</button></div>
+        </div>
       </div>
       <div id="bgt-mountain"></div>
-      <div class="bgt-legend">
+      <div class="bgt-legend" id="bgt-mtn-legend">
         <span class="bgt-leg"><i class="dash"></i><span>The curve you planned</span></span>
         <span class="bgt-leg"><i id="bgt-leg-act"></i><span>What actually happened</span></span>
         <span class="bgt-leg"><i id="bgt-leg-proj" style="opacity:.45"></i><span>Where you&#8217;re heading</span></span>
@@ -28157,6 +28163,7 @@ function bgtFmt(v) {
 // BUDGETS PAGE — Season Curve layout (Money Mountain)
 // ============================================================
 var BGT_MODE = 'in';        // which side the mountain shows
+var BGT_MTN_MODE = 'run';   // season picture view: 'run' = Runway burn-up, 'rib' = Ribbon headroom
 var BGT_SHEET_I = -1;       // month index open in the editor sheet
 var BGT_SHEET_LY = null;    // last-year figures for the open month
 var BGT_LAST = null;        // figures cache from the last render
@@ -28370,6 +28377,13 @@ function bgtRenderKpis(c) {
 }
 
 // ── The Money Mountain ──
+function bgtMtnMode(m) {
+  BGT_MTN_MODE = (m === 'rib') ? 'rib' : 'run';
+  var br = $('bgt-mtn-run'), bb = $('bgt-mtn-rib');
+  if (br) br.classList.toggle('on', BGT_MTN_MODE === 'run');
+  if (bb) bb.classList.toggle('on', BGT_MTN_MODE === 'rib');
+  bgtRenderMountain();
+}
 function bgtRenderMountain() {
   var host = $('bgt-mountain'); if (!host) return;
   var c = BGT_LAST || bgtCompute();
@@ -28397,65 +28411,143 @@ function bgtRenderMountain() {
     if (cap) cap.innerHTML = '<b>How to read it:</b> no target is set for this side yet — tap Edit targets to add one.';
     return;
   }
-  if (cap) cap.innerHTML = mode === 'in'
-    ? '<b>How to read it:</b> the green mountain is money that has come in, growing through the year. Stay on top of the grey dashed line and you are ahead of your plan. The flag is your year goal.'
-    : '<b>How to read it:</b> the orange mountain is money spent so far. Staying below the grey dashed line is the good side — less has gone out than you planned by now.';
+  if (cap) {
+    if (BGT_MTN_MODE === 'rib') {
+      cap.innerHTML = '<b>How to read it:</b> the green area is how far ' + (mode === 'in' ? 'ahead of' : 'under') + ' plan you are, building through the year off the "on plan" line. The dotted line is where it lands by year-end if you hold this pace.';
+    } else {
+      cap.innerHTML = mode === 'in'
+        ? '<b>How to read it:</b> the green mountain is money that has come in, growing through the year. Stay on top of the grey dashed line and you are ahead of your plan. The flag is your year goal.'
+        : '<b>How to read it:</b> the orange mountain is money spent so far. Staying below the grey dashed line is the good side — less has gone out than you planned by now.';
+    }
+  }
+  var _lg = $('bgt-mtn-legend');
+  if (_lg) {
+    if (BGT_MTN_MODE === 'rib') {
+      _lg.innerHTML = '<span class="bgt-leg"><i style="border-top:0;height:10px;background:rgba(64,145,108,.4);border-radius:2px"></i><span>' + (af ? 'Speling onder plan' : 'Headroom under plan') + '</span></span>'
+        + '<span class="bgt-leg"><i style="border-top:2px dotted #40916c"></i><span>' + (af ? 'Geprojekteer tot jaareinde' : 'Projected to year-end') + '</span></span>'
+        + '<span class="bgt-leg"><i style="border-top:0;height:2px;background:#c4cec4"></i><span>' + (af ? 'Op plan (R0)' : 'On plan (R0)') + '</span></span>';
+    } else {
+      _lg.innerHTML = '<span class="bgt-leg"><i class="dash"></i><span>' + (af ? 'Die kurwe wat jy beplan het' : 'The curve you planned') + '</span></span>'
+        + '<span class="bgt-leg"><i style="border-top-color:' + col + '"></i><span>' + (af ? 'Wat werklik gebeur het' : 'What actually happened') + '</span></span>'
+        + '<span class="bgt-leg"><i style="opacity:.45;border-top-color:' + col + '"></i><span>' + (af ? 'Waarheen jy op pad is' : "Where you're heading") + '</span></span>';
+    }
+  }
 
-  var W = 960, H = 310, L = 22, R = 156, T = 52, B = 38;
-  var maxY = Math.max(ct[11], proj[proj.length-1], ca[idx], 1) * 1.06;
+  // ── Geometry ─────────────────────────────────────────────
+  var W = 960, H = 310, L = 46, R = 178, T = 52, B = 40;
+  var maxY = Math.max(ct[11], proj[proj.length-1], ca[idx], 1) * 1.08;
   var xw = (W - L - R) / 11;
   function X(n) { return L + n * xw; }
   function Y(v) { return T + (H - T - B) * (1 - v / maxY); }
-  function pts(arr, off) {
-    off = off || 0;
-    return arr.map(function(v, n) { return X(n + off).toFixed(1) + ',' + Y(v).toFixed(1); }).join(' ');
-  }
+  function pO(arr, off) { off = off || 0; return arr.map(function(v, n){ return {x:X(n+off), y:Y(v)}; }); }
+  var smooth = (typeof _cfSmoothD === 'function') ? _cfSmoothD
+             : function(P){ var d='M'+P[0].x+' '+P[0].y; for(var k=0;k<P.length-1;k++) d+='L'+P[k+1].x+' '+P[k+1].y; return d; };
 
   var noAct = (c.ytdIn === 0 && c.ytdOut === 0);
-  // Year-end gap between projection and plan drives the wedge + end labels.
-  // Within 1.5% the two endings are one story: collapse to "≈ on plan".
   var projEnd = proj[proj.length - 1];
   var relGap = ct[11] > 0 ? Math.abs(projEnd - ct[11]) / ct[11] : 0;
   var onPlan = relGap <= 0.015;
   var endGood = mode === 'in' ? projEnd >= ct[11] : projEnd <= ct[11];
-  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" aria-label="Season money picture">';
-  if (!noAct) svg += '<polygon points="' + X(0) + ',' + Y(0) + ' ' + pts(ca) + ' ' + X(idx) + ',' + Y(0) + '" fill="' + col + '" fill-opacity="0.22"/>';
-  // Gap wedge: the space between plan and projection, tinted by whether the
-  // year would end on the good or bad side. Only drawn when there is a real gap.
+
+  var svg;
+  if (BGT_MTN_MODE === 'rib') {
+    // Ribbon: running headroom vs plan (green = the good side) off a zero baseline
+    var rval = [], _a, _gp;
+    for (i = 0; i < 12; i++) { _a = (i <= idx) ? ca[i] : proj[i - idx]; _gp = (mode === 'in') ? (_a - ct[i]) : (ct[i] - _a); rval.push(_gp); }
+    var rvmax = 1; for (i = 0; i < 12; i++) { if (Math.abs(rval[i]) > rvmax) rvmax = Math.abs(rval[i]); } rvmax *= 1.25;
+    var zeroY = H - B, topY = T + 6;
+    var Yr = function(v) { return zeroY - (v / rvmax) * (zeroY - topY); };
+    var rgood = (mode === 'in') ? (af ? 'voor' : 'ahead') : (af ? 'onder' : 'under');
+    svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" aria-label="Headroom vs plan">';
+    svg += '<defs><linearGradient id="bgtRibG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#40916C" stop-opacity="0.34"/><stop offset="1" stop-color="#40916C" stop-opacity="0.03"/></linearGradient>';
+    svg += '<clipPath id="bgtRibUp"><rect x="0" y="' + topY + '" width="' + W + '" height="' + (zeroY - topY) + '"/></clipPath></defs>';
+    svg += '<line x1="' + L + '" y1="' + zeroY + '" x2="' + (W - R) + '" y2="' + zeroY + '" stroke="#c4cec4" stroke-width="1.6"/>';
+    svg += '<text x="' + (L - 8) + '" y="' + (zeroY + 4) + '" text-anchor="end" font-size="10" font-weight="600" fill="#8a978f">' + (af ? 'op plan' : 'on plan') + '</text>';
+    svg += '<text x="' + (L - 8) + '" y="' + (topY + 8) + '" text-anchor="end" font-size="10" font-weight="800" fill="#2D6A4F">' + rgood + '</text>';
+    if (!noAct) {
+      var rpast = [], rfut = [];
+      for (i = 0; i <= idx; i++) rpast.push({x:X(i), y:Yr(rval[i])});
+      for (i = idx; i < 12; i++) rfut.push({x:X(i), y:Yr(rval[i])});
+      svg += '<path d="' + smooth(rpast) + ' L' + X(idx).toFixed(1) + ' ' + zeroY + ' L' + X(0).toFixed(1) + ' ' + zeroY + ' Z" fill="url(#bgtRibG)" clip-path="url(#bgtRibUp)"/>';
+      svg += '<path d="' + smooth(rpast) + '" fill="none" stroke="#40916C" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>';
+      svg += '<path d="' + smooth(rfut) + '" fill="none" stroke="#40916C" stroke-width="2.6" stroke-opacity="0.5" stroke-dasharray="1 6" stroke-linecap="round" stroke-linejoin="round"/>';
+      svg += '<line x1="' + X(idx) + '" y1="' + (Yr(rval[idx]) + 8) + '" x2="' + X(idx) + '" y2="' + zeroY + '" stroke="#cbd5d1" stroke-width="1.5"/>';
+      svg += '<circle cx="' + X(idx) + '" cy="' + Yr(rval[idx]) + '" r="7" fill="#40916C" stroke="#fff" stroke-width="2.5"/>';
+      var rtxt = bgtFmt(Math.abs(rval[idx])) + ' ' + rgood, rw = rtxt.length * 6.0 + 20, ry = Yr(rval[idx]) - 30;
+      if (ry < topY + 2) ry = Yr(rval[idx]) + 24;
+      var rx = Math.max(L, Math.min(W - R - rw, X(idx) - rw/2));
+      svg += '<rect x="' + rx + '" y="' + (ry - 11) + '" width="' + rw + '" height="20" rx="10" fill="#14281f"/>';
+      svg += '<text x="' + (rx + rw/2) + '" y="' + (ry + 3) + '" text-anchor="middle" font-size="10.5" font-weight="800" fill="#8fd6ac">' + rtxt + '</text>';
+      var reY = Yr(rval[11]);
+      svg += '<circle cx="' + X(11) + '" cy="' + reY + '" r="4.5" fill="#40916C" fill-opacity="0.85"/>';
+      svg += '<text x="' + (X(11) + 12) + '" y="' + (reY - 3) + '" font-size="11.5" font-weight="700" fill="#6B7280">' + (af ? 'Jaareinde' : 'Year-end') + '</text>';
+      svg += '<text x="' + (X(11) + 12) + '" y="' + (reY + 14) + '" font-size="12.5" font-weight="800" fill="#2D6A4F">' + bgtFmt(Math.abs(rval[11])) + ' ' + rgood + '</text>';
+    }
+    svg += '<text x="' + X(idx) + '" y="' + (H - B + 20) + '" text-anchor="middle" font-size="11" font-weight="800" fill="#1B4332">' + (af ? 'VANDAG' : 'TODAY') + '</text>';
+    [0,3,6,9,11].forEach(function(n) { if (Math.abs(n - idx) < 1) return; svg += '<text x="' + X(n) + '" y="' + (H - B + 20) + '" text-anchor="middle" font-size="10.5" font-weight="600" fill="#9CA3AF">' + c.fyMonths[n].split(' ')[0] + '</text>'; });
+    for (i = 0; i < 12; i++) svg += '<rect data-i="' + i + '" x="' + (X(i) - xw/2) + '" y="' + T + '" width="' + xw + '" height="' + (H - T - B) + '" fill="transparent"/>';
+    svg += '</svg>';
+  } else {
+  // Runway: cumulative burn-up — plan (dashed) vs spent (gradient runway) vs projection (dotted), gap shaded good/bad.
+  svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" aria-label="Season money picture">';
+  svg += '<defs><linearGradient id="bgtRunG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + col + '" stop-opacity="0.28"/><stop offset="1" stop-color="' + col + '" stop-opacity="0"/></linearGradient></defs>';
+  // faint gridlines
+  [0, ct[11]/2, ct[11]].forEach(function(g){ var y=Y(g); svg += '<line x1="'+L+'" y1="'+y+'" x2="'+(W-R)+'" y2="'+y+'" stroke="#eef1ec" stroke-width="1"/>'; });
+  // under/over gap wedge (green good side, amber bad)
   if (!noAct && !onPlan) {
     var wedge = '';
     for (i = idx; i < 12; i++) wedge += X(i).toFixed(1) + ',' + Y(proj[i - idx]).toFixed(1) + ' ';
     for (i = 11; i >= idx; i--) wedge += X(i).toFixed(1) + ',' + Y(ct[i]).toFixed(1) + ' ';
     svg += '<polygon points="' + wedge + '" fill="' + (endGood ? '#40916C' : '#B45309') + '" fill-opacity="0.14"/>';
   }
-  svg += '<polyline points="' + pts(ct) + '" fill="none" stroke="#6B7280" stroke-width="2.5" stroke-dasharray="10 7" stroke-linejoin="round"/>';
+  // plan — smooth dashed
+  svg += '<path d="' + smooth(pO(ct)) + '" fill="none" stroke="#6B7280" stroke-width="2" stroke-dasharray="9 6" stroke-linecap="round" stroke-linejoin="round"/>';
   if (!noAct) {
-    svg += '<polyline points="' + pts(ca) + '" fill="none" stroke="' + col + '" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>';
-    // Projection: solid and faded — colour + weight tell it apart from the
-    // dashed plan even where the two run together.
-    svg += '<polyline points="' + pts(proj, idx) + '" fill="none" stroke="' + col + '" stroke-width="2.5" stroke-opacity="0.42" stroke-linecap="round" stroke-linejoin="round"/>';
-    if (!onPlan) svg += '<circle cx="' + X(11) + '" cy="' + Y(projEnd) + '" r="4.5" fill="' + col + '" fill-opacity="0.5"/>';
+    var actO = pO(ca);
+    svg += '<path d="' + smooth(actO) + ' L' + X(idx).toFixed(1) + ' ' + Y(0).toFixed(1) + ' L' + X(0).toFixed(1) + ' ' + Y(0).toFixed(1) + ' Z" fill="url(#bgtRunG)"/>';
+    svg += '<path d="' + smooth(actO) + '" fill="none" stroke="' + col + '" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>';
+    svg += '<path d="' + smooth(pO(proj, idx)) + '" fill="none" stroke="' + col + '" stroke-width="2.6" stroke-opacity="0.5" stroke-dasharray="1 6" stroke-linecap="round" stroke-linejoin="round"/>';
   }
-  svg += '<line x1="' + X(idx) + '" y1="' + (noAct ? T : Y(ca[idx]) + 8) + '" x2="' + X(idx) + '" y2="' + (H - B) + '" stroke="#D1D5DB" stroke-width="1.5"/>';
-  if (!noAct) svg += '<circle cx="' + X(idx) + '" cy="' + Y(ca[idx]) + '" r="7" fill="' + col + '" stroke="#fff" stroke-width="2.5"/>';
+  // today gate + ringed marker + "you are here" chip
+  svg += '<line x1="' + X(idx) + '" y1="' + (noAct ? T : Y(ca[idx]) + 8) + '" x2="' + X(idx) + '" y2="' + (H - B) + '" stroke="#cbd5d1" stroke-width="1.5"/>';
+  if (!noAct) {
+    svg += '<circle cx="' + X(idx) + '" cy="' + Y(ca[idx]) + '" r="7" fill="' + col + '" stroke="#fff" stroke-width="2.5"/>';
+    var chTxt = af ? 'Jy is hier' : 'You are here';
+    var chW = chTxt.length * 6.1 + 22, chY = Y(ca[idx]) - 30; if (chY < T + 4) chY = Y(ca[idx]) + 24;
+    var chX = Math.max(L, Math.min(W - R - chW, X(idx) - chW/2));
+    svg += '<rect x="' + chX + '" y="' + (chY - 11) + '" width="' + chW + '" height="20" rx="10" fill="#14281f"/>';
+    svg += '<circle cx="' + (chX + 12) + '" cy="' + (chY - 1) + '" r="2.6" fill="' + col + '"/>';
+    svg += '<text x="' + (chX + chW/2 + 6) + '" y="' + (chY + 3) + '" text-anchor="middle" font-size="10.5" font-weight="800" fill="#fff">' + chTxt + '</text>';
+  }
   svg += '<text x="' + X(idx) + '" y="' + (H - B + 20) + '" text-anchor="middle" font-size="11" font-weight="800" fill="#1B4332">' + (af ? 'VANDAG' : 'TODAY') + '</text>';
-  // End labels: both numbers live at the right edge, so the story stays
-  // readable even where the lines touch mid-chart.
-  if (noAct || onPlan) {
-    svg += '<text x="' + (X(11) + 10) + '" y="' + (Y(ct[11]) + 4) + '" font-size="12.5" font-weight="800" fill="#374151">🏁 ' + (af ? 'Doelwit ' : 'Goal ') + bgtFmt(ct[11]) +
-      (onPlan && !noAct ? ' · ≈ ' + (af ? 'op plan' : 'on plan') : '') + '</text>';
+  // year-end finish card (roomy label→value rows) or a single goal flag when on-plan
+  if (!noAct && !onPlan) {
+    var x0 = X(11), yP = Y(ct[11]), yYou = Y(projEnd);
+    var gTxt = (mode === 'in') ? (endGood ? (af ? 'voor' : 'ahead') : (af ? 'agter' : 'behind'))
+                               : (endGood ? (af ? 'onder' : 'under') : (af ? 'oor' : 'over'));
+    var gCol = endGood ? '#2D6A4F' : '#B45309';
+    svg += '<circle cx="' + x0 + '" cy="' + yP + '" r="3.5" fill="#9aa3a0"/>';
+    svg += '<circle cx="' + x0 + '" cy="' + yYou + '" r="4.5" fill="' + col + '" fill-opacity="0.85"/>';
+    var fw = 152, fh = 68, fx = x0 + 14, fy = Math.max(T, Math.min(H - B - fh, (yP + yYou)/2 - fh/2));
+    svg += '<line x1="' + x0 + '" y1="' + yYou + '" x2="' + fx + '" y2="' + (fy + fh*0.62) + '" stroke="#d7dfd9" stroke-width="1.3"/>';
+    svg += '<rect x="' + fx + '" y="' + fy + '" width="' + fw + '" height="' + fh + '" rx="12" fill="#ffffff" stroke="#e7ede9" stroke-width="1"/>';
+    svg += '<text x="' + (fx + 14) + '" y="' + (fy + 20) + '" font-size="10.5" font-weight="700" fill="#9aa3a0">🏁 ' + (af ? 'Plan' : 'Plan') + '</text>';
+    svg += '<text x="' + (fx + fw - 14) + '" y="' + (fy + 20) + '" text-anchor="end" font-size="12.5" font-weight="800" fill="#6B7280">' + bgtFmt(ct[11]) + '</text>';
+    svg += '<text x="' + (fx + 14) + '" y="' + (fy + 40) + '" font-size="10.5" font-weight="700" fill="' + gCol + '">' + (af ? 'Jy' : 'You') + '</text>';
+    svg += '<text x="' + (fx + fw - 14) + '" y="' + (fy + 40) + '" text-anchor="end" font-size="12.5" font-weight="800" fill="' + gCol + '">' + bgtFmt(projEnd) + '</text>';
+    svg += '<line x1="' + (fx + 14) + '" y1="' + (fy + 50) + '" x2="' + (fx + fw - 14) + '" y2="' + (fy + 50) + '" stroke="#eef1ec" stroke-width="1"/>';
+    svg += '<text x="' + (fx + 14) + '" y="' + (fy + fh - 11) + '" font-size="10.5" font-weight="800" fill="' + gCol + '">' + (endGood ? '✓ ' : '▲ ') + bgtFmt(Math.abs(projEnd - ct[11])) + ' ' + gTxt + '</text>';
   } else {
-    var yPlan = Y(ct[11]), yYou = Y(projEnd);
-    if (Math.abs(yPlan - yYou) < 17) yYou = yPlan + (yYou >= yPlan ? 17 : -17);
-    svg += '<text x="' + (X(11) + 10) + '" y="' + (yPlan + 4) + '" font-size="12" font-weight="700" fill="#6B7280">🏁 ' + (af ? 'Plan ' : 'Plan ') + bgtFmt(ct[11]) + '</text>';
-    svg += '<text x="' + (X(11) + 10) + '" y="' + (yYou + 4) + '" font-size="12" font-weight="800" fill="' + (endGood ? '#2D6A4F' : '#B45309') + '">' + (af ? 'Jy ' : 'You ') + bgtFmt(projEnd) + '</text>';
+    svg += '<text x="' + (X(11) + 12) + '" y="' + (Y(ct[11]) + 4) + '" font-size="12.5" font-weight="800" fill="#374151">🏁 ' + (af ? 'Doelwit ' : 'Goal ') + bgtFmt(ct[11]) + (onPlan && !noAct ? ' · ≈ ' + (af ? 'op plan' : 'on plan') : '') + '</text>';
   }
+  // month labels + hover hitboxes
   [0,3,6,9,11].forEach(function(n) {
     if (Math.abs(n - idx) < 1) return;
     svg += '<text x="' + X(n) + '" y="' + (H - B + 20) + '" text-anchor="middle" font-size="10.5" font-weight="600" fill="#9CA3AF">' + c.fyMonths[n].split(' ')[0] + '</text>';
   });
   for (i = 0; i < 12; i++) svg += '<rect data-i="' + i + '" x="' + (X(i) - xw/2) + '" y="' + T + '" width="' + xw + '" height="' + (H - T - B) + '" fill="transparent"/>';
   svg += '</svg>';
+  }
 
   host.innerHTML = svg;
 
