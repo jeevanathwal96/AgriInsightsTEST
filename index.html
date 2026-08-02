@@ -1570,13 +1570,13 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pln-legend i.hatch{background:repeating-linear-gradient(135deg,var(--op),var(--op) 4px,var(--or) 4px,var(--or) 5px)}
 /* Planning legend: three facts that never change, so they get one line rather
    than a stacked block. Same visual language as the crop-planning legend. */
-.plan-key{display:flex;align-items:center;flex-wrap:wrap;gap:7px 22px;margin-bottom:12px;padding:11px 16px}
+.plan-key{display:flex;align-items:center;flex-wrap:wrap;gap:7px 22px;margin:12px 0;padding:11px 16px}
 .plan-key .k{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--t4)}
 .plan-key > span:not(.k){display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:400;color:var(--t3)}
 .plan-key i{width:11px;height:11px;border-radius:3px;flex:none}
 .plan-key b{font-weight:700;color:var(--t2)}
 .pln-wrap{background:var(--wh);border:1px solid var(--br);border-radius:var(--rl);box-shadow:var(--sh);padding:20px}
-.pln-grid{display:grid;grid-template-columns:minmax(150px,1.35fr) 1fr 78px 104px 20px;gap:12px;align-items:center}
+.pln-grid{display:grid;grid-template-columns:minmax(200px,1.1fr) minmax(340px,1.6fr) 78px 104px 20px;gap:12px;align-items:center}
 .pln-mh{padding:0 2px 8px}
 .pln-mh .colh{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
 .pln-mh .colh.r{text-align:right}
@@ -1642,6 +1642,139 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pln-btn.dgr:hover{border-color:var(--rd);color:var(--rd)}
 .pln-btn.scn{background:var(--pp);border-color:#e9c9da;color:var(--pu)}
 .pln-btn.rep{background:var(--bp);border-color:#BFDBFE;color:var(--bl)}
+
+/* ══ Orchard planning rows ══════════════════════════════════════════════════
+   Same row grammar as the crop planner, with the parts orchards need that
+   crops do not: a picking window rather than a single month, the per-carton
+   deduction stack, and blocks too young to pick. Namespaced .orp-* — the
+   orchard section already owns ~198 .or* class names. */
+.orp-wrap{background:var(--wh);border:1px solid var(--br);border-radius:var(--rl);
+  box-shadow:var(--sh);padding:20px;overflow-x:auto}
+.orp-lh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
+  flex-wrap:wrap;margin-bottom:15px}
+.orp-lh .t{font-size:18px;font-weight:800;letter-spacing:-.3px}
+.orp-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:2px}
+.orp-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);font-weight:400}
+.orp-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;
+  vertical-align:-1px;margin-right:5px}
+.orp-legend i.gw{background:var(--gb);border:1px solid var(--gp)}
+.orp-legend i.pk{background:#C8962C}
+.orp-legend i.py{background:repeating-linear-gradient(135deg,var(--gp),var(--gp) 3px,var(--gl) 3px,var(--gl) 4px)}
+.orp-legend i.yg{background:repeating-linear-gradient(135deg,var(--op),var(--op) 4px,var(--or) 4px,var(--or) 5px)}
+
+.orp-grid{display:grid;grid-template-columns:minmax(210px,1.15fr) minmax(340px,1.6fr) 96px 104px 20px;
+  gap:12px;align-items:center;min-width:840px}
+.orp-mh{padding:0 2px 8px}
+.orp-mh .colh{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.orp-mh .colh.r{text-align:right}
+.orp-mrow{display:grid;grid-template-columns:repeat(12,1fr);gap:3px}
+.orp-mrow span{font-size:10.5px;font-weight:700;color:var(--t4);text-align:center}
+.orp-mrow span.now{color:#C8962C}
+.orp-cat{font-size:11px;font-weight:800;color:var(--t4);text-transform:uppercase;
+  letter-spacing:.05em;padding:14px 2px 4px;min-width:840px}
+
+.orp-item{border-top:1px solid var(--br2);min-width:840px}
+.orp-item.young .orp-row{background:linear-gradient(90deg,var(--op) 0 3px,transparent 3px)}
+.orp-row{padding:12px 2px;width:100%;background:none;border:0;font-family:var(--fn);
+  color:inherit;text-align:left;cursor:pointer;border-radius:6px}
+.orp-row:hover{background:var(--bg)}
+.orp-row:focus-visible{outline:2px solid #C8962C;outline-offset:-2px}
+.orp-nm{display:flex;align-items:center;gap:9px;min-width:0;min-height:57px}
+.orp-ic{width:30px;height:30px;border-radius:9px;background:#FAEEDA;
+  border:1.5px solid rgba(200,150,44,.35);flex:none;display:flex;align-items:center;
+  justify-content:center;font-size:16px}
+.orp-nmw{min-width:0}
+.orp-n1,.orp-n2,.orp-tagline{display:block}
+.orp-n1{font-size:13px;font-weight:700;line-height:1.3}
+.orp-n2{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:1px}
+.orp-tagline{margin-top:2px;min-height:23px}
+.orp-tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:99px;padding:2px 8px;margin-top:4px}
+.orp-tag+.orp-tag{margin-left:4px}
+.orp-tag.yng{background:var(--op);color:var(--or)}
+.orp-tag.ramp{background:var(--bp);color:var(--bl)}
+.orp-tag.tight{background:var(--op);color:var(--or)}
+.orp-tag.exp{background:var(--gb);color:var(--gm)}
+.orp-tag.spill{background:var(--pp);color:var(--pu)}
+
+.orp-rib{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;height:24px}
+.orp-c{border-radius:3px;background:var(--br2);position:relative}
+.orp-c.grow{background:var(--gb)}
+.orp-c.pick{background:#C8962C}
+.orp-c.pick.mid{background:rgba(200,150,44,.55)}
+.orp-c.pay{background:repeating-linear-gradient(135deg,var(--gp),var(--gp) 3px,var(--gl) 3px,var(--gl) 4px)}
+.orp-c.none{background:repeating-linear-gradient(135deg,var(--op),var(--op) 4px,var(--or) 4px,var(--or) 5px)}
+.orp-c.now:after{content:"";position:absolute;left:50%;top:-5px;bottom:-5px;width:2px;
+  background:#C8962C;transform:translateX(-50%);border-radius:1px}
+.orp-ha{text-align:right;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.orp-ha .u{display:block;font-size:10.5px;font-weight:400;color:var(--t4);margin-top:1px}
+.orp-ha.neg,.orp-money.neg{color:var(--or)}
+.orp-money{text-align:right;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--gm)}
+.orp-car{color:var(--t4);font-size:11px;text-align:right}
+.orp-row.open .orp-car{color:#C8962C}
+
+/* expanded */
+.orp-ed{border-top:1px dashed var(--br);background:var(--bg);border-radius:0 0 10px 10px;
+  padding:16px 14px;display:grid;grid-template-columns:minmax(230px,1fr) minmax(280px,1.15fr);
+  gap:20px;min-width:840px}
+.orp-fg{margin-bottom:14px}
+.orp-gl{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--t4);padding-bottom:6px;margin-bottom:9px;border-bottom:1px solid var(--br2)}
+.orp-f3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.orp-f label{display:block;font-size:10.5px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--t4);margin-bottom:4px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.orp-f input,.orp-f select{width:100%;box-sizing:border-box;border:1px solid var(--br);
+  border-radius:var(--rs);background:var(--wh);color:var(--t1);font-family:var(--fn);
+  font-size:13px;padding:8px 10px}
+.orp-f input:focus-visible,.orp-f select:focus-visible{outline:2px solid #C8962C;outline-offset:1px}
+.orp-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.orp-btn{border:1px solid var(--br);background:var(--wh);border-radius:var(--rs);padding:9px 14px;
+  font-family:var(--fn);font-size:11.5px;font-weight:700;color:var(--t2);cursor:pointer}
+.orp-btn:hover{border-color:#C8962C;color:#8A6516}
+.orp-btn.pri{background:#C8962C;color:#fff;border-color:#C8962C}
+.orp-btn:focus-visible{outline:2px solid #C8962C;outline-offset:2px}
+
+.orp-h2{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+/* Two explicit columns, never space-between: the value column must land on the
+   same right edge on every row whatever the label carries. */
+.orp-ln{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:baseline;
+  font-size:13px;font-weight:400;color:var(--t2);padding:5px 0;
+  border-bottom:1px solid var(--br2);font-variant-numeric:tabular-nums}
+.orp-ln b{font-weight:700;color:var(--t1);text-align:right;white-space:nowrap}
+.orp-ln .per{font-weight:400;color:var(--t3)}
+.orp-ln.ded{color:var(--t3);font-size:12.5px}
+.orp-ln.ded b{color:var(--or)}
+.orp-ln.sum{border-bottom:0;padding-top:9px;margin-top:3px;border-top:1.5px solid var(--br);
+  font-weight:700;color:var(--t1)}
+.orp-pill{font-size:10.5px;font-weight:700;background:var(--gb);color:var(--gm);
+  border-radius:99px;padding:2px 8px;margin-left:6px}
+
+.orp-be{margin-top:12px;background:var(--wh);border:1px solid var(--br);border-radius:10px;padding:12px 14px}
+.orp-be .k{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.orp-be .v{font-size:18px;font-weight:800;letter-spacing:-.3px;margin-top:4px;
+  font-variant-numeric:tabular-nums;color:var(--gm)}
+.orp-be.warn .v{color:var(--or)}
+.orp-be .s{font-size:13px;font-weight:400;color:var(--t2);margin-top:6px;line-height:1.5}
+.orp-facts{margin-top:8px;font-size:11.5px;font-weight:400;color:var(--t3);line-height:1.6}
+.orp-facts b{font-weight:700;color:var(--t2)}
+
+.orp-curve{display:flex;align-items:flex-end;gap:2px;height:44px;margin-top:7px}
+.orp-curve i{flex:1;background:var(--gp);border-radius:2px 2px 0 0;min-height:3px}
+.orp-curve i.fill{background:var(--gl)}
+.orp-curve i.now{background:#C8962C}
+.orp-curve i.fut{background:var(--br2)}
+.orp-curvex{display:flex;justify-content:space-between;font-size:10px;color:var(--t4);margin-top:3px}
+
+.orp-tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;
+  background:var(--br2);border-radius:var(--r);overflow:hidden;margin-top:16px;min-width:840px}
+.orp-tot > div{background:var(--wh);padding:13px 16px}
+.orp-tot .k{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--t4)}
+.orp-tot .v{font-size:19px;font-weight:800;letter-spacing:-.4px;margin-top:3px;font-variant-numeric:tabular-nums}
+.orp-tot .n{font-size:11px;font-weight:400;color:var(--t3);margin-top:2px;line-height:1.45}
+.orp-empty{text-align:center;color:var(--t3);padding:36px;font-size:13px;background:var(--wh);
+  border-radius:var(--rl);border:1px dashed var(--br)}
+@media (max-width:900px){.orp-ed{grid-template-columns:1fr}
+  .orp-f3{grid-template-columns:repeat(2,1fr)}}
 /* Keep Remove away from the four safe actions; when the row wraps it lands
    right-aligned underneath, which reads deliberate rather than accidental. */
 .pln-acts .pln-btn.dgr{margin-left:auto}
@@ -7922,12 +8055,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
   <!-- ────────────────── ORCHARDS TAB CONTENT ────────────────── -->
   <div id="plan-orch-pane" style="display:none">
-    <div style="background:var(--gb);border:1px solid var(--gp);border-radius:11px;padding:10px 13px;font-size:11.5px;color:var(--t2);margin-bottom:14px;line-height:1.5">🔗 <b>Pulled from your Orchards module.</b> Set each block's pick window and season costs here — the income lands in those months in your forecast and budgets. Edits sync back to the Orchards tab.</div>
-    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--t3);margin:0 2px 14px">
-      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#EFF5EA"></span>Growing</span>
-      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#FAEED9"></span>Picking</span>
-      <span style="display:inline-flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:#C8962C"></span>Pack &amp; sell</span>
-    </div>
+    <div style="background:var(--gb);border:1px solid var(--gp);border-radius:11px;padding:10px 13px;font-size:11.5px;color:var(--t2);margin-bottom:14px;line-height:1.5;display:flex;gap:9px;align-items:flex-start"><span style="flex:none">🔗</span><span><b>Pulled from your Orchards module.</b> Set each block's pick window and season costs here — the income lands in those months in your forecast and budgets. Edits sync back to the Orchards tab.</span></div>
     <div id="plan-orch-grid"></div>
   </div>
 
@@ -27753,6 +27881,40 @@ function planPinProjectedEvent(key){
    SPILL   — the line belongs to this season but finishes after it ends. That is
              normal for summer grain, and worth saying because the revenue lands
              in the NEXT financial year, which is a tax-timing fact. */
+/* Orchard equivalent of the crop spill notice: blocks whose money arrives after
+   the season closes, and blocks still too young to pick. Both counts are read
+   live from orPlanRows(), so the wording follows the farm, not a fixture. */
+function planOrchNotice(){
+  if(typeof orPlanRows!=='function') return '';
+  var rows=orPlanRows(), late=[], young=[];
+  rows.forEach(function(r){
+    if(!orpBearing(r.b)){
+      var fy=orpFirstPickYear(r.b);
+      young.push({nm:r.b.name, when:fy?('first pick '+fy):'not bearing yet'});
+    } else if(r.pickEnd+orpPayShift(r.b)>11){
+      var ms=ST_PLAN.months||[], lbl=(ms[r.pickEnd]&&ms[r.pickEnd].label)?ms[r.pickEnd].label:'';
+      late.push({nm:r.b.name, when:'picked '+lbl.replace(/\s+\d+$/,'')});
+    }
+  });
+  var h='';
+  if(late.length){
+    h+='<div class="plan-spill"><div style="flex:1;min-width:0">'+
+      '<div class="ps-h">'+late.length+' '+(late.length===1?'block':'blocks')+' paid after this season ends</div>'+
+      '<div class="ps-s">The fruit is picked this season but the exporter pays later, so that money lands in your next financial year. Growing costs stay in this one.</div>'+
+      '<div class="po-list">'+late.slice(0,6).map(function(o){
+        return '<span>'+esc(o.nm)+' &middot; '+esc(o.when)+'</span>'; }).join('')+
+      (late.length>6?'<span>+'+(late.length-6)+' more</span>':'')+'</div></div></div>';
+  }
+  if(young.length){
+    h+='<div class="plan-outside"><div style="flex:1;min-width:0">'+
+      '<div class="po-h">'+young.length+' '+(young.length===1?'block':'blocks')+' not picking yet</div>'+
+      '<div class="po-s">They cost a full season to keep and earn nothing until they come into bearing. The cost is counted; the income is not.</div>'+
+      '<div class="po-list">'+young.slice(0,6).map(function(o){
+        return '<span>'+esc(o.nm)+' &middot; '+esc(o.when)+'</span>'; }).join('')+
+      (young.length>6?'<span>+'+(young.length-6)+' more</span>':'')+'</div></div></div>';
+  }
+  return h;
+}
 function planRenderOutside(){
   var pane=document.getElementById('pg-planning'); if(!pane) return;
   var host=$('plan-outside');
@@ -27761,6 +27923,14 @@ function planRenderOutside(){
     host=document.createElement('div'); host.id='plan-outside';
     if(anchor&&anchor.parentNode) anchor.parentNode.insertBefore(host, anchor.nextSibling);
     else pane.appendChild(host);
+  }
+  /* This notice sits above whichever tab is open, so it has to talk about that
+     tab's things. Crops spill because they finish late; orchard blocks spill
+     because the exporter pays late, which is a different sentence. */
+  if((typeof ST_PLAN!=='undefined'?ST_PLAN.activeTab:'crops')==='orchards'){
+    host.className=''; host.innerHTML=planOrchNotice();
+    try{ if(typeof langSync==='function') langSync(host); }catch(e){}
+    return;
   }
   var miss=(typeof PLAN_OUTSIDE!=='undefined'?PLAN_OUTSIDE:[]);
   var spill=(typeof PLAN_SPILL!=='undefined'?PLAN_SPILL:[]);
@@ -27786,6 +27956,7 @@ function planRenderOutside(){
       (spill.length>6?'<span>+'+(spill.length-6)+' more</span>':'')+'</div></div></div>';
   }
   host.className=''; host.innerHTML=h;
+  try{ if(typeof langSync==='function') langSync(host); }catch(e){}
 }
 
 function planRefreshYearTag(){
@@ -27994,11 +28165,43 @@ function recomputePlan() {
 
   // ── Step 3.6: Distribute orchards / fruit & veg (auto-pulled from ST_FRUIT) ──
   if(typeof orPlanRows==='function'){
+    ST_PLAN.orchSpill = 0;
     orPlanRows().forEach(function(r){
       var ps=r.pickStart, pe=r.pickEnd; if(pe<ps) pe=ps;
       var span=(pe-ps+1)||1;
-      for(var i=ps;i<=pe&&i<12;i++){ ST_PLAN.months[i].income += Math.round(r.income/span); }
-      for(var j=0;j<12;j++){ ST_PLAN.months[j].expenses += Math.round(r.cost/12); }
+
+      /* Income lands when the exporter pays, not when the fruit is picked.
+         APAC rule 36 gives the agent 10 weeks from shipping; anything past the
+         season end is money that arrives next year, so it is reported rather
+         than quietly folded into month 11. */
+      var shift=(typeof orpPayShift==='function')?orpPayShift(r.b):0;
+      var per=Math.round(r.income/span);
+      for(var i=ps;i<=pe;i++){
+        var m=i+shift;
+        if(m<12) ST_PLAN.months[m].income += per;
+        else ST_PLAN.orchSpill += per;
+      }
+
+      /* Cost follows the season, not the calendar. Shares are the Hortgro 2024
+         pome budget with packaging stripped out — packing is charged per carton
+         in orNetPer(), so counting it here too would double-charge every carton
+         and overstate the harvest months by ~2.7x. */
+      var SH=(typeof ORP_COST_SHAPE!=='undefined')?ORP_COST_SHAPE:{pre:0.418,harvest:0.212,over:0.370};
+      var over=r.cost*SH.over/12;
+      for(var j=0;j<12;j++) ST_PLAN.months[j].expenses += Math.round(over);
+      var hv=r.cost*SH.harvest/span;
+      for(var h=ps;h<=pe&&h<12;h++) ST_PLAN.months[h].expenses += Math.round(hv);
+      /* The growing programme — pruning, fertiliser, spray, thinning — runs from
+         one harvest to the next, so it belongs in every month the block is NOT
+         picking, not only the run-up before it. A tree is worked all year. */
+      var nonPick=12-span;
+      if(nonPick>0){
+        var pv=r.cost*SH.pre/nonPick;
+        for(var k=0;k<12;k++){ if(k<ps||k>pe) ST_PLAN.months[k].expenses += Math.round(pv); }
+      } else {
+        var pv2=r.cost*SH.pre/span;                 /* picks all year round */
+        for(var k2=ps;k2<=pe&&k2<12;k2++) ST_PLAN.months[k2].expenses += Math.round(pv2);
+      }
     });
   }
 
@@ -28735,7 +28938,10 @@ function orPlanRows(){
   if(typeof ST_FRUIT==='undefined'||!ST_FRUIT.blocks) return [];
   if(typeof orEnsurePricing==='function') orEnsurePricing();
   return ST_FRUIT.blocks.filter(function(b){
-    if(b.plan || b.removed || !(b.tons>0)) return false;
+    /* Young blocks are kept: they cost a full season's money years before they
+       pay, and leaving them out understated orchard costs. Only grubbed blocks
+       drop away. orBlockTotal() already returns 0 for them, so income is right. */
+    if(b.removed) return false;
     // Perennial orchards bear every year from establishment onward — show them in the
     // viewed year and all later years, but not in years before the block existed.
     var ey=(typeof b.estabYr==='number')?b.estabYr:((typeof b.plant==='number')?b.plant:null);
@@ -28758,43 +28964,402 @@ function orPlanSetField(id,field,val){
   if(typeof orSave==='function') orSave();
   recomputePlan(); renderOrchPlanGrid(); updatePlanCombinedBanner(); updatePlanSummary();
 }
+/* ══ Orchard planning ═══════════════════════════════════════════════════════
+   Blocks are perennial: they cost money for years before they pay, they pick
+   over a window rather than in a month, and most of the export price is gone
+   before the farm sees it. The row shows the outcome; the panel shows why.
+
+   Age is derived from estabYr, never from the stored b.age — that field is
+   stamped once and goes stale. On the demo farm the two disagree on 9 of 10
+   blocks, and b.age implies Netblok reaches 147 t/ha at full bearing, which
+   cannot happen. estabYr is a fact that never rots. */
+
+var ORP_OPEN = null;                 /* expanded block id, survives re-render */
+var ORP_PAY_DEFAULT = 10;            /* weeks from shipping — APAC rule 36 max */
+
+/* Cost split for planCost, derived from the Hortgro 2024 bearing-apple budget
+   with PACKAGING REMOVED. Packing is already charged per carton in orNetPer(),
+   and AGRI_BENCH.growHa is explicitly "excl packing & marketing" — counting the
+   published 57% harvest share here would double-charge every carton and
+   overstate harvest-month cash out by 2.7x. Citrus-specific shares could not be
+   verified, so one sourced split is applied to every category. */
+var ORP_COST_SHAPE = {pre:0.418, harvest:0.212, over:0.370};
+
+function orpAge(b){
+  var ey=(typeof b.estabYr==='number')?b.estabYr:((typeof b.plant==='number')?b.plant:null);
+  if(ey==null || typeof planYear!=='number') return null;
+  return planYear-ey+1;                     /* planting year counts as year 1 */
+}
+function orpCurve(b){
+  return (typeof OR_CURVES!=='undefined' && OR_CURVES[b.curve||b.cat]) ? OR_CURVES[b.curve||b.cat]
+       : (typeof OR_CURVES!=='undefined' ? OR_CURVES.citrus : null);
+}
+/* Share of full bearing this block should be at, 0-100, or null when unknown. */
+function orpPct(b){
+  var cv=orpCurve(b), a=orpAge(b);
+  if(!cv || a==null) return null;
+  return cv[Math.min(Math.max(a-1,0),cv.length-1)];
+}
+function orpBearing(b){ return (b.tons||0)>0; }
+/* The year this block first carries a crop, from the curve. */
+function orpFirstPickYear(b){
+  var cv=orpCurve(b); if(!cv) return null;
+  var ey=(typeof b.estabYr==='number')?b.estabYr:((typeof b.plant==='number')?b.plant:null);
+  if(ey==null) return null;
+  for(var i=0;i<cv.length;i++){ if(cv[i]>0) return ey+i; }
+  return null;
+}
+function orpPayWeeks(b){ return (b.planPayWeeks==null) ? ORP_PAY_DEFAULT : b.planPayWeeks; }
+function orpPayShift(b){ return Math.round(orpPayWeeks(b)/4.345); }   /* weeks → months */
+
+function orpCartons(b){ return (typeof orBlockUnits==='function')?orBlockUnits(b):0; }
+function orpUnitWord(b){ return b.cat==='berry' ? 'kg' : (b.cat==='veg' ? 'tons' : 'cartons'); }
+function orpNetPer(b){ return (typeof orNetPer==='function')?orNetPer(b):0; }
+function orpMarginHa(b){
+  var ha=b.ha||0; if(!ha) return 0;
+  return Math.round(((typeof orBlockTotal==='function'?orBlockTotal(b):0) - orOpsCost(b))/ha);
+}
+/* Cartons needed before the season's costs are covered. */
+function orpBreakEven(b){
+  var n=orpNetPer(b); if(!(n>0)) return null;
+  /* Local / juice sales already pay part of the season. Charging the whole
+     season cost against export cartons alone made a 24%-cushion block read as
+     1.4% and wrongly flagged it "thin margin". */
+  var local=(typeof orLocalNet==='function'&&typeof orLocalTons==='function')
+    ? orLocalNet(b)*orLocalTons(b) : 0;
+  var need=orOpsCost(b)-local;
+  if(need<=0) return 0;
+  return Math.ceil(need/n);
+}
+function orpCushion(b){
+  var be=orpBreakEven(b), u=orpCartons(b);
+  if(be==null||!(u>0)) return null;
+  return (u-be)/u;
+}
+
+/* ── write paths ───────────────────────────────────────────────────────────
+   orSetBlockField() re-opens the block modal and orSyncWf() reads Harvest &
+   Pack DOM ids, so neither can be driven from here. These write the same
+   objects directly, so both tabs stay in step. */
+function orpAfterWrite(){
+  if(typeof orSave==='function') orSave();
+  recomputePlan();
+  renderOrchPlanGrid();
+  if(typeof updatePlanCombinedBanner==='function') updatePlanCombinedBanner();
+  if(typeof updatePlanSummary==='function') updatePlanSummary();
+}
+function orpSetBlock(id,field,val){
+  var b=orBlockById(id); if(!b) return;
+  var n=parseFloat(String(val).replace(/[^0-9.\-]/g,''));
+  b[field]=isNaN(n)?0:Math.max(0,n);
+  orpAfterWrite();
+}
+function orpSetPrice(id,field,val){
+  if(typeof orEnsurePricing==='function') orEnsurePricing();
+  var p=ST_FRUIT.pricing[id]; if(!p) return;
+  var n=parseFloat(String(val).replace(/[^0-9.\-]/g,'')); if(isNaN(n)) n=0;
+  if(field==='localPrice'){ p.local=p.local||{price:0,comm:0,trans:0,other:0}; p.local.price=Math.max(0,n); }
+  else p[field]=Math.max(0,n);
+  orpAfterWrite();
+}
+function orpSetPay(id,weeks){
+  var b=orBlockById(id); if(!b) return;
+  var n=parseInt(weeks,10); b.planPayWeeks=isNaN(n)?ORP_PAY_DEFAULT:Math.max(0,n);
+  orpAfterWrite();
+}
+function orpToggle(id){ ORP_OPEN=(ORP_OPEN===id)?null:id; renderOrchPlanGrid(); }
+
+/* ── row parts ─────────────────────────────────────────────────────────── */
+function orpNowIdx(){
+  var t=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
+  var ms=ST_PLAN.months||[]; if(!ms.length) return -1;
+  var first=(typeof planAbsIdx==='function')?planAbsIdx(ms[0].label):null;
+  if(first==null) return -1;
+  return (t.getFullYear()*12+t.getMonth())-first;
+}
+function orpRibbon(r){
+  var b=r.b, out='', i, cls, now=orpNowIdx();
+  var young=!orpBearing(b), shift=orpPayShift(b);
+  var payFrom=r.pickStart+shift, payTo=r.pickEnd+shift;
+  for(i=0;i<12;i++){
+    cls='orp-c';
+    if(young) cls+=' none';
+    else if(i>=r.pickStart && i<=r.pickEnd) cls+=' pick'+((i>r.pickStart&&i<r.pickEnd)?' mid':'');
+    else if(i>=payFrom && i<=payTo) cls+=' pay';
+    else if(i<r.pickStart) cls+=' grow';
+    if(i===now) cls+=' now';
+    out+='<span class="'+cls+'"></span>';
+  }
+  return out;
+}
+function orpTags(r){
+  var b=r.b, t=[], pct=orpPct(b);
+  if(!orpBearing(b)){
+    t.push('<span class="orp-tag yng">too young to pick</span>');
+    var fy=orpFirstPickYear(b);
+    if(fy) t.push('<span class="orp-tag ramp">first pick '+fy+'</span>');
+    return t.join('');
+  }
+  /* Ranked by how much each one should change a decision. Only the top two are
+     shown — a third wraps the line and the rows stop matching each other. The
+     rest are on the panel behind the row. */
+  var cu=orpCushion(b);
+  if(cu!=null && cu<0.15) t.push('<span class="orp-tag tight">thin margin</span>');
+  if(r.pickEnd+orpPayShift(b)>11)
+    t.push('<span class="orp-tag spill">paid next season</span>');
+  if(pct!=null && pct>0 && pct<100)
+    t.push('<span class="orp-tag ramp">year '+orpAge(b)+' · '+pct+'% bearing</span>');
+  if(b.cat!=='veg' && (typeof orChanPct==='function') && orChanPct(b)>0)
+    t.push('<span class="orp-tag exp">'+orChanPct(b)+'% export</span>');
+  return t.slice(0,2).join('');
+}
+
+function orpMonthOpts(sel){
+  var o='', ms=ST_PLAN.months||[];
+  for(var i=0;i<12;i++){
+    o+='<option value="'+i+'"'+(i===sel?' selected':'')+'>'+
+       esc((ms[i]&&ms[i].label?ms[i].label:'').replace(/\s+\d+$/,''))+'</option>';
+  }
+  return o;
+}
+function orpPayOpts(w){
+  /* 10 weeks is the ceiling APAC rule 36 puts on an export agent paying the
+     grower, measured from shipping — a checkable default, not a guess. */
+  var opts=[[0,'On picking'],[4,'4 weeks after'],[6,'6 weeks after'],
+            [10,'10 weeks after'],[16,'16 weeks after']], o='', hit=false;
+  opts.forEach(function(x){
+    if(x[0]===w) hit=true;
+    o+='<option value="'+x[0]+'"'+(x[0]===w?' selected':'')+'>'+x[1]+'</option>';
+  });
+  if(!hit) o+='<option value="'+w+'" selected>'+w+' weeks after</option>';
+  return o;
+}
+
+function orpMoneyPanel(r){
+  var b=r.b, p=(ST_FRUIT.pricing||{})[b.id]||{};
+  var net=orpNetPer(b), units=orpCartons(b), word=orpUnitWord(b);
+  var price=parseFloat(p.price)||0;
+  var commR=price*(parseFloat(p.comm)||0)/100;
+  var others=(p.others||[]).reduce(function(s,o){return s+(parseFloat(o.amt)||0);},0);
+  var levy=p.levyName?(parseFloat(p.levy)||0):0;
+  var kept=price>0?Math.round(net/price*100):0;
+  var h='';
+
+  if(b.cat!=='veg'){
+    var r2=function(v){ return 'R'+(Math.round(v*100)/100).toFixed(2); };
+    h+='<div class="orp-h2">Where the money goes — per '+(b.cartonKg||15)+' kg carton</div>'+
+      '<div class="orp-ln"><span>Packhouse price</span><b>'+r2(price)+'</b></div>'+
+      '<div class="orp-ln ded"><span>Agent commission '+(p.comm||0)+'%</span><b>−'+r2(commR)+'</b></div>'+
+      '<div class="orp-ln ded"><span>Packing</span><b>−'+r2(p.pack||0)+'</b></div>'+
+      '<div class="orp-ln ded"><span>Shipping</span><b>−'+r2(p.ship||0)+'</b></div>'+
+      (levy>0?'<div class="orp-ln ded"><span>'+esc(p.levyName)+' levy</span><b>−R'+levy.toFixed(2)+'</b></div>':'')+
+      (others>0?'<div class="orp-ln ded"><span>Other costs</span><b>−'+r2(others)+'</b></div>':'')+
+      '<div class="orp-ln sum"><span>In your pocket'+
+        (kept>0?' <span class="orp-pill">'+kept+'% of the price</span>':'')+
+        '</span><b>'+r2(net)+'</b></div>';
+  }
+
+  var localT=(typeof orLocalTons==='function')?Math.round(orLocalTons(b)):0;
+  var localN=(typeof orLocalNet==='function')?orLocalNet(b):0;
+  h+='<div class="orp-h2" style="margin-top:14px">The season</div>';
+  if(!orpBearing(b)){
+    h+='<div class="orp-ln"><span>Fruit income</span><b>—</b></div>';
+  } else {
+    if(b.cat!=='veg') h+='<div class="orp-ln"><span>Export — '+_grpInt(units)+' '+word+' × R'+net.toFixed(2)+
+        '</span><b>'+orRm(Math.round(net*units))+'</b></div>';
+    else h+='<div class="orp-ln"><span>'+_grpInt(units)+' tons × R'+_grpInt(net)+
+        '</span><b>'+orRm(Math.round(net*units))+'</b></div>';
+    if(localT>0) h+='<div class="orp-ln"><span>Local / juice — '+_grpInt(localT)+' t × R'+_grpInt(localN)+
+        '</span><b>'+orRm(Math.round(localN*localT))+'</b></div>';
+  }
+  h+='<div class="orp-ln"><span>Season costs</span><b>−'+orRm(r.cost)+'</b></div>'+
+     '<div class="orp-ln sum"><span>Margin</span><b>'+orRm(r.income-r.cost)+
+       ' <span class="per">· '+(orpMarginHa(b)<0?'−R':'R')+_grpInt(orpMarginHa(b))+'/ha</span></b></div>';
+
+  /* Break-even, the orchard twin of the crop planner's break-even yield. */
+  if(orpBearing(b)){
+    var be=orpBreakEven(b), cu=orpCushion(b);
+    if(be!=null){
+      var tight=(cu!=null&&cu<0.15);
+      h+='<div class="orp-be'+(tight?' warn':'')+'"><div class="k">Break-even</div>'+
+        '<div class="v">'+_grpInt(be)+' '+word+'</div>'+
+        '<div class="s">Season costs of <b>'+orRm(r.cost)+'</b> need <b>'+_grpInt(be)+' '+word+
+        '</b> at R'+net.toFixed(2)+'. You expect <b>'+_grpInt(units)+'</b>'+
+        (cu!=null?' — a <b>'+Math.round(cu*100)+'% cushion</b>.':'.')+
+        (tight?' One hail event or a pack-out drop wipes this block out.':'')+'</div></div>';
+    }
+  } else {
+    var fy=orpFirstPickYear(b);
+    h+='<div class="orp-be warn"><div class="k">Carrying cost</div>'+
+      '<div class="v">'+orRm(r.cost)+' this year</div>'+
+      '<div class="s">This block is not picking yet'+
+      (fy?', and first carries a crop in <b>'+fy+'</b>':'')+
+      '. The cost is real and now counted in your forecast.</div></div>';
+  }
+
+  /* Age vs yield, straight off OR_CURVES — the block modal already draws this,
+     the planner never did. */
+  var cv=orpCurve(b), a=orpAge(b);
+  if(cv && a!=null && b.cat!=='veg'){
+    var n=Math.min(cv.length,14), nowI=Math.min(Math.max(a-1,0),cv.length-1);
+    var bars='';
+    for(var i=0;i<n;i++){
+      var c=(i===nowI)?'now':(i<nowI?'fill':'fut');
+      bars+='<i class="'+c+'" style="height:'+Math.max(cv[i],4)+'%"></i>';
+    }
+    h+='<div class="orp-h2" style="margin-top:14px">Age vs what it yields</div>'+
+      '<div class="orp-curve">'+bars+'</div>'+
+      '<div class="orp-curvex"><span>Year 1</span><span>now — year '+a+'</span><span>Year '+n+'</span></div>';
+    var pct=orpPct(b);
+    if(pct!=null) h+='<div class="orp-facts">Planted '+(b.estabYr||b.plant||'—')+', so this is <b>year '+a+
+      '</b> — about <b>'+pct+'% of full bearing</b>.</div>';
+  }
+  var extra=[];
+  if(b.estab) extra.push('cost to plant <b>'+esc(String(b.estab))+'</b>');
+  if(b.writeoff>0) extra.push('yearly tax write-off <b>'+orR(b.writeoff)+'</b>');
+  if(b.trees>0) extra.push(_grpInt(b.trees)+' trees');
+  if(extra.length) h+='<div class="orp-facts">'+extra.join(' · ')+'</div>';
+  return h;
+}
+
+function orpEditor(r){
+  var b=r.b, p=(ST_FRUIT.pricing||{})[b.id]||{}, id=b.id.replace(/'/g,"\\'");
+  var set="orpSetBlock('"+id+"',", setp="orpSetPrice('"+id+"',", setf="orPlanSetField('"+id+"',";
+  var f=function(lbl,html){ return '<div class="orp-f"><label>'+lbl+'</label>'+html+'</div>'; };
+  var num=function(fn,field,val,step){
+    return '<input type="number" min="0"'+(step?' step="'+step+'"':'')+' value="'+val+
+      '" onchange="event.stopPropagation();'+fn+'\''+field+'\',this.value)">'; };
+
+  var h='<div class="orp-fg"><div class="orp-gl">When it picks and when you’re paid</div>'+
+    '<div class="orp-f3">'+
+      f('Picking starts','<select onchange="event.stopPropagation();'+setf+'\'planPickStart\',this.value)">'+orpMonthOpts(r.pickStart)+'</select>')+
+      f('Picking ends','<select onchange="event.stopPropagation();'+setf+'\'planPickEnd\',this.value)">'+orpMonthOpts(r.pickEnd)+'</select>')+
+      f('Money lands','<select onchange="event.stopPropagation();orpSetPay(\''+id+'\',this.value)">'+orpPayOpts(orpPayWeeks(b))+'</select>')+
+    '</div><div class="orp-facts">Export agents must pay within <b>10 weeks of shipping</b> (APAC rule 36) — that is the default, not a guess.</div></div>';
+
+  h+='<div class="orp-fg"><div class="orp-gl">What comes off the block</div><div class="orp-f3">'+
+    f('Crop estimate (t)',num(set,'tons',b.tons||0,'0.1'))+
+    (b.cat==='veg' ? f('Top grade (%)',num(set,'grade',b.grade||0,'1'))
+                   : f('Export (%)',num(set,'exp',b.exp||0,'1'))+
+                     f('Carton (kg)',num(set,'cartonKg',b.cartonKg||15,'0.5')))+
+    '</div></div>';
+
+  if(b.cat!=='veg'){
+    h+='<div class="orp-fg"><div class="orp-gl">What you’re paid, and what comes off it</div><div class="orp-f3">'+
+      f('Price / carton',num(setp,'price',p.price||0,'1'))+
+      f('Commission (%)',num(setp,'comm',p.comm||0,'0.5'))+
+      f('Packing (R)',num(setp,'pack',p.pack||0,'1'))+
+      f('Shipping (R)',num(setp,'ship',p.ship||0,'1'))+
+      (p.levyName?f(esc(p.levyName)+' levy',num(setp,'levy',p.levy||0,'0.01')):'')+
+      f('Local (R/ton)',num(setp,'localPrice',(p.local&&p.local.price)||0,'50'))+
+    '</div></div>';
+  }
+
+  h+='<div class="orp-fg"><div class="orp-gl">What the season costs</div><div class="orp-f3">'+
+    f('Season costs (R)','<input type="number" min="0" step="1000" value="'+r.cost+
+      '" onchange="event.stopPropagation();'+setf+'\'planCost\',this.value)">')+
+    '<div class="orp-f" style="grid-column:span 2;align-self:end"><div class="orp-facts" style="margin:0">'+
+      (b.planCost==null?esc(orGrowCostSource(b.cat)):'Your own figure')+'</div></div>'+
+  '</div></div>';
+
+  h+='<div class="orp-acts">'+
+    '<button class="orp-btn" type="button" onclick="event.stopPropagation();orpOpenBlock(\''+id+'\')">Open the block</button>'+
+    '</div>';
+
+  return '<div class="orp-ed"><div>'+h+'</div><div>'+orpMoneyPanel(r)+'</div></div>';
+}
+
+function orpOpenBlock(id){
+  nav('orchards');
+  setTimeout(function(){ if(typeof orOpenBlock==='function') orOpenBlock(id); },120);
+}
+
+function orpRowHTML(r){
+  var b=r.b, open=(ORP_OPEN===b.id), young=!orpBearing(b);
+  var mHa=young?-Math.round(r.cost/(b.ha||1)):orpMarginHa(b);
+  var mTot=r.income-r.cost;
+  return '<div class="orp-item'+(young?' young':'')+'" data-orp-block="'+planEscAttr(b.id)+'">'+
+    '<button class="orp-row orp-grid'+(open?' open':'')+'" type="button" data-orprow="'+planEscAttr(b.id)+'"'+
+      ' aria-expanded="'+(open?'true':'false')+'">'+
+      '<span class="orp-nm"><span class="orp-ic">'+(young?'🌱':(b.icon||'🍊'))+'</span>'+
+        '<span class="orp-nmw"><span class="orp-n1">'+esc(b.name||'Block')+'</span>'+
+        '<span class="orp-n2">'+esc(b.cultivar||'')+' · '+(b.ha||0)+' ha'+
+          (b.trees>0?' · '+_grpInt(b.trees)+' trees':'')+'</span>'+
+        '<span class="orp-tagline">'+orpTags(r)+'</span></span></span>'+
+      '<span class="orp-rib">'+orpRibbon(r)+'</span>'+
+      '<span class="orp-ha'+(mHa<0?' neg':'')+'">'+(mHa<0?'−R'+_grpInt(Math.abs(mHa)):'R'+_grpInt(mHa))+
+        '<span class="u">/ha</span></span>'+
+      '<span class="orp-money'+(mTot<0?' neg':'')+'">'+orRm(mTot)+'</span>'+
+      '<span class="orp-car">'+(open?'▲':'▼')+'</span>'+
+    '</button>'+(open?orpEditor(r):'')+'</div>';
+}
+
+function orpRenderTotals(rows){
+  var host=$('orp-totals'); if(!host) return;
+  var inc=0,cost=0,youngCost=0,youngN=0,spill=0;
+  rows.forEach(function(r){
+    inc+=r.income; cost+=r.cost;
+    if(!orpBearing(r.b)){ youngCost+=r.cost; youngN++; }
+    if(r.pickEnd+orpPayShift(r.b)>11) spill+=r.income;
+  });
+  var soon=rows.filter(function(r){return !orpBearing(r.b);})
+    .map(function(r){ var y=orpFirstPickYear(r.b); return r.b.name+(y?' — first pick '+y:''); });
+  host.innerHTML=
+    '<div><div class="k">Growing costs</div><div class="v" style="color:var(--or)">'+orRm(cost)+'</div>'+
+      '<div class="n">'+(youngCost>0?orRm(youngCost)+' of it on blocks not yet picking':'all on bearing blocks')+'</div></div>'+
+    '<div><div class="k">Fruit income</div><div class="v" style="color:var(--gd)">'+orRm(inc)+'</div>'+
+      '<div class="n">'+(spill>0?orRm(spill)+' of it is paid next season':'after commission, packing, shipping and levies')+'</div></div>'+
+    '<div><div class="k">Margin</div><div class="v">'+orRm(inc-cost)+'</div>'+
+      '<div class="n">before farm overheads</div></div>'+
+    '<div><div class="k">Coming into bearing</div><div class="v">'+youngN+' block'+(youngN===1?'':'s')+'</div>'+
+      '<div class="n">'+(soon.length?esc(soon.join(' · ')):'every block is picking')+'</div></div>';
+}
+
 function renderOrchPlanGrid(){
   var el=$('plan-orch-grid'); if(!el) return;
   var rows=orPlanRows();
-  if(!rows.length){ el.innerHTML='<div style="text-align:center;color:var(--t3);padding:36px;font-size:13px;background:#fff;border-radius:var(--rl);border:1px dashed var(--br)">No bearing orchard blocks yet.<br><button onclick="nav(\'orchards\');setTimeout(function(){if(typeof orSetTab===\'function\')orSetTab(\'add\');},120)" style="margin-top:10px;background:#C8962C;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer;font-family:inherit">+ Add a block</button></div>'; return; }
-  var months=ST_PLAN.months.map(function(m){return (m.label||'').charAt(0);});
-  var order=['citrus','fruit','berry','veg'], byCat={};
-  rows.forEach(function(r){ (byCat[r.b.cat]=byCat[r.b.cat]||[]).push(r); });
-  var html='';
-  order.forEach(function(cat){ if(!byCat[cat]) return;
-    html+='<div style="font-size:11px;font-weight:800;color:var(--t4);text-transform:uppercase;letter-spacing:.04em;margin:14px 2px 8px">'+(OR_CATS[cat]?OR_CATS[cat].ic+' '+OR_CATS[cat].nm:cat)+'</div>';
-    byCat[cat].forEach(function(r){ html+=orPlanCard(r,months,cat); });
-  });
-  el.innerHTML=html;
-}
-function orPlanCard(r,months,cat){
-  var b=r.b;
-  var cells='';
-  for(var i=0;i<12;i++){
-    var st=(i>=r.pickStart&&i<=r.pickEnd)?(i===r.pickEnd?'sell':'pick'):(i<r.pickStart?'grow':'');
-    var bg=st==='sell'?'#C8962C':st==='pick'?'#FAEED9':st==='grow'?'#EFF5EA':'#F7F8F7';
-    var fg=st==='sell'?'#fff':st==='pick'?'#8a6516':st==='grow'?'#2D6A4F':'#9CA3AF';
-    var em=st==='pick'?'\uD83C\uDF4A':st==='sell'?'\uD83D\uDCB0':'';
-    cells+='<div style="text-align:center;border-radius:4px;padding:4px 0 5px;background:'+bg+'"><div style="font-size:10px;line-height:1.15">'+(em||'&nbsp;')+'</div><div style="font-size:8.5px;font-weight:700;color:'+fg+'">'+months[i]+'</div></div>';
+  if(!rows.length){
+    el.innerHTML='<div class="orp-empty">No orchard blocks yet.<br>'+
+      '<button class="orp-btn pri" style="margin-top:10px" type="button" onclick="nav(\'orchards\');setTimeout(function(){if(typeof orSetTab===\'function\')orSetTab(\'add\');},120)">+ Add a block</button></div>';
+    return;
   }
-  var opt=function(sel){ var o=''; for(var i=0;i<12;i++){ o+='<option value="'+i+'"'+(i===sel?' selected':'')+'>'+(ST_PLAN.months[i].label||'').replace(/\s+\d+$/,'')+'</option>'; } return o; };
-  return '<div style="background:#fff;border:1px solid var(--br);border-radius:14px;padding:13px 14px;margin-bottom:11px">'+
-    '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px"><div style="width:34px;height:34px;border-radius:9px;background:#FAEEDA;display:flex;align-items:center;justify-content:center;font-size:17px">'+b.icon+'</div>'+
-    '<div><div style="font-size:14px;font-weight:800">'+esc(b.name)+'</div><div style="font-size:11px;color:var(--t3)">'+esc(b.cultivar)+' \u00b7 '+b.ha+' ha</div></div>'+
-    '<div style="margin-left:auto;text-align:right"><div style="font-size:17px;font-weight:800;font-family:Georgia,serif;color:var(--gm);line-height:1.1">'+orRm(r.income)+'</div><div style="font-size:10px;color:var(--t3)">money back</div></div></div>'+
-    '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:2px;margin-bottom:10px">'+cells+'</div>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:11px;color:var(--t3);border-top:1px solid var(--br2);padding-top:9px">'+
-      '<label>Picks <select onchange="orPlanSetField(\''+b.id+'\',\'planPickStart\',this.value)" style="font-family:inherit;font-size:11px;border:1px solid var(--br);border-radius:6px;padding:3px 5px">'+opt(r.pickStart)+'</select></label>'+
-      '<label>to <select onchange="orPlanSetField(\''+b.id+'\',\'planPickEnd\',this.value)" style="font-family:inherit;font-size:11px;border:1px solid var(--br);border-radius:6px;padding:3px 5px">'+opt(r.pickEnd)+'</select></label>'+
-      '<label style="margin-left:auto;text-align:right">Season costs R <input value="'+r.cost+'" inputmode="numeric" onchange="orPlanSetField(\''+b.id+'\',\'planCost\',this.value)" style="width:80px;font-family:inherit;font-size:11px;border:1px solid var(--br);border-radius:6px;padding:3px 5px">'+(b.planCost==null?'<div style="font-size:10px;color:var(--t4);margin-top:2px">'+orGrowCostSource(b.cat)+'</div>':'')+'</label>'+
-    '</div>'+
-    '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--t3);margin-top:7px"><span>'+(b.tons||0)+' t \u00b7 planned profit</span><span style="font-weight:800;color:var(--t1)">'+orRm(r.income-r.cost)+'</span></div></div>';
+  var MS=(ST_PLAN.months||[]).map(function(m){ return (m.label||'').split(' ')[0]; });
+  var now=orpNowIdx();
+  var byCat={}; rows.forEach(function(r){ (byCat[r.b.cat]=byCat[r.b.cat]||[]).push(r); });
+  var order=(typeof OR_CAT_ORDER!=='undefined')?OR_CAT_ORDER:['citrus','fruit','berry','veg'];
+
+  var h='<div class="orp-wrap">'+
+    '<div class="orp-lh"><div><div class="t">Orchard planning</div>'+
+      '<div class="s">Tap a block to change its picking window or season costs — the maths updates as you type</div></div>'+
+      '<div class="orp-legend">'+
+        '<span><i class="gw"></i>Growing</span>'+
+        '<span><i class="pk"></i>Picking</span>'+
+        '<span><i class="py"></i>Money lands</span>'+
+        '<span><i class="yg"></i>Too young to pick</span>'+
+      '</div></div>'+
+    '<div class="orp-grid orp-mh"><span class="colh">Block</span>'+
+      '<div class="orp-mrow">'+MS.map(function(m,i){
+        return '<span'+(i===now?' class="now"':'')+'>'+esc(m)+'</span>'; }).join('')+'</div>'+
+      '<span class="colh r">Margin/ha</span><span class="colh r">Margin</span><span></span></div>';
+
+  order.forEach(function(cat){
+    if(!byCat[cat]) return;
+    var meta=(typeof OR_CATS!=='undefined'&&OR_CATS[cat])?OR_CATS[cat]:null;
+    h+='<div class="orp-cat">'+(meta?meta.ic+' '+esc(meta.nm):esc(cat))+'</div>';
+    byCat[cat].forEach(function(r){ h+=orpRowHTML(r); });
+  });
+
+  h+='<div class="orp-tot" id="orp-totals"></div></div>';
+  el.innerHTML=h;
+  orpRenderTotals(rows);
+  try{ if(typeof langSync==='function') langSync(el); }catch(e){}
 }
+
+/* Row open/close, delegated so it survives every re-render. */
+document.addEventListener('click', function(e){
+  var r=(e.target&&e.target.closest)?e.target.closest('[data-orprow]'):null;
+  if(r) orpToggle(r.getAttribute('data-orprow'));
+});
 
 // ── Add / Edit crop modal ─────────────────────────────────────
 // Rebuild the crop-cycle month dropdowns from ST_PLAN.months so their labels
@@ -30959,6 +31524,10 @@ function applyBudgetPattern(side) {
 
 function setPlanTab(tab) {
   ST_PLAN.activeTab = tab;
+  /* The outside/spill notice is written per tab, so it has to be redrawn when
+     the tab changes — recomputePlan alone does not fire on a tab switch. It only
+     reads activeTab, so it runs here rather than a frame later. */
+  try{ if(typeof planRenderOutside==='function') planRenderOutside(); }catch(e){}
   var panes={crops:'plan-crops-pane',orchards:'plan-orch-pane',livestock:'plan-live-pane',tracker:'plan-tracker-pane'};
   Object.keys(panes).forEach(function(k){ var p=$(panes[k]); if(p) p.style.display=(k===tab)?'block':'none'; });
   var ct=$('plan-tab-crops'), ot=$('plan-tab-orch'), lt=$('plan-tab-live'), tt=$('plan-tab-track');
@@ -35013,6 +35582,72 @@ var LANG_PAIRS = [
   ["Expenses exceed income","Uitgawes is meer as inkomste"],
   ["Actual recorded","Werklik aangeteken"],
   ["HOW TO READ","HOE OM DIT TE LEES"],
+  ["This block is not picking yet","Hierdie blok pluk nog nie"],
+  ["The cost is real and now counted in your forecast.","Die koste is werklik en tel nou in jou vooruitskatting."],
+  ["Tap a block to change its picking window or season costs — the maths updates as you type","Tik op 'n blok om sy plukvenster of seisoenkoste te verander — die somme werk by soos jy tik"],
+  ["Export agents must pay within","Uitvoeragente moet betaal binne"],
+  ["weeks of shipping","weke na versending"],
+  ["that is the default, not a guess","dit is die verstek, nie 'n raaiskoot nie"],
+  ["One hail event or a pack-out drop wipes this block out.","Een haelbui of 'n laer uitpak vee hierdie blok skoon uit."],
+  ["after commission, packing, shipping and levies","na kommissie, verpakking, versending en heffings"],
+  ["of it on blocks not yet picking","daarvan op blokke wat nog nie pluk nie"],
+  ["of it is paid next season","daarvan word volgende seisoen betaal"],
+  ["all on bearing blocks","alles op draende blokke"],
+  ["every block is picking","elke blok pluk"],
+  ["and first carries a crop in","en dra eers 'n oes in"],
+  ["When it picks and when you’re paid","Wanneer dit pluk en wanneer jy betaal word"],
+  ["What you’re paid, and what comes off it","Wat jy betaal word, en wat daarvan afgaan"],
+  ["What comes off the block","Wat van die blok afkom"],
+  ["What the season costs","Wat die seisoen kos"],
+  ["Where the money goes — per","Waarheen die geld gaan — per"],
+  ["Age vs what it yields","Ouderdom teenoor wat dit lewer"],
+  ["Coming into bearing","Kom in drag"],
+  ["too young to pick","te jong om te pluk"],
+  ["Too young to pick","Te jong om te pluk"],
+  ["% bearing","% drag"],
+  ["first pick","eerste pluk"],
+  ["paid next season","volgende seisoen betaal"],
+  ["thin margin","dun marge"],
+  ["Orchard planning","Boordbeplanning"],
+  ["Picking starts","Pluk begin"],
+  ["Picking ends","Pluk eindig"],
+  ["Money lands","Geld kom in"],
+  ["Crop estimate (t)","Oesskatting (t)"],
+  ["Carton (kg)","Karton (kg)"],
+  ["Price / carton","Prys / karton"],
+  ["Commission (%)","Kommissie (%)"],
+  ["Packing (R)","Verpakking (R)"],
+  ["Shipping (R)","Versending (R)"],
+  ["Local (R/ton)","Plaaslik (R/ton)"],
+  ["Season costs (R)","Seisoenkoste (R)"],
+  ["Your own figure","Jou eie syfer"],
+  ["Open the block","Maak die blok oop"],
+  ["Packhouse price","Pakhuisprys"],
+  ["Agent commission","Agentkommissie"],
+  ["In your pocket","In jou sak"],
+  ["of the price","van die prys"],
+  ["Local / juice","Plaaslik / sap"],
+  ["Carrying cost","Drakoste"],
+  ["this year","hierdie jaar"],
+  ["Fruit income","Vrugte-inkomste"],
+  ["No orchard blocks yet.","Nog geen boordblokke nie."],
+  ["Add a block","Voeg 'n blok by"],
+  ["On picking","Met pluk"],
+  ["weeks after","weke later"],
+  ["cost to plant","koste om te plant"],
+  ["yearly tax write-off","jaarlikse belastingafskrywing"],
+  ["Picking","Pluk"],
+  ["cartons","kartonne"],
+  ["trees","bome"],
+  ["The fruit is picked this season but the exporter pays later, so that money lands in your next financial year. Growing costs stay in this one.","Die vrugte word hierdie seisoen gepluk maar die uitvoerder betaal later, so daardie geld kom in jou volgende finansiële jaar in. Groeikoste bly in hierdie een."],
+  ["They cost a full season to keep and earn nothing until they come into bearing. The cost is counted; the income is not.","Hulle kos 'n volle seisoen om te onderhou en verdien niks totdat hulle in drag kom nie. Die koste tel; die inkomste nie."],
+  ["paid after this season ends","word betaal nadat hierdie seisoen eindig"],
+  ["not picking yet","pluk nog nie"],
+  ["not bearing yet","nog nie in drag nie"],
+  ["Pulled from your Orchards module.","Getrek uit jou Boorde-module."],
+  ["Set each block's pick window and season costs here — the income lands in those months in your forecast and budgets. Edits sync back to the Orchards tab.","Stel elke blok se plukvenster en seisoenkoste hier — die inkomste land in daardie maande in jou vooruitskatting en begrotings. Wysigings sinkroniseer terug na die Boorde-oortjie."],
+  ["blocks","blokke"],
+  ["block","blok"],
   ["of it lands next season","hiervan kom volgende seisoen in"],
   ["previous crop","vorige gewas"],
   ["Set the planting and harvest months — until they are set this land is not counted in your forecast.","Stel die plant- en oesmaande — solank hulle nie gestel is nie, tel hierdie land nie in jou vooruitskatting nie."],
@@ -47143,7 +47778,7 @@ var OR_MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','D
 var OR_CUR_WF = null;
 
 function orR(n){ return _moneyInt(n); }
-function orRm(n){n=Number(n);if(!isFinite(n))n=0;n=Math.round(n);var v=Math.abs(n);if(v>=1e6)return (n<0?'\u2212R':'R')+(n/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'m';if(v>=1e3)return (n<0?'\u2212R':'R')+Math.round(n/1e3)+'k';return (n<0?'\u2212R':'R')+v;}
+function orRm(n){n=Number(n);if(!isFinite(n))n=0;n=Math.round(n);var v=Math.abs(n);if(v>=1e6)return (n<0?'\u2212R':'R')+(v/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'m';if(v>=1e3)return (n<0?'\u2212R':'R')+Math.round(v/1e3)+'k';return (n<0?'\u2212R':'R')+v;}
 function orR2(n){ return _moneyCents(n); }
 function orFmtDM(d){return d.getDate()+' '+OR_MON[d.getMonth()];}
 function orAddDays(d,n){var x=new Date(d.getTime());x.setDate(x.getDate()+n);return x;}
