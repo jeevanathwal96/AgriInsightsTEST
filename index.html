@@ -752,6 +752,14 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .stmt-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:18px}
 .ast-totrow td{background:#F0FDF4;border-top:2px solid var(--gd);border-bottom:none;font-weight:800;color:var(--gd);font-size:13px}
 .ast-totrow td .sub{font-size:10.5px;color:var(--gm);font-weight:700}
+/* Asset register: one divider band per asset type, carrying its own subtotals. */
+#ast-table th.r,#ast-table td.r{text-align:right}
+#ast-table td.r,#ast-table th.r{font-variant-numeric:tabular-nums}
+#ast-table .ast-grp td{background:var(--gb);border-top:1px solid var(--gp);border-bottom:1px solid var(--gp);
+  padding:9px 12px;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--gd)}
+#ast-table .ast-grp:hover td{background:var(--gb)}
+#ast-table .ast-grp .n{font-size:11.5px;font-weight:700;letter-spacing:.02em;text-transform:none;color:var(--gm);margin-left:7px}
+#ast-table .ast-grp td.r{font-size:12.5px;letter-spacing:-.01em;text-transform:none}
 .ai-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
 .ai-kpi{background:#fff;border:1px solid var(--br);border-radius:14px;padding:14px 15px;box-shadow:0 1px 3px rgba(0,0,0,.05);cursor:pointer;transition:border-color .15s}
 .ai-kpi:hover{border-color:var(--gl)}
@@ -6114,7 +6122,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="mc">
       <div class="mc-lbl">Yearly tax write-off</div>
       <div class="mc-val" id="ast-depr" style="color:var(--or)">—</div>
-      <div class="mc-chg" style="color:var(--t3)">Tax deduction this FY</div>
+      <div class="mc-chg" id="ast-depr-sub" style="color:var(--t3)">Tax deduction this FY</div>
     </div>
   </div>
 
@@ -6143,16 +6151,17 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <option>Other</option>
       </select>
     </div>
-    <table class="tbl">
+    <table class="tbl" id="ast-table">
       <thead>
+        <!-- Widths are set explicitly: left to itself the browser gave Asset 40% and left
+             the Edit/✕ pair 94px, which is narrower than the buttons plus their padding. -->
         <tr>
-          <th>Asset</th>
-          <th>Category</th>
-          <th>Purchased</th>
-          <th>Purchase Price</th>
-          <th>Tax value</th>
-          <th>Write-off this yr</th>
-          <th style="width:80px"></th>
+          <th style="width:31%">Asset</th>
+          <th style="width:12%">Purchased</th>
+          <th class="r" style="width:14%">Purchase Price</th>
+          <th class="r" style="width:15%">Tax value</th>
+          <th class="r" style="width:16%">Write-off this yr</th>
+          <th style="width:11%"></th>
         </tr>
       </thead>
       <tbody id="ast-tbody"></tbody>
@@ -17823,17 +17832,35 @@ var deprYear = 0;
 
 // ── Summary cards ─────────────────────────────────────────────
 function updateAssetSummary() {
-  var totalPurchase = 0, totalBook = 0, totalDeprYear = 0;
+  var totalPurchase = 0, totalBook = 0, totalDeprYear = 0, devCost = 0;
   ST_ASSETS.assets.forEach(function(a) {
     var d = calcDepr(a);
     totalPurchase += a.price || 0;
     totalBook     += d.bookValue;
-    totalDeprYear += d.deprYear;
+    /* Only treatments that actually recur go in a "/yr" figure. Farm development (s12u)
+       is claimed at full cost in the year it was built, under para 12 — spreading it
+       over its life here invented an annual deduction the tax engine never claims, and
+       made this tile disagree with Tax & SARS by exactly that amount. */
+    if (a.deprType === 's12u') devCost += a.price || 0;
+    else totalDeprYear += d.deprYear;
   });
   setEl('ast-total',       fmt(totalPurchase));
   setEl('ast-total-count', ST_ASSETS.assets.length + ' asset' + (ST_ASSETS.assets.length!==1?'s':''));
   setEl('ast-book',        fmt(totalBook));
   setEl('ast-depr',        fmt(totalDeprYear) + '/yr');
+  /* Farm development still has to be visible — it is real money, just claimed once. */
+  setEl('ast-depr-sub', devCost > 0
+    ? ('plus ' + fmt(devCost) + ' farm development, claimed in its build year')
+    : 'Tax deduction this FY');
+}
+
+/* True when an asset has been depreciated all the way down. Land, buildings held at
+   cost, shares and policies carry deprType 'none' — their book value is simply their
+   price and they are NOT "claimed", so they must never get the chip. */
+function _astFullyClaimed(a, d) {
+  if (!a || !d) return false;
+  if (!a.deprType || a.deprType === 'none') return false;
+  return (d.bookValue || 0) <= 0 && (a.price || 0) > 0;
 }
 
 // ── Asset list render ─────────────────────────────────────────
@@ -17854,7 +17881,20 @@ function renderAssetList() {
   }
   if (empty) empty.style.display = 'none';
 
-  var _rows = assets.map(function(a, i) {
+  /* Subtotals for a band, on the same rules as the summary tile: s12u is claimed at
+     cost in its build year, so it never enters a "/yr" figure. */
+  function _astSub(list) {
+    var o = {paid:0, book:0, yr:0};
+    list.forEach(function(a){
+      var dd = calcDepr(a);
+      o.paid += a.price || 0;
+      o.book += dd.bookValue;
+      if (a.deprType !== 's12u') o.yr += dd.deprYear;
+    });
+    return o;
+  }
+
+  var _rowHTML = function(a) {
     var d   = calcDepr(a);
     var ic  = CAT_ICONS[a.cat] || CAT_ICONS['Other'];
     var age = a.date ? Math.floor((new Date() - new Date(a.date)) / (365.25*24*3600*1000)) : 0;
@@ -17873,28 +17913,77 @@ function renderAssetList() {
           '</div>' +
         '</div>' +
       '</td>' +
-      '<td><span style="font-size:11px;background:var(--bg);color:var(--t2);padding:3px 8px;border-radius:10px;font-weight:600">'+a.cat+'</span></td>' +
+      /* No Category cell: the band divider above the row already names the type, so the
+         pill repeated it on every row. That width goes to the asset name instead. */
       '<td style="color:var(--t3);font-size:12px">'+(a.date||'—')+'<br><span style="font-size:10px">'+age+' yr'+(age!==1?'s':'')+' old</span></td>' +
-      '<td style="font-weight:600">'+fmt(a.price||0)+'</td>' +
-      '<td>' +
-        '<div style="font-weight:700;color:'+(d.bookValue<a.price*0.2?'var(--rd)':'var(--t1)')+'">'+fmt(d.bookValue)+'</div>' +
-        (deprBadge ? '<span style="font-size:10px;background:var(--gp);color:var(--gd);padding:1px 6px;border-radius:10px;font-weight:700">'+deprBadge+'</span>' : '') +
+      '<td class="r" style="font-weight:700">'+fmt(a.price||0)+'</td>' +
+      /* A written-off asset is not a worthless one. Showing a working R1 050 000 tractor
+         as a red "R0" reads as an error or a loss, when it only means the deduction has
+         already been banked — good news. Say that instead, calmly. */
+      /* One object of weight per cell: the value OR the state. The treatment code used to
+         be a second pill, so two rounded backgrounds fought inside the narrowest column
+         on the table. It is a caption, not a status — so it loses its background and sits
+         quietly underneath, for the accountant rather than the farmer. */
+      '<td class="r">' +
+        (_astFullyClaimed(a, d)
+          ? '<div style="font-size:13px;font-weight:750;color:var(--gm);white-space:nowrap">Fully claimed</div>'
+          : '<div style="font-weight:750;color:'+(d.bookValue<a.price*0.2?'var(--rd)':'var(--t1)')+'">'+fmt(d.bookValue)+'</div>') +
+        /* No text-transform: the section really is "S11(e)" with a lowercase e, and
+           uppercasing it would misname the provision the accountant is checking. */
+        (deprBadge ? '<div style="font-size:10px;font-weight:800;letter-spacing:.08em;color:var(--t4);margin-top:3px">'+deprBadge+'</div>' : '') +
+      '</td>' +
+      '<td class="r">' +
+        (a.deprType === 's12u'
+          /* Farm development is claimed once, at cost, in its build year — never per year. */
+          ? '<span style="color:var(--t3);font-size:12px">In build year</span>'
+          : d.deprYear > 0 ? '<div style="font-weight:700;color:var(--gl)">'+fmt(d.deprYear)+'/yr</div>'
+          : _astFullyClaimed(a, d) ? '<span style="color:var(--t3);font-size:12px">Nothing left</span>'
+          : '<span style="color:var(--t4)">—</span>') +
       '</td>' +
       '<td>' +
-        (d.deprYear > 0 ? '<div style="font-weight:600;color:var(--gl)">'+fmt(d.deprYear)+'/yr</div>' : '<span style="color:var(--t4)">—</span>') +
-      '</td>' +
-      '<td>' +
-        '<div style="display:flex;gap:4px">' +
+        /* Centred, not right-aligned: the pair only needs ~70px, so flush-right left them
+           stranded against the card edge with a gap after the write-off figures. */
+        '<div style="display:flex;gap:5px;justify-content:center">' +
           '<button onclick="event.stopPropagation();openEditAsset('+origIdx+')" style="background:var(--gb);border:1px solid var(--gp);border-radius:4px;padding:4px 8px;font-size:11px;font-weight:600;color:var(--gd);cursor:pointer">Edit</button>' +
           '<button onclick="event.stopPropagation();deleteAsset('+origIdx+')" style="background:var(--rp);border:1px solid #FECACA;border-radius:4px;padding:4px 8px;font-size:11px;font-weight:600;color:var(--rd);cursor:pointer">✕</button>' +
         '</div>' +
       '</td>' +
     '</tr>';
-  }).join('');
-  var _tp=0,_tb=0,_td=0;
-  assets.forEach(function(a){ var dd=calcDepr(a); _tp+=a.price||0; _tb+=dd.bookValue; _td+=dd.deprYear; });
-  var _totLbl = filter ? (filter+' <span class="sub">\u00b7 '+assets.length+' of '+ST_ASSETS.assets.length+' assets</span>') : ('TOTAL <span class="sub">\u00b7 '+assets.length+' asset'+(assets.length!==1?'s':'')+'</span>');
-  _rows += '<tr class="ast-totrow"><td>'+_totLbl+'</td><td></td><td></td><td>'+fmt(_tp)+'</td><td>'+fmt(_tb)+'</td><td>'+(_td>0?fmt(_td)+'/yr':'\u2014')+'</td><td></td></tr>';
+  };
+
+  /* Group into bands, biggest spend first — so the shape of the farm reads off the
+     dividers alone, instead of the order assets happened to be captured in. */
+  var _order = [], _byCat = {};
+  assets.forEach(function(a){
+    var c = a.cat || 'Other';
+    if (!_byCat[c]) { _byCat[c] = []; _order.push(c); }
+    _byCat[c].push(a);
+  });
+  _order.sort(function(x, y){ return _astSub(_byCat[y]).paid - _astSub(_byCat[x]).paid; });
+
+  /* With only one band on screen — filtered to a single category, or a farm that owns
+     just one type — the divider would repeat the total row verbatim. Skip it. */
+  var _showBands = _order.length > 1;
+  var _rows = '';
+  _order.forEach(function(c){
+    var list = _byCat[c], s = _astSub(list);
+    if (_showBands) {
+      _rows += '<tr class="ast-grp"><td>'+esc(c)+'<span class="n">· '+list.length+' item'+(list.length!==1?'s':'')+'</span></td>' +
+               '<td></td>' +
+               '<td class="r">'+fmt(s.paid)+'</td>' +
+               '<td class="r">'+fmt(s.book)+'</td>' +
+               '<td class="r">'+(s.yr>0 ? fmt(s.yr)+'/yr' : '—')+'</td>' +
+               '<td></td></tr>';
+    }
+    _rows += list.map(_rowHTML).join('');
+  });
+
+  var _t = _astSub(assets);
+  var _totLbl = filter ? (filter+' <span class="sub">· '+assets.length+' of '+ST_ASSETS.assets.length+' assets</span>') : ('TOTAL <span class="sub">· '+assets.length+' asset'+(assets.length!==1?'s':'')+'</span>');
+  _rows += '<tr class="ast-totrow"><td>'+_totLbl+'</td><td></td>' +
+           '<td class="r">'+fmt(_t.paid)+'</td>' +
+           '<td class="r">'+fmt(_t.book)+'</td>' +
+           '<td class="r">'+(_t.yr>0?fmt(_t.yr)+'/yr':'—')+'</td><td></td></tr>';
   tbody.innerHTML = _rows;
 }
 
@@ -36679,8 +36768,14 @@ function _taxFYVat(){
   (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var fy=(d.m>=fyStart?d.y:d.y-1); if(fy!==curFY) return; var s=IE_split(t.amt,t.cat); if(t.type==='income') out+=s.vat; else inp+=s.vat; });
   return Math.round(out-inp);
 }
+/* Annual capital allowances only. s12u is deliberately NOT here: farm development is
+   deducted at full cost in the year of the spend, under para 12 with the 12(3) cap, by
+   the capLimAssets block in taxProvEstimate(). Adding it here would claim the same dam
+   twice under two regimes. `renew` DOES belong — solar and battery plant carry a real
+   accelerated allowance and were being totalled nowhere at all, so the deduction was
+   silently lost in the year it should have been claimed. */
 function taxCapitalAllowances(){
-  var s12b=0,s11e=0;
+  var s12b=0,s11e=0,renew=0;
   ((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]).forEach(function(a){
     if(typeof calcDepr!=='function') return;
     /* The other side of the para 12 link. If this asset's purchase is already being
@@ -36693,9 +36788,12 @@ function taxCapitalAllowances(){
       if(lt && typeof taxCatIsCapital==='function' && taxCatIsCapital(lt.cat)) return;
     }catch(e){}
     var d=calcDepr(a);
-    if(a.deprType==='s12b') s12b+=(d.deprYear||0); else if(a.deprType==='s11e') s11e+=(d.deprYear||0);
+    if(a.deprType==='s12b') s12b+=(d.deprYear||0);
+    else if(a.deprType==='s11e') s11e+=(d.deprYear||0);
+    else if(a.deprType==='renew') renew+=(d.deprYear||0);
   });
-  return {s12b:Math.round(s12b),s11e:Math.round(s11e),total:Math.round(s12b+s11e)};
+  return {s12b:Math.round(s12b),s11e:Math.round(s11e),renew:Math.round(renew),
+          total:Math.round(s12b+s11e+renew)};
 }
 /* ── Transaction ↔ asset link (First Schedule para 12) ────────────────────────────
    A dam bought for R540 000 is legitimately two records: money that left the bank, and
@@ -37481,7 +37579,7 @@ function taxGlanceHTML(){
      "where your deductions come from" — while the card above says they are not
      deductible. One screen, two answers. */
   var fy=_taxFYProfit(0), ded=[]; Object.keys(fy.byCat||{}).forEach(function(k){ if(taxCatKind(k)!=='nonded') ded.push([k,fy.byCat[k]]); }); ded.sort(function(a,b){return b[1]-a[1];}); ded=ded.slice(0,3);
-  if(cap.total>0) ded.push(['Capital allowances (S12B, wear & tear)',cap.total]);
+  if(cap.total>0) ded.push(['Capital allowances (S12B, wear & tear, renewables)',cap.total]);
   var dmx=Math.max.apply(null,ded.map(function(d){return d[1];}).concat(1));
   h+=(ded.length?ded.map(function(d){ var pc=Math.max(5,Math.round(d[1]/dmx*100)); return '<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="font-weight:600">'+esc(_txCatLabel(d[0]))+'</span><b>'+IE_R(d[1])+'</b></div><div class="tx-bar"><i style="width:'+pc+'%;background:#40916C"></i></div></div>'; }).join(''):'<div style="font-size:12.5px;color:var(--t3)">Log costs and assets to see your deductions build up.</div>');
   h+='</div>';
