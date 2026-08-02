@@ -1518,7 +1518,12 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .bgt-more-body.open{display:flex}
 /* The "needs a look" band said exactly what the category rows below already say.
    Its job — jumping to a flagged row — now lives in the row list itself. */
-#bgt-flags{display:none}
+/* The three delta chips said "Income behind by R1.91M" and "Costs under by
+   R1.26M" — which the two tiles directly beneath now say themselves. */
+#bgt-hero-deltas{display:none}
+/* The tiles carry a coloured stripe and a tint when selected, so the caption
+   explaining that you can tap them is no longer earning its line. */
+#bgt-mode-chip{display:none}
 .bgt-also{margin-top:12px;background:var(--op);border:1px solid var(--or);border-radius:var(--rs);
   padding:10px 12px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
 .bgt-also .lb{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
@@ -29572,6 +29577,12 @@ function bgtAutoMode(c) {
 
 function bgtRenderFlags(c) {
   var box = $('bgt-flags'); if (!box) return;
+  /* Retired. This band restated the category rows word for word; its job —
+     jumping to a flagged row — now lives in the "Also behind pace" strip on
+     the category card. Hidden HERE rather than in CSS because the code below
+     sets display inline, which no stylesheet rule can override.
+     Delete these two lines to bring it back. */
+  box.style.display = 'none'; box.innerHTML = ''; return;
   var d = bgtCatData(c);
   var flags = d.expense.flags.concat(d.income.flags);
   flags.sort(function(a,b) { return b.amt - a.amt; });
