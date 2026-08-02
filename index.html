@@ -1127,6 +1127,8 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .st-hero-amt span{font-size:13px;font-weight:400;font-family:var(--fn);color:var(--t3)}
 .st-varchip{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-size:14px;padding:6px 12px;border-radius:999px}
 .st-varchip.pos{background:#F0FAF4;color:#1B7A3E}.st-varchip.neg{background:#FDECEA;color:#B42318}
+.st-varchip.mut{background:var(--br2);color:var(--t3);font-weight:700}
+.st-hero-note{font-size:11.5px;color:var(--t4);margin-top:7px;line-height:1.5}
 .st-varsub{font-size:11.5px;color:var(--t4);margin-top:6px}
 .st-prog-wrap{margin-top:16px}
 .st-prog-lbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--t3);margin-bottom:5px}
@@ -1544,14 +1546,18 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
   padding:13px 16px;display:flex;gap:11px;align-items:flex-start;flex-wrap:wrap}
 .plan-outside .po-h{font-size:13px;font-weight:700;color:var(--or)}
 .plan-outside .po-s{font-size:11.5px;font-weight:400;color:var(--t2);margin-top:2px;line-height:1.5}
-.plan-outside .po-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
 .plan-spill{margin:12px 0;background:var(--gb);border:1px solid var(--gl);border-radius:var(--rl);
   padding:13px 16px;display:flex;gap:11px;align-items:flex-start;flex-wrap:wrap}
 .plan-spill .ps-h{font-size:13px;font-weight:700;color:var(--gd)}
 .plan-spill .ps-s{font-size:11.5px;font-weight:400;color:var(--t2);margin-top:2px;line-height:1.5}
+/* Layout and chip styling belong to BOTH notices. Scoping them to .plan-outside
+   left the spill chips with no flex gap and no padding, so they ran together as
+   one unbroken line of text. */
+.plan-outside .po-list,.plan-spill .po-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.plan-outside .po-list span,.plan-spill .po-list span{font-size:11px;font-weight:700;color:var(--or);
+  background:var(--wh);border:1px solid var(--or);border-radius:99px;padding:3px 10px;white-space:nowrap}
+/* Must come AFTER the shared rule — same specificity, so source order decides. */
 .plan-spill .po-list span{border-color:var(--gl);color:var(--gm)}
-.plan-outside .po-list span{font-size:11px;font-weight:700;color:var(--or);background:var(--wh);
-  border:1px solid var(--or);border-radius:99px;padding:3px 10px;white-space:nowrap}
 
 /* Merge: hero + KPI strip were two cards answering one question, and repeated
    each other's figures. One card now — red verdict band, then the three tiles
@@ -30786,14 +30792,27 @@ function renderSeasonTracker(){
     return;
   }
   var vari=V.tracking-V.planned, pos=vari>=0;
+  /* This figure is enterprise GROSS MARGIN — revenue less the direct costs of each
+     crop, block and herd. It does NOT carry overheads (loans, insurance, admin), so
+     it must not be called profit; the Profit tab subtracts those. Calling it profit
+     put a number on screen that could never agree with Budgets or Profit. */
+  var stStarted = V.realisedPct >= 5;
   var hero='<div class="st-hero">'+
     '<div class="st-hero-top">'+
       '<div><div class="st-eyebrow">This season</div>'+
-        '<div class="st-hero-line">You planned <b style="color:var(--gd)">'+stK(V.planned)+'</b> profit — tracking <b style="color:'+(pos?'var(--gd)':'#B45309')+'">'+stK(V.tracking)+'</b></div>'+
-        '<div class="st-hero-amt" style="color:'+(pos?'var(--gd)':'#B45309')+'">'+stK(V.tracking)+' <span>on track for</span></div></div>'+
-      '<div style="text-align:right"><div class="st-varchip '+(pos?'pos':'neg')+'">'+(pos?'▲ ':'▼ ')+stK(Math.abs(vari))+' · '+(V.planned?(pos?'+':'−')+Math.abs(Math.round(vari/Math.abs(V.planned)*100))+'%':'—')+'</div><div class="st-varsub">vs your plan</div></div>'+
+        (stStarted
+          ? '<div class="st-hero-line">You planned <b style="color:var(--gd)">'+stK(V.planned)+'</b> margin — tracking <b style="color:'+(pos?'var(--gd)':'#B45309')+'">'+stK(V.tracking)+'</b></div>'+
+            '<div class="st-hero-amt" style="color:'+(pos?'var(--gd)':'#B45309')+'">'+stK(V.tracking)+' <span>on track for</span></div>'
+          /* Nothing harvested yet: showing a "tracking" figure here just echoes the
+             plan back and reads as a measurement. Say plainly that it has not started. */
+          : '<div class="st-hero-line">Your plan is <b style="color:var(--gd)">'+stK(V.planned)+'</b> margin from crops, orchards and livestock</div>'+
+            '<div class="st-hero-amt" style="color:var(--gd)">'+stK(V.planned)+' <span>planned</span></div>')+
+        '<div class="st-hero-note">Margin is what each crop, block and herd earns after its own growing costs — before farm overheads like loans, insurance and admin.</div></div>'+
+      (stStarted
+        ? '<div style="text-align:right"><div class="st-varchip '+(pos?'pos':'neg')+'">'+(pos?'▲ ':'▼ ')+stK(Math.abs(vari))+' · '+(V.planned?(pos?'+':'−')+Math.abs(Math.round(vari/Math.abs(V.planned)*100))+'%':'—')+'</div><div class="st-varsub">vs your plan</div></div>'
+        : '<div style="text-align:right"><div class="st-varchip mut">Not started</div><div class="st-varsub">nothing harvested or sold yet</div></div>')+
     '</div>'+
-    '<div class="st-prog-wrap"><div class="st-prog-lbl"><span>Season progress — money in so far</span><span style="font-weight:700;color:var(--t2)">'+V.realisedPct+'%</span></div><div class="st-prog"><div class="st-prog-fill" style="width:'+V.realisedPct+'%"></div></div></div>'+
+    '<div class="st-prog-wrap"><div class="st-prog-lbl"><span>'+(stStarted?'Season progress — money in so far':'Season progress — nothing harvested yet')+'</span><span style="font-weight:700;color:var(--t2)">'+V.realisedPct+'%</span></div><div class="st-prog"><div class="st-prog-fill" style="width:'+V.realisedPct+'%"></div></div></div>'+
   '</div>';
   var attn=stAttention(V.groups);
   var attnH=attn.length?'<div class="st-attn"><div class="st-attn-h">⚠ Needs your attention</div>'+attn.map(function(a){return '<div class="st-attn-card"><div class="st-attn-t">'+stEsc(a.t)+'</div><div class="st-attn-d">'+stEsc(a.d)+'</div></div>';}).join('')+'</div>':'';
@@ -30808,23 +30827,32 @@ function renderSeasonTracker(){
 function stRowHTML(gkey,r){
   var v=r.tracking-r.planned, pos=v>=0, s=ST_STATUS[r.status]||ST_STATUS.ontrack;
   var open=ST_TRACK_OPEN===(gkey+':'+r.key);
-  var vchip='<span class="st-rchip" style="color:'+(pos?'#1B7A3E':'#B42318')+';background:'+(pos?'#F0FAF4':'#FEF3F2')+'">'+stSK(v)+'</span>';
+  /* Nothing harvested from this line yet, so tracking is just the plan repeated.
+     A coloured variance chip there claims a result that does not exist. */
+  var rStarted=(r.progress||0)>0;
+  var vchip = rStarted
+    ? '<span class="st-rchip" style="color:'+(pos?'#1B7A3E':'#B42318')+';background:'+(pos?'#F0FAF4':'#FEF3F2')+'">'+stSK(v)+'</span>'
+    : '<span class="st-rchip" style="color:var(--t3);background:var(--br2)">not started</span>';
   var head='<div class="st-row'+(open?' open':'')+'" onclick="stToggleDetail(\''+gkey+'\',\''+String(r.key).replace(/'/g,"\\'")+'\')">'+
     stTile(gkey)+
     '<div class="st-row-main"><div class="st-row-name">'+stEsc(r.name)+' <span class="st-row-sub">'+stEsc(r.sub)+'</span> <span class="st-pill" style="color:'+s.c+';background:'+s.bg+'">'+s.l+'</span></div>'+
       '<div class="st-row-drv">'+stEsc(r.driver)+'</div>'+
       '<div class="st-row-progwrap"><div class="st-row-prog"><div style="width:'+r.progress+'%;background:'+s.c+'"></div></div><span class="st-row-progn">'+r.progress+'% '+r.progressLbl+'</span></div></div>'+
-    '<div class="st-row-nums"><div class="st-row-pl">Planned '+stK(r.planned)+'</div><div class="st-row-tr">'+stK(r.tracking)+'</div>'+vchip+'</div>'+
+    '<div class="st-row-nums"><div class="st-row-pl">Planned '+stK(r.planned)+'</div>'+
+      (rStarted?'<div class="st-row-tr">'+stK(r.tracking)+'</div>':'')+vchip+'</div>'+
     '<svg class="st-caret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'+
   '</div>';
   return head+(open?stDetailHTML(gkey,r):'');
 }
 function stDetailHTML(gkey,r){
   var d=r._d, plGM=d.plRev-d.plCost, revEff=d.acRev-d.plRev, costEff=d.plCost-d.acCost, trGM=d.acRev-d.acCost;
-  var steps=[{l:'You planned to make',n:'if the season went to plan',v:plGM,k:'base'}];
+  var dStarted=(r.progress||0)>0;
+  var steps=[{l:'You planned to make',n:'margin, if the season went to plan',v:plGM,k:'base'}];
   if(revEff!==0) steps.push({l:d.revLbl,n:d.revNote,v:revEff,k:'e'});
   if(costEff!==0) steps.push({l:d.costLbl,n:d.costNote,v:costEff,k:'e'});
-  steps.push({l:'Now on track for',n:'what you’ll actually make',v:trGM,k:'end'});
+  steps.push(dStarted
+    ? {l:'Now on track for',n:'margin at this pace',v:trGM,k:'end'}
+    : {l:'Still expecting',  n:'nothing harvested from this one yet',v:trGM,k:'end'});
   var max=Math.max(Math.abs(plGM),Math.abs(trGM),1);
   var bridge=steps.map(function(st,i){
     var w=Math.round(Math.abs(st.v)/max*100), neg=st.v<0;
@@ -35062,6 +35090,19 @@ var LANG_PAIRS = [
   ['Season Tracker',            'Seisoen-opvolger'],
   ['Needs your attention',      'Kort jou aandag'],
   ['Where the money went',      'Waar die geld gegaan het'],
+  /* Season Tracker margin wording. These sit BEFORE the shorter overlapping pairs
+     below ('if the season went to plan'), because the engine replaces in array
+     order — a shorter match firing first leaves the rest of the line in English. */
+  ['margin, if the season went to plan','marge, as die seisoen volgens plan verloop'],
+  ['nothing harvested from this one yet','nog niks van hierdie een geoes nie'],
+  ['Season progress \u2014 nothing harvested yet','Seisoenvordering \u2014 nog niks geoes nie'],
+  ['nothing harvested or sold yet','nog niks geoes of verkoop nie'],
+  ['margin from crops, orchards and livestock','marge uit gewasse, boorde en vee'],
+  ['margin at this pace',        'marge teen hierdie tempo'],
+  ['Still expecting',            'Verwag steeds'],
+  ['Not started',                'Nie begin nie'],
+  ['not started',                'nie begin nie'],
+  ['Your plan is',               'Jou plan is'],
   ['You planned to make',       'Jy het beplan om te maak'],
   ['Now on track for',          'Nou op koers vir'],
   ['what you’ll actually make', 'wat jy werklik gaan maak'],
