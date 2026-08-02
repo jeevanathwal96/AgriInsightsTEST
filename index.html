@@ -750,6 +750,77 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pc-range{font-size:10px;color:var(--t4);margin-top:5px}
 
 .stmt-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:18px}
+/* ── "Needs your attention" card (dashboard, bottom row) ─────────────────────────
+   The row is a grid at align-items:stretch, so a card that runs tall drags Budget vs
+   Actual up with it. Height is therefore pinned and the rows share out whatever is
+   left — content is budgeted to fit rather than trusted to. */
+.attn-card{height:239px;overflow:hidden;display:flex;flex-direction:column}
+.attn-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.attn-count{font-size:10.5px;font-weight:850;padding:2px 8px;border-radius:20px;
+  background:#FBEDEB;color:#A32B22;white-space:nowrap}
+.attn-count.ok{background:var(--gp);color:var(--gd)}
+.attn-verdict{font-size:11.5px;color:var(--t3);font-weight:600;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;flex-shrink:0;margin-bottom:2px}
+.attn-verdict b{color:var(--t1);font-weight:800}
+.attn-verdict em{font-style:normal;color:#A32B22;font-weight:800}
+.attn-verdict i{font-style:normal;color:var(--t4);opacity:.55;padding:0 4px}
+.attn-fill{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:space-evenly;padding:2px 0}
+.attn-grp{display:flex;align-items:center;gap:8px}
+.attn-grp .lb{font-size:9.5px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;color:var(--t4)}
+.attn-grp.now .lb{color:#A32B22}
+.attn-grp .n{font-size:9.5px;font-weight:800;color:var(--t4)}
+.attn-grp .ln{flex:1;height:1px;background:var(--br2)}
+.attn-row{display:grid;grid-template-columns:8px 1fr auto;gap:11px;align-items:center;cursor:pointer;
+  background:none;border:0;width:100%;text-align:left;font-family:inherit;padding:3px 4px;
+  border-radius:7px;transition:background .13s}
+.attn-row:hover{background:var(--gb)}
+.attn-row:hover .nm{color:var(--gd)}
+.attn-row:focus-visible{outline:2px solid var(--gl);outline-offset:1px}
+.attn-pip{width:8px;height:8px;border-radius:50%;background:#A32B22}
+.attn-pip.money{background:#9A6B12}.attn-pip.house{background:var(--t4)}
+.attn-row .nm{font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t1)}
+.attn-row .st{font-size:11.5px;color:var(--t3);font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:650}
+.attn-row .st.bad{color:#A32B22;font-weight:750}
+.attn-all{font-size:12.5px;font-weight:700;color:var(--gd);cursor:pointer;background:none;border:0;
+  text-align:left;font-family:inherit;padding:0;flex-shrink:0}
+.attn-all:hover{color:var(--gl)}
+.attn-clear{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
+.attn-clear .ring{width:44px;height:44px;border-radius:50%;background:var(--gp);color:var(--gd);
+  display:grid;place-items:center;font-size:19px;font-weight:850}
+.attn-clear .t{font-size:14.5px;font-weight:800}
+.attn-clear .s{font-size:12px;color:var(--t3);max-width:34ch;line-height:1.5}
+
+/* full list */
+.attn-bg{display:none;position:fixed;inset:0;background:rgba(10,22,16,.42);z-index:520;
+  align-items:center;justify-content:center;padding:40px 20px}
+.attn-bg.show{display:flex}
+.attn-sheet{background:#fff;border:1px solid var(--br);border-radius:16px;width:100%;max-width:760px;
+  max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px -18px rgba(10,22,16,.5)}
+.attn-sh-head{padding:16px 20px 0;display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.attn-sh-h1{font-size:18px;font-weight:850;letter-spacing:-.02em;display:flex;align-items:center;gap:9px}
+.attn-sh-sub{font-size:12px;color:var(--t3);margin-top:2px}
+.attn-x{background:none;border:0;font-size:20px;color:var(--t4);cursor:pointer;line-height:1;padding:0 3px}
+.attn-filters{display:flex;gap:6px;flex-wrap:wrap;padding:12px 20px 0}
+.attn-filt{border:1px solid var(--br);background:#fff;border-radius:20px;padding:5px 12px;
+  font:inherit;font-size:11.5px;font-weight:700;color:var(--t3);cursor:pointer}
+.attn-filt.on{background:var(--gd);border-color:var(--gd);color:#fff}
+.attn-body{flex:1;overflow-y:auto;padding:14px 20px 20px}
+.attn-fgrp{display:flex;align-items:center;gap:9px;margin:16px 0 7px}
+.attn-fgrp:first-child{margin-top:0}
+.attn-fgrp .lb{font-size:10px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;color:var(--t4)}
+.attn-fgrp.now .lb{color:#A32B22}
+.attn-fgrp .ln{flex:1;height:1px;background:var(--br2)}
+.attn-frow{display:grid;grid-template-columns:8px 1fr auto auto;gap:13px;align-items:center;
+  padding:11px 12px;border:1px solid var(--br);border-radius:11px;margin-bottom:7px;background:#fff;
+  width:100%;text-align:left;font-family:inherit;cursor:pointer;transition:.14s}
+.attn-frow:hover{border-color:var(--gl);background:var(--gb)}
+.attn-frow .lead{font-size:13px;font-weight:700;line-height:1.35;color:var(--t1);display:block}
+.attn-frow .sub{font-size:11px;color:var(--t3);margin-top:2px;font-weight:600;display:block}
+.attn-frow .when{font-size:11.5px;font-weight:750;color:var(--t3);font-variant-numeric:tabular-nums;white-space:nowrap}
+.attn-frow .when.bad{color:#A32B22}
+.attn-act{border:1px solid var(--br);background:#fff;color:var(--gd);border-radius:8px;padding:6px 12px;
+  font:inherit;font-size:11.5px;font-weight:750;white-space:nowrap}
+.attn-frow:hover .attn-act{background:var(--gd);color:#fff;border-color:var(--gd)}
 .ast-totrow td{background:#F0FDF4;border-top:2px solid var(--gd);border-bottom:none;font-weight:800;color:var(--gd);font-size:13px}
 .ast-totrow td .sub{font-size:10.5px;color:var(--gm);font-weight:700}
 /* Asset register: one divider band per asset type, carrying its own subtotals. */
@@ -4875,7 +4946,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   </div>
   <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
     <button onclick="qcOpen();nudgeDismiss()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Add now</button>
-    <button onclick="nudgeDismiss()" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+    <button onclick="nudgeDismiss(true)" style="background:none;border:none;color:rgba(255,255,255,.6);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
   </div>
 </div>
 <div class="content" id="content">
@@ -4988,12 +5059,11 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div class="bp-item"><div class="bp-top"><div class="bp-name">Net Profit</div><div class="bp-right"><div class="bp-pct over" id="bp-profit-pct">—</div><div id="bp-profit-vals"></div></div></div><div class="bp-track"><div class="bp-fill" id="bp-profit-fill" style="width:100%"></div></div></div>
       <div class="view-all" onclick="nav('budgets')">View full budget report <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
     </div>
-    <div class="card">
-      <div class="sec-title">Quick Actions</div>
-      <div class="qa-row" onclick="qcOpen('income')"><div class="qa-left"><div class="qa-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div><div class="qa-txt">Add Income</div></div><svg class="qa-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
-      <div class="qa-row" onclick="qcOpen('expense')"><div class="qa-left"><div class="qa-icon r"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div><div class="qa-txt">Add Expense</div></div><svg class="qa-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
-      <div class="qa-row" onclick="nav('reports')"><div class="qa-left"><div class="qa-icon b"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></div><div class="qa-txt">View Reports</div></div><svg class="qa-arr" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></div>
-    </div>
+    <!-- Was Quick Actions: Add Income / Add Expense / View Reports. Two of those are the
+         floating + button sitting a hundred pixels away and the third is a sidebar link,
+         so the best card on the dashboard was spent on navigation that already existed
+         twice. It now carries what the farm actually owes somebody. -->
+    <div class="card attn-card" id="attn-card"></div>
   </div>
 
   <div class="zone-divider">
@@ -8245,6 +8315,20 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </button>
   <div class="qc-fab-tip" id="qc-fab-tip">Record sale or expense</div>
+
+<div class="attn-bg" id="attn-bg" onclick="attnBgClick(event)">
+    <div class="attn-sheet" onclick="event.stopPropagation()">
+      <div class="attn-sh-head">
+        <div>
+          <div class="attn-sh-h1">Needs your attention <span class="attn-count" id="attn-list-count">0</span></div>
+          <div class="attn-sh-sub">Ranked by what's at stake &middot; tap any line to fix it</div>
+        </div>
+        <button class="attn-x" type="button" onclick="attnCloseAll()" aria-label="Close">&#10005;</button>
+      </div>
+      <div class="attn-filters" id="attn-filters"></div>
+      <div class="attn-body" id="attn-list-body"></div>
+    </div>
+  </div>
 
 <div class="qc-bg" id="qc-bg" onclick="qcBgClick(event)">
     <div class="qc-sheet" id="qc-sheet" onclick="event.stopPropagation()">
@@ -14845,7 +14929,7 @@ function nav(id) {
   try{ requestAnimationFrame(function(){ try{ _txStickyOffsets(); }catch(e){} try{ window._txStuckUpdate && _txStuckUpdate(); }catch(e){} }); }catch(e){}
 
   setTimeout(function(){
-    if (id === 'dashboard')   { renderRecentIncome(); updateDashboardFigures(); try { initDashChart(); } catch (e) { /* Chart.js may have failed to load; non-chart UI still renders */ } }
+    if (id === 'dashboard')   { renderRecentIncome(); updateDashboardFigures(); try { renderAttnCard(); } catch (e) {} try { initDashChart(); } catch (e) { /* Chart.js may have failed to load; non-chart UI still renders */ } }
     if (id === 'income')      { try { lazyInitCharts('income'); } catch (e) {} renderTable('income'); renderTargetBar(); updateIncPage(); }
     if (id === 'assets')      { renderAssets(); }
     if (id === 'workers')     { renderWorkers(); }
@@ -41024,8 +41108,26 @@ window.addEventListener('offline', function() {
 // ============================================================
 var NUDGE_SESSION_SHOWN = false;
 
+/* Dismissing the nudge used to write nothing at all, so closing it bought silence until
+   the tab was reloaded and no longer. Clicking ✕ now snoozes it for 48 hours — long
+   enough that a farmer who has decided "not now" isn't asked again tomorrow morning.
+   Keyed the same way as the rest of the app so the demo sandbox keeps its own. */
+var NUDGE_SNOOZE_KEY  = window.__AI_GUEST ? 'agri_demo_guest_nudge_v1' : 'agri_nudge_snooze_v1';
+var NUDGE_SNOOZE_MS   = 48 * 60 * 60 * 1000;
+
+function nudgeSnoozed() {
+  try {
+    var until = parseInt(localStorage.getItem(NUDGE_SNOOZE_KEY) || '0', 10);
+    return until > Date.now();
+  } catch (e) { return false; }
+}
+function nudgeSnooze() {
+  try { localStorage.setItem(NUDGE_SNOOZE_KEY, String(Date.now() + NUDGE_SNOOZE_MS)); } catch (e) {}
+}
+
 function checkNudge() {
   if (NUDGE_SESSION_SHOWN) return;
+  if (nudgeSnoozed()) return;
   if (!ST.txns || !ST.txns.length) return;
 
 var latest = 0;
@@ -41461,7 +41563,8 @@ var _sc = _sarsByCat(fy), byCat = _sc.byCat;
 // ============================================================
 
 // ============================================================
-function nudgeDismiss() {
+function nudgeDismiss(persist) {
+  if (persist) nudgeSnooze();
   var banner = $('nudge-banner');
   if (banner) {
     banner.style.transition = 'opacity .25s';
@@ -43104,6 +43207,391 @@ function computeNotifications(){
   n.sort(function(a,b){ return b.score - a.score; });
   return n.slice(0, 6);
 }
+
+/* ═══ "Needs your attention" ═══════════════════════════════════════════════════
+   One ranked list of everything the farm owes somebody: a check under an Act, a
+   payment on a date, or tidying up. This only GATHERS and RANKS — every source
+   below already knows its own facts, and every item carries the action that takes
+   the farmer to the screen where it gets fixed.
+
+     tier  legal | money | house   — decides colour, and outranks everything below it
+     sev   0-100 within a tier     — what is actually at stake, NOT how old it is
+     when  days until due          — negative = overdue; 9999 = no deadline
+
+   sev matters because days-overdue alone ranked a four-month-old bookkeeping gap
+   above lapsed cover on a R1.25m financed tractor. A record gap ages fast and stays
+   cheap; an insurance lapse is serious on day one. */
+var ATTN_TIER = {legal:0, money:1, house:2};
+
+function _attnToday(){ return (window.APP_TODAY ? new Date(APP_TODAY) : new Date()); }
+function _attnDaysTo(dateStr){
+  if(!dateStr) return null;
+  var d = new Date(dateStr); if(isNaN(d)) return null;
+  var t = _attnToday();
+  return Math.round((d - new Date(t.getFullYear(), t.getMonth(), t.getDate())) / 86400000);
+}
+function _attnPlural(n, one, many){ return n + ' ' + (n === 1 ? one : many); }
+
+/* The compliance titles are written for the statute, not the farmer — "Alien & invasive
+   plant control", "Certified seed & cultivar rights". This says the same thing the way
+   you'd say it out loud. Anything not listed falls through unchanged, so a new check
+   added to computeNotifications() still shows up, just in its own words. */
+var ATTN_PLAIN = [
+  [/water use/i,               'Water use record',    "You haven't logged your water use"],
+  [/soil conservation|erosion/i,'Soil erosion check',  'Your soil erosion check is overdue'],
+  [/gmo/i,                     'GMO planting check',  "Your GMO planting check isn't logged"],
+  [/alien|invasive/i,          'Invasive plants',     "Invasive plant control isn't logged"],
+  [/certified seed|cultivar/i, 'Seed records',        "Your seed records aren't logged"],
+  [/diesel/i,                  'Diesel refund',       "You haven't claimed your diesel refund"],
+  [/dip|tick/i,                'Dipping record',      "Your dipping record isn't logged"],
+  [/waste/i,                   'Waste disposal',      "Waste disposal isn't logged"]
+];
+/* Asset names are inventory labels — "Centre-Pivot Irrigation (250ha)", "John Deere
+   6140M Tractor". A farmer doesn't need the model or the rig type to know which machine
+   you mean, so reduce it to the thing itself. */
+var ATTN_ASSET_PLAIN = [
+  [/pivot|irrigat|sprinkler|drip/i, 'irrigation'],
+  [/tractor|trekker/i,              'tractor'],
+  [/bakkie|hilux|ldv|double cab/i,  'bakkie'],
+  [/combine|harvester/i,            'harvester'],
+  [/solar|pv\b|inverter|battery/i,  'solar'],
+  [/borehole|pump/i,                'borehole'],
+  [/silo|grain bin/i,               'silo'],
+  [/truck|lorry|tipper/i,           'truck'],
+  [/planter|seeder/i,               'planter'],
+  [/sprayer/i,                      'sprayer'],
+  [/cold ?room|pack ?house/i,       'cold room'],
+  [/plough|plow|disc|ripper|harrow/i,'plough'],
+  [/trailer|wagon/i,                'trailer'],
+  [/fence|fencing/i,                'fencing'],
+  [/dam|weir/i,                     'dam'],
+  [/shed|workshop|barn|store/i,     'shed']
+];
+function _attnAssetName(a){
+  var n = String((a && a.name) || 'asset');
+  for(var i = 0; i < ATTN_ASSET_PLAIN.length; i++){
+    if(ATTN_ASSET_PLAIN[i][0].test(n)) return ATTN_ASSET_PLAIN[i][1];
+  }
+  /* Nothing recognised — drop any bracketed size and keep it short. */
+  return n.replace(/\s*\(.*$/, '').split(/\s+/).slice(0, 2).join(' ').toLowerCase();
+}
+
+function _attnPlainFor(title){
+  var t = String(title || '');
+  for(var i = 0; i < ATTN_PLAIN.length; i++){
+    if(ATTN_PLAIN[i][0].test(t)) return {nm: ATTN_PLAIN[i][1], lead: ATTN_PLAIN[i][2]};
+  }
+  var clean = t.replace(/\s+overdue$/i, '');
+  return {nm: clean, lead: clean};
+}
+
+function attnItems(){
+  var out = [], t = _attnToday();
+
+  /* 1 · Compliance and reminders — computeNotifications() already builds these and
+        already carries the action(). Anything filed under "Compliance" is a legal
+        duty; the rest are operational nudges. */
+  try{
+    (computeNotifications() || []).forEach(function(n){
+      if(!n || !n.title) return;
+      var isLaw = (n.time === 'Compliance');
+      var body  = String(n.body || '');
+      /* "Overdue 515 days" if the check has a due date; a check never logged is
+         overdue too, just without a number. */
+      var m = body.match(/Overdue\s+(\d+)\s+day/i);
+      var when = m ? -parseInt(m[1], 10) : (isLaw ? -1 : 0);
+      var raw   = String(n.title).replace(/^[^\w]+\s*/, '');
+      var plain = isLaw ? _attnPlainFor(raw) : {nm: raw, lead: raw};
+      out.push({
+        tier: isLaw ? 'legal' : 'house',
+        sev:  Math.max(1, Math.min(100, n.score || 60)),
+        nm:   plain.nm,
+        lead: plain.lead + (m ? ' — ' + m[1] + ' days' : ''),
+        /* `st` already carries the overdue count; leave the statute standing alone. */
+        sub:  body.replace(/\s*·\s*tap to log it\s*$/i, '')
+                  .replace(/\s*·\s*Overdue\s+\d+\s+days?\s*/i, '')
+                  .replace(/\s*·\s*No check logged yet\s*/i, '').trim(),
+        st:   m ? (m[1] + ' days over') : (isLaw ? 'none logged' : (n.time || '')),
+        cta:  isLaw ? 'Log it' : 'Open',
+        when: when,
+        action: n.action
+      });
+    });
+  }catch(e){}
+
+  /* 2 · Insurance that has run out, or is about to. The renewal date sits in the
+        asset record and nothing has ever read it. */
+  try{
+    ((typeof ST_ASSETS !== 'undefined' && ST_ASSETS.assets) || []).forEach(function(a, idx){
+      if(!a || !a.renewalDate) return;
+      var d = _attnDaysTo(a.renewalDate);
+      if(d === null || d > 45) return;                 // only what is lapsed or close
+      var owed = (typeof assetOwed === 'function') ? assetOwed(a) : 0;
+      var nice = _attnAssetName(a);
+      out.push({
+        tier:'money',
+        sev: d < 0 ? 100 : 74,
+        /* Don't say "Crop insurance insurance" — some assets are already named for cover. */
+        nm:  nice.charAt(0).toUpperCase() + nice.slice(1) +
+             (/insur|cover|policy/i.test(nice) ? '' : ' insurance'),
+        lead: 'Insurance on your ' + nice + (d < 0 ? ' ran out' : ' runs out soon'),
+        sub: fmt(a.insuredValue || 0) + ' cover' + (owed > 0 ? ' · you still owe ' + fmt(owed) : ''),
+        st:  d < 0 ? ('ran out ' + Math.abs(d) + 'd ago') : ('in ' + d + ' days'),
+        cta: 'Open it', when: d,
+        action: function(){ nav('assets'); if(typeof openAssetDetail === 'function') openAssetDetail(idx); }
+      });
+    });
+  }catch(e){}
+
+  /* 3 · Gear carrying no cover at all. */
+  try{
+    var A = (typeof ST_ASSETS !== 'undefined' && ST_ASSETS.assets) || [];
+    var un = A.filter(function(a){ return a && (a.price > 0) && !a.insuredValue; });
+    if(un.length){
+      var val = un.reduce(function(s, a){ return s + (a.price || 0); }, 0);
+      out.push({tier:'house', sev:80, nm:'Uninsured equipment',
+        lead: _attnPlural(un.length, 'thing', 'things') + ' you own have no insurance',
+        sub:  fmt(val) + " you'd replace yourself",
+        st:   fmt(val), cta:'See list', when:9999,
+        action: function(){ nav('assets'); if(typeof astTab === 'function') astTab('insights'); }});
+    }
+  }catch(e){}
+
+  /* 4 · Workers — UIF and injury cover are statutory once you have staff. */
+  try{
+    var W = (typeof ST_WORK !== 'undefined') ? ST_WORK : null;
+    var staff = (W && (W.workers || []).length) || 0;
+    if(W && staff){
+      var c = W.compliance || {};
+      if(!((c.uifPayments || []).length)){
+        out.push({tier:'legal', sev:94, nm:'UIF payments',
+          lead:'No UIF payments logged for your ' + staff + ' workers',
+          sub:'Unemployment Insurance Fund', st:'none logged', cta:'Open Workers', when:-1,
+          action: function(){ nav('workers'); }});
+      }
+      if(!(c.coida && Object.keys(c.coida).length)){
+        out.push({tier:'legal', sev:92, nm:'Worker injury cover',
+          lead:"Worker injury cover isn't recorded",
+          sub:'COIDA · workplace injury fund', st:'none logged', cta:'Open Workers', when:-1,
+          action: function(){ nav('workers'); }});
+      }
+      var runs = W.payRuns || [];
+      if(runs.length){
+        var last = runs[runs.length - 1];
+        var lm = _attnDaysTo(last && last.paidOn) ;
+        if(lm === null && last && last.label){
+          /* Pay runs are labelled "March 2026" rather than dated. */
+          var pd = new Date(last.label + ' 1');
+          if(!isNaN(pd)) lm = Math.round((pd - t) / 86400000);
+        }
+        if(lm !== null && lm < -45){
+          var months = Math.round(Math.abs(lm) / 30);
+          out.push({tier:'money', sev:45, nm:'Worker pay',
+            lead:'No pay run recorded since ' + ((last.label || '').split(' ')[0] || 'then'),
+            sub: staff + ' workers · ' + _attnPlural(months, 'month', 'months'),
+            st: _attnPlural(months, 'month', 'months'), cta:'Open Workers', when:lm,
+            action: function(){ nav('workers'); }});
+        }
+      }
+    }
+  }catch(e){}
+
+  /* 5 · Provisional tax. First payment lands at the end of the sixth month of the
+        farmer's own tax year, the second at year end. */
+  try{
+    if(typeof taxProvEstimate === 'function'){
+      var p = taxProvEstimate();
+      if(p && p.provPayment > 0){
+        var sm = ((ST.fyStartMonth || 3) - 1);
+        [[5, 'first'], [11, 'second']].forEach(function(pair){
+          var due = new Date(t.getFullYear(), sm + pair[0] + 1, 0);          // last day of that month
+          if(due < t) due = new Date(t.getFullYear() + 1, sm + pair[0] + 1, 0);
+          var d = Math.round((due - t) / 86400000);
+          if(d < 0 || d > 45) return;
+          out.push({tier:'money', sev:88, nm:'Provisional tax',
+            lead:'Your ' + pair[1] + ' tax payment is due',
+            sub: fmt(Math.round(p.provPayment)) + ' · SARS IRP6',
+            st: d === 0 ? 'today' : ('in ' + d + ' days'), cta:'Open Tax', when:d,
+            action: function(){ nav('tax'); }});
+        });
+      }
+    }
+  }catch(e){}
+
+  /* 6 · Expenses with no category — they quietly break every split in the reports. */
+  try{
+    var un2 = (ST.txns || []).filter(function(x){
+      return x && x.type === 'expense' && /^(other|uncategori)/i.test(_catOf(x));
+    }).length;
+    if(un2 > 0){
+      out.push({tier:'house', sev:40, nm:'Expenses to sort',
+        lead: _attnPlural(un2, 'expense', 'expenses') + ' still need a category',
+        sub:'So your reports add up properly', st:un2 + ' items', cta:'Sort them', when:9999,
+        action: function(){ nav('expenses'); }});
+    }
+  }catch(e){}
+
+  /* 7 · Nothing recorded lately. The old green banner, demoted to where it belongs. */
+  try{
+    var latest = 0;
+    (ST.txns || []).forEach(function(x){
+      var d = parseDate(x && x.date); if(!d) return;
+      var ts = new Date(d.y, d.m, d.d).getTime();
+      if(ts > latest) latest = ts;
+    });
+    if(latest){
+      var days = Math.floor((t.getTime() - latest) / 86400000);
+      if(days >= 3){
+        out.push({tier:'house', sev:20, nm:'Recent records',
+          lead:'Nothing recorded in ' + days + ' days',
+          sub:'A quick update keeps your reports right', st:days + ' days',
+          cta:'Add now', when:9999,
+          action: function(){ if(typeof qcOpen === 'function') qcOpen(); }});
+      }
+    }
+  }catch(e){}
+
+  return out.sort(function(a, b){
+    return (ATTN_TIER[a.tier] - ATTN_TIER[b.tier]) || (b.sev - a.sev) || (a.when - b.when);
+  });
+}
+
+/* Time buckets. Housekeeping has no date, so it gets its own rather than being
+   dumped into "later" beside a real deadline. */
+var ATTN_BUCKETS = [
+  {lb:'Overdue',      now:1, test:function(i){ return i.when < 0; }},
+  {lb:'Next 2 weeks', now:0, test:function(i){ return i.when >= 0 && i.when <= 14; }},
+  {lb:'This month',   now:0, test:function(i){ return i.when > 14 && i.when <= 60; }},
+  {lb:'No deadline',  now:0, test:function(i){ return i.when > 60; }}
+];
+function attnGrouped(items){
+  var g = [];
+  ATTN_BUCKETS.forEach(function(b){
+    var list = items.filter(b.test);
+    if(list.length) g.push({b:b, list:list});
+  });
+  return g;
+}
+
+
+/* Card: verdict, then the worst few grouped by when. Caps exist so a long overdue
+   list can neither eat every slot nor overflow the pinned 239px. */
+var ATTN_MAX_ROWS = 4, ATTN_MAX_GROUPS = 2;
+
+function _attnVerdict(items){
+  var law  = items.filter(function(i){ return i.tier === 'legal'; }).length;
+  var over = items.filter(function(i){ return i.when < 0; }).length;
+  var next = items.filter(function(i){ return i.when >= 0 && i.when < 9999; })
+                  .sort(function(a, b){ return a.when - b.when; })[0];
+  var bits = [];
+  if(over) bits.push('<em>' + over + ' overdue</em>' + (law ? ' <b>(' + law + ' by law)</b>' : ''));
+  if(next) bits.push(esc(next.nm.toLowerCase()) + ' in <b>' + next.when + ' days</b>');
+  if(!bits.length) bits.push('nothing with a deadline');
+  return bits.join('<i>·</i>');
+}
+
+function renderAttnCard(){
+  var el = $('attn-card'); if(!el) return;
+  var items = ATTN_CACHE = attnItems();
+
+  if(!items.length){
+    el.innerHTML =
+      '<div class="attn-head"><div class="sec-title" style="margin:0">Needs your attention</div>' +
+      '<span class="attn-count ok">All clear</span></div>' +
+      '<div class="attn-clear"><div class="ring">&#10003;</div>' +
+      '<div class="t">Nothing needs you today</div>' +
+      '<div class="s">Every check is logged, nothing has run out, and the books are up to date.</div></div>';
+    return;
+  }
+
+  var inner = '', rows = 0, groups = 0;
+  attnGrouped(items).forEach(function(g){
+    if(rows >= ATTN_MAX_ROWS || groups >= ATTN_MAX_GROUPS) return;
+    var take = g.list.slice(0, Math.min(ATTN_MAX_ROWS - rows, ATTN_MAX_ROWS - 1));
+    if(!take.length) return;
+    groups++;
+    inner += '<div class="attn-grp' + (g.b.now ? ' now' : '') + '"><span class="lb">' + g.b.lb + '</span>' +
+             '<span class="n">' + g.list.length + '</span><span class="ln"></span></div>';
+    take.forEach(function(it){
+      inner += '<button class="attn-row" type="button" onclick="attnGo(' + items.indexOf(it) + ')">' +
+        '<span class="attn-pip ' + it.tier + '"></span>' +
+        '<span class="nm">' + esc(it.nm) + '</span>' +
+        '<span class="st' + (it.when < 0 ? ' bad' : '') + '">' + esc(it.st) + '</span></button>';
+    });
+    rows += take.length;
+  });
+
+  el.innerHTML =
+    '<div class="attn-head"><div class="sec-title" style="margin:0">Needs your attention</div>' +
+    '<span class="attn-count">' + items.length + '</span></div>' +
+    '<div class="attn-verdict">' + _attnVerdict(items) + '</div>' +
+    '<div class="attn-fill">' + inner + '</div>' +
+    '<button class="attn-all" type="button" onclick="attnOpenAll()">' +
+    (items.length > rows ? 'View all ' + items.length + ' &rsaquo;' : 'Open the list &rsaquo;') + '</button>';
+
+  if(typeof ST !== 'undefined' && ST.lang === 'af' && typeof applyLangNodes === 'function'){
+    try{ applyLangNodes(el, 0, 1); }catch(e){}
+  }
+}
+
+/* The list the card is showing, so a click can find its item by index. */
+var ATTN_CACHE = [], ATTN_FILT = 'all';
+var ATTN_FILTERS = {
+  all:   {lb:'Everything',   test:function(){ return true; }},
+  legal: {lb:'By law',       test:function(i){ return i.tier === 'legal'; }},
+  money: {lb:'Money',        test:function(i){ return i.tier === 'money'; }},
+  house: {lb:'Housekeeping', test:function(i){ return i.tier === 'house'; }}
+};
+
+function attnGo(idx){
+  var it = ATTN_CACHE[idx]; if(!it) return;
+  attnCloseAll();
+  try{ if(typeof it.action === 'function') it.action(); }catch(e){}
+}
+function attnSetFilter(k){ ATTN_FILT = k; renderAttnList(); }
+function attnOpenAll(){
+  ATTN_CACHE = attnItems(); ATTN_FILT = 'all';
+  var bg = $('attn-bg'); if(bg) bg.classList.add('show');
+  renderAttnList();
+}
+function attnCloseAll(){ var bg = $('attn-bg'); if(bg) bg.classList.remove('show'); }
+function attnBgClick(e){ if(e && e.target && e.target.id === 'attn-bg') attnCloseAll(); }
+
+function renderAttnList(){
+  var body = $('attn-list-body'); if(!body) return;
+  var all = ATTN_CACHE, items = all.filter(ATTN_FILTERS[ATTN_FILT].test);
+  setEl('attn-list-count', all.length);
+
+  var f = $('attn-filters');
+  if(f) f.innerHTML = Object.keys(ATTN_FILTERS).map(function(k){
+    return '<button class="attn-filt' + (k === ATTN_FILT ? ' on' : '') + '" type="button" ' +
+      'onclick="attnSetFilter(\'' + k + '\')">' + ATTN_FILTERS[k].lb + ' ' +
+      all.filter(ATTN_FILTERS[k].test).length + '</button>';
+  }).join('');
+
+  if(!items.length){
+    body.innerHTML = '<div class="attn-clear" style="padding:40px"><div class="ring">&#10003;</div>' +
+      '<div class="t">Nothing here</div><div class="s">No items in this filter.</div></div>';
+    return;
+  }
+  body.innerHTML = attnGrouped(items).map(function(g){
+    return '<div class="attn-fgrp' + (g.b.now ? ' now' : '') + '"><span class="lb">' + g.b.lb + '</span>' +
+      '<span class="lb" style="color:var(--t4)">' + g.list.length + '</span><span class="ln"></span></div>' +
+      g.list.map(function(it){
+        return '<button class="attn-frow" type="button" onclick="attnGo(' + all.indexOf(it) + ')">' +
+          '<span class="attn-pip ' + it.tier + '"></span>' +
+          '<span><span class="lead">' + esc(it.lead) + '</span>' +
+          '<span class="sub">' + esc(it.sub) + '</span></span>' +
+          '<span class="when' + (it.when < 0 ? ' bad' : '') + '">' + esc(it.st) + '</span>' +
+          '<span class="attn-act">' + esc(it.cta) + '</span></button>';
+      }).join('');
+  }).join('');
+
+  if(typeof ST !== 'undefined' && ST.lang === 'af' && typeof applyLangNodes === 'function'){
+    try{ applyLangNodes(body, 0, 1); }catch(e){}
+  }
+}
+
 
 function renderNotifications(){
   var list = document.getElementById('notif-list');
