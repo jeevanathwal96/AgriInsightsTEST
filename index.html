@@ -27649,6 +27649,13 @@ function planSyncToCurrentYear(){
   }
   planYear=target; if(typeof ST!=='undefined') ST.planYear=target;
   ST_PLAN.months=planMonthsFor(target);
+  /* This set the year and the months but never touched the DOM, so the header kept
+     the static markup default ("May 2024 – Apr 2025") until some later render
+     happened to refresh it. Write the label here, where the year actually changes. */
+  var _lab=planPeriodLabel();
+  var _p=$('plan-period');     if(_p)  _p.textContent=_lab;
+  var _p2=$('plan-sum-period');if(_p2) _p2.textContent=_lab;
+  if(typeof planRefreshYearTag==='function') planRefreshYearTag();
 }
 // ── View toggle ───────────────────────────────────────────────
 function setPlanView(v) {
