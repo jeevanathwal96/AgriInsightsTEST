@@ -1539,6 +1539,15 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .bgt-cats-more:hover{border-color:var(--gl);background:var(--gb)}
 .bgt-cats-more:focus-visible{outline:2px solid var(--gl);outline-offset:2px}
 
+/* Plan lines dated outside the financial year — previously dropped in silence. */
+.plan-outside{margin:12px 0;background:var(--op);border:1px solid var(--or);border-radius:var(--rl);
+  padding:13px 16px;display:flex;gap:11px;align-items:flex-start;flex-wrap:wrap}
+.plan-outside .po-h{font-size:13px;font-weight:700;color:var(--or)}
+.plan-outside .po-s{font-size:11.5px;font-weight:400;color:var(--t2);margin-top:2px;line-height:1.5}
+.plan-outside .po-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.plan-outside .po-list span{font-size:11px;font-weight:700;color:var(--or);background:var(--wh);
+  border:1px solid var(--or);border-radius:99px;padding:3px 10px;white-space:nowrap}
+
 /* Merge: hero + KPI strip were two cards answering one question, and repeated
    each other's figures. One card now — red verdict band, then the three tiles
    sharing hairline dividers. The existing ::before stripe on each tile becomes
@@ -27474,17 +27483,38 @@ function planPrev() { planYear--; updatePlanPeriod(); }
 function planNext() { planYear++; updatePlanPeriod(); }
 function updatePlanPeriod() {
   ST_PLAN.months=planMonthsFor(planYear);
-  var el=$('plan-period');     if(el) el.textContent='May '+planYear+' \u2013 Apr '+(planYear+1);
-  var el2=$('plan-sum-period');if(el2) el2.textContent='May '+planYear+' \u2013 Apr '+(planYear+1);
+  var _lab=planPeriodLabel();
+  var el=$('plan-period');     if(el) el.textContent=_lab;
+  var el2=$('plan-sum-period');if(el2) el2.textContent=_lab;
   planRefreshYearTag();
   recomputePlan();
+  planRenderOutside();
   if(typeof renderCalGrid==='function') renderCalGrid();
   if(typeof renderLiveCalGrid==='function') renderLiveCalGrid();
   renderPlanGrid();
 }
+/* The plan used to hardcode a May–April year while getCurrentFY()/getFYMonths()
+   honour ST.fyStartMonth (SA farming default: March). On the demo farm that put
+   "May 2026 – Apr 2027" on this tab and "Mar 2026 – Feb 2027" on every financial
+   screen, so the same farm carried two different years and two different goals.
+   One anchor now. */
+function planFYMonths(py){
+  if (typeof getFYMonths === 'function') return getFYMonths(py);
+  var nm=['Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb'];
+  return nm.map(function(n,i){ return n+' '+((i<=9)?py:(py+1)); });
+}
+function planFYYear(){
+  if (typeof getCurrentFY === 'function') return getCurrentFY();
+  var t=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
+  return t.getMonth()>=2 ? t.getFullYear() : t.getFullYear()-1;
+}
+function planPeriodLabel(){
+  var m=(typeof ST_PLAN!=='undefined'&&ST_PLAN.months)?ST_PLAN.months:null;
+  if(m&&m.length===12&&m[0].label&&m[11].label) return m[0].label+' \u2013 '+m[11].label;
+  var f=planFYMonths(planYear); return f[0]+' \u2013 '+f[11];
+}
 function planMonthsFor(py){
-  var nm=['May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr'];
-  return nm.map(function(n,i){ return {label:n+' '+((i<=7)?py:(py+1))}; });
+  return planFYMonths(py).map(function(l){ return {label:l}; });
 }
 function planShiftLabel(label,dy){
   var p=String(label||'').split(' '); if(p.length<2) return label;
@@ -27574,18 +27604,39 @@ function planPinProjectedEvent(key){
   if(typeof updatePlanSummary==='function') updatePlanSummary();
   dataChanged('plan'); openEditEvent(idx);
 }
+/* Say it out loud: these lines are not in the totals above. */
+function planRenderOutside(){
+  var host=$('plan-outside');
+  var pane=document.getElementById('pg-planning');
+  if(!pane) return;
+  if(!host){
+    var anchor=$('plan-combined-banner')||pane.querySelector('.plan-tabs')||pane.firstElementChild;
+    host=document.createElement('div'); host.id='plan-outside';
+    if(anchor&&anchor.parentNode) anchor.parentNode.insertBefore(host, anchor.nextSibling);
+    else pane.appendChild(host);
+  }
+  var n=(typeof PLAN_OUTSIDE!=='undefined'?PLAN_OUTSIDE:[]).length;
+  if(!n){ host.className=''; host.innerHTML=''; return; }
+  host.className='plan-outside';
+  host.innerHTML='<div style="flex:1;min-width:0"><div class="po-h">'+n+' line'+(n===1?'':'s')+
+    ' fall'+(n===1?'s':'')+' outside this financial year</div>'+
+    '<div class="po-s">They are not counted in the totals on this page. Move them into '+
+    planPeriodLabel()+', or step to the year they belong to.</div>'+
+    '<div class="po-list">'+PLAN_OUTSIDE.slice(0,6).map(function(o){
+      return '<span>'+esc(o.nm)+' &middot; '+esc(o.when)+'</span>';
+    }).join('')+(n>6?'<span>+'+(n-6)+' more</span>':'')+'</div></div>';
+}
+
 function planRefreshYearTag(){
   var t=$('plan-year-tag'); if(!t) return;
-  var today=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
-  var cur=(today.getMonth()>=4)?today.getFullYear():today.getFullYear()-1;
+  var cur=planFYYear();
   if(planYear<cur){ t.textContent='Past'; t.style.background='#EFEFEF'; t.style.color='#6B7280'; }
   else if(planYear===cur){ t.textContent='This year'; t.style.background='var(--gp)'; t.style.color='var(--gd)'; }
   else { t.textContent='Planned'; t.style.background='#FFF8E6'; t.style.color='#8a6516'; }
 }
 function planSyncToCurrentYear(){
   if(typeof ST_PLAN==='undefined'||!ST_PLAN.months||!ST_PLAN.months.length) return;
-  var today=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
-  var target=(today.getMonth()>=4)?today.getFullYear():today.getFullYear()-1; // May–Apr financial year
+  var target=planFYYear();   // same financial year as Budgets, Dashboard and Reports
   // Demo data (not yet loaded from a real farm) is shifted onto the current year once,
   // so the first-run plan looks live. Real saved plans are multi-year and are NOT shifted
   // — each line keeps the year it was planned for.
@@ -27607,7 +27658,14 @@ function setPlanView(v) {
   renderCalGrid();
 }
 
+/* Lines whose month falls outside the financial year. Both loops below used to
+   `return` on a -1 label, so a crop or event dated outside the window vanished
+   from the plan totals with nothing said. On the demo farm that was already
+   silently dropping 4 of 17 lines BEFORE the year was corrected. */
+var PLAN_OUTSIDE = [];
+
 function recomputePlan() {
+  PLAN_OUTSIDE = [];
   // ── Step 1: Reset all months ──────────────────────────────
   ST_PLAN.months.forEach(function(m){
     m.income     = 0;
@@ -27626,7 +27684,11 @@ function recomputePlan() {
     if(c.inForecast===false) return; // scenario / what-if crop — excluded from forecast
     var plantIdx   = ST_PLAN.months.findIndex(function(m){return m.label===c.plant;});
     var harvestIdx = ST_PLAN.months.findIndex(function(m){return m.label===c.harvest;});
-    if(plantIdx<0||harvestIdx<0) return;
+    if(plantIdx<0||harvestIdx<0){
+      PLAN_OUTSIDE.push({nm:(c.crop||'Crop')+(c.field?' — '+c.field:''),
+                         when:(plantIdx<0?c.plant:c.harvest)||'no month'});
+      return;
+    }
 
     var totalRevenue = c.ha * c.yield * _cropPriceOf(c);
     var totalInputs  = c.ha * c.inputCost;
@@ -27914,7 +27976,7 @@ function planCropIcon(cropName){
 function renderCalGrid() {
   var el = $('plan-cal-grid'); if (!el) return;
 
-  var pp=$('plan-period'); if(pp) pp.textContent='May '+planYear+' \u2013 Apr '+(planYear+1);
+  var pp=$('plan-period'); if(pp) pp.textContent=planPeriodLabel();
   if(typeof planRefreshYearTag==='function') planRefreshYearTag();
   var __active = planActiveCrops();
   var __cc = $('plan-tab-crops-count'); if(__cc) __cc.textContent = __active.length;
@@ -30727,7 +30789,10 @@ function planComboFigures(){
   if(typeof entOn!=='function' || entOn('livestock')) (ST_PLAN.events || []).forEach(function(e) {
     var amount = (e.qty || 0) * (e.price || 0);
     var startIdx = ST_PLAN.months.findIndex(function(m){return m.label===e.month;});
-    if (startIdx < 0) return;
+    if (startIdx < 0) {
+      PLAN_OUTSIDE.push({nm:(e.desc||e.animal||e.type||'Livestock event'), when:e.month||'no month'});
+      return;
+    }
     var hits = 1;
     if (e.recur === 'monthly')   hits = 12 - startIdx;
     if (e.recur === 'quarterly') hits = Math.floor((12 - startIdx + 2) / 3);
