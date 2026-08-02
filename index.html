@@ -1559,6 +1559,120 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 /* Must come AFTER the shared rule — same specificity, so source order decides. */
 .plan-spill .po-list span{border-color:var(--gl);color:var(--gm)}
 
+/* ══ Crop planning rows ═══════════════════════════════════════════════════
+   Replaces the card list. One shared 12-column grid for the month header and
+   every row, so reading down a column is reading a month across the farm. */
+.pln-lh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.pln-lh .t{font-size:18px;font-weight:800;letter-spacing:-.3px}
+.pln-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:2px}
+.pln-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);font-weight:400}
+.pln-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:5px}
+.pln-legend i.hatch{background:repeating-linear-gradient(135deg,var(--op),var(--op) 4px,var(--or) 4px,var(--or) 5px)}
+/* Planning legend: three facts that never change, so they get one line rather
+   than a stacked block. Same visual language as the crop-planning legend. */
+.plan-key{display:flex;align-items:center;flex-wrap:wrap;gap:7px 22px;margin-bottom:12px;padding:11px 16px}
+.plan-key .k{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--t4)}
+.plan-key > span:not(.k){display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:400;color:var(--t3)}
+.plan-key i{width:11px;height:11px;border-radius:3px;flex:none}
+.plan-key b{font-weight:700;color:var(--t2)}
+.pln-wrap{background:var(--wh);border:1px solid var(--br);border-radius:var(--rl);box-shadow:var(--sh);padding:20px}
+.pln-grid{display:grid;grid-template-columns:minmax(150px,1.35fr) 1fr 78px 104px 20px;gap:12px;align-items:center}
+.pln-mh{padding:0 2px 8px}
+.pln-mh .colh{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.pln-mh .colh.r{text-align:right}
+.pln-mrow{display:grid;grid-template-columns:repeat(12,1fr);gap:3px}
+.pln-mrow span{font-size:10.5px;font-weight:700;color:var(--t4);text-align:center}
+.pln-mrow span.now{color:var(--gd)}
+.pln-row{padding:12px 2px;border-top:1px solid var(--br2);width:100%;background:none;border-left:0;
+  border-right:0;border-bottom:0;font-family:var(--fn);color:inherit;text-align:left;cursor:pointer;border-radius:6px}
+.pln-row:hover{background:var(--bg)}
+.pln-row:focus-visible{outline:2px solid var(--gl);outline-offset:-2px}
+.pln-name{display:flex;align-items:center;gap:9px;min-width:0;min-height:57px}
+.pln-dot{width:30px;height:30px;border-radius:9px;border:1.5px solid;flex:none;display:flex;
+  align-items:center;justify-content:center;font-size:16px;line-height:1}
+.pln-nmw{min-width:0}
+.pln-nm,.pln-fld,.pln-tagline{display:block}
+.pln-nm{font-size:13px;font-weight:700;line-height:1.3}
+.pln-fld{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:1px}
+.pln-fld .lk{color:var(--gm);font-weight:700}
+.pln-ribbon{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;height:24px}
+.pln-cell{border-radius:3px;background:var(--br2);position:relative}
+.pln-cell.grow{background:var(--gp)}
+.pln-cell.plant{background:var(--gl)}
+.pln-cell.pick{background:var(--gd)}
+.pln-cell.spill{background:repeating-linear-gradient(135deg,var(--op),var(--op) 4px,var(--or) 4px,var(--or) 5px)}
+.pln-cell.miss{background:transparent;border:1px dashed var(--br)}
+.pln-cell.now:after{content:"";position:absolute;left:50%;top:-5px;bottom:-5px;width:2px;
+  background:var(--gd);transform:translateX(-50%);border-radius:1px}
+.pln-ha{text-align:right;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.pln-ha .u{display:block;font-size:10.5px;font-weight:400;color:var(--t4);margin-top:1px}
+.pln-money{text-align:right;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--gm)}
+.pln-tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:99px;padding:2px 8px;margin-top:4px}
+.pln-tag.spill{background:var(--op);color:var(--or)}
+.pln-tag.miss{background:var(--rp);color:var(--rd)}
+.pln-tag.tight{background:var(--op);color:var(--or)}
+.pln-tag.off{background:var(--br2);color:var(--t3)}
+.pln-tag.proj{background:var(--gb);color:var(--gm)}
+.pln-tag.ann{background:var(--bp);color:var(--bl)}
+.pln-tagline{margin-top:2px}
+.pln-tagline:empty{display:none}
+.pln-tag+.pln-tag{margin-left:4px}
+/* Projected and scenario lines read as provisional, as the old cards did. */
+.pln-item.proj .pln-row{background:#FCFEFB}
+.pln-item.off .pln-nm{color:var(--t3)}
+.pln-row .pln-caret{color:var(--t4);font-size:11px;text-align:right}
+.pln-row.open .pln-caret{color:var(--gd)}
+
+.pln-edit{border-top:1px dashed var(--br);background:var(--bg);border-radius:0 0 10px 10px;padding:16px 14px;
+  display:grid;grid-template-columns:minmax(230px,1fr) minmax(250px,1.15fr);gap:20px}
+@media (max-width:820px){.pln-edit{grid-template-columns:1fr}
+  .pln-grid{grid-template-columns:minmax(120px,1fr) 72px 96px 18px}
+  .pln-grid .pln-hidem{display:none}}
+.pln-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pln-f label{display:block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--t4);margin-bottom:4px}
+.pln-f input,.pln-f select{width:100%;box-sizing:border-box;border:1px solid var(--br);border-radius:var(--rs);
+  background:var(--wh);color:var(--t1);font-family:var(--fn);font-size:13px;padding:8px 10px}
+.pln-f input:focus-visible,.pln-f select:focus-visible{outline:2px solid var(--gl);outline-offset:1px}
+.pln-acts{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.pln-btn{border:1px solid var(--br);background:var(--wh);border-radius:var(--rs);padding:9px 14px;
+  font-family:var(--fn);font-size:11.5px;font-weight:700;color:var(--t2);cursor:pointer}
+.pln-btn:hover{border-color:var(--gl);color:var(--gm)}
+.pln-btn.pri{background:var(--gd);color:#fff;border-color:var(--gd)}
+.pln-btn.dgr:hover{border-color:var(--rd);color:var(--rd)}
+.pln-btn.scn{background:var(--pp);border-color:#e9c9da;color:var(--pu)}
+.pln-btn.rep{background:var(--bp);border-color:#BFDBFE;color:var(--bl)}
+/* Keep Remove away from the four safe actions; when the row wraps it lands
+   right-aligned underneath, which reads deliberate rather than accidental. */
+.pln-acts .pln-btn.dgr{margin-left:auto}
+.pln-btn:focus-visible{outline:2px solid var(--gl);outline-offset:2px}
+.pln-mh2{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.pln-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;font-weight:400;color:var(--t2);
+  padding:5px 0;border-bottom:1px solid var(--br2);font-variant-numeric:tabular-nums}
+.pln-line b{font-weight:700;color:var(--t1)}
+.pln-be{margin-top:12px;background:var(--wh);border:1px solid var(--br);border-radius:10px;padding:12px 14px}
+.pln-be .k{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.pln-be .v{font-size:18px;font-weight:800;letter-spacing:-.3px;margin-top:4px;font-variant-numeric:tabular-nums;color:var(--gm)}
+.pln-be.tight .v{color:var(--or)}
+.pln-be .s{font-size:13px;font-weight:400;color:var(--t2);margin-top:6px;line-height:1.5}
+.pln-be .s b{font-weight:700}
+.pln-facts{margin-top:8px;font-size:11.5px;font-weight:400;color:var(--t3);line-height:1.6}
+.pln-facts b{font-weight:700;color:var(--t2)}
+.pln-warnb{display:inline-block;font-size:10.5px;font-weight:700;background:var(--op);color:var(--or);
+  border-radius:99px;padding:2px 8px;margin-left:4px}
+.pln-use{border:1px solid var(--gl);background:var(--wh);color:var(--gm);border-radius:99px;padding:2px 10px;
+  font-family:var(--fn);font-size:10.5px;font-weight:700;cursor:pointer;margin-left:4px}
+.pln-use:hover{background:var(--gb)}
+.pln-tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;background:var(--br2);
+  border-radius:var(--r);overflow:hidden;margin-top:16px}
+.pln-tot > div{background:var(--wh);padding:13px 16px}
+.pln-tot .k{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--t4)}
+.pln-tot .v{font-size:18px;font-weight:800;letter-spacing:-.3px;margin-top:4px;font-variant-numeric:tabular-nums}
+.pln-tot .n{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:2px}
+.pln-foot{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center}
+.pln-empty{text-align:center;color:var(--t3);padding:40px;font-size:13px;background:var(--wh);
+  border-radius:var(--rl);border:1px dashed var(--br)}
+
 /* Merge: hero + KPI strip were two cards answering one question, and repeated
    each other's figures. One card now — red verdict band, then the three tiles
    sharing hairline dividers. The existing ::before stripe on each tile becomes
@@ -7725,7 +7839,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
   <!-- Header -->
   <div class="page-hdr">
-    <div><div class="page-title">My Plan</div><div class="page-sub">Crops, orchards, livestock and your year ahead.</div></div>
+    <div><div class="page-title" data-t="plan.title">My Plan</div><div class="page-sub" data-t="plan.sub">Crops, orchards, livestock and your year ahead.</div></div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
       <div style="display:flex;align-items:center;gap:10px">
         <button onclick="planPrev()" aria-label="Previous year" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--br);background:#fff;color:var(--gd);font-size:16px;cursor:pointer">&#9664;</button>
@@ -7736,8 +7850,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         </div>
         <button onclick="planNext()" aria-label="Next year" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--br);background:#fff;color:var(--gd);font-size:16px;cursor:pointer">&#9654;</button>
       </div>
-      <button class="btn-pri" id="plan-add-crop-btn"  onclick="openAddPlan()">+ Add a crop</button>
-      <button class="btn-pri plan-add-event-btn" id="plan-add-event-btn" onclick="openAddEvent()" style="display:none;background:#7C2D5A">+ Add livestock event</button>
+      <button class="btn-pri" id="plan-add-crop-btn"  onclick="openAddPlan()" data-t="plan.addCrop">+ Add a crop</button>
+      <button class="btn-pri plan-add-event-btn" id="plan-add-event-btn" onclick="openAddEvent()" style="display:none;background:#7C2D5A" data-t="plan.addEvent">+ Add livestock event</button>
       <button class="btn-pri" id="plan-add-orch-btn" onclick="nav('orchards');setTimeout(function(){if(typeof orSetTab==='function')orSetTab('add');},120)" style="display:none;background:#C8962C">+ Add a block</button>
     </div>
   </div>
@@ -7792,7 +7906,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
     <div class="cb-totalwrap kpi-tap" onclick="kpiOpen('planTotal')">
       <div>
-        <div class="cb-l">Total planned profit</div>
+        <div class="cb-l" data-t="plan.totalProfit">Total planned profit</div>
         <div class="cb-total" id="plan-cb-total">R0</div>
       </div>
       <span class="kpi-i">&#9432;</span>
@@ -7839,13 +7953,11 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
   <!-- How to read — full width -->
   <div>
       <!-- Legend -->
-      <div class="card" style="margin-bottom:12px">
-        <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px">HOW TO READ</div>
-        <div style="display:flex;flex-direction:column;gap:7px">
-          <div style="display:flex;align-items:center;gap:8px"><div style="width:11px;height:11px;border-radius:3px;background:var(--gl);flex-shrink:0"></div><div><div style="font-size:13px;font-weight:600">Profitable</div><div style="font-size:11px;color:var(--t3)">Income exceeds expenses</div></div></div>
-          <div style="display:flex;align-items:center;gap:8px"><div style="width:11px;height:11px;border-radius:3px;background:var(--or);flex-shrink:0"></div><div><div style="font-size:13px;font-weight:600">Not Profitable</div><div style="font-size:11px;color:var(--t3)">Expenses exceed income</div></div></div>
-          <div style="display:flex;align-items:center;gap:8px"><div style="width:11px;height:11px;border-radius:3px;background:var(--bl);flex-shrink:0"></div><div><div style="font-size:13px;font-weight:600">Actual recorded</div><div style="font-size:11px;color:var(--t3)">Real data from transactions</div></div></div>
-        </div>
+      <div class="card plan-key">
+        <span class="k">HOW TO READ</span>
+        <span><i style="background:var(--gl)"></i><b>Profitable</b> Income exceeds expenses</span>
+        <span><i style="background:var(--or)"></i><b>Not Profitable</b> Expenses exceed income</span>
+        <span><i style="background:var(--bl)"></i><b>Actual recorded</b> Real data from transactions</span>
       </div>
 
   <!-- Plan finances + what-if (combined, foot of page) -->
@@ -27680,7 +27792,7 @@ function planRefreshYearTag(){
   var t=$('plan-year-tag'); if(!t) return;
   var cur=planFYYear();
   if(planYear<cur){ t.textContent='Past'; t.style.background='#EFEFEF'; t.style.color='#6B7280'; }
-  else if(planYear===cur){ t.textContent='This year'; t.style.background='var(--gp)'; t.style.color='var(--gd)'; }
+  else if(planYear===cur){ t.textContent='This year'; t.setAttribute('data-t','plan.thisYear'); t.style.background='var(--gp)'; t.style.color='var(--gd)'; }
   else { t.textContent='Planned'; t.style.background='#FFF8E6'; t.style.color='#8a6516'; }
 }
 function planSyncToCurrentYear(){
@@ -28049,111 +28161,362 @@ function planCropIcon(cropName){
   return '\uD83C\uDF31';
 }
 
+var PLN_OPEN = null;   /* expanded row — series key, so it survives a re-render */
+
+/* Every render below injects fresh English, so it has to be re-translated the
+   way the crop and budget renderers do — otherwise an Afrikaans farmer sees the
+   whole planner flip back to English the moment anything re-renders. */
+function plnLang(scope){ try{ if(typeof langSync==='function') langSync(scope); }catch(e){} }
+
+function plnKeyOf(c){ return planSeriesKey(c); }
+
+/* The land this plan line came from. It carries irrigated, prevCrop and
+   actualYield — three things the plan form never asks for but the farmer
+   needs when deciding a yield. */
+function plnLandFor(c){
+  if(!c || !c.linkId || typeof ST_CROP==='undefined' || !ST_CROP.lands) return null;
+  return ST_CROP.lands.filter(function(l){ return l && l.planId===c.linkId; })[0] || null;
+}
+
+function plnCostHa(c){ return (c.inputCost||0) + (c.otherCost||0); }
+function plnMarginHa(c){ return (c.yield||0) * _cropPriceOf(c) - plnCostHa(c); }
+function plnMargin(c){ return plnMarginHa(c) * (c.ha||0); }
+function plnRevenue(c){ return (c.ha||0) * (c.yield||0) * _cropPriceOf(c); }
+function plnBeYield(c){ var p=_cropPriceOf(c); return p>0 ? plnCostHa(c)/p : 0; }
+function plnCushion(c){ var y=c.yield||0; return y>0 ? (y-plnBeYield(c))/y : 0; }
+function plnMissing(c){ return !c.plant || !c.harvest; }
+function plnCounted(c){ return !plnMissing(c) && c.inForecast!==false; }
+function plnSafeId(k){ return String(k).replace(/[^A-Za-z0-9]/g,'_'); }
+
+function plnNowIdx(){
+  var w0=planWindowStart(); if(w0==null) return -1;
+  var t=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
+  return (t.getFullYear()*12+t.getMonth()) - w0;
+}
+/* True when the crop is still standing after the season closes — its money
+   lands in the next season, which the totals call out separately. */
+function plnSpills(c){
+  var w0=planWindowStart(), hA=planAbsIdx(c.harvest);
+  return w0!=null && hA!=null && hA > w0+11;
+}
+
+/* Ribbon cells on absolute months, so a cycle running past the season shows a
+   hatched tail instead of being clipped back inside it. */
+function plnRibbon(c){
+  var w0=planWindowStart(), pA=planAbsIdx(c.plant), hA=planAbsIdx(c.harvest);
+  var now=plnNowIdx(), out='', i, cls;
+  for(i=0;i<12;i++){
+    cls='pln-cell';
+    if(w0==null||pA==null||hA==null) cls+=' miss';
+    else {
+      var rel=w0+i;
+      if(rel===pA) cls+=' plant';
+      else if(rel>pA && rel<hA) cls+=' grow';
+      if(rel===hA) cls+=' pick';
+      if(hA>w0+11 && i===11) cls+=' spill';
+    }
+    if(i===now) cls+=' now';
+    out+='<span class="'+cls+'"></span>';
+  }
+  return out;
+}
+
+function plnTags(c){
+  var t=[];
+  if(c.projected) t.push('<span class="pln-tag proj" title="Projected from your annual plan — plan it to pin it for this year">↻ Projected</span>');
+  else if(c.repeat==='annual') t.push('<span class="pln-tag ann" title="Repeats every year">🔁 Annual</span>');
+  if(c.inForecast===false) t.push('<span class="pln-tag off" title="Excluded from your forecast">🔮 Scenario</span>');
+  if(plnMissing(c)) t.push('<span class="pln-tag miss">months not set</span>');
+  else {
+    if(plnSpills(c)) t.push('<span class="pln-tag spill">sells next season</span>');
+    if(plnCushion(c)<0.20) t.push('<span class="pln-tag tight">tight cushion</span>');
+  }
+  return t.join('');
+}
+
+function plnMonthOpts(sel){
+  var ms=(ST_PLAN.months||[]).map(function(m){ return m.label; });
+  var seasonLen=ms.length, last=ms[seasonLen-1];
+  /* A summer grain legitimately finishes after the season closes. Offer a short
+     tail so the farmer can say so, rather than being forced back inside it. */
+  if(last){
+    var nm=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var p=last.split(' '), mi=nm.indexOf(p[0]), y=parseInt(p[1],10);
+    if(mi>=0 && !isNaN(y)) for(var k=1;k<=3;k++){ var q=mi+k; ms.push(nm[q%12]+' '+(y+Math.floor(q/12))); }
+  }
+  if(sel && ms.indexOf(sel)<0) ms.push(sel);   /* never silently drop a stored value */
+  /* langSync translates options by exact match on the whole label, which a
+     "May 2027 (next season)" can never hit. Translate the suffix here instead,
+     and keep value= the English month so every select.value read still works. */
+  var tail=' (next season)';
+  if(ST.lang==='af'){
+    for(var q=0;q<LANG_PAIRS.length;q++){ if(LANG_PAIRS[q][0]==='next season'){ tail=' ('+LANG_PAIRS[q][1]+')'; break; } }
+  }
+  var out='<option value="">—</option>';
+  ms.forEach(function(l,i){
+    out+='<option value="'+planEscAttr(l)+'"'+(l===sel?' selected':'')+'>'+esc(l)+(i>=seasonLen?tail:'')+'</option>';
+  });
+  return out;
+}
+
+/* Write path mirrors orPlanSetField, with one difference forced by the host:
+   dataChanged('plan') re-renders the whole planning page, which would rip the
+   focused input out mid-keystroke. So typing only mutates and recomputes, and
+   persistence waits for the farmer to leave the field. */
+var PLN_DIRTY = false;
+function plnSetField(idx, field, val, commit){
+  var c=(ST_PLAN.crops||[])[idx]; if(!c) return;
+  if(field==='plant'||field==='harvest') c[field]=val||'';
+  else { var n=parseFloat(String(val).replace(/[^0-9.\-]/g,'')); c[field]=isNaN(n)?0:n; }
+  recomputePlan();
+  if(commit){
+    PLN_DIRTY=false;
+    dataChanged('plan');   /* saves, and re-renders this pane on its own */
+  } else {
+    PLN_DIRTY=true;
+    plnRefreshRow(idx);
+    plnRenderTotals();
+    if(typeof updatePlanCombinedBanner==='function') updatePlanCombinedBanner();
+    if(typeof updatePlanSummary==='function') updatePlanSummary();
+  }
+}
+
+/* The repeat flag decides whether a land is carried into next season's plan at
+   all (planActiveCrops), so it belongs on the row and not only behind the modal.
+   Mirrors planToggleForecast. */
+function plnSetRepeat(idx){
+  if(idx<0||idx>=ST_PLAN.crops.length) return;
+  var c=ST_PLAN.crops[idx];
+  c.repeat = (c.repeat==='annual') ? 'none' : 'annual';
+  recomputePlan();
+  if(typeof renderPlanCrops==='function') renderPlanCrops();
+  if(typeof renderCalGrid==='function') renderCalGrid();
+  if(typeof updatePlanSummary==='function') updatePlanSummary();
+  dataChanged('plan');
+  toast(c.repeat==='annual'
+    ? (c.crop+' repeats every year \u2014 it carries into next season\u2019s plan')
+    : (c.crop+' is this season only \u2014 it will not carry into next season'), 'success');
+}
+
+function plnUseMarketPrice(idx){
+  var c=(ST_PLAN.crops||[])[idx]; if(!c) return;
+  var mk=cropPrice(c.crop); if(!(mk>0)) return;
+  c.price=mk; dataChanged('plan'); recomputePlan(); renderCalGrid();
+}
+
+function plnToggleRow(key){ PLN_OPEN=(PLN_OPEN===key)?null:key; renderCalGrid(); }
+
+/* Refresh only what changes while typing — a full re-render would tear the
+   focused input out from under the farmer mid-keystroke. */
+function plnRefreshRow(idx){
+  var c=(ST_PLAN.crops||[])[idx]; if(!c) return;
+  var sfx=plnSafeId(plnKeyOf(c));
+  var m=$('pln-maths-'+sfx); if(m){ m.innerHTML=plnMathsHTML(c,idx); plnLang(m); }
+  var h=$('pln-ha-'+sfx);    if(h) h.textContent=plnCounted(c)?planFmtRha(plnMarginHa(c)):'—';
+  var g=$('pln-mg-'+sfx);    if(g) g.textContent=plnCounted(c)?planFmtR(plnMargin(c)):'—';
+  var t=$('pln-tag-'+sfx);   if(t){ t.innerHTML=plnTags(c); plnLang(t); }
+  var r=$('pln-rib-'+sfx);   if(r) r.innerHTML=plnRibbon(c);
+}
+
+function planFmtR(v){
+  var n=Math.abs(v), sign=v<0?'−R':'R';
+  if(n>=1e6) return sign+(n/1e6).toFixed(2)+'M';
+  if(n>=1000) return sign+Math.round(n/1000)+'k';
+  return sign+Math.round(n);
+}
+/* Per-hectare figures are shown in full rand. Rounding them to the nearest
+   thousand collapses R8 640, R9 160 and R9 300 into one "R9k" — and comparing
+   lands is the entire job of that column. */
+function planFmtRha(v){ return (v<0?'−R':'R')+_grpInt(v); }
+
+function plnMathsHTML(c, idx){
+  var cu=plnCushion(c), be=plnBeYield(c), tight=cu<0.20, price=_cropPriceOf(c);
+  var land=plnLandFor(c);
+  var sentence = plnMissing(c)
+    ? 'Set the planting and harvest months — until they are set this land is not counted in your forecast.'
+    : 'To cover growing costs you need <b>'+be.toFixed(1)+' t/ha</b> at this price. Your plan of <b>'+
+      (c.yield||0)+' t/ha</b> leaves a <b>'+Math.round(cu*100)+'% cushion</b>.'+
+      (tight?' A poor season eats that — worth checking hail cover or a firmer price.':'');
+
+  var h='<div class="pln-mh2">The maths</div>'+
+    '<div class="pln-line"><span>Income — '+(c.ha||0)+' ha × '+(c.yield||0)+' t × R'+_grpInt(price)+
+      '</span><b>'+planFmtR(plnRevenue(c))+'</b></div>'+
+    '<div class="pln-line"><span>Growing costs — '+(c.ha||0)+' ha × R'+_grpInt(plnCostHa(c))+
+      '</span><b>'+planFmtR(plnCostHa(c)*(c.ha||0))+'</b></div>'+
+    '<div class="pln-line"><span>Margin</span><b>'+planFmtR(plnMargin(c))+' · '+
+      planFmtRha(plnMarginHa(c))+'/ha</b></div>'+
+    '<div class="pln-be'+(tight?' tight':'')+'"><div class="k">Break-even yield</div>'+
+      '<div class="v">'+be.toFixed(1)+' t/ha</div><div class="s">'+sentence+'</div></div>';
+
+  /* Facts the plan form never asks for, read from the linked land. */
+  var facts=[];
+  if(land){
+    facts.push(land.irrigated?'<b>Irrigated</b>':'<b>Dryland</b>');
+    if(land.prevCrop) facts.push('previous crop <b>'+esc(land.prevCrop)+'</b>');
+    if(land.cultivar) facts.push(esc(land.cultivar));
+  }
+  if(facts.length) h+='<div class="pln-facts">'+facts.join(' · ')+'</div>';
+
+  /* Only claim history when there is some — most lands have none. */
+  if(land && land.actualYield>0){
+    var over=(c.yield||0) > land.actualYield*1.15;
+    h+='<div class="pln-facts">Last season this land did <b>'+land.actualYield+' t/ha</b>.'+
+      (over?'<span class="pln-warnb">'+Math.round(((c.yield||0)/land.actualYield-1)*100)+
+            '% above your own history</span>':'')+'</div>';
+  }
+
+  var mk=cropPrice(c.crop);
+  if(mk>0){
+    h+='<div class="pln-facts">Market price for '+esc(c.crop)+': <b>R'+_grpInt(mk)+'/ton</b>'+
+      (Math.round(mk)===Math.round(price) ? ' — you are using it'
+        : (idx>=0 ? ' <button class="pln-use" type="button" onclick="event.stopPropagation();plnUseMarketPrice('+idx+')">use this price</button>' : ''))+
+      '</div>';
+  }
+  return h;
+}
+
+function plnEditHTML(c, idx){
+  var sfx=plnSafeId(plnKeyOf(c)), excl=(c.inForecast===false), fields;
+  if(idx<0){
+    /* Projected: this line is not in ST_PLAN.crops yet, so there is nothing to
+       edit. Offer the one action that makes it real. */
+    fields='<div class="pln-fields"><div class="pln-acts" style="margin-top:0">'+
+      '<button class="pln-btn pri" type="button" data-series="'+planEscAttr(planSeriesKey(c))+
+        '" title="Add this crop to '+planYear+' as a real plan you can edit"'+
+        ' onclick="event.stopPropagation();planPinProjectedCrop(this)">↻ Plan this year</button>'+
+      '</div><div class="pln-facts" style="grid-column:1/-1">Carried forward from last season because this crop repeats. Plan it to edit the numbers.</div></div>';
+  } else {
+    fields='<div class="pln-fields">'+
+      '<div class="pln-f"><label>Planting month</label><select data-pln="plant" data-idx="'+idx+'">'+plnMonthOpts(c.plant)+'</select></div>'+
+      '<div class="pln-f"><label>Harvest month</label><select data-pln="harvest" data-idx="'+idx+'">'+plnMonthOpts(c.harvest)+'</select></div>'+
+      '<div class="pln-f"><label>Yield (t/ha)</label><input type="number" step="0.1" min="0" value="'+(c.yield||0)+'" data-pln="yield" data-idx="'+idx+'"></div>'+
+      '<div class="pln-f"><label>Price (R/ton)</label><input type="number" step="50" min="0" value="'+(c.price||'')+'" placeholder="'+Math.round(_cropPriceOf(c))+'" data-pln="price" data-idx="'+idx+'"></div>'+
+      '<div class="pln-f"><label>Input cost (R/ha)</label><input type="number" step="100" min="0" value="'+(c.inputCost||0)+'" data-pln="inputCost" data-idx="'+idx+'"></div>'+
+      '<div class="pln-f"><label>Other cost (R/ha)</label><input type="number" step="100" min="0" value="'+(c.otherCost||0)+'" data-pln="otherCost" data-idx="'+idx+'"></div>'+
+      '<div class="pln-acts">'+
+        '<button class="pln-btn" type="button" onclick="event.stopPropagation();openEditCrop('+idx+')">All settings</button>'+
+        '<button class="pln-btn'+(c.repeat==='annual'?' rep':'')+'" type="button" title="'+
+          (c.repeat==='annual'?'This crop is carried into next season\u2019s plan automatically':'This crop is planned for this season only \u2014 it will not carry forward')+
+          '" onclick="event.stopPropagation();plnSetRepeat('+idx+')">'+
+          (c.repeat==='annual'?'\uD83D\uDD01 Repeats every year':'This season only')+'</button>'+
+        '<button class="pln-btn'+(excl?' scn':'')+'" type="button" title="'+(excl?'Add this crop back into your forecast':'Exclude this crop from your forecast (keep it as a what-if)')+
+          '" onclick="event.stopPropagation();planToggleForecast('+idx+')">'+(excl?'🔮 Scenario':'✓ In forecast')+'</button>'+
+        (c.linkId?'<button class="pln-btn" type="button" onclick="event.stopPropagation();cropOpenLandFromPlan(\''+String(c.linkId).replace(/'/g,"\\'")+'\')">🌽 Open the land</button>':'')+
+        '<button class="pln-btn dgr" type="button" onclick="event.stopPropagation();deleteCrop('+idx+')">Remove</button>'+
+      '</div></div>';
+  }
+  return '<div class="pln-edit">'+fields+
+    '<div class="pln-maths" id="pln-maths-'+sfx+'">'+plnMathsHTML(c,idx)+'</div></div>';
+}
+
+function plnRowHTML(c, idx){
+  var key=plnKeyOf(c), sfx=plnSafeId(key), open=(PLN_OPEN===key);
+  var col=getCropColor(c.crop);
+  return '<div class="pln-item'+(c.projected?' proj':'')+(c.inForecast===false?' off':'')+
+      '" data-linkid="'+planEscAttr(c.linkId||'')+'">'+
+    '<button class="pln-row pln-grid'+(open?' open':'')+'" type="button" data-plnrow="'+planEscAttr(key)+'"'+
+      ' aria-expanded="'+(open?'true':'false')+'">'+
+      '<span class="pln-name"><span class="pln-dot" style="background:'+col+'22;border-color:'+col+'55">'+
+        planCropIcon(c.crop)+'</span>'+
+        '<span class="pln-nmw"><span class="pln-nm">'+esc(c.crop||'Crop')+'</span>'+
+        '<span class="pln-fld">'+esc(c.field||'')+' · '+(c.ha||0)+' ha'+
+          (c.linkId?' · <span class="lk">synced with Crops</span>':'')+'</span>'+
+        '<span class="pln-tagline" id="pln-tag-'+sfx+'">'+plnTags(c)+'</span></span></span>'+
+      '<span class="pln-ribbon pln-hidem" id="pln-rib-'+sfx+'">'+plnRibbon(c)+'</span>'+
+      '<span class="pln-ha"><span id="pln-ha-'+sfx+'">'+
+        (plnCounted(c)?planFmtRha(plnMarginHa(c)):'—')+'</span><span class="u">/ha</span></span>'+
+      '<span class="pln-money" id="pln-mg-'+sfx+'">'+
+        (plnCounted(c)?planFmtR(plnMargin(c)):'—')+'</span>'+
+      '<span class="pln-caret">'+(open?'▲':'▼')+'</span>'+
+    '</button>'+(open?plnEditHTML(c,idx):'')+'</div>';
+}
+
+function plnRenderTotals(){
+  var host=$('pln-totals'); if(!host) return;
+  var rev=0, cost=0, spill=0;
+  planActiveCrops().filter(plnCounted).forEach(function(c){
+    rev+=plnRevenue(c); cost+=plnCostHa(c)*(c.ha||0);
+    if(plnSpills(c)) spill+=plnRevenue(c);
+  });
+  var cushion=rev>0?Math.round((rev-cost)/rev*100):0;
+  host.innerHTML=
+    '<div><div class="k">Growing costs</div><div class="v" style="color:var(--or)">'+planFmtR(cost)+'</div>'+
+      '<div class="n">all fall inside this season</div></div>'+
+    '<div><div class="k">Crop revenue</div><div class="v" style="color:var(--gd)">'+planFmtR(rev)+'</div>'+
+      '<div class="n">'+(spill>0?planFmtR(spill)+' of it lands next season':'all within this season')+'</div></div>'+
+    '<div><div class="k">Margin</div><div class="v">'+planFmtR(rev-cost)+'</div>'+
+      '<div class="n">before farm overheads</div></div>'+
+    '<div><div class="k">Farm cushion</div><div class="v">'+cushion+'%</div>'+
+      '<div class="n">sales can fall this far before the crops lose money</div></div>';
+  plnLang(host);
+}
+
 function renderCalGrid() {
   var el = $('plan-cal-grid'); if (!el) return;
 
   var pp=$('plan-period'); if(pp) pp.textContent=planPeriodLabel();
   if(typeof planRefreshYearTag==='function') planRefreshYearTag();
-  var __active = planActiveCrops();
-  var __cc = $('plan-tab-crops-count'); if(__cc) __cc.textContent = __active.length;
-  if (!__active.length) {
-    el.innerHTML = '<div style="text-align:center;color:var(--t3);padding:40px;font-size:13px;background:#fff;border-radius:var(--rl);border:1px dashed var(--br)">' +
-      'No crop cycles for this year yet.<br><button onclick="openAddPlan()" style="margin-top:10px;background:var(--gd);color:#fff;border:none;border-radius:var(--rs);padding:8px 18px;font-size:13px;font-weight:600;cursor:pointer">+ Add Crop Cycle</button></div>';
+  var active = planActiveCrops();
+  var cc = $('plan-tab-crops-count'); if(cc) cc.textContent = active.length;
+
+  if (!active.length) {
+    el.innerHTML='<div class="pln-empty">No crop cycles for this year yet.<br>'+
+      '<button class="pln-btn pri" style="margin-top:10px" type="button" onclick="openAddPlan()">+ Add Crop Cycle</button></div>';
+    plnLang(el);
     return;
   }
 
-  var allMonths = ST_PLAN.months.map(function(m){ return m.label; });
+  var MS=(ST_PLAN.months||[]).map(function(m){ return m.label.split(' ')[0]; });
+  var now=plnNowIdx();
 
-  el.innerHTML = __active.map(function(c) {
-    var idx = c.projected ? -1 : ST_PLAN.crops.indexOf(c);
-    var col = getCropColor(c.crop);
-    var plantIdx   = allMonths.indexOf(c.plant);
-    var harvestIdx = allMonths.indexOf(c.harvest);
-    if (plantIdx < 0)   plantIdx   = 0;
-    if (harvestIdx < 0) harvestIdx = allMonths.length - 1;
-
-    var totalRevenue = c.ha * c.yield * _cropPriceOf(c);
-    var totalCost    = c.ha * (c.inputCost + c.otherCost);
-    var net          = totalRevenue - totalCost;
-    var profitable   = net >= 0;
-
-var cells = allMonths.map(function(m, i) {
-      var stage = '';
-      var inRange = false;
-
-      if (i === plantIdx) {
-        stage = '🌱 Plant';
-        inRange = true;
-      } else if (i === harvestIdx) {
-        stage = '🌾 Harvest';
-        inRange = true;
-      } else if (i === harvestIdx + 1 && i < allMonths.length) {
-        stage = '💰 Sell';
-        inRange = true;
-      } else if (i > plantIdx && i < harvestIdx) {
-        stage = '🌿 Grow';
-        inRange = true;
-      }
-
-      var bg  = inRange ? col + '22' : 'transparent';
-      var bdr = inRange ? '1px solid ' + col + '44' : '1px solid transparent';
-      var clr = inRange ? col : 'var(--t4)';
-
-      return '<div style="border-radius:5px;padding:5px 3px;text-align:center;font-size:10px;font-weight:600;background:' + bg + ';border:' + bdr + ';color:' + clr + '">' +
-        (stage || '—') +
-      '</div>';
-    }).join('');
-
-var monthLabels = allMonths.map(function(m) {
-      return '<div style="text-align:center;font-size:10px;color:var(--t3);padding:2px 0">' + m.split(' ')[0] + '</div>';
-    }).join('');
-
-var profitBg  = profitable ? 'var(--gb)' : 'var(--op)';
-    var profitCol = profitable ? 'var(--gd)' : 'var(--or)';
-
-    var excl = (c.inForecast===false);
-    var proj = (c.projected===true);
-    return '<div data-linkid="'+(c.linkId||'')+'" style="background:'+(proj?'#FCFEFB':(excl?'#FCFAFD':'#fff'))+';border:1px '+(proj?'dashed var(--gl)':(excl?'dashed #c4b5d4':'solid var(--br)'))+';border-radius:var(--rl);padding:16px;box-shadow:'+(proj?'none':'var(--sh)')+'">' +
-
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
-        '<div style="display:flex;align-items:center;gap:9px">' +
-          '<div style="width:34px;height:34px;border-radius:9px;background:' + col + '22;border:1.5px solid ' + col + '55;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">' + planCropIcon(c.crop) + '</div>' +
-          '<div>' +
-            '<div style="font-size:15px;font-weight:800;display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
-              c.crop +
-              (c.field ? '<span style="font-size:11px;font-weight:700;color:var(--gd);background:var(--gb);border:1px solid var(--gp);padding:2px 8px;border-radius:99px">\ud83d\udccd ' + c.field + '</span>' : '') +
-              (c.repeat === 'annual' ? '<span title="Repeats every year" style="font-size:11px;font-weight:700;color:var(--bl);background:var(--bp);border:1px solid #BFDBFE;padding:2px 8px;border-radius:99px">\ud83d\udd01 Annual</span>' : '') +
-              (proj ? '<span title="Projected from your annual plan \u2014 edit to pin it for this year" style="font-size:11px;font-weight:700;color:var(--gl);background:var(--gb);border:1px solid var(--gp);padding:2px 8px;border-radius:99px">\u21bb Projected</span>' : '') +
-              (excl ? '<span title="Excluded from your forecast" style="font-size:11px;font-weight:700;color:var(--pu);background:var(--pp);border:1px solid #e9c9da;padding:2px 8px;border-radius:99px">\uD83D\uDD2E Scenario</span>' : '') +
-            '</div>' +
-            '<div style="font-size:12px;color:var(--t3);margin-top:3px">' + c.ha + 'ha &nbsp;·&nbsp; ' + c.yield + 't/ha &nbsp;·&nbsp; R' + _grpInt(c.price) + '/ton</div>' +
-            (c.linkId ? '<div onclick="cropOpenLandFromPlan(\''+c.linkId+'\')" style="font-size:11px;font-weight:700;color:var(--gl);margin-top:5px;cursor:pointer">\uD83C\uDF3D Linked to a Land \u00b7 open \u203a</div>' : '') +
-          '</div>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;gap:8px">' +
-          '<div style="background:' + profitBg + ';color:' + profitCol + ';font-size:13px;font-weight:800;padding:4px 12px;border-radius:20px">' +
-            'Est. ' + (profitable ? 'profit' : 'loss') + ': R' + (Math.abs(net)/1000).toFixed(0) + 'k' +
-          '</div>' +
-          (proj
-            ? '<button data-series="'+planEscAttr(planSeriesKey(c))+'" onclick="planPinProjectedCrop(this)" title="Add this crop to '+planYear+' as a real plan you can edit" style="background:var(--gd);color:#fff;border:none;border-radius:6px;padding:5px 13px;font-size:12px;font-weight:700;cursor:pointer">\u21bb Plan this year</button>'
-            : '<button onclick="planToggleForecast(' + idx + ')" title="'+(excl?'Add this crop back into your forecast':'Exclude this crop from your forecast (keep it as a what-if)')+'" style="background:'+(excl?'var(--pp)':'#fff')+';border:1px solid '+(excl?'#e9c9da':'var(--br)')+';border-radius:6px;padding:5px 11px;font-size:12px;font-weight:700;color:'+(excl?'var(--pu)':'var(--t2)')+';cursor:pointer">'+(excl?'\uD83D\uDD2E Scenario':'\u2713 In forecast')+'</button>' +
-              '<button onclick="openEditCrop(' + idx + ')" style="background:var(--gb);border:1px solid var(--gp);border-radius:6px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--gd);cursor:pointer">Edit</button>' +
-              '<button onclick="deleteCrop(' + idx + ')" style="background:var(--rp);border:1px solid #FECACA;border-radius:6px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--rd);cursor:pointer">Remove</button>') +
-        '</div>' +
-      '</div>' +
-
-      '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-bottom:4px">' + cells + '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px">' + monthLabels + '</div>' +
-
-      '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px">' +
-        '<div style="background:var(--bg);border-radius:var(--rs);padding:8px;text-align:center"><div style="font-size:10px;color:var(--t3)">Plant</div><div style="font-size:12px;font-weight:700">' + (c.plant||'—') + '</div></div>' +
-        '<div style="background:var(--bg);border-radius:var(--rs);padding:8px;text-align:center"><div style="font-size:10px;color:var(--t3)">Harvest</div><div style="font-size:12px;font-weight:700">' + (c.harvest||'—') + '</div></div>' +
-        '<div style="background:var(--bg);border-radius:var(--rs);padding:8px;text-align:center"><div style="font-size:10px;color:var(--t3)">Revenue</div><div style="font-size:12px;font-weight:700;color:var(--gd)">R' + (totalRevenue/1000).toFixed(0) + 'k</div></div>' +
-        '<div style="background:var(--bg);border-radius:var(--rs);padding:8px;text-align:center"><div style="font-size:10px;color:var(--t3)">Input cost</div><div style="font-size:12px;font-weight:700;color:var(--rd)">R' + (totalCost/1000).toFixed(0) + 'k</div></div>' +
-      '</div>' +
+  el.innerHTML=
+    '<div class="pln-wrap">'+
+      '<div class="pln-lh"><div><div class="t">Crop planning</div>'+
+        '<div class="s">Tap a land to change its months, yield or price — the maths updates as you type</div></div>'+
+        '<div class="pln-legend">'+
+          '<span><i style="background:var(--gl)"></i>Plant</span>'+
+          '<span><i style="background:var(--gp)"></i>Growing</span>'+
+          '<span><i style="background:var(--gd)"></i>Harvest</span>'+
+          '<span><i class="hatch"></i>Sells next season</span>'+
+        '</div></div>'+
+      '<div class="pln-grid pln-mh"><span class="colh">Land</span>'+
+        '<div class="pln-mrow pln-hidem">'+MS.map(function(m,i){
+          return '<span'+(i===now?' class="now"':'')+'>'+m+'</span>'; }).join('')+'</div>'+
+        '<span class="colh r">Margin/ha</span><span class="colh r">Margin</span><span></span></div>'+
+      active.map(function(c){
+        return plnRowHTML(c, c.projected ? -1 : ST_PLAN.crops.indexOf(c));
+      }).join('')+
+      '<div class="pln-tot" id="pln-totals"></div>'+
+      '<div class="pln-foot">'+
+        '<button class="pln-btn pri" type="button" onclick="openAddPlan()">+ Add Crop Cycle</button>'+
+      '</div>'+
     '</div>';
-  }).join('');
+  plnRenderTotals();
+  plnLang(el);
 }
+
+/* Delegated so they survive every re-render. */
+document.addEventListener('click', function(e){
+  var r=(e.target&&e.target.closest)?e.target.closest('[data-plnrow]'):null;
+  if(r) plnToggleRow(r.getAttribute('data-plnrow'));
+});
+/* Typing: live maths, no save. */
+document.addEventListener('input', function(e){
+  var el=e.target; if(!el||!el.getAttribute) return;
+  var f=el.getAttribute('data-pln'); if(!f||f==='plant'||f==='harvest') return;
+  plnSetField(parseInt(el.getAttribute('data-idx'),10), f, el.value, false);
+});
+/* Committing: a month picked, or the farmer leaving an edited field. */
+document.addEventListener('change', function(e){
+  var el=e.target; if(!el||!el.getAttribute) return;
+  var f=el.getAttribute('data-pln'); if(!f) return;
+  plnSetField(parseInt(el.getAttribute('data-idx'),10), f, el.value, true);
+});
+document.addEventListener('focusout', function(e){
+  var el=e.target; if(!el||!el.getAttribute||!PLN_DIRTY) return;
+  var f=el.getAttribute('data-pln'); if(!f) return;
+  plnSetField(parseInt(el.getAttribute('data-idx'),10), f, el.value, true);
+});
 
 // ── Year summary (live from computed data) ────────────────────
 function updatePlanSummary() {
@@ -30801,7 +31164,7 @@ function renderSeasonTracker(){
   var stStarted = V.realisedPct >= 5;
   var hero='<div class="st-hero">'+
     '<div class="st-hero-top">'+
-      '<div><div class="st-eyebrow">This season</div>'+
+      '<div><div class="st-eyebrow" data-t="plan.thisSeason">This season</div>'+
         (stStarted
           ? '<div class="st-hero-line">You planned <b style="color:var(--gd)">'+stK(V.planned)+'</b> margin — tracking <b style="color:'+(pos?'var(--gd)':'#B45309')+'">'+stK(V.tracking)+'</b></div>'+
             '<div class="st-hero-amt" style="color:'+(pos?'var(--gd)':'#B45309')+'">'+stK(V.tracking)+' <span>on track for</span></div>'
@@ -30817,7 +31180,7 @@ function renderSeasonTracker(){
     '<div class="st-prog-wrap"><div class="st-prog-lbl"><span data-t="'+(stStarted?'st.progSome':'st.progNone')+'">'+(stStarted?'Season progress — money in so far':'Season progress — nothing harvested yet')+'</span><span style="font-weight:700;color:var(--t2)">'+V.realisedPct+'%</span></div><div class="st-prog"><div class="st-prog-fill" style="width:'+V.realisedPct+'%"></div></div></div>'+
   '</div>';
   var attn=stAttention(V.groups);
-  var attnH=attn.length?'<div class="st-attn"><div class="st-attn-h">⚠ Needs your attention</div>'+attn.map(function(a){return '<div class="st-attn-card"><div class="st-attn-t">'+stEsc(a.t)+'</div><div class="st-attn-d">'+stEsc(a.d)+'</div></div>';}).join('')+'</div>':'';
+  var attnH=attn.length?'<div class="st-attn"><div class="st-attn-h">⚠ <span data-t="plan.needsAttn">Needs your attention</span></div>'+attn.map(function(a){return '<div class="st-attn-card"><div class="st-attn-t">'+stEsc(a.t)+'</div><div class="st-attn-d">'+stEsc(a.d)+'</div></div>';}).join('')+'</div>':'';
   var groupsH=V.groups.map(function(gp){
     var body;
     if(gp.empty){ body='<div class="st-emptyrow">No '+gp.title.toLowerCase()+' plan yet — <span onclick="setPlanTab(\''+(gp.key==='orch'?'orchards':gp.key==='live'?'livestock':'crops')+'\')" style="color:var(--gd);font-weight:700;cursor:pointer">set one up →</span></div>'; }
@@ -34641,6 +35004,82 @@ function renderRecentIncome() {
 // ============================================================
 
 var LANG_PAIRS = [
+  /* Crop-planning rows: full phrases first, so the substring pass below
+     cannot half-translate them. */
+  ["🔁 Repeats every year","🔁 Herhaal elke jaar"],
+  ["This season only","Slegs hierdie seisoen"],
+  ["Real data from transactions","Werklike data uit transaksies"],
+  ["Income exceeds expenses","Inkomste is meer as uitgawes"],
+  ["Expenses exceed income","Uitgawes is meer as inkomste"],
+  ["Actual recorded","Werklik aangeteken"],
+  ["HOW TO READ","HOE OM DIT TE LEES"],
+  ["of it lands next season","hiervan kom volgende seisoen in"],
+  ["previous crop","vorige gewas"],
+  ["Set the planting and harvest months — until they are set this land is not counted in your forecast.","Stel die plant- en oesmaande — solank hulle nie gestel is nie, tel hierdie land nie in jou vooruitskatting nie."],
+  ["Carried forward from last season because this crop repeats. Plan it to edit the numbers.","Oorgedra van verlede seisoen af omdat hierdie gewas herhaal. Beplan dit om die syfers te wysig."],
+  ["Tap a land to change its months, yield or price — the maths updates as you type","Tik op 'n land om sy maande, opbrengs of prys te verander — die somme werk by soos jy tik"],
+  ["A poor season eats that — worth checking hail cover or a firmer price.","'n Swak seisoen vreet dit op — kyk gerus na haeldekking of 'n vaster prys."],
+  ["sales can fall this far before the crops lose money","verkope kan so ver daal voordat die gewasse geld verloor"],
+  ["No crop cycles for this year yet.","Nog geen gewassiklusse vir hierdie jaar nie."],
+  ["all fall inside this season","val alles binne hierdie seisoen"],
+  ["all within this season","alles binne hierdie seisoen"],
+  ["before farm overheads","voor plaasbokoste"],
+  ["above your own history","bo jou eie geskiedenis"],
+  ["Last season this land did","Verlede seisoen het hierdie land"],
+  ["To cover growing costs you need","Om groeikoste te dek het jy"],
+  ["at this price. Your plan of","teen hierdie prys nodig. Jou plan van"],
+  ["% cushion","% speling"],
+  ["leaves a","laat 'n"],
+  ["synced with Crops","gesinkroniseer met Gewasse"],
+  ["Sells next season","Verkoop volgende seisoen"],
+  ["sells next season","verkoop volgende seisoen"],
+  ["months not set","maande nie gestel nie"],
+  ["tight cushion","min speling"],
+  ["Market price for","Markprys vir"],
+  ["you are using it","jy gebruik dit"],
+  ["Crop planning","Gewasbeplanning"],
+  ["Crop revenue","Gewasinkomste"],
+  ["Farm cushion","Plaasspeling"],
+  ["The maths","Die somme"],
+  ["Other cost (R/ha)","Ander koste (R/ha)"],
+  ["Price (R/ton)","Prys (R/ton)"],
+  ["All settings","Alle instellings"],
+  ["✓ In forecast","✓ In vooruitskatting"],
+  ["🌽 Open the land","🌽 Maak die land oop"],
+  ["↻ Plan this year","↻ Beplan hierdie jaar"],
+  ["↻ Projected","↻ Geprojekteer"],
+  ["🔁 Annual","🔁 Jaarliks"],
+  ["Margin/ha","Marge/ha"],
+  ["Dryland","Droëland"],
+  ["Irrigated","Besproei"],
+  ["use this price","gebruik hierdie prys"],
+
+  /* ── Longest phrases FIRST ─────────────────────────────────────────────
+     The engine replaces in array order, so a short pair ('picked', 'your')
+     firing first mangles a sentence before its full-phrase pair can match.
+     Anything multi-word belongs at the top of this list, not beside its topic. */
+  ['Sales are behind plan — line up buyers for the animals you still have to sell.',
+   'Verkope is agter op plan — reël kopers vir die diere wat jy nog moet verkoop.'],
+  ['Picking is behind pace — check labour on the block before the market window closes.',
+   'Pluk is agter op tempo — kyk na arbeid op die blok voor die markvenster sluit.'],
+  ['Not picked yet — on your estimate','Nog nie gepluk nie — op jou skatting'],
+  ['No sales yet — on your plan','Nog geen verkope nie — op jou plan'],
+  ['Still growing — on your plan of','Groei nog — op jou plan van'],
+  ['tons a hectare',              'ton per hektaar'],
+  ['is under plan',               'is onder plan'],
+  ['under plan.',                 'onder plan.'],
+  ['price down',                  'prys af'],
+  ['harvest ',                    'oes '],
+  ['margin, if the season went to plan','marge, as die seisoen volgens plan verloop'],
+  ['nothing harvested from this one yet','nog niks van hierdie een geoes nie'],
+  ['Season progress \u2014 nothing harvested yet','Seisoenvordering \u2014 nog niks geoes nie'],
+  ['nothing harvested or sold yet','nog niks geoes of verkoop nie'],
+  ['margin from crops, orchards and livestock','marge uit gewasse, boorde en vee'],
+  ['margin at this pace',        'marge teen hierdie tempo'],
+  ['Still expecting',            'Verwag steeds'],
+  ['Not started',                'Nie begin nie'],
+  ['not started',                'nie begin nie'],
+  ['Your plan is',               'Jou plan is'],
   ["Take the animals out","Haal die diere uit"],
   ["It wasn’t a live sale","Dit was nie 'n lewende verkoop nie"],
   ["Record the money","Teken die geld aan"],
@@ -35096,16 +35535,6 @@ var LANG_PAIRS = [
   /* Season Tracker margin wording. These sit BEFORE the shorter overlapping pairs
      below ('if the season went to plan'), because the engine replaces in array
      order — a shorter match firing first leaves the rest of the line in English. */
-  ['margin, if the season went to plan','marge, as die seisoen volgens plan verloop'],
-  ['nothing harvested from this one yet','nog niks van hierdie een geoes nie'],
-  ['Season progress \u2014 nothing harvested yet','Seisoenvordering \u2014 nog niks geoes nie'],
-  ['nothing harvested or sold yet','nog niks geoes of verkoop nie'],
-  ['margin from crops, orchards and livestock','marge uit gewasse, boorde en vee'],
-  ['margin at this pace',        'marge teen hierdie tempo'],
-  ['Still expecting',            'Verwag steeds'],
-  ['Not started',                'Nie begin nie'],
-  ['not started',                'nie begin nie'],
-  ['Your plan is',               'Jou plan is'],
   ['You planned to make',       'Jy het beplan om te maak'],
   ['Now on track for',          'Nou op koers vir'],
   ['what you’ll actually make', 'wat jy werklik gaan maak'],
@@ -36352,7 +36781,7 @@ LANG_PAIRS.push(
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
 
 // Key-based dictionary — elements tagged data-t translate exactly and reversibly
-var I18N = {"nav.group.daily":{"en":"Daily","af":"Daagliks"},"nav.dashboard":{"en":"Dashboard","af":"Tuisblad"},"nav.transactions":{"en":"Transactions","af":"Transaksies"},"nav.group.money":{"en":"Money","af":"Geld"},"nav.income":{"en":"Income","af":"Inkomste"},"nav.expenses":{"en":"Expenses","af":"Uitgawes"},"nav.cashflow":{"en":"Money Flow","af":"Geldvloei"},"nav.budgets":{"en":"Budgets","af":"Begrotings"},"nav.loans":{"en":"Loans & Debt","af":"Lenings & Skuld"},"nav.tax":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.title":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.sub":{"en":"What to set aside, what’s due and when — in plain words.","af":"Wat om weg te sit, wat betaalbaar is en wanneer — in eenvoudige taal."},"nav.reports":{"en":"Reports","af":"Verslae"},"nav.group.farm":{"en":"My Farm","af":"My Plaas"},"nav.planning":{"en":"Planning","af":"Beplanning"},"nav.crop":{"en":"Crops","af":"Gewasse"},"nav.orchards":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"nav.livestock":{"en":"Livestock","af":"Vee"},"nav.profit":{"en":"Profit","af":"Wins"},"nav.assets":{"en":"Assets","af":"Bates"},"nav.workers":{"en":"Workers","af":"Werkers"},"nav.group.market":{"en":"Market","af":"Mark"},"nav.market":{"en":"Market Prices","af":"Markpryse"},"nav.settings":{"en":"Settings","af":"Instellings"},"offline.sub":{"en":"Working offline. Data syncs when online.","af":"Werk vanlyn. Data sinkroniseer wanneer aanlyn."},"or.title":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"or.sub":{"en":"Trees, vines, berries and veg — what each block costs, yields and earns","af":"Bome, wingerde, bessies en groente — wat elke blok kos, lewer en verdien"},"or.tab.overview":{"en":"Overview","af":"Oorsig"},"or.tab.blocks":{"en":"Blocks","af":"Blokke"},"or.tab.spray":{"en":"Spray & Safety","af":"Spuit & Veiligheid"},"or.tab.harvest":{"en":"Harvest & Pack","af":"Oes & Pak"},"or.tab.comply":{"en":"Compliance","af":"Voldoening"},"or.tab.add":{"en":"＋ Add block","af":"＋ Voeg blok by"},"or.add.btn":{"en":"＋ Add block","af":"＋ Voeg blok by"},"or.view.cards":{"en":"Cards","af":"Kaarte"},"or.view.compare":{"en":"Compare","af":"Vergelyk"},"or.spray.safe":{"en":"Safe to pick — all markets","af":"Veilig om te pluk — alle markte"},"or.spray.safesub":{"en":"Green = clear to pick · amber = waiting on a spray rule","af":"Groen = reg om te pluk · amber = wag op ’n spuitreël"},"or.local":{"en":"Local","af":"Plaaslik"},"or.spray.diary":{"en":"Spray diary","af":"Spuitdagboek"},"or.spray.log":{"en":"＋ Log spray","af":"＋ Teken spuit aan"},"or.harvest.calc":{"en":"What one packed unit pays you","af":"Wat een verpakte eenheid jou betaal"},"or.harvest.calcsub":{"en":"Edit any number — your money-back updates live","af":"Wysig enige getal — jou geld-terug werk regstreeks by"},"or.harvest.block":{"en":"Block","af":"Blok"},"or.harvest.recent":{"en":"Recent picks","af":"Onlangse oeste"},"or.harvest.log":{"en":"＋ Log pick","af":"＋ Teken oes aan"},"or.arch.all":{"en":"🗂️ All records","af":"🗂️ Alle rekords"},"or.cmp.certs":{"en":"Certificates & audits","af":"Sertifikate & oudits"},"or.cmp.pests":{"en":"Pests & diseases watched","af":"Plae & siektes dopgehou"},"or.cmp.other":{"en":"Other records on file","af":"Ander rekords op lêer"},"or.add.title":{"en":"Add a block","af":"Voeg ’n blok by"},"or.add.sub":{"en":"Tell us what you're growing — we set up the rest","af":"Sê vir ons wat jy kweek — ons stel die res op"},"or.add.tree":{"en":"Tree / vine","af":"Boom / wingerdstok"},"or.add.treesub":{"en":"citrus, avo, apple…","af":"sitrus, avo, appel…"},"or.add.berry":{"en":"Berry","af":"Bessie"},"or.add.berrysub":{"en":"blueberry, rasp…","af":"bloubessie, framb…"},"or.add.veg":{"en":"Vegetable","af":"Groente"},"or.add.vegsub":{"en":"replanted each season","af":"elke seisoen herplant"},"or.add.name":{"en":"Block name","af":"Bloknaam"},"or.add.crop":{"en":"What are you growing?","af":"Wat kweek jy?"},"or.add.area":{"en":"Area (ha)","af":"Oppervlakte (ha)"},"or.add.spacing":{"en":"Spacing","af":"Spasiëring"},"or.add.yield":{"en":"Target yield once mature","af":"Teiken-opbrengs wanneer volgroei"},"or.add.save":{"en":"Save block","af":"Stoor blok"},"or.add.spray":{"en":"Do you spray this block?","af":"Spuit jy hierdie blok?"},"or.add.spray.y":{"en":"Yes — we spray","af":"Ja — ons spuit"},"or.add.spray.n":{"en":"No — organic / no-spray","af":"Nee — organies / geen spuit"},"or.add.markets":{"en":"Where do you sell it?","af":"Waar verkoop jy dit?"},"or.add.markets.h":{"en":"pick all that apply","af":"kies almal wat geld"},"or.add.markets.note":{"en":"Export markets bring stricter safe-to-pick rules and extra certificates. Local-only skips them.","af":"Uitvoermarkte bring strenger veilig-om-te-pluk reëls en ekstra sertifikate. Slegs plaaslik slaan dit oor."},"hero.h":{"en":"Let's grow your profit this season.","af":"Kom ons groei jou wins hierdie seisoen."},"offline.title":{"en":"Offline Mode","af":"Vanlyn-modus"},"or.add.root":{"en":"Rootstock","af":"Onderstam"},"or.add.carton":{"en":"Carton size","af":"Kartongrootte"},"or.add.estab":{"en":"What it cost to establish","af":"Wat dit gekos het om te vestig"},"sync.last":{"en":"Saved","af":"Gestoor"},"crop.tab.inputs":{"en":"Inputs & Spray","af":"Insette & Spuit"},"crop.plant.btn":{"en":"＋ Plant a land","af":"＋ Plant ’n land"},"plan.spill.head":{"en":"crops finish after this season ends","af":"gewasse eindig ná hierdie seisoen"},"plan.spill.head1":{"en":"crop finishes after this season ends","af":"gewas eindig ná hierdie seisoen"},"plan.spill.sub":{"en":"Normal for summer grain. The growing costs sit in this season; the sale lands in the next financial year, so plan the tax for it there.","af":"Normaal vir somergraan. Die groeikoste val in hierdie seisoen; die verkoop land in die volgende finansiële jaar, so beplan die belasting daar."},"plan.miss.head":{"en":"lines have no month in this season","af":"lyne het geen maand in hierdie seisoen nie"},"plan.miss.head1":{"en":"line has no month in this season","af":"lyn het geen maand in hierdie seisoen nie"},"plan.miss.sub":{"en":"They are not counted anywhere. Give them a planting and harvest month, or step to the season they belong to.","af":"Hulle tel nêrens nie. Gee hulle ’n plant- en oesmaand, of gaan na die seisoen waarin hulle hoort."},"st.marginNote":{"en":"Margin is what each crop, block and herd earns after its own growing costs — before farm overheads like loans, insurance and admin.","af":"Marge is wat elke gewas, blok en trop verdien ná sy eie groeikoste — voor plaasbokoste soos lenings, versekering en administrasie."},"st.planIs":{"en":"Your plan is","af":"Jou plan is"},"st.marginFrom":{"en":"margin from crops, orchards and livestock","af":"marge uit gewasse, boorde en vee"},"st.notStarted":{"en":"not started","af":"nie begin nie"},"st.notStartedCap":{"en":"Not started","af":"Nie begin nie"},"st.nothingYet":{"en":"nothing harvested or sold yet","af":"nog niks geoes of verkoop nie"},"st.progNone":{"en":"Season progress — nothing harvested yet","af":"Seisoenvordering — nog niks geoes nie"},"st.progSome":{"en":"Season progress — money in so far","af":"Seisoenvordering — geld tot dusver in"},"st.stillExpecting":{"en":"Still expecting","af":"Verwag steeds"},"st.nothingThisOne":{"en":"nothing harvested from this one yet","af":"nog niks van hierdie een geoes nie"},"st.marginPace":{"en":"margin at this pace","af":"marge teen hierdie tempo"},"st.planIfSeason":{"en":"margin, if the season went to plan","af":"marge, as die seisoen volgens plan verloop"},"st.plannedToMake":{"en":"You planned to make","af":"Jy het beplan om te maak"},"st.onTrackFor":{"en":"Now on track for","af":"Nou op koers vir"}};
+var I18N = {"nav.group.daily":{"en":"Daily","af":"Daagliks"},"nav.dashboard":{"en":"Dashboard","af":"Tuisblad"},"nav.transactions":{"en":"Transactions","af":"Transaksies"},"nav.group.money":{"en":"Money","af":"Geld"},"nav.income":{"en":"Income","af":"Inkomste"},"nav.expenses":{"en":"Expenses","af":"Uitgawes"},"nav.cashflow":{"en":"Money Flow","af":"Geldvloei"},"nav.budgets":{"en":"Budgets","af":"Begrotings"},"nav.loans":{"en":"Loans & Debt","af":"Lenings & Skuld"},"nav.tax":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.title":{"en":"Tax & SARS","af":"Belasting & SARS"},"tax.sub":{"en":"What to set aside, what’s due and when — in plain words.","af":"Wat om weg te sit, wat betaalbaar is en wanneer — in eenvoudige taal."},"nav.reports":{"en":"Reports","af":"Verslae"},"nav.group.farm":{"en":"My Farm","af":"My Plaas"},"nav.planning":{"en":"Planning","af":"Beplanning"},"nav.crop":{"en":"Crops","af":"Gewasse"},"nav.orchards":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"nav.livestock":{"en":"Livestock","af":"Vee"},"nav.profit":{"en":"Profit","af":"Wins"},"nav.assets":{"en":"Assets","af":"Bates"},"nav.workers":{"en":"Workers","af":"Werkers"},"nav.group.market":{"en":"Market","af":"Mark"},"nav.market":{"en":"Market Prices","af":"Markpryse"},"nav.settings":{"en":"Settings","af":"Instellings"},"offline.sub":{"en":"Working offline. Data syncs when online.","af":"Werk vanlyn. Data sinkroniseer wanneer aanlyn."},"or.title":{"en":"Orchards, Fruit & Veg","af":"Boorde, Vrugte & Groente"},"or.sub":{"en":"Trees, vines, berries and veg — what each block costs, yields and earns","af":"Bome, wingerde, bessies en groente — wat elke blok kos, lewer en verdien"},"or.tab.overview":{"en":"Overview","af":"Oorsig"},"or.tab.blocks":{"en":"Blocks","af":"Blokke"},"or.tab.spray":{"en":"Spray & Safety","af":"Spuit & Veiligheid"},"or.tab.harvest":{"en":"Harvest & Pack","af":"Oes & Pak"},"or.tab.comply":{"en":"Compliance","af":"Voldoening"},"or.tab.add":{"en":"＋ Add block","af":"＋ Voeg blok by"},"or.add.btn":{"en":"＋ Add block","af":"＋ Voeg blok by"},"or.view.cards":{"en":"Cards","af":"Kaarte"},"or.view.compare":{"en":"Compare","af":"Vergelyk"},"or.spray.safe":{"en":"Safe to pick — all markets","af":"Veilig om te pluk — alle markte"},"or.spray.safesub":{"en":"Green = clear to pick · amber = waiting on a spray rule","af":"Groen = reg om te pluk · amber = wag op ’n spuitreël"},"or.local":{"en":"Local","af":"Plaaslik"},"or.spray.diary":{"en":"Spray diary","af":"Spuitdagboek"},"or.spray.log":{"en":"＋ Log spray","af":"＋ Teken spuit aan"},"or.harvest.calc":{"en":"What one packed unit pays you","af":"Wat een verpakte eenheid jou betaal"},"or.harvest.calcsub":{"en":"Edit any number — your money-back updates live","af":"Wysig enige getal — jou geld-terug werk regstreeks by"},"or.harvest.block":{"en":"Block","af":"Blok"},"or.harvest.recent":{"en":"Recent picks","af":"Onlangse oeste"},"or.harvest.log":{"en":"＋ Log pick","af":"＋ Teken oes aan"},"or.arch.all":{"en":"🗂️ All records","af":"🗂️ Alle rekords"},"or.cmp.certs":{"en":"Certificates & audits","af":"Sertifikate & oudits"},"or.cmp.pests":{"en":"Pests & diseases watched","af":"Plae & siektes dopgehou"},"or.cmp.other":{"en":"Other records on file","af":"Ander rekords op lêer"},"or.add.title":{"en":"Add a block","af":"Voeg ’n blok by"},"or.add.sub":{"en":"Tell us what you're growing — we set up the rest","af":"Sê vir ons wat jy kweek — ons stel die res op"},"or.add.tree":{"en":"Tree / vine","af":"Boom / wingerdstok"},"or.add.treesub":{"en":"citrus, avo, apple…","af":"sitrus, avo, appel…"},"or.add.berry":{"en":"Berry","af":"Bessie"},"or.add.berrysub":{"en":"blueberry, rasp…","af":"bloubessie, framb…"},"or.add.veg":{"en":"Vegetable","af":"Groente"},"or.add.vegsub":{"en":"replanted each season","af":"elke seisoen herplant"},"or.add.name":{"en":"Block name","af":"Bloknaam"},"or.add.crop":{"en":"What are you growing?","af":"Wat kweek jy?"},"or.add.area":{"en":"Area (ha)","af":"Oppervlakte (ha)"},"or.add.spacing":{"en":"Spacing","af":"Spasiëring"},"or.add.yield":{"en":"Target yield once mature","af":"Teiken-opbrengs wanneer volgroei"},"or.add.save":{"en":"Save block","af":"Stoor blok"},"or.add.spray":{"en":"Do you spray this block?","af":"Spuit jy hierdie blok?"},"or.add.spray.y":{"en":"Yes — we spray","af":"Ja — ons spuit"},"or.add.spray.n":{"en":"No — organic / no-spray","af":"Nee — organies / geen spuit"},"or.add.markets":{"en":"Where do you sell it?","af":"Waar verkoop jy dit?"},"or.add.markets.h":{"en":"pick all that apply","af":"kies almal wat geld"},"or.add.markets.note":{"en":"Export markets bring stricter safe-to-pick rules and extra certificates. Local-only skips them.","af":"Uitvoermarkte bring strenger veilig-om-te-pluk reëls en ekstra sertifikate. Slegs plaaslik slaan dit oor."},"hero.h":{"en":"Let's grow your profit this season.","af":"Kom ons groei jou wins hierdie seisoen."},"offline.title":{"en":"Offline Mode","af":"Vanlyn-modus"},"or.add.root":{"en":"Rootstock","af":"Onderstam"},"or.add.carton":{"en":"Carton size","af":"Kartongrootte"},"or.add.estab":{"en":"What it cost to establish","af":"Wat dit gekos het om te vestig"},"sync.last":{"en":"Saved","af":"Gestoor"},"crop.tab.inputs":{"en":"Inputs & Spray","af":"Insette & Spuit"},"crop.plant.btn":{"en":"＋ Plant a land","af":"＋ Plant ’n land"},"plan.spill.head":{"en":"crops finish after this season ends","af":"gewasse eindig ná hierdie seisoen"},"plan.spill.head1":{"en":"crop finishes after this season ends","af":"gewas eindig ná hierdie seisoen"},"plan.spill.sub":{"en":"Normal for summer grain. The growing costs sit in this season; the sale lands in the next financial year, so plan the tax for it there.","af":"Normaal vir somergraan. Die groeikoste val in hierdie seisoen; die verkoop land in die volgende finansiële jaar, so beplan die belasting daar."},"plan.miss.head":{"en":"lines have no month in this season","af":"lyne het geen maand in hierdie seisoen nie"},"plan.miss.head1":{"en":"line has no month in this season","af":"lyn het geen maand in hierdie seisoen nie"},"plan.miss.sub":{"en":"They are not counted anywhere. Give them a planting and harvest month, or step to the season they belong to.","af":"Hulle tel nêrens nie. Gee hulle ’n plant- en oesmaand, of gaan na die seisoen waarin hulle hoort."},"st.marginNote":{"en":"Margin is what each crop, block and herd earns after its own growing costs — before farm overheads like loans, insurance and admin.","af":"Marge is wat elke gewas, blok en trop verdien ná sy eie groeikoste — voor plaasbokoste soos lenings, versekering en administrasie."},"st.planIs":{"en":"Your plan is","af":"Jou plan is"},"st.marginFrom":{"en":"margin from crops, orchards and livestock","af":"marge uit gewasse, boorde en vee"},"st.notStarted":{"en":"not started","af":"nie begin nie"},"st.notStartedCap":{"en":"Not started","af":"Nie begin nie"},"st.nothingYet":{"en":"nothing harvested or sold yet","af":"nog niks geoes of verkoop nie"},"st.progNone":{"en":"Season progress — nothing harvested yet","af":"Seisoenvordering — nog niks geoes nie"},"st.progSome":{"en":"Season progress — money in so far","af":"Seisoenvordering — geld tot dusver in"},"st.stillExpecting":{"en":"Still expecting","af":"Verwag steeds"},"st.nothingThisOne":{"en":"nothing harvested from this one yet","af":"nog niks van hierdie een geoes nie"},"st.marginPace":{"en":"margin at this pace","af":"marge teen hierdie tempo"},"st.planIfSeason":{"en":"margin, if the season went to plan","af":"marge, as die seisoen volgens plan verloop"},"st.plannedToMake":{"en":"You planned to make","af":"Jy het beplan om te maak"},"st.onTrackFor":{"en":"Now on track for","af":"Nou op koers vir"},"plan.title":{"en":"My Plan","af":"My Plan"},"plan.sub":{"en":"Crops, orchards, livestock and your year ahead.","af":"Gewasse, boorde, vee en jou jaar vorentoe."},"plan.thisYear":{"en":"This year","af":"Hierdie jaar"},"plan.addCrop":{"en":"+ Add a crop","af":"+ Voeg ’n gewas by"},"plan.addEvent":{"en":"+ Add livestock event","af":"+ Voeg vee-gebeurtenis by"},"plan.totalProfit":{"en":"Total planned profit","af":"Totale beplande wins"},"plan.orchPulled":{"en":"Pulled from your Orchards module.","af":"Getrek uit jou Boorde-module."},"plan.thisSeason":{"en":"This season","af":"Hierdie seisoen"},"plan.expExceed":{"en":"Expenses exceed income","af":"Uitgawes oorskry inkomste"},"plan.realData":{"en":"Real data from transactions","af":"Werklike data uit transaksies"},"plan.inMoney":{"en":"Your plan, in money","af":"Jou plan, in geld"},"plan.stress":{"en":"Stress-test your crop plan","af":"Toets jou gewasplan onder druk"},"plan.drag":{"en":"Drag a lever to see how your year changes","af":"Sleep ’n hefboom om te sien hoe jou jaar verander"},"plan.needsAttn":{"en":"Needs your attention","af":"Kort jou aandag"},"plan.lever.grain":{"en":"Grain prices","af":"Graanpryse"},"plan.lever.input":{"en":"Input costs","af":"Insetkoste"},"plan.lever.sale":{"en":"Sale prices","af":"Verkoopspryse"},"plan.lever.run":{"en":"Running & buy costs","af":"Loop- & koopkoste"},"plan.helps":{"en":"helps your profit","af":"help jou wins"},"plan.hurts":{"en":"costs you profit","af":"kos jou wins"}};
 I18N['demo.ribbon']={en:"You’re exploring a sample farm — nothing here is saved to an account.",af:"Jy verken ’n voorbeeldplaas — niks hier word by ’n rekening gestoor nie."};
 I18N['demo.watch']={en:"▶ Watch demo",af:"▶ Kyk demo"};
 I18N['demo.restart']={en:"↺ Restart demo",af:"↺ Herbegin demo"};
