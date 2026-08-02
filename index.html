@@ -14123,6 +14123,10 @@ var txCount = ST.txns.filter(function(t){
   updateTrafficLights();
   renderSeasonKpis();
   if (typeof updateFabAttention === 'function') updateFabAttention();
+  /* Must live here, not in nav(): the dashboard renders at boot without a nav() call,
+     so hooking the card there alone left it blank on first load. Every path that
+     refreshes the figures now refreshes what needs attention too. */
+  try { renderAttnCard(); } catch (e) {}
 }
 
 // ============================================================
@@ -14929,7 +14933,7 @@ function nav(id) {
   try{ requestAnimationFrame(function(){ try{ _txStickyOffsets(); }catch(e){} try{ window._txStuckUpdate && _txStuckUpdate(); }catch(e){} }); }catch(e){}
 
   setTimeout(function(){
-    if (id === 'dashboard')   { renderRecentIncome(); updateDashboardFigures(); try { renderAttnCard(); } catch (e) {} try { initDashChart(); } catch (e) { /* Chart.js may have failed to load; non-chart UI still renders */ } }
+    if (id === 'dashboard')   { renderRecentIncome(); updateDashboardFigures(); try { initDashChart(); } catch (e) { /* Chart.js may have failed to load; non-chart UI still renders */ } }
     if (id === 'income')      { try { lazyInitCharts('income'); } catch (e) {} renderTable('income'); renderTargetBar(); updateIncPage(); }
     if (id === 'assets')      { renderAssets(); }
     if (id === 'workers')     { renderWorkers(); }
