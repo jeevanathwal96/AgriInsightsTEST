@@ -27488,7 +27488,6 @@ function updatePlanPeriod() {
   var el2=$('plan-sum-period');if(el2) el2.textContent=_lab;
   planRefreshYearTag();
   recomputePlan();
-  planRenderOutside();
   if(typeof renderCalGrid==='function') renderCalGrid();
   if(typeof renderLiveCalGrid==='function') renderLiveCalGrid();
   renderPlanGrid();
@@ -27825,6 +27824,11 @@ function recomputePlan() {
     if(m.income   > 0 && !(ST.budgets.monthlyIncome[m.label]   > 0)) ST.budgets.monthlyIncome[m.label]   = m.income;
     if(m.expenses > 0 && !(ST.budgets.monthlyExpenses[m.label] > 0)) ST.budgets.monthlyExpenses[m.label] = m.expenses;
   });
+
+  /* Rendered from HERE, not from updatePlanPeriod: the header is also written by
+     renderCalGrid, so hooking the notice to one caller meant it never appeared.
+     recomputePlan is the single choke point every path goes through. */
+  try { if (typeof planRenderOutside === 'function') planRenderOutside(); } catch(e) {}
 }
 
 function addActivity(idx, label){
