@@ -1573,6 +1573,19 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .qc-fab.attention:not(.open):not(:hover){animation:qc-fab-pulse 2.2s ease-out infinite}
 .qc-fab-tip{position:fixed;bottom:92px;right:28px;background:#1B4332;color:#fff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:20px;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .2s,transform .2s;z-index:400}
 .qc-fab-tip.show{opacity:1;transform:translateY(0)}
+/* ── Resting state for the floating buttons ──────────────────────────────────────
+   The content card runs to within 28px of the viewport edge, so these two do not
+   hover beside the page — they sit 112px and 56px INSIDE it. Hit-testing the asset
+   register found both the Edit and ✕ buttons on the covered row genuinely
+   unclickable (elementFromPoint returned the FAB, not the row).
+   So they rest faint and let clicks pass straight through, and come back the moment
+   the pointer approaches (fabRest below) or they take keyboard focus. The :not()
+   guards matter: a FAB that is open, pulsing for attention, or nudging a tour has a
+   reason to be seen, and must never be dimmed. */
+#qc-fab,#tours-fab{transition:transform .15s,box-shadow .15s,background .15s,border-color .15s,opacity .22s ease}
+#qc-fab.fab-rest:not(.open):not(.attention),
+#tours-fab.fab-rest:not(.pulse){opacity:.16;pointer-events:none}
+#qc-fab.fab-rest:focus-visible,#tours-fab.fab-rest:focus-visible{opacity:1;pointer-events:auto}
 
 .qc-fab-tip.attention{opacity:1;transform:translateY(0);background:var(--gd);box-shadow:0 4px 12px rgba(27,67,50,.3);font-size:13px;padding:7px 14px}
 .qc-fab.open ~ .qc-fab-tip.attention{opacity:0;transform:translateY(4px)}
@@ -39902,6 +39915,46 @@ document.addEventListener('click', function(e) {
     menu.style.display = 'none';
   }
 });
+
+/* ── Wake the floating buttons only when the pointer is near them ────────────────
+   Pairs with the .fab-rest CSS. It has to be JS rather than a :hover rule, because a
+   resting FAB carries pointer-events:none — which is the whole point, it lets clicks
+   through to the row underneath — and an element that ignores pointer events can
+   never match :hover. So proximity is measured instead.
+
+   Gated to fine-pointer devices. On a touch screen there is no pointer to approach
+   with, so dimming would leave the buttons permanently unreachable. */
+(function fabRest(){
+  if (!window.matchMedia || !window.matchMedia('(hover:hover) and (pointer:fine)').matches) return;
+  var IDS = ['qc-fab', 'tours-fab'], NEAR = 96, pending = 0, px = -99999, py = -99999;
+
+  function each(fn){
+    for (var i = 0; i < IDS.length; i++){
+      var el = document.getElementById(IDS[i]);
+      if (el) fn(el);
+    }
+  }
+  function apply(){
+    pending = 0;
+    each(function(el){
+      var r = el.getBoundingClientRect();
+      if (!r.width) return;                       // not laid out yet
+      var dx = Math.max(r.left - px, 0, px - r.right);
+      var dy = Math.max(r.top  - py, 0, py - r.bottom);
+      el.classList.toggle('fab-rest', (dx*dx + dy*dy) > NEAR*NEAR);
+    });
+  }
+  document.addEventListener('mousemove', function(e){
+    px = e.clientX; py = e.clientY;
+    if (!pending) pending = requestAnimationFrame(apply);
+  }, {passive:true});
+  /* Pointer gone from the window entirely — rest them rather than leaving whichever
+     state the last move happened to end on. */
+  document.addEventListener('mouseleave', function(){
+    px = py = -99999; apply();
+  });
+  each(function(el){ el.classList.add('fab-rest'); });
+})();
 
 function orTourShowCompare(){ try{ if(typeof orBlocksView==='function') orBlocksView('compare'); }catch(e){} }
 function orTourShowCards(){ try{ if(typeof orBlocksView==='function') orBlocksView('cards'); }catch(e){} }
