@@ -1483,6 +1483,72 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .bgt-cleft{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
 .bgt-cleft .amt{font-size:12.5px;font-weight:800;color:var(--t1);font-variant-numeric:tabular-nums}
 .bgt-cats-empty{font-size:12.5px;color:var(--t3);padding:8px 2px}
+
+/* ══ Budgets type pass ═════════════════════════════════════════════════════
+   Measured 2 Aug 2026: 139 of 164 text nodes on this tab were weight 700+,
+   so nothing could stand out. Weight now does three jobs — 800 for the figure
+   a card is about, 700 for names and titles, 400 for everything explanatory.
+   Additive overrides only; delete this block to revert. */
+.bgt-kpi-l{font-weight:700}
+.bgt-kpi-t{font-weight:400}
+.bgt-kpi-t b{font-weight:700}
+.bgt-trackfoot{font-weight:400;font-size:11px;color:var(--t4)}
+.bgt-card-h{font-weight:700}
+.bgt-card-s{font-weight:400}
+.bgt-hero-sub{font-weight:400}
+.bgt-cap{font-weight:400}
+.bgt-cap b{font-weight:700}
+.bgt-cnm{font-weight:700}
+/* 9.5px is unreadable in the field — the smallest type on the page is now 10.5 */
+.bgt-colhead{font-weight:700;font-size:10.5px}
+.bgt-grph .why{font-weight:400}
+/* Fold: months, targets and the cash prompt were 276px of secondary detail
+   below the fold already. Drift stays OUTSIDE — it is a conditional alert and
+   must not be hidden when it fires. */
+.bgt-more{margin:12px 0}
+.bgt-more-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:var(--wh);border:1px solid var(--br);border-radius:var(--rl);box-shadow:var(--sh);
+  padding:15px 20px;font-family:var(--fn);text-align:left;color:inherit;cursor:pointer}
+.bgt-more-btn:hover{border-color:var(--gl)}
+.bgt-more-btn:focus-visible{outline:2px solid var(--gl);outline-offset:2px}
+.bgt-more-btn .t{display:block;font-size:13px;font-weight:700}
+.bgt-more-btn .s{display:block;font-size:11.5px;font-weight:400;color:var(--t3);margin-top:2px}
+.bgt-more-btn .c{font-size:11.5px;font-weight:700;color:var(--gm);white-space:nowrap}
+.bgt-more-body{display:none;flex-direction:column;gap:12px;margin-top:12px}
+.bgt-more-body.open{display:flex}
+/* The "needs a look" band said exactly what the category rows below already say.
+   Its job — jumping to a flagged row — now lives in the row list itself. */
+#bgt-flags{display:none}
+.bgt-also{margin-top:12px;background:var(--op);border:1px solid var(--or);border-radius:var(--rs);
+  padding:10px 12px;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.bgt-also .lb{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--or);white-space:nowrap;padding-top:3px}
+.bgt-also .items{display:flex;gap:7px;flex-wrap:wrap;flex:1}
+.bgt-also button{border:1px solid var(--or);background:var(--wh);border-radius:99px;padding:4px 11px;
+  font-family:var(--fn);font-size:11.5px;font-weight:700;color:var(--or);cursor:pointer;white-space:nowrap}
+.bgt-also button:hover{background:var(--or);color:#fff}
+.bgt-also button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
+.bgt-cats-more{width:100%;margin-top:12px;border:1px solid var(--br);background:var(--wh);
+  border-radius:var(--rs);padding:10px;font-family:var(--fn);font-size:13px;font-weight:700;
+  color:var(--gm);cursor:pointer}
+.bgt-cats-more:hover{border-color:var(--gl);background:var(--gb)}
+.bgt-cats-more:focus-visible{outline:2px solid var(--gl);outline-offset:2px}
+
+/* Merge: hero + KPI strip were two cards answering one question, and repeated
+   each other's figures. One card now — red verdict band, then the three tiles
+   sharing hairline dividers. The existing ::before stripe on each tile becomes
+   the mode indicator once the card chrome comes off. */
+.bgt-hero.merged{padding:0}
+.bgt-hero-top{padding:22px 24px}
+.bgt-hero-top.has-fix{display:flex;justify-content:space-between;align-items:flex-end;
+  gap:24px;flex-wrap:wrap}
+.bgt-hero-top.has-fix .bgt-hero-body{flex:1;min-width:0}
+.bgt-hero.merged #bgt-kpis{margin:0;gap:1px;background:var(--br2);border-radius:0}
+.bgt-hero.merged .bgt-kpi{border:0;border-radius:0;box-shadow:none;padding:16px 20px;color:var(--t1)}
+.bgt-hero.merged .bgt-kpi.selv{border:0;box-shadow:none;background:var(--gb)}
+.bgt-hero.merged #bgt-kpi-card-out.selv{background:var(--op)}
+.bgt-leg span{font-weight:400}
+
 /* ══ Getting back on plan ═══════════════════════════════════════════════
    Every class is gbp- prefixed. A bare class shared with another component
    is how the confidence dots once inherited a filter chip's pill padding. */
@@ -1492,8 +1558,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .bgt-hero.amber .bgt-hero-fix{color:#8A5200}
 .bgt-hero-fix:hover{transform:translateY(-1px);box-shadow:0 6px 16px -4px rgba(0,0,0,.45)}
 .bgt-hero-fix:focus-visible{outline:3px solid #fff;outline-offset:2px}
-.bgt-hero.has-fix{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
-.bgt-hero.has-fix .bgt-hero-body{flex:1;min-width:0}
+
 .bgt-fixline{display:flex;justify-content:flex-end;margin-top:12px}
 .bgt-fixline button{border:0;border-radius:var(--rs);background:var(--gd);color:#fff;padding:9px 15px;
   font-family:var(--fn);font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
@@ -28640,7 +28705,9 @@ function renderBudgetsPage() {
   } else {
     bgtAutoMode(c);
     bgtRenderHero(c);
+    bgtMergeHero();
     gbpRenderDoors(c);
+    bgtRenderFold();
     bgtRenderKpis(c);
     bgtRenderFlags(c);
     bgtRenderCashLink();
@@ -29559,7 +29626,8 @@ function bgtRenderCats() {
   var side = BGT_MODE === 'in' ? 'income' : 'expense';
   var isIn = side === 'income';
   setEl('bgt-cats-title', isIn ? 'Where the money comes from' : 'Where the money goes');
-  var rows = bgtCatData(c)[side].rows;
+  var allRows = bgtCatData(c)[side].rows;
+  var rows = BGT_CATS_ALL ? allRows : allRows.slice(0, 5);
   if (!rows.length) {
     host.innerHTML = '<div class="bgt-cats-empty">No category targets yet — set your annual target first, or add one here.</div>';
     return;
@@ -29592,9 +29660,72 @@ function bgtRenderCats() {
     });
     return h + '</div>';
   }
+  /* A flagged category must never be lost to the top-5 cut. Anything behind
+     pace that is not on screen is surfaced here, and tapping it does what the
+     old flags band did: switch side, scroll to the row, flash it. */
+  var seen = {}, i2;
+  for (i2 = 0; i2 < rows.length; i2++) seen[rows[i2].cat] = 1;
+  var missed = bgtCatData(c)[side].flags.filter(function(f) { return !seen[f.cat]; });
+  var also = '';
+  if (missed.length) {
+    also = '<div class="bgt-also"><span class="lb">Also ' + (isIn ? 'behind pace' : 'over pace') +
+      '</span><span class="items">' + missed.map(function(f) {
+        return '<button type="button" onclick="bgtFlagTap(\'' + side + '\',\'' +
+          f.cat.replace(/'/g, "\\'") + '\')">' + f.cat + ' · ' + bgtFmt(f.amt) + '</button>';
+      }).join('') + '</span></div>';
+  }
+  var more = allRows.length > 5
+    ? '<button class="bgt-cats-more" type="button" onclick="bgtToggleCats()">' +
+      (BGT_CATS_ALL ? 'Show the top 5 only' : 'Show all ' + allRows.length + ' categories') + '</button>'
+    : '';
+
   host.innerHTML =
     group(isIn ? '🌾 Big lumps' : '🌱 Season lumps', 'judged against the season — quiet until their moment', lumps) +
-    group('📅 Steady through the year', isIn ? 'should arrive every month — chase gaps early' : 'steadier month to month — watch the tick', steads);
+    group('📅 Steady through the year', isIn ? 'should arrive every month — chase gaps early' : 'steadier month to month — watch the tick', steads) +
+    also + more;
+}
+
+var BGT_CATS_ALL = false;
+function bgtToggleCats() { BGT_CATS_ALL = !BGT_CATS_ALL; bgtRenderCats(); }
+
+/* Move the secondary cards into one disclosure. Idempotent: runs on every
+   Budgets render, does nothing once the wrapper exists. */
+function bgtRenderFold() {
+  var main = $('bgt-main'); if (!main || $('bgt-more')) return;
+  var first = $('bgt-months-card'); if (!first) return;
+  var wrap = document.createElement('div');
+  wrap.id = 'bgt-more'; wrap.className = 'bgt-more';
+  wrap.innerHTML =
+    '<button class="bgt-more-btn" type="button" onclick="bgtToggleMore()">' +
+      '<span><span class="t">More detail</span>' +
+      '<span class="s">Month by month, your targets, and the cash check</span></span>' +
+      '<span class="c" id="bgt-more-c">Open &#9662;</span></button>' +
+    '<div class="bgt-more-body" id="bgt-more-body"></div>';
+  main.insertBefore(wrap, first);
+  var body = $('bgt-more-body'), ids = ['bgt-cashlink', 'bgt-months-card', 'bgt-setup-row'], k;
+  for (k = 0; k < ids.length; k++) { var el = $(ids[k]); if (el) body.appendChild(el); }
+}
+/* Fold the KPI strip into the hero card. Runs on every Budgets render and
+   returns immediately once the strip already lives inside the hero. */
+function bgtMergeHero() {
+  var hero = $('bgt-hero'), kpis = $('bgt-kpis');
+  if (!hero || !kpis || hero.contains(kpis)) return;
+  var top = hero.querySelector('.bgt-hero-top');
+  if (!top) {
+    top = document.createElement('div');
+    top.className = 'bgt-hero-top';
+    while (hero.firstChild) top.appendChild(hero.firstChild);
+    hero.appendChild(top);
+  }
+  hero.appendChild(kpis);
+  hero.classList.add('merged');
+}
+
+function bgtToggleMore() {
+  var b = $('bgt-more-body'), c2 = $('bgt-more-c'); if (!b) return;
+  var open = !b.classList.contains('open');
+  b.classList.toggle('open', open);
+  if (c2) c2.innerHTML = open ? 'Close &#9652;' : 'Open &#9662;';
 }
 
 /* ══ Getting back on plan ═══════════════════════════════════════════════════
@@ -30025,25 +30156,27 @@ function gbpRenderDoors(c) {
     /* The hero's children are eyebrow/headline/sub/deltas with no wrapper. Turning
        the hero into a flex row would lay those four out SIDE BY SIDE, so they get
        wrapped first and the button becomes the second flex item. Idempotent. */
-    var body = hero.querySelector('.bgt-hero-body');
+    /* Once merged, the button belongs in the red band — not below the tiles. */
+    var host = hero.querySelector('.bgt-hero-top') || hero;
+    var body = host.querySelector('.bgt-hero-body');
     if (show) {
       if (!body) {
         body = document.createElement('div');
         body.className = 'bgt-hero-body';
-        while (hero.firstChild) body.appendChild(hero.firstChild);
-        hero.appendChild(body);
+        while (host.firstChild) body.appendChild(host.firstChild);
+        host.appendChild(body);
       }
       if (!btn) {
         btn = document.createElement('button');
         btn.id = 'bgt-hero-fix'; btn.className = 'bgt-hero-fix'; btn.type = 'button';
         btn.textContent = 'Show me how to fix this';
         btn.onclick = gbpOpen;
-        hero.appendChild(btn);
+        host.appendChild(btn);
       }
-      hero.classList.add('has-fix');
+      host.classList.add('has-fix');
     } else {
       if (btn) btn.parentNode.removeChild(btn);
-      hero.classList.remove('has-fix');
+      host.classList.remove('has-fix');
     }
   }
   var mtn = $('bgt-mountain-card'), line = $('bgt-fixline');
