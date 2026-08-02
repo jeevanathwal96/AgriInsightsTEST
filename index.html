@@ -5018,8 +5018,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <div>
           <div class="chart-title" id="dash-chart-title">6 Month Performance</div>
           <div class="chart-legend">
-            <div class="leg-item"><div class="leg-dot" style="background:var(--gl)"></div>Money In</div>
-            <div class="leg-item"><div class="leg-dot" style="background:#F87171"></div>Money Out</div>
+            <div class="leg-item"><div class="leg-dot" style="background:linear-gradient(180deg,#40916C,#2D6A4F)"></div>Money In</div>
+            <div class="leg-item"><div class="leg-dot" style="background:linear-gradient(180deg,#ED6152,#CB3A2B)"></div>Money Out</div>
             <div class="leg-item"><div class="leg-dot" style="background:var(--gd)"></div>Profit</div>
           </div>
         </div>
@@ -5152,7 +5152,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div>
         <div class="chart-title" id="inc-chart-title">Income Overview — Last 6 Months</div>
         <div class="chart-legend" style="margin-top:5px">
-          <div class="leg-item"><div class="leg-dot" style="background:var(--gl)"></div>Money In</div>
+          <div class="leg-item"><div class="leg-dot" style="background:linear-gradient(180deg,#40916C,#2D6A4F)"></div>Money In</div>
         </div>
       </div>
       <div class="pills">
@@ -5403,7 +5403,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <div>
           <div class="chart-title" id="exp-chart-title">Expense Overview — Last 6 Months</div>
           <div class="chart-legend" style="margin-top:5px">
-            <div class="leg-item"><div class="leg-dot" style="background:#F87171"></div>Expenses</div>
+            <div class="leg-item"><div class="leg-dot" style="background:linear-gradient(180deg,#ED6152,#CB3A2B)"></div>Expenses</div>
           </div>
         </div>
         <div class="pills">
@@ -32075,6 +32075,8 @@ function renderDashWidgets() {
 // ============================================================
 // (dead demo arrays MO*/D*/SPK_EXT/LSK_EXT removed — charts now use periodSeries/real data)
 
+// Vertical gradient fill for polished bars (falls back to the top colour before the chart area exists).
+function barGrad(top, bot){ return function(c){ var a=c.chart.chartArea; if(!a) return top; var g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom); g.addColorStop(0,top); g.addColorStop(1,bot); return g; }; }
 var baseOpts = {
   responsive: true,
   maintainAspectRatio: false,
@@ -32082,14 +32084,28 @@ var baseOpts = {
   // slot, capped so few-bar views (1M/3M) aren't absurdly fat and many-bar views
   // (12M / grouped in·out) aren't thin.
   datasets: { bar: { maxBarThickness: 230, categoryPercentage: 0.82, barPercentage: 0.8 } },
+  // Hover the whole month column (not just the bar), and on the dashboard show
+  // Money In / Money Out / Profit together in one banner.
+  interaction: { mode: 'index', intersect: false },
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: '#1B4332',
-      titleColor: '#fff',
-      bodyColor: 'rgba(255,255,255,.85)',
-      padding: 10,
-      cornerRadius: 6
+      backgroundColor: '#14281f',
+      titleColor: '#ffffff',
+      titleFont: { size: 12.5, weight: '800' },
+      titleMarginBottom: 7,
+      bodyColor: '#e7f3ec',
+      bodyFont: { size: 12, weight: '600' },
+      bodySpacing: 5,
+      padding: { top: 11, right: 14, bottom: 11, left: 13 },
+      cornerRadius: 11,
+      displayColors: true,
+      boxWidth: 9, boxHeight: 9, boxPadding: 6,
+      caretSize: 6, caretPadding: 8,
+      callbacks: {
+        label: function(ctx){ var v = (typeof fmtK==='function') ? fmtK(ctx.parsed.y) : ctx.parsed.y; return '  ' + ctx.dataset.label + '   ' + v; },
+        labelColor: function(ctx){ var L=ctx.dataset.label; var c=(L==='Money Out'||L==='Expenses')?'#DC463A':(L==='Profit')?'#1B4332':'#40916C'; return { borderColor:c, backgroundColor:c, borderWidth:0 }; }
+      }
     }
   },
   scales: {
@@ -32113,8 +32129,8 @@ function initDashChart() {
   var x = getD();
   ST.charts['dash'] = new Chart(c, {
     type:'bar', data:{labels:x.labels, datasets:[
-      {label:'Money In', data:x.d.i, backgroundColor:'#40916C', borderRadius:5, borderSkipped:false, order:2, categoryPercentage:0.62, barPercentage:0.95, maxBarThickness:130},
-      {label:'Money Out',data:x.d.o, backgroundColor:'#F87171', borderRadius:5, borderSkipped:false, order:2, categoryPercentage:0.62, barPercentage:0.95, maxBarThickness:130},
+      {label:'Money In', data:x.d.i, backgroundColor:barGrad('#40916C','#2D6A4F'), hoverBackgroundColor:barGrad('#4CA37B','#357A5B'), borderRadius:6, borderSkipped:false, order:2, categoryPercentage:0.62, barPercentage:0.95, maxBarThickness:130},
+      {label:'Money Out',data:x.d.o, backgroundColor:barGrad('#ED6152','#CB3A2B'), hoverBackgroundColor:barGrad('#F2776A','#D6493A'), borderRadius:6, borderSkipped:false, order:2, categoryPercentage:0.62, barPercentage:0.95, maxBarThickness:130},
       {type:'line',label:'Profit',data:x.d.p,borderColor:'#1B4332',backgroundColor:'transparent',tension:0.4,pointRadius:4,pointBackgroundColor:'#1B4332',pointBorderColor:'#fff',pointBorderWidth:2,borderWidth:2.5,order:1}
     ]}, options: baseOpts
   });
@@ -32144,7 +32160,7 @@ function initIncomeCharts() {
     var _s = periodSeries(p==='1'?1 : p==='3'?3 : p==='12'?12 : 6);
     var labels = _s.labels;
     var data   = _s.i;
-    ST.charts['inc'] = new Chart(c, {type:'bar', data:{labels:labels, datasets:[{label:'Income',data:data,backgroundColor:'#40916C',borderRadius:5,borderSkipped:false}]}, options:baseOpts});
+    ST.charts['inc'] = new Chart(c, {type:'bar', data:{labels:labels, datasets:[{label:'Income',data:data,backgroundColor:barGrad('#40916C','#2D6A4F'),hoverBackgroundColor:barGrad('#4CA37B','#357A5B'),borderRadius:6,borderSkipped:false}]}, options:baseOpts});
     setTimeout(function(){ wireChartDrawer('inc','income'); }, 50);
     var total = data.reduce(function(a,b){return a+b;},0);
     var avg   = total/data.length;
@@ -32163,7 +32179,7 @@ function initExpCharts() {
     var _s = periodSeries(p==='1'?1 : p==='3'?3 : p==='12'?12 : 6);
     var labels = _s.labels;
     var data   = _s.o;
-    ST.charts['exp'] = new Chart(c,{type:'bar',data:{labels:labels,datasets:[{label:'Expenses',data:data,backgroundColor:'#F87171',borderRadius:5,borderSkipped:false}]},options:baseOpts});
+    ST.charts['exp'] = new Chart(c,{type:'bar',data:{labels:labels,datasets:[{label:'Expenses',data:data,backgroundColor:barGrad('#ED6152','#CB3A2B'),hoverBackgroundColor:barGrad('#F2776A','#D6493A'),borderRadius:6,borderSkipped:false}]},options:baseOpts});
     setTimeout(function(){ wireChartDrawer('exp','expense'); }, 50);
     var total=data.reduce(function(a,b){return a+b;},0);
     var avg=total/data.length, best=Math.max.apply(null,data);
