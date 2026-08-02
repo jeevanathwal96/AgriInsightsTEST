@@ -1545,6 +1545,11 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .plan-outside .po-h{font-size:13px;font-weight:700;color:var(--or)}
 .plan-outside .po-s{font-size:11.5px;font-weight:400;color:var(--t2);margin-top:2px;line-height:1.5}
 .plan-outside .po-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.plan-spill{margin:12px 0;background:var(--gb);border:1px solid var(--gl);border-radius:var(--rl);
+  padding:13px 16px;display:flex;gap:11px;align-items:flex-start;flex-wrap:wrap}
+.plan-spill .ps-h{font-size:13px;font-weight:700;color:var(--gd)}
+.plan-spill .ps-s{font-size:11.5px;font-weight:400;color:var(--t2);margin-top:2px;line-height:1.5}
+.plan-spill .po-list span{border-color:var(--gl);color:var(--gm)}
 .plan-outside .po-list span{font-size:11px;font-weight:700;color:var(--or);background:var(--wh);
   border:1px solid var(--or);border-radius:99px;padding:3px 10px;white-space:nowrap}
 
@@ -7719,8 +7724,8 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div style="display:flex;align-items:center;gap:10px">
         <button onclick="planPrev()" aria-label="Previous year" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--br);background:#fff;color:var(--gd);font-size:16px;cursor:pointer">&#9664;</button>
         <div style="text-align:center;min-width:120px">
-          <div style="font-size:9.5px;font-weight:700;letter-spacing:.07em;color:var(--t4)">FINANCIAL YEAR</div>
-          <div id="plan-period" style="font-size:15px;font-weight:800;color:var(--t1)">May 2024 – Apr 2025</div>
+          <div style="font-size:10.5px;font-weight:700;letter-spacing:.07em;color:var(--t4)">SEASON</div>
+          <div id="plan-period" style="font-size:15px;font-weight:800;color:var(--t1)">May 2026 – Apr 2027</div>
           <div id="plan-year-tag" style="font-size:10px;font-weight:800;display:inline-block;margin-top:2px;padding:1px 9px;border-radius:20px"></div>
         </div>
         <button onclick="planNext()" aria-label="Next year" style="width:34px;height:34px;border-radius:9px;border:1px solid var(--br);background:#fff;color:var(--gd);font-size:16px;cursor:pointer">&#9654;</button>
@@ -27497,15 +27502,37 @@ function updatePlanPeriod() {
    "May 2026 – Apr 2027" on this tab and "Mar 2026 – Feb 2027" on every financial
    screen, so the same farm carried two different years and two different goals.
    One anchor now. */
+/* Planning runs on the SEASON, not the financial year, because that is how a
+   farmer plans: summer grain goes in around November and comes off in April or
+   May. A March–February financial year splits that cycle in half, so forcing the
+   planner onto it made a summer crop impossible to express.
+
+   The season is what you SEE. The money is distributed on the real calendar
+   (planAbsIdx below), so a cycle that crosses into the next financial year keeps
+   its costs and its revenue in the months they actually fall — Budgets and Tax
+   then pick each month up in whichever financial year it belongs to. */
+var PLAN_SEASON_START = 5;   // May — SA summer-grain convention
+
 function planFYMonths(py){
-  if (typeof getFYMonths === 'function') return getFYMonths(py);
-  var nm=['Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb'];
-  return nm.map(function(n,i){ return n+' '+((i<=9)?py:(py+1)); });
+  var nm=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var sm=PLAN_SEASON_START-1, out=[];
+  for(var i=0;i<12;i++){ var k=sm+i; out.push(nm[k%12]+' '+(k<12?py:py+1)); }
+  return out;
 }
 function planFYYear(){
-  if (typeof getCurrentFY === 'function') return getCurrentFY();
   var t=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
-  return t.getMonth()>=2 ? t.getFullYear() : t.getFullYear()-1;
+  return t.getMonth()>=(PLAN_SEASON_START-1) ? t.getFullYear() : t.getFullYear()-1;
+}
+/* Absolute month index — "Nov 2026" -> 2026*12+10. Lets the distributor work on
+   the real calendar instead of a position inside a 12-slot window. */
+function planAbsIdx(label){
+  var p=String(label||'').split(' ');
+  var mi=(typeof MONTH_LABELS_SHORT!=='undefined')?MONTH_LABELS_SHORT.indexOf(p[0]):-1;
+  var y=parseInt(p[1],10);
+  return (mi<0||isNaN(y)) ? null : y*12+mi;
+}
+function planWindowStart(){
+  return (ST_PLAN.months&&ST_PLAN.months[0]) ? planAbsIdx(ST_PLAN.months[0].label) : null;
 }
 function planPeriodLabel(){
   var m=(typeof ST_PLAN!=='undefined'&&ST_PLAN.months)?ST_PLAN.months:null;
@@ -27603,27 +27630,42 @@ function planPinProjectedEvent(key){
   if(typeof updatePlanSummary==='function') updatePlanSummary();
   dataChanged('plan'); openEditEvent(idx);
 }
-/* Say it out loud: these lines are not in the totals above. */
+/* Two different messages, and only one of them is a problem.
+   OUTSIDE — the line has no month in this season at all; it is genuinely missing.
+   SPILL   — the line belongs to this season but finishes after it ends. That is
+             normal for summer grain, and worth saying because the revenue lands
+             in the NEXT financial year, which is a tax-timing fact. */
 function planRenderOutside(){
+  var pane=document.getElementById('pg-planning'); if(!pane) return;
   var host=$('plan-outside');
-  var pane=document.getElementById('pg-planning');
-  if(!pane) return;
   if(!host){
     var anchor=$('plan-combined-banner')||pane.querySelector('.plan-tabs')||pane.firstElementChild;
     host=document.createElement('div'); host.id='plan-outside';
     if(anchor&&anchor.parentNode) anchor.parentNode.insertBefore(host, anchor.nextSibling);
     else pane.appendChild(host);
   }
-  var n=(typeof PLAN_OUTSIDE!=='undefined'?PLAN_OUTSIDE:[]).length;
-  if(!n){ host.className=''; host.innerHTML=''; return; }
-  host.className='plan-outside';
-  host.innerHTML='<div style="flex:1;min-width:0"><div class="po-h">'+n+' line'+(n===1?'':'s')+
-    ' fall'+(n===1?'s':'')+' outside this financial year</div>'+
-    '<div class="po-s">They are not counted in the totals on this page. Move them into '+
-    planPeriodLabel()+', or step to the year they belong to.</div>'+
-    '<div class="po-list">'+PLAN_OUTSIDE.slice(0,6).map(function(o){
-      return '<span>'+esc(o.nm)+' &middot; '+esc(o.when)+'</span>';
-    }).join('')+(n>6?'<span>+'+(n-6)+' more</span>':'')+'</div></div>';
+  var miss=(typeof PLAN_OUTSIDE!=='undefined'?PLAN_OUTSIDE:[]);
+  var spill=(typeof PLAN_SPILL!=='undefined'?PLAN_SPILL:[]);
+  if(!miss.length && !spill.length){ host.className=''; host.innerHTML=''; return; }
+
+  var h='';
+  if(miss.length){
+    h+='<div class="plan-outside"><div style="flex:1;min-width:0">'+
+      '<div class="po-h">'+miss.length+' line'+(miss.length===1?'':'s')+' have no month in this season</div>'+
+      '<div class="po-s">They are not counted anywhere. Give them a planting and harvest month, '+
+      'or step to the season they belong to.</div><div class="po-list">'+
+      miss.slice(0,6).map(function(o){ return '<span>'+esc(o.nm)+' &middot; '+esc(o.when)+'</span>'; }).join('')+
+      (miss.length>6?'<span>+'+(miss.length-6)+' more</span>':'')+'</div></div></div>';
+  }
+  if(spill.length){
+    h+='<div class="plan-spill"><div style="flex:1;min-width:0">'+
+      '<div class="ps-h">'+spill.length+' crop'+(spill.length===1?'':'s')+' finish after this season ends</div>'+
+      '<div class="ps-s">Normal for summer grain. The growing costs sit in this season; the '+
+      'sale lands in the next financial year, so plan the tax for it there.</div><div class="po-list">'+
+      spill.slice(0,6).map(function(o){ return '<span>'+esc(o.nm)+' &middot; harvest '+esc(o.when)+'</span>'; }).join('')+
+      (spill.length>6?'<span>+'+(spill.length-6)+' more</span>':'')+'</div></div></div>';
+  }
+  host.className=''; host.innerHTML=h;
 }
 
 function planRefreshYearTag(){
@@ -27669,9 +27711,12 @@ function setPlanView(v) {
    from the plan totals with nothing said. On the demo farm that was already
    silently dropping 4 of 17 lines BEFORE the year was corrected. */
 var PLAN_OUTSIDE = [];
+/* Lines that DO belong to this season but finish after it ends — normal for
+   summer grain, and worth saying because the revenue lands in the next tax year. */
+var PLAN_SPILL = [];
 
 function recomputePlan() {
-  PLAN_OUTSIDE = [];
+  PLAN_OUTSIDE = []; PLAN_SPILL = [];
   // ── Step 1: Reset all months ──────────────────────────────
   ST_PLAN.months.forEach(function(m){
     m.income     = 0;
@@ -27688,53 +27733,62 @@ function recomputePlan() {
   planActiveCrops().forEach(function(c){
     if(typeof entOn==='function' && !entOn('crops')) return;
     if(c.inForecast===false) return; // scenario / what-if crop — excluded from forecast
-    var plantIdx   = ST_PLAN.months.findIndex(function(m){return m.label===c.plant;});
-    var harvestIdx = ST_PLAN.months.findIndex(function(m){return m.label===c.harvest;});
-    if(plantIdx<0||harvestIdx<0){
-      PLAN_OUTSIDE.push({nm:(c.crop||'Crop')+(c.field?' — '+c.field:''),
-                         when:(plantIdx<0?c.plant:c.harvest)||'no month'});
+    /* Positions are ABSOLUTE calendar months, not slots in the visible window, so a
+       cycle that runs past the end of the season still books each month's money in
+       the month it happens. Anything outside the window is simply not shown here —
+       it is not lost, and it is not an error. */
+    var pAbs = planAbsIdx(c.plant), hAbs = planAbsIdx(c.harvest);
+    var W0   = planWindowStart();
+    if(pAbs==null || hAbs==null || W0==null){
+      PLAN_OUTSIDE.push({nm:(c.crop||'Crop')+(c.field?' — '+c.field:''), when:'no month set'});
       return;
     }
+    if(hAbs < pAbs) hAbs = pAbs;
 
     var totalRevenue = c.ha * c.yield * _cropPriceOf(c);
     var totalInputs  = c.ha * c.inputCost;
     var totalOther   = c.ha * c.otherCost;
-    var growMonths   = Math.max(1, harvestIdx - plantIdx - 1);
+    var growMonths   = Math.max(1, hAbs - pAbs - 1);
     var cropLabel    = c.crop.split('(')[0].trim();
+    var touched = 0, spillsAfter = false;
 
-    // ── Planting month: 50% input costs + 20% other costs ──
-    ST_PLAN.months[plantIdx].expenses += Math.round(totalInputs * 0.50 + totalOther * 0.20);
-    ST_PLAN.months[plantIdx].crops.push(cropLabel);
-    addActivity(plantIdx, 'Plant ' + cropLabel);
-
-    // ── Growing months: spread 40% inputs + 50% other (labour/fuel) evenly ──
-    for(var i = plantIdx+1; i < harvestIdx; i++){
-      ST_PLAN.months[i].expenses += Math.round((totalInputs * 0.40 + totalOther * 0.50) / growMonths);
-      ST_PLAN.months[i].crops.push(cropLabel);
-      addActivity(i, 'Growing (' + cropLabel + ')');
+    function _put(abs, inc, exp, tag, act){
+      var r = abs - W0;
+      if(r < 0 || r > 11){ if(abs > W0 + 11) spillsAfter = true; return; }
+      touched++;
+      if(inc) ST_PLAN.months[r].income   += inc;
+      if(exp) ST_PLAN.months[r].expenses += exp;
+      if(tag) ST_PLAN.months[r].crops.push(tag);
+      if(act) addActivity(r, act);
     }
 
-    // ── Harvest month: 10% input costs (harvest chemicals) + 20% other ──
+    // ── Planting month: 50% input costs + 20% other costs ──
+    _put(pAbs, 0, Math.round(totalInputs * 0.50 + totalOther * 0.20), cropLabel, 'Plant ' + cropLabel);
 
-    ST_PLAN.months[harvestIdx].income   += Math.round(totalRevenue * 0.60);
-    ST_PLAN.months[harvestIdx].expenses += Math.round(totalInputs  * 0.10 + totalOther * 0.20);
-    ST_PLAN.months[harvestIdx].crops.push(cropLabel);
-    addActivity(harvestIdx, 'Harvest ' + cropLabel);
-
-    // ── Month after harvest: remaining 40% revenue (final payments/storage) ──
-    var sellIdx = harvestIdx + 1;
-    if(sellIdx < 12){
-      ST_PLAN.months[sellIdx].income   += Math.round(totalRevenue * 0.40);
-      ST_PLAN.months[sellIdx].expenses += Math.round(totalOther   * 0.10);
-      ST_PLAN.months[sellIdx].crops.push(cropLabel);
-      addActivity(sellIdx, 'Sell ' + cropLabel);
+    // ── Growing months: spread 40% inputs + 50% other (labour/fuel) evenly ──
+    for(var a = pAbs + 1; a < hAbs; a++){
+      _put(a, 0, Math.round((totalInputs * 0.40 + totalOther * 0.50) / growMonths),
+           cropLabel, 'Growing (' + cropLabel + ')');
     }
 
     // ── Pre-harvest month: 10% other (prep/transport) ──
-    var prepIdx = harvestIdx - 1;
-    if(prepIdx > plantIdx){
-      ST_PLAN.months[prepIdx].expenses += Math.round(totalOther * 0.10);
-      addActivity(prepIdx, 'Pre-harvest (' + cropLabel + ')');
+    if(hAbs - 1 > pAbs) _put(hAbs - 1, 0, Math.round(totalOther * 0.10), null, 'Pre-harvest (' + cropLabel + ')');
+
+    // ── Harvest month: 60% revenue, 10% input (harvest chemicals) + 20% other ──
+    _put(hAbs, Math.round(totalRevenue * 0.60), Math.round(totalInputs * 0.10 + totalOther * 0.20),
+         cropLabel, 'Harvest ' + cropLabel);
+
+    // ── Month after harvest: remaining 40% revenue (final payments/storage) ──
+    _put(hAbs + 1, Math.round(totalRevenue * 0.40), Math.round(totalOther * 0.10),
+         cropLabel, 'Sell ' + cropLabel);
+
+    /* Only flag a line that has NO month in this season at all. A crop that merely
+       finishes after the season ends is normal, and is noted separately. */
+    if(!touched){
+      PLAN_OUTSIDE.push({nm:(c.crop||'Crop')+(c.field?' — '+c.field:''),
+                         when:(c.plant||'?')+' → '+(c.harvest||'?')});
+    } else if(spillsAfter){
+      PLAN_SPILL.push({nm:(c.crop||'Crop')+(c.field?' — '+c.field:''), when:c.harvest||''});
     }
   });
 
@@ -27762,21 +27816,24 @@ function recomputePlan() {
     if (typeof entOn==='function' && !entOn('livestock')) return;
     if (!e || !e.month) return;
     if (e.done) return; // realised: counted as an actual transaction, not planned (avoids double-count)
-    var startIdx = monthIdxByLabel[e.month];
-    if (startIdx === undefined) return;
+    var sAbs = planAbsIdx(e.month), W0 = planWindowStart();
+    if (sAbs == null || W0 == null) return;
     var amount = (e.qty || 0) * (e.price || 0);
     if (!amount) return;
 
-    // Build the list of month indices this event applies to within the planning year
+    /* Absolute months again. A recurring event that STARTED before this season used
+       to be skipped entirely, because its start month had no slot in the window —
+       so a monthly feed cost begun last season silently stopped counting. */
+    var step = (e.recur === 'monthly') ? 1 : (e.recur === 'quarterly') ? 3 : 0;
     var hitIdxs = [];
-    if (e.recur === 'monthly') {
-      for (var i = startIdx; i < ST_PLAN.months.length; i++) hitIdxs.push(i);
-    } else if (e.recur === 'quarterly') {
-      for (var i = startIdx; i < ST_PLAN.months.length; i += 3) hitIdxs.push(i);
+    if (step === 0) {
+      if (sAbs >= W0 && sAbs <= W0 + 11) hitIdxs.push(sAbs - W0);
     } else {
-      // 'annual' and 'one-off' both hit only the start month within the visible 12-month window
-      hitIdxs.push(startIdx);
+      var first = sAbs;
+      if (first < W0) first = sAbs + Math.ceil((W0 - sAbs) / step) * step;
+      for (var k = first; k <= W0 + 11; k += step) hitIdxs.push(k - W0);
     }
+    if (!hitIdxs.length) return;
 
     var isIncome = (e.type === 'sell' || e.type === 'income');
     hitIdxs.forEach(function(mi) {
