@@ -6024,7 +6024,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <div><div class="bgt-card-h">Your season picture</div><div class="bgt-card-s">Are you where you planned to be by now?</div></div>
         <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
           <span class="bgt-chip mut" id="bgt-mode-chip">Showing Income — tap a card above to switch</span>
-          <div class="bgt-mtn-toggle"><button id="bgt-mtn-run" class="on" onclick="bgtMtnMode('run')">Runway</button><button id="bgt-mtn-rib" onclick="bgtMtnMode('rib')">Ribbon</button></div>
+          <div class="bgt-mtn-toggle"><button id="bgt-mtn-run" class="on" onclick="bgtMtnMode('run')">Runway</button><button id="bgt-mtn-rib" onclick="bgtMtnMode('rib')">On plan?</button></div>
         </div>
       </div>
       <div id="bgt-mountain"></div>
@@ -28619,7 +28619,11 @@ function bgtRenderMountain() {
   }
   if (cap) {
     if (BGT_MTN_MODE === 'rib') {
-      cap.innerHTML = '<b>How to read it:</b> the green area is how far ' + (mode === 'in' ? 'ahead of' : 'under') + ' plan you are, building through the year off the "on plan" line. The dotted line is where it lands by year-end if you hold this pace.';
+      /* The old caption only described the green side, which is why nobody knew what the
+         view was for. The point is the SLOPE — Runway already gives you the level. */
+      cap.innerHTML = '<b>How to read it:</b> the line is the gap itself, not your money. Above the grey line you are ' +
+        (mode === 'in' ? 'ahead of' : 'under') + ' plan, below it you are ' + (mode === 'in' ? 'behind' : 'over') +
+        '. What matters is which way it <b>slopes</b> — rising means the gap is closing, falling means it is opening. The dotted part is where this pace lands by year-end.';
     } else {
       cap.innerHTML = mode === 'in'
         ? '<b>How to read it:</b> the green mountain is money that has come in, growing through the year. Stay on top of the grey dashed line and you are ahead of your plan. The flag is your year goal.'
@@ -28660,26 +28664,42 @@ function bgtRenderMountain() {
     // Ribbon: running headroom vs plan (green = the good side) off a zero baseline
     var rval = [], _a, _gp;
     for (i = 0; i < 12; i++) { _a = (i <= idx) ? ca[i] : proj[i - idx]; _gp = (mode === 'in') ? (_a - ct[i]) : (ct[i] - _a); rval.push(_gp); }
-    var rvmax = 1; for (i = 0; i < 12; i++) { if (Math.abs(rval[i]) > rvmax) rvmax = Math.abs(rval[i]); } rvmax *= 1.25;
-    var zeroY = H - B, topY = T + 6;
-    var Yr = function(v) { return zeroY - (v / rvmax) * (zeroY - topY); };
+    /* Zero used to be pinned to the bottom of the canvas, so a farm BEHIND plan drew
+       below the visible area and the chart came out blank — it only ever worked when you
+       were ahead. Scale both ways instead, with zero wherever the data puts it. */
+    var rHi = 0, rLo = 0;
+    for (i = 0; i < 12; i++) { if (rval[i] > rHi) rHi = rval[i]; if (rval[i] < rLo) rLo = rval[i]; }
+    var rPad = Math.max(1, rHi - rLo) * 0.16; rHi += rPad; rLo -= rPad;
+    var topY = T + 6, botY = H - B;
+    var Yr = function(v) { return botY - ((v - rLo) / (rHi - rLo)) * (botY - topY); };
+    var zeroY = Yr(0);
+    /* And say which way it actually went: the old label ran Math.abs() with the good word
+       hardcoded, so a farm R1.91m behind was told it was "R1.91m ahead". */
     var rgood = (mode === 'in') ? (af ? 'voor' : 'ahead') : (af ? 'onder' : 'under');
+    var rbad  = (mode === 'in') ? (af ? 'agter' : 'behind') : (af ? 'oor' : 'over');
+    var rWord = function(v) { return v >= 0 ? rgood : rbad; };
+    var rCol  = function(v) { return v >= 0 ? '#2D6A4F' : '#B45309'; };
     svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" style="width:100%;height:auto;display:block" role="img" aria-label="Headroom vs plan">';
     svg += '<defs><linearGradient id="bgtRibG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#40916C" stop-opacity="0.34"/><stop offset="1" stop-color="#40916C" stop-opacity="0.03"/></linearGradient>';
-    svg += '<clipPath id="bgtRibUp"><rect x="0" y="' + topY + '" width="' + W + '" height="' + (zeroY - topY) + '"/></clipPath></defs>';
+    svg += '<linearGradient id="bgtRibB" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#B45309" stop-opacity="0.30"/><stop offset="1" stop-color="#B45309" stop-opacity="0.03"/></linearGradient>';
+    svg += '<clipPath id="bgtRibUp"><rect x="0" y="' + topY + '" width="' + W + '" height="' + Math.max(0, zeroY - topY) + '"/></clipPath>';
+    svg += '<clipPath id="bgtRibDn"><rect x="0" y="' + zeroY + '" width="' + W + '" height="' + Math.max(0, botY - zeroY) + '"/></clipPath></defs>';
     svg += '<line x1="' + L + '" y1="' + zeroY + '" x2="' + (W - R) + '" y2="' + zeroY + '" stroke="#c4cec4" stroke-width="1.6"/>';
     svg += '<text x="' + (L - 8) + '" y="' + (zeroY + 4) + '" text-anchor="end" font-size="10" font-weight="600" fill="#8a978f">' + (af ? 'op plan' : 'on plan') + '</text>';
-    svg += '<text x="' + (L - 8) + '" y="' + (topY + 8) + '" text-anchor="end" font-size="10" font-weight="800" fill="#2D6A4F">' + rgood + '</text>';
+    if (zeroY - topY > 26) svg += '<text x="' + (L - 8) + '" y="' + (topY + 8) + '" text-anchor="end" font-size="10" font-weight="800" fill="#2D6A4F">' + rgood + '</text>';
+    if (botY - zeroY > 26) svg += '<text x="' + (L - 8) + '" y="' + (botY - 2) + '" text-anchor="end" font-size="10" font-weight="800" fill="#B45309">' + rbad + '</text>';
     if (!noAct) {
       var rpast = [], rfut = [];
       for (i = 0; i <= idx; i++) rpast.push({x:X(i), y:Yr(rval[i])});
       for (i = idx; i < 12; i++) rfut.push({x:X(i), y:Yr(rval[i])});
-      svg += '<path d="' + smooth(rpast) + ' L' + X(idx).toFixed(1) + ' ' + zeroY + ' L' + X(0).toFixed(1) + ' ' + zeroY + ' Z" fill="url(#bgtRibG)" clip-path="url(#bgtRibUp)"/>';
+      var _closed = smooth(rpast) + ' L' + X(idx).toFixed(1) + ' ' + zeroY.toFixed(1) + ' L' + X(0).toFixed(1) + ' ' + zeroY.toFixed(1) + ' Z';
+      svg += '<path d="' + _closed + '" fill="url(#bgtRibG)" clip-path="url(#bgtRibUp)"/>';
+      svg += '<path d="' + _closed + '" fill="url(#bgtRibB)" clip-path="url(#bgtRibDn)"/>';
       svg += '<path d="' + smooth(rpast) + '" fill="none" stroke="#40916C" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>';
       svg += '<path d="' + smooth(rfut) + '" fill="none" stroke="#40916C" stroke-width="2.6" stroke-opacity="0.5" stroke-dasharray="1 6" stroke-linecap="round" stroke-linejoin="round"/>';
       svg += '<line x1="' + X(idx) + '" y1="' + (Yr(rval[idx]) + 8) + '" x2="' + X(idx) + '" y2="' + zeroY + '" stroke="#cbd5d1" stroke-width="1.5"/>';
       svg += '<circle cx="' + X(idx) + '" cy="' + Yr(rval[idx]) + '" r="7" fill="#40916C" stroke="#fff" stroke-width="2.5"/>';
-      var rtxt = bgtFmt(Math.abs(rval[idx])) + ' ' + rgood, rw = rtxt.length * 6.0 + 20, ry = Yr(rval[idx]) - 30;
+      var rtxt = bgtFmt(Math.abs(rval[idx])) + ' ' + rWord(rval[idx]), rw = rtxt.length * 6.0 + 20, ry = Yr(rval[idx]) - 30;
       if (ry < topY + 2) ry = Yr(rval[idx]) + 24;
       var rx = Math.max(L, Math.min(W - R - rw, X(idx) - rw/2));
       svg += '<rect x="' + rx + '" y="' + (ry - 11) + '" width="' + rw + '" height="20" rx="10" fill="#14281f"/>';
@@ -28687,7 +28707,7 @@ function bgtRenderMountain() {
       var reY = Yr(rval[11]);
       svg += '<circle cx="' + X(11) + '" cy="' + reY + '" r="4.5" fill="#40916C" fill-opacity="0.85"/>';
       svg += '<text x="' + (X(11) + 12) + '" y="' + (reY - 3) + '" font-size="11.5" font-weight="700" fill="#6B7280">' + (af ? 'Jaareinde' : 'Year-end') + '</text>';
-      svg += '<text x="' + (X(11) + 12) + '" y="' + (reY + 14) + '" font-size="12.5" font-weight="800" fill="#2D6A4F">' + bgtFmt(Math.abs(rval[11])) + ' ' + rgood + '</text>';
+      svg += '<text x="' + (X(11) + 12) + '" y="' + (reY + 14) + '" font-size="12.5" font-weight="800" fill="' + rCol(rval[11]) + '">' + bgtFmt(Math.abs(rval[11])) + ' ' + rWord(rval[11]) + '</text>';
     }
     svg += '<text x="' + X(idx) + '" y="' + (H - B + 20) + '" text-anchor="middle" font-size="11" font-weight="800" fill="#1B4332">' + (af ? 'VANDAG' : 'TODAY') + '</text>';
     [0,3,6,9,11].forEach(function(n) { if (Math.abs(n - idx) < 1) return; svg += '<text x="' + X(n) + '" y="' + (H - B + 20) + '" text-anchor="middle" font-size="10.5" font-weight="600" fill="#9CA3AF">' + c.fyMonths[n].split(' ')[0] + '</text>'; });
@@ -28765,6 +28785,24 @@ function bgtRenderMountain() {
     pill.textContent = mode === 'in'
       ? (good ? '✓ ' + bgtFmt(d) + ' ahead of plan' : '▲ ' + bgtFmt(-d) + ' behind plan')
       : (good ? '✓ ' + bgtFmt(d) + ' under plan so far' : '▲ ' + bgtFmt(-d) + ' over plan so far');
+    /* In the gap view the level is already on the chart — what only this view shows is
+       which way it is moving, so the pill carries the slope instead. rval is var-scoped
+       from the branch above, hence the guard. */
+    if (BGT_MTN_MODE === 'rib' && typeof rval !== 'undefined' && rval && idx >= 2) {
+      var back = Math.min(2, idx);
+      var since = rval[idx] - rval[idx - back];
+      var sinceM = c.fyMonths[idx - back].split(' ')[0];
+      var behind = rval[idx] < 0;
+      var better = since > 0;
+      pill.className = 'bgt-mtn-verdict ' + (better ? 'good' : 'warn');
+      pill.textContent =
+        (better ? '↗ ' : '↘ ') +
+        (behind
+          ? (better ? (af ? 'Gaping sluit' : 'Gap closing') : (af ? 'Gaping groei' : 'Gap still opening'))
+          : (better ? (af ? 'Trek verder weg' : 'Pulling further ahead') : (af ? 'Voorsprong krimp' : 'Lead shrinking'))) +
+        ' — ' + bgtFmt(Math.abs(since)) + (better ? (af ? ' beter' : ' better') : (af ? ' slegter' : ' worse')) +
+        (af ? ' sedert ' : ' since ') + sinceM;
+    }
     host.appendChild(pill);
   }
 
