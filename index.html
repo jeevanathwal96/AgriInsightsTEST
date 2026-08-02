@@ -233,7 +233,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 #pg-cashflow .cf-sh-h{font-size:16px;font-weight:800;color:var(--gd);letter-spacing:-0.2px;line-height:1.2}
 #pg-cashflow .cf-sh-s{font-size:11.5px;color:var(--t3);margin-top:1px}
 
-#pg-cashflow .pill.fwd.on{background:var(--bl);color:#fff}
+#pg-cashflow .pill.fwd.on{background:var(--bl);color:#fff;box-shadow:0 1px 2px rgba(20,50,35,.06)}
 
 #pg-cashflow .cf-answer{border-radius:var(--rl);padding:18px 22px;margin-bottom:14px;display:flex;align-items:center;gap:16px;border:1px solid;box-shadow:var(--sh)}
 #pg-cashflow .cf-answer.ok{background:var(--gb);border-color:var(--gp)}
@@ -459,9 +459,15 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .ct-lbl{font-size:11px;color:var(--t3)}
 .ct-val{font-size:13px;font-weight:700;color:var(--t1)}.ct-val.g{color:var(--gl)}
 
-.pills{display:flex;background:#F3F4F6;border-radius:8px;padding:3px;gap:2px}
-.pill{padding:5px 13px;border-radius:6px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:transparent;color:var(--t3);transition:all .15s}
-.pill.on{background:#fff;color:var(--t1);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.pills{display:inline-flex;background:#F3F4F6;border:1px solid #E6E9E4;border-radius:11px;padding:3px;gap:2px}
+.pill{padding:6px 12px;border-radius:8px;font-size:12px;font-weight:700;border:none;cursor:pointer;background:transparent;color:var(--t3);transition:all .15s}
+.pill.on{background:#fff;color:var(--gd);box-shadow:0 0 0 1.5px var(--gl) inset,0 1px 2px rgba(20,50,35,.06)}
+.chart-tip{position:fixed;pointer-events:none;transform:translate(-50%,-100%);background:#14281f;color:#fff;border-radius:10px;padding:8px 11px;font-size:12px;opacity:0;transition:opacity .1s ease;white-space:nowrap;box-shadow:0 10px 26px rgba(10,25,18,.3);min-width:132px;z-index:99999}
+.chart-tip .m{font-weight:800;margin-bottom:4px;letter-spacing:.1px}
+.chart-tip .r{display:flex;justify-content:space-between;gap:18px;line-height:1.62}
+.chart-tip .k{color:#9dc3ab}
+.chart-tip .v{font-weight:800;font-variant-numeric:tabular-nums}
+.chart-tip .hr{height:1px;background:rgba(255,255,255,.12);margin:4px 0}
 
 .b3{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
 
@@ -32077,6 +32083,50 @@ function renderDashWidgets() {
 
 // Vertical gradient fill for polished bars (falls back to the top colour before the chart area exists).
 function barGrad(top, bot){ return function(c){ var a=c.chart.chartArea; if(!a) return top; var g=c.chart.ctx.createLinearGradient(0,a.top,0,a.bottom); g.addColorStop(0,top); g.addColorStop(1,bot); return g; }; }
+
+// Rich HTML hover banner for the income / expenses / dashboard bar charts.
+// Reproduces the signed-off mockup: dark card, bold month header, right-aligned
+// money values that are colour-coded and signed, with a divider before Profit.
+function chartRichTip(context){
+  var tt = context.tooltip;
+  var el = document.getElementById('chartTip');
+  if(!el){ el = document.createElement('div'); el.id = 'chartTip'; el.className = 'chart-tip'; document.body.appendChild(el); }
+  if(!tt || tt.opacity === 0){ el.style.opacity = '0'; return; }
+  var f = (typeof fmtK === 'function') ? fmtK : function(v){ return 'R' + Math.round(v); };
+  var title = (tt.title && tt.title[0]) || '';
+  var inP = null, outP = null, profP = null, others = [];
+  (tt.dataPoints || []).forEach(function(dp){
+    var L = (dp.dataset && dp.dataset.label) || '';
+    var v = (dp.parsed && dp.parsed.y != null) ? dp.parsed.y : dp.raw;
+    var rec = { label: L, val: v };
+    if(/profit/i.test(L)) profP = rec;
+    else if(/out|expense/i.test(L)) outP = rec;
+    else if(/income|money\s*in/i.test(L)) inP = rec;
+    else others.push(rec);
+  });
+  function row(label, val, color, mode){
+    var sign = '', mag = val;
+    if(mode === 'pos'){ sign = '+'; mag = Math.abs(val); }
+    else if(mode === 'neg'){ sign = '−'; mag = Math.abs(val); }
+    else if(mode === 'auto'){ sign = (val < 0) ? '−' : '+'; mag = Math.abs(val); }
+    return '<div class="r"><span class="k">' + label + '</span><span class="v"' +
+           (color ? ' style="color:' + color + '"' : '') + '>' + sign + f(mag) + '</span></div>';
+  }
+  var html = '<div class="m">' + title + '</div>';
+  if(inP)  html += row('Money in',  inP.val,  '#8fd6ac', 'pos');
+  if(outP) html += row('Money out', outP.val, '#f2938a', 'neg');
+  others.forEach(function(o){ html += row(o.label, o.val, null, 'none'); });
+  if(profP){
+    html += '<div class="hr"></div>';
+    html += row('Profit', profP.val, (profP.val >= 0) ? '#8fd6ac' : '#f2776a', 'auto');
+  }
+  el.innerHTML = html;
+  var r = context.chart.canvas.getBoundingClientRect();
+  var left = Math.max(80, Math.min(window.innerWidth - 80, r.left + tt.caretX));
+  el.style.left = left + 'px';
+  el.style.top  = (r.top + tt.caretY - 10) + 'px';
+  el.style.opacity = '1';
+}
 var baseOpts = {
   responsive: true,
   maintainAspectRatio: false,
@@ -32090,22 +32140,10 @@ var baseOpts = {
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: '#14281f',
-      titleColor: '#ffffff',
-      titleFont: { size: 12.5, weight: '800' },
-      titleMarginBottom: 7,
-      bodyColor: '#e7f3ec',
-      bodyFont: { size: 12, weight: '600' },
-      bodySpacing: 5,
-      padding: { top: 11, right: 14, bottom: 11, left: 13 },
-      cornerRadius: 11,
-      displayColors: true,
-      boxWidth: 9, boxHeight: 9, boxPadding: 6,
-      caretSize: 6, caretPadding: 8,
-      callbacks: {
-        label: function(ctx){ var v = (typeof fmtK==='function') ? fmtK(ctx.parsed.y) : ctx.parsed.y; return '  ' + ctx.dataset.label + '   ' + v; },
-        labelColor: function(ctx){ var L=ctx.dataset.label; var c=(L==='Money Out'||L==='Expenses')?'#DC463A':(L==='Profit')?'#1B4332':'#40916C'; return { borderColor:c, backgroundColor:c, borderWidth:0 }; }
-      }
+      // Custom HTML banner — right-aligned, signed, colour-coded values with a
+      // divider before Profit (matches the signed-off chart mockup). See chartRichTip.
+      enabled: false,
+      external: chartRichTip
     }
   },
   scales: {
