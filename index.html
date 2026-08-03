@@ -1810,17 +1810,29 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
   color:inherit;text-align:left;cursor:pointer;border-radius:6px}
 .lvp-row:hover{background:var(--bg)}
 .lvp-row:focus-visible{outline:2px solid #7C2D5A;outline-offset:-2px}
-.lvp-item.needs .lvp-row{background:linear-gradient(90deg,var(--op) 0 3px,transparent 3px)}
-.lvp-nm{display:flex;align-items:center;gap:9px;min-width:0;min-height:57px}
-.lvp-ic{width:30px;height:30px;border-radius:9px;background:#F5E1EE;color:#7C2D5A;
+/* The marker was a 3px band of --op painted as the row's BACKGROUND. Two faults:
+   the row's 6px radius clipped its ends into a stub, and because it used the
+   background shorthand it also cancelled the row's hover state. A pseudo-element
+   sits above the hover fill, keeps square ends, and carries the same --or as the
+   "setup needed" pill so the mark and the tag read as one thing. */
+.lvp-item.needs .lvp-row{position:relative}
+.lvp-item.needs .lvp-row::before{content:'';position:absolute;left:0;top:8px;bottom:8px;
+  width:3px;border-radius:3px;background:var(--or)}
+.lvp-nm{display:flex;align-items:center;gap:11px;min-width:0;min-height:57px}
+.lvp-ic{width:44px;height:44px;border-radius:12px;background:#F5E1EE;color:#7C2D5A;
   border:1.5px solid rgba(124,45,90,.25);flex:none;display:flex;align-items:center;
-  justify-content:center;font-size:16px}
+  justify-content:center;font-size:21px}
 .lvp-nmw{min-width:0}
 .lvp-n1,.lvp-n2,.lvp-tagline{display:block}
 .lvp-n1{font-size:13px;font-weight:700;line-height:1.3}
 .lvp-n2{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:1px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lvp-tagline{margin-top:2px;min-height:23px;white-space:nowrap;overflow:hidden}
+/* A herd with nothing to flag was still reserving the 23px the tag would have
+   used, so its name sat high with a hole under it. Collapsing only the reserved
+   space lets the flex centring take over — the row keeps its height, the text
+   centres, and rows still line up with each other. */
+.lvp-tagline:empty{min-height:0;margin-top:0}
 .lvp-tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:99px;padding:2px 8px;margin-top:4px}
 .lvp-tag+.lvp-tag{margin-left:4px}
 .lvp-tag.setup{background:var(--or);color:#fff}
@@ -1916,6 +1928,10 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .lvp-seg button{font-family:var(--fn);font-size:11.5px;font-weight:700;padding:5px 13px;border:0;
   border-radius:99px;background:none;color:var(--t3);cursor:pointer}
 .lvp-seg button.on{background:#7C2D5A;color:#fff}
+.lvp-ask{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  flex-wrap:wrap;margin-top:11px}
+.lvp-ask .q{font-size:13px;font-weight:700;color:var(--t1)}
+.lvp-seg.sm button{font-size:11px;padding:4px 11px}
 .lvp-check{display:flex;align-items:center;gap:9px;margin-top:11px;font-size:13px;
   font-weight:700;color:var(--t1);cursor:pointer}
 .lvp-check input{width:16px;height:16px;accent-color:#7C2D5A;cursor:pointer;flex:none}
@@ -32336,24 +32352,29 @@ function lvpProdIncome(h){
    season rather than double-counting this season's weaner losses, which
    weaning % already nets out. */
 function lvpProject(h, years){
-  var out=[], bf=lvpBreedingFemales(h);
+  var bf0=lvpBreedingFemales(h);
+  if(bf0<=0) return [];
+  var out=[], bf=bf0;
   var mort=lvpNum(h.pMortPct,2)/100, repl=lvpNum(h.pReplacePct,10)/100;
   var y0=(typeof planYear==='number')?planYear:0;
+  /* Season one IS the row above it — the same income and the same cost, not a
+     second opinion about them. Later seasons carry those two numbers forward on
+     the herd, so the ONLY thing that moves the money is the herd changing.
+     Working the later seasons out a different way put a jump between season one
+     and season two on every herd on the demo farm — the dairy swung R1.09m —
+     and that jump was our arithmetic, not the farm. */
+  var inc0=lvpNetIncome(h), cost0=lvpCostYear(h), sold0=null;
   for(var i=0;i<years;i++){
-    var wean=lvpEffWean(h)/100;
-    var weaners=Math.round(bf*wean);
+    var weaners=Math.round(bf*lvpEffWean(h)/100);
     var kept=(i===0)?lvpRetained(h):Math.round(bf*repl);
     if(kept>weaners) kept=weaners;
     var sold=Math.max(0,weaners-kept);
-    var price=lvpPricePerHead(h);
-    var cost=Math.round(((h.feed||0)+(h.vet||0))*Math.max(0,Math.round(bf/0.6))*12);
-    /* Season one must agree with the row above it. The row may be running off
-       sale events the farmer entered, and showing him two different margins for
-       the same herd in the same year would just look broken. */
-    var margin = (i===0)
-      ? lvpMargin(h)
-      : Math.round(sold*price*(1-lvpNum(h.pCommPct,6.5)/100))+lvpProdIncome(h)-cost;
-    out.push({year:y0+i, females:bf, weaners:weaners, sold:sold, kept:kept, margin:margin});
+    if(sold0===null) sold0=sold;
+    /* income follows the animals sold; keep costs follow the herd carried */
+    var inc =(i===0)?inc0 :Math.round(inc0 *(sold0>0?sold/sold0:1));
+    var cost=(i===0)?cost0:Math.round(cost0*(bf0 >0?bf  /bf0  :1));
+    out.push({year:y0+i, females:bf, weaners:weaners, sold:sold, kept:kept,
+              income:inc, cost:cost, margin:inc-cost});
     /* carry the herd forward: losses, culls out, kept heifers in */
     bf = Math.max(0, Math.round(bf - bf*mort - bf*repl + kept));
   }
@@ -32446,8 +32467,22 @@ function lvpMoney(v){
 function lvpR(v){ return (v<0?'−R':'R')+_grpInt(v); }
 
 /* ── write path — one object, so the Livestock tab stays in step ───────── */
+/* The one lookup this pane uses. Loose on the id BY DESIGN: everything here is
+   addressed from an HTML attribute, where a number cannot survive the round trip. */
+function lvpHerdById(id){
+  var L=(typeof ST_LS!=='undefined'&&ST_LS.herd)?ST_LS.herd:[];
+  for(var i=0;i<L.length;i++){ if(String(L[i].id)===String(id)) return L[i]; }
+  return null;
+}
 function lvpSet(id, field, val){
-  var h=(typeof lsHerdById==='function')?lsHerdById(id):(ST_LS.herd||[]).filter(function(x){return String(x.id)===String(id);})[0];
+  /* Every id in this editor arrives from an onclick/onchange attribute, so it is
+     ALWAYS a string — while ST_LS.herd ids are numbers. lsHerdById compares with
+     ===, so it found nothing and every write from this pane returned in silence:
+     the herd-type buttons, every number field, every dropdown. Typing still
+     LOOKED right because the input kept the keystrokes until the next re-render
+     threw them away. Match on the string form and never route this through an
+     ===-based lookup again. */
+  var h=lvpHerdById(id);
   if(!h) return;
   if(field==='pSelling'||field==='pBullRepl'){
     h[field] = (val===true||val==='1'||val===1||val==='true');
@@ -32630,21 +32665,27 @@ function lvpProjTable(h){
   if(lvpIsFinish(h) || lvpType(h)==='keep') return '';
   var rows=lvpProject(h,3);
   if(!rows.length) return '';
+  /* No sale detail yet means no income to carry forward. The herd numbers are
+     still real, so they stay — but a margin built on income of nought would just
+     shrink with the herd and read as things improving. Leave it blank and say why. */
+  var noMoney=lvpNeedsSetup(h);
   var body=rows.map(function(r,i){
     return '<div class="lvp-cr'+(i===0?' bf':'')+'"><span>'+r.year+(i===0?' <span class="lvp-bfmark">now</span>':'')+
       '</span><span>'+r.females+'</span><span>'+r.weaners+'</span><span>'+r.sold+
-      '</span><span>'+r.kept+'</span><span'+(r.margin<0?' style="color:var(--or)"':'')+'>'+
-      lvpMoney(r.margin)+'</span></div>';}).join('');
+      '</span><span>'+r.kept+'</span><span'+((!noMoney&&r.margin<0)?' style="color:var(--or)"':'')+'>'+
+      (noMoney?'<span style="color:var(--t4)">—</span>':lvpMoney(r.margin))+'</span></div>';}).join('');
   var trend=rows[rows.length-1].margin-rows[0].margin;
-  return '<div class="lvp-proj">'+
-    '<div class="lvp-h2" style="margin-bottom:6px">Three seasons ahead</div>'+
-    '<div class="lvp-ctab lvp-proj6">'+
+  /* No heading here — this is its own group now, so the group title carries it.
+     It was buried third inside "The herd", under the class breakdown, in a group
+     that is closed by default. Nobody was ever going to find it there. */
+  return '<div class="lvp-ctab lvp-proj6">'+
       '<div class="lvp-cr hd"><span>Which season</span><span>Females</span><span>Weaners</span>'+
       '<span>Sold</span><span>Kept</span><span>Margin</span></div>'+body+'</div>'+
     '<div class="lvp-facts">Breeding females carry forward less <b>'+lvpNum(h.pMortPct,2)+
       '% mortality</b> and <b>'+lvpNum(h.pReplacePct,10)+'% culled</b>, plus the heifers you keep. '+
       (function(){
         var g=rows[rows.length-1].females-rows[0].females;
+        if(noMoney) return 'Fill in how you sell this herd and the margin fills in too.';
         if(g>0) return 'Keeping '+rows[0].kept+' a year grows the herd to <b>'+rows[rows.length-1].females+
           ' females</b> by '+rows[rows.length-1].year+
           (trend>0?', worth <b>'+lvpMoney(trend)+'</b> more a season.':'.');
@@ -32652,7 +32693,17 @@ function lvpProjTable(h){
           'cover losses and culls. Keep more to grow it.';
         return 'This herd <b>shrinks</b> at that rate — losses and culls outrun the heifers you keep.';
       })()+
-    '</div></div>';
+    '</div>';
+}
+/* The one-line version, for the closed group — a farmer should see where the
+   herd is heading without opening anything. */
+function lvpProjSummary(h){
+  var rows=lvpProject(h,3);
+  if(!rows.length) return 'Not set';
+  var a=rows[0], z=rows[rows.length-1];
+  var herd=a.females+' → '+z.females+' females by '+z.year;
+  return lvpNeedsSetup(h) ? herd
+    : herd+' · '+lvpMoney(a.margin)+' → '+lvpMoney(z.margin);
 }
 
 function lvpClassTable(h){
@@ -32715,7 +32766,7 @@ function lvpEditor(h){
       '" placeholder="auto" onchange="event.stopPropagation();'+set+'\'pRetain\',this.value)">')+
     f('Mortality %',num('pMortPct',lvpNum(h.pMortPct,2),'0.5'))+
     f('Head on farm','<input class="ro" readonly value="'+(h.qty||0)+'">')+
-  '</div>'+lvpBullRow(h)+lvpClassTable(h)+lvpProjTable(h)+
+  '</div>'+lvpBullRow(h)+lvpClassTable(h)+
   '<div class="lvp-facts">Land Bank: weaning 80%, cow replacement 10%. <b>Kept back is worked out from replacement %</b> — type an override only if you are holding a different number. Mortality thins the breeding herd for <b>next</b> season — it is not applied to this season\u2019s weaners, because weaning % already nets those losses out.</div>';
 
   /* 3 — how you sell */
@@ -32727,11 +32778,24 @@ function lvpEditor(h){
     ? (payEff<=1?'T+1 business day':payEff+' days') : 'not set';
   var sSum=({auction:'Auction',abattoir:'Abattoir',feedlot:'Feedlot',private:'Private treaty',wool:'Wool broker'}[chan]||'Auction')+
     ' · paid '+payLbl+(lvpPricePerHead(h)>0?' · '+lvpR(lvpPricePerHead(h))+'/head':'');
+  /* This was a checkbox, and a checkbox has two states for a question with three
+     answers: yes, no, and NOT ASKED YET. An unanswered herd rendered unticked,
+     which looks exactly like "no" — but only a stored false clears the amber, so
+     the farmer had to tick the box and untick it again to get there. Nobody was
+     going to find that. Two buttons make "not asked yet" visibly its own state. */
   var selling=(h.pSelling===true);
-  var sBody='<label class="lvp-check"><input type="checkbox"'+(selling?' checked':'')+
-      ' onchange="event.stopPropagation();lvpSet(\''+id+'\',\'pSelling\',this.checked?1:0)">'+
-      '<span>Selling from this herd this season</span></label>'+
-    (h.pSelling===false
+  var sellAns=(h.pSelling===true)?'yes':(h.pSelling===false?'no':'');
+  var sBody='<div class="lvp-ask"><span class="q">Are you selling from this herd this season?</span>'+
+      '<span class="lvp-seg sm">'+
+        '<button type="button" class="'+(sellAns==='yes'?'on':'')+'" onclick="event.stopPropagation();'+
+          set+'\'pSelling\',1)">Yes, selling</button>'+
+        '<button type="button" class="'+(sellAns==='no'?'on':'')+'" onclick="event.stopPropagation();'+
+          set+'\'pSelling\',0)">No, keeping them</button>'+
+      '</span></div>'+
+    (sellAns===''
+      ? '<div class="lvp-facts">Answer this and the amber mark on this herd clears. Until you do we count what the herd costs you and leave its income blank, rather than guess at a sale you may not be making.</div>'
+      : '')+
+    (sellAns==='no'
       ? '<div class="lvp-facts">Nothing is sold from this herd this season. Its keep still counts — the animals are worth more next year, but this year it is cash out.</div>'
       : '')+
     '<div class="lvp-f3"'+(selling?'':' style="opacity:.45;pointer-events:none"')+'>'+
@@ -32799,11 +32863,14 @@ function lvpEditor(h){
       '</div>';
   }
 
+  var projBody = lvpProjTable(h);   /* empty for a trading or keep-only herd */
+
   var groups = seg +
     (ty==='finish'
       ? lvpGroup(h,'finish','Buy &amp; finish',fSum,fBody,lvpNeedsSetup(h))
       : lvpGroup(h,'breed','The breeding season',bSum,bBody,false))+
     (ty==='finish' ? '' : lvpGroup(h,'herd','The herd',hSum,hBody,false))+
+    (projBody ? lvpGroup(h,'proj','Three seasons ahead',lvpProjSummary(h),projBody,false) : '')+
     (pBody ? lvpGroup(h,'prod',prod.label,pSum,pBody,false) : '')+
     lvpGroup(h,'sell','How you sell',sSum,sBody,needs)+
     lvpGroup(h,'cost','What it costs',cSum,cBody,false);
@@ -36783,7 +36850,10 @@ var LANG_PAIRS = [
   ["of variable cost. This one runs at","veranderlike koste. Hierdie een loop teen"],
   ["Either the feed figure is too high, or this herd is too small for its cost base.","Óf die voersyfer is te hoog, óf hierdie kudde is te klein vir sy kostebasis."],
   ["LSU on","GVE op"],
-  ["Selling from this herd this season","Verkoop uit hierdie kudde hierdie seisoen"],
+  ["Are you selling from this herd this season?","Verkoop jy hierdie seisoen uit hierdie kudde?"],
+  ["Yes, selling","Ja, verkoop"],
+  ["No, keeping them","Nee, hou hulle"],
+  ["Answer this and the amber mark on this herd clears. Until you do we count what the herd costs you and leave its income blank, rather than guess at a sale you may not be making.","Beantwoord dit en die amber merk op hierdie kudde verdwyn. Tot dan tel ons wat die kudde jou kos en laat die inkomste leeg, eerder as om te raai oor 'n verkoop wat jy dalk nie maak nie."],
   ["Nothing is sold from this herd this season. Its keep still counts — the animals are worth more next year, but this year it is cash out.","Niks word hierdie seisoen uit hierdie kudde verkoop nie. Die onderhoud tel steeds — die diere is volgende jaar meer werd, maar vanjaar is dit kontant uit."],
   ["Their keep is counted but no income is, so your forecast reads worse than the farm. Say whether each one sells this season.","Hulle onderhoud tel maar geen inkomste nie, so jou vooruitskatting lees slegter as die plaas. Sê of elkeen hierdie seisoen verkoop."],
   ["of keep with no sale against it — the animals are worth more next year, but this year it is cash out.","se onderhoud sonder 'n verkoop daarteen — die diere is volgende jaar meer werd, maar vanjaar is dit kontant uit."],
@@ -36867,8 +36937,10 @@ var LANG_PAIRS = [
   ["just enough to cover losses and culls. Keep more to grow it.","net genoeg om verliese en uitskot te dek. Hou meer om dit te laat groei."],
   ["a year grows the herd to","'n jaar laat die kudde groei tot"],
   ["This herd shrinks at that rate — losses and culls outrun the heifers you keep.","Hierdie kudde krimp teen daardie tempo — verliese en uitskot loop die verse wat jy hou verby."],
+  ["Fill in how you sell this herd and the margin fills in too.","Vul in hoe jy hierdie kudde verkoop en die marge vul ook in."],
   ["worth","werd"],
   ["Three seasons ahead","Drie seisoene vorentoe"],
+  ["females by","wyfies teen"],
   ["Which season","Watter seisoen"],
   ["Females","Wyfies"],
   ["Weaners","Speenkalwers"],
