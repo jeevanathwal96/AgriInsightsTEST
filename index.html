@@ -1766,6 +1766,45 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .orp-curve i.fill{background:var(--gl)}
 .orp-curve i.now{background:#C8962C}
 .orp-curve i.fut{background:var(--br2)}
+/* ── the bad-season strip · shared by Crops and Livestock ─────────────────
+   Resting is one quiet line on a row that already exists. Nothing appears until
+   the farmer asks a question. */
+.scn{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:2px 0 0}
+.scn-lbl{font-size:12px;font-weight:700;color:var(--t3)}
+.scn-seg{display:inline-flex;background:var(--bg);border:1px solid var(--br);
+  border-radius:99px;padding:3px}
+.scn-seg button{font-family:var(--fn);font-size:11.5px;font-weight:700;padding:5px 14px;
+  border:0;background:none;color:var(--t3);border-radius:99px;cursor:pointer}
+.scn-seg button:hover{color:var(--t1)}
+.scn-seg button.on{background:var(--gd);color:#fff}
+.scn-seg button.on.w{background:var(--or)}
+.scn-hint{font-size:11.5px;color:var(--t4)}
+.scn-panel{background:var(--op);border:1px solid rgba(194,65,12,.22);border-radius:12px;
+  padding:15px 17px;margin-top:11px;width:100%;box-sizing:border-box}
+.scn-knobs{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end}
+.scn-k label{display:block;font-size:10px;font-weight:800;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--or);margin-bottom:5px}
+.scn-k input{width:86px;border:1px solid rgba(194,65,12,.3);border-radius:var(--rs);
+  background:var(--wh);color:var(--t1);font-family:var(--fn);font-size:13px;
+  padding:7px 9px;font-variant-numeric:tabular-nums}
+.scn-k .sub{font-size:11px;color:var(--or);opacity:.75;margin-top:4px}
+.scn-ok{margin-left:auto;font-family:var(--fn);font-size:11.5px;font-weight:700;
+  padding:7px 18px;border-radius:99px;border:1px solid rgba(194,65,12,.35);
+  background:var(--wh);color:var(--or);cursor:pointer}
+.scn-out{display:flex;gap:26px;flex-wrap:wrap;margin-top:14px;padding-top:13px;
+  border-top:1px solid rgba(194,65,12,.18)}
+.scn-o .k{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--or)}
+.scn-o .v{font-size:19px;font-weight:800;letter-spacing:-.02em;margin-top:1px;
+  font-variant-numeric:tabular-nums}
+.scn-o .v.bad{color:var(--or)}
+.scn-o .n{font-size:11.5px;color:var(--or);opacity:.8}
+.scn-mini{display:flex;align-items:center;gap:11px;flex-wrap:wrap;background:var(--op);
+  border:1px solid rgba(194,65,12,.22);border-radius:99px;padding:6px 7px 6px 15px;
+  font-size:12.5px;color:var(--or)}
+.scn-mini b{font-weight:800}
+.scn-edit{font-family:var(--fn);font-size:11px;font-weight:700;background:var(--wh);
+  border:1px solid rgba(194,65,12,.3);border-radius:99px;padding:4px 13px;
+  color:var(--or);cursor:pointer}
 .orp-curvex{display:flex;justify-content:space-between;font-size:10px;color:var(--t4);margin-top:3px}
 /* three-seasons-ahead table — the orchard twin of .lvp-ctab, gold instead of plum */
 .orp-ctab{margin-top:11px;border:1px solid var(--br);border-radius:8px;overflow:hidden}
@@ -28405,9 +28444,11 @@ function recomputePlan() {
     }
     if(hAbs < pAbs) hAbs = pAbs;
 
-    var totalRevenue = c.ha * c.yield * _cropPriceOf(c);
-    var totalInputs  = c.ha * c.inputCost;
-    var totalOther   = c.ha * c.otherCost;
+    /* Same scenario-aware figures the tab shows, so the months, and therefore
+       Money Flow and Budgets, move with it instead of holding the good year. */
+    var totalRevenue = c.ha * plnYieldOf(c) * plnPriceOf(c);
+    var totalInputs  = c.ha * (c.inputCost||0) * scenInputMult();
+    var totalOther   = c.ha * (c.otherCost||0) * scenInputMult();
     var growMonths   = Math.max(1, hAbs - pAbs - 1);
     var cropLabel    = c.crop.split('(')[0].trim();
     var touched = 0, spillsAfter = false;
@@ -28526,7 +28567,9 @@ function recomputePlan() {
       if(_hpCostHerds[h.id]) return;
       var head=h.qty||0, perHead=(h.feed||0)+(h.vet||0);
       if(head<=0 || perHead<=0) return;
-      var monthly=perHead*head;
+      /* A dry year is felt as feed before it is felt as anything else, so the
+         livestock lever reaches the cash flow the same way the crop ones do. */
+      var monthly=perHead*head*((typeof lvpScenCostMult==='function')?lvpScenCostMult():1);
       /* Feed does not arrive in twelfths. Lean-season lick runs about 4x the
          wet-season rate; the weights sum to 12 so the annual total is unchanged
          and only its shape moves. */
@@ -28759,12 +28802,19 @@ function plnLandFor(c){
   return ST_CROP.lands.filter(function(l){ return l && l.planId===c.linkId; })[0] || null;
 }
 
-function plnCostHa(c){ return (c.inputCost||0) + (c.otherCost||0); }
-function plnMarginHa(c){ return (c.yield||0) * _cropPriceOf(c) - plnCostHa(c); }
+/* The scenario is applied HERE, at the two numbers everything else is built from,
+   so a bad season reaches the pane, the totals, the banner, the what-if sliders
+   and the month-by-month cash flow without any of them being taught about it. */
+function plnYieldOf(c){ return (c.yield||0) * scenYieldMult(); }
+function plnPriceOf(c){ return _cropPriceOf(c) * scenPriceMult(); }
+function plnCostHa(c){ return ((c.inputCost||0) + (c.otherCost||0)) * scenInputMult(); }
+function plnMarginHa(c){ return plnYieldOf(c) * plnPriceOf(c) - plnCostHa(c); }
 function plnMargin(c){ return plnMarginHa(c) * (c.ha||0); }
-function plnRevenue(c){ return (c.ha||0) * (c.yield||0) * _cropPriceOf(c); }
-function plnBeYield(c){ var p=_cropPriceOf(c); return p>0 ? plnCostHa(c)/p : 0; }
-function plnCushion(c){ var y=c.yield||0; return y>0 ? (y-plnBeYield(c))/y : 0; }
+function plnRevenue(c){ return (c.ha||0) * plnYieldOf(c) * plnPriceOf(c); }
+function plnBeYield(c){ var p=plnPriceOf(c); return p>0 ? plnCostHa(c)/p : 0; }
+/* Cushion is measured against the yield this season is expected to give, so under
+   a scenario it answers "how much further can it fall from here". */
+function plnCushion(c){ var y=plnYieldOf(c); return y>0 ? (y-plnBeYield(c))/y : 0; }
 function plnMissing(c){ return !c.plant || !c.harvest; }
 function plnCounted(c){ return !plnMissing(c) && c.inForecast!==false; }
 
@@ -29080,6 +29130,7 @@ function renderCalGrid() {
           '<span><i style="background:var(--gd)"></i>Harvest</span>'+
           '<span><i class="hatch"></i>Sells next season</span>'+
         '</div></div>'+
+      scenStrip('crops')+
       '<div class="pln-grid pln-mh"><span class="colh">Land</span>'+
         '<div class="pln-mrow pln-hidem">'+MS.map(function(m,i){
           return '<span'+(i===now?' class="now"':'')+'>'+m+'</span>'; }).join('')+'</div>'+
@@ -32469,19 +32520,41 @@ function lvpMonthLabel(abs){
    the forecast. The farmer sets the severity himself — no SA source publishes a
    drought weaning-drop or feed-uplift, so any number we shipped would look
    authoritative and be invented. Each mode remembers its own knobs. */
-var LVP_SCEN = {mode:'normal', min:false,
-  dry:     {wean:0, early:0, feed:0},
-  drought: {wean:0, early:0, feed:0}};
+/* ── ONE bad season for the whole farm ──────────────────────────────────────
+   A drought is not a livestock event that crops sit out. One mode, held here,
+   with the levers each tab needs: crops move on yield / price / input cost,
+   livestock on weaning / early sales / feed. Each mode remembers what was typed
+   into it, so a farmer can flip between Dry and Drought and back.
+
+   Deliberately NOT saved to state. A stress test that survived a reload would
+   eventually be mistaken for the plan, and this now moves every figure in the
+   app — so it lives for the session and dies with it. */
+var FARM_SCEN = {mode:'normal', min:false,
+  dry:     {yieldDn:0, price:0, input:0, wean:0, early:0, feed:0},
+  drought: {yieldDn:0, price:0, input:0, wean:0, early:0, feed:0}};
+var LVP_SCEN = FARM_SCEN;                 /* old name, same object */
+function scenNow(){ return (FARM_SCEN.mode==='normal') ? null : FARM_SCEN[FARM_SCEN.mode]; }
+function scenOn(){ return FARM_SCEN.mode!=='normal'; }
+function scenNum(k){ var sc=scenNow(); return sc ? (parseFloat(sc[k])||0) : 0; }
+/* Crop-side multipliers. Yield is entered as a DROP, price and input cost as a
+   change either way — a national drought lifts the grain price while a local one
+   does not, and the farmer is the one who knows which he is in. */
+function scenYieldMult(){ return Math.max(0, 1 - scenNum('yieldDn')/100); }
+function scenPriceMult(){ return Math.max(0, 1 + scenNum('price')/100); }
+function scenInputMult(){ return Math.max(0, 1 + scenNum('input')/100); }
+/* Run fn with the scenario off, to get the same figure for a normal season. */
+function scenBaseline(fn){
+  var k=FARM_SCEN.mode; FARM_SCEN.mode='normal';
+  try{ return fn(); } finally { FARM_SCEN.mode=k; }
+}
 function lvpScen(){ return (LVP_SCEN.mode==='normal') ? null : LVP_SCEN[LVP_SCEN.mode]; }
 function lvpScenOn(){ return LVP_SCEN.mode!=='normal'; }
-function lvpSetScen(mode){ LVP_SCEN.mode=mode; LVP_SCEN.min=false; renderLiveCalGrid(); }
-function lvpScenOk(){ LVP_SCEN.min=true; renderLiveCalGrid(); }
-function lvpScenExpand(){ LVP_SCEN.min=false; renderLiveCalGrid(); }
-function lvpSetScenVal(k,v){
-  var sc=lvpScen(); if(!sc) return;
-  var n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); sc[k]=isNaN(n)?0:Math.max(0,n);
-  renderLiveCalGrid();
-}
+/* Old names kept as thin wrappers — the scenario is farm-wide now, so setting it
+   has to redraw whichever tab is open and the figures above it, not just this one. */
+function lvpSetScen(mode){ scenSetMode(mode); }
+function lvpScenOk(){ scenOk(); }
+function lvpScenExpand(){ scenExpand(); }
+function lvpSetScenVal(k,v){ scenSetVal(k,v); }
 /* Effective weaning % and cost under the current scenario. */
 /* A farmer reading "weaning drops by 18%" means 80% becomes 66%, not 62%.
    Subtracting percentage POINTS would have made the label lie about the maths,
@@ -33226,73 +33299,212 @@ function lvpTotals(list){
 
 /* The scenario strip. Shows the delta against a normal season rather than just
    the stressed number, because "R391k worse" is the sentence a farmer acts on. */
-function lvpScenStrip(herds){
-  var modes=[['normal','Normal season'],['dry','Dry year'],['drought','Drought']];
-  var seg='<div class="lvp-seg">'+modes.map(function(m){
-    return '<button type="button" class="'+(LVP_SCEN.mode===m[0]?'on':'')+
-      '" onclick="lvpSetScen(\''+m[0]+'\')">'+m[1]+'</button>';}).join('')+'</div>';
-  /* Normal season is the resting state, so it stays a small centred bar rather
-     than a panel taking up the top of the tab. */
-  if(!lvpScenOn()) return '<div class="lvp-scen calm">'+seg+
-    '<span class="lvp-scenhint">Try a dry year — nothing is saved</span></div>';
-
-  var sc=lvpScen();
-  /* Once the farmer has set the severities and pressed OK the amber panel folds
-     to a single line, so a stress test does not sit shouting over the plan it is
-     meant to help him read. */
-  if(LVP_SCEN.min){
-    var nowM=herds.reduce(function(a,x){ return a+lvpMargin(x); },0);
-    var k0=LVP_SCEN.mode; LVP_SCEN.mode='normal';
-    var baseM=herds.reduce(function(a,x){ return a+lvpMargin(x); },0);
-    LVP_SCEN.mode=k0;
-    return '<div class="lvp-scen on mini">'+seg+
-      '<span class="lvp-minid'+((nowM-baseM)<0?' bad':'')+'">'+
-        lvpMoney(Math.abs(nowM-baseM))+' worse than normal</span>'+
-      '<button type="button" class="lvp-minibtn" onclick="lvpScenExpand()">Change</button></div>';
+/* ══ Bad season · one strip, both tabs ═════════════════════════════════════
+   Resting is a single quiet line. Choosing Dry or Drought opens three fields
+   and the outcome; OK folds it to one sentence. Crops and Livestock share the
+   markup so the farm has one way of asking this question, not two. */
+function scenSetMode(mode){ FARM_SCEN.mode=mode; FARM_SCEN.min=false; scenRerender(); }
+function scenOk(){ FARM_SCEN.min=true; scenRerender(); }
+function scenExpand(){ FARM_SCEN.min=false; scenRerender(); }
+function scenSetVal(k,v){
+  var sc=scenNow(); if(!sc) return;
+  var n=parseFloat(String(v).replace(/[^0-9.\-]/g,''));
+  sc[k]=isNaN(n)?0:n;
+  scenRerender();
+}
+/* Fields commit on blur and the redraw replaces them, so the control being used
+   is found again by its handler and given focus back — the same guard the herd
+   editor needs. */
+function scenRerender(){
+  var ae=document.activeElement;
+  var sig=(ae&&ae.getAttribute)?(ae.getAttribute('onchange')||''):'';
+  try{ if(typeof recomputePlan==='function') recomputePlan(); }catch(e){}
+  var tab=(typeof ST_PLAN!=='undefined' && ST_PLAN.activeTab) || 'crops';
+  try{
+    if(tab==='livestock'){ if(typeof renderLiveCalGrid==='function') renderLiveCalGrid(); }
+    else if(tab==='orchards'){ if(typeof renderOrchPlanGrid==='function') renderOrchPlanGrid(); }
+    else { if(typeof renderCalGrid==='function') renderCalGrid(); }
+  }catch(e){}
+  try{ if(typeof updatePlanSummary==='function') updatePlanSummary(); }catch(e){}
+  try{ if(typeof updatePlanCombinedBanner==='function') updatePlanCombinedBanner(); }catch(e){}
+  try{ if(typeof updatePlanTabCounts==='function') updatePlanTabCounts(); }catch(e){}
+  try{ scenRibbon(); }catch(e){}
+  if(sig){
+    var all=document.querySelectorAll('.scn-panel [onchange]');
+    for(var i=0;i<all.length;i++){
+      if(all[i].getAttribute('onchange')===sig){ try{ all[i].focus(); }catch(e){} break; }
+    }
   }
-  /* margin now, and margin if the season were normal — same herds, scenario off */
-  var now=herds.reduce(function(a,x){ return a+lvpMargin(x); },0);
-  var keep=LVP_SCEN.mode; LVP_SCEN.mode='normal';
-  var base=herds.reduce(function(a,x){ return a+lvpMargin(x); },0);
-  LVP_SCEN.mode=keep;
+}
+
+/* The drop from a NORMAL yield at which the counted crops stop covering their
+   costs, with whatever price and input change the farmer has set still applied.
+   Scanned rather than solved so it stays right if the maths behind it changes. */
+function scenCropBreakDrop(rows){
+  if(!rows || !rows.length) return null;
+  var pm=scenPriceMult(), im=scenInputMult();
+  function profitAt(d){
+    var t=0;
+    rows.forEach(function(c){
+      var y=(c.yield||0)*(1-d/100);
+      t += (c.ha||0)*(y*_cropPriceOf(c)*pm - ((c.inputCost||0)+(c.otherCost||0))*im);
+    });
+    return t;
+  }
+  if(profitAt(0)<0) return 0;
+  for(var d=0.5; d<=100; d+=0.5){ if(profitAt(d)<0) return d; }
+  return null;
+}
+function scenCropFirstFail(rows){
+  var pm=scenPriceMult(), im=scenInputMult(), best=null;
+  (rows||[]).forEach(function(c){
+    var p=_cropPriceOf(c)*pm, y=c.yield||0;
+    if(!(p>0) || !(y>0)) return;
+    var be=((c.inputCost||0)+(c.otherCost||0))*im/p;      /* break-even yield */
+    var drop=(y-be)/y*100;                                 /* how far it can fall */
+    if(best===null || drop<best.drop) best={c:c, drop:drop};
+  });
+  return best;
+}
+
+function scenStrip(which, ctx){
+  /* "Dry" alone would rewrite "Dryland" and "Season" appears 173 times in this
+     file — both are the bare-word trap. "Weather" appears nowhere else. */
+  var modes=[['normal','Normal year'],['dry','Dry year'],['drought','Drought']];
+  var seg='<span class="scn-seg">'+modes.map(function(m){
+    return '<button type="button" class="'+(FARM_SCEN.mode===m[0]?('on'+(m[0]==='normal'?'':' w')):'')+
+      '" onclick="scenSetMode(\''+m[0]+'\')">'+m[1]+'</button>';}).join('')+'</span>';
+
+  /* Resting: one line, no panel, no tile. */
+  if(!scenOn()) return '<div class="scn"><span class="scn-lbl">Weather</span>'+seg+
+    '<span class="scn-hint">Try a dry year — nothing is saved</span></div>';
+
+  var sc=scenNow();
+  var money=(which==='crops')
+    ? function(v){ return (typeof planFmtR==='function')?planFmtR(v):('R'+Math.round(v)); }
+    : function(v){ return lvpMoney(v); };
+
+  /* now vs the same farm in a normal season */
+  var now, base;
+  if(which==='crops'){
+    now  = planCropTotals().profit;
+    base = scenBaseline(function(){ return planCropTotals().profit; });
+  } else {
+    var hs=ctx||[];
+    now  = hs.reduce(function(a,x){ return a+lvpMargin(x); },0);
+    base = scenBaseline(function(){ return hs.reduce(function(a,x){ return a+lvpMargin(x); },0); });
+  }
   var delta=now-base;
 
-  return '<div class="lvp-scen on">'+seg+
-    '<div class="lvp-knobs">'+
-      '<label>Weaning drops by<input type="number" min="0" max="90" value="'+sc.wean+
-        '" onchange="lvpSetScenVal(\'wean\',this.value)"><span>%</span></label>'+
-      '<label>Sell how many months earlier<input type="number" min="0" max="6" value="'+sc.early+
-        '" onchange="lvpSetScenVal(\'early\',this.value)"></label>'+
-      '<label>Feed bill goes up by<input type="number" min="0" max="300" value="'+sc.feed+
-        '" onchange="lvpSetScenVal(\'feed\',this.value)"><span>%</span></label>'+
-      '<button type="button" class="lvp-btn pri" onclick="lvpScenOk()">OK</button>'+
-    '</div>'+
-    (sc.wean>0?'<div class="lvp-facts" style="color:var(--or)">A herd weaning <b>80%</b> now weans <b>'+
-      Math.round(80*(1-sc.wean/100))+'%</b>.</div>':'')+
-    /* A weaning drop can only reduce income that is COMPUTED from weaners. Where
-       the farmer has entered an explicit sale event, the number is his and we do
-       not silently override it — but he has to be told, or he sets the knob,
-       sees nothing move, and stops trusting the tool. */
-    (function(){
-      if(!(sc.wean>0)) return '';
-      var ev=herds.filter(function(x){ return !lvpNeedsSetup(x) && lvpPlannedIncome(x)>0; });
-      if(!ev.length) return '';
-      return '<div class="lvp-scenwarn" style="color:var(--or)"><b>'+ev.length+' herd'+
-        (ev.length===1?'':'s')+' sell on events you entered</b> ('+
-        esc(ev.map(function(x){return x.name||x.type;}).join(', '))+
-        '), so a weaning drop cannot change their income — the head count is yours, not ours. '+
-        'Edit those sales to model fewer animals.</div>';
-    })()+
-    '<div class="lvp-scendelta'+(delta<0?' bad':'')+'">'+
-      '<span class="k">Margin '+(delta<0?'worse by':'change')+'</span>'+
-      '<span class="v">'+lvpMoney(Math.abs(delta))+'</span>'+
-      '<span class="n">'+lvpMoney(base)+' normal → '+lvpMoney(now)+'</span></div>'+
-    '<div class="lvp-scennote"><b>Selling because of drought?</b> Proceeds can be deposited with the '+
-      'Land Bank within <b>three months</b> and the tax deferred — First Schedule para 13A. On a '+
-      'forced sale that is the difference between one brutal tax year and a spread one.</div>'+
-    '<div class="lvp-scenwarn">These severities are <b>yours to set</b>. No SA source publishes a '+
-      'drought weaning drop or feed uplift, so we do not pre-fill one.</div>'+
-  '</div>';
+  if(FARM_SCEN.min){
+    var w=(which==='crops')
+      ? ('yield <b>'+(sc.yieldDn||0)+'% down</b>'+((sc.price||0)!==0?', price <b>'+(sc.price>0?'+':'')+sc.price+'%</b>':', price unchanged'))
+      : ('weaning <b>'+(sc.wean||0)+'% down</b>'+((sc.feed||0)>0?', feed <b>+'+sc.feed+'%</b>':''));
+    return '<div class="scn"><span class="scn-lbl">Weather</span>'+seg+
+      '<span class="scn-mini">'+(FARM_SCEN.mode==='dry'?'Dry year':'Drought')+' — '+w+
+        ' · farm makes <b>'+money(now)+'</b>'+
+        '<button type="button" class="scn-edit" onclick="scenExpand()">Change</button></span></div>';
+  }
+
+  var knobs, out;
+  if(which==='crops'){
+    knobs='<div class="scn-k"><label>Yield down</label>'+
+        '<input type="number" min="0" max="100" value="'+(sc.yieldDn||0)+
+        '" onchange="scenSetVal(\'yieldDn\',this.value)"><div class="sub">% off every crop</div></div>'+
+      '<div class="scn-k"><label>Grain price</label>'+
+        '<input type="number" value="'+(sc.price||0)+
+        '" onchange="scenSetVal(\'price\',this.value)"><div class="sub">% — up if the whole country is dry</div></div>'+
+      '<div class="scn-k"><label>Input cost</label>'+
+        '<input type="number" value="'+(sc.input||0)+
+        '" onchange="scenSetVal(\'input\',this.value)"><div class="sub">% — most of it is already spent</div></div>';
+    var rows=planCropRows();
+    var brk=scenCropBreakDrop(rows), ff=scenCropFirstFail(rows);
+    out='<div class="scn-o"><div class="k">Farm still makes</div>'+
+        '<div class="v'+(now<base?' bad':'')+'">'+money(now)+'</div>'+
+        '<div class="n">was '+money(base)+'</div></div>'+
+      '<div class="scn-o"><div class="k">Breaks even at</div>'+
+        '<div class="v">'+(brk==null?'—':Math.round(brk)+'% down')+'</div>'+
+        '<div class="n">'+(brk==null?'no crops counted'
+           :(brk<=(sc.yieldDn||0)?'you are past it':'you are '+Math.round(brk-(sc.yieldDn||0))+' points off it'))+'</div></div>'+
+      (ff?'<div class="scn-o"><div class="k">First to stop paying</div>'+
+        '<div class="v bad">'+esc(ff.c.field||ff.c.crop)+'</div>'+
+        '<div class="n">at '+Math.round(ff.drop)+'% down</div></div>':'');
+  } else {
+    knobs='<div class="scn-k"><label>Weaning down</label>'+
+        '<input type="number" min="0" max="90" value="'+(sc.wean||0)+
+        '" onchange="scenSetVal(\'wean\',this.value)"><div class="sub">% fewer weaned</div></div>'+
+      '<div class="scn-k"><label>Sell earlier</label>'+
+        '<input type="number" min="0" max="6" value="'+(sc.early||0)+
+        '" onchange="scenSetVal(\'early\',this.value)"><div class="sub">months sooner</div></div>'+
+      '<div class="scn-k"><label>Feed bill</label>'+
+        '<input type="number" min="0" max="300" value="'+(sc.feed||0)+
+        '" onchange="scenSetVal(\'feed\',this.value)"><div class="sub">% more</div></div>';
+    out='<div class="scn-o"><div class="k">Herds still make</div>'+
+        '<div class="v'+(now<base?' bad':'')+'">'+money(now)+'</div>'+
+        '<div class="n">was '+money(base)+'</div></div>'+
+      '<div class="scn-o"><div class="k">Worse by</div>'+
+        '<div class="v bad">'+money(Math.abs(delta))+'</div>'+
+        '<div class="n">across every herd</div></div>';
+  }
+
+  /* Kept from the original livestock panel: a lever the farmer sets that cannot
+     move his own entered sales has to say so, or he stops trusting the tool. */
+  var evWarn='';
+  if(which==='livestock' && (sc.wean||0)>0){
+    var ev=(ctx||[]).filter(function(x){ return !lvpNeedsSetup(x) && lvpPlannedIncome(x)>0; });
+    if(ev.length) evWarn='<div class="scn-k" style="width:100%;margin-top:11px"><div class="sub">'+
+      '<b>'+ev.length+' herd'+(ev.length===1?'':'s')+' sell on events you entered</b> ('+
+      esc(ev.map(function(x){return x.name||x.type;}).join(', '))+
+      '), so a weaning drop cannot change their income — the head count is yours, not ours.</div></div>';
+  }
+  var taxNote=(which==='livestock')
+    ? '<div class="scn-k" style="width:100%;margin-top:11px"><div class="sub"><b>Selling because of drought?</b> '+
+      'Proceeds can be deposited with the Land Bank within <b>three months</b> and the tax deferred — '+
+      'First Schedule para 13A.</div></div>'
+    : '';
+
+  return '<div class="scn"><span class="scn-lbl">Weather</span>'+seg+
+    '<div class="scn-panel"><div class="scn-knobs">'+knobs+
+      '<button type="button" class="scn-ok" onclick="scenOk()">OK</button></div>'+
+      evWarn+taxNote+
+      '<div class="scn-k" style="width:100%;margin-top:11px"><div class="sub">These severities are '+
+        '<b>yours to set</b> — no SA source publishes them, so nothing is pre-filled.</div></div>'+
+      '<div class="scn-out">'+out+'</div>'+
+    '</div></div>';
+}
+/* Old name, so the livestock grid keeps calling what it always called. */
+function lvpScenStrip(herds){ return scenStrip('livestock', herds); }
+
+/* ── the rail that makes farm-wide safe ────────────────────────────────────
+   The scenario now moves Money Flow, Budgets and the dashboard, not just the
+   Planning tab. A farmer who set it, walked away and came back to Money Flow
+   would otherwise be reading drought figures as though they were his plan.
+   One bar, everywhere, until he turns it off. */
+function scenRibbon(){
+  var id='ai-scen-ribbon', bar=document.getElementById(id);
+  if(!scenOn()){ if(bar) bar.parentNode.removeChild(bar); return; }
+  if(!bar){
+    bar=document.createElement('div');
+    bar.id=id;
+    bar.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99991;background:#C2410C;'+
+      'color:#fff;display:flex;align-items:center;gap:12px;padding:7px 16px;'+
+      'font-family:inherit;font-size:12.5px;box-shadow:0 2px 12px rgba(0,0,0,.18)';
+    document.body.appendChild(bar);
+  }
+  var sc=scenNow()||{};
+  var bits=[];
+  if(sc.yieldDn) bits.push('yield '+sc.yieldDn+'% down');
+  if(sc.price)   bits.push('price '+(sc.price>0?'+':'')+sc.price+'%');
+  if(sc.input)   bits.push('inputs '+(sc.input>0?'+':'')+sc.input+'%');
+  if(sc.wean)    bits.push('weaning '+sc.wean+'% down');
+  if(sc.feed)    bits.push('feed +'+sc.feed+'%');
+  bar.innerHTML='<span style="font-weight:800;letter-spacing:.04em">'+
+      (FARM_SCEN.mode==='dry'?'DRY YEAR':'DROUGHT')+'</span>'+
+    '<span style="opacity:.92">Every figure in the app is showing this bad season'+
+      (bits.length?' — '+esc(bits.join(', ')):'')+'. Nothing is saved.</span>'+
+    '<button style="margin-left:auto;padding:5px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.45);'+
+      'background:transparent;color:#fff;font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit" '+
+      'onclick="scenSetMode(\'normal\')">Back to a normal season</button>';
 }
 
 function renderLiveCalGrid(){
@@ -37157,6 +37369,37 @@ var LANG_PAIRS = [
   ["Fill in how you sell this herd and the margin fills in too.","Vul in hoe jy hierdie kudde verkoop en die marge vul ook in."],
   ["worth","werd"],
   ["Three seasons ahead","Drie seisoene vorentoe"],
+  ["Weather","Weer"],
+  ["Normal year","Normale jaar"],
+  ["Dry year","Droë jaar"],
+  ["Drought","Droogte"],
+  ["Try a dry year — nothing is saved","Probeer 'n droë jaar — niks word gestoor nie"],
+  ["Yield down","Opbrengs af"],
+  ["% off every crop","% af elke gewas"],
+  /* The plural MUST be here too. The what-if slider says "Grain prices", and a
+     bare "Grain price" pair would have turned it into "Graanpryss" — the pairs
+     are sorted longest-first at runtime, so this one wins where it applies. */
+  ["Grain prices","Graanpryse"],
+  ["Grain price","Graanprys"],
+  ["% — up if the whole country is dry","% — op as die hele land droog is"],
+  ["Input cost","Insetkoste"],
+  ["% — most of it is already spent","% — die meeste daarvan is reeds bestee"],
+  ["Farm still makes","Plaas maak steeds"],
+  ["Breaks even at","Breek gelyk by"],
+  ["First to stop paying","Eerste om op te hou betaal"],
+  ["Weaning down","Speen af"],
+  ["% fewer weaned","% minder gespeen"],
+  ["Sell earlier","Verkoop vroeër"],
+  ["months sooner","maande vroeër"],
+  ["Feed bill","Voerrekening"],
+  ["Herds still make","Kuddes maak steeds"],
+  ["Worse by","Slegter met"],
+  ["across every herd","oor elke kudde"],
+  ["Every figure in the app is showing this bad season","Elke syfer in die app wys hierdie slegte seisoen"],
+  ["Back to a normal season","Terug na 'n normale seisoen"],
+  ["no SA source publishes them, so nothing is pre-filled.","geen SA bron publiseer hulle nie, so niks word vooraf ingevul nie."],
+  ["These severities are","Hierdie erns is"],
+  ["yours to set","joune om te stel"],
   ["Tree year","Boomjaar"],
   ["Bearing %","Dra %"],
   ["Crop (t)","Oes (t)"],
