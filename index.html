@@ -1674,7 +1674,10 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
   letter-spacing:.05em;padding:14px 2px 4px;min-width:840px}
 
 .orp-item{border-top:1px solid var(--br2);min-width:840px}
-.orp-item.young .orp-row{background:linear-gradient(90deg,var(--op) 0 3px,transparent 3px)}
+/* No left-edge stripe. The "too young to bear" pill on the row already says it,
+   and the bar read as decoration against the gold orchard palette. Removing it
+   also gives .orp-row:hover back — the stripe used the background shorthand,
+   which cancelled the hover fill on exactly the rows that needed attention. */
 .orp-row{padding:12px 2px;width:100%;background:none;border:0;font-family:var(--fn);
   color:inherit;text-align:left;cursor:pointer;border-radius:6px}
 .orp-row:hover{background:var(--bg)}
@@ -1810,14 +1813,9 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
   color:inherit;text-align:left;cursor:pointer;border-radius:6px}
 .lvp-row:hover{background:var(--bg)}
 .lvp-row:focus-visible{outline:2px solid #7C2D5A;outline-offset:-2px}
-/* The marker was a 3px band of --op painted as the row's BACKGROUND. Two faults:
-   the row's 6px radius clipped its ends into a stub, and because it used the
-   background shorthand it also cancelled the row's hover state. A pseudo-element
-   sits above the hover fill, keeps square ends, and carries the same --or as the
-   "setup needed" pill so the mark and the tag read as one thing. */
-.lvp-item.needs .lvp-row{position:relative}
-.lvp-item.needs .lvp-row::before{content:'';position:absolute;left:0;top:8px;bottom:8px;
-  width:3px;border-radius:3px;background:var(--or)}
+/* No left-edge stripe — the "setup needed" pill carries this on its own, and two
+   markers for one state read as clutter. The .needs class stays: the group
+   header still tints so the farmer can see WHICH question is unanswered. */
 .lvp-nm{display:flex;align-items:center;gap:11px;min-width:0;min-height:57px}
 .lvp-ic{width:44px;height:44px;border-radius:12px;background:#F5E1EE;color:#7C2D5A;
   border:1.5px solid rgba(124,45,90,.25);flex:none;display:flex;align-items:center;
@@ -32793,7 +32791,7 @@ function lvpEditor(h){
           set+'\'pSelling\',0)">No, keeping them</button>'+
       '</span></div>'+
     (sellAns===''
-      ? '<div class="lvp-facts">Answer this and the amber mark on this herd clears. Until you do we count what the herd costs you and leave its income blank, rather than guess at a sale you may not be making.</div>'
+      ? '<div class="lvp-facts">Answer this and the setup needed tag on this herd clears. Until you do we count what the herd costs you and leave its income blank, rather than guess at a sale you may not be making.</div>'
       : '')+
     (sellAns==='no'
       ? '<div class="lvp-facts">Nothing is sold from this herd this season. Its keep still counts — the animals are worth more next year, but this year it is cash out.</div>'
@@ -36853,7 +36851,7 @@ var LANG_PAIRS = [
   ["Are you selling from this herd this season?","Verkoop jy hierdie seisoen uit hierdie kudde?"],
   ["Yes, selling","Ja, verkoop"],
   ["No, keeping them","Nee, hou hulle"],
-  ["Answer this and the amber mark on this herd clears. Until you do we count what the herd costs you and leave its income blank, rather than guess at a sale you may not be making.","Beantwoord dit en die amber merk op hierdie kudde verdwyn. Tot dan tel ons wat die kudde jou kos en laat die inkomste leeg, eerder as om te raai oor 'n verkoop wat jy dalk nie maak nie."],
+  ["Answer this and the setup needed tag on this herd clears. Until you do we count what the herd costs you and leave its income blank, rather than guess at a sale you may not be making.","Beantwoord dit en die opstel nodig merkie op hierdie kudde verdwyn. Tot dan tel ons wat die kudde jou kos en laat die inkomste leeg, eerder as om te raai oor 'n verkoop wat jy dalk nie maak nie."],
   ["Nothing is sold from this herd this season. Its keep still counts — the animals are worth more next year, but this year it is cash out.","Niks word hierdie seisoen uit hierdie kudde verkoop nie. Die onderhoud tel steeds — die diere is volgende jaar meer werd, maar vanjaar is dit kontant uit."],
   ["Their keep is counted but no income is, so your forecast reads worse than the farm. Say whether each one sells this season.","Hulle onderhoud tel maar geen inkomste nie, so jou vooruitskatting lees slegter as die plaas. Sê of elkeen hierdie seisoen verkoop."],
   ["of keep with no sale against it — the animals are worth more next year, but this year it is cash out.","se onderhoud sonder 'n verkoop daarteen — die diere is volgende jaar meer werd, maar vanjaar is dit kontant uit."],
