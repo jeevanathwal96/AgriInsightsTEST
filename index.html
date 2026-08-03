@@ -1767,6 +1767,22 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .orp-curve i.now{background:#C8962C}
 .orp-curve i.fut{background:var(--br2)}
 .orp-curvex{display:flex;justify-content:space-between;font-size:10px;color:var(--t4);margin-top:3px}
+/* three-seasons-ahead table — the orchard twin of .lvp-ctab, gold instead of plum */
+.orp-ctab{margin-top:11px;border:1px solid var(--br);border-radius:8px;overflow:hidden}
+.orp-cr{display:grid;gap:8px;padding:7px 11px;font-size:12.5px;
+  font-variant-numeric:tabular-nums;border-top:1px solid var(--br2)}
+.orp-proj5 .orp-cr{grid-template-columns:1.3fr 48px 66px 74px 82px}
+.orp-cr span:nth-child(n+2){text-align:right}
+.orp-cr.hd{border-top:0;background:var(--bg);font-size:10.5px;font-weight:700;
+  letter-spacing:.03em;text-transform:uppercase;color:var(--t4)}
+.orp-cr.bf{background:#FBF3E2}
+.orp-bfmark{font-size:9.5px;font-weight:700;background:#C8962C;color:#fff;
+  border-radius:99px;padding:1px 6px}
+.orp-f2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.orp-fi label{display:block;font-size:10.5px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--t4);margin-bottom:4px}
+.orp-fi input{width:100%;box-sizing:border-box;border:1px solid var(--br);border-radius:var(--rs);
+  background:var(--wh);color:var(--t1);font-family:var(--fn);font-size:13px;padding:8px 10px}
 
 .orp-tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;
   background:var(--br2);border-radius:var(--r);overflow:hidden;margin-top:16px;min-width:840px}
@@ -28751,6 +28767,26 @@ function plnBeYield(c){ var p=_cropPriceOf(c); return p>0 ? plnCostHa(c)/p : 0; 
 function plnCushion(c){ var y=c.yield||0; return y>0 ? (y-plnBeYield(c))/y : 0; }
 function plnMissing(c){ return !c.plant || !c.harvest; }
 function plnCounted(c){ return !plnMissing(c) && c.inForecast!==false; }
+
+/* ── ONE definition of "the crops this season's figures are built from" ──────
+   The pane, the banner and the what-if sliders each worked this out for
+   themselves. The pane filtered to the season being viewed, dropped rows with no
+   months and rows switched off as scenarios, and priced them through
+   _cropPriceOf. The other two summed EVERY row in storage — all years, scenarios
+   included — at the raw typed price, so a crop with no price entered was worth
+   R4 000/ton to one and nothing to the other. On the demo farm that put
+   R2 697 800 on the tab and R3 519 800 in the banner at the same moment. */
+function planCropRows(){
+  return planActiveCrops().filter(plnCounted);
+}
+function planCropTotals(){
+  var inc=0, cost=0;
+  planCropRows().forEach(function(c){
+    inc  += plnRevenue(c);
+    cost += plnCostHa(c)*(c.ha||0);
+  });
+  return {income:Math.round(inc), cost:Math.round(cost), profit:Math.round(inc-cost)};
+}
 function plnSafeId(k){ return String(k).replace(/[^A-Za-z0-9]/g,'_'); }
 
 function plnNowIdx(){
@@ -29108,7 +29144,10 @@ function updatePlanSummary() {
   var sEl=$('ps-scenario');
   if(sEl){
     if(scen.length){
-      var sNet=scen.reduce(function(s2,c){return s2 + (c.ha*c.yield*c.price - c.ha*((c.inputCost||0)+(c.otherCost||0)));},0);
+      /* The SET here is deliberately different — these are the crops held back
+         from the forecast. Only the pricing is brought into line, so committing a
+         scenario crop adds exactly what the tab said it was worth. */
+      var sNet=scen.reduce(function(s2,c){return s2 + (plnRevenue(c) - plnCostHa(c)*(c.ha||0));},0);
       var combined=profit+sNet;
       sEl.style.display='block';
       sEl.innerHTML='<div style="font-weight:800;color:var(--pu);margin-bottom:4px">\uD83D\uDD2E '+scen.length+' scenario crop'+(scen.length>1?'s':'')+' (not in forecast)</div>'+
@@ -29224,12 +29263,10 @@ function calcWhatIf() {
   var sIncome=base.income, sCosts=base.costs, bits=[];
 
   if (tab === 'crops') {
-    var cropIncome=0, cropCosts=0;
-    (ST_PLAN.crops||[]).forEach(function(c){
-      cropIncome += c.ha*c.yield*c.price;
-      cropCosts  += c.ha*((c.inputCost||0)+(c.otherCost||0));
-    });
-    var totalHa=(ST_PLAN.crops||[]).reduce(function(s,c){return s+(c.ha||0);},0);
+    /* Same rows the tab totals, so dragging a slider moves the number the farmer
+       is actually looking at rather than a second, larger one. */
+    var _ct=planCropTotals(), cropIncome=_ct.income, cropCosts=_ct.cost;
+    var totalHa=planCropRows().reduce(function(s,c){return s+(c.ha||0);},0);
     var farmHa=(typeof FARM!=='undefined'&&FARM.ha>0)?FARM.ha:totalHa;
     var revPerHa=farmHa>0?cropIncome/farmHa:0, costPerHa=farmHa>0?cropCosts/farmHa:0;
     var priceP=rv('wi-price-chg'), costP=rv('wi-cost-chg'), haN=rv('wi-ha-chg');
@@ -29314,7 +29351,10 @@ function orPlanRows(){
     var ps=(b.planPickStart==null?w[0]:b.planPickStart);
     var pe=(b.planPickEnd==null?w[1]:b.planPickEnd); if(pe<ps) pe=ps;
     var cost=orOpsCost(b);
-    return {b:b, income:orBlockTotal(b), cost:cost, pickStart:ps, pickEnd:pe};
+    /* Income follows the year being viewed. It used to be orBlockTotal(b) — one
+       stored tonnage — so stepping the plan year aged the block on the chart and
+       left the money identical in every year. */
+    return {b:b, income:orpIncomeFor(b, planYear), cost:cost, pickStart:ps, pickEnd:pe};
   });
 }
 function orPlanSetField(id,field,val){
@@ -29323,6 +29363,12 @@ function orPlanSetField(id,field,val){
   if(field==='planPickStart'){ b.planPickStart=n; if(b.planPickEnd!=null&&b.planPickEnd<n) b.planPickEnd=n; }
   else if(field==='planPickEnd'){ b.planPickEnd=n; if(b.planPickStart!=null&&b.planPickStart>n) b.planPickStart=n; }
   else if(field==='planCost'){ b.planCost=Math.max(0,n); }
+  /* Any field not named here is parsed and then thrown away — the same silent
+     no-op that made the livestock herd-type buttons look dead. An empty box
+     clears the estimate rather than storing a zero that reads as "no crop". */
+  else if(field==='planMatureTons'){
+    b.planMatureTons = (String(val).trim()==='') ? null : Math.max(0,n);
+  }
   if(typeof orSave==='function') orSave();
   recomputePlan(); renderOrchPlanGrid(); updatePlanCombinedBanner(); updatePlanSummary();
 }
@@ -29370,6 +29416,85 @@ function orpFirstPickYear(b){
   if(ey==null) return null;
   for(var i=0;i<cv.length;i++){ if(cv[i]>0) return ey+i; }
   return null;
+}
+/* ── the curve, finally driving something ─────────────────────────────────
+   IMPORTANT: b.tons is the farmer's estimate FOR THE SEASON ON SCREEN, and the
+   ramp is already inside it — Netblok at year 6 carries 22 t/ha against a mature
+   Nadorcott's ~44, and Nuweland at year 3 carries nothing at all. So multiplying
+   b.tons by the curve would discount a figure that is already discounted, the
+   same trap as netting mortality out of a weaning percentage that already nets it.
+
+   The curve's real job is carrying THIS year's estimate into later years: the
+   ratio between two points on it. Season on screen keeps the farmer's number. */
+function orpCurveAt(b, age){
+  var cv=orpCurve(b);
+  if(!cv || age==null) return null;
+  return cv[Math.min(Math.max(age-1,0),cv.length-1)];
+}
+/* Mature-crop anchor for a block that carries nothing yet. Only ever the
+   farmer's own figure — we do not invent a yield for a block we have never seen
+   pick. Without it a not-yet-bearing block simply reports "no estimate yet". */
+function orpMatureTons(b){
+  var m=parseFloat(b.planMatureTons);
+  return (isNaN(m)||m<=0) ? null : m;
+}
+/* The season b.tons belongs to. It is the REAL current season, never the season
+   being viewed: anchoring on planYear made the anchor move with the page, so the
+   ratio was always 1 and paging forward still showed identical money. */
+function orpAnchorYear(){
+  return (typeof planFYYear==='function') ? planFYYear()
+       : ((typeof planYear==='number') ? planYear : null);
+}
+/* Tonnage for any plan year, scaled along the curve from the anchor season. */
+function orpTonsFor(b, year){
+  var ey=(typeof b.estabYr==='number')?b.estabYr:((typeof b.plant==='number')?b.plant:null);
+  if(ey==null) return (b.tons||0);                     /* no age — cannot ramp */
+  var a0=orpAnchorYear(); if(a0==null) return (b.tons||0);
+  var pctY=orpCurveAt(b, year-ey+1), pctNow=orpCurveAt(b, a0-ey+1);
+  if(pctY==null || pctNow==null) return (b.tons||0);
+  /* Same point on the curve — including the anchor season itself, and any
+     plateau year — returns the farmer's figure untouched, not a rounded copy. */
+  if(pctY===pctNow) return (b.tons||0);
+  if((b.tons||0)>0 && pctNow>0) return Math.round((b.tons||0)*pctY/pctNow*10)/10;
+  /* Nothing picking yet: ramp the farmer's own mature figure, if he gave one. */
+  var mat=orpMatureTons(b);
+  if(mat!=null) return Math.round(mat*pctY/100*10)/10;
+  return (b.tons||0);
+}
+/* Income for a plan year. Routed through orBlockTotal on a copy so every pricing
+   rule — channel split, carton weight, commission, local net — stays in one place. */
+function orpIncomeFor(b, year){
+  if(typeof orBlockTotal!=='function') return 0;
+  var a0=orpAnchorYear();
+  /* The anchor season is answered by the existing function, untouched, so no
+     number a farmer is looking at today can move because of this file. */
+  if(a0==null || year===a0) return orBlockTotal(b);
+  var t=orpTonsFor(b, year);
+  if(t===(b.tons||0)) return orBlockTotal(b);
+  var clone={}; for(var k in b){ if(Object.prototype.hasOwnProperty.call(b,k)) clone[k]=b[k]; }
+  /* orBlockTotal zeroes anything flagged as a prospective block. That is right
+     for today and wrong for a forecast: the whole point of the mature estimate
+     is to ask what this block earns once it comes in. Only lifted past the
+     anchor season, never on it. */
+  clone.plan=false;
+  clone.tons=t;
+  return orBlockTotal(clone);
+}
+/* Three seasons, the way the livestock projection reads: the year on screen is
+   the row above it, later years move only because the block is a year older. */
+function orpProject(b, years){
+  if(b.cat==='veg' || b.removed) return [];            /* veg is not a tree curve */
+  var ey=(typeof b.estabYr==='number')?b.estabYr:((typeof b.plant==='number')?b.plant:null);
+  if(ey==null || typeof planYear!=='number') return [];
+  var cost=(typeof orOpsCost==='function')?orOpsCost(b):0;
+  var out=[];
+  for(var i=0;i<years;i++){
+    var y=planYear+i, age=y-ey+1;
+    var t=orpTonsFor(b,y), inc=orpIncomeFor(b,y);
+    out.push({year:y, age:age, pct:orpCurveAt(b,age), tons:t,
+              income:inc, cost:cost, margin:inc-cost});
+  }
+  return out;
 }
 function orpPayWeeks(b){ return (b.planPayWeeks==null) ? ORP_PAY_DEFAULT : b.planPayWeeks; }
 function orpPayShift(b){ return Math.round(orpPayWeeks(b)/4.345); }   /* weeks → months */
@@ -29574,7 +29699,15 @@ function orpMoneyPanel(r){
       '<div class="orp-curvex"><span>Year 1</span><span>now — year '+a+'</span><span>Year '+n+'</span></div>';
     var pct=orpPct(b);
     if(pct!=null) h+='<div class="orp-facts">Planted '+(b.estabYr||b.plant||'—')+', so this is <b>year '+a+
-      '</b> — about <b>'+pct+'% of full bearing</b>.</div>';
+      '</b> — about <b>'+pct+'% of full bearing</b>. '+
+      /* The chart used to sit here driving nothing, next to a crop figure that
+         never moved. Saying which way the two relate stops it reading as though
+         the percentage had already been taken off the tonnage. */
+      ((b.tons||0)>0
+        ? 'Your <b>'+_grpInt(b.tons)+' t</b> estimate is this season’s crop and is used as you typed it — the curve only carries it into later years.'
+        : 'Nothing picking yet, so there is no crop to carry forward.')+
+      '</div>';
+    h+=orpProjTable(b);
   }
   var extra=[];
   if(b.estab) extra.push('cost to plant <b>'+esc(String(b.estab))+'</b>');
@@ -29582,6 +29715,54 @@ function orpMoneyPanel(r){
   if(b.trees>0) extra.push(_grpInt(b.trees)+' trees');
   if(extra.length) h+='<div class="orp-facts">'+extra.join(' · ')+'</div>';
   return h;
+}
+
+/* Three seasons ahead, on the same rule as the livestock projection: the season
+   on screen IS the row above it, later seasons move only because the block is a
+   year older on the curve. */
+function orpProjTable(b){
+  var rows=orpProject(b,3);
+  if(rows.length<2) return '';
+  var noCrop=!(rows[0].tons>0);
+  var body=rows.map(function(r,i){
+    return '<div class="orp-cr'+(i===0?' bf':'')+'"><span>'+r.year+
+      (i===0?' <span class="orp-bfmark">now</span>':'')+'</span>'+
+      '<span>'+r.age+'</span><span>'+(r.pct==null?'—':r.pct+'%')+'</span>'+
+      '<span>'+(r.tons>0?_grpInt(Math.round(r.tons))+' t':'—')+'</span>'+
+      '<span'+(r.margin<0?' style="color:var(--or)"':'')+'>'+orRm(r.margin)+'</span></div>';
+  }).join('');
+  var z=rows[rows.length-1], a=rows[0];
+  var note;
+  if(noCrop){
+    var fy=orpFirstPickYear(b);
+    note='This block carries no crop yet'+(fy?', and first picks in <b>'+fy+'</b>':'')+
+      '. Put a <b>full-bearing crop estimate</b> in below and we will ramp it up the curve for you.';
+  } else if(z.tons>a.tons){
+    note='Still filling out — <b>'+_grpInt(Math.round(z.tons-a.tons))+' t more</b> by '+z.year+
+      ', worth <b>'+orRm(z.margin-a.margin)+'</b> more a season.';
+  } else if(z.tons<a.tons){
+    note='Past its peak on the curve — <b>'+_grpInt(Math.round(a.tons-z.tons))+' t less</b> by '+z.year+
+      '. Worth pencilling in when this block gets replaced.';
+  } else {
+    note='Sitting at full bearing across all three seasons.';
+  }
+  var matBox='';
+  if(noCrop){
+    matBox='<div class="orp-f2" style="margin-top:9px"><div class="orp-fi">'+
+      '<label>Full-bearing crop (t)</label>'+
+      '<input type="number" min="0" step="1" placeholder="your estimate" value="'+
+        (b.planMatureTons==null?'':b.planMatureTons)+
+        '" onchange="event.stopPropagation();orPlanSetField(\''+String(b.id).replace(/'/g,"\\'")+
+        '\',\'planMatureTons\',this.value)"></div></div>';
+  }
+  return '<div class="orp-h2" style="margin-top:14px">Three seasons ahead</div>'+
+    '<div class="orp-ctab orp-proj5">'+
+      /* Distinctive headers on purpose: bare "Year", "Bearing" and "Crop" are
+         exactly the single generic words that corrupt unrelated copy when the
+         translation layer rewrites text nodes by substring. */
+      '<div class="orp-cr hd"><span>Which season</span><span>Tree year</span><span>Bearing %</span>'+
+      '<span>Crop (t)</span><span>Margin</span></div>'+body+'</div>'+
+    '<div class="orp-facts">'+note+'</div>'+matBox;
 }
 
 function orpEditor(r){
@@ -29925,7 +30106,17 @@ function saveAddPlan() {
   var editIdx=parseInt($('ac-edit-idx')&&$('ac-edit-idx').value);
   var entry={crop:crop,field:field,ha:ha,plant:plant,harvest:harvest,yield:yld,price:prc,inputCost:ic,otherCost:oc,repeat:repeat};
   if(editIdx>=0&&editIdx<ST_PLAN.crops.length){
-    ST_PLAN.crops[editIdx]=entry;
+    /* MERGE onto the stored row — never replace it. This form does not ask about
+       linkId or inForecast, so rebuilding the record from the form alone dropped
+       both: the link to the land on the Crops tab died, and because the annual
+       repeat series is keyed on that link, the crop stopped being recognised as
+       the same series and next season's carry-forward would duplicate it rather
+       than continue it. Nothing warned, and the row still looked right.
+       Merging also means a field added later survives an edit without anyone
+       having to remember to list it here. */
+    var prev=ST_PLAN.crops[editIdx]||{};
+    for(var k in entry){ if(Object.prototype.hasOwnProperty.call(entry,k)) prev[k]=entry[k]; }
+    ST_PLAN.crops[editIdx]=prev;
     toast(crop+' updated!','success');
   } else {
     ST_PLAN.crops.push(entry);
@@ -31924,7 +32115,10 @@ function setPlanTab(tab) {
 function updatePlanTabCounts() {
   var cropEl = $('plan-tab-crops-count');
   var liveEl = $('plan-tab-live-count');
-  if (cropEl) cropEl.textContent = (ST_PLAN.crops || []).length;
+  /* This counted every row in storage — all seasons — while renderCalGrid set the
+     same badge to the rows visible this season. Whichever ran last won, so the
+     number changed depending on how you reached the page. */
+  if (cropEl) cropEl.textContent = planActiveCrops().length;
   if (liveEl) liveEl.textContent = (ST_PLAN.events || []).length;
   var orchEl = $('plan-tab-orch-count');
   if (orchEl) orchEl.textContent = (typeof orPlanRows==='function') ? orPlanRows().length : 0;
@@ -32170,13 +32364,9 @@ function stDetailHTML(gkey,r){
 function stToggleDetail(g,key){ var id=g+':'+key; ST_TRACK_OPEN=(ST_TRACK_OPEN===id)?null:id; renderSeasonTracker(); }
 
 function planComboFigures(){
-  // Crops totals — sum revenue minus cost across all crops in the visible window
+  // Crops total — the same rows and the same prices the Crops tab itself totals.
   var cropProfit = 0;
-  if(typeof entOn!=='function' || entOn('crops')) (ST_PLAN.crops || []).forEach(function(c){
-    var rev = c.ha * c.yield * c.price;
-    var cost = c.ha * (c.inputCost + c.otherCost);
-    cropProfit += (rev - cost);
-  });
+  if(typeof entOn!=='function' || entOn('crops')) cropProfit = planCropTotals().profit;
   // Livestock totals — sum events with proper sign and recurrence multiplier
   var liveProfit = 0;
   if(typeof entOn!=='function' || entOn('livestock')) (ST_PLAN.events || []).forEach(function(e) {
@@ -36967,6 +37157,21 @@ var LANG_PAIRS = [
   ["Fill in how you sell this herd and the margin fills in too.","Vul in hoe jy hierdie kudde verkoop en die marge vul ook in."],
   ["worth","werd"],
   ["Three seasons ahead","Drie seisoene vorentoe"],
+  ["Tree year","Boomjaar"],
+  ["Bearing %","Dra %"],
+  ["Crop (t)","Oes (t)"],
+  ["Full-bearing crop (t)","Vol-dra oes (t)"],
+  ["estimate is this season’s crop and is used as you typed it — the curve only carries it into later years.","skatting is hierdie seisoen se oes en word gebruik soos jy dit getik het — die kurwe dra dit net na later jare oor."],
+  ["Nothing picking yet, so there is no crop to carry forward.","Niks pluk nog nie, so daar is geen oes om oor te dra nie."],
+  ["This block carries no crop yet","Hierdie blok dra nog geen oes nie"],
+  ["and first picks in","en pluk eers in"],
+  ["in below and we will ramp it up the curve for you.","hier onder in en ons bou dit vir jou op teen die kurwe."],
+  ["full-bearing crop estimate","vol-dra oesskatting"],
+  ["Still filling out","Bou nog op"],
+  ["more a season.","meer per seisoen."],
+  ["Past its peak on the curve","Verby sy piek op die kurwe"],
+  ["Worth pencilling in when this block gets replaced.","Werd om in te skryf wanneer hierdie blok vervang word."],
+  ["Sitting at full bearing across all three seasons.","Op vol drag deur al drie seisoene."],
   ["females by","wyfies teen"],
   ["Which season","Watter seisoen"],
   ["Females","Wyfies"],
