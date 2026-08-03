@@ -1771,6 +1771,187 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .orp-tot .k{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--t4)}
 .orp-tot .v{font-size:19px;font-weight:800;letter-spacing:-.4px;margin-top:3px;font-variant-numeric:tabular-nums}
 .orp-tot .n{font-size:11px;font-weight:400;color:var(--t3);margin-top:2px;line-height:1.45}
+/* ══ Livestock planning rows ═══════════════════════════════════════════════
+   Same grammar as the crop and orchard planners. What livestock adds: a herd
+   needs far more setting up, so the inputs are grouped and closed, and a herd
+   that is not set up yet still costs money — which is announced, never silent. */
+.lvp-wrap{background:var(--wh);border:1px solid var(--br);border-radius:var(--rl);
+  box-shadow:var(--sh);padding:20px;overflow-x:auto}
+.lvp-lh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
+  flex-wrap:wrap;margin-bottom:15px}
+.lvp-lh .t{font-size:18px;font-weight:800;letter-spacing:-.3px}
+.lvp-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:2px}
+.lvp-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);font-weight:400}
+.lvp-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:5px}
+.lvp-legend i.bd{background:#F5E1EE}
+.lvp-legend i.cv{background:#7C2D5A}
+.lvp-legend i.sl{background:var(--gd)}
+.lvp-legend i.py{background:repeating-linear-gradient(135deg,var(--gp),var(--gp) 3px,var(--gl) 3px,var(--gl) 4px)}
+.lvp-legend i.ln{background:repeating-linear-gradient(135deg,var(--op),var(--op) 4px,var(--or) 4px,var(--or) 5px)}
+
+.lvp-setup{display:flex;align-items:center;gap:12px;background:var(--op);
+  border:1px solid rgba(194,65,12,.25);border-radius:10px;padding:12px 14px;margin-bottom:14px;min-width:840px}
+.lvp-setup .ic{width:22px;height:22px;border-radius:50%;background:var(--or);color:#fff;font-size:13px;
+  font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
+.lvp-setup .bt{flex:1;font-size:12.5px;font-weight:400;color:var(--or);line-height:1.5}
+.lvp-setup .bt b{font-weight:800}
+
+.lvp-grid{display:grid;grid-template-columns:minmax(210px,1.15fr) minmax(340px,1.6fr) 96px 104px 20px;
+  gap:12px;align-items:center;min-width:840px}
+.lvp-mh{padding:0 2px 8px}
+.lvp-mh .colh{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.lvp-mh .colh.r{text-align:right}
+.lvp-mrow{display:grid;grid-template-columns:repeat(12,1fr);gap:3px}
+.lvp-mrow span{font-size:10.5px;font-weight:700;color:var(--t4);text-align:center}
+.lvp-mrow span.now{color:#7C2D5A}
+
+.lvp-item{border-top:1px solid var(--br2);min-width:840px}
+.lvp-row{padding:12px 2px;width:100%;background:none;border:0;font-family:var(--fn);
+  color:inherit;text-align:left;cursor:pointer;border-radius:6px}
+.lvp-row:hover{background:var(--bg)}
+.lvp-row:focus-visible{outline:2px solid #7C2D5A;outline-offset:-2px}
+.lvp-item.needs .lvp-row{background:linear-gradient(90deg,var(--op) 0 3px,transparent 3px)}
+.lvp-nm{display:flex;align-items:center;gap:9px;min-width:0;min-height:57px}
+.lvp-ic{width:30px;height:30px;border-radius:9px;background:#F5E1EE;color:#7C2D5A;
+  border:1.5px solid rgba(124,45,90,.25);flex:none;display:flex;align-items:center;
+  justify-content:center;font-size:16px}
+.lvp-nmw{min-width:0}
+.lvp-n1,.lvp-n2,.lvp-tagline{display:block}
+.lvp-n1{font-size:13px;font-weight:700;line-height:1.3}
+.lvp-n2{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:1px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lvp-tagline{margin-top:2px;min-height:23px;white-space:nowrap;overflow:hidden}
+.lvp-tag{display:inline-block;font-size:10.5px;font-weight:700;border-radius:99px;padding:2px 8px;margin-top:4px}
+.lvp-tag+.lvp-tag{margin-left:4px}
+.lvp-tag.setup{background:var(--or);color:#fff}
+.po-go{cursor:pointer}
+.po-go:hover{border-color:#7C2D5A;color:#7C2D5A}
+.lvp-tag.warn{background:var(--op);color:var(--or)}
+.lvp-tag.info{background:var(--bp);color:var(--bl)}
+.lvp-tag.plum{background:#FBEAF3;color:#7C2D5A}
+.lvp-tag.good{background:var(--gb);color:var(--gm)}
+
+.lvp-rib{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;height:24px}
+.lvp-c{border-radius:3px;background:var(--br2);position:relative;cursor:pointer}
+.lvp-c:hover{outline:1.5px solid #7C2D5A;outline-offset:1px}
+.lvp-c.has:after{content:"";position:absolute;left:50%;bottom:2px;width:3px;height:3px;
+  border-radius:50%;background:#7C2D5A;transform:translateX(-50%)}
+.lvp-c.bd{background:#F5E1EE}
+.lvp-c.cv{background:#7C2D5A}
+.lvp-c.gr{background:var(--gb);border:1px solid var(--gp)}
+.lvp-c.sl{background:var(--gd)}
+.lvp-c.py{background:repeating-linear-gradient(135deg,var(--gp),var(--gp) 3px,var(--gl) 3px,var(--gl) 4px)}
+.lvp-c.lean:after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:3px;border-radius:2px;
+  background:repeating-linear-gradient(135deg,var(--op),var(--op) 4px,var(--or) 4px,var(--or) 5px)}
+.lvp-c.now:before{content:"";position:absolute;left:50%;top:-5px;bottom:-5px;width:2px;
+  background:#7C2D5A;transform:translateX(-50%);border-radius:1px;z-index:1}
+.lvp-ha{text-align:right;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.lvp-ha .u{display:block;font-size:10.5px;font-weight:400;color:var(--t4);margin-top:1px}
+.lvp-ha.neg,.lvp-money.neg{color:var(--or)}
+.lvp-money{text-align:right;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--gm)}
+.lvp-car{color:var(--t4);font-size:11px;text-align:right}
+.lvp-row.open .lvp-car{color:#7C2D5A}
+
+.lvp-ed{border-top:1px dashed var(--br);background:var(--bg);border-radius:0 0 10px 10px;padding:16px 14px;
+  display:grid;grid-template-columns:minmax(230px,1fr) minmax(280px,1.15fr);gap:20px;min-width:840px}
+/* Closed groups still answer "what is this set to?" — each carries a live summary. */
+.lvp-fg{margin-bottom:8px;background:var(--wh);border:1px solid var(--br);border-radius:10px;overflow:hidden}
+.lvp-fg-h{display:grid;grid-template-columns:16px 1fr auto;gap:10px;align-items:center;padding:11px 13px;
+  cursor:pointer;background:none;border:0;width:100%;font-family:var(--fn);text-align:left;color:inherit}
+.lvp-fg-h:hover{background:var(--bg)}
+.lvp-fg-h .cv2{color:var(--t4);font-size:11px}
+.lvp-fg.open .lvp-fg-h .cv2{color:#7C2D5A}
+.lvp-fg-h .ttl{font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--t2)}
+.lvp-fg-h .sum{font-size:11.5px;font-weight:400;color:var(--t3);text-align:right;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:340px}
+.lvp-fg.open .lvp-fg-h .sum{display:none}
+.lvp-fg-b{padding:0 13px 13px;border-top:1px solid var(--br2)}
+.lvp-fg:not(.open) .lvp-fg-b{display:none}
+.lvp-fg.needs .lvp-fg-h{background:var(--op)}
+.lvp-fg.needs .lvp-fg-h .ttl,.lvp-fg.needs .lvp-fg-h .sum{color:var(--or);font-weight:700}
+.lvp-f3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:11px}
+.lvp-f label{display:block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--t4);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lvp-f input,.lvp-f select{width:100%;box-sizing:border-box;border:1px solid var(--br);border-radius:var(--rs);
+  background:var(--wh);color:var(--t1);font-family:var(--fn);font-size:13px;padding:8px 10px}
+.lvp-f input.ro{background:var(--br2);color:var(--t3)}
+.lvp-f input:focus-visible,.lvp-f select:focus-visible{outline:2px solid #7C2D5A;outline-offset:1px}
+.lvp-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+.lvp-btn{border:1px solid var(--br);background:var(--wh);border-radius:var(--rs);padding:9px 14px;
+  font-family:var(--fn);font-size:11.5px;font-weight:700;color:var(--t2);cursor:pointer}
+.lvp-btn:hover{border-color:#7C2D5A;color:#7C2D5A}
+.lvp-btn.pri{background:#7C2D5A;color:#fff;border-color:#7C2D5A}
+
+.lvp-scen{background:var(--wh);border:1px solid var(--br);border-radius:12px;padding:13px 15px;
+  margin-bottom:14px;min-width:840px}
+/* Resting state: a small centred bar, not a panel dominating the top of the tab. */
+.lvp-scen.calm{display:flex;align-items:center;gap:12px;
+  padding:8px 14px;width:fit-content;min-width:0;margin:0 0 14px;
+  background:var(--bg);border-color:var(--br2)}
+.lvp-scen.calm .lvp-seg{margin-bottom:0}
+.lvp-scen.mini{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 14px}
+.lvp-scen.mini .lvp-seg{margin-bottom:0}
+.lvp-minid{font-size:13px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--t1)}
+.lvp-minid.bad{color:var(--or)}
+.lvp-minibtn{margin-left:auto;border:1px solid rgba(194,65,12,.35);background:var(--wh);
+  color:var(--or);border-radius:var(--rs);padding:6px 12px;font-family:var(--fn);
+  font-size:11.5px;font-weight:700;cursor:pointer}
+.lvp-scen.on{background:var(--op);border-color:rgba(194,65,12,.28)}
+.lvp-scenhint{font-size:11.5px;color:var(--t3);margin-left:11px}
+.lvp-knobs{display:flex;gap:18px;flex-wrap:wrap;margin-top:11px}
+.lvp-knobs label{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:var(--or)}
+.lvp-knobs input{width:66px;border:1px solid rgba(194,65,12,.35);border-radius:var(--rs);
+  background:var(--wh);color:var(--t1);font-family:var(--fn);font-size:13px;padding:6px 8px}
+.lvp-knobs span{font-weight:400;color:var(--t3)}
+.lvp-scendelta{display:flex;align-items:baseline;gap:10px;margin-top:12px;flex-wrap:wrap}
+.lvp-scendelta .k{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.lvp-scendelta .v{font-size:20px;font-weight:800;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.lvp-scendelta.bad .v{color:var(--or)}
+.lvp-scendelta .n{font-size:11.5px;color:var(--t3)}
+.lvp-scennote{margin-top:11px;background:var(--wh);border:1px solid rgba(194,65,12,.22);
+  border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--or);line-height:1.55}
+.lvp-scenwarn{margin-top:8px;font-size:11.5px;color:var(--t3);line-height:1.5}
+.lvp-seg{display:inline-flex;background:var(--wh);border:1px solid var(--br);border-radius:99px;
+  padding:3px;margin-bottom:10px;flex-wrap:wrap}
+.lvp-seg button{font-family:var(--fn);font-size:11.5px;font-weight:700;padding:5px 13px;border:0;
+  border-radius:99px;background:none;color:var(--t3);cursor:pointer}
+.lvp-seg button.on{background:#7C2D5A;color:#fff}
+.lvp-check{display:flex;align-items:center;gap:9px;margin-top:11px;font-size:13px;
+  font-weight:700;color:var(--t1);cursor:pointer}
+.lvp-check input{width:16px;height:16px;accent-color:#7C2D5A;cursor:pointer;flex:none}
+.lvp-ctab{margin-top:11px;border:1px solid var(--br);border-radius:8px;overflow:hidden}
+.lvp-cr{display:grid;grid-template-columns:1.6fr 52px 84px 84px;gap:8px;padding:7px 11px;
+  font-size:12.5px;font-variant-numeric:tabular-nums;border-top:1px solid var(--br2)}
+.lvp-cr span:nth-child(n+2){text-align:right}
+.lvp-cr.hd{border-top:0;background:var(--bg);font-size:10.5px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--t4)}
+.lvp-cr.bf{background:#FBEAF3}
+.lvp-cr.tot{border-top:1.5px solid var(--br);font-weight:800;background:var(--bg)}
+.lvp-bfmark{font-size:9.5px;font-weight:700;background:#7C2D5A;color:#fff;border-radius:99px;padding:1px 6px}
+.lvp-h2{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.lvp-ln{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:baseline;font-size:13px;
+  font-weight:400;color:var(--t2);padding:5px 0;border-bottom:1px solid var(--br2);font-variant-numeric:tabular-nums}
+.lvp-ln b{font-weight:700;color:var(--t1);text-align:right;white-space:nowrap}
+.lvp-ln .per{font-weight:400;color:var(--t3)}
+.lvp-ln.ded{color:var(--t3);font-size:12.5px}
+.lvp-ln.ded b{color:var(--or)}
+.lvp-ln.sum{border-bottom:0;padding-top:9px;margin-top:3px;border-top:1.5px solid var(--br);font-weight:700;color:var(--t1)}
+.lvp-be{margin-top:12px;background:var(--wh);border:1px solid var(--br);border-radius:10px;padding:12px 14px}
+.lvp-be .k{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.lvp-be .v{font-size:18px;font-weight:800;letter-spacing:-.3px;margin-top:4px;color:var(--gm);font-variant-numeric:tabular-nums}
+.lvp-be.warn .v{color:var(--or)}
+.lvp-be .s{font-size:13px;font-weight:400;color:var(--t2);margin-top:6px;line-height:1.5}
+.lvp-facts{margin-top:8px;font-size:11.5px;font-weight:400;color:var(--t3);line-height:1.6}
+.lvp-facts b{font-weight:700;color:var(--t2)}
+.lvp-tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;background:var(--br2);
+  border-radius:var(--r);overflow:hidden;margin-top:16px;min-width:840px}
+.lvp-tot > div{background:var(--wh);padding:13px 16px}
+.lvp-tot .k{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--t4)}
+.lvp-tot .v{font-size:19px;font-weight:800;letter-spacing:-.4px;margin-top:3px;font-variant-numeric:tabular-nums}
+.lvp-tot .n{font-size:11px;font-weight:400;color:var(--t3);margin-top:2px;line-height:1.45}
+.lvp-empty{text-align:center;color:var(--t3);padding:36px;font-size:13px;background:var(--wh);
+  border-radius:var(--rl);border:1px dashed var(--br)}
+@media (max-width:900px){.lvp-ed{grid-template-columns:1fr}.lvp-f3{grid-template-columns:repeat(2,1fr)}}
 .orp-empty{text-align:center;color:var(--t3);padding:36px;font-size:13px;background:var(--wh);
   border-radius:var(--rl);border:1px dashed var(--br)}
 @media (max-width:900px){.orp-ed{grid-template-columns:1fr}
@@ -11400,7 +11581,11 @@ function _pfLiveEnts(){
     var modelCost=((h.buy||0)+((h.feed||0)+(h.vet||0))*(h.months||0))*qty;
     var taggedCost=entTaggedCost('ls:'+h.id);
     var effCost=Math.max(taggedCost, modelCost);
-    var income=(h.sell||0)*qty;
+    /* Planning is the truth for VOLUME. Profit keeps its own per-cycle cost model
+       (h.months, not a calendar year) but stops assuming the whole herd is sold at
+       target price — it takes the head and price the farmer actually planned.
+       That assumption alone put Profit R983 400 above Planning on the demo farm. */
+    var income=(typeof lvpPlannedIncome==='function') ? lvpPlannedIncome(h) : (h.sell||0)*qty;
     var lab=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('ls:'+h.id):0;
     var gmProd=income-effCost, gm=gmProd-lab;
     var costHead=qty?Math.round(effCost/qty):0, marginHead=(h.sell||0)-costHead;
@@ -27915,6 +28100,42 @@ function planOrchNotice(){
   }
   return h;
 }
+/* Livestock equivalent of the crop spill notice. Crops spill because they finish
+   late; a herd "spills" because nobody has said whether it sells, or because the
+   farmer has chosen to keep it. Both cost money either way, so both are named. */
+function planLiveNotice(){
+  if(typeof ST_LS==='undefined' || !ST_LS.herd) return '';
+  var need=[], keep=[];
+  ST_LS.herd.forEach(function(h){
+    if(!h || h.removed || h.planned) return;
+    if(h.pSelling===false) keep.push(h);
+    else if(typeof lvpNeedsSetup==='function' && lvpNeedsSetup(h)) need.push(h);
+  });
+  function cost(list){ return list.reduce(function(s,h){ return s+lvpRunCostYear(h); },0); }
+  var h='';
+  if(need.length){
+    h+='<div class="plan-outside"><div style="flex:1;min-width:0">'+
+      '<div class="po-h">'+need.length+' herd'+(need.length===1?'':'s')+' with no sale planned</div>'+
+      '<div class="po-s">Their keep is counted but no income is, so your forecast reads worse than the farm. Say whether each one sells this season.</div>'+
+      '<div class="po-list">'+need.slice(0,6).map(function(x){
+        /* Naming a herd and its cost without a way to reach it just makes the
+           farmer go hunting. Each chip opens that herd's row. */
+        return '<span class="po-go" onclick="lvpGoHerd(\''+planEscAttr(x.id)+'\')">'+
+          esc(x.name||x.type)+' &middot; '+lvpMoney(lvpRunCostYear(x))+' a year &rsaquo;</span>'; }).join('')+
+      (need.length>6?'<span>+'+(need.length-6)+' more</span>':'')+'</div></div></div>';
+  }
+  if(keep.length){
+    h+='<div class="plan-spill"><div style="flex:1;min-width:0">'+
+      '<div class="ps-h">'+keep.length+' herd'+(keep.length===1?'':'s')+' kept, not sold</div>'+
+      '<div class="ps-s">You chose to keep '+(keep.length===1?'this one':'these')+' this season. '+
+      lvpMoney(cost(keep))+' of keep with no sale against it — the animals are worth more next year, but this year it is cash out.</div>'+
+      '<div class="po-list">'+keep.slice(0,6).map(function(x){
+        return '<span class="po-go" onclick="lvpGoHerd(\''+planEscAttr(x.id)+'\')">'+
+          esc(x.name||x.type)+' &middot; '+(x.qty||0)+' head &rsaquo;</span>'; }).join('')+
+      (keep.length>6?'<span>+'+(keep.length-6)+' more</span>':'')+'</div></div></div>';
+  }
+  return h;
+}
 function planRenderOutside(){
   var pane=document.getElementById('pg-planning'); if(!pane) return;
   var host=$('plan-outside');
@@ -27927,8 +28148,10 @@ function planRenderOutside(){
   /* This notice sits above whichever tab is open, so it has to talk about that
      tab's things. Crops spill because they finish late; orchard blocks spill
      because the exporter pays late, which is a different sentence. */
-  if((typeof ST_PLAN!=='undefined'?ST_PLAN.activeTab:'crops')==='orchards'){
-    host.className=''; host.innerHTML=planOrchNotice();
+  var _tab=(typeof ST_PLAN!=='undefined'?ST_PLAN.activeTab:'crops');
+  if(_tab==='orchards' || _tab==='livestock'){
+    host.className='';
+    host.innerHTML=(_tab==='orchards')?planOrchNotice():planLiveNotice();
     try{ if(typeof langSync==='function') langSync(host); }catch(e){}
     return;
   }
@@ -28005,6 +28228,104 @@ var PLAN_OUTSIDE = [];
 /* Lines that DO belong to this season but finish after it ends — normal for
    summer grain, and worth saying because the revenue lands in the next tax year. */
 var PLAN_SPILL = [];
+
+/* ══ Livestock planning helpers ═══════════════════════════════════════════
+   Four decisions live here, all sourced:
+   · payment lag  — auction T+1 business day, APAC livestock rule 31(2) (GG 41473).
+                    Abattoir/feedlot/private-treaty/wool ship BLANK: no published
+                    term exists and a hardcoded number would look statutory but be
+                    invented.
+   · lean season  — the 3.98:1 dry:wet lick ratio is Land Bank 2023/24. The MONTHS
+                    are inference, so they follow the province and stay editable.
+                    Winter-rainfall (W Cape) goes hungry in late summer, not winter.
+   · LSU          — 1.60 is a COMPOSITE (cow + her calf + a share of the bull), so
+                    a herd priced that way must not also count calves and bulls.
+   · inForecast   — honoured, matching crops and the "now live" flip at lsConfirmPlannedBuy. */
+
+var LVP_LEAN = {                       /* lean months by rainfall pattern, 0 = season start */
+  summer: ['Jun','Jul','Aug','Sep'],   /* veld dormant through winter */
+  winter: ['Jan','Feb','Mar','Apr']    /* W Cape: the gap is late summer */
+};
+var LVP_LEAN_MULT = 4;                 /* Land Bank: winter lick 3.98x summer lick */
+
+function lvpRainfall(){
+  var p=(typeof ST!=='undefined' && ST.province) ? ST.province : '';
+  return (p==='Western Cape') ? 'winter' : 'summer';
+}
+function lvpLeanMonths(h){
+  if(h && h.pLean) return String(h.pLean).split(',');
+  return LVP_LEAN[lvpRainfall()];
+}
+/* Monthly weights that sum to 12, so the annual running cost is unchanged and only
+   its SHAPE moves. Lean months carry LVP_LEAN_MULT times a normal month. */
+function lvpCostWeights(h){
+  var lean=lvpLeanMonths(h), ms=(ST_PLAN.months||[]);
+  var isLean=ms.map(function(m){ return lean.indexOf(String(m.label||'').split(' ')[0])>=0; });
+  var n=isLean.filter(Boolean).length;
+  if(!n || n===12) return ms.map(function(){ return 1; });
+  var unit=12/((12-n)+n*LVP_LEAN_MULT);
+  return isLean.map(function(L){ return L ? unit*LVP_LEAN_MULT : unit; });
+}
+/* Class-aware LSU. The breeding-female factor is the composite unit, so when it is
+   used the young and the sire are already inside it and must not be added again. */
+function lvpHerdLSU(h){
+  if(!h) return 0;
+  var base=(typeof _pfLsu==='function')?_pfLsu(h.type||h.name||''):1;
+  var bk=(typeof lsBreedingClass==='function')?lsBreedingClass(h.type):null;
+  var yk=(typeof lsYoungClass==='function')?lsYoungClass(h.type):null;
+  var sk=(typeof lsSireClass==='function')?lsSireClass(h.type):null;
+  var cls=(h.classes||[]);
+  if(!cls.length || !bk) return (h.qty||0)*base;
+  var bf=0, other=0, hasB=false;
+  cls.forEach(function(c){
+    if(c.k===bk){ bf+=(c.n||0); hasB=true; }
+    else if(c.k===yk || c.k===sk){ /* inside the composite — see note above */ }
+    else other+=(c.n||0);
+  });
+  if(!hasB) return (h.qty||0)*base;
+  /* 1.60 is Land Bank's BEEF cow-with-calf-and-bull-share. Applying that absolute
+     number to a dairy cow would understate her — she is a heavier animal (base 1.4
+     vs 1.1). What is sourced is the RATIO, so scale each type by its own base:
+     beef 1.10 x 1.4545 = 1.60 exactly; small stock uses Land Bank's SSU 2. */
+  var big=(typeof animalBase==='function' && animalBase(h.type)==='Cattle');
+  var comp = big ? base*(1.60/1.10) : base*2;
+  return bf*comp + other*base;
+}
+/* Does this herd have enough set to produce a sale? Until it does its cost still
+   counts and its income does not — announced, never silent. */
+function lvpNeedsSetup(h){
+  if(!h || h.removed) return false;
+  /* An explicit "no, I am keeping them" is an ANSWER, not a gap. Only an
+     unanswered herd is flagged — otherwise we would nag a farmer who has
+     already told us what he is doing. */
+  if(lvpType(h)==='keep') return false;
+  if(lvpIsFinish(h)) return !(h.pBuyMonth && lvpNum(h.pBuyKg,0)>0 && lvpNum(h.pOutKg,0)>0 && lvpNum(h.pRPerKg,0)>0);
+  if(h.pSelling===false) return false;
+  var hasEvent=(ST_PLAN.events||[]).some(function(e){
+    return e.herdId===h.id && !e.done && (e.type==='sell'||e.type==='income') && e.inForecast!==false; });
+  if(hasEvent) return false;
+  return !(h.pSelling===true && (h.pRPerKg>0 || h.sell>0));
+}
+function lvpPayDays(h){
+  if(!h) return 0;
+  if(h.pPayDays!=null) return h.pPayDays;
+  return (h.pChannel==='auction' || !h.pChannel) ? 1 : 0;   /* APAC rule 31(2) */
+}
+/* Head and price as planned, not as hoped. Falls back to the herd's target only
+   when nothing at all is planned, so an untouched farm still shows something. */
+function lvpPlannedIncome(h){
+  if(typeof ST_PLAN==='undefined' || !ST_PLAN.events) return (h.sell||0)*(h.qty||0);
+  var evs=(typeof planActiveEvents==='function')?planActiveEvents():(ST_PLAN.events||[]);
+  var total=0, found=false;
+  evs.forEach(function(e){
+    if(e.herdId!==h.id || e.done || e.inForecast===false) return;
+    if(e.type!=='sell' && e.type!=='income') return;
+    found=true; total += (e.qty||0)*(e.price||0);
+  });
+  return found ? total : 0;
+}
+function lvpRunCostYear(h){ return Math.round(((h.feed||0)+(h.vet||0))*(h.qty||0)*12*
+  ((typeof lvpScenCostMult==='function')?lvpScenCostMult():1)); }
 
 function recomputePlan() {
   PLAN_OUTSIDE = []; PLAN_SPILL = [];
@@ -28107,6 +28428,10 @@ function recomputePlan() {
     if (typeof entOn==='function' && !entOn('livestock')) return;
     if (!e || !e.month) return;
     if (e.done) return; // realised: counted as an actual transaction, not planned (avoids double-count)
+    /* Honoured for livestock now, as it always was for crops. A planned buy stays
+       out of the forecast until it is confirmed — which is what the "now live"
+       flip in lsConfirmPlannedBuy was always waiting for. */
+    if (e.inForecast === false) return;
     var sAbs = planAbsIdx(e.month), W0 = planWindowStart();
     if (sAbs == null || W0 == null) return;
     var amount = (e.qty || 0) * (e.price || 0);
@@ -28154,11 +28479,16 @@ function recomputePlan() {
       var head=h.qty||0, perHead=(h.feed||0)+(h.vet||0);
       if(head<=0 || perHead<=0) return;
       var monthly=perHead*head;
+      /* Feed does not arrive in twelfths. Lean-season lick runs about 4x the
+         wet-season rate; the weights sum to 12 so the annual total is unchanged
+         and only its shape moves. */
+      var _w=(typeof lvpCostWeights==='function')?lvpCostWeights(h):null;
       for(var i=0;i<ST_PLAN.months.length;i++){
-        ST_PLAN.months[i].expenses += monthly;
-        ST_PLAN.months[i].lsRun = (ST_PLAN.months[i].lsRun||0) + monthly;
+        var _m=Math.round(monthly*(_w?_w[i]:1));
+        ST_PLAN.months[i].expenses += _m;
+        ST_PLAN.months[i].lsRun = (ST_PLAN.months[i].lsRun||0) + _m;
         ST_PLAN.months[i].events = ST_PLAN.months[i].events || [];
-        ST_PLAN.months[i].events.push({ type:'cost', animal:(typeof lsHerdName==='function'?lsHerdName(h):(h.name||'Livestock')), icon:(typeof lsHerdIcon==='function'?lsHerdIcon(h):'🐄'), desc:'Feed & health', amount:-monthly });
+        ST_PLAN.months[i].events.push({ type:'cost', animal:(typeof lsHerdName==='function'?lsHerdName(h):(h.name||'Livestock')), icon:(typeof lsHerdIcon==='function'?lsHerdIcon(h):'🐄'), desc:'Feed & health', amount:-_m });
       }
     });
   }
@@ -31869,142 +32199,721 @@ function updatePlanCombinedBanner() {
   }
 }
 
-function renderLiveCalGrid() {
-  var el = $('plan-live-grid'); if (!el) return;
-  var events = planActiveEvents();
+var LVP_OPEN = null;   /* expanded herd id — survives a re-render */
+var LVP_GRP  = {};     /* which group is open per herd */
 
-  var _herdN = (typeof ST_LS!=='undefined' && ST_LS.herd) ? ST_LS.herd.length : 0;
-  if (!events.length && !_herdN) {
-    el.innerHTML =
-      '<div style="text-align:center;color:var(--t3);padding:40px 20px;background:#fff;border-radius:var(--rl);border:1px dashed var(--br)">' +
-        '<div style="width:52px;height:52px;border-radius:14px;background:#F5E1EE;color:#7C2D5A;display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 12px">\ud83d\udc02</div>' +
-        '<div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:4px">Plan your livestock activities</div>' +
-        '<div style="font-size:13px;color:var(--t3);max-width:380px;margin:0 auto 14px;line-height:1.5">' +
-          'Add events for the moments when livestock moves money in or out \u2014 auction sales, breeding stock buys, wool clips, dipping rounds, vet visits.' +
-        '</div>' +
-        '<button onclick="openAddEvent()" style="background:#7C2D5A;color:#fff;border:none;border-radius:var(--rs);padding:10px 18px;font-size:13px;font-weight:700;cursor:pointer">+ Add your first event</button>' +
-      '</div>';
+/* ── the breeding calendar ────────────────────────────────────────────────
+   A defined season is what makes livestock income predictable: a 65-80 day
+   joining window collapses to a ~3-month calving window and therefore a
+   2-3 month income spike. Year-round bulls smear that flat. Gestation 285
+   days, weaning 205-210 — SA Society for Animal Science. */
+var LVP_GEST_D = 285, LVP_WEAN_D = 205, LVP_MO = 30.44;
+
+function lvpNum(v,d){ var n=parseFloat(v); return isNaN(n)?d:n; }
+function lvpBreedMode(h){ return h.pBreed || 'season'; }
+function lvpCycle(h){
+  var W0=(typeof planWindowStart==='function')?planWindowStart():null;
+  if(W0==null) return null;
+  var startAbs=(h.pBreedStart&&typeof planAbsIdx==='function')?planAbsIdx(h.pBreedStart):null;
+  if(startAbs==null) return null;
+  var bDays=lvpNum(h.pBreedDays,65), wDays=lvpNum(h.pWeanDays,LVP_WEAN_D);
+  var bLen=Math.max(0,Math.round(bDays/LVP_MO));
+  var gest=Math.round(LVP_GEST_D/LVP_MO);
+  var wean=Math.round(wDays/LVP_MO);
+  var pay=lvpPayDays(h);
+  var payMo=(pay<=1)?0:Math.round(pay/LVP_MO);
+  var calveFrom=startAbs+gest, calveTo=calveFrom+bLen;
+  var saleAbs=calveFrom+wean-lvpSellEarly();
+  return {W0:W0, breedFrom:startAbs, breedTo:startAbs+bLen,
+          calveFrom:calveFrom, calveTo:calveTo,
+          saleAbs:saleAbs, payAbs:saleAbs+payMo};
+}
+function lvpMonthLabel(abs){
+  var ms=(ST_PLAN.months||[]), W0=(typeof planWindowStart==='function')?planWindowStart():null;
+  if(W0==null) return '—';
+  var r=abs-W0;
+  if(r>=0 && r<12 && ms[r]) return ms[r].label;
+  /* outside the window — name it anyway so the farmer sees the real month */
+  var nm=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return nm[((abs%12)+12)%12]+' '+Math.floor(abs/12);
+}
+
+/* ── herd economics ───────────────────────────────────────────────────── */
+/* Herd type. "finish" is a buy-and-sell trading herd — the model the engine could
+   not express at all until now. h.buy and h.months already existed on every herd
+   for exactly this and were being ignored. */
+/* ── dry-year scenario ────────────────────────────────────────────────────
+   A view, not a data change: nothing here is written to the herd or pushed into
+   the forecast. The farmer sets the severity himself — no SA source publishes a
+   drought weaning-drop or feed-uplift, so any number we shipped would look
+   authoritative and be invented. Each mode remembers its own knobs. */
+var LVP_SCEN = {mode:'normal', min:false,
+  dry:     {wean:0, early:0, feed:0},
+  drought: {wean:0, early:0, feed:0}};
+function lvpScen(){ return (LVP_SCEN.mode==='normal') ? null : LVP_SCEN[LVP_SCEN.mode]; }
+function lvpScenOn(){ return LVP_SCEN.mode!=='normal'; }
+function lvpSetScen(mode){ LVP_SCEN.mode=mode; LVP_SCEN.min=false; renderLiveCalGrid(); }
+function lvpScenOk(){ LVP_SCEN.min=true; renderLiveCalGrid(); }
+function lvpScenExpand(){ LVP_SCEN.min=false; renderLiveCalGrid(); }
+function lvpSetScenVal(k,v){
+  var sc=lvpScen(); if(!sc) return;
+  var n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); sc[k]=isNaN(n)?0:Math.max(0,n);
+  renderLiveCalGrid();
+}
+/* Effective weaning % and cost under the current scenario. */
+/* A farmer reading "weaning drops by 18%" means 80% becomes 66%, not 62%.
+   Subtracting percentage POINTS would have made the label lie about the maths,
+   so the drop is applied the way the sentence reads. */
+function lvpEffWean(h){
+  var base=lvpNum(h.pWeanPct,80), sc=lvpScen();
+  return sc ? Math.max(0, Math.round(base*(1-sc.wean/100))) : base;
+}
+function lvpScenCostMult(){ var sc=lvpScen(); return sc ? (1+sc.feed/100) : 1; }
+function lvpSellEarly(){ var sc=lvpScen(); return sc ? Math.round(sc.early) : 0; }
+
+function lvpType(h){ return h.pType || (h.pSelling===false ? 'keep' : 'breed'); }
+function lvpIsFinish(h){ return lvpType(h)==='finish'; }
+
+/* Replacement % now DRIVES the heifers kept back, instead of sitting next to it
+   doing nothing. An explicit override still wins. */
+function lvpRetained(h){
+  if(h.pRetain!=null && h.pRetain!=='') return lvpNum(h.pRetain,0);
+  return Math.round(lvpBreedingFemales(h)*lvpNum(h.pReplacePct,10)/100);
+}
+
+/* ── buy & finish ─────────────────────────────────────────────────────── */
+function lvpFinishHead(h){ return Math.round(lvpNum(h.pBuyHead, h.qty||0)); }
+function lvpFinishBuy(h){
+  var kg=lvpNum(h.pBuyKg,0), rk=lvpNum(h.pBuyRPerKg,0);
+  var per=(kg>0&&rk>0)?kg*rk:(h.buy||0);
+  return lvpFinishHead(h)*per;
+}
+function lvpFinishMonths(h){ return Math.max(1, Math.round(lvpNum(h.pFeedMonths, h.months||5))); }
+function lvpFinishSale(h){
+  var kg=lvpNum(h.pOutKg,0), rk=lvpNum(h.pRPerKg,0);
+  var per=(kg>0&&rk>0)?kg*rk:(h.sell||0);
+  return lvpFinishHead(h)*per;
+}
+function lvpFinishFeed(h){
+  return Math.round(lvpFinishHead(h)*((h.feed||0)+(h.vet||0))*lvpFinishMonths(h)*lvpScenCostMult());
+}
+/* Average daily gain implied by the plan — shown so an impossible one is obvious
+   before the season is banked on it. */
+function lvpADG(h){
+  var g=lvpNum(h.pOutKg,0)-lvpNum(h.pBuyKg,0), d=lvpFinishMonths(h)*LVP_MO;
+  return (g>0&&d>0)?(g/d):0;
+}
+function lvpFinishCycle(h){
+  var W0=(typeof planWindowStart==='function')?planWindowStart():null;
+  if(W0==null) return null;
+  var buyAbs=(h.pBuyMonth&&typeof planAbsIdx==='function')?planAbsIdx(h.pBuyMonth):null;
+  if(buyAbs==null) return null;
+  var sale=buyAbs+lvpFinishMonths(h);
+  var pay=lvpPayDays(h); var payMo=(pay<=1)?0:Math.round(pay/LVP_MO);
+  return {W0:W0, buyAbs:buyAbs, saleAbs:sale, payAbs:sale+payMo};
+}
+
+function lvpBreedingFemales(h){
+  var bk=(typeof lsBreedingClass==='function')?lsBreedingClass(h.type):null;
+  var c=(bk&&typeof _lsClassObj==='function')?_lsClassObj(h,bk):null;
+  if(c) return c.n||0;
+  return Math.round((h.qty||0)*0.6);      /* no class split yet — a working estimate */
+}
+function lvpWeaners(h){
+  var bf=lvpBreedingFemales(h), pct=lvpEffWean(h);
+  return Math.max(0, Math.round(bf*pct/100) - lvpRetained(h));
+}
+function lvpPricePerHead(h){
+  var kg=lvpNum(h.pKg,0), rk=lvpNum(h.pRPerKg,0);
+  if(kg>0 && rk>0) return kg*rk;
+  return h.sell||0;                        /* fall back to the herd's target price */
+}
+function lvpGross(h){ return lvpWeaners(h)*lvpPricePerHead(h); }
+function lvpCommission(h){ return lvpGross(h)*lvpNum(h.pCommPct,6.5)/100; }
+function lvpNetIncome(h){
+  if(lvpType(h)==='keep') return 0;        /* keeping them — no sale, by choice */
+  if(lvpIsFinish(h)){
+    var g=lvpFinishSale(h);
+    return Math.round(g - g*lvpNum(h.pCommPct,6.5)/100);
+  }
+  if(h.pSelling===false) return 0;
+  if(lvpNeedsSetup(h)) return 0;           /* announced, not silently assumed */
+  var planned=lvpPlannedIncome(h);
+  if(planned>0) return planned;            /* an explicit event always wins */
+  return Math.round(lvpGross(h)-lvpCommission(h));
+}
+function lvpCostYear(h){
+  /* A trading herd is not kept for a year — it is bought, fed for N months and
+     sold. Charging it 12 months of keep would invent a cost it never carries. */
+  return lvpIsFinish(h) ? (lvpFinishBuy(h)+lvpFinishFeed(h)) : lvpRunCostYear(h);
+}
+function lvpMargin(h){ return lvpNetIncome(h)-lvpCostYear(h); }
+function lvpMarginLSU(h){ var l=lvpHerdLSU(h); return l>0?Math.round(lvpMargin(h)/l):0; }
+function lvpCostLSU(h){ var l=lvpHerdLSU(h); return l>0?Math.round(lvpRunCostYear(h)/l):0; }
+var LVP_BENCH_LSU = 1694.77;               /* Land Bank 2023/24 BEEF, variable cost / LSU */
+/* That figure is beef-specific. Sheep and goats are budgeted per small-stock unit
+   off a different cost base, so comparing a Merino flock against it produced a
+   meaningless "9.3x benchmark". Only claim the comparison where it holds. */
+function lvpBenchApplies(h){
+  return (typeof animalBase==='function') ? animalBase(h.type)==='Cattle' : false;
+}
+
+function lvpMoney(v){
+  var n=Math.abs(v), sign=v<0?'−R':'R';
+  if(n>=1e6) return sign+(n/1e6).toFixed(2)+'m';
+  if(n>=1000) return sign+Math.round(n/1000)+'k';
+  return sign+Math.round(n);
+}
+function lvpR(v){ return (v<0?'−R':'R')+_grpInt(v); }
+
+/* ── write path — one object, so the Livestock tab stays in step ───────── */
+function lvpSet(id, field, val){
+  var h=(typeof lsHerdById==='function')?lsHerdById(id):(ST_LS.herd||[]).filter(function(x){return String(x.id)===String(id);})[0];
+  if(!h) return;
+  if(field==='pSelling'){ h.pSelling = (val===true||val==='1'||val===1||val==='true'); }
+  /* Every string-valued field must be listed here — anything omitted falls to the
+     numeric branch and becomes 0, which is how the herd-type switch silently did
+     nothing on the first run. */
+  else if(field==='pBreed'||field==='pBreedStart'||field==='pChannel'||field==='pBasis'||
+          field==='pLean'||field==='pType'||field==='pBuyMonth') h[field]=val;
+  else if(field==='pRetain' && String(val).trim()===''){ h.pRetain=null; }   /* back to auto */
+  else if(field==='pPayDays' && String(val).trim()===''){ h.pPayDays=null; }  /* back to unset */
+  else { var n=parseFloat(String(val).replace(/[^0-9.\-]/g,'')); h[field]=isNaN(n)?0:Math.max(0,n); }
+  if(field==='pChannel'){ h.pPayDays = (val==='auction') ? 1 : null; }   /* APAC 31(2); others blank */
+  /* Same persistence the Livestock tab uses, so both tabs see one object.
+     dataChanged('livestock') re-renders this pane itself — calling
+     renderLiveCalGrid here too would just draw it twice. */
+  try{ if(typeof saveState==='function') saveState(); }catch(e){}
+  try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
+}
+/* Open a herd's row from anywhere and put it on screen. Used by the notice chips
+   and the setup banner, so naming a herd always comes with a way to reach it. */
+function lvpGoHerd(id){
+  if(typeof ST_PLAN!=='undefined' && ST_PLAN.activeTab!=='livestock' && typeof setPlanTab==='function') setPlanTab('livestock');
+  LVP_OPEN=id;
+  var h=(ST_LS.herd||[]).filter(function(x){return String(x.id)===String(id);})[0];
+  if(h && lvpNeedsSetup(h)) LVP_GRP[id]=lvpIsFinish(h)?'finish':'sell';   /* land on what is missing */
+  renderLiveCalGrid();
+  setTimeout(function(){
+    var el=document.querySelector('[data-lvpherd="'+String(id).replace(/"/g,'')+'"]');
+    if(el){ el.scrollIntoView({behavior:'smooth',block:'center'});
+      el.style.transition='box-shadow .3s'; el.style.boxShadow='0 0 0 3px #7C2D5A';
+      setTimeout(function(){ el.style.boxShadow=''; },1500); }
+  },60);
+}
+function lvpToggle(id){ LVP_OPEN=(String(LVP_OPEN)===String(id))?null:id; renderLiveCalGrid(); }
+function lvpToggleGrp(id,g){
+  /* '' means "the farmer closed them all" — distinct from undefined, which means
+     "he has not touched them, so show the default". Clearing to null made the
+     default reassert itself and the group could never be closed. */
+  var cur=LVP_GRP[id];
+  if(cur===undefined){ var h=(ST_LS.herd||[]).filter(function(x){return String(x.id)===String(id);})[0];
+    cur = h ? lvpDefaultGrp(h) : ''; }
+  LVP_GRP[id]=(cur===g)?'':g;
+  renderLiveCalGrid();
+}
+function lvpDefaultGrp(h){
+  if(lvpNeedsSetup(h)) return lvpIsFinish(h)?'finish':'sell';
+  return lvpIsFinish(h)?'finish':'breed';
+}
+
+/* ── row parts ────────────────────────────────────────────────────────── */
+function lvpNowIdx(){
+  var W0=(typeof planWindowStart==='function')?planWindowStart():null; if(W0==null) return -1;
+  var t=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
+  return (t.getFullYear()*12+t.getMonth())-W0;
+}
+/* Each cell stays a click target for the existing event editor —
+   onLiveCellClick handles add-for-cell, edit-single, the multi-event popover and
+   pinning a projected series. Losing that would remove the only way to edit an
+   event, so the indices are carried through exactly as the old grid did. */
+function lvpRibbon(h){
+  var cyc=lvpIsFinish(h)?null:lvpCycle(h), fin=lvpIsFinish(h)?lvpFinishCycle(h):null;
+  var now=lvpNowIdx(), lean=lvpLeanMonths(h);
+  var ms=(ST_PLAN.months||[]), out='';
+  var evs=(typeof planActiveEvents==='function')?planActiveEvents():[];
+  var nm=(h.name||h.type||'').replace(/'/g,"\\'");
+  for(var i=0;i<12;i++){
+    var cls='lvp-c', label=(ms[i]||{}).label||'';
+    if(fin){
+      var fa=fin.W0+i;
+      if(fa===fin.buyAbs) cls+=' bd';
+      else if(fa>fin.buyAbs && fa<fin.saleAbs) cls+=' gr';
+      if(fa===fin.saleAbs) cls+=' sl';
+      if(fa===fin.payAbs && fin.payAbs!==fin.saleAbs) cls+=' py';
+    } else if(cyc){
+      var abs=cyc.W0+i;
+      if(abs>=cyc.breedFrom && abs<=cyc.breedTo) cls+=' bd';
+      if(abs>=cyc.calveFrom && abs<=cyc.calveTo) cls+=' cv';
+      if(abs===cyc.saleAbs) cls+=' sl';
+      if(abs===cyc.payAbs && cyc.payAbs!==cyc.saleAbs) cls+=' py';
+    }
+    if(lean.indexOf(String(label).split(' ')[0])>=0) cls+=' lean';
+    if(i===now) cls+=' now';
+    var hits=[];
+    evs.forEach(function(e){
+      if(e.herdId!==h.id || e.done) return;
+      var sAbs=(typeof planAbsIdx==='function')?planAbsIdx(e.month):null;
+      var W0r=cyc?cyc.W0:(fin?fin.W0:null);
+      if(sAbs==null || W0r==null) return;
+      var rel=sAbs-W0r, applies=false;
+      if(e.recur==='monthly') applies = i>=rel;
+      else if(e.recur==='quarterly') applies = i>=rel && (i-rel)%3===0;
+      else applies = i===rel;
+      if(applies) hits.push(e.projected?-1:(ST_PLAN.events||[]).indexOf(e));
+    });
+    if(hits.length) cls+=' has';
+    out+='<span class="'+cls+'" title="'+planEscAttr(label)+'"'+
+      ' onclick="event.stopPropagation();onLiveCellClick(\''+h.id+'\',\''+nm+'\',\''+
+        planEscAttr(label)+'\',\''+hits.join(',')+'\',event)"></span>';
+  }
+  return out;
+}
+function lvpTags(h){
+  var t=[];
+  if(lvpNeedsSetup(h)) t.push('<span class="lvp-tag setup">setup needed</span>');
+  else if(lvpIsFinish(h)){
+    t.push('<span class="lvp-tag info">buy &amp; finish</span>');
+    var adg=lvpADG(h);
+    if(adg>1.6) t.push('<span class="lvp-tag warn">'+adg.toFixed(2)+' kg/day — check</span>');
+    else if(lvpMargin(h)<0) t.push('<span class="lvp-tag warn">loses money</span>');
+  }
+  else if(lvpType(h)==='keep'){
+    /* A herd being kept on purpose is not a problem to be flagged. Saying
+       "loses money" about a deliberate decision is noise — of course it does
+       this year; that is what keeping means. */
+    t.push('<span class="lvp-tag plum">keeping, not selling</span>');
+    if(lvpNum(h.pRetain,0)>0) t.push('<span class="lvp-tag plum">'+lvpNum(h.pRetain,0)+' retained</span>');
+  }
+  else {
+    if(lvpMargin(h)<0) t.push('<span class="lvp-tag warn">loses money</span>');
+    if(lvpBenchApplies(h)){
+      var c=lvpCostLSU(h);
+      if(c>LVP_BENCH_LSU*1.5) t.push('<span class="lvp-tag warn">'+(c/LVP_BENCH_LSU).toFixed(1)+'× feed cost</span>');
+    }
+    if(lvpBreedMode(h)==='yearround') t.push('<span class="lvp-tag info">bulls run all year</span>');
+    if(lvpNum(h.pRetain,0)>0) t.push('<span class="lvp-tag plum">'+lvpNum(h.pRetain,0)+' retained</span>');
+  }
+  return t.slice(0,2).join('');
+}
+
+function lvpMonthOpts(sel){
+  var o='<option value="">—</option>';
+  (ST_PLAN.months||[]).forEach(function(m){
+    o+='<option value="'+planEscAttr(m.label)+'"'+(m.label===sel?' selected':'')+'>'+esc(m.label)+'</option>';
+  });
+  return o;
+}
+function lvpSelOpts(list,sel){
+  return list.map(function(x){
+    return '<option value="'+planEscAttr(x[0])+'"'+(String(x[0])===String(sel)?' selected':'')+'>'+esc(x[1])+'</option>';
+  }).join('');
+}
+
+/* ── the four groups ──────────────────────────────────────────────────── */
+function lvpGroup(h, key, title, summary, bodyHTML, needs){
+  var cur=(LVP_GRP[h.id]===undefined)?lvpDefaultGrp(h):LVP_GRP[h.id];
+  var open=(cur===key);
+  return '<div class="lvp-fg'+(open?' open':'')+(needs?' needs':'')+'">'+
+    '<button class="lvp-fg-h" type="button" data-lvpgrp="'+planEscAttr(h.id+'|'+key)+'">'+
+      '<span class="cv2">'+(open?'▾':'▸')+'</span>'+
+      '<span class="ttl">'+title+'</span>'+
+      '<span class="sum">'+summary+'</span></button>'+
+    '<div class="lvp-fg-b">'+bodyHTML+'</div></div>';
+}
+
+/* The class split — who is actually in this herd and what each class is worth.
+   It used to sit on the row, but listing every class wrapped the line and broke
+   row alignment, so it belongs here where there is room for it. */
+function lvpClassTable(h){
+  var cls=(h.classes||[]);
+  if(!cls.length) return '<div class="lvp-facts">No class split on this herd yet — add one in the Livestock tab and the breeding maths gets sharper.</div>';
+  var bk=(typeof lsBreedingClass==='function')?lsBreedingClass(h.type):null;
+  var tot=cls.reduce(function(a,c){ return a+(c.n||0)*(c.v||0); },0);
+  var head=cls.reduce(function(a,c){ return a+(c.n||0); },0);
+  var rows=cls.map(function(c){
+    var meta=(typeof lsClassMeta==='function')?lsClassMeta(h.type,c.k):null;
+    var nm=(meta&&meta.label)?meta.label:c.k;
+    return '<div class="lvp-cr'+(c.k===bk?' bf':'')+'"><span>'+esc(nm)+
+      (c.k===bk?' <span class="lvp-bfmark">breeding</span>':'')+'</span>'+
+      '<span>'+(c.n||0)+'</span>'+
+      '<span>'+lvpR(c.v||0)+'</span>'+
+      '<span>'+lvpMoney((c.n||0)*(c.v||0))+'</span></div>';
+  }).join('');
+  return '<div class="lvp-ctab">'+
+    '<div class="lvp-cr hd"><span>Class</span><span>Head</span><span>Each</span><span>Worth</span></div>'+
+    rows+
+    '<div class="lvp-cr tot"><span>Herd value</span><span>'+head+'</span><span></span><span>'+lvpMoney(tot)+'</span></div>'+
+  '</div><div class="lvp-facts">Market value, not cash — and not income until an animal is sold. SARS carries breeding stock at 1965 standard values.</div>';
+}
+function lvpEditor(h){
+  var id=String(h.id).replace(/'/g,"\\'"), needs=lvpNeedsSetup(h);
+  var set="lvpSet('"+id+"',";
+  var f=function(lbl,html){ return '<div class="lvp-f"><label>'+lbl+'</label>'+html+'</div>'; };
+  var num=function(field,val,step){
+    return '<input type="number" min="0"'+(step?' step="'+step+'"':'')+' value="'+val+
+      '" onchange="event.stopPropagation();'+set+'\''+field+'\',this.value)">'; };
+  var sel=function(field,list,val){
+    return '<select onchange="event.stopPropagation();'+set+'\''+field+'\',this.value)">'+
+      lvpSelOpts(list,val)+'</select>'; };
+  var cyc=lvpCycle(h);
+  var mode=lvpBreedMode(h);
+
+  /* 1 — the breeding season, which computes the rest */
+  var bSum = (mode==='none') ? 'Not a breeding herd'
+    : (mode==='yearround') ? 'Bulls run all year'
+    : (h.pBreedStart ? 'Starts '+String(h.pBreedStart).split(' ')[0]+' · sells '+(cyc?lvpMonthLabel(cyc.saleAbs):'—') : 'Not set');
+  var bBody='<div class="lvp-f3">'+
+    f('Breeding',sel('pBreed',[['season','Defined season'],['yearround','Bulls run all year'],['none','Not a breeding herd']],mode))+
+    f('Starts','<select onchange="event.stopPropagation();'+set+'\'pBreedStart\',this.value)">'+lvpMonthOpts(h.pBreedStart)+'</select>')+
+    f('Length (days)',num('pBreedDays',lvpNum(h.pBreedDays,65),'5'))+
+    f('Calving','<input class="ro" readonly value="'+(cyc?esc(lvpMonthLabel(cyc.calveFrom)):'—')+'">')+
+    f('Weaned at (days)',num('pWeanDays',lvpNum(h.pWeanDays,LVP_WEAN_D),'5'))+
+    f('Sale month','<input class="ro" readonly value="'+(cyc?esc(lvpMonthLabel(cyc.saleAbs)):'—')+'">')+
+  '</div><div class="lvp-facts">Calving and sale are <b>computed</b> — 285-day gestation, weaning at 205 days. A defined season is what turns income into a spike you can plan around.</div>';
+
+  /* 2 — the herd */
+  var hSum=lvpBreedingFemales(h)+' females · '+lvpNum(h.pWeanPct,80)+'% weaning'+
+    (lvpNum(h.pRetain,0)>0?' · '+lvpNum(h.pRetain,0)+' retained':'');
+  var hBody='<div class="lvp-f3">'+
+    f('Breeding females','<input class="ro" readonly value="'+lvpBreedingFemales(h)+'">')+
+    f('Weaning %',num('pWeanPct',lvpNum(h.pWeanPct,80),'1'))+
+    f('Replacement %',num('pReplacePct',lvpNum(h.pReplacePct,10),'1'))+
+    f('Kept back <span style="color:var(--gm);text-transform:none">— from replacement</span>',
+      '<input class="ro" readonly value="'+lvpRetained(h)+'">')+
+    f('Override kept back','<input type="number" min="0" value="'+(h.pRetain==null?'':h.pRetain)+
+      '" placeholder="auto" onchange="event.stopPropagation();'+set+'\'pRetain\',this.value)">')+
+    f('Head on farm','<input class="ro" readonly value="'+(h.qty||0)+'">')+
+  '</div>'+lvpClassTable(h)+
+  '<div class="lvp-facts">Land Bank: weaning 80%, cow replacement 10%. <b>Kept back is worked out from replacement %</b> — type an override only if you are holding a different number. Mortality returns with the multi-year view, where it changes next season\u2019s breeding herd rather than this season\u2019s weaners.</div>';
+
+  /* 3 — how you sell */
+  var chan=h.pChannel||'auction';
+  /* Show the effective value, not the stored one — auction defaults to T+1 under
+     APAC rule 31(2), so "not set" was misreporting a default that does exist. */
+  var payEff=lvpPayDays(h);
+  var payLbl=(chan==='auction'||h.pPayDays!=null)
+    ? (payEff<=1?'T+1 business day':payEff+' days') : 'not set';
+  var sSum=({auction:'Auction',abattoir:'Abattoir',feedlot:'Feedlot',private:'Private treaty',wool:'Wool broker'}[chan]||'Auction')+
+    ' · paid '+payLbl+(lvpPricePerHead(h)>0?' · '+lvpR(lvpPricePerHead(h))+'/head':'');
+  var selling=(h.pSelling===true);
+  var sBody='<label class="lvp-check"><input type="checkbox"'+(selling?' checked':'')+
+      ' onchange="event.stopPropagation();lvpSet(\''+id+'\',\'pSelling\',this.checked?1:0)">'+
+      '<span>Selling from this herd this season</span></label>'+
+    (h.pSelling===false
+      ? '<div class="lvp-facts">Nothing is sold from this herd this season. Its keep still counts — the animals are worth more next year, but this year it is cash out.</div>'
+      : '')+
+    '<div class="lvp-f3"'+(selling?'':' style="opacity:.45;pointer-events:none"')+'>'+
+    f('Channel',sel('pChannel',[['auction','Auction (agent)'],['abattoir','Abattoir'],['feedlot','Feedlot'],['private','Private treaty'],['wool','Wool broker']],chan))+
+    f('Paid after (days)','<input type="number" min="0" value="'+(h.pPayDays==null?'':h.pPayDays)+
+      '" placeholder="set this" onchange="event.stopPropagation();'+set+'\'pPayDays\',this.value)">')+
+    f('Commission %',num('pCommPct',lvpNum(h.pCommPct,6.5),'0.5'))+
+    f('Weight basis',sel('pBasis',[['live','Live weight'],['carcass','Carcass weight']],h.pBasis||'live'))+
+    f('kg / head',num('pKg',lvpNum(h.pKg,0),'5'))+
+    f('R / kg',num('pRPerKg',lvpNum(h.pRPerKg,0),'1'))+
+  '</div><div class="lvp-facts">'+
+    (chan==='auction'
+      ? 'An agent must pay you <b>within one business day of the sale</b> — APAC livestock rule 31(2). That is the default, not a guess.'
+      : '<b>No published payment term exists for this channel.</b> Set it from your own experience — we will not invent one.')+
+  '</div>';
+
+  /* 4 — what it costs */
+  var lean=lvpLeanMonths(h);
+  var cSum='R'+_grpInt((h.feed||0)+(h.vet||0))+' / head / month · lean '+lean[0]+'–'+lean[lean.length-1];
+  var cBody='<div class="lvp-f3">'+
+    f('Feed / head / mo',num('feed',h.feed||0,'10'))+
+    f('Health / head / mo',num('vet',h.vet||0,'10'))+
+    f('Lean season',sel('pLean',[[LVP_LEAN.summer.join(','),'Jun–Sep (summer rain)'],[LVP_LEAN.winter.join(','),'Jan–Apr (winter rain)']],lean.join(',')))+
+  '</div><div class="lvp-facts">Lean-season lick runs about <b>4×</b> the wet-season rate. Your province suggests <b>'+
+    (lvpRainfall()==='winter'?'winter':'summer')+' rainfall</b>; change it if your veld says otherwise. <span style="color:var(--t4)">Land Bank 2023/24: 3.98:1.</span></div>';
+
+  var ty=lvpType(h);
+  var seg='<div class="lvp-seg">'+
+    [['breed','Breeding herd'],['finish','Buy &amp; finish'],['keep','Keep only']].map(function(o){
+      return '<button type="button" class="'+(ty===o[0]?'on':'')+
+        '" onclick="event.stopPropagation();'+set+'\'pType\',\''+o[0]+'\')">'+o[1]+'</button>';
+    }).join('')+'</div>';
+
+  /* A trading herd answers completely different questions, so it gets its own
+     group instead of breeding fields that mean nothing to it. */
+  var fin=lvpFinishCycle(h);
+  var fSum=(h.pBuyMonth?('Buy '+String(h.pBuyMonth).split(' ')[0]+' · '+lvpFinishHead(h)+' head · sell '+
+    (fin?lvpMonthLabel(fin.saleAbs).split(' ')[0]:'—')):'Not set');
+  var fBody='<div class="lvp-f3">'+
+    f('Buy month','<select onchange="event.stopPropagation();'+set+'\'pBuyMonth\',this.value)">'+lvpMonthOpts(h.pBuyMonth)+'</select>')+
+    f('Head',num('pBuyHead',lvpFinishHead(h),'1'))+
+    f('Buy R/kg',num('pBuyRPerKg',lvpNum(h.pBuyRPerKg,0),'1'))+
+    f('In weight (kg)',num('pBuyKg',lvpNum(h.pBuyKg,0),'5'))+
+    f('Months on feed',num('pFeedMonths',lvpFinishMonths(h),'1'))+
+    f('Out weight (kg)',num('pOutKg',lvpNum(h.pOutKg,0),'5'))+
+  '</div><div class="lvp-facts">'+
+    (lvpADG(h)>0
+      ? 'That is <b>'+(lvpNum(h.pOutKg,0)-lvpNum(h.pBuyKg,0))+' kg over '+lvpFinishMonths(h)+
+        ' months</b> — <b>'+lvpADG(h).toFixed(2)+' kg a day</b>.'+
+        (lvpADG(h)>1.6?' <span style="color:var(--or);font-weight:700">That is very high for veld — check it.</span>':'')
+      : 'Set both weights and the daily gain is worked out, so an impossible plan shows up before you bank on it.')+
+  '</div>';
+
+  var groups = seg +
+    (ty==='finish'
+      ? lvpGroup(h,'finish','Buy &amp; finish',fSum,fBody,lvpNeedsSetup(h))
+      : lvpGroup(h,'breed','The breeding season',bSum,bBody,false))+
+    (ty==='finish' ? '' : lvpGroup(h,'herd','The herd',hSum,hBody,false))+
+    lvpGroup(h,'sell','How you sell',sSum,sBody,needs)+
+    lvpGroup(h,'cost','What it costs',cSum,cBody,false);
+
+  var acts='<div class="lvp-acts">'+
+    '<button class="lvp-btn pri" type="button" onclick="event.stopPropagation();lsGoPlan('+id+')">↻ Herd Plan</button>'+
+    '<button class="lvp-btn" type="button" onclick="event.stopPropagation();nav(\'livestock\')">Open the herd</button>'+
+  '</div>';
+
+  return '<div class="lvp-ed"><div>'+groups+acts+'</div><div>'+lvpMoneyPanel(h)+'</div></div>';
+}
+
+function lvpMoneyPanel(h){
+  var needs=lvpNeedsSetup(h), run=lvpRunCostYear(h), lsu=lvpHerdLSU(h);
+
+  /* A trading herd's whole story is buy → feed → sell, so it gets its own panel
+     rather than a breeding one with the wrong lines in it. */
+  if(lvpIsFinish(h)){
+    var n=lvpFinishHead(h), buy=lvpFinishBuy(h), fd=lvpFinishFeed(h);
+    var gross=lvpFinishSale(h), cm=gross*lvpNum(h.pCommPct,6.5)/100;
+    var marg=lvpMargin(h), per=n?Math.round(marg/n):0, adg=lvpADG(h);
+    var f2='<div class="lvp-h2">Buy, feed, sell</div>';
+    if(needs){
+      f2+='<div class="lvp-ln"><span>Not set up yet</span><b>—</b></div>'+
+        '<div class="lvp-facts">Set the buy month, both weights and a sale price and the whole trade is worked out.</div>';
+      return f2;
+    }
+    f2+='<div class="lvp-ln ded"><span>Buy — '+n+' × '+lvpNum(h.pBuyKg,0)+' kg × '+lvpR(lvpNum(h.pBuyRPerKg,0))+'</span><b>−'+lvpMoney(buy)+'</b></div>'+
+      '<div class="lvp-ln ded"><span>Feed &amp; health — '+n+' head × '+lvpFinishMonths(h)+' months</span><b>−'+lvpMoney(fd)+'</b></div>'+
+      '<div class="lvp-ln"><span>Sell — '+n+' × '+lvpNum(h.pOutKg,0)+' kg × '+lvpR(lvpNum(h.pRPerKg,0))+'</span><b>'+lvpMoney(gross)+'</b></div>'+
+      '<div class="lvp-ln ded"><span>Marketing commission '+lvpNum(h.pCommPct,6.5)+'%</span><b>−'+lvpMoney(cm)+'</b></div>'+
+      '<div class="lvp-ln sum"><span>Margin</span><b>'+lvpMoney(marg)+' <span class="per">· '+lvpR(per)+' a head</span></b></div>';
+    f2+='<div class="lvp-be'+(adg>1.6?' warn':'')+'"><div class="k">Daily gain this plan needs</div>'+
+      '<div class="v">'+adg.toFixed(2)+' kg a day</div>'+
+      '<div class="s">'+(lvpNum(h.pOutKg,0)-lvpNum(h.pBuyKg,0))+' kg over '+lvpFinishMonths(h)+' months.'+
+      (adg>1.6?' <b>That is very high for veld</b> — feedlot rations reach it, grazing rarely does. Check the weights before you bank on this.':' Reasonable on decent grazing.')+
+      '</div></div>';
+    f2+='<div class="lvp-facts">'+lsu.toFixed(1)+' LSU while they are on the farm · '+(h.camp?esc(h.camp):'no camp set')+'</div>';
+    return f2;
+  }
+
+  var h2='<div class="lvp-h2">What this herd brings in</div>';
+  if(needs){
+    h2+='<div class="lvp-ln"><span>Sales</span><b>—</b></div>'+
+        '<div class="lvp-facts">Nothing is counted until you set how this herd sells. Its cost is already in your forecast.</div>';
+  } else {
+    var planned=lvpPlannedIncome(h);
+    if(planned>0){
+      h2+='<div class="lvp-ln"><span>Planned sales this season</span><b>'+lvpMoney(planned)+'</b></div>';
+    } else {
+      var w=lvpWeaners(h), pph=lvpPricePerHead(h);
+      h2+='<div class="lvp-ln"><span>'+lvpBreedingFemales(h)+' females × '+lvpNum(h.pWeanPct,80)+'% weaning</span><b>'+w+' head</b></div>'+
+          '<div class="lvp-ln"><span>'+w+' × '+lvpR(pph)+'</span><b>'+lvpMoney(lvpGross(h))+'</b></div>'+
+          '<div class="lvp-ln ded"><span>Marketing commission '+lvpNum(h.pCommPct,6.5)+'%</span><b>−'+lvpMoney(lvpCommission(h))+'</b></div>';
+    }
+    h2+='<div class="lvp-ln sum"><span>Money in</span><b>'+lvpMoney(lvpNetIncome(h))+'</b></div>';
+  }
+
+  h2+='<div class="lvp-h2" style="margin-top:14px">What it costs to keep</div>'+
+    '<div class="lvp-ln"><span>Feed &amp; health — '+(h.qty||0)+' head × R'+_grpInt((h.feed||0)+(h.vet||0))+' × 12</span><b>−'+lvpMoney(run)+'</b></div>'+
+    '<div class="lvp-ln sum"><span>Margin</span><b>'+lvpMoney(lvpMargin(h))+
+      ' <span class="per">· '+lvpR(lvpMarginLSU(h))+'/LSU</span></b></div>';
+
+  var cl=lvpCostLSU(h), useBench=lvpBenchApplies(h), ratio=cl/LVP_BENCH_LSU;
+  h2+='<div class="lvp-be'+(useBench&&ratio>1.5?' warn':'')+'"><div class="k">Cost to keep</div>'+
+    '<div class="v">'+lvpR(cl)+' / LSU</div>'+
+    '<div class="s">'+(useBench
+      ? 'The Land Bank runs a beef herd at <b>R1 695/LSU</b> of variable cost. This one runs at <b>'+
+        ratio.toFixed(1)+'×</b>.'+(ratio>1.5?' Either the feed figure is too high, or this herd is too small for its cost base.':'')+
+        ' <span style="color:var(--t4)">Land Bank Livestock Enterprise Budget 2023/24.</span>'
+      : 'The Land Bank per-LSU benchmark is a beef figure, so it is not quoted here — small stock is budgeted per small-stock unit off a different cost base.')+
+    '</div></div>';
+
+  if(lvpNum(h.pRetain,0)>0){
+    var r=lvpNum(h.pRetain,0), pph2=lvpPricePerHead(h), keep=r*((h.feed||0)+(h.vet||0))*12;
+    h2+='<div class="lvp-h2" style="margin-top:14px">Keeping '+r+' back</div>'+
+      '<div class="lvp-ln"><span>Sale given up this year</span><b>−'+lvpMoney(r*pph2)+'</b></div>'+
+      '<div class="lvp-ln"><span>Extra keep</span><b>−'+lvpMoney(keep)+'</b></div>'+
+      '<div class="lvp-facts">Kept animals are <b>not income</b> and barely register for tax — SARS carries breeding stock at 1965 standard values. Growing the herd is nearly tax-free, and it is also not cash.</div>';
+  }
+  h2+='<div class="lvp-facts">'+lsu.toFixed(1)+' LSU · '+(h.camp?esc(h.camp):'no camp set')+'</div>';
+  return h2;
+}
+
+function lvpRowHTML(h){
+  var open=(String(LVP_OPEN)===String(h.id)), needs=lvpNeedsSetup(h);
+  var m=lvpMargin(h), mL=lvpMarginLSU(h);
+  /* Head and LSU only — the class split lives in the expanded "The herd" group.
+     Listing every class wrapped the line on cattle and broke row alignment. */
+  var cls='';
+  return '<div class="lvp-item'+(needs?' needs':'')+'" data-lvpherd="'+planEscAttr(h.id)+'">'+
+    '<button class="lvp-row lvp-grid'+(open?' open':'')+'" type="button" data-lvprow="'+planEscAttr(h.id)+'"'+
+      ' aria-expanded="'+(open?'true':'false')+'">'+
+      '<span class="lvp-nm"><span class="lvp-ic">'+((typeof lsHerdIcon==='function')?lsHerdIcon(h):'🐄')+'</span>'+
+        '<span class="lvp-nmw"><span class="lvp-n1">'+esc(h.name||h.type||'Herd')+'</span>'+
+        '<span class="lvp-n2">'+esc((h.breed||h.type||'').split('·')[0].trim())+
+          ' · '+(h.qty||0)+' head · '+lvpHerdLSU(h).toFixed(1)+' LSU</span>'+
+        '<span class="lvp-tagline">'+lvpTags(h)+'</span></span></span>'+
+      '<span class="lvp-rib">'+lvpRibbon(h)+'</span>'+
+      '<span class="lvp-ha'+(mL<0?' neg':'')+'">'+(needs?'—':lvpR(mL))+'<span class="u">/LSU</span></span>'+
+      '<span class="lvp-money'+(m<0?' neg':'')+'">'+(needs?'—':lvpMoney(m))+'</span>'+
+      '<span class="lvp-car">'+(open?'▲':'▼')+'</span>'+
+    '</button>'+(open?lvpEditor(h):'')+'</div>';
+}
+
+function lvpTotals(list){
+  var host=$('lvp-totals'); if(!host) return;
+  var inc=0,cost=0,lsu=0,need=0;
+  list.forEach(function(h){ inc+=lvpNetIncome(h); cost+=lvpRunCostYear(h); lsu+=lvpHerdLSU(h);
+    if(lvpNeedsSetup(h)) need++; });
+  var ha=(ST_LS.camps||[]).reduce(function(s,c){return s+(c.ha||0);},0);
+  var haLsu=lsu>0?(ha/lsu):0;
+  var bench=(typeof AGRI_BENCH!=='undefined'&&AGRI_BENCH.veldLsuHa)?(1/AGRI_BENCH.veldLsuHa.v):6;
+  host.innerHTML=
+    '<div><div class="k">Running costs</div><div class="v" style="color:var(--or)">'+lvpMoney(cost)+'</div>'+
+      '<div class="n">feed &amp; health, weighted to the lean season</div></div>'+
+    '<div><div class="k">Livestock income</div><div class="v" style="color:var(--gd)">'+lvpMoney(inc)+'</div>'+
+      '<div class="n">'+(need?need+' herd'+(need===1?'':'s')+' not counted yet':'after marketing commission')+'</div></div>'+
+    '<div><div class="k">Margin</div><div class="v">'+lvpMoney(inc-cost)+'</div>'+
+      '<div class="n">before farm overheads</div></div>'+
+    '<div><div class="k">Stocking rate</div><div class="v"'+(haLsu&&haLsu<bench?' style="color:var(--or)"':'')+'>'+
+      (haLsu?haLsu.toFixed(1)+' ha/LSU':'—')+'</div>'+
+      '<div class="n">'+lsu.toFixed(1)+' LSU on '+ha+' ha · veld norm about '+bench.toFixed(0)+' ha/LSU</div></div>';
+}
+
+/* The scenario strip. Shows the delta against a normal season rather than just
+   the stressed number, because "R391k worse" is the sentence a farmer acts on. */
+function lvpScenStrip(herds){
+  var modes=[['normal','Normal season'],['dry','Dry year'],['drought','Drought']];
+  var seg='<div class="lvp-seg">'+modes.map(function(m){
+    return '<button type="button" class="'+(LVP_SCEN.mode===m[0]?'on':'')+
+      '" onclick="lvpSetScen(\''+m[0]+'\')">'+m[1]+'</button>';}).join('')+'</div>';
+  /* Normal season is the resting state, so it stays a small centred bar rather
+     than a panel taking up the top of the tab. */
+  if(!lvpScenOn()) return '<div class="lvp-scen calm">'+seg+
+    '<span class="lvp-scenhint">Try a dry year — nothing is saved</span></div>';
+
+  var sc=lvpScen();
+  /* Once the farmer has set the severities and pressed OK the amber panel folds
+     to a single line, so a stress test does not sit shouting over the plan it is
+     meant to help him read. */
+  if(LVP_SCEN.min){
+    var nowM=herds.reduce(function(a,x){ return a+lvpMargin(x); },0);
+    var k0=LVP_SCEN.mode; LVP_SCEN.mode='normal';
+    var baseM=herds.reduce(function(a,x){ return a+lvpMargin(x); },0);
+    LVP_SCEN.mode=k0;
+    return '<div class="lvp-scen on mini">'+seg+
+      '<span class="lvp-minid'+((nowM-baseM)<0?' bad':'')+'">'+
+        lvpMoney(Math.abs(nowM-baseM))+' worse than normal</span>'+
+      '<button type="button" class="lvp-minibtn" onclick="lvpScenExpand()">Change</button></div>';
+  }
+  /* margin now, and margin if the season were normal — same herds, scenario off */
+  var now=herds.reduce(function(a,x){ return a+lvpMargin(x); },0);
+  var keep=LVP_SCEN.mode; LVP_SCEN.mode='normal';
+  var base=herds.reduce(function(a,x){ return a+lvpMargin(x); },0);
+  LVP_SCEN.mode=keep;
+  var delta=now-base;
+
+  return '<div class="lvp-scen on">'+seg+
+    '<div class="lvp-knobs">'+
+      '<label>Weaning drops by<input type="number" min="0" max="90" value="'+sc.wean+
+        '" onchange="lvpSetScenVal(\'wean\',this.value)"><span>%</span></label>'+
+      '<label>Sell how many months earlier<input type="number" min="0" max="6" value="'+sc.early+
+        '" onchange="lvpSetScenVal(\'early\',this.value)"></label>'+
+      '<label>Feed bill goes up by<input type="number" min="0" max="300" value="'+sc.feed+
+        '" onchange="lvpSetScenVal(\'feed\',this.value)"><span>%</span></label>'+
+      '<button type="button" class="lvp-btn pri" onclick="lvpScenOk()">OK</button>'+
+    '</div>'+
+    (sc.wean>0?'<div class="lvp-facts" style="color:var(--or)">A herd weaning <b>80%</b> now weans <b>'+
+      Math.round(80*(1-sc.wean/100))+'%</b>.</div>':'')+
+    /* A weaning drop can only reduce income that is COMPUTED from weaners. Where
+       the farmer has entered an explicit sale event, the number is his and we do
+       not silently override it — but he has to be told, or he sets the knob,
+       sees nothing move, and stops trusting the tool. */
+    (function(){
+      if(!(sc.wean>0)) return '';
+      var ev=herds.filter(function(x){ return !lvpNeedsSetup(x) && lvpPlannedIncome(x)>0; });
+      if(!ev.length) return '';
+      return '<div class="lvp-scenwarn" style="color:var(--or)"><b>'+ev.length+' herd'+
+        (ev.length===1?'':'s')+' sell on events you entered</b> ('+
+        esc(ev.map(function(x){return x.name||x.type;}).join(', '))+
+        '), so a weaning drop cannot change their income — the head count is yours, not ours. '+
+        'Edit those sales to model fewer animals.</div>';
+    })()+
+    '<div class="lvp-scendelta'+(delta<0?' bad':'')+'">'+
+      '<span class="k">Margin '+(delta<0?'worse by':'change')+'</span>'+
+      '<span class="v">'+lvpMoney(Math.abs(delta))+'</span>'+
+      '<span class="n">'+lvpMoney(base)+' normal → '+lvpMoney(now)+'</span></div>'+
+    '<div class="lvp-scennote"><b>Selling because of drought?</b> Proceeds can be deposited with the '+
+      'Land Bank within <b>three months</b> and the tax deferred — First Schedule para 13A. On a '+
+      'forced sale that is the difference between one brutal tax year and a spread one.</div>'+
+    '<div class="lvp-scenwarn">These severities are <b>yours to set</b>. No SA source publishes a '+
+      'drought weaning drop or feed uplift, so we do not pre-fill one.</div>'+
+  '</div>';
+}
+
+function renderLiveCalGrid(){
+  var el=$('plan-live-grid'); if(!el) return;
+  var herds=((typeof ST_LS!=='undefined'&&ST_LS.herd)?ST_LS.herd:[]).filter(function(h){ return h && !h.removed; });
+  var events=(typeof planActiveEvents==='function')?planActiveEvents():[];
+
+  if(!herds.length && !events.length){
+    el.innerHTML='<div class="lvp-empty">'+
+      '<div style="font-size:15px;font-weight:800;color:var(--t1);margin-bottom:4px">Plan your livestock</div>'+
+      '<div style="max-width:380px;margin:0 auto 14px;line-height:1.5">Add a herd and we will work out when it breeds, when it sells and what it costs to keep.</div>'+
+      '<button class="lvp-btn pri" type="button" onclick="openAddEvent()">+ Add your first event</button></div>';
     return;
   }
 
-  // Group events by animal — seed from your herds so every herd is a plannable row
-  // One plannable row PER HERD, keyed by herd id — so same-named/typed herds never merge into one row.
-  var groups = {};
-  var orderedKeys = [];
-  function _liveRowLabel(h){ return h.name || (h.type + (h.camp ? ' · ' + h.camp : '')); }   // "Type · Camp" when unnamed
-  if (typeof ST_LS !== 'undefined' && ST_LS.herd) {
-    ST_LS.herd.forEach(function(h){
-      if (h.removed) return;
-      var gk = 'h' + h.id;
-      if (!groups[gk]) { groups[gk] = {key:gk, herdId:h.id, animal:_liveRowLabel(h), icon:lsHerdIcon(h), events:[], planned:!!h.planned, owned:!h.planned}; orderedKeys.push(gk); }
-    });
+  var MS=(ST_PLAN.months||[]).map(function(m){ return String(m.label||'').split(' ')[0]; });
+  var now=lvpNowIdx();
+  var needs=herds.filter(lvpNeedsSetup);
+
+  var h='<div class="lvp-wrap">'+
+    '<div class="lvp-lh"><div><div class="t">Livestock planning</div>'+
+      '<div class="s">Tap a herd to set its breeding season, prices and costs — the maths updates as you type</div></div>'+
+      '<div class="lvp-legend">'+
+        '<span><i class="bd"></i>Breeding</span><span><i class="cv"></i>Calving</span>'+
+        '<span><i class="sl"></i>Wean &amp; sell</span><span><i class="py"></i>Money lands</span>'+
+        '<span><i class="ln"></i>Lean season</span></div></div>';
+
+  h+=lvpScenStrip(herds);
+
+  if(needs.length){
+    var nc=needs.reduce(function(s,x){ return s+lvpRunCostYear(x); },0);
+    h+='<div class="lvp-setup"><span class="ic">!</span><span class="bt"><b>'+
+      needs.length+' herd'+(needs.length===1?'':'s')+' still without selling details.</b> '+
+      esc(needs.map(function(x){return x.name||x.type;}).join(', '))+
+      ' — costing you '+lvpMoney(nc)+
+      ' a year in the forecast. No income is counted until you set how they sell. '+
+      'Tap the herd to finish it.</span></div>';
   }
-  events.forEach(function(e, i) {
-    var gk = null;
-    if (e.herdId != null && groups['h' + e.herdId]) gk = 'h' + e.herdId;              // attach by herd id when the event carries one
-    else if (typeof ST_LS !== 'undefined' && ST_LS.herd) {                            // legacy/manual events: fall back to a name match
-      for (var _j=0; _j<ST_LS.herd.length; _j++){ var _h=ST_LS.herd[_j]; if(!_h.removed && (_h.name||_h.type)===(e.animal||'')){ gk='h'+_h.id; break; } }
-    }
-    if (!gk) { gk = 'n:' + (e.animal || 'Other livestock'); if (!groups[gk]) { groups[gk] = {key:gk, herdId:null, animal:(e.animal || 'Other livestock'), icon:e.icon || '\ud83d\udc02', events:[], planned:false, owned:false}; orderedKeys.push(gk); } }
-    groups[gk].events.push({e:e, idx:(e.projected?-1:ST_PLAN.events.indexOf(e))});
-  });
 
-  var allMonths = ST_PLAN.months.map(function(m){ return m.label; });
-  var nowLabel = currentPeriodLabel();
+  h+='<div class="lvp-grid lvp-mh"><span class="colh">Herd</span>'+
+      '<div class="lvp-mrow">'+MS.map(function(m,i){
+        return '<span'+(i===now?' class="now"':'')+'>'+esc(m)+'</span>'; }).join('')+'</div>'+
+      '<span class="colh r">Margin/LSU</span><span class="colh r">Margin</span><span></span></div>'+
+    herds.map(lvpRowHTML).join('')+
+    '<div class="lvp-tot" id="lvp-totals"></div>'+
+    '<div class="lvp-acts" style="margin-top:14px">'+
+      '<button class="lvp-btn" type="button" onclick="openAddEvent()">+ Add a different animal</button>'+
+    '</div></div>';
 
-  el.innerHTML = orderedKeys.map(function(key) {
-    var g = groups[key];
-    // Aggregate net for this animal group across the year
-    var net = 0;
-    g.events.forEach(function(item) {
-      var e = item.e;
-      if (e.done) return;   // realised events are booked as actual txns; the forecast excludes them, so must the badge
-      var startIdx = allMonths.indexOf(e.month);
-      if (startIdx < 0) return;
-      var hits = 1;
-      if (e.recur === 'monthly')   hits = 12 - startIdx;
-      if (e.recur === 'quarterly') hits = Math.floor((12 - startIdx + 2) / 3);
-      if (hits < 1) hits = 1;
-      var amt = (e.qty || 0) * (e.price || 0);
-      var signed = (e.type === 'sell' || e.type === 'income') ? amt : -amt;
-      net += signed * hits;
-    });
-
-    // Build cells per month
-    var cells = allMonths.map(function(label, i) {
-      var hits = [];
-      g.events.forEach(function(item) {
-        var e = item.e;
-        if (e.done) return;   // realised → drops off the planning calendar (now in actuals/history)
-        var startIdx = allMonths.indexOf(e.month);
-        if (startIdx < 0) return;
-        var applies = false;
-        if (e.recur === 'monthly')   applies = i >= startIdx;
-        else if (e.recur === 'quarterly') applies = i >= startIdx && (i - startIdx) % 3 === 0;
-        else                          applies = i === startIdx;
-        if (applies) hits.push(item); // keep original event indices
-      });
-
-      var stage = '+ Add';
-      var clsType = 'lv-cell-empty';
-      if (hits.length) {
-        var primary = hits[0].e;
-        var icon = primary.type === 'sell' ? '\ud83d\udcb0'
-                 : primary.type === 'buy'  ? '\ud83e\udd1d'
-                 : primary.type === 'cost' ? '\ud83d\udca7'
-                 : '\u2728';
-        var label = primary.type === 'sell' ? 'Sell'
-                  : primary.type === 'buy'  ? 'Buy'
-                  : primary.type === 'cost' ? 'Cost'
-                  : 'Income';
-        stage = icon + ' ' + label;
-        if (hits.length > 1) stage += ' <span style="background:#7C2D5A;color:#fff;font-size:9px;padding:1px 5px;border-radius:99px;margin-left:2px">+' + (hits.length - 1) + '</span>';
-        clsType = 'lv-cell-event-' + primary.type;
-      }
-
-      var nowOutline = label === nowLabel ? 'outline:2px solid var(--gd);outline-offset:-2px;' : '';
-      var cellStyle = hits.length
-        ? nowOutline
-        : nowOutline;
-
-      // Pass event indices so popover can edit them
-      var hitIdxs = hits.map(function(h){ return h.idx; }).join(',');
-      var animalEsc = g.animal.replace(/'/g, '\\\'');
-      var _hk = (g.herdId != null ? g.herdId : '');
-      var clickAttr = 'onclick="onLiveCellClick(\'' + _hk + '\',\'' + animalEsc + '\',\'' + label + '\',\'' + hitIdxs + '\',event)"';
-
-      return '<div class="lv-cell ' + clsType + '" ' + clickAttr + ' style="border-radius:5px;padding:5px 3px;text-align:center;font-size:10px;font-weight:600;cursor:pointer;' + cellStyle + '">' + stage + '</div>';
-    }).join('');
-
-    var monthLabels = allMonths.map(function(m) {
-      return '<div style="text-align:center;font-size:10px;color:var(--t3);padding:2px 0">' + m.split(' ')[0] + '</div>';
-    }).join('');
-
-    var profitable = net >= 0;
-    var profitBg  = profitable ? 'var(--gb)' : 'var(--op)';
-    var profitCol = profitable ? 'var(--gd)' : 'var(--or)';
-    var fmtNet    = (net < 0 ? '\u2212' : '+') + 'R' + Math.round(Math.abs(net)/1000) + 'k';
-
-    return '<div style="background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:16px;box-shadow:var(--sh)">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">' +
-        '<div style="display:flex;align-items:center;gap:9px">' +
-          '<div style="width:36px;height:36px;border-radius:9px;background:#F5E1EE;color:#7C2D5A;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">' + g.icon + '</div>' +
-          '<div>' +
-            '<div style="font-size:15px;font-weight:800">' + g.animal + (g.planned ? ' <span style="background:#FBEAF3;color:#7C2D5A;font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;vertical-align:2px">Planned</span>' : (g.owned ? ' <span style="background:var(--gp);color:var(--gd);font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;vertical-align:2px">On farm</span>' : '')) + '</div>' +
-            '<div style="font-size:12px;color:var(--t3)">' + (g.events.length ? (g.events.length + ' event' + (g.events.length > 1 ? 's' : '') + ' planned this year') : 'No events yet — tap a month to plan') + '</div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="background:' + profitBg + ';color:' + profitCol + ';font-size:13px;font-weight:800;padding:4px 12px;border-radius:20px">Net: ' + fmtNet + '</div>' +
-      '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px;margin-bottom:4px">' + cells + '</div>' +
-      '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:3px">' + monthLabels + '</div>' +
-    '</div>';
-  }).join('') +
-  '<div style="background:#fff;border:1px dashed var(--br);border-radius:var(--rl);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap">' +
-    '<div style="font-size:12px;color:var(--t3);line-height:1.5"><strong style="color:var(--t1);font-weight:700">Tip:</strong> click any month above to add a new event for that animal, or click an existing event to edit or remove it.</div>' +
-    '<button onclick="openAddEvent()" style="background:#fff;border:1.5px solid #7C2D5A;color:#7C2D5A;border-radius:var(--rs);padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">+ Add a different animal</button>' +
-  '</div>';
+  el.innerHTML=h;
+  lvpTotals(herds);
+  try{ if(typeof langSync==='function') langSync(el); }catch(e){}
 }
+
+/* Delegated so they survive every re-render. */
+document.addEventListener('click', function(e){
+  if(!e.target || !e.target.closest) return;
+  var g=e.target.closest('[data-lvpgrp]');
+  if(g){ var p=g.getAttribute('data-lvpgrp').split('|'); lvpToggleGrp(p[0],p[1]); return; }
+  var r=e.target.closest('[data-lvprow]');
+  if(r) lvpToggle(r.getAttribute('data-lvprow'));
+});
 
 function renderEventList() {
   var wrap = $('plan-live-list-wrap'); if (!wrap) return;
@@ -35651,6 +36560,149 @@ var LANG_PAIRS = [
   ["Export (%)","Uitvoer (%)"],
   ["Top grade (%)","Topgraad (%)"],
   ["levy","heffing"],
+  ["% export","% uitvoer"],
+  ["Packing","Verpakking"],
+  ["Shipping","Versending"],
+  ["Tap a herd to set its breeding season, prices and costs — the maths updates as you type","Tik op 'n kudde om sy teelseisoen, pryse en koste te stel — die somme werk by soos jy tik"],
+  ["Calving and sale are computed — 285-day gestation, weaning at 205 days. A defined season is what turns income into a spike you can plan around.","Kalwing en verkoop word bereken — 285 dae dragtig, speen op 205 dae. 'n Vaste seisoen is wat inkomste in 'n punt verander wat jy kan beplan."],
+  ["An agent must pay you within one business day of the sale — APAC livestock rule 31(2). That is the default, not a guess.","'n Agent moet jou binne een werksdag ná die verkoop betaal — APAC-veereël 31(2). Dit is die verstek, nie 'n raaiskoot nie."],
+  ["No published payment term exists for this channel. Set it from your own experience — we will not invent one.","Daar is geen gepubliseerde betaaltermyn vir hierdie kanaal nie. Stel dit uit jou eie ervaring — ons sal nie een uitdink nie."],
+  ["Nothing is counted until you set how this herd sells. Its cost is already in your forecast.","Niks tel voordat jy stel hoe hierdie kudde verkoop nie. Die koste is reeds in jou vooruitskatting."],
+  ["Kept animals are not income and barely register for tax — SARS carries breeding stock at 1965 standard values. Growing the herd is nearly tax-free, and it is also not cash.","Diere wat jy hou is nie inkomste nie en tel skaars vir belasting — SARS dra teelvee teen 1965-standaardwaardes. Om die kudde te laat groei is byna belastingvry, en dit is ook nie kontant nie."],
+  ["The Land Bank per-LSU benchmark is a beef figure, so it is not quoted here — small stock is budgeted per small-stock unit off a different cost base.","Die Landbank se maatstaf per GVE is 'n beesgetal, so dit word nie hier aangehaal nie — kleinvee word per kleinvee-eenheid begroot op 'n ander kostebasis."],
+  ["still without selling details","sonder verkoopbesonderhede"],
+  ["but no income is counted until you set how and when","maar geen inkomste tel voordat jy stel hoe en wanneer"],
+  ["a year in the forecast","'n jaar in die vooruitskatting"],
+  ["Tap the herd to finish it.","Tik op die kudde om dit klaar te maak."],
+  ["Livestock planning","Veebeplanning"],
+  ["The breeding season","Die teelseisoen"],
+  ["How you sell","Hoe jy verkoop"],
+  ["What it costs","Wat dit kos"],
+  ["The herd","Die kudde"],
+  ["What this herd brings in","Wat hierdie kudde inbring"],
+  ["What it costs to keep","Wat dit kos om aan te hou"],
+  ["Planned sales this season","Beplande verkope hierdie seisoen"],
+  ["Marketing commission","Bemarkingskommissie"],
+  ["Money in","Geld in"],
+  ["Cost to keep","Koste om aan te hou"],
+  ["Wean & sell","Speen en verkoop"],
+  ["Lean season","Skraal seisoen"],
+  ["Breeding","Teling"],
+  ["Calving","Kalwing"],
+  ["setup needed","opstel nodig"],
+  ["loses money","verloor geld"],
+  ["bulls run all year","bulle loop heeljaar"],
+  ["Defined season","Vaste seisoen"],
+  ["Bulls run all year","Bulle loop heeljaar"],
+  ["Not a breeding herd","Nie 'n teelkudde nie"],
+  ["Breeding females","Teelwyfies"],
+  ["Weaning %","Speen %"],
+  ["Replacement %","Vervanging %"],
+  ["Kept back","Teruggehou"],
+  ["Mortality %","Vrektes %"],
+  ["Head on farm","Koppe op die plaas"],
+  ["Auction (agent)","Veiling (agent)"],
+  ["Private treaty","Privaat ooreenkoms"],
+  ["Wool broker","Wolmakelaar"],
+  ["Paid after (days)","Betaal na (dae)"],
+  ["Weight basis","Gewigsbasis"],
+  ["Live weight","Lewende gewig"],
+  ["Carcass weight","Karkasgewig"],
+  ["Feed / head / mo","Voer / kop / mnd"],
+  ["Health / head / mo","Gesondheid / kop / mnd"],
+  ["Sale month","Verkoopmaand"],
+  ["Herd Plan","Kuddeplan"],
+  ["Open the herd","Maak die kudde oop"],
+  ["Livestock income","Vee-inkomste"],
+  ["Stocking rate","Aanhoudingsdigtheid"],
+  ["veld norm about","veldnorm ongeveer"],
+  ["not counted yet","nog nie getel nie"],
+  ["a year in the forecast. No income is counted until you set how they sell.","'n jaar in die vooruitskatting. Geen inkomste tel voordat jy stel hoe hulle verkoop nie."],
+  ["— costing you","— kos jou"],
+  ["herds","kuddes"],
+  ["herd","kudde"],
+  ["× the feed benchmark","× die voermaatstaf"],
+  ["either the feed figure is too high, or this herd is too small for its cost base.","óf die voersyfer is te hoog, óf hierdie kudde is te klein vir sy kostebasis."],
+  ["feed & health, weighted to the lean season","voer en gesondheid, geweeg na die skraal seisoen"],
+  ["The Land Bank runs a beef herd at","Die Landbank bedryf 'n beeskudde teen"],
+  ["of variable cost. This one runs at","veranderlike koste. Hierdie een loop teen"],
+  ["Either the feed figure is too high, or this herd is too small for its cost base.","Óf die voersyfer is te hoog, óf hierdie kudde is te klein vir sy kostebasis."],
+  ["LSU on","GVE op"],
+  ["Selling from this herd this season","Verkoop uit hierdie kudde hierdie seisoen"],
+  ["Nothing is sold from this herd this season. Its keep still counts — the animals are worth more next year, but this year it is cash out.","Niks word hierdie seisoen uit hierdie kudde verkoop nie. Die onderhoud tel steeds — die diere is volgende jaar meer werd, maar vanjaar is dit kontant uit."],
+  ["Their keep is counted but no income is, so your forecast reads worse than the farm. Say whether each one sells this season.","Hulle onderhoud tel maar geen inkomste nie, so jou vooruitskatting lees slegter as die plaas. Sê of elkeen hierdie seisoen verkoop."],
+  ["of keep with no sale against it — the animals are worth more next year, but this year it is cash out.","se onderhoud sonder 'n verkoop daarteen — die diere is volgende jaar meer werd, maar vanjaar is dit kontant uit."],
+  ["No class split on this herd yet — add one in the Livestock tab and the breeding maths gets sharper.","Nog geen klasverdeling op hierdie kudde nie — voeg een in die Vee-oortjie by en die teelsomme word skerper."],
+  ["Market value, not cash — and not income until an animal is sold. SARS carries breeding stock at 1965 standard values.","Markwaarde, nie kontant nie — en nie inkomste voordat 'n dier verkoop is nie. SARS dra teelvee teen 1965-standaardwaardes."],
+  ["with no sale planned","sonder 'n beplande verkoop"],
+  ["kept, not sold","gehou, nie verkoop nie"],
+  ["keeping, not selling","hou, verkoop nie"],
+  ["You chose to keep","Jy het gekies om te hou"],
+  ["this season.","hierdie seisoen."],
+  ["Herd value","Kuddewaarde"],
+  ["breeding","teel"],
+  ["Class","Klas"],
+  ["Head","Koppe"],
+  ["Each","Elk"],
+  ["Worth","Werd"],
+  ["Heifers","Verse"],
+  ["Calves","Kalwers"],
+  ["Steers","Osse"],
+  ["Bulls","Bulle"],
+  ["Cows","Koeie"],
+  ["Bucks","Bokramme"],
+  ["Rams","Ramme"],
+  ["Wethers","Hamels"],
+  ["Does","Bokooie"],
+  ["Kids","Boklammers"],
+  ["Ewes","Ooie"],
+  ["Lambs","Lammers"],
+  ["Switch to a dry year to stress-test the plan. Nothing is saved or pushed to your forecast.","Skakel oor na 'n droë jaar om die plan te toets. Niks word gestoor of na jou vooruitskatting gestuur nie."],
+  ["Selling because of drought? Proceeds can be deposited with the Land Bank within three months and the tax deferred — First Schedule para 13A. On a forced sale that is the difference between one brutal tax year and a spread one.","Verkoop weens droogte? Opbrengs kan binne drie maande by die Landbank gedeponeer word en die belasting uitgestel word — Eerste Bylae para 13A. By 'n gedwonge verkoop is dit die verskil tussen een wrede belastingjaar en 'n gespreide een."],
+  ["These severities are yours to set. No SA source publishes a drought weaning drop or feed uplift, so we do not pre-fill one.","Hierdie erns is joune om te stel. Geen SA-bron publiseer 'n droogte-speendaling of voertoename nie, so ons vul nie een vooraf in nie."],
+  ["Set both weights and the daily gain is worked out, so an impossible plan shows up before you bank on it.","Stel albei gewigte en die daaglikse toename word uitgewerk, sodat 'n onmoontlike plan wys voordat jy daarop staatmaak."],
+  ["That is very high for veld — feedlot rations reach it, grazing rarely does. Check the weights before you bank on this.","Dit is baie hoog vir veld — voerkraalrantsoene haal dit, weiding selde. Kyk die gewigte na voordat jy hierop staatmaak."],
+  ["That is very high for veld — check it.","Dit is baie hoog vir veld — kyk dit na."],
+  ["Reasonable on decent grazing.","Redelik op goeie weiding."],
+  ["Set the buy month, both weights and a sale price and the whole trade is worked out.","Stel die koopmaand, albei gewigte en 'n verkoopprys, en die hele transaksie word uitgewerk."],
+  ["Normal season","Normale seisoen"],
+  ["Dry year","Droë jaar"],
+  ["Drought","Droogte"],
+  ["Weaning drops","Speen daal"],
+  ["Sell earlier by","Verkoop vroeër met"],
+  ["Feed bill up","Voerrekening op"],
+  ["Margin worse by","Marge slegter met"],
+  ["Margin change","Margeverandering"],
+  ["Breeding herd","Teelkudde"],
+  ["Keep only","Hou net"],
+  ["Buy month","Koopmaand"],
+  ["Buy R/kg","Koop R/kg"],
+  ["In weight (kg)","Ingewig (kg)"],
+  ["Months on feed","Maande op voer"],
+  ["Out weight (kg)","Uitgewig (kg)"],
+  ["Buy, feed, sell","Koop, voer, verkoop"],
+  ["Daily gain this plan needs","Daaglikse toename wat hierdie plan verg"],
+  ["kg a day","kg per dag"],
+  ["buy & finish","koop en afrond"],
+  ["Override kept back","Oorskryf teruggehou"],
+  ["from replacement","uit vervanging"],
+  ["while they are on the farm","terwyl hulle op die plaas is"],
+  ["points","punte"],
+  ["Buy & finish","Koop en afrond"],
+  ["Selling because of drought?","Verkoop weens droogte?"],
+  ["Proceeds can be deposited with the Land Bank within","Opbrengs kan by die Landbank gedeponeer word binne"],
+  ["and the tax deferred — First Schedule para 13A. On a forced sale that is the difference between one brutal tax year and a spread one.","en die belasting uitgestel — Eerste Bylae para 13A. By 'n gedwonge verkoop is dit die verskil tussen een wrede belastingjaar en 'n gespreide een."],
+  ["three months","drie maande"],
+  ["Try a dry year — nothing is saved","Probeer 'n droë jaar — niks word gestoor nie"],
+  ["Weaning drops by","Speen daal met"],
+  ["Sell how many months earlier","Verkoop hoeveel maande vroeër"],
+  ["Feed bill goes up by","Voerrekening styg met"],
+  ["worse than normal","slegter as normaal"],
+  ["Change","Verander"],
+  ["sell on events you entered","verkoop op gebeure wat jy ingevoer het"],
+  ["so a weaning drop cannot change their income — the head count is yours, not ours. Edit those sales to model fewer animals.","so 'n speendaling kan nie hul inkomste verander nie — die getal koppe is joune, nie ons s'n nie. Wysig daardie verkope om minder diere te modelleer."],
+  ["A herd weaning","'n Kudde wat speen"],
+  ["now weans","speen nou"],
   ["of it lands next season","hiervan kom volgende seisoen in"],
   ["previous crop","vorige gewas"],
   ["Set the planting and harvest months — until they are set this land is not counted in your forecast.","Stel die plant- en oesmaande — solank hulle nie gestel is nie, tel hierdie land nie in jou vooruitskatting nie."],
