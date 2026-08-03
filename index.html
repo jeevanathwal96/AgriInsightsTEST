@@ -1919,6 +1919,12 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .lvp-check{display:flex;align-items:center;gap:9px;margin-top:11px;font-size:13px;
   font-weight:700;color:var(--t1);cursor:pointer}
 .lvp-check input{width:16px;height:16px;accent-color:#7C2D5A;cursor:pointer;flex:none}
+.lvp-bull{margin-top:11px;border:1px solid var(--br);border-radius:8px;padding:10px 12px;background:var(--wh)}
+.lvp-bull.on{border-color:rgba(124,45,90,.35);background:#FBEAF3}
+.lvp-bullsum{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:5px;line-height:1.5}
+.lvp-bullsum b{font-weight:700;color:var(--t2)}
+.lvp-proj{margin-top:14px}
+.lvp-proj6 .lvp-cr{grid-template-columns:1.3fr 62px 66px 52px 52px 74px}
 .lvp-ctab{margin-top:11px;border:1px solid var(--br);border-radius:8px;overflow:hidden}
 .lvp-cr{display:grid;grid-template-columns:1.6fr 52px 84px 84px;gap:8px;padding:7px 11px;
   font-size:12.5px;font-variant-numeric:tabular-nums;border-top:1px solid var(--br2)}
@@ -32282,6 +32288,78 @@ function lvpRetained(h){
 }
 
 /* ── buy & finish ─────────────────────────────────────────────────────── */
+/* ── 7. bull replacement ──────────────────────────────────────────────────
+   A real, lumpy cost that lands in one month. The Herd Plan already works out
+   both sides of it, so this reads them rather than inventing a second model. */
+function lvpBullInfo(h){
+  if(typeof lsSireClass!=='function' || typeof _lsClassObj!=='function') return null;
+  var sk=lsSireClass(h.type); if(!sk) return null;
+  var c=_lsClassObj(h,sk); if(!c) return null;
+  var meta=(typeof lsClassMeta==='function')?lsClassMeta(h.type,sk):null;
+  var buy=(typeof _hpBullDefBuy==='function')?_hpBullDefBuy(h):(c.v||0);
+  var cull=(typeof _hpBullDefCull==='function')?_hpBullDefCull(h):Math.round((c.v||0)*0.6);
+  return {key:sk, word:(meta&&meta.label)?String(meta.label).replace(/s$/,'').toLowerCase():'sire',
+          buy:buy, cull:cull, net:buy-cull};
+}
+function lvpBullCost(h){
+  if(h.pBullRepl!==true) return 0;
+  var b=lvpBullInfo(h); return b?Math.max(0,b.net):0;
+}
+
+/* ── 6. wool, mohair and milk ─────────────────────────────────────────────
+   _hpProduct() already models these and learns from the farmer's own last clip.
+   Wool and mohair go through a broker at 4%, not the 6.5% livestock rate. */
+function lvpProduct(h){ return (typeof _hpProduct==='function') ? _hpProduct(h) : null; }
+function lvpProdPerHead(h){
+  var p=lvpProduct(h);
+  return (h.pProdPerHead!=null && h.pProdPerHead!=='') ? lvpNum(h.pProdPerHead,0) : (p?p.perHead:0);
+}
+function lvpProdPrice(h){
+  var p=lvpProduct(h);
+  return (h.pProdPrice!=null && h.pProdPrice!=='') ? lvpNum(h.pProdPrice,0) : (p?p.price:0);
+}
+function lvpProdComm(h){
+  var p=lvpProduct(h);
+  return (p && (p.kind==='wool'||p.kind==='mohair')) ? 4 : 0;   /* Elsenburg wool 4% */
+}
+function lvpProdGross(h){
+  var p=lvpProduct(h); if(!p) return 0;
+  return lvpBreedingFemales(h)*lvpProdPerHead(h)*lvpProdPrice(h);
+}
+function lvpProdIncome(h){
+  var g=lvpProdGross(h);
+  return Math.round(g - g*lvpProdComm(h)/100);
+}
+
+/* ── 5. multi-year ────────────────────────────────────────────────────────
+   Where mortality % finally has a job: it thins the breeding herd for NEXT
+   season rather than double-counting this season's weaner losses, which
+   weaning % already nets out. */
+function lvpProject(h, years){
+  var out=[], bf=lvpBreedingFemales(h);
+  var mort=lvpNum(h.pMortPct,2)/100, repl=lvpNum(h.pReplacePct,10)/100;
+  var y0=(typeof planYear==='number')?planYear:0;
+  for(var i=0;i<years;i++){
+    var wean=lvpEffWean(h)/100;
+    var weaners=Math.round(bf*wean);
+    var kept=(i===0)?lvpRetained(h):Math.round(bf*repl);
+    if(kept>weaners) kept=weaners;
+    var sold=Math.max(0,weaners-kept);
+    var price=lvpPricePerHead(h);
+    var cost=Math.round(((h.feed||0)+(h.vet||0))*Math.max(0,Math.round(bf/0.6))*12);
+    /* Season one must agree with the row above it. The row may be running off
+       sale events the farmer entered, and showing him two different margins for
+       the same herd in the same year would just look broken. */
+    var margin = (i===0)
+      ? lvpMargin(h)
+      : Math.round(sold*price*(1-lvpNum(h.pCommPct,6.5)/100))+lvpProdIncome(h)-cost;
+    out.push({year:y0+i, females:bf, weaners:weaners, sold:sold, kept:kept, margin:margin});
+    /* carry the herd forward: losses, culls out, kept heifers in */
+    bf = Math.max(0, Math.round(bf - bf*mort - bf*repl + kept));
+  }
+  return out;
+}
+
 function lvpFinishHead(h){ return Math.round(lvpNum(h.pBuyHead, h.qty||0)); }
 function lvpFinishBuy(h){
   var kg=lvpNum(h.pBuyKg,0), rk=lvpNum(h.pBuyRPerKg,0);
@@ -32340,12 +32418,13 @@ function lvpNetIncome(h){
   if(lvpNeedsSetup(h)) return 0;           /* announced, not silently assumed */
   var planned=lvpPlannedIncome(h);
   if(planned>0) return planned;            /* an explicit event always wins */
-  return Math.round(lvpGross(h)-lvpCommission(h));
+  return Math.round(lvpGross(h)-lvpCommission(h)) + lvpProdIncome(h);
 }
 function lvpCostYear(h){
   /* A trading herd is not kept for a year — it is bought, fed for N months and
      sold. Charging it 12 months of keep would invent a cost it never carries. */
-  return lvpIsFinish(h) ? (lvpFinishBuy(h)+lvpFinishFeed(h)) : lvpRunCostYear(h);
+  return lvpIsFinish(h) ? (lvpFinishBuy(h)+lvpFinishFeed(h))
+                        : (lvpRunCostYear(h)+lvpBullCost(h));
 }
 function lvpMargin(h){ return lvpNetIncome(h)-lvpCostYear(h); }
 function lvpMarginLSU(h){ var l=lvpHerdLSU(h); return l>0?Math.round(lvpMargin(h)/l):0; }
@@ -32370,7 +32449,9 @@ function lvpR(v){ return (v<0?'−R':'R')+_grpInt(v); }
 function lvpSet(id, field, val){
   var h=(typeof lsHerdById==='function')?lsHerdById(id):(ST_LS.herd||[]).filter(function(x){return String(x.id)===String(id);})[0];
   if(!h) return;
-  if(field==='pSelling'){ h.pSelling = (val===true||val==='1'||val===1||val==='true'); }
+  if(field==='pSelling'||field==='pBullRepl'){
+    h[field] = (val===true||val==='1'||val===1||val==='true');
+  }
   /* Every string-valued field must be listed here — anything omitted falls to the
      numeric branch and becomes 0, which is how the herd-type switch silently did
      nothing on the first run. */
@@ -32525,6 +32606,55 @@ function lvpGroup(h, key, title, summary, bodyHTML, needs){
 /* The class split — who is actually in this herd and what each class is worth.
    It used to sit on the row, but listing every class wrapped the line and broke
    row alignment, so it belongs here where there is room for it. */
+/* Bull replacement — one lumpy cost in one month, which is exactly the kind of
+   thing a season plan exists to warn about. */
+function lvpBullRow(h){
+  var b=lvpBullInfo(h); if(!b || lvpIsFinish(h)) return '';
+  var on=(h.pBullRepl===true), id=String(h.id).replace(/'/g,"\\'");
+  return '<div class="lvp-bull'+(on?' on':'')+'">'+
+    '<label class="lvp-check" style="margin:0">'+
+      '<input type="checkbox"'+(on?' checked':'')+
+      ' onchange="event.stopPropagation();lvpSet(\''+id+'\',\'pBullRepl\',this.checked?1:0)">'+
+      '<span>Replace the '+esc(b.word)+' this season</span></label>'+
+    (on
+      ? '<div class="lvp-bullsum">New '+esc(b.word)+' <b>'+lvpR(b.buy)+'</b> · old one culls for <b>'+
+        lvpR(b.cull)+'</b> · <b>'+lvpR(b.net)+' net</b>, in one month</div>'
+      : '<div class="lvp-bullsum">About <b>'+lvpR(b.net)+' net</b> if you do — '+lvpR(b.buy)+
+        ' out, '+lvpR(b.cull)+' back.</div>')+
+  '</div>';
+}
+
+/* Three seasons ahead. The point it makes is that a herd losing money now may
+   simply be under-scaled, and holding heifers is how it grows out of that. */
+function lvpProjTable(h){
+  if(lvpIsFinish(h) || lvpType(h)==='keep') return '';
+  var rows=lvpProject(h,3);
+  if(!rows.length) return '';
+  var body=rows.map(function(r,i){
+    return '<div class="lvp-cr'+(i===0?' bf':'')+'"><span>'+r.year+(i===0?' <span class="lvp-bfmark">now</span>':'')+
+      '</span><span>'+r.females+'</span><span>'+r.weaners+'</span><span>'+r.sold+
+      '</span><span>'+r.kept+'</span><span'+(r.margin<0?' style="color:var(--or)"':'')+'>'+
+      lvpMoney(r.margin)+'</span></div>';}).join('');
+  var trend=rows[rows.length-1].margin-rows[0].margin;
+  return '<div class="lvp-proj">'+
+    '<div class="lvp-h2" style="margin-bottom:6px">Three seasons ahead</div>'+
+    '<div class="lvp-ctab lvp-proj6">'+
+      '<div class="lvp-cr hd"><span>Which season</span><span>Females</span><span>Weaners</span>'+
+      '<span>Sold</span><span>Kept</span><span>Margin</span></div>'+body+'</div>'+
+    '<div class="lvp-facts">Breeding females carry forward less <b>'+lvpNum(h.pMortPct,2)+
+      '% mortality</b> and <b>'+lvpNum(h.pReplacePct,10)+'% culled</b>, plus the heifers you keep. '+
+      (function(){
+        var g=rows[rows.length-1].females-rows[0].females;
+        if(g>0) return 'Keeping '+rows[0].kept+' a year grows the herd to <b>'+rows[rows.length-1].females+
+          ' females</b> by '+rows[rows.length-1].year+
+          (trend>0?', worth <b>'+lvpMoney(trend)+'</b> more a season.':'.');
+        if(g===0) return 'Keeping <b>'+rows[0].kept+' a year holds this herd steady</b> — just enough to '+
+          'cover losses and culls. Keep more to grow it.';
+        return 'This herd <b>shrinks</b> at that rate — losses and culls outrun the heifers you keep.';
+      })()+
+    '</div></div>';
+}
+
 function lvpClassTable(h){
   var cls=(h.classes||[]);
   if(!cls.length) return '<div class="lvp-facts">No class split on this herd yet — add one in the Livestock tab and the breeding maths gets sharper.</div>';
@@ -32583,9 +32713,10 @@ function lvpEditor(h){
       '<input class="ro" readonly value="'+lvpRetained(h)+'">')+
     f('Override kept back','<input type="number" min="0" value="'+(h.pRetain==null?'':h.pRetain)+
       '" placeholder="auto" onchange="event.stopPropagation();'+set+'\'pRetain\',this.value)">')+
+    f('Mortality %',num('pMortPct',lvpNum(h.pMortPct,2),'0.5'))+
     f('Head on farm','<input class="ro" readonly value="'+(h.qty||0)+'">')+
-  '</div>'+lvpClassTable(h)+
-  '<div class="lvp-facts">Land Bank: weaning 80%, cow replacement 10%. <b>Kept back is worked out from replacement %</b> — type an override only if you are holding a different number. Mortality returns with the multi-year view, where it changes next season\u2019s breeding herd rather than this season\u2019s weaners.</div>';
+  '</div>'+lvpBullRow(h)+lvpClassTable(h)+lvpProjTable(h)+
+  '<div class="lvp-facts">Land Bank: weaning 80%, cow replacement 10%. <b>Kept back is worked out from replacement %</b> — type an override only if you are holding a different number. Mortality thins the breeding herd for <b>next</b> season — it is not applied to this season\u2019s weaners, because weaning % already nets those losses out.</div>';
 
   /* 3 — how you sell */
   var chan=h.pChannel||'auction';
@@ -32654,11 +32785,26 @@ function lvpEditor(h){
       : 'Set both weights and the daily gain is worked out, so an impossible plan shows up before you bank on it.')+
   '</div>';
 
+  /* Wool, mohair or milk — only shown where the herd actually produces one. */
+  var prod=lvpProduct(h);
+  var pSum='', pBody='';
+  if(prod && ty!=='finish'){
+    pSum=lvpBreedingFemales(h)+' × '+lvpProdPerHead(h)+' '+prod.unit+' @ '+lvpR(lvpProdPrice(h));
+    pBody='<div class="lvp-f3">'+
+      f(prod.label+' per head ('+prod.unit+')',num('pProdPerHead',lvpProdPerHead(h),'0.1'))+
+      f('R / '+prod.unit,num('pProdPrice',lvpProdPrice(h),'1'))+
+      f('Broker %','<input class="ro" readonly value="'+lvpProdComm(h)+'">')+
+    '</div><div class="lvp-facts">'+esc(prod.src)+
+      (lvpProdComm(h)?'. Wool and mohair go through a broker at <b>4%</b>, not the 6.5% livestock rate.':'')+
+      '</div>';
+  }
+
   var groups = seg +
     (ty==='finish'
       ? lvpGroup(h,'finish','Buy &amp; finish',fSum,fBody,lvpNeedsSetup(h))
       : lvpGroup(h,'breed','The breeding season',bSum,bBody,false))+
     (ty==='finish' ? '' : lvpGroup(h,'herd','The herd',hSum,hBody,false))+
+    (pBody ? lvpGroup(h,'prod',prod.label,pSum,pBody,false) : '')+
     lvpGroup(h,'sell','How you sell',sSum,sBody,needs)+
     lvpGroup(h,'cost','What it costs',cSum,cBody,false);
 
@@ -32713,11 +32859,22 @@ function lvpMoneyPanel(h){
           '<div class="lvp-ln"><span>'+w+' × '+lvpR(pph)+'</span><b>'+lvpMoney(lvpGross(h))+'</b></div>'+
           '<div class="lvp-ln ded"><span>Marketing commission '+lvpNum(h.pCommPct,6.5)+'%</span><b>−'+lvpMoney(lvpCommission(h))+'</b></div>';
     }
+    var pr=lvpProduct(h);
+    if(pr && lvpPlannedIncome(h)<=0 && lvpProdGross(h)>0){
+      h2+='<div class="lvp-ln"><span>'+esc(pr.label)+' — '+lvpBreedingFemales(h)+' × '+
+        lvpProdPerHead(h)+' '+pr.unit+' × '+lvpR(lvpProdPrice(h))+'</span><b>'+
+        lvpMoney(lvpProdGross(h))+'</b></div>';
+      if(lvpProdComm(h)) h2+='<div class="lvp-ln ded"><span>Broker commission '+lvpProdComm(h)+
+        '%</span><b>−'+lvpMoney(lvpProdGross(h)*lvpProdComm(h)/100)+'</b></div>';
+    }
     h2+='<div class="lvp-ln sum"><span>Money in</span><b>'+lvpMoney(lvpNetIncome(h))+'</b></div>';
   }
 
   h2+='<div class="lvp-h2" style="margin-top:14px">What it costs to keep</div>'+
     '<div class="lvp-ln"><span>Feed &amp; health — '+(h.qty||0)+' head × R'+_grpInt((h.feed||0)+(h.vet||0))+' × 12</span><b>−'+lvpMoney(run)+'</b></div>'+
+    (lvpBullCost(h)>0
+      ? '<div class="lvp-ln"><span>New '+esc((lvpBullInfo(h)||{}).word||'sire')+', less the old one</span><b>−'+
+        lvpMoney(lvpBullCost(h))+'</b></div>' : '')+
     '<div class="lvp-ln sum"><span>Margin</span><b>'+lvpMoney(lvpMargin(h))+
       ' <span class="per">· '+lvpR(lvpMarginLSU(h))+'/LSU</span></b></div>';
 
@@ -36703,6 +36860,30 @@ var LANG_PAIRS = [
   ["How many","Hoeveel"],
   ["Value each","Waarde elk"],
   ["Total worth","Totale waarde"],
+  ["Breeding females carry forward less","Teelwyfies dra oor minus"],
+  ["mortality and","vrektes en"],
+  ["culled, plus the heifers you keep.","uitgeskot, plus die verse wat jy hou."],
+  ["holds this herd steady","hou hierdie kudde gelyk"],
+  ["just enough to cover losses and culls. Keep more to grow it.","net genoeg om verliese en uitskot te dek. Hou meer om dit te laat groei."],
+  ["a year grows the herd to","'n jaar laat die kudde groei tot"],
+  ["This herd shrinks at that rate — losses and culls outrun the heifers you keep.","Hierdie kudde krimp teen daardie tempo — verliese en uitskot loop die verse wat jy hou verby."],
+  ["worth","werd"],
+  ["Three seasons ahead","Drie seisoene vorentoe"],
+  ["Which season","Watter seisoen"],
+  ["Females","Wyfies"],
+  ["Weaners","Speenkalwers"],
+  ["Kept","Gehou"],
+  ["Broker %","Makelaar %"],
+  ["Broker commission","Makelaarskommissie"],
+  ["Replace the","Vervang die"],
+  ["old one culls for","oue skot uit vir"],
+  ["net, in one month","netto, in een maand"],
+  ["New bull, less the old one","Nuwe bul, min die oue"],
+  ["Wool and mohair go through a broker at","Wol en sybokhaar gaan deur 'n makelaar teen"],
+  ["not the 6.5% livestock rate","nie die 6.5% veekoers nie"],
+  ["Mortality thins the breeding herd for","Vrektes dun die teelkudde uit vir"],
+  ["season — it is not applied to this season","seisoen — dit word nie op hierdie seisoen"],
+  ["weaners, because weaning % already nets those losses out.","se speenkalwers toegepas nie, want speen % verreken daardie verliese reeds."],
   ["of it lands next season","hiervan kom volgende seisoen in"],
   ["previous crop","vorige gewas"],
   ["Set the planting and harvest months — until they are set this land is not counted in your forecast.","Stel die plant- en oesmaande — solank hulle nie gestel is nie, tel hierdie land nie in jou vooruitskatting nie."],
