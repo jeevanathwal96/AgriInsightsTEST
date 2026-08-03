@@ -14616,6 +14616,18 @@ function dataChanged(event) {
     case 'livestock':
       // ST_LS records changed (move / treatment / tag add or delete) — flush to backend
       try { if(window.AI && AI.farm && AI.farm.active() && window.ST_LS){ AI.livestock.saveAll(ST_LS).catch(function(e){ console.error('Backend livestock save failed:', e); }); } } catch(e){}
+      // This case used to flush to the backend and refresh nothing. Every other
+      // event refreshes the visible page; livestock alone did not, so a herd edit
+      // updated the model and left the screen exactly as it was — the change only
+      // appeared once something else forced a redraw. Planning reads ST_LS for the
+      // livestock pane and for the running-cost spread, so it has to redraw here.
+      if (pageId === 'planning') {
+        safeCall(window.recomputePlan);
+        safeCall(window.renderLiveCalGrid);
+        safeCall(window.renderEventList);
+        safeCall(window.updatePlanCombinedBanner);
+        safeCall(window.updatePlanTabCounts);
+      }
       break;
   }
 
@@ -32495,10 +32507,27 @@ function lvpSet(id, field, val){
   else { var n=parseFloat(String(val).replace(/[^0-9.\-]/g,'')); h[field]=isNaN(n)?0:Math.max(0,n); }
   if(field==='pChannel'){ h.pPayDays = (val==='auction') ? 1 : null; }   /* APAC 31(2); others blank */
   /* Same persistence the Livestock tab uses, so both tabs see one object.
-     dataChanged('livestock') re-renders this pane itself — calling
-     renderLiveCalGrid here too would just draw it twice. */
+     dataChanged('livestock') now redraws the planning pane (it used to refresh
+     nothing, which is why the herd-type buttons looked dead — the model changed
+     and the screen did not). Number fields commit on blur, so that redraw would
+     throw the farmer out of the form mid-way through filling it in; the control
+     he was on is found again afterwards by its handler and given focus back. */
+  var ae=document.activeElement;
+  var sig=(ae&&ae.getAttribute)?(ae.getAttribute('onchange')||ae.getAttribute('onclick')||''):'';
+  var caret=null; try{ if(ae&&ae.selectionStart!=null) caret=ae.selectionStart; }catch(e){}
   try{ if(typeof saveState==='function') saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
+  if(sig){
+    var all=document.querySelectorAll('#plan-live-grid [onchange],#plan-live-grid [onclick]');
+    for(var k=0;k<all.length;k++){
+      if((all[k].getAttribute('onchange')||all[k].getAttribute('onclick'))===sig){
+        try{ all[k].focus();
+             if(caret!=null && all[k].setSelectionRange) all[k].setSelectionRange(caret,caret);
+        }catch(e){}
+        break;
+      }
+    }
+  }
 }
 /* Open a herd's row from anywhere and put it on screen. Used by the notice chips
    and the setup banner, so naming a herd always comes with a way to reach it. */
