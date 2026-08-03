@@ -1564,7 +1564,10 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
    every row, so reading down a column is reading a month across the farm. */
 .pln-lh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .pln-lh .t{font-size:18px;font-weight:800;letter-spacing:-.3px}
-.pln-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:2px}
+/* The sentence sat 2px under its title and 14px above the next block — seven
+   times more air below than above, so it read as stuck to the heading. Both
+   gaps are 14px now, the same value every other block on the pane uses. */
+.pln-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:14px}
 .pln-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);font-weight:400}
 .pln-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:5px}
 .pln-legend i.hatch{background:repeating-linear-gradient(135deg,var(--op),var(--op) 4px,var(--or) 4px,var(--or) 5px)}
@@ -1653,7 +1656,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .orp-lh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
   flex-wrap:wrap;margin-bottom:14px}
 .orp-lh .t{font-size:18px;font-weight:800;letter-spacing:-.3px}
-.orp-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:2px}
+.orp-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:14px}
 .orp-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);font-weight:400}
 .orp-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;
   vertical-align:-1px;margin-right:5px}
@@ -1781,7 +1784,6 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .scn-seg button:hover{color:var(--t1)}
 .scn-seg button.on{background:var(--gd);color:#fff}
 .scn-seg button.on.w{background:var(--or)}
-.scn-hint{font-size:11.5px;color:var(--t4)}
 .scn-panel{background:var(--op);border:1px solid rgba(194,65,12,.22);border-radius:11px;
   padding:10px 13px;margin:9px 0 0;width:100%;box-sizing:border-box}
 .scn-row{display:flex;align-items:center;gap:15px;flex-wrap:wrap}
@@ -1843,7 +1845,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .lvp-lh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
   flex-wrap:wrap;margin-bottom:14px}
 .lvp-lh .t{font-size:18px;font-weight:800;letter-spacing:-.3px}
-.lvp-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:2px}
+.lvp-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:14px}
 .lvp-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);font-weight:400}
 .lvp-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:5px}
 .lvp-legend i.bd{background:#F5E1EE}
@@ -33381,8 +33383,10 @@ function scenStrip(which, ctx){
       '" onclick="scenSetMode(\''+m[0]+'\')">'+m[1]+'</button>';}).join('')+'</span>';
 
   /* Resting: one line, no panel, no tile. */
-  if(!scenOn()) return '<div class="scn"><span class="scn-lbl">Weather</span>'+seg+
-    '<span class="scn-hint">Try a dry year — nothing is saved</span></div>';
+  /* No standing commentary. The three buttons say what they do, and the
+     "nothing is saved" reassurance now lives on the ribbon, where it is only
+     shown at the moment it actually matters — while a scenario is running. */
+  if(!scenOn()) return '<div class="scn"><span class="scn-lbl">Weather</span>'+seg+'</div>';
 
   var sc=scenNow();
   var money=(which==='crops')
@@ -37332,7 +37336,6 @@ var LANG_PAIRS = [
   ["Proceeds can be deposited with the Land Bank within","Opbrengs kan by die Landbank gedeponeer word binne"],
   ["and the tax deferred — First Schedule para 13A. On a forced sale that is the difference between one brutal tax year and a spread one.","en die belasting uitgestel — Eerste Bylae para 13A. By 'n gedwonge verkoop is dit die verskil tussen een wrede belastingjaar en 'n gespreide een."],
   ["three months","drie maande"],
-  ["Try a dry year — nothing is saved","Probeer 'n droë jaar — niks word gestoor nie"],
   ["Weaning drops by","Speen daal met"],
   ["Sell how many months earlier","Verkoop hoeveel maande vroeër"],
   ["Feed bill goes up by","Voerrekening styg met"],
@@ -37362,7 +37365,6 @@ var LANG_PAIRS = [
   ["Normal year","Normale jaar"],
   ["Dry year","Droë jaar"],
   ["Drought","Droogte"],
-  ["Try a dry year — nothing is saved","Probeer 'n droë jaar — niks word gestoor nie"],
   ["Yield down","Opbrengs af"],
   ["% off every crop","% af elke gewas"],
   /* The plural MUST be here too. The what-if slider says "Grain prices", and a
