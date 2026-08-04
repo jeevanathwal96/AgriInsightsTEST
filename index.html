@@ -1634,6 +1634,9 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pln-f input,.pln-f select{width:100%;box-sizing:border-box;border:1px solid var(--br);border-radius:var(--rs);
   background:var(--wh);color:var(--t1);font-family:var(--fn);font-size:13px;padding:8px 10px}
 .pln-f input:focus-visible,.pln-f select:focus-visible{outline:2px solid var(--gl);outline-offset:1px}
+/* The half of a paired figure the farmer does not type, and the reminder that a
+   forward position belongs to the crop rather than to this one land. */
+.pln-fhint{font-size:10.5px;color:var(--t4);margin-top:4px;line-height:1.4}
 .pln-acts{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
 .pln-btn{border:1px solid var(--br);background:var(--wh);border-radius:var(--rs);padding:9px 14px;
   font-family:var(--fn);font-size:11.5px;font-weight:700;color:var(--t2);cursor:pointer}
@@ -28499,8 +28502,9 @@ function recomputePlan() {
       var _pAbsPay=hAbs+plnPayShift(c);
       _put(_pAbsPay, Math.round(totalRevenue), 0, _tagIfNew(_pAbsPay), 'Paid for ' + cropLabel);
     } else {
-      _put(hAbs,     Math.round(totalRevenue * 0.60), 0, null, null);
-      _put(hAbs + 1, Math.round(totalRevenue * 0.40), 0, null, 'Sell ' + cropLabel);
+      var _sp=plnPaySplit(c)/100;
+      _put(hAbs,     Math.round(totalRevenue * _sp),     0, null, null);
+      _put(hAbs + 1, Math.round(totalRevenue * (1-_sp)), 0, null, 'Sell ' + cropLabel);
     }
 
     /* Only flag a line that has NO month in this season at all. A crop that merely
@@ -28882,11 +28886,65 @@ function plnFertBand(c){
   return {low:b.low, high:b.high, src:b.src, v:Math.round(v),
           state:(v<b.low?'under':(v>b.high?'over':'in'))};
 }
+/* ── C2 · the part of the crop already sold ─────────────────────────────────
+   Held per CROP, not per land: a farmer sells "my maize" forward, not "Vlakte
+   specifically". Every row of that crop shares one position, and the warning
+   below judges the position as a whole. */
+function plnHedge(cropName){
+  var h=(ST_PLAN.hedge||{})[cropName];
+  return (h && h.pct>0) ? h : null;
+}
+function plnSetHedge(cropName, field, val){
+  if(!ST_PLAN.hedge) ST_PLAN.hedge={};
+  var h=ST_PLAN.hedge[cropName] || (ST_PLAN.hedge[cropName]={pct:0, price:0});
+  var n=parseFloat(String(val).replace(/[^0-9.\-]/g,''));
+  h[field]=isNaN(n)?0:Math.max(0,n);
+  if(field==='pct' && h.pct>100) h.pct=100;
+  recomputePlan();
+  if(typeof dataChanged==='function') dataChanged('plan');
+}
+/* A forward contract is a promise to deliver TONNES, signed against the planned
+   crop — a bad season does not shrink it. That asymmetry is the whole risk: it
+   protects a farm whose own yield fails at a flat price, and punishes one that
+   fails alongside the whole country, because the tonnes it no longer has were
+   the ones that would have caught the price spike. */
+function plnHedgeBlend(cropName){
+  var h=plnHedge(cropName); if(!h) return null;
+  var rows=planCropRows().filter(function(c){ return c.crop===cropName; });
+  if(!rows.length) return null;
+  var plannedT=0, actualT=0, spotNum=0;
+  rows.forEach(function(c){
+    var pl=(c.ha||0)*(c.yield||0), ac=(c.ha||0)*plnYieldOf(c);
+    plannedT+=pl; actualT+=ac;
+    spotNum += ac * _cropPriceOf(c) * scenPriceMult();
+  });
+  if(!(plannedT>0)) return null;
+  var spot=(actualT>0)?spotNum/actualT:0;
+  var contracted=plannedT*h.pct/100;
+  var shortT=Math.max(0, contracted-actualT);
+  var openT =Math.max(0, actualT-contracted);
+  /* Every contracted tonne is sold at the contract price. Anything you cannot
+     grow has to be bought in at whatever the market is asking that day. */
+  var revenue=contracted*(h.price||0) + openT*spot - shortT*spot;
+  return {crop:cropName, pct:h.pct, price:h.price||0,
+    plannedT:plannedT, actualT:actualT, contracted:contracted,
+    deliver:Math.min(actualT,contracted), openT:openT, shortT:shortT, spot:spot,
+    buyInCost:shortT*spot, revenue:revenue,
+    effPrice:(actualT>0?revenue/actualT:0),
+    /* How much of the planned crop a season this bad would actually deliver —
+       the ceiling only bites once the farmer has set a season lever. */
+    ceilingPct:Math.floor(actualT/plannedT*100)};
+}
+
 /* The scenario is applied HERE, at the two numbers everything else is built from,
    so a bad season reaches the pane, the totals, the banner, the what-if sliders
    and the month-by-month cash flow without any of them being taught about it. */
 function plnYieldOf(c){ return (c.yield||0) * scenYieldMult(); }
-function plnPriceOf(c){ return _cropPriceOf(c) * scenPriceMult(); }
+function plnSpotOf(c){ return _cropPriceOf(c) * scenPriceMult(); }
+function plnPriceOf(c){
+  var b=(c && c.crop) ? plnHedgeBlend(c.crop) : null;
+  return (b && b.effPrice>0) ? b.effPrice : plnSpotOf(c);
+}
 function plnCostHa(c){ return ((c.inputCost||0) + (c.otherCost||0)) * scenInputMult(); }
 function plnMarginHa(c){ return plnYieldOf(c) * plnPriceOf(c) - plnCostHa(c); }
 function plnMargin(c){ return plnMarginHa(c) * (c.ha||0); }
@@ -28904,6 +28962,14 @@ function plnCushion(c){ var y=plnYieldOf(c); return y>0 ? (y-plnBeYield(c))/y : 
    '' → the old split · '0' paid on delivery · '30'/'60'/'90' days
    'store' → delivered now, sold in a month the farmer picks. */
 function plnPayWhen(c){ return c.payWhen || ''; }
+/* The share paid in the harvest month when the money is split over two. 60 was
+   never a published rule — it was a smoothing assumption from before anyone
+   could change it. It stays the default so no existing plan moves. */
+function plnPaySplit(c){
+  var n=parseFloat(c.paySplit);
+  if(isNaN(n)) return 60;
+  return Math.max(0, Math.min(100, n));
+}
 function plnPayOpts(sel){
   var o=[['','Split over two months'],['0','On delivery'],['30','30 days'],
          ['60','60 days'],['90','90 days'],['store','Store it, sell later']];
@@ -28934,7 +29000,8 @@ function plnMoneyLandsLabel(c){
     return (s==null) ? 'stored — pick a month to sell' : 'all of it in '+nm(s);
   }
   if(w) return 'all of it in '+nm(hAbs+plnPayShift(c))+' · '+plnPayLabel(c);
-  return '60% '+nm(hAbs)+', 40% '+nm(hAbs+1);
+  var sp=plnPaySplit(c);
+  return sp+'% '+nm(hAbs)+', '+(100-sp)+'% '+nm(hAbs+1);
 }
 /* Months to shift the money past the harvest month. */
 function plnPayShift(c){
@@ -29012,6 +29079,10 @@ function plnTags(c){
     var _sp=plnSpendPct(c);
     if(_sp!=null && _sp>1) t.push('<span class="pln-tag tight" title="Logged sprays and fertiliser have passed the input budget for this land">'+
       Math.round(_sp*100)+'% of input budget</span>');
+    /* C2 — oversold is the one thing on this row a farmer must not miss. */
+    var _hb=plnHedgeBlend(c.crop);
+    if(_hb && _hb.shortT>0) t.push('<span class="pln-tag tight" title="You have sold more tonnes forward than this season would deliver">oversold</span>');
+    else if(_hb) t.push('<span class="pln-tag ann" title="Part of this crop is already sold forward">'+_hb.pct+'% sold forward</span>');
   }
   return t.join('');
 }
@@ -29134,6 +29205,25 @@ function plnMathsHTML(c, idx){
        Naming the month makes the difference visible where the decision is made. */
     (plnMissing(c) ? '' :
       '<div class="pln-line"><span>Money lands</span><b>'+esc(plnMoneyLandsLabel(c))+'</b></div>')+
+    /* C2 — the position across every land of this crop, and what it is doing to
+       the price. Only ever shown once the farmer has told us he has sold some. */
+    (function(){
+      var b=plnHedgeBlend(c.crop); if(!b || plnMissing(c)) return '';
+      var t=function(n){ return _grpInt(Math.round(n))+' t'; };
+      var h='<div class="pln-line"><span>Sold forward — '+b.pct+'% of your '+esc(String(c.crop).toLowerCase())+
+          '</span><b>'+t(b.contracted)+' at R'+_grpInt(b.price)+'</b></div>'+
+        '<div class="pln-line"><span>'+(b.shortT>0?'Still to grow':'Still open')+
+          '</span><b>'+t(b.shortT>0?b.actualT:b.openT)+' at R'+_grpInt(Math.round(b.spot))+'</b></div>'+
+        '<div class="pln-line"><span>Average price you get</span><b>R'+
+          _grpInt(Math.round(b.effPrice))+'/ton</b></div>';
+      if(b.shortT>0){
+        h+='<div class="pln-facts" style="color:var(--or)"><b>You have sold more than this season '+
+          'would deliver.</b> '+t(b.contracted)+' sold against '+t(b.actualT)+' grown leaves you '+
+          '<b>'+t(b.shortT)+' short</b> — about <b>'+planFmtR(b.buyInCost)+'</b> to buy in at today’s '+
+          'price. On this crop your safe ceiling is <b>'+b.ceilingPct+'%</b>.</div>';
+      }
+      return h;
+    })()+
     /* C5 — the farm's own province where Grain SA publishes one, otherwise the
        national figure, and the source is always named. */
     (function(){
@@ -29221,6 +29311,22 @@ function plnEditHTML(c, idx){
       (plnPayWhen(c)==='store'
         ? '<div class="pln-f"><label>Sell it in</label><select data-pln="sellMonth" data-idx="'+idx+'">'+
           plnMonthOpts(c.sellMonth)+'</select></div>'
+        : '')+
+      /* The split is the farmer's, not ours. Only the first share is typed —
+         two numbers that must add to 100 should never both be entered. */
+      (plnPayWhen(c)===''
+        ? '<div class="pln-f"><label>First payment (%)</label><input type="number" min="0" max="100" step="5" value="'+
+            plnPaySplit(c)+'" data-pln="paySplit" data-idx="'+idx+'">'+
+            '<div class="pln-fhint">'+(100-plnPaySplit(c))+'% follows the month after</div></div>'
+        : '')+
+      /* C2 — held per crop, so it shows the same figure on every land of it. */
+      '<div class="pln-f"><label>Sold forward (%)</label><input type="number" min="0" max="100" step="5" value="'+
+        (((ST_PLAN.hedge||{})[c.crop]||{}).pct||0)+'" data-plnh="pct" data-crop="'+planEscAttr(c.crop)+'">'+
+        '<div class="pln-fhint">'+esc(c.crop)+' — all your lands</div></div>'+
+      (plnHedge(c.crop)
+        ? '<div class="pln-f"><label>Contract price (R/ton)</label><input type="number" min="0" step="50" value="'+
+            (((ST_PLAN.hedge||{})[c.crop]||{}).price||'')+'" placeholder="'+Math.round(plnSpotOf(c))+
+            '" data-plnh="price" data-crop="'+planEscAttr(c.crop)+'"></div>'
         : '')+
       '<div class="pln-acts">'+
         '<button class="pln-btn" type="button" onclick="event.stopPropagation();openEditCrop('+idx+')">All settings</button>'+
@@ -29342,6 +29448,9 @@ document.addEventListener('input', function(e){
 /* Committing: a month picked, or the farmer leaving an edited field. */
 document.addEventListener('change', function(e){
   var el=e.target; if(!el||!el.getAttribute) return;
+  /* C2 fields are keyed by crop, not by row index. */
+  var hf=el.getAttribute('data-plnh');
+  if(hf){ plnSetHedge(el.getAttribute('data-crop'), hf, el.value); return; }
   var f=el.getAttribute('data-pln'); if(!f) return;
   plnSetField(parseInt(el.getAttribute('data-idx'),10), f, el.value, true);
 });
@@ -37587,6 +37696,23 @@ var LANG_PAIRS = [
   ["worth","werd"],
   ["Three seasons ahead","Drie seisoene vorentoe"],
   ["When you are paid","Wanneer jy betaal word"],
+  ["First payment (%)","Eerste betaling (%)"],
+  ["follows the month after","volg die maand daarna"],
+  ["Sold forward (%)","Vooruit verkoop (%)"],
+  ["Contract price (R/ton)","Kontrakprys (R/ton)"],
+  ["all your lands","al jou lande"],
+  ["Sold forward","Vooruit verkoop"],
+  ["% of your","% van jou"],
+  ["Still to grow","Nog om te groei"],
+  ["Still open","Nog oop"],
+  ["Average price you get","Gemiddelde prys wat jy kry"],
+  ["sold forward","vooruit verkoop"],
+  ["oversold","oorverkoop"],
+  ["You have sold more than this season would deliver.","Jy het meer verkoop as wat hierdie seisoen sou lewer."],
+  ["sold against","verkoop teenoor"],
+  ["grown leaves you","gegroei laat jou"],
+  ["short — about","kort — ongeveer"],
+  ["to buy in at today’s price. On this crop your safe ceiling is","om in te koop teen vandag se prys. Op hierdie gewas is jou veilige plafon"],
   ["Spent so far","Tot dusver bestee"],
   ["SA average","SA gemiddeld"],
   ["Typical for","Tipies vir"],
