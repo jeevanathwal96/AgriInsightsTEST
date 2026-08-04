@@ -1119,7 +1119,33 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .plan-tab .tab-count{font-size:10.5px;font-weight:800;background:var(--br2);color:var(--t3);padding:2px 7px;border-radius:99px;margin-left:2px;letter-spacing:.04em}
 /* ── Season Tracker (Plan vs Actual) ── */
 .st-tile{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none}
-.st-hero{border:1px solid var(--br);border-radius:16px;padding:20px 22px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.05);margin-bottom:14px}
+.st-hero{border:0;border-radius:var(--rl);padding:22px 24px;margin-bottom:14px;
+  box-shadow:var(--sh);color:#fff;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--gd) 0%,var(--gm) 100%)}
+/* Every child below was coloured for a white card. On the dark ground they run
+   from invisible to unreadable, so each is restated against it — same treatment
+   the Budgets hero uses, so the two pages read as one app. */
+.st-hero .st-eyebrow{color:rgba(255,255,255,.82)}
+.st-hero .st-hero-line{color:#fff;opacity:.95}
+.st-hero .st-hero-amt{color:#fff}
+.st-hero .st-hero-amt span{color:rgba(255,255,255,.78)}
+.st-hero .st-hero-note{color:rgba(255,255,255,.70)}
+.st-hero .st-hero-moved{color:rgba(255,255,255,.85)}
+.st-hero .st-varsub{color:rgba(255,255,255,.72)}
+.st-hero .st-varchip.pos{background:rgba(255,255,255,.16);color:#86EFAC}
+.st-hero .st-varchip.neg{background:rgba(255,255,255,.16);color:#FCD34D}
+.st-hero .st-varchip.mut{background:rgba(255,255,255,.14);color:rgba(255,255,255,.90)}
+.st-hero .st-prog-lbl{color:rgba(255,255,255,.80)}
+.st-hero .st-prog-lbl b{color:#fff}
+.st-hero .st-prog{background:rgba(255,255,255,.18)}
+.st-hero .st-prog-fill{background:#86EFAC}
+.st-hero .st-mw{background:rgba(255,255,255,.16)}
+.st-hero .st-mw i.in{background:#86EFAC}
+.st-hero .st-mw i.due{background:repeating-linear-gradient(135deg,rgba(255,255,255,.42),rgba(255,255,255,.42) 4px,transparent 4px,transparent 7px)}
+.st-hero .st-mwl{color:rgba(255,255,255,.78)}
+.st-hero .st-mwl i.in{background:#86EFAC}
+.st-hero .st-mwl i.due{background:repeating-linear-gradient(135deg,rgba(255,255,255,.5),rgba(255,255,255,.5) 3px,rgba(255,255,255,.9) 3px,rgba(255,255,255,.9) 4px)}
+.st-hero .st-mwl i.rest{background:rgba(255,255,255,.20)}
 .st-hero-top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px}
 .st-eyebrow{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);margin-bottom:3px}
 .st-hero-line{font-size:15px;font-weight:700;color:var(--t1);margin-bottom:10px}
@@ -29258,6 +29284,31 @@ function recomputePlan() {
         ST_PLAN.months[i].events.push({ type:'cost', animal:(typeof lsHerdName==='function'?lsHerdName(h):(h.name||'Livestock')), icon:(typeof lsHerdIcon==='function'?lsHerdIcon(h):'🐄'), desc:'Feed & health', amount:-_m });
       }
     });
+    /* Milk and wool never reached the month curve at all. lvpProdIncome fed the
+       herd's margin but nothing distributed it, so the cash-flow forecast ran
+       R962 227 a year short on this farm — and the new pace comparison read
+       actual milk against a plan containing none of it. Spread evenly: a dairy
+       is collected every month. Skipped when the farmer has entered the
+       production as an income EVENT, which already lands in its own month. */
+    (typeof ST_LS!=='undefined' && ST_LS.herd ? ST_LS.herd : []).forEach(function(h){
+      if(!h || h.removed || h.planned || h.inPlanning) return;
+      var pr=(typeof lvpProdIncome==='function')?lvpProdIncome(h):0;
+      if(!(pr>0)) return;
+      var evented=false;
+      (ST_PLAN.events||[]).forEach(function(e){
+        if(e && e.herdId===h.id && !e.done && e.inForecast!==false && e.type==='income') evented=true; });
+      if(evented) return;
+      var per=Math.round(pr/12);
+      for(var pi=0; pi<ST_PLAN.months.length; pi++){
+        ST_PLAN.months[pi].income  += per;
+        ST_PLAN.months[pi].incLive += per;
+        ST_PLAN.months[pi].events = ST_PLAN.months[pi].events || [];
+        ST_PLAN.months[pi].events.push({ type:'income',
+          animal:(typeof lsHerdName==='function'?lsHerdName(h):(h.name||'Livestock')),
+          icon:(typeof lsHerdIcon==='function'?lsHerdIcon(h):'\ud83d\udc04'),
+          desc:'Milk & wool', amount:per });
+      }
+    });
   }
 
   // ── Step 3.6: Distribute orchards / fruit & veg (auto-pulled from ST_FRUIT) ──
@@ -34235,26 +34286,51 @@ function renderSeasonTracker(){
      announced "nothing harvested or sold yet" directly above rows showing a
      block 4% picked and nineteen animals sold. Two questions, not one:
      has anything happened, and is there enough in to project from. */
+  /* Declared BEFORE the hero string is built — the money-weighted bar reads it
+     while that string is being assembled, and a var declared later hoists as
+     undefined, so the bar silently rendered nothing. */
+  var _pace=(typeof stPace==='function')?stPace(V):null;
+  var paceH=(typeof stPaceHTML==='function')?stPaceHTML(_pace):'';
   var stMoved   = V.realised > 0;
   /* T8 — the headline used to print the same figure twice. The second line now
      carries the one thing the farmer cannot work out for himself: what moved
      since last week, from the weekly snapshot. */
   var _prev=(typeof stSnapPrev==='function')?stSnapPrev():null;
   var _movedBy=_prev?(V.tracking-_prev.t):null;
+  /* Before anything is sold, the useful fact is WHEN the money starts — read off
+     the plan's own month curve rather than asserted. */
+  var _firstPayLbl='';
+  try{
+    var _ms=(ST_PLAN.months||[]), _nowI=(typeof lvpNowIdx==='function')?lvpNowIdx():-1;
+    for(var _i=Math.max(0,_nowI);_i<_ms.length;_i++){
+      if((_ms[_i].income||0)>0){ _firstPayLbl=String(_ms[_i].label||'').split(' ')[0]; break; }
+    }
+  }catch(e){}
   var stStarted = V.realisedPct >= 5;
   var hero='<div class="st-hero">'+
     '<div class="st-hero-top">'+
       '<div><div class="st-eyebrow" data-t="plan.thisSeason">This season</div>'+
+        /* T8 — the figure used to be printed twice: a sentence saying "your plan
+           is R6.8m" sitting directly above "R6.8m planned". The number leads now,
+           and the line beneath it carries the one thing the farmer cannot work
+           out for himself — what it is tracking at, and what moved since last
+           week. Nothing on this card repeats anything else on it. */
         (stStarted
-          ? '<div class="st-hero-line">You planned <b style="color:var(--gd)">'+stK(V.planned)+'</b> margin — tracking <b style="color:'+(pos?'var(--gd)':'#B45309')+'">'+stK(V.tracking)+'</b></div>'+
-            '<div class="st-hero-amt" style="color:'+(pos?'var(--gd)':'#B45309')+'">'+stK(V.tracking)+' <span>on track for</span></div>'
-          /* Nothing harvested yet: showing a "tracking" figure here just echoes the
-             plan back and reads as a measurement. Say plainly that it has not started. */
-          : '<div class="st-hero-line"><span data-t="st.planIs">Your plan is</span> <b style="color:var(--gd)">'+stK(V.planned)+'</b> <span data-t="st.marginFrom">margin from crops, orchards and livestock</span></div>'+
-            '<div class="st-hero-amt" style="color:var(--gd)">'+stK(V.planned)+' <span>planned</span></div>')+
-        (_movedBy!=null&&Math.abs(_movedBy)>=1000
-          ? '<div class="st-hero-moved">'+(_movedBy<0?'▼ ':'▲ ')+stK(Math.abs(_movedBy))+
-            ' since last week</div>' : '')+
+          ? '<div class="st-hero-amt" style="color:'+(pos?'#fff':'#FCD34D')+'">'+stK(V.tracking)+' <span>on track for</span></div>'
+          : '<div class="st-hero-amt" style="color:#fff">'+stK(V.planned)+' <span data-t="st.plannedMargin">planned margin</span></div>')+
+        (function(){
+          var bits=[];
+          /* Three states, and none of them may contradict the others. Once money
+             is in, "first money due in August" is false even though August is
+             the next paying month — the same trap T3 was. */
+          if(stStarted) bits.push('Planned '+stK(V.planned));
+          else if(stMoved) bits.push('Tracking '+stK(V.tracking));
+          else if(_firstPayLbl) bits.push('First money due in '+_firstPayLbl);
+          if(_movedBy!=null&&Math.abs(_movedBy)>=1000)
+            bits.push((_movedBy<0?'▼ ':'▲ ')+stK(Math.abs(_movedBy))+' since last week');
+          else if(stMoved && !_prev) bits.push('first weekly comparison in a few days');
+          return bits.length?'<div class="st-hero-line">'+bits.join(' · ')+'</div>':'';
+        })()+
         '<div class="st-hero-note" data-t="st.marginNote">Margin is what each crop, block and herd earns after its own growing costs — before farm overheads like loans, insurance and admin.</div></div>'+
       (stStarted
         ? '<div style="text-align:right"><div class="st-varchip '+(pos?'pos':'neg')+'">'+(pos?'▲ ':'▼ ')+stK(Math.abs(vari))+' · '+(V.planned?(pos?'+':'−')+Math.abs(Math.round(vari/Math.abs(V.planned)*100))+'%':'—')+'</div><div class="st-varsub">vs your plan</div></div>'
@@ -34286,8 +34362,6 @@ function renderSeasonTracker(){
           '<span><i class="rest"></i>Not due yet · '+Math.round(restPct)+'%</span></div></div>';
     })()+
   '</div>';
-  var _pace=(typeof stPace==='function')?stPace(V):null;
-  var paceH=(typeof stPaceHTML==='function')?stPaceHTML(_pace):'';
   var attn=stAttention(V.groups);
   var attnH=attn.length?'<div class="st-attn"><div class="st-attn-h">⚠ <span data-t="plan.needsAttn">Needs your attention</span></div>'+attn.map(function(a){return '<div class="st-attn-card"><div class="st-attn-t">'+stEsc(a.t)+'</div><div class="st-attn-d">'+stEsc(a.d)+'</div></div>';}).join('')+'</div>':'';
   var groupsH=V.groups.map(function(gp){
@@ -34785,8 +34859,19 @@ function lsHerdIncome(h){
      threw away R950 400 of milk and showed the dairy herd as a pure loss. It is
      added back on every path except the event path, which already contains it. */
   var prod=(typeof lvpProdIncome==='function')?lvpProdIncome(h):0;
+  /* A wool clip entered as an INCOME event is already inside lvpPlannedIncome,
+     so adding production on top would count it twice. A milk cheque usually is
+     NOT evented. Adding a cull-cow SALE event to the dairy herd used to wipe
+     R950 400 of milk off it, because any event at all took the early return. */
+  var hasProdEvent=false;
+  try{
+    ((typeof planActiveEvents==='function')?planActiveEvents():[]).forEach(function(e){
+      if(e && e.herdId===h.id && !e.done && e.inForecast!==false && e.type==='income') hasProdEvent=true;
+    });
+  }catch(e){}
+  if(hasProdEvent) prod=0;
   var planned=(typeof lvpPlannedIncome==='function')?lvpPlannedIncome(h):0;
-  if(planned>0) return planned;   /* dated events win — a wool-clip event is already in here */
+  if(planned>0) return planned+prod;
   /* A trading herd's whole point is the sale at the end of the cycle. */
   if(typeof lvpIsFinish==='function' && lvpIsFinish(h)){
     var g=lvpFinishSale(h);
@@ -41421,6 +41506,7 @@ I18N['pn.cert.multi']={en:"certificates have expired",af:"sertifikate het verval
 I18N['pn.cert.noexp']={en:"blocks cannot export",af:"blokke kan nie uitvoer nie"};
 I18N['pn.cert.noexp1']={en:"block cannot export",af:"blok kan nie uitvoer nie"};
 I18N['pn.risk.at']={en:"at risk",af:"op die spel"};
+I18N['st.plannedMargin']={en:"planned margin",af:"beplande marge"};
 I18N['pn.cert.det']={en:"Renewing it changes nothing in your forecast — these blocks already count as export. Left as it is, the fruit still sells, but at local prices.",af:"Om dit te hernu verander niks aan jou vooruitskatting nie — hierdie blokke tel reeds as uitvoer. Word dit so gelaat, verkoop die vrugte steeds, maar teen plaaslike pryse."};
 I18N['pn.young']={en:"blocks are not picking yet",af:"blokke pluk nog nie"};
 I18N['pn.young1']={en:"block is not picking yet",af:"blok pluk nog nie"};
