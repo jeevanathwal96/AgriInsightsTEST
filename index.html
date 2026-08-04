@@ -1564,10 +1564,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
    every row, so reading down a column is reading a month across the farm. */
 .pln-lh{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .pln-lh .t{font-size:18px;font-weight:800;letter-spacing:-.3px}
-/* The sentence sat 2px under its title and 14px above the next block — seven
-   times more air below than above, so it read as stuck to the heading. Both
-   gaps are 14px now, the same value every other block on the pane uses. */
-.pln-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:14px}
+.pln-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:2px}
 .pln-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);font-weight:400}
 .pln-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:5px}
 .pln-legend i.hatch{background:repeating-linear-gradient(135deg,var(--op),var(--op) 4px,var(--or) 4px,var(--or) 5px)}
@@ -1656,7 +1653,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .orp-lh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
   flex-wrap:wrap;margin-bottom:14px}
 .orp-lh .t{font-size:18px;font-weight:800;letter-spacing:-.3px}
-.orp-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:14px}
+.orp-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:2px}
 .orp-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);font-weight:400}
 .orp-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;
   vertical-align:-1px;margin-right:5px}
@@ -1845,7 +1842,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .lvp-lh{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
   flex-wrap:wrap;margin-bottom:14px}
 .lvp-lh .t{font-size:18px;font-weight:800;letter-spacing:-.3px}
-.lvp-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:14px}
+.lvp-lh .s{font-size:11.5px;font-weight:400;color:var(--t3);margin-top:2px}
 .lvp-legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--t3);font-weight:400}
 .lvp-legend i{display:inline-block;width:14px;height:10px;border-radius:3px;vertical-align:-1px;margin-right:5px}
 .lvp-legend i.bd{background:#F5E1EE}
@@ -28482,13 +28479,29 @@ function recomputePlan() {
     // ── Pre-harvest month: 10% other (prep/transport) ──
     if(hAbs - 1 > pAbs) _put(hAbs - 1, 0, Math.round(totalOther * 0.10), null, 'Pre-harvest (' + cropLabel + ')');
 
-    // ── Harvest month: 60% revenue, 10% input (harvest chemicals) + 20% other ──
-    _put(hAbs, Math.round(totalRevenue * 0.60), Math.round(totalInputs * 0.10 + totalOther * 0.20),
+    /* ── Harvest month: costs land here whatever the payment terms are ── */
+    _put(hAbs, 0, Math.round(totalInputs * 0.10 + totalOther * 0.20),
          cropLabel, 'Harvest ' + cropLabel);
+    _put(hAbs + 1, 0, Math.round(totalOther * 0.10), cropLabel, null);
 
-    // ── Month after harvest: remaining 40% revenue (final payments/storage) ──
-    _put(hAbs + 1, Math.round(totalRevenue * 0.40), Math.round(totalOther * 0.10),
-         cropLabel, 'Sell ' + cropLabel);
+    /* ── The money, on the farmer's terms (C3) ──
+       Default stays the old 60/40 split so no existing plan moves. */
+    /* The two cost calls above already tagged the harvest month and the one after
+       it. An income call landing on either must NOT tag again or the crop's name
+       appears twice in that month's list. */
+    var _pw=plnPayWhen(c);
+    function _tagIfNew(abs){ return (abs===hAbs || abs===hAbs+1) ? null : cropLabel; }
+    if(_pw==='store'){
+      var _sAbs=(c.sellMonth ? planAbsIdx(c.sellMonth) : null);
+      if(_sAbs==null || _sAbs<hAbs) _sAbs=hAbs+1;      /* unset or in the past — next month */
+      _put(_sAbs, Math.round(totalRevenue), 0, _tagIfNew(_sAbs), 'Sell ' + cropLabel);
+    } else if(_pw){
+      var _pAbsPay=hAbs+plnPayShift(c);
+      _put(_pAbsPay, Math.round(totalRevenue), 0, _tagIfNew(_pAbsPay), 'Paid for ' + cropLabel);
+    } else {
+      _put(hAbs,     Math.round(totalRevenue * 0.60), 0, null, null);
+      _put(hAbs + 1, Math.round(totalRevenue * 0.40), 0, null, 'Sell ' + cropLabel);
+    }
 
     /* Only flag a line that has NO month in this season at all. A crop that merely
        finishes after the season ends is normal, and is noted separately. */
@@ -28603,11 +28616,22 @@ function recomputePlan() {
          season end is money that arrives next year, so it is reported rather
          than quietly folded into month 11. */
       var shift=(typeof orpPayShift==='function')?orpPayShift(r.b):0;
+      /* O1 — a multi-cycle veg block is picked several times a year, so its money
+         arrives in several months rather than smeared over one window. */
+      if(r.pickMonths && r.pickMonths.length>1){
+        var perCyc=Math.round(r.income/r.pickMonths.length);
+        r.pickMonths.forEach(function(pm){
+          var mm=pm+shift;
+          if(mm<12) ST_PLAN.months[mm].income += perCyc;
+          else ST_PLAN.orchSpill += perCyc;
+        });
+      } else {
       var per=Math.round(r.income/span);
       for(var i=ps;i<=pe;i++){
         var m=i+shift;
         if(m<12) ST_PLAN.months[m].income += per;
         else ST_PLAN.orchSpill += per;
+      }
       }
 
       /* Cost follows the season, not the calendar. Shares are the Hortgro 2024
@@ -28809,6 +28833,55 @@ function plnLandFor(c){
   return ST_CROP.lands.filter(function(l){ return l && l.planId===c.linkId; })[0] || null;
 }
 
+/* ── C4 · what you planned to spend vs what you have spent ──────────────────
+   inputCost is a single R/ha figure typed once and never revisited, while every
+   actual spray and fertiliser application is already logged against the land
+   with its own cost per hectare. Nothing compared the two, so a crop running
+   well over budget looked perfect until the season ended. */
+function plnActualInputs(c){
+  var land=plnLandFor(c);
+  if(!land || typeof ST_CROP==='undefined' || !ST_CROP.inputs) return null;
+  var recs=ST_CROP.inputs.filter(function(i){ return i && i.land===land.id; });
+  if(!recs.length) return null;
+  var perHa=recs.reduce(function(s,i){ return s+(i.costPerHa||0); },0);
+  return {n:recs.length, perHa:perHa, total:perHa*(c.ha||0),
+          planned:(c.inputCost||0), land:land};
+}
+/* Share of the planned input budget already committed. null when we cannot say. */
+function plnSpendPct(c){
+  var a=plnActualInputs(c);
+  if(!a || !(a.planned>0)) return null;
+  return a.perHa/a.planned;
+}
+/* ── C5 · is this margin any good? ──────────────────────────────────────────
+   Livestock benchmarks its feed cost against a published Land Bank figure per
+   animal unit. Crops had nothing to compare against, even though Grain SA gross
+   margins — resolved to the farm's own province — were already in the file for
+   the Profit page. This reads them; it does not invent any. */
+function plnBenchMeta(c){
+  if(typeof _pfBenchCropMeta!=='function' || !c || !c.crop) return null;
+  var m=_pfBenchCropMeta({crop:c.crop});
+  return (m && m.has) ? m : null;
+}
+/* Fertiliser spend against the published fertiliser band.
+   TWO things this must not do, both of which the first version got wrong:
+   · maizeFertHa is FERTILISER per hectare. c.inputCost is the whole input bill —
+     seed, fertiliser and chemicals together. Comparing them told the demo farm
+     its R11 200/ha was "above the R3 300–6 900 range" when the range never
+     covered seed or chemicals. It now reads the logged fertiliser lines only.
+   · The band is quoted for maize, so it is only ever applied to maize. */
+function plnFertBand(c){
+  if(typeof AGRI_BENCH==='undefined' || !AGRI_BENCH.maizeFertHa) return null;
+  if(!/maize/i.test(c.crop||'')) return null;
+  var land=plnLandFor(c);
+  if(!land || typeof ST_CROP==='undefined' || !ST_CROP.inputs) return null;
+  var v=ST_CROP.inputs.reduce(function(s,i){
+    return s + ((i && i.land===land.id && i.kind==='fertiliser') ? (i.costPerHa||0) : 0); },0);
+  if(!(v>0)) return null;                       /* nothing logged — say nothing */
+  var b=AGRI_BENCH.maizeFertHa;
+  return {low:b.low, high:b.high, src:b.src, v:Math.round(v),
+          state:(v<b.low?'under':(v>b.high?'over':'in'))};
+}
 /* The scenario is applied HERE, at the two numbers everything else is built from,
    so a bad season reaches the pane, the totals, the banner, the what-if sliders
    and the month-by-month cash flow without any of them being taught about it. */
@@ -28822,6 +28895,53 @@ function plnBeYield(c){ var p=plnPriceOf(c); return p>0 ? plnCostHa(c)/p : 0; }
 /* Cushion is measured against the yield this season is expected to give, so under
    a scenario it answers "how much further can it fall from here". */
 function plnCushion(c){ var y=plnYieldOf(c); return y>0 ? (y-plnBeYield(c))/y : 0; }
+/* ── C3 · when the silo actually pays ───────────────────────────────────────
+   Revenue used to be hardcoded at 60% in the harvest month and 40% the month
+   after, with no way to change it. That split is not a rule anyone publishes —
+   it was a smoothing assumption. It stays as the DEFAULT so no existing plan
+   moves, but it is now one option among several and it says what it is.
+
+   '' → the old split · '0' paid on delivery · '30'/'60'/'90' days
+   'store' → delivered now, sold in a month the farmer picks. */
+function plnPayWhen(c){ return c.payWhen || ''; }
+function plnPayOpts(sel){
+  var o=[['','Split over two months'],['0','On delivery'],['30','30 days'],
+         ['60','60 days'],['90','90 days'],['store','Store it, sell later']];
+  return o.map(function(x){
+    return '<option value="'+x[0]+'"'+(String(x[0])===String(sel)?' selected':'')+'>'+x[1]+'</option>';
+  }).join('');
+}
+function plnPayLabel(c){
+  var w=plnPayWhen(c);
+  if(w==='store') return 'stored, sells '+(c.sellMonth ? String(c.sellMonth).split(' ')[0] : '— pick a month');
+  if(w==='0')  return 'paid on delivery';
+  if(w)        return 'paid after '+w+' days';
+  return 'split over two months';
+}
+/* Which month the money actually arrives in, named rather than described. */
+function plnMoneyLandsLabel(c){
+  var hAbs=planAbsIdx(c.harvest); if(hAbs==null) return plnPayLabel(c);
+  var w=plnPayWhen(c);
+  function nm(abs){
+    var W0=planWindowStart();
+    if(W0!=null && abs-W0>=0 && abs-W0<12 && ST_PLAN.months[abs-W0])
+      return String(ST_PLAN.months[abs-W0].label).split(' ')[0];
+    var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return M[((abs%12)+12)%12]+' '+Math.floor(abs/12);
+  }
+  if(w==='store'){
+    var s=(c.sellMonth?planAbsIdx(c.sellMonth):null);
+    return (s==null) ? 'stored — pick a month to sell' : 'all of it in '+nm(s);
+  }
+  if(w) return 'all of it in '+nm(hAbs+plnPayShift(c))+' · '+plnPayLabel(c);
+  return '60% '+nm(hAbs)+', 40% '+nm(hAbs+1);
+}
+/* Months to shift the money past the harvest month. */
+function plnPayShift(c){
+  var w=plnPayWhen(c);
+  if(!w || w==='store') return 0;
+  return Math.round((parseFloat(w)||0)/30.44);
+}
 function plnMissing(c){ return !c.plant || !c.harvest; }
 function plnCounted(c){ return !plnMissing(c) && c.inForecast!==false; }
 
@@ -28888,6 +29008,10 @@ function plnTags(c){
   else {
     if(plnSpills(c)) t.push('<span class="pln-tag spill">sells next season</span>');
     if(plnCushion(c)<0.20) t.push('<span class="pln-tag tight">tight cushion</span>');
+    /* C4 — real logged spend has passed the budget this crop was planned on. */
+    var _sp=plnSpendPct(c);
+    if(_sp!=null && _sp>1) t.push('<span class="pln-tag tight" title="Logged sprays and fertiliser have passed the input budget for this land">'+
+      Math.round(_sp*100)+'% of input budget</span>');
   }
   return t.join('');
 }
@@ -28924,7 +29048,10 @@ function plnMonthOpts(sel){
 var PLN_DIRTY = false;
 function plnSetField(idx, field, val, commit){
   var c=(ST_PLAN.crops||[])[idx]; if(!c) return;
-  if(field==='plant'||field==='harvest') c[field]=val||'';
+  /* Every string field must be listed. Anything left off falls to the numeric
+     branch and silently becomes 0 — the same trap that made the livestock
+     herd-type buttons look dead. */
+  if(field==='plant'||field==='harvest'||field==='payWhen'||field==='sellMonth') c[field]=val||'';
   else { var n=parseFloat(String(val).replace(/[^0-9.\-]/g,'')); c[field]=isNaN(n)?0:n; }
   recomputePlan();
   if(commit){
@@ -29003,6 +29130,35 @@ function plnMathsHTML(c, idx){
       '</span><b>'+planFmtR(plnCostHa(c)*(c.ha||0))+'</b></div>'+
     '<div class="pln-line"><span>Margin</span><b>'+planFmtR(plnMargin(c))+' · '+
       planFmtRha(plnMarginHa(c))+'/ha</b></div>'+
+    /* C3 — the margin is the same whenever you are paid; the cash flow is not.
+       Naming the month makes the difference visible where the decision is made. */
+    (plnMissing(c) ? '' :
+      '<div class="pln-line"><span>Money lands</span><b>'+esc(plnMoneyLandsLabel(c))+'</b></div>')+
+    /* C5 — the farm's own province where Grain SA publishes one, otherwise the
+       national figure, and the source is always named. */
+    (function(){
+      var m=plnBenchMeta(c); if(!m || plnMissing(c)) return '';
+      var mine=Math.round(plnMarginHa(c)), diff=mine-m.v;
+      return '<div class="pln-line"><span>'+esc(_benchLabel(m))+' '+_benchWord(m.conf)+
+        ' — '+esc(m.src)+'</span><b'+(diff<0?' style="color:var(--or)"':'')+'>'+
+        planFmtRha(m.v)+'/ha · you '+(diff>=0?'+':'−')+planFmtRha(Math.abs(diff)).replace('R','R')+
+        '</b></div>';
+    })()+
+    /* C4 — only shown when there is real logged spend to compare against. */
+    (function(){
+      var a=plnActualInputs(c); if(!a) return '';
+      var pct=plnSpendPct(c), over=(pct!=null&&pct>1);
+      return '<div class="pln-line"><span>Spent so far — '+a.n+' application'+(a.n===1?'':'s')+
+        '</span><b'+(over?' style="color:var(--or)"':'')+'>R'+_grpInt(Math.round(a.perHa))+'/ha'+
+        (pct!=null?' · '+Math.round(pct*100)+'% of plan':'')+'</b></div>';
+    })()+
+    /* C5b — the fertiliser band, maize only. */
+    (function(){
+      var f=plnFertBand(c); if(!f || f.state==='in') return '';
+      return '<div class="pln-facts" style="color:var(--or)">Your logged fertiliser of <b>R'+_grpInt(f.v)+
+        '/ha</b> sits '+(f.state==='over'?'above':'below')+' the published maize range of <b>R'+
+        _grpInt(f.low)+'–R'+_grpInt(f.high)+'/ha</b> ('+esc(f.src)+'). Seed and chemicals are not in that range.</div>';
+    })()+
     '<div class="pln-be'+(tight?' tight':'')+'"><div class="k">Break-even yield</div>'+
       '<div class="v">'+be.toFixed(1)+' t/ha</div><div class="s">'+sentence+'</div></div>';
 
@@ -29051,6 +29207,12 @@ function plnEditHTML(c, idx){
       '<div class="pln-f"><label>Price (R/ton)</label><input type="number" step="50" min="0" value="'+(c.price||'')+'" placeholder="'+Math.round(_cropPriceOf(c))+'" data-pln="price" data-idx="'+idx+'"></div>'+
       '<div class="pln-f"><label>Input cost (R/ha)</label><input type="number" step="100" min="0" value="'+(c.inputCost||0)+'" data-pln="inputCost" data-idx="'+idx+'"></div>'+
       '<div class="pln-f"><label>Other cost (R/ha)</label><input type="number" step="100" min="0" value="'+(c.otherCost||0)+'" data-pln="otherCost" data-idx="'+idx+'"></div>'+
+      '<div class="pln-f"><label>When you are paid</label><select data-pln="payWhen" data-idx="'+idx+'">'+
+        plnPayOpts(plnPayWhen(c))+'</select></div>'+
+      (plnPayWhen(c)==='store'
+        ? '<div class="pln-f"><label>Sell it in</label><select data-pln="sellMonth" data-idx="'+idx+'">'+
+          plnMonthOpts(c.sellMonth)+'</select></div>'
+        : '')+
       '<div class="pln-acts">'+
         '<button class="pln-btn" type="button" onclick="event.stopPropagation();openEditCrop('+idx+')">All settings</button>'+
         '<button class="pln-btn'+(c.repeat==='annual'?' rep':'')+'" type="button" title="'+
@@ -29162,7 +29324,10 @@ document.addEventListener('click', function(e){
 /* Typing: live maths, no save. */
 document.addEventListener('input', function(e){
   var el=e.target; if(!el||!el.getAttribute) return;
-  var f=el.getAttribute('data-pln'); if(!f||f==='plant'||f==='harvest') return;
+  /* Selects are excluded: they fire input AND change, and the non-commit path
+     redraws the row, so the change event would land on a replaced element. */
+  var f=el.getAttribute('data-pln');
+  if(!f||f==='plant'||f==='harvest'||f==='payWhen'||f==='sellMonth') return;
   plnSetField(parseInt(el.getAttribute('data-idx'),10), f, el.value, false);
 });
 /* Committing: a month picked, or the farmer leaving an edited field. */
@@ -29408,11 +29573,16 @@ function orPlanRows(){
     var w=orPlanDefaultWindow(b.cat);
     var ps=(b.planPickStart==null?w[0]:b.planPickStart);
     var pe=(b.planPickEnd==null?w[1]:b.planPickEnd); if(pe<ps) pe=ps;
-    var cost=orOpsCost(b);
+    /* O1 — a veg block runs its whole cycle count in a year, so both sides are
+       multiplied. One cycle's worth was all that ever reached the forecast. */
+    var cy=orpVegCycles(b);
+    var cost=orOpsCost(b)*cy;
     /* Income follows the year being viewed. It used to be orBlockTotal(b) — one
        stored tonnage — so stepping the plan year aged the block on the chart and
        left the money identical in every year. */
-    return {b:b, income:orpIncomeFor(b, planYear), cost:cost, pickStart:ps, pickEnd:pe};
+    var inc=orpIncomeFor(b, planYear)*cy;
+    return {b:b, income:inc, cost:cost, pickStart:ps, pickEnd:pe,
+            cycles:cy, pickMonths:(cy>1?orpVegPickMonths(b):null)};
   });
 }
 function orPlanSetField(id,field,val){
@@ -29554,6 +29724,32 @@ function orpProject(b, years){
   }
   return out;
 }
+/* ── O1 · vegetables are not trees ──────────────────────────────────────────
+   A veg block carries "3 of 4" and 77 days to maturity: four crops off the same
+   land in a year. b.tons is ONE of them — 45 t/ha of cabbage, 30 t/ha of
+   butternut, both per-cycle figures. The planner booked a single cycle and
+   dropped the rest, understating the block by however many crops it missed.
+   Income AND cost both multiply: you replant, refertilise and pick every cycle. */
+function orpVegCycles(b){
+  if(!b || b.cat!=='veg') return 1;
+  var m=String(b.cycle||'').match(/of\s*(\d+)/i);
+  var n=m?parseInt(m[1],10):1;
+  return (n>0 && n<=12) ? n : 1;
+}
+/* The month each cycle is picked, spread evenly from the first pick. */
+function orpVegPickMonths(b){
+  var n=orpVegCycles(b);
+  var w=(typeof orPickWindow==='function')?orPickWindow(b):null;
+  var start=(w && w.s!=null) ? w.s : (typeof orPlanDefaultWindow==='function'?orPlanDefaultWindow('veg')[0]:2);
+  if(n<=1) return [start];
+  var step=Math.max(1, Math.round(12/n)), out=[];
+  for(var i=0;i<n;i++) out.push((start+i*step)%12);
+  /* A continuously rotating block fills the whole window, so wrapping past the
+     end is right — but the list has to come back in season order or it reads
+     "Oct, Jan, Apr, Jul" and looks like a mistake. */
+  out.sort(function(a,b){ return a-b; });
+  return out;
+}
 function orpPayWeeks(b){ return (b.planPayWeeks==null) ? ORP_PAY_DEFAULT : b.planPayWeeks; }
 function orpPayShift(b){ return Math.round(orpPayWeeks(b)/4.345); }   /* weeks → months */
 
@@ -29654,6 +29850,12 @@ function orpTags(r){
     t.push('<span class="orp-tag spill">paid next season</span>');
   if(pct!=null && pct>0 && pct<100)
     t.push('<span class="orp-tag ramp">year '+orpAge(b)+' · '+pct+'% bearing</span>');
+  /* O1 — say how many crops a year this land turns, since every figure on the
+     row is now the whole year rather than one cycle. */
+  if(b.cat==='veg' && orpVegCycles(b)>1)
+    t.push('<span class="orp-tag exp" title="This land is planned for '+orpVegCycles(b)+
+      ' crops a year — every figure on this row is the year, not one cycle">'+
+      orpVegCycles(b)+' crops a year</span>');
   if(b.cat!=='veg' && (typeof orChanPct==='function') && orChanPct(b)>0)
     t.push('<span class="orp-tag exp">'+orChanPct(b)+'% export</span>');
   return t.slice(0,2).join('');
@@ -29766,6 +29968,20 @@ function orpMoneyPanel(r){
         : 'Nothing picking yet, so there is no crop to carry forward.')+
       '</div>';
     h+=orpProjTable(b);
+  }
+  /* O1 — a veg block gets the cycle explanation in place of the tree curve. */
+  if(b.cat==='veg'){
+    var _cy=orpVegCycles(b), _pm=orpVegPickMonths(b);
+    var _MS=(ST_PLAN.months||[]).map(function(m){ return String(m.label).split(' ')[0]; });
+    h+='<div class="orp-facts">'+
+      (_cy>1
+        ? 'Planned for <b>'+_cy+' crops a year</b>'+(b.days?' at about <b>'+b.days+' days</b> each':'')+
+          '. Your <b>'+_grpInt(b.tons||0)+' t</b> is one cycle, so the income and the season cost on '+
+          'this row are both multiplied by '+_cy+'. Picking around '+
+          esc(_pm.map(function(i){ return _MS[i]||('m'+i); }).join(', '))+'.'
+        : 'Planned as <b>one crop</b> this year'+(b.days?' at about <b>'+b.days+' days</b>':'')+
+          '. If this land turns more than one crop, set the cycle on the block and the plan follows.')+
+      '</div>';
   }
   var extra=[];
   if(b.estab) extra.push('cost to plant <b>'+esc(String(b.estab))+'</b>');
@@ -37361,6 +37577,36 @@ var LANG_PAIRS = [
   ["Fill in how you sell this herd and the margin fills in too.","Vul in hoe jy hierdie kudde verkoop en die marge vul ook in."],
   ["worth","werd"],
   ["Three seasons ahead","Drie seisoene vorentoe"],
+  ["When you are paid","Wanneer jy betaal word"],
+  ["Spent so far","Tot dusver bestee"],
+  ["SA average","SA gemiddeld"],
+  ["crops a year","gewasse per jaar"],
+  ["Planned for","Beplan vir"],
+  ["at about","teen ongeveer"],
+  ["days each","dae elk"],
+  ["is one cycle, so the income and the season cost on this row are both multiplied by","is een siklus, so die inkomste en die seisoenkoste op hierdie ry word albei vermenigvuldig met"],
+  ["Picking around","Pluk ongeveer"],
+  ["Planned as","Beplan as"],
+  ["Planned as one crop this year","Beplan as een gewas hierdie jaar"],
+  ["If this land turns more than one crop, set the cycle on the block and the plan follows.","As hierdie land meer as een gewas lewer, stel die siklus op die blok en die plan volg."],
+  ["Your logged fertiliser of","Jou aangetekende kunsmis van"],
+  ["sits above the published maize range of","is bo die gepubliseerde mielie-reeks van"],
+  ["sits below the published maize range of","is onder die gepubliseerde mielie-reeks van"],
+  ["Seed and chemicals are not in that range.","Saad en chemikalieë is nie in daardie reeks nie."],
+  ["applications","toedienings"],
+  ["application","toediening"],
+  ["of plan","van plan"],
+  ["of input budget","van insetbegroting"],
+  ["Sell it in","Verkoop dit in"],
+  ["Split over two months","Verdeel oor twee maande"],
+  ["On delivery","Met aflewering"],
+  ["Store it, sell later","Stoor dit, verkoop later"],
+  ["all of it in","alles daarvan in"],
+  ["paid on delivery","betaal met aflewering"],
+  ["paid after","betaal na"],
+  ["stored — pick a month to sell","gestoor — kies 'n maand om te verkoop"],
+  ["split over two months","verdeel oor twee maande"],
+  ["Paid for","Betaal vir"],
   ["Weather","Weer"],
   ["Normal year","Normale jaar"],
   ["Dry year","Droë jaar"],
