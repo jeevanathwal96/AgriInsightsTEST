@@ -84,9 +84,9 @@
   const farm = {
     async mine() {
       // farms the signed-in user belongs to (RLS limits this automatically)
-      const { data, error } = await client()
+      const { data, error } = await selectAll(() => client()
         .from('farms').select('id,name,owner_name,province,farm_ha,farm_type,fy_start_month,lang')
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true }));
       if (error) throw error;
       return data || [];
     },
@@ -121,10 +121,10 @@
   }
   async function loadCats(farmId) {
     // system rows (farm_id null) + this farm's custom rows; RLS handles visibility
-    const { data, error } = await client()
+    const { data, error } = await selectAll(() => client()
       .from('categories').select('id,kind,code,label,is_system,sort,active')
       .or(`farm_id.is.null,farm_id.eq.${farmId}`)
-      .eq('active', true).order('sort', { ascending: true });
+      .eq('active', true).order('sort', { ascending: true }));
     if (error) throw error;
     catMaps = { code2id: {}, id2code: {}, list: data || [] };
     (data || []).forEach(c => {
@@ -250,9 +250,9 @@
   const importBatch = {
     async list(farmId) {
       const fid = farmId || farm.active(); if (!fid) return [];
-      const { data, error } = await client()
+      const { data, error } = await selectAll(() => client()
         .from('import_batches').select('*').eq('farm_id', fid)
-        .order('imported_at', { ascending: false });
+        .order('imported_at', { ascending: false }));
       if (error) throw error;
       return (data || []).filter(b => b.status !== 'undone').map(b => ({
         id:     b.id,
@@ -319,7 +319,7 @@
       try { impBatches = await importBatch.list(farmId); } catch (e) { impBatches = []; }
 
       const [acc, txn, bud, rec, fst] = await Promise.all([
-        client().from('accounts').select('*').eq('farm_id', farmId).order('name'),
+        selectAll(() => client().from('accounts').select('*').eq('farm_id', farmId).order('name')),
         selectAll(() => client().from('transactions').select('*').eq('farm_id', farmId).order('txn_date', { ascending: false })),
         client().from('budget_months').select('*').eq('farm_id', farmId),
         client().from('recurring').select('*').eq('farm_id', farmId).order('name'),
@@ -353,16 +353,16 @@
     },
     async assets(farmId) {
       farmId = farmId || farm.active();
-      const { data, error } = await client().from('assets').select('*').eq('farm_id', farmId).order('created_at');
+      const { data, error } = await selectAll(() => client().from('assets').select('*').eq('farm_id', farmId).order('created_at'));
       if (error) throw error;
       return (data || []).map(assetToApp);
     },
     async loans(farmId) {
       farmId = farmId || farm.active();
       const [l, o, c] = await Promise.all([
-        client().from('loans').select('*').eq('farm_id', farmId).order('created_at'),
-        client().from('overdrafts').select('*').eq('farm_id', farmId).order('created_at'),
-        client().from('coop_accounts').select('*').eq('farm_id', farmId).order('created_at')
+        selectAll(() => client().from('loans').select('*').eq('farm_id', farmId).order('created_at')),
+        selectAll(() => client().from('overdrafts').select('*').eq('farm_id', farmId).order('created_at')),
+        selectAll(() => client().from('coop_accounts').select('*').eq('farm_id', farmId).order('created_at'))
       ]);
       for (const r of [l, o, c]) if (r.error) throw r.error;
       const out = { loans: [], overdrafts: [], coopAccounts: [], archived: [] };
@@ -714,9 +714,9 @@
   }
   load.coopSettlements = async function(farmId){
     farmId = farmId || farm.active();
-    const { data, error } = await client()
+    const { data, error } = await selectAll(() => client()
       .from('coop_settlements').select('*').eq('farm_id', farmId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false }));
     if (error) throw error;
     return (data || []).map(csFromDb);
   };
@@ -785,10 +785,10 @@
   load.livestock = async function(farmId){
     farmId = farmId || farm.active();
     const [cp,hd,hc,bm,mv,tr,an,he] = await Promise.all([
-      client().from('livestock_camps').select('*').eq('farm_id',farmId).order('created_at'),
-      client().from('herds').select('*').eq('farm_id',farmId).order('created_at'),
-      client().from('herd_classes').select('*').eq('farm_id',farmId),
-      client().from('livestock_benchmarks').select('*').eq('farm_id',farmId),
+      selectAll(() => client().from('livestock_camps').select('*').eq('farm_id',farmId).order('created_at')),
+      selectAll(() => client().from('herds').select('*').eq('farm_id',farmId).order('created_at')),
+      selectAll(() => client().from('herd_classes').select('*').eq('farm_id',farmId)),
+      selectAll(() => client().from('livestock_benchmarks').select('*').eq('farm_id',farmId)),
       selectAll(() => client().from('livestock_moves').select('*').eq('farm_id',farmId).order('created_at',{ascending:false})),
       selectAll(() => client().from('livestock_treatments').select('*').eq('farm_id',farmId).order('created_at',{ascending:false})),
       selectAll(() => client().from('animals').select('*').eq('farm_id',farmId).order('created_at')),
@@ -1016,7 +1016,7 @@
   load.orchard = async function(farmId){
     farmId = farmId || farm.active();
     const [bl,dc,pr,po,sp,hv,ci,cd,cc,cr,cfg] = await Promise.all([
-      client().from('orchard_blocks').select('*').eq('farm_id',farmId).order('created_at'),
+      selectAll(() => client().from('orchard_blocks').select('*').eq('farm_id',farmId).order('created_at')),
       selectAll(() => client().from('orchard_block_docs').select('*').eq('farm_id',farmId).order('sort_idx')),
       client().from('orchard_pricing').select('*').eq('farm_id',farmId),
       client().from('orchard_pricing_others').select('*').eq('farm_id',farmId).order('sort_idx'),
@@ -1119,8 +1119,8 @@
   load.plan = async function(farmId){
     farmId = farmId || farm.active();
     const [pc,pe] = await Promise.all([
-      client().from('plan_crops').select('*').eq('farm_id',farmId).order('sort_idx'),
-      client().from('plan_events').select('*').eq('farm_id',farmId).order('sort_idx')
+      selectAll(() => client().from('plan_crops').select('*').eq('farm_id',farmId).order('sort_idx')),
+      selectAll(() => client().from('plan_events').select('*').eq('farm_id',farmId).order('sort_idx'))
     ]);
     for(const r of [pc,pe]) if(r&&r.error) throw r.error;
     var cropRows=(pc&&pc.data)||[], evtRows=(pe&&pe.data)||[];
@@ -1227,15 +1227,22 @@
 
   load.workers = async function(farmId){
     farmId = farmId || farm.active();
+    /* Every one of these except the settings row grows without bound: the ledger
+       and pay_run_applied carry one row per worker per pay period, so twenty
+       workers paid weekly cross PostgREST's 1000-row cap inside two seasons and
+       the load would silently return only the first page. That is the same fault
+       selectAll() was written for on transactions — and it matters more here,
+       because these rows feed the SARS submission. worker_settings is one row a
+       farm and is left as a plain select. */
     const [wk,st,lg,lv,dc,pe,pr,pa] = await Promise.all([
-      client().from('workers').select('*').eq('farm_id',farmId).order('created_at'),
+      selectAll(() => client().from('workers').select('*').eq('farm_id',farmId).order('created_at')),
       client().from('worker_settings').select('*').eq('farm_id',farmId),
-      client().from('worker_ledger').select('*').eq('farm_id',farmId).order('sort_idx'),
-      client().from('worker_leave_log').select('*').eq('farm_id',farmId).order('sort_idx'),
-      client().from('worker_docs').select('*').eq('farm_id',farmId).order('sort_idx'),
-      client().from('payroll_entries').select('*').eq('farm_id',farmId),
-      client().from('pay_runs').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}),
-      client().from('pay_run_applied').select('*').eq('farm_id',farmId)
+      selectAll(() => client().from('worker_ledger').select('*').eq('farm_id',farmId).order('sort_idx')),
+      selectAll(() => client().from('worker_leave_log').select('*').eq('farm_id',farmId).order('sort_idx')),
+      selectAll(() => client().from('worker_docs').select('*').eq('farm_id',farmId).order('sort_idx')),
+      selectAll(() => client().from('payroll_entries').select('*').eq('farm_id',farmId)),
+      selectAll(() => client().from('pay_runs').select('*').eq('farm_id',farmId).order('created_at',{ascending:false})),
+      selectAll(() => client().from('pay_run_applied').select('*').eq('farm_id',farmId))
     ]);
     for(const r of [wk,st,lg,lv,dc,pe,pr,pa]) if(r&&r.error) throw r.error;
     var workers=(wk.data||[]).map(wkrFromDb);
