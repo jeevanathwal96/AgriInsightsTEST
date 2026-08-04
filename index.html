@@ -1623,12 +1623,12 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pln-row .pln-caret{color:var(--t4);font-size:11px;text-align:right}
 .pln-row.open .pln-caret{color:var(--gd)}
 
-.pln-edit{border-top:1px dashed var(--br);background:var(--bg);border-radius:0 0 10px 10px;padding:16px 14px;
-  display:grid;grid-template-columns:minmax(230px,1fr) minmax(250px,1.15fr);gap:20px}
+.pln-edit{border-top:1px dashed var(--br);background:var(--bg);border-radius:0 0 10px 10px;padding:20px 18px;
+  display:grid;grid-template-columns:minmax(230px,1fr) minmax(250px,1.15fr);gap:26px}
 @media (max-width:820px){.pln-edit{grid-template-columns:1fr}
   .pln-grid{grid-template-columns:minmax(120px,1fr) 72px 96px 18px}
   .pln-grid .pln-hidem{display:none}}
-.pln-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pln-fields{display:grid;grid-template-columns:1fr 1fr;gap:13px}
 /* A section rule spans the pair of columns and separates one question from the
    next — grow it, pay for it, sell it. */
 /* A rule sits on its own grid row, so every pixel of it is paid for three times
@@ -2053,9 +2053,9 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pln-btn:focus-visible{outline:2px solid var(--gl);outline-offset:2px}
 .pln-mh2{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
 .pln-line{display:flex;justify-content:space-between;gap:10px;font-size:13px;font-weight:400;color:var(--t2);
-  padding:5px 0;border-bottom:1px solid var(--br2);font-variant-numeric:tabular-nums}
+  padding:7px 0;border-bottom:1px solid var(--br2);font-variant-numeric:tabular-nums}
 .pln-line b{font-weight:700;color:var(--t1)}
-.pln-be{margin-top:12px;background:var(--wh);border:1px solid var(--br);border-radius:10px;padding:12px 14px}
+.pln-be{margin-top:14px;background:var(--wh);border:1px solid var(--br);border-radius:10px;padding:14px 16px}
 .pln-be .k{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
 .pln-be .v{font-size:18px;font-weight:800;letter-spacing:-.3px;margin-top:4px;font-variant-numeric:tabular-nums;color:var(--gm)}
 .pln-be.tight .v{color:var(--or)}
@@ -2068,7 +2068,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
    informative stays grey, so a warning still means one. */
 .pln-noteh{font-size:9.5px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;
   color:var(--t4);margin:13px 0 4px}
-.pln-note{font-size:11.5px;color:var(--t3);line-height:1.55;margin-top:5px}
+.pln-note{font-size:11.5px;color:var(--t3);line-height:1.6;margin-top:7px}
 .pln-note b{font-weight:700;color:var(--t2)}
 .pln-note.warn{color:var(--or)}
 .pln-note.warn b{color:var(--or)}
@@ -29181,7 +29181,28 @@ function plnUseMarketPrice(idx){
   c.price=mk; dataChanged('plan'); recomputePlan(); renderCalGrid();
 }
 
-function plnToggleRow(key){ PLN_OPEN=(PLN_OPEN===key)?null:key; renderCalGrid(); }
+function plnToggleRow(key){
+  var opening=(PLN_OPEN!==key);
+  PLN_OPEN=opening?key:null;
+  renderCalGrid();
+  /* An open row is taller than the space left under the month header, so on a
+     laptop the bottom half opened off-screen and the farmer had to go looking
+     for it. Nothing on this page is sticky, so bringing the row to the top of
+     the scroller shows the whole panel at once. Only ever on open — scrolling
+     the page when someone closes a row would be disorienting. */
+  if(!opening) return;
+  setTimeout(function(){
+    var el=document.querySelector('[data-plnrow="'+String(key).replace(/"/g,'')+'"]');
+    var sc=document.querySelector('.content');
+    if(!el||!sc) return;
+    var item=el.closest?el.closest('.pln-item'):null; if(!item) item=el;
+    var need=item.getBoundingClientRect().height;
+    var top=item.getBoundingClientRect().top-sc.getBoundingClientRect().top+sc.scrollTop;
+    /* Leave it where it is when the whole thing already fits below it. */
+    if(item.getBoundingClientRect().bottom<=sc.getBoundingClientRect().bottom) return;
+    sc.scrollTo({top:Math.max(0, top-10), behavior:'smooth'});
+  },40);
+}
 
 /* Refresh only what changes while typing — a full re-render would tear the
    focused input out from under the farmer mid-keystroke. */
