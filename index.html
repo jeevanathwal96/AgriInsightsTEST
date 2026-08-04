@@ -28196,6 +28196,18 @@ function planPinProjectedEvent(key){
    live from orPlanRows(), so the wording follows the farm, not a fixture. */
 function planOrchNotice(){
   if(typeof orPlanRows!=='function') return '';
+  /* O5 — the farm-wide total, above the rows, because a lapsed certificate is a
+     farm problem even though it lands block by block. */
+  var _risk=(typeof orpExportRiskTotal==='function')?orpExportRiskTotal():null;
+  var _riskHTML='';
+  if(_risk){
+    var why=_risk.certs.map(function(c){ return '<b>'+esc(c.title)+'</b> ('+esc(c.why)+')'; });
+    _riskHTML='<div class="plan-outside"><b>'+planFmtR(_risk.total)+' of export income is at risk.</b> '+
+      (why.length ? why.join(' and ')+'. ' : '')+
+      _risk.blocks.length+' block'+(_risk.blocks.length===1?'':'s')+' affected — '+
+      esc(_risk.blocks.map(function(x){return x.name;}).join(', '))+
+      '. Sorted out, nothing changes; left as it is, that fruit sells local.</div>';
+  }
   var rows=orPlanRows(), late=[], young=[];
   rows.forEach(function(r){
     if(!orpBearing(r.b)){
@@ -28223,7 +28235,7 @@ function planOrchNotice(){
         return '<span>'+esc(o.nm)+' &middot; '+esc(o.when)+'</span>'; }).join('')+
       (young.length>6?'<span>+'+(young.length-6)+' more</span>':'')+'</div></div></div>';
   }
-  return h;
+  return _riskHTML + (h);
 }
 /* Livestock equivalent of the crop spill notice. Crops spill because they finish
    late; a herd "spills" because nobody has said whether it sells, or because the
@@ -30031,6 +30043,10 @@ function orPlanSetField(id,field,val){
     b.altBearing = (String(val).trim()==='') ? null : Math.max(0,Math.min(60,n));
   }
   else if(field==='altPhase'){ b.altPhase = (String(val)==='off') ? 'off' : 'on'; }
+  /* O3 — blank clears the split rather than storing a zero that reads as "set". */
+  else if(field==='juicePct'){
+    b.juicePct = (String(val).trim()==='') ? null : Math.max(0,Math.min(100,n));
+  }
   if(typeof orSave==='function') orSave();
   recomputePlan(); renderOrchPlanGrid(); updatePlanCombinedBanner(); updatePlanSummary();
 }
@@ -30107,6 +30123,104 @@ function orpAnchorYear(){
   return (typeof planFYYear==='function') ? planFYYear()
        : ((typeof planYear==='number') ? planYear : null);
 }
+/* ── O3 · export, local and juice ───────────────────────────────────────────
+   A block had one export percentage and everything else was valued at the local
+   price, so juice fruit — worth a fraction of local — was counted as local.
+
+   The farmer's export % is NEVER touched. The published citrus split is 65/20/15
+   but Vlei block packs 78% export; a good block beats the average, and replacing
+   his figure with a benchmark would quietly cut 113 tons off his export. The
+   split of what is LEFT starts blank, and until he fills it in the block behaves
+   exactly as it did before — everything non-export at the local price. */
+function orpJuicePct(b){
+  var n=parseFloat(b && b.juicePct);
+  return (isNaN(n)||n<0) ? null : Math.min(100, n);
+}
+function orpLocalPct(b){
+  var n=parseFloat(b && b.localPct);
+  return (isNaN(n)||n<0) ? null : Math.min(100, n);
+}
+/* Has the farmer split the remainder at all? Until he has, nothing changes. */
+function orpHasJuiceSplit(b){
+  var j=orpJuicePct(b);
+  return (j!=null && j>0);
+}
+function orpJuicePrice(b){
+  var p=((ST_FRUIT.pricing||{})[b.id])||{};
+  var n=parseFloat(p.juice);
+  return (isNaN(n)||n<0) ? null : n;
+}
+/* Tons down each of the three channels. Local absorbs whatever is not export or
+   juice, so the three always add to the crop. */
+function orpChannelTons(b){
+  var tons=(typeof orpTonsFor==='function' && typeof planYear==='number')
+    ? orpTonsFor(b, planYear) : (b.tons||0);
+  var expPct=(typeof orChanPct==='function')?orChanPct(b):0;
+  var exp=tons*expPct/100;
+  var juice=orpHasJuiceSplit(b) ? tons*orpJuicePct(b)/100 : 0;
+  var local=Math.max(0, tons-exp-juice);
+  return {tons:tons, exp:exp, local:local, juice:juice, expPct:expPct};
+}
+/* Juice income. No price entered means no invented one — the tons are shown and
+   valued at nothing, which understates rather than flatters. */
+function orpJuiceIncome(b){
+  if(!orpHasJuiceSplit(b)) return 0;
+  var pr=orpJuicePrice(b);
+  return (pr==null) ? 0 : Math.round(orpChannelTons(b).juice*pr);
+}
+
+/* ── O5 · may this fruit actually be exported? ──────────────────────────────
+   Certificates are farm-wide — one GLOBALG.A.P. covers every block. Pest
+   findings are per block, because FCM is a citrus problem and codling moth an
+   apple one, and orBlockPestOpen() already resolves that by category.
+
+   This NEVER changes the forecast. A farmer may be mid-renewal or already
+   spraying, and an app that halves his income because a date passed would be
+   both wrong and quickly ignored. It states the exposure; the number stands. */
+function orpExportCertProblems(){
+  var out=[], c=(typeof ST_FRUIT!=='undefined' && ST_FRUIT.comply) ? ST_FRUIT.comply : {};
+  ['gap','ppecb','phytclean','siza'].forEach(function(k){
+    var e=c[k]; if(!e || e.type!=='cert') return;
+    var st=orCertState(e);
+    if(st.expired || st.tag==='red') out.push({key:k, title:e.title||k, why:st.status});
+  });
+  return out;
+}
+function orpExportPestProblems(b){
+  var out=[], c=(typeof ST_FRUIT!=='undefined' && ST_FRUIT.comply) ? ST_FRUIT.comply : {};
+  if(typeof orCropPests!=='function') return out;
+  orCropPests(b.cat).forEach(function(k){
+    var e=c[k]; if(e && e.statusTag==='red') out.push({key:k, title:e.title||k, why:e.status||'Action needed'});
+  });
+  return out;
+}
+/* What this block stands to lose if the fruit cannot ship and goes local. */
+function orpExportAtRisk(b){
+  if(!b || b.cat==='veg' || !(b.tons>0)) return null;
+  var pct=(typeof orChanPct==='function')?orChanPct(b):0;
+  if(!(pct>0)) return null;                       /* nothing exported, nothing at risk */
+  var certs=orpExportCertProblems(), pests=orpExportPestProblems(b);
+  if(!certs.length && !pests.length) return null;
+  var p=((ST_FRUIT.pricing||{})[b.id])||{};
+  var expTons=(b.tons||0)*pct/100;
+  var asExport=(typeof orNetPer==='function' && typeof orBlockUnits==='function')
+    ? orNetPer(b)*orBlockUnits(b) : 0;
+  var L=p.local||{};
+  var ifLocal=expTons*(L.price||0)*(1-((L.comm||0)/100));
+  return {certs:certs, pests:pests, exportTons:Math.round(expTons),
+          asExport:Math.round(asExport), ifLocal:Math.round(ifLocal),
+          loss:Math.round(asExport-ifLocal)};
+}
+/* The farm-wide total, for the notice above the rows. */
+function orpExportRiskTotal(){
+  var tot=0, blocks=[];
+  (typeof orPlanRows==='function'?orPlanRows():[]).forEach(function(r){
+    var x=orpExportAtRisk(r.b);
+    if(x && x.loss>0){ tot+=x.loss; blocks.push({name:r.b.name, loss:x.loss}); }
+  });
+  return blocks.length ? {total:tot, blocks:blocks, certs:orpExportCertProblems()} : null;
+}
+
 /* ── O4 · alternate bearing ─────────────────────────────────────────────────
    There was an avocado curve that oscillates on and off year, and nothing used
    it — no block carries that curve, and it is not an avocado problem anyway:
@@ -30312,6 +30426,9 @@ function orpTags(r){
     t.push('<span class="orp-tag spill">paid next season</span>');
   if(pct!=null && pct>0 && pct<100)
     t.push('<span class="orp-tag ramp">year '+orpAge(b)+' · '+pct+'% bearing</span>');
+  /* O5 — export being blocked outranks everything else on the row. */
+  if(typeof orpExportAtRisk==='function' && orpExportAtRisk(b))
+    t.push('<span class="orp-tag tight" title="A certificate or pest finding stops this fruit shipping">export at risk</span>');
   /* O1 — say how many crops a year this land turns, since every figure on the
      row is now the whole year rather than one cycle. */
   if(b.cat==='veg' && orpVegCycles(b)>1)
@@ -30378,8 +30495,29 @@ function orpMoneyPanel(r){
         '</span><b>'+orRm(Math.round(net*units))+'</b></div>';
     else h+='<div class="orp-ln"><span>'+_grpInt(units)+' tons × R'+_grpInt(net)+
         '</span><b>'+orRm(Math.round(net*units))+'</b></div>';
-    if(localT>0) h+='<div class="orp-ln"><span>Local / juice — '+_grpInt(localT)+' t × R'+_grpInt(localN)+
+    /* O3 — once the split is set, local is local and juice is its own line, so
+       the label stops promising two channels it was only ever valuing as one. */
+    if(localT>0) h+='<div class="orp-ln"><span>'+(orpHasJuiceSplit(b)?'Local':'Local / juice')+' — '+_grpInt(localT)+' t × R'+_grpInt(localN)+
         '</span><b>'+orRm(Math.round(localN*localT))+'</b></div>';
+  /* O3 — juice tons always shown; valued only when the farmer has priced them. */
+  if(orpHasJuiceSplit(b)){
+    var jT=Math.round(orpChannelTons(b).juice), jP=orpJuicePrice(b);
+    h+='<div class="orp-ln"><span>Juice — '+_grpInt(jT)+' t'+(jP!=null?' \u00d7 R'+_grpInt(jP):'')+
+      '</span><b>'+(jP!=null?orRm(orpJuiceIncome(b)):'\u2014')+'</b></div>';
+    if(jP==null) h+='<div class="orp-facts" style="color:var(--or)">No juice price set, so these '+
+      '<b>'+_grpInt(jT)+' t</b> are counted as worth nothing. Put your processor\u2019s price in and '+
+      'the season figure lifts \u2014 leaving it blank understates the block rather than flattering it.</div>';
+  }
+  /* O5 — the fruit may not be shippable. Says so; changes nothing. */
+  (function(){
+    var risk=(typeof orpExportAtRisk==='function')?orpExportAtRisk(b):null;
+    if(!risk) return;
+    var bits=risk.certs.concat(risk.pests).map(function(x){ return '<b>'+esc(x.title)+'</b> \u2014 '+esc(x.why); });
+    h+='<div class="orp-facts" style="color:var(--rd)"><b>This fruit cannot ship as things stand.</b> '+
+      bits.join('; ')+'. If the crop went local instead you would see <b>'+orRm(risk.ifLocal)+
+      '</b> rather than <b>'+orRm(risk.asExport)+'</b> \u2014 a <b>'+orRm(risk.loss)+
+      '</b> difference on this block. The forecast is left as it stands.</div>';
+  })();
   }
   h+='<div class="orp-ln"><span>Season costs</span><b>−'+orRm(r.cost)+'</b></div>'+
      '<div class="orp-ln sum"><span>Margin</span><b>'+orRm(r.income-r.cost)+
@@ -30547,7 +30685,18 @@ function orpEditor(r){
         : ''))+
     (b.cat==='veg' ? f('Top grade (%)',num(set,'grade',b.grade||0,'1'))
                    : f('Export (%)',num(set,'exp',b.exp||0,'1'))+
-                     f('Carton (kg)',num(set,'cartonKg',b.cartonKg||15,'0.5')))+
+                     f('Carton (kg)',num(set,'cartonKg',b.cartonKg||15,'0.5'))+
+                     /* O3 — blank until the farmer says. Left blank the block is
+                        valued exactly as before: everything non-export as local. */
+                     f('Juice (%)','<input type="number" min="0" max="100" step="1" value="'+
+                       (b.juicePct||'')+'" placeholder="none" onchange="event.stopPropagation();'+
+                       setf+'\'juicePct\',this.value)">')+
+                     (orpHasJuiceSplit(b)
+                       ? f('Juice price (R/ton)','<input type="number" min="0" step="50" value="'+
+                           (((ST_FRUIT.pricing||{})[b.id]||{}).juice||'')+
+                           '" placeholder="set this" onchange="event.stopPropagation();'+
+                           setp+'\'juice\',this.value)">')
+                       : ''))+
     '</div></div>';
 
   if(b.cat!=='veg'){
@@ -50399,7 +50548,13 @@ function orLocalNet(b){
 }
 function orLocalTons(b){
   if(b.cat==='veg') return 0;
-  return (b.tons||0)*(100-orChanPct(b))/100;
+  var rest=(b.tons||0)*(100-orChanPct(b))/100;
+  /* O3 — juice comes out of the non-export remainder, not out of thin air. With
+     no juice split set this subtracts nothing and the figure is unchanged. */
+  if(typeof orpHasJuiceSplit==='function' && orpHasJuiceSplit(b)){
+    rest = Math.max(0, rest - (b.tons||0)*orpJuicePct(b)/100);
+  }
+  return rest;
 }
 function orNetPer(b){
   var p=ST_FRUIT.pricing[b.id]; if(!p){ p=ST_FRUIT.pricing[b.id]=orDefaultPricing(b.cat); }
@@ -50412,7 +50567,12 @@ function orBlockUnits(b){
   if(b.cat==='berry') return Math.round((b.tons||0)*(orChanPct(b)/100)*1000);
   return Math.round((b.tons||0)*(orChanPct(b)/100)*1000/(b.cartonKg||15));
 }
-function orBlockTotal(b){ if(b.plan || b.removed || !(b.tons>0)) return 0; return Math.round(orNetPer(b)*orBlockUnits(b) + orLocalNet(b)*orLocalTons(b)); }
+/* O3 — juice is added here and subtracted from local inside orLocalTons, so a
+   block with no juice split behaves exactly as it always did and the Orchards
+   page and the planner cannot drift apart. */
+function orBlockTotal(b){ if(b.plan || b.removed || !(b.tons>0)) return 0;
+  var juice=(typeof orpJuiceIncome==='function')?orpJuiceIncome(b):0;
+  return Math.round(orNetPer(b)*orBlockUnits(b) + orLocalNet(b)*orLocalTons(b) + juice); }
 function orBlockMargin(b){ if(b.plan || b.removed || !(b.tons>0) || !(b.ha>0)) return 0; return Math.round(orBlockTotal(b)/b.ha); }
 function orSetBlockField(id,field,v){
   var b=orBlockById(id); if(!b) return; var n=parseFloat(String(v).replace(/[^0-9.\-]/g,''));
@@ -51181,7 +51341,30 @@ function orComplyEnsure(){
     if(c.type==='pest' && c.log==null) c.log='No issues logged yet';
   });
 }
-function orComplyRow(key){var c=ST_FRUIT.comply[key];if(!c)return '';return '<div class="or-cmp" onclick="orOpenComply(\''+key+'\')"><div class="or-cmpic">'+c.ic+'</div><div class="or-cmpmid"><div class="or-cmpt">'+c.title+'</div><div class="or-cmps">'+(c.what||'').split('.')[0]+'</div></div><span class="or-tag '+c.statusTag+'">'+c.status+'</span><span class="or-chev">\u203A</span></div>';}
+/* ── The stale-status bug ───────────────────────────────────────────────────
+   A certificate's status was a STRING written when the record was saved, and
+   never re-checked. On the demo farm GLOBALG.A.P. expired 12 Jul 2026 and was
+   still showing "Expires 12 Jul 2026" in amber on 4 August — 23 days after the
+   fact. Crops already does this properly in cropDocExpiry(); orchards did not.
+   The live state is computed from the date against today, every render. Pests
+   have no expiry and keep whatever the farmer set. */
+function orCertState(c){
+  var out={status:(c&&c.status)||'', tag:(c&&c.statusTag)||'gray', expired:false, days:null};
+  if(!c || c.type!=='cert' || !c.expiry) return out;
+  var d=new Date(String(c.expiry)+'T00:00:00');
+  if(isNaN(d.getTime())) return out;
+  var today=(typeof LS_TODAY!=='undefined' && LS_TODAY) ? LS_TODAY : new Date();
+  var days=Math.round((d-today)/86400000);
+  var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var lbl=d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear();
+  out.days=days;
+  if(days<0){ out.expired=true; out.tag='red';
+    out.status='Expired '+lbl+' — '+Math.abs(days)+' day'+(Math.abs(days)===1?'':'s')+' ago'; }
+  else if(days<=60){ out.tag='amber'; out.status='Expires '+lbl+' ('+days+'d)'; }
+  else { out.tag='green'; out.status='Valid to '+lbl; }
+  return out;
+}
+function orComplyRow(key){var c=ST_FRUIT.comply[key];if(!c)return '';var _s=orCertState(c);return '<div class="or-cmp" onclick="orOpenComply(\''+key+'\')"><div class="or-cmpic">'+c.ic+'</div><div class="or-cmpmid"><div class="or-cmpt">'+c.title+'</div><div class="or-cmps">'+(c.what||'').split('.')[0]+'</div></div><span class="or-tag '+_s.tag+'">'+_s.status+'</span><span class="or-chev">\u203A</span></div>';}
 function orHasExport(){ return ST_FRUIT.blocks.some(function(b){ return (b.cat!=='veg') && (b.exp>0); }); }
 function orActiveCats(){ var s={}; ST_FRUIT.blocks.forEach(function(b){ s[b.cat]=true; }); return s; }
 /* ===== Phase 3: compliance — readiness meter, crop driver, export controls, buyer schemes ===== */
