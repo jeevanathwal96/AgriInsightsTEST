@@ -9491,6 +9491,20 @@ function debouncedSave() {
 function loadState() {
   try {
     if (typeof localStorage === 'undefined') return false;
+    /* Restart demo asks for the wipe here rather than doing it itself. Clearing
+       the key and then navigating never worked: the click queues a debounced
+       save, and beforeunload AND pagehide both call saveState(), so the state
+       was written straight back before the new page loaded — Restart demo has
+       never actually restarted anything. Doing it on the way IN is the only
+       point where nothing can write behind us. */
+    try{
+      if(sessionStorage.getItem('ai_demo_reset')==='1'){
+        sessionStorage.removeItem('ai_demo_reset');
+        localStorage.removeItem(SAVE_KEY);
+        if(typeof TXN_OUTBOX_KEY!=='undefined') localStorage.removeItem(TXN_OUTBOX_KEY);
+        localStorage.removeItem('ai_guest_toured');
+      }
+    }catch(_){}
     var raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     var snap = JSON.parse(raw);
@@ -46263,7 +46277,9 @@ function aiDemoBlock(label){
 }
 window.aiDemoBlock = aiDemoBlock;
 function aiDemoRestart(){
-  try{ localStorage.removeItem(SAVE_KEY); localStorage.removeItem(TXN_OUTBOX_KEY); localStorage.removeItem('ai_guest_toured'); }catch(e){}
+  /* Flag it and let loadState() do the wipe — see the note there. Clearing from
+     this side is undone by the save that fires on unload. */
+  try{ sessionStorage.setItem('ai_demo_reset','1'); }catch(e){}
   try{ localStorage.setItem('ai_guest','1'); }catch(e){}
   location.href = location.pathname + '?demo=1';
 }
