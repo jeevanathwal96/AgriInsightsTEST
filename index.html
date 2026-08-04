@@ -2082,6 +2082,40 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .lvp-be.warn .v{color:var(--or)}
 .lvp-be .s{font-size:13px;font-weight:400;color:var(--t2);margin-top:6px;line-height:1.5}
 .lvp-facts{margin-top:8px;font-size:11.5px;font-weight:400;color:var(--t3);line-height:1.6}
+/* ══ LS3 · sale schedule ═══════════════════════════════════════════════════
+   One row per time the herd sells. Each row is a calendar sell event. */
+.lvp-h3{margin-top:15px;font-size:10.5px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--t4)}
+.lvs{margin-top:7px}
+.lvs-row{display:grid;grid-template-columns:104px minmax(0,1fr) 62px 84px 92px 24px;
+  gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--br2)}
+.lvs-row.hd{padding:0 0 5px;border-bottom:1px solid var(--br)}
+.lvs-row.hd span{font-size:9.5px;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--t4)}
+.lvs-row.hd .n,.lvs-row.hd .lvs-tot{text-align:right}
+.lvs-f{width:100%;min-width:0;background:var(--wh);border:1px solid var(--br);
+  border-radius:6px;padding:5px 8px;font-size:12px;font-family:var(--fn);color:var(--t2)}
+.lvs-f:focus{outline:2px solid var(--pu);outline-offset:-1px}
+.lvs-f.n{text-align:right;font-variant-numeric:tabular-nums}
+.lvs-tot{text-align:right;font-size:12px;font-weight:800;color:var(--t1);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.lvs-x{background:none;border:0;color:var(--t4);font-size:16px;line-height:1;
+  cursor:pointer;padding:2px 4px;border-radius:5px}
+.lvs-x:hover{background:var(--rp);color:var(--rd)}
+.lvs-note{grid-column:2/-1;font-size:10.5px;color:var(--t4)}
+.lvs-add{margin-top:10px;background:none;border:0;padding:0;cursor:pointer;
+  font-size:12px;font-weight:800;color:var(--pu);font-family:var(--fn)}
+.lvs-add:hover{text-decoration:underline}
+.lvs-foot{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  margin-top:11px;padding-top:9px;border-top:1px solid var(--br);
+  font-size:11.5px;color:var(--t3)}
+.lvs-foot b{font-size:14px;color:var(--t1);font-variant-numeric:tabular-nums}
+.lvs-foot .warn{color:var(--or);font-weight:700}
+@media (max-width:900px){
+  .lvs-row{grid-template-columns:92px minmax(0,1fr) 54px 74px}
+  .lvs-row .lvs-tot{grid-column:3/-1;text-align:left}
+  .lvs-row .lvs-x{display:none}
+}
 .lvp-facts b{font-weight:700;color:var(--t2)}
 .lvp-tot{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:1px;background:var(--br2);
   border-radius:var(--r);overflow:hidden;margin-top:16px;min-width:840px}
@@ -9808,7 +9842,18 @@ function cropSyncToPlan(land){
     linkId: land.planId
   };
   idx=cropFindPlanLine(land);
-  if(idx>=0){ if(ST_PLAN.crops[idx].inForecast===false) entry.inForecast=false; ST_PLAN.crops[idx]=entry; }
+  if(idx>=0){
+    /* The land owns crop, area, dates, yield, price and input cost. Everything
+       else on the line belongs to the PLANNER and the land knows nothing about
+       it — so a resync used to wipe it. Editing a land silently deleted the
+       farmer's payment terms (C3), his second crop on that land (C6) and his
+       other-costs figure. Carried over explicitly. */
+    var prev=ST_PLAN.crops[idx];
+    ['inForecast','payWhen','paySplit','sellMonth','c2','otherCost'].forEach(function(k){
+      if(prev[k]!==undefined && prev[k]!==null && !(k==='otherCost' && !prev[k])) entry[k]=prev[k];
+    });
+    ST_PLAN.crops[idx]=entry;
+  }
   else ST_PLAN.crops.push(entry);
 }
 
@@ -9823,6 +9868,152 @@ function cropInitialPlanSync(fresh){
     ST_PLAN.crops = ST_PLAN.crops.filter(function(c){return false;}); // clear demo crop lines
     ST_CROP.lands.forEach(function(l){ if(l) { l.planId=null; cropSyncToPlan(l); } });
   }
+}
+
+/* ── Demo showcase data ────────────────────────────────────────────────────
+   The seeded farm exercised most of the app but left six planning features
+   with NO data at all, so they were invisible on the demo: forward selling,
+   payment terms, two crops on one land, the juice channel, alternate bearing,
+   and labour tagged to a block.
+
+   Every figure here is the kind a farmer types in himself — his own contract
+   price, his own block's swing, his own payment terms. Nothing is presented as
+   a published benchmark, because none of it is one. Months are read off the
+   live planning grid rather than hard-coded, so this still lands correctly in
+   a later season.
+
+   Fresh loads only, and each field is written only when EMPTY, so a farmer who
+   has entered his own answer never has it overwritten. */
+function demoSeedPlanning(fresh){
+  if(!fresh) return;
+  try{
+    if(typeof ST_PLAN==='undefined' || !ST_PLAN.crops) return;
+    var M=(ST_PLAN.months||[]).map(function(m){ return m.label; });
+    if(M.length<12) return;
+    /* 'Jun 2026' -> '2026-06-20'. Lands store ISO dates; the grid stores labels. */
+    function iso(label, day){
+      var p=String(label||'').split(' ');
+      var mi=(typeof PLAN_MON3!=='undefined')?PLAN_MON3.indexOf(p[0]):-1;
+      if(mi<0||!p[1]) return '';
+      return p[1]+'-'+String(mi+1).padStart(2,'0')+'-'+String(day||15).padStart(2,'0');
+    }
+
+    /* ── C6 · two crops on one land ─────────────────────────────────────
+       Onderste land is the pivot. Irrigated wheat goes in around June and
+       comes off in November; soybeans follow it into the same ground in
+       December. That is the standard SA irrigated double-crop, and it also
+       gives the wheat land the planting month the seed left blank. */
+    var wl=(ST_CROP.lands||[]).filter(function(l){ return l && l.crop==='Wheat'; })[0];
+    if(wl && !wl.planted){
+      wl.planted=iso(M[1],20);                       /* June */
+      if(wl.stage==='planned') wl.stage='growing';
+      if(typeof cropSyncToPlan==='function') cropSyncToPlan(wl);
+    }
+    var wline=ST_PLAN.crops.filter(function(c){ return c && c.crop==='Wheat'; })[0];
+    if(wline && !wline.c2){
+      wline.c2={ crop:'Soybeans', plant:M[7], harvest:M[11], yield:2.4,
+                 price:((ST_CROP.prices||{})['Soybeans'])||0,
+                 inputCost:7800, otherCost:1600 };
+    }
+
+    /* ── C3 · when the buyer actually pays ──────────────────────────────
+       A silo delivery is settled almost at once; oilseed processors run on
+       terms; and one maize land is deliberately held back for a later
+       market, which is what "store it, sell later" is for. */
+    var PAY={ 'Vlakte':'0', 'Grootvlei':'store', 'Langfontein':'30', 'Rietkuil':'30' };
+    ST_PLAN.crops.forEach(function(c){
+      if(!c) return;
+      if(!c.payWhen && PAY[c.field]!==undefined) c.payWhen=PAY[c.field];
+      /* Fuel, contract work, crop insurance and haulage. The seed left this at
+         zero, which quietly made every crop margin look better than it is. */
+      if(!c.otherCost){
+        c.otherCost = (c.crop==='White maize') ? 2400
+                    : (c.crop==='Soybeans')    ? 1600
+                    : (c.crop==='Sunflower')   ? 1400
+                    : (c.crop==='Wheat')       ? 1900 : 1500;
+      }
+    });
+    /* Stored grain sells AFTER it comes off. Anchoring to the last grid month
+       put the sale two months BEFORE the May harvest; the month picker already
+       offers a short tail past the season end for exactly this. */
+    function shiftLabel(label, n){
+      var p=String(label||'').split(' ');
+      var mi=(typeof PLAN_MON3!=='undefined')?PLAN_MON3.indexOf(p[0]):-1;
+      var y=parseInt(p[1],10);
+      if(mi<0||isNaN(y)) return label;
+      var t=mi+n;
+      return PLAN_MON3[((t%12)+12)%12]+' '+(y+Math.floor(t/12));
+    }
+    var held=ST_PLAN.crops.filter(function(c){ return c && c.payWhen==='store'; })[0];
+    if(held && !held.sellMonth && held.harvest) held.sellMonth=shiftLabel(held.harvest, 2);
+
+    /* ── C2 · forward selling ───────────────────────────────────────────
+       Contracting part of the maize ahead of harvest is ordinary practice.
+       The contract price is the farm's OWN maize price, not an invented
+       market figure — drag the grain-price lever to watch the hedge work. */
+    if(!ST_PLAN.hedge) ST_PLAN.hedge={};
+    /* The seed already ships a hedge placeholder at pct:0, so testing for the
+       KEY skipped it and left forward selling switched off. Test the share. */
+    var hz=ST_PLAN.hedge['White maize'];
+    if(!hz || !(hz.pct>0)){
+      var mz=ST_PLAN.crops.filter(function(c){ return c && c.crop==='White maize'; })[0];
+      if(mz && mz.price>0) ST_PLAN.hedge['White maize']={ pct:40, price:Math.round(mz.price) };
+    }
+
+    /* ── O3 · the juice channel ─────────────────────────────────────────
+       Valencias that miss export and local pack-out go to the juicing line.
+       The price is the farmer's own, entered like every other price here. */
+    var vlei=(ST_FRUIT.blocks||[]).filter(function(b){ return b && b.id==='f1'; })[0];
+    if(vlei && vlei.juicePct==null){
+      vlei.juicePct=12;
+      ST_FRUIT.pricing=ST_FRUIT.pricing||{};
+      ST_FRUIT.pricing.f1=ST_FRUIT.pricing.f1||{};
+      if(ST_FRUIT.pricing.f1.juice==null) ST_FRUIT.pricing.f1.juice=950;
+    }
+
+    /* ── O4 · alternate bearing ─────────────────────────────────────────
+       Pome fruit swings on and off; citrus far less, so only the apple and
+       the pear carry it. One block is in an ON year and the other in an OFF
+       year, so both directions show. */
+    (ST_FRUIT.blocks||[]).forEach(function(b){
+      if(!b || b.altBearing!=null) return;
+      if(b.id==='f6'){ b.altBearing=20; b.altPhase='on';  }   /* Cripps Pink */
+      if(b.id==='f10'){ b.altBearing=15; b.altPhase='off'; }   /* Packham's   */
+    });
+
+    /* ── O6 · labour tagged to a block ──────────────────────────────────
+       Two of the permanent staff work the orchards. The rest stay untagged
+       on purpose: that is the real state of most farms, and it is what the
+       untagged-wages gap is there to show. */
+    var W=(ST_WORK&&ST_WORK.workers)||[];
+    W.forEach(function(w){
+      if(!w || w.activity) return;
+      if(w.id==='w1') w.activity='or:f1';   /* Vlei block  */
+      if(w.id==='w4') w.activity='or:f6';   /* Bospad      */
+    });
+
+    /* ── LS3 · herds that sell more than once ───────────────────────────
+       A weaner draft in one month and a cull draft in another is how a
+       breeding herd actually sells. Young stock is deliberately left with no
+       sale planned, so the notice strip still has a real gap to report. */
+    ST_PLAN.events=ST_PLAN.events||[];
+    function hasSale(hid, desc){
+      return ST_PLAN.events.some(function(e){ return e && e.herdId===hid && e.desc===desc; });
+    }
+    function addSale(hid, herd, icon, species, desc, monthIdx, qty, price){
+      if(hasSale(hid, desc)) return;
+      ST_PLAN.events.push({ herdId:hid, species:species, animal:herd, icon:icon, desc:desc,
+        type:'sell', month:M[monthIdx], qty:qty, unit:'head', price:price,
+        recur:'annual', notes:'', useMarket:false, done:false, plannedNew:false });
+    }
+    addSale(1,'Breeding cows','🐂','Beef cattle','Sell cull cows',      4, 3, 9000);
+    addSale(3,'Boer goats',   '🐐','Boer goats (meat)','Sell ewe kids', 5, 8, 1400);
+    /* The dairy herd sells its culls too, which also clears its setup flag —
+       a herd carrying R950 400 of milk should not read as "not set up". */
+    addSale(4,'Dairy cows',   '🐄','Dairy cattle','Sell cull cows',     6, 4, 11000);
+    var dairy=(ST_LS.herd||[]).filter(function(h){ return h && h.id===4; })[0];
+    if(dairy && dairy.pSelling===undefined) dairy.pSelling=true;
+  }catch(e){}
 }
 
 // Demo-only: land-derived crops harvest in May (a summer-grain cycle), which falls one month past
@@ -11667,7 +11858,32 @@ function _pfTaggedLabourTotal(){
   return Math.round(t);
 }
 // Sum of real EXPENSE transactions tagged to an enterprise (excludes labour — that is added via wkEnterpriseLabour).
-function entTaggedCost(code){ if(!code) return 0; var t=0; try{ (ST.txns||[]).forEach(function(x){ if(x && x.ent===code && x.type==='expense' && x.cat!=='Labour & Wages' && x.cat!=='Labour'){ t+=x.amt||0; } }); }catch(e){} return Math.round(t); }
+/* Which financial year a transaction falls in — the same May–April year the
+   planner uses (see planLabelFY), so a cost and the season it belongs to agree. */
+function entTxnFY(x){
+  if(!x || !x.date) return null;
+  var t=new Date(x.date); if(isNaN(t)) return null;
+  var st=(typeof PLAN_SEASON_START==='number') ? (PLAN_SEASON_START-1) : 4;
+  return (t.getMonth()>=st) ? t.getFullYear() : t.getFullYear()-1;
+}
+/* This summed the WHOLE ledger, with no date filter at all: three seasons of
+   feed were read as one season's cost. Breeding cows showed R516 495 of "real
+   costs" against a R103 200 year — R195 255 of it from 2024 and R255 525 from
+   2025. Every enterprise margin that said "Real costs" was overstated by
+   however long the farmer had been tagging. Now scoped to one financial year,
+   defaulting to the season on screen. Pass fy=null for the old lifetime total. */
+function entTaggedCost(code, fy){
+  if(!code) return 0;
+  if(fy===undefined) fy=(typeof planYear!=='undefined') ? planYear : null;
+  var t=0;
+  try{ (ST.txns||[]).forEach(function(x){
+    if(!x || x.ent!==code || x.type!=='expense') return;
+    if(x.cat==='Labour & Wages' || x.cat==='Labour') return;
+    if(fy!=null){ var f=entTxnFY(x); if(f!==null && f!==fy) return; }
+    t+=x.amt||0;
+  }); }catch(e){}
+  return Math.round(t);
+}
 function _pfSrcBadge(pct){ pct=pct||0; if(pct>=66) return '<span class="pf-src real">Real costs</span>'; if(pct>0) return '<span class="pf-src part">Part real</span>'; return '<span class="pf-src budget">Budget cost</span>'; }
 /* Three states, because a crop can be wholly planned, partly planned (some lands in the ground,
    some not) or wholly in the ground. On farms with no tagged spend every crop shows the same
@@ -11730,18 +11946,25 @@ function _pfLiveEnts(){
   if(typeof entOn==="function" && !entOn("livestock")) return [];
   return (ST_LS&&ST_LS.herd||[]).filter(function(h){ return !h.planned && (h.qty||0)>0; }).map(function(h){
     var qty=h.qty||0;
-    var modelCost=((h.buy||0)+((h.feed||0)+(h.vet||0))*(h.months||0))*qty;
-    var taggedCost=entTaggedCost('ls:'+h.id);
-    var effCost=Math.max(taggedCost, modelCost);
+    /* Was ((buy)+(feed+vet)*months)*qty with effCost=max(tagged,model): it
+       charged a breeding herd its purchase price every year, and "whichever is
+       larger" made the figure change meaning halfway through a season. Both
+       screens now read lsHerdCostParts. */
+    var _p=lsHerdCostParts(h);
+    var modelCost=_p.buy+_p.keep+_p.bull;
+    var taggedCost=_p.tagged;
+    /* Same figure Planning shows — lsHerdCost minus the labour it already
+       includes, because Profit reports and subtracts labour separately. */
+    var effCost=lsHerdCost(h)-_p.labour;
     /* Planning is the truth for VOLUME. Profit keeps its own per-cycle cost model
        (h.months, not a calendar year) but stops assuming the whole herd is sold at
        target price — it takes the head and price the farmer actually planned.
        That assumption alone put Profit R983 400 above Planning on the demo farm. */
-    var income=(typeof lvpPlannedIncome==='function') ? lvpPlannedIncome(h) : (h.sell||0)*qty;
-    var lab=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('ls:'+h.id):0;
+    var income=lsHerdIncome(h);
+    var lab=_p.labour;
     var gmProd=income-effCost, gm=gmProd-lab;
     var costHead=qty?Math.round(effCost/qty):0, marginHead=(h.sell||0)-costHead;
-    var lsu=qty*_pfLsu(h.type||h.name||''), sourcePct=(effCost>0)?Math.min(100,Math.round(taggedCost/effCost*100)):0;
+    var lsu=qty*_pfLsu(h.type||h.name||''), sourcePct=lsHerdCostSourcePct(h);
     return {id:h.id, name:h.name||h.type||'Herd', type:h.type||'', qty:qty, costHead:costHead, sellHead:h.sell||0, marginHead:marginHead, gm:gm, gmProd:gmProd, labour:lab, lsu:lsu, gmLsu:lsu?Math.round(gm/lsu):0, feed:h.feed||0, vet:h.vet||0, buy:h.buy||0, months:h.months||0, taggedCost:taggedCost, modelCost:modelCost, sourcePct:sourcePct, icon:_pfLiveIcon(h.type||h.name||''), finance:(typeof LN_liveFinance==='function')?LN_liveFinance(h.id):0};
   });
 }
@@ -12644,6 +12867,7 @@ function bootAgriInsights() {
   try { demoRepairCrops(); } catch(e){}
   try { demoRepairCropLands(); } catch(e){}
   try { if(typeof planSyncToCurrentYear==='function') planSyncToCurrentYear(); } catch(e){}
+  try { demoSeedPlanning(!loaded); } catch(e){}
   attachAutosave();
   registerServiceWorker();
   try { applyFarmTypeVisibility(); } catch(e){}
@@ -28601,6 +28825,123 @@ function lvpPlannedIncome(h){
 function lvpRunCostYear(h){ return Math.round(((h.feed||0)+(h.vet||0))*(h.qty||0)*12*
   ((typeof lvpScenCostMult==='function')?lvpScenCostMult():1)); }
 
+/* ── Livestock 3 · a herd that sells more than once a year ─────────────────
+   The guided setup stored one price per head and assumed a single sale, so a
+   farmer selling weaners in May and culls after weaning in September had to
+   hand-build each one in the calendar, one at a time, and the herd card never
+   added them up.
+
+   The schedule is a VIEW of those same sell events, not a parallel store: a row
+   edits the event the calendar shows, and a new row pushes the shape the
+   calendar already creates. lvpPlannedIncome() has always summed these, so the
+   forecast needed no change — only a way to see and edit them together. */
+function lvpSales(h){
+  if(!h || typeof planActiveEvents!=='function') return [];
+  return planActiveEvents().filter(function(e){
+    return e && e.herdId===h.id && !e.done && e.inForecast!==false &&
+           (e.type==='sell' || e.type==='income');
+  });
+}
+/* Head counts only animals LEAVING. A wool clip or a milk cheque is income off
+   the herd, not animals sold, so it must not eat into the head count. */
+function lvpSoldHead(h){
+  return lvpSales(h).reduce(function(s,e){
+    return s + ((e.type==='sell' && (e.unit||'head')==='head') ? (e.qty||0) : 0);
+  },0);
+}
+/* A projected event is a COPY planActiveEvents built for the year on screen —
+   it is not in ST_PLAN.events, so writing to it would edit an object the next
+   render throws away. Pin it first: what planPinProjectedEvent does, minus
+   opening a modal over the farmer mid-edit. */
+function lvpSaleIdx(e){
+  var list=(ST_PLAN.events||[]);
+  var i=list.indexOf(e);
+  if(i>=0) return i;
+  if(!e || !e.projected) return -1;
+  var pinned={}; for(var k in e) pinned[k]=e[k];
+  delete pinned.projected;
+  list.push(pinned);
+  return list.length-1;
+}
+function lvpSaleRefresh(){
+  if(typeof recomputePlan==='function') recomputePlan();
+  if(typeof renderLiveCalGrid==='function') renderLiveCalGrid();
+  if(typeof updatePlanSummary==='function') updatePlanSummary();
+  if(typeof dataChanged==='function') dataChanged('plan');
+}
+function lvpSaleSet(hid, si, field, val){
+  var h=lvpHerdById(hid); if(!h) return;
+  var e=lvpSales(h)[si]; if(!e) return;
+  var i=lvpSaleIdx(e); if(i<0) return;
+  var ev=ST_PLAN.events[i];
+  if(field==='qty' || field==='price'){
+    var n=parseFloat(val); ev[field]=(isNaN(n)||n<0)?0:n;
+  } else if(field==='month'){ ev.month=val; }
+  else if(field==='desc'){ ev.desc=String(val||'').slice(0,60); }
+  lvpSaleRefresh();
+}
+function lvpSaleAdd(hid){
+  var h=lvpHerdById(hid); if(!h) return;
+  var ms=(ST_PLAN.months||[]);
+  /* Opens on the herd's own price rather than zero — the farmer is adding a
+     second draft of animals he already priced, not starting from nothing. */
+  (ST_PLAN.events=ST_PLAN.events||[]).push({
+    herdId:h.id, species:h.type||'',
+    animal:(typeof lsHerdName==='function')?lsHerdName(h):(h.name||'Herd'),
+    icon:(typeof lsHerdIcon==='function')?lsHerdIcon(h):'🐄',
+    desc:'', type:'sell', month:(ms[0]&&ms[0].label)||'', qty:0, unit:'head',
+    price:Math.round((typeof lvpPricePerHead==='function')?(lvpPricePerHead(h)||0):0),
+    recur:'annual', notes:'', useMarket:false, done:false, plannedNew:false
+  });
+  lvpSaleRefresh();
+}
+function lvpSaleDel(hid, si){
+  var h=lvpHerdById(hid); if(!h) return;
+  var e=lvpSales(h)[si]; if(!e) return;
+  var i=lvpSaleIdx(e); if(i<0) return;
+  ST_PLAN.events.splice(i,1);
+  lvpSaleRefresh();
+}
+function lvpSaleHTML(h){
+  var rows=lvpSales(h), qty=h.qty||0, sold=lvpSoldHead(h);
+  var inc=(typeof lvpPlannedIncome==='function')?lvpPlannedIncome(h):0;
+  var hid=planEscAttr(h.id);
+  var body=rows.map(function(e,i){
+    var s='lvpSaleSet(\''+hid+'\','+i+',';
+    var isSale=(e.type==='sell');
+    return '<div class="lvs-row">'+
+      '<select class="lvs-f mo" onchange="event.stopPropagation();'+s+'\'month\',this.value)">'+
+        plnMonthOpts(e.month)+'</select>'+
+      '<input class="lvs-f" value="'+planEscAttr(e.desc||'')+'" placeholder="what you sell"'+
+        ' onchange="event.stopPropagation();'+s+'\'desc\',this.value)">'+
+      '<input class="lvs-f n" type="number" min="0" step="1" value="'+(e.qty||0)+'"'+
+        ' onchange="event.stopPropagation();'+s+'\'qty\',this.value)">'+
+      '<input class="lvs-f n" type="number" min="0" step="50" value="'+(e.price||0)+'"'+
+        ' onchange="event.stopPropagation();'+s+'\'price\',this.value)">'+
+      '<span class="lvs-tot">'+lvpMoney((e.qty||0)*(e.price||0))+'</span>'+
+      '<button type="button" class="lvs-x" title="Remove this sale"'+
+        ' onclick="event.stopPropagation();lvpSaleDel(\''+hid+'\','+i+')">&times;</button>'+
+      (isSale?'':'<span class="lvs-note">income, not animals</span>')+
+    '</div>';
+  }).join('');
+  /* Warn, never block. A breeding herd grows through the year and h.qty is a
+     start-of-season count, so selling more than it says can be perfectly true —
+     it is only worth a second look. */
+  var over=(qty>0 && sold>qty);
+  return '<div class="lvs">'+
+    (rows.length
+      ? '<div class="lvs-row hd"><span>Month</span><span>What you sell</span><span class="n">Head</span>'+
+        '<span class="n">Each</span><span class="lvs-tot">Total</span><span></span></div>'+body
+      : '<div class="lvp-facts">No sale planned yet. Add one for each time this herd sells — a weaner draft and a cull draft are two rows, not one.</div>')+
+    '<button type="button" class="lvs-add" onclick="event.stopPropagation();lvpSaleAdd(\''+hid+'\')">＋ Add another sale</button>'+
+    (rows.length
+      ? '<div class="lvs-foot"><span class="'+(over?'warn':'')+'">'+sold+' of '+qty+' head sold this season'+
+        (over?' — more than the herd started with. Check it if that is not deliberate.':'')+
+        '</span><b>'+lvpMoney(inc)+'</b></div>'
+      : '')+
+  '</div>';
+}
+
 function recomputePlan() {
   PLAN_OUTSIDE = []; PLAN_SPILL = [];
   // ── Step 1: Reset all months ──────────────────────────────
@@ -28771,7 +29112,13 @@ function recomputePlan() {
     var _hpCostHerds = {};
     // Skip modelled feed+vet for any herd the farmer has given an EXPLICIT cost event (not just poultry _hp lines) —
     // otherwise its vet/feed is counted twice (once here, once as the entered cost event).
-    (ST_PLAN.events||[]).forEach(function(e){ if(e && e.type==='cost' && !e.done && e.herdId!=null) _hpCostHerds[e.herdId]=true; });
+    /* Only a GENERATED herd-plan feed line ("Plan: broiler feed") replaces the
+       modelled feed. Any cost event used to do it, so one R14 500 vet visit
+       cancelled R103 200 of feed on Breeding cows and left the cash flow
+       disagreeing with its own margin by R88 700. */
+    (ST_PLAN.events||[]).forEach(function(e){
+      if(e && e.type==='cost' && !e.done && e.herdId!=null && /^Plan:/.test(String(e.desc||'')))
+        _hpCostHerds[e.herdId]=true; });
     (typeof ST_LS!=='undefined' && ST_LS.herd ? ST_LS.herd : []).forEach(function(h){
       if(!h || h.removed || h.planned || h.inPlanning) return;
       if(_hpCostHerds[h.id]) return;
@@ -30158,7 +30505,10 @@ function orPlanRows(){
        stored tonnage — so stepping the plan year aged the block on the chart and
        left the money identical in every year. */
     var inc=orpIncomeFor(b, planYear)*cy;
-    return {b:b, income:inc, cost:cost, pickStart:ps, pickEnd:pe,
+    /* O6 — carried alongside cost, never inside it: cost drives the monthly
+       cash-flow spread, labour only ever reaches the margin. Annual, so it is
+       NOT multiplied by the veg cycle count the way ops cost is. */
+    return {b:b, income:inc, cost:cost, labour:orpLabour(b), pickStart:ps, pickEnd:pe,
             cycles:cy, pickMonths:(cy>1?orpVegPickMonths(b):null)};
   });
 }
@@ -30470,9 +30820,30 @@ function orpPayShift(b){ return Math.round(orpPayWeeks(b)/4.345); }   /* weeks �
 function orpCartons(b){ return (typeof orBlockUnits==='function')?orBlockUnits(b):0; }
 function orpUnitWord(b){ return b.cat==='berry' ? 'kg' : (b.cat==='veg' ? 'tons' : 'cartons'); }
 function orpNetPer(b){ return (typeof orNetPer==='function')?orNetPer(b):0; }
+/* ── O6 · a block or herd carries the labour tagged to it ──────────────────
+   Profit already works this way, and Planning did not, so the same herd read
+   R72 114 apart on two screens. Profit does not ADD this cost — _pfOverheads()
+   subtracts _pfTaggedLabourTotal() and pushes it down onto the enterprise that
+   earns it. So this is an allocation and the farm total does not move.
+
+   Deliberately kept OUT of the cash-flow months. orPlanRows().cost is spread
+   across the season in Step 3.6, and ST_PLAN.months carries no payroll line at
+   all — so folding in only the TAGGED share would drop a fraction of the wage
+   bill into a forecast that is missing the other R244 740 of it. Margins agree;
+   putting wages into the cash flow is a separate, larger decision.
+
+   Crops are deliberately excluded: a crop's planning cost is inputCost +
+   otherCost per ha, and otherCost is the farmer's own "labour / fuel" figure,
+   so adding tagged labour on top would charge the same worker twice. Orchards
+   and livestock have no such implicit labour in their cost model. */
+function planEntLabour(tag){
+  return (typeof wkEnterpriseLabour==='function') ? wkEnterpriseLabour(tag) : 0;
+}
+function orpLabour(b){ return (b && b.id!=null) ? planEntLabour('or:'+b.id) : 0; }
+
 function orpMarginHa(b){
   var ha=b.ha||0; if(!ha) return 0;
-  return Math.round(((typeof orBlockTotal==='function'?orBlockTotal(b):0) - orOpsCost(b))/ha);
+  return Math.round(((typeof orBlockTotal==='function'?orBlockTotal(b):0) - orOpsCost(b) - orpLabour(b))/ha);
 }
 /* Cartons needed before the season's costs are covered. */
 function orpBreakEven(b){
@@ -30894,8 +31265,9 @@ function orpOpenBlock(id){
 
 function orpRowHTML(r){
   var b=r.b, open=(ORP_OPEN===b.id), young=!orpBearing(b);
-  var mHa=young?-Math.round(r.cost/(b.ha||1)):orpMarginHa(b);
-  var mTot=r.income-r.cost;
+  var _lab=r.labour||0;
+  var mHa=young?-Math.round((r.cost+_lab)/(b.ha||1)):orpMarginHa(b);
+  var mTot=r.income-r.cost-_lab;
   return '<div class="orp-item'+(young?' young':'')+'" data-orp-block="'+planEscAttr(b.id)+'">'+
     '<button class="orp-row orp-grid'+(open?' open':'')+'" type="button" data-orprow="'+planEscAttr(b.id)+'"'+
       ' aria-expanded="'+(open?'true':'false')+'">'+
@@ -30914,17 +31286,23 @@ function orpRowHTML(r){
 
 function orpRenderTotals(rows){
   var host=$('orp-totals'); if(!host) return;
-  var inc=0,cost=0,youngCost=0,youngN=0,spill=0;
+  var inc=0,cost=0,youngCost=0,youngN=0,spill=0,lab=0;
   rows.forEach(function(r){
-    inc+=r.income; cost+=r.cost;
-    if(!orpBearing(r.b)){ youngCost+=r.cost; youngN++; }
+    /* O6 — labour joins the cost total as well as the margin, so the three
+       figures on this row still add up in front of the farmer. */
+    var _l=r.labour||0;
+    inc+=r.income; cost+=r.cost+_l; lab+=_l;
+    if(!orpBearing(r.b)){ youngCost+=r.cost+_l; youngN++; }
     if(r.pickEnd+orpPayShift(r.b)>11) spill+=r.income;
   });
   var soon=rows.filter(function(r){return !orpBearing(r.b);})
     .map(function(r){ var y=orpFirstPickYear(r.b); return r.b.name+(y?' — first pick '+y:''); });
   host.innerHTML=
     '<div><div class="k">Growing costs</div><div class="v" style="color:var(--or)">'+orRm(cost)+'</div>'+
-      '<div class="n">'+(youngCost>0?orRm(youngCost)+' of it on blocks not yet picking':'all on bearing blocks')+'</div></div>'+
+      /* Named only when there is some — on a farm with no worker tagged to a
+         block the mention would just raise a question with no answer. */
+      '<div class="n">'+(lab>0?orRm(lab)+' of it is tagged labour'
+        :(youngCost>0?orRm(youngCost)+' of it on blocks not yet picking':'all on bearing blocks'))+'</div></div>'+
     '<div><div class="k">Fruit income</div><div class="v" style="color:var(--gd)">'+orRm(inc)+'</div>'+
       '<div class="n">'+(spill>0?orRm(spill)+' of it is paid next season':'after commission, packing, shipping and levies')+'</div></div>'+
     '<div><div class="k">Margin</div><div class="v">'+orRm(inc-cost)+'</div>'+
@@ -33223,8 +33601,34 @@ function stStatusOf(planned,tracking,progress){
   var v=(planned>0)?(tracking-planned)/Math.abs(planned):(tracking<planned?-1:0);
   if(v>=0.02) return 'ahead'; if(v>=-0.05) return 'ontrack'; if(v>=-0.15) return 'watch'; return 'behind';
 }
-function stTaggedSpend(tag){ var t=0; (typeof ST!=='undefined'&&ST.txns||[]).forEach(function(x){ if(x&&x.ent===tag&&x.type==='expense') t+=(x.amt||0); }); return Math.round(t); }
-function stTaggedByCat(tag){ var by={}; (typeof ST!=='undefined'&&ST.txns||[]).forEach(function(x){ if(x&&x.ent===tag&&x.type==='expense') by[x.cat]=(by[x.cat]||0)+(x.amt||0); }); return by; }
+/* Same missing date filter that entTaggedCost had: this summed every
+   transaction ever tagged to a crop, block or herd, so a farmer three seasons
+   in saw three seasons of spend as one season's. Scoped to the financial year
+   on screen via entTxnFY; pass fy=null for the old lifetime total.
+   NB unlike entTaggedCost this deliberately KEEPS labour categories — it feeds
+   the season-tracking drill-down, which shows everything spent on a crop. */
+function stTaggedSpend(tag, fy){
+  if(!tag) return 0;
+  if(fy===undefined) fy=(typeof planYear!=='undefined')?planYear:null;
+  var t=0;
+  (typeof ST!=='undefined'&&ST.txns||[]).forEach(function(x){
+    if(!x||x.ent!==tag||x.type!=='expense') return;
+    if(fy!=null && typeof entTxnFY==='function'){ var f=entTxnFY(x); if(f!==null&&f!==fy) return; }
+    t+=(x.amt||0);
+  });
+  return Math.round(t);
+}
+function stTaggedByCat(tag, fy){
+  var by={};
+  if(!tag) return by;
+  if(fy===undefined) fy=(typeof planYear!=='undefined')?planYear:null;
+  (typeof ST!=='undefined'&&ST.txns||[]).forEach(function(x){
+    if(!x||x.ent!==tag||x.type!=='expense') return;
+    if(fy!=null && typeof entTxnFY==='function'){ var f=entTxnFY(x); if(f!==null&&f!==fy) return; }
+    by[x.cat]=(by[x.cat]||0)+(x.amt||0);
+  });
+  return by;
+}
 // Actual logged input spend for a crop, from the crop input diary (ST_CROP.inputs), grouped by type.
 // Reliable source (each application carries costPerHa) — used for the drill-down breakdown, not the
 // headline (mid-season the diary is incomplete, so it would understate cost).
@@ -33726,24 +34130,145 @@ function lvpPricePerHead(h){
 }
 function lvpGross(h){ return lvpWeaners(h)*lvpPricePerHead(h); }
 function lvpCommission(h){ return lvpGross(h)*lvpNum(h.pCommPct,6.5)/100; }
-function lvpNetIncome(h){
-  if(lvpType(h)==='keep') return 0;        /* keeping them — no sale, by choice */
-  if(lvpIsFinish(h)){
-    var g=lvpFinishSale(h);
-    return Math.round(g - g*lvpNum(h.pCommPct,6.5)/100);
+/* Both screens read the same answer now — see lsHerdIncome. The keep / pSelling
+   checks moved BELOW the explicit-event check, because a herd typed "keep only"
+   that carries a real dated sale is telling us something its type does not. */
+function lvpNetIncome(h){ return lsHerdIncome(h); }
+/* ── One cost model for a herd, read by Planning AND Profit ────────────────
+   The two screens ran different models and disagreed by R1 137 129 on the demo
+   farm. Measured, the gap was:
+     +R882 000  Profit charged every herd's PURCHASE PRICE every year — for
+                animals the farmer already owned. Dairy cows carried R576 000 a
+                year for cows standing in the paddock.
+     -R161 480  Profit fed for h.months, Planning for twelve.
+     +R383 495  max(tagged, model): not a quantity, just whichever was larger,
+                so the figure changed meaning partway through a season.
+     +R72 114   tagged labour, which only Profit counted.
+     -R39 000   Planning zeroed a "keep" herd's income even though the farmer
+                had entered a real May weaner sale against it.
+   One function now answers what a herd costs and one answers what it brings
+   in, so the screens cannot drift apart again. */
+
+/* Animals cost money to buy only when they are actually being bought: a
+   buy-and-finish herd every cycle, or any herd with a real buy event this
+   season. A breeding herd owned for years does not re-buy itself annually. */
+function lsHerdBuyCost(h){
+  if(!h) return 0;
+  if(typeof lvpIsFinish==='function' && lvpIsFinish(h)){
+    return (typeof lvpFinishBuy==='function') ? lvpFinishBuy(h) : (h.buy||0)*(h.qty||0);
   }
-  if(h.pSelling===false) return 0;
-  if(lvpNeedsSetup(h)) return 0;           /* announced, not silently assumed */
-  var planned=lvpPlannedIncome(h);
-  if(planned>0) return planned;            /* an explicit event always wins */
-  return Math.round(lvpGross(h)-lvpCommission(h)) + lvpProdIncome(h);
+  var bought=0;
+  var evs=(typeof planActiveEvents==='function')?planActiveEvents():((ST_PLAN&&ST_PLAN.events)||[]);
+  evs.forEach(function(e){
+    if(!e || e.herdId!==h.id || e.done || e.inForecast===false || e.type!=='buy') return;
+    bought += (e.qty||0)*(e.price||0);
+  });
+  return Math.round(bought);
 }
-function lvpCostYear(h){
-  /* A trading herd is not kept for a year — it is bought, fed for N months and
-     sold. Charging it 12 months of keep would invent a cost it never carries. */
-  return lvpIsFinish(h) ? (lvpFinishBuy(h)+lvpFinishFeed(h))
-                        : (lvpRunCostYear(h)+lvpBullCost(h));
+/* Keep follows the herd, not the calendar: a trading herd is fed for its cycle,
+   a herd you keep is fed all year. Raw — the planning scenario multiplier is
+   applied by the caller, so dragging a what-if lever cannot move Profit. */
+function lsHerdKeepCost(h){
+  if(!h) return 0;
+  if(typeof lvpIsFinish==='function' && lvpIsFinish(h)){
+    return (typeof lvpFinishFeed==='function') ? lvpFinishFeed(h) : 0;
+  }
+  return Math.round(((h.feed||0)+(h.vet||0))*(h.qty||0)*12);
 }
+/* Cost events split two ways. A GENERATED herd-plan line ("Plan: broiler feed")
+   IS that herd's feed bill and replaces the model. Anything the farmer typed
+   himself — a vet visit, a dipping round — is an extra on top of it. The plan
+   used to let any cost event cancel the whole modelled feed bill, so R14 500 of
+   dipping erased R103 200 of feed on Breeding cows. */
+function lsHerdCostEvents(h){
+  var extra=0, planned=0;
+  if(!h) return {extra:0, planned:0};
+  var evs=(typeof planActiveEvents==='function')?planActiveEvents():((ST_PLAN&&ST_PLAN.events)||[]);
+  evs.forEach(function(e){
+    if(!e || e.herdId!==h.id || e.done || e.inForecast===false || e.type!=='cost') return;
+    var v=((e.qty||0)*(e.price||0)) || Math.abs(e.amount||0);
+    if(/^Plan:/.test(String(e.desc||''))) planned+=v; else extra+=v;
+  });
+  return {extra:Math.round(extra), planned:Math.round(planned)};
+}
+function lsHerdCostParts(h){
+  if(!h) return {buy:0,keep:0,bull:0,extra:0,labour:0,tagged:0,source:'model'};
+  var tagged=(typeof entTaggedCost==='function')?entTaggedCost('ls:'+h.id):0;
+  var ce=lsHerdCostEvents(h);
+  return {
+    buy:  lsHerdBuyCost(h),
+    /* A generated feed line is the whole keep bill; otherwise the model is. */
+    keep: (ce.planned>0) ? ce.planned : lsHerdKeepCost(h),
+    bull: (typeof lvpBullCost==='function' && !(typeof lvpIsFinish==='function' && lvpIsFinish(h)))
+            ? lvpBullCost(h) : 0,
+    extra: ce.extra,
+    labour: (h.id!=null) ? planEntLabour('ls:'+h.id) : 0,
+    tagged: tagged,
+    /* Real spend wins whenever there is any, and the row says so. Never the
+       larger of an actual and an estimate. */
+    source: (tagged>0) ? 'real' : 'model'
+  };
+}
+/* How much of the season on screen has already happened. A future season is 0
+   (nothing has been spent yet), a finished one is 1 (the books are closed). */
+function lsSeasonElapsed(){
+  var i=(typeof lvpNowIdx==='function')?lvpNowIdx():null;
+  if(i==null || isNaN(i)) return 1;
+  if(i<0)  return 0;
+  if(i>11) return 1;
+  return (i+1)/12;
+}
+/* scen=true applies the planning what-if multiplier to the MODELLED portion.
+   Logged spend already happened, so a lever cannot rewrite it.
+
+   Logged spend is what has happened SO FAR, not what the year will cost. Four
+   months into its season the ewe flock had R16 650 tagged against a R90 720
+   year; reading that as the annual cost turned a R78 870 margin into R139 350.
+   So: real spend to date, plus the model for the months still to come. At the
+   end of the season the model share is zero and the cost is purely what was
+   actually spent. */
+function lsHerdCost(h, scen){
+  var p=lsHerdCostParts(h);
+  var mult=(scen && typeof lvpScenCostMult==='function')?lvpScenCostMult():1;
+  /* Only the RECURRING keep is prorated against what has been logged. Dated
+     one-offs are not smeared: replacement cows bought in March are either still
+     entirely ahead of you or already sitting in the ledger. Prorating them cost
+     Breeding cows R60 000 of a R180 000 purchase that has not happened yet. */
+  var keep=Math.round((p.keep+p.bull)*mult);
+  var recurring=(p.source==='model') ? keep
+              : Math.round(p.tagged + keep*(1-lsSeasonElapsed()));
+  return Math.round(recurring + p.buy + p.extra + p.labour);
+}
+/* Drives the existing Real costs / Part real / Budget cost badge: what share of
+   this herd's cost is money the farmer has actually logged. */
+function lsHerdCostSourcePct(h){
+  var c=lsHerdCost(h)-lsHerdCostParts(h).labour;
+  var t=lsHerdCostParts(h).tagged;
+  return (c>0) ? Math.min(100, Math.round(t/c*100)) : 0;
+}
+/* A sale the farmer entered is a sale, whatever the herd is typed. The type is
+   a default for herds nobody has told us about; a dated event is a statement. */
+function lsHerdIncome(h){
+  if(!h) return 0;
+  /* Milk and wool do not wait for anyone to answer a question about selling
+     animals. Every "no sale planned" gate below used to return a flat 0, which
+     threw away R950 400 of milk and showed the dairy herd as a pure loss. It is
+     added back on every path except the event path, which already contains it. */
+  var prod=(typeof lvpProdIncome==='function')?lvpProdIncome(h):0;
+  var planned=(typeof lvpPlannedIncome==='function')?lvpPlannedIncome(h):0;
+  if(planned>0) return planned;   /* dated events win — a wool-clip event is already in here */
+  /* A trading herd's whole point is the sale at the end of the cycle. */
+  if(typeof lvpIsFinish==='function' && lvpIsFinish(h)){
+    var g=lvpFinishSale(h);
+    return Math.round(g - g*lvpNum(h.pCommPct,6.5)/100) + prod;
+  }
+  if(typeof lvpType==='function' && lvpType(h)==='keep') return prod;
+  if(h.pSelling===false) return prod;
+  if(typeof lvpNeedsSetup==='function' && lvpNeedsSetup(h)) return prod;
+  return Math.round(lvpGross(h)-lvpCommission(h)) + prod;
+}
+
+function lvpCostYear(h){ return lsHerdCost(h, true); }
 function lvpMargin(h){ return lvpNetIncome(h)-lvpCostYear(h); }
 function lvpMarginLSU(h){ var l=lvpHerdLSU(h); return l>0?Math.round(lvpMargin(h)/l):0; }
 function lvpCostLSU(h){ var l=lvpHerdLSU(h); return l>0?Math.round(lvpRunCostYear(h)/l):0; }
@@ -34135,8 +34660,13 @@ function lvpEditor(h){
   var payEff=lvpPayDays(h);
   var payLbl=(chan==='auction'||h.pPayDays!=null)
     ? (payEff<=1?'T+1 business day':payEff+' days') : 'not set';
+  /* LS3 — a herd that sells twice says so in the summary, so the farmer does not
+     have to open the group to find out whether he told us about both drafts. */
+  var _nSales=(typeof lvpSales==='function')?lvpSales(h).length:0;
   var sSum=({auction:'Auction',abattoir:'Abattoir',feedlot:'Feedlot',private:'Private treaty',wool:'Wool broker'}[chan]||'Auction')+
-    ' · paid '+payLbl+(lvpPricePerHead(h)>0?' · '+lvpR(lvpPricePerHead(h))+'/head':'');
+    ' · paid '+payLbl+
+    (_nSales>1 ? ' · sells '+_nSales+'× a year'
+               : (lvpPricePerHead(h)>0?' · '+lvpR(lvpPricePerHead(h))+'/head':''));
   /* This was a checkbox, and a checkbox has two states for a question with three
      answers: yes, no, and NOT ASKED YET. An unanswered herd rendered unticked,
      which looks exactly like "no" — but only a stored false clears the amber, so
@@ -34169,7 +34699,10 @@ function lvpEditor(h){
     (chan==='auction'
       ? 'An agent must pay you <b>within one business day of the sale</b> — APAC livestock rule 31(2). That is the default, not a guess.'
       : '<b>No published payment term exists for this channel.</b> Set it from your own experience — we will not invent one.')+
-  '</div>';
+  '</div>'+
+  /* LS3 — the schedule sits under the channel, because a farmer sets how he
+     sells once and then lists what leaves and when, season after season. */
+  (selling ? '<div class="lvp-h3">When this herd sells</div>'+lvpSaleHTML(h) : '');
 
   /* 4 — what it costs */
   var lean=lvpLeanMonths(h);
