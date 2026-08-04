@@ -9905,7 +9905,7 @@ function cropFlashPlanLine(){
   if(!CROP_FLASH_LINK) return;
   var el=document.querySelector('[data-linkid="'+CROP_FLASH_LINK+'"]');
   CROP_FLASH_LINK=null;
-  if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.style.transition='box-shadow .3s'; el.style.boxShadow='0 0 0 3px var(--gl)'; setTimeout(function(){ el.style.boxShadow=''; },1600); }
+  if(el){ uiScrollTo(el,{block:'center'}); el.style.transition='box-shadow .3s'; el.style.boxShadow='0 0 0 3px var(--gl)'; setTimeout(function(){ el.style.boxShadow=''; },1600); }
 }
 // Jump from a Planning crop line back to its land
 function cropOpenLandFromPlan(linkId){
@@ -10559,7 +10559,7 @@ function cropScrollToCrop(el){
   var k=el&&el.getAttribute('data-crop'); if(!k) return;
   var sel=(window.CSS&&CSS.escape)?CSS.escape(k):k.replace(/"/g,'\\"');
   var card=document.querySelector('#crop-view-overview .crop-land[data-crop="'+sel+'"]');
-  if(card&&card.scrollIntoView){ card.scrollIntoView({behavior:'smooth',block:'center'}); card.style.boxShadow='0 0 0 3px var(--gl)'; setTimeout(function(){ card.style.boxShadow=''; },1200); }
+  if(card){ uiScrollTo(card,{block:'center'}); card.style.boxShadow='0 0 0 3px var(--gl)'; setTimeout(function(){ card.style.boxShadow=''; },1200); }
 }
 function _cropLandRank(l){
   var est=cropEffStage(l);
@@ -10581,7 +10581,7 @@ function cropCardTog(id){
   var grid=el.parentElement;
   if(grid) grid.querySelectorAll('.crop-land.open').forEach(function(x){ x.classList.remove('open'); });
   CROP_CARD_OPEN = wasOpen ? null : id;
-  if(!wasOpen){ el.classList.add('open'); try{ el.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} }
+  if(!wasOpen){ el.classList.add('open'); try{ uiScrollTo(el,{block:'nearest'}); }catch(e){} }
 }
 function _cropLandRow(ic,label,val){ return '<div class="cr-lrow"><span>'+ic+'</span><span>'+label+'</span><span class="cv">'+val+'</span></div>'; }
 function _cropLandCardBody(l){
@@ -21625,7 +21625,7 @@ function lsRetOpen(){
   if(!cards.length) return;
   LS_KPI_OPEN=null;
   lsKpiTog('roi', cards[2]);
-  var p=$('ls-kpipanel'); if(p) setTimeout(function(){ try{ p.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} },60);
+  var p=$('ls-kpipanel'); if(p) setTimeout(function(){ try{ uiScrollTo(p,{block:'center'}); }catch(e){} },60);
 }
 /* "Yes, that's right" — the price is genuinely that low (bobby calf, cull, gift stock).
    Remembered on the group so we stop asking and it counts from now on. */
@@ -21674,7 +21674,7 @@ function renderCamps(){
   var _att=_lsAttention();
   var html=_lsHeroHTML(_att)+'<div class="ls-kpipanel" id="ls-kpipanel"></div>'+_lsAttnHTML(_att);
   var _plN=(ST_LS.herd||[]).filter(function(h){return h.planned && h.inPlanning;}).length;
-  html+='<div class="ls-camps-head">Where your animals are \u00b7 '+camps.length+' camp'+(camps.length===1?'':'s')+' \u00b7 '+totalHead+' head'+(_plN?' \u00b7 <a class="ls-planhint" onclick="document.getElementById(\'ls-planning-anchor\')&&document.getElementById(\'ls-planning-anchor\').scrollIntoView({behavior:\'smooth\'})">'+_plN+' in planning</a>':'')+'</div>';
+  html+='<div class="ls-camps-head">Where your animals are \u00b7 '+camps.length+' camp'+(camps.length===1?'':'s')+' \u00b7 '+totalHead+' head'+(_plN?' \u00b7 <a class="ls-planhint" onclick="uiScrollTo(document.getElementById(\'ls-planning-anchor\'),{block:\'start\'})">'+_plN+' in planning</a>':'')+'</div>';
   html+=_lsPlanningCards();
   html+='<div class="ls-camp-grid">'+camps.map(function(c){ return _lsCampCard(c); }).join('');
   if(loose.length){
@@ -21886,7 +21886,7 @@ function _lsCampDonut(groups){
 // "Who's in this camp" — aggregated class breakdown, 2 per row.
 function _lsRevealGroups(campId){
   var card=document.getElementById('lscamp-'+campId); if(!card) return;
-  var w=card.querySelector('.ls-grpwrap'); if(w){ w.classList.add('show'); try{ w.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} }
+  var w=card.querySelector('.ls-grpwrap'); if(w){ w.classList.add('show'); try{ uiScrollTo(w,{block:'nearest'}); }catch(e){} }
 }
 function lsCampRecordSale(campId){
   var g=lsCampGroups(campId);
@@ -22080,7 +22080,7 @@ function lsAddBack(){
       try{ ok=!!(cid && (typeof lsCampById!=='function' || lsCampById(cid))); }catch(e){ ok=false; }
       if(ok && typeof LS_CAMP_OPEN!=='undefined') LS_CAMP_OPEN[cid]=true;
       lsTab('herd','overview');
-      if(ok) requestAnimationFrame(function(){ var c=$('lscamp-'+cid); if(c){ try{ c.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){} } });
+      if(ok) requestAnimationFrame(function(){ var c=$('lscamp-'+cid); if(c){ try{ uiScrollTo(c,{block:'center'}); }catch(e){} } });
       return;
     }
     if(spec.indexOf('herd:')===0){ lsTab('herd', spec.slice(5)); return; }
@@ -22105,7 +22105,7 @@ function _lsInlineEditor(h){
     '<div class="ls-esum" id="lsc-sum-'+idx+'"></div>'+
     '<div class="ls-ebtn"><button class="cancel" onclick="LS_INLINE_EDIT=null;renderCamps()">Cancel</button><button class="save" id="lsc-save-'+idx+'" onclick="LS_INLINE_EDIT=null;lsClassEditSave('+idx+')">Save</button></div></div>';
 }
-function lsInlineEdit(idx){ LS_INLINE_EDIT=idx; renderCamps(); setTimeout(function(){ try{ lsClassEditSum(idx); var el=document.getElementById('lsc-sum-'+idx); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} },40); }
+function lsInlineEdit(idx){ LS_INLINE_EDIT=idx; renderCamps(); setTimeout(function(){ try{ lsClassEditSum(idx); var el=document.getElementById('lsc-sum-'+idx); if(el) uiScrollTo(el,{block:'nearest'}); }catch(e){} },40); }
 // Tags & breed, shown on demand under a group's table.
 function _lsMoreBlock(h){
   var breed=h.breed?('<div style="font-size:12px;color:var(--t3);margin:6px 0 2px">Breed: <b>'+esc(h.breed)+'</b></div>'):'';
@@ -27287,21 +27287,21 @@ function _lsRegBanner(){
   var body=items.map(function(i){ return '<div class="rb-i"><span class="d '+i.sev+'"></span><div>'+i.t+'</div>'+(i.go?'<span class="rb-go" onclick="'+i.act+'">'+i.go+' →</span>':'')+'</div>'; }).join('');
   return '<div class="lsreg-ban'+(doN?'':' ok')+'"><div class="rb-ic">'+(doN?'📋':'✅')+'</div><div style="flex:1;min-width:0"><div class="rb-h">'+head+'</div>'+body+'</div></div>';
 }
-function _lsRegFixSplit(hi){ _lsRegExpanded=hi; LSREG_EDIT=hi; renderStockRegister(); setTimeout(function(){ try{lsClassEditSum(hi);}catch(e){} var el=document.getElementById('lsc-sum-'+hi); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); },50); }
+function _lsRegFixSplit(hi){ _lsRegExpanded=hi; LSREG_EDIT=hi; renderStockRegister(); setTimeout(function(){ try{lsClassEditSum(hi);}catch(e){} var el=document.getElementById('lsc-sum-'+hi); if(el) uiScrollTo(el,{block:'center'}); },50); }
 function _lsRegGoHerd(hi){
   _lsRegExpanded=hi; LSREG_EDIT=null; renderStockRegister();
-  setTimeout(function(){ var el=document.getElementById('lsreg-h-'+hi); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); },50);
+  setTimeout(function(){ var el=document.getElementById('lsreg-h-'+hi); if(el) uiScrollTo(el,{block:'center'}); },50);
 }
 function _lsRegGoTax(){
   // the provisional-tax estimate card lives on the dashboard
   try{ if(typeof nav==='function') nav('dashboard'); }catch(e){}
   setTimeout(function(){
     var c=document.getElementById('prov-tax-card');
-    if(c) c.scrollIntoView({behavior:'smooth',block:'center'});
+    if(c) uiScrollTo(c,{block:'center'});
     else { try{ if(typeof nav==='function') nav('tax'); }catch(e){} }
   },150);
 }
-function _lsRegOpenPrices(){ LSREG_PX=true; renderStockRegister(); setTimeout(function(){ var s=$('lsreg-px'); if(s) s.scrollIntoView({behavior:'smooth',block:'center'}); },40); }
+function _lsRegOpenPrices(){ LSREG_PX=true; renderStockRegister(); setTimeout(function(){ var s=$('lsreg-px'); if(s) uiScrollTo(s,{block:'center'}); },40); }
 
 /* ---------- 2 · reconciliation ---------- */
 /* ── The reconciliation net (audit #3, P7) ───────────────────────────────────────────
@@ -27442,7 +27442,7 @@ function _lsRegCapitalCard(){
   var sheet = LSREG_PX ? _lsRegPriceSheet() : '';
   return '<div class="lsreg-card" id="lsreg-cap"><div class="rc-h"><div><div class="rc-t">💰 Herd capital &amp; tax value</div><div class="rc-s">Your biggest asset, valued today — useful all year, not just at tax time</div></div></div>'+tiles+sheet+'</div>';
 }
-function _lsRegTogPrices(){ LSREG_PX=!LSREG_PX; renderStockRegister(); if(LSREG_PX) setTimeout(function(){var s=$('lsreg-px'); if(s) s.scrollIntoView({behavior:'smooth',block:'nearest'});},40); }
+function _lsRegTogPrices(){ LSREG_PX=!LSREG_PX; renderStockRegister(); if(LSREG_PX) setTimeout(function(){var s=$('lsreg-px'); if(s) uiScrollTo(s,{block:'nearest'});},40); }
 function _lsRegPriceSheet(){
   var herds=(ST_LS.herd||[]).filter(function(h){return !h.planned;}), body='';
   herds.forEach(function(h){
@@ -28292,11 +28292,17 @@ function planNoticeCap(n){ return n<=7 ? n : 6; }
 function planNoticeChips(list, go){
   var cap=planNoticeCap(list.length);
   var out=list.slice(0,cap).map(function(o){
-    return {t:esc(o.nm)+' &middot; '+esc(o.when), go:go?go(o):''};
+    /* The export-risk chips carry no "when" — the certificate is the farm's
+       problem, not that block's date — so the separator has to disappear with
+       it rather than leaving the name trailing a middot. */
+    return {t:esc(o.nm)+(o.when?' &middot; '+esc(o.when):''), go:go?go(o):''};
   });
   if(list.length>cap) out.push({t:'+'+(list.length-cap)+' more'});
   return out;
 }
+/* Chips that open the block they name. Blocks the farmer cannot act on yet
+   still open — seeing why a block is not picking is the whole reason to click. */
+function orpChipGo(o){ return o.id ? 'orpGoBlock(\''+planEscAttr(o.id)+'\')' : ''; }
 
 /* Orchard equivalent of the crop spill notice: blocks whose money arrives after
    the season closes, and blocks still too young to pick. Both counts are read
@@ -28325,19 +28331,17 @@ function planOrchNotice(){
             ? esc(_risk.certs[0].why)+'.'
             : _risk.certs.map(function(c){ return '<b>'+esc(c.title)+'</b> &mdash; '+esc(c.why)+'.'; }).join(' '))+
           ' <span data-t="pn.cert.det">Renewing it changes nothing in your forecast — these blocks already count as export. Left as it is, the fruit still sells, but at local prices.</span>',
-      chips:_risk.blocks.slice(0,planNoticeCap(_risk.blocks.length)).map(function(x){ return {t:esc(x.name)}; })
-            .concat(_risk.blocks.length>planNoticeCap(_risk.blocks.length)
-              ?[{t:'+'+(_risk.blocks.length-planNoticeCap(_risk.blocks.length))+' more'}]:[])
+      chips:planNoticeChips(_risk.blocks.map(function(x){ return {id:x.id, nm:x.name, when:''}; }), orpChipGo)
     });
   }
   var rows=orPlanRows(), late=[], young=[];
   rows.forEach(function(r){
     if(!orpBearing(r.b)){
       var fy=orpFirstPickYear(r.b);
-      young.push({nm:r.b.name, when:fy?('first pick '+fy):'not bearing yet'});
+      young.push({id:r.b.id, nm:r.b.name, when:fy?('first pick '+fy):'not bearing yet'});
     } else if(r.pickEnd+orpPayShift(r.b)>11){
       var ms=ST_PLAN.months||[], lbl=(ms[r.pickEnd]&&ms[r.pickEnd].label)?ms[r.pickEnd].label:'';
-      late.push({nm:r.b.name, when:'picked '+lbl.replace(/\s+\d+$/,'')});
+      late.push({id:r.b.id, nm:r.b.name, when:'picked '+lbl.replace(/\s+\d+$/,'')});
     }
   });
   if(young.length){
@@ -28346,7 +28350,7 @@ function planOrchNotice(){
       tx:'<span data-t="'+(young.length===1?'pn.young1':'pn.young')+'">'+
          (young.length===1?'block is not picking yet':'blocks are not picking yet')+'</span>',
       det:'<span data-t="pn.young.det">They cost a full season to keep and earn nothing until they come into bearing. The cost is counted; the income is not.</span>',
-      chips:planNoticeChips(young)
+      chips:planNoticeChips(young, orpChipGo)
     });
   }
   if(late.length){
@@ -28355,7 +28359,7 @@ function planOrchNotice(){
       tx:'<span data-t="'+(late.length===1?'pn.late1':'pn.late')+'">'+
          (late.length===1?'block is paid after this season ends':'blocks are paid after this season ends')+'</span>',
       det:'<span data-t="pn.late.det">The fruit is picked this season but the exporter pays later, so that money lands in your next financial year. Growing costs stay in this one.</span>',
-      chips:planNoticeChips(late)
+      chips:planNoticeChips(late, orpChipGo)
     });
   }
   return planNoticeCard(items);
@@ -30349,7 +30353,8 @@ function orpExportRiskTotal(){
   var tot=0, blocks=[];
   (typeof orPlanRows==='function'?orPlanRows():[]).forEach(function(r){
     var x=orpExportAtRisk(r.b);
-    if(x && x.loss>0){ tot+=x.loss; blocks.push({name:r.b.name, loss:x.loss}); }
+    /* id travels with the name so the notice chip can open the block it names. */
+    if(x && x.loss>0){ tot+=x.loss; blocks.push({id:r.b.id, name:r.b.name, loss:x.loss}); }
   });
   return blocks.length ? {total:tot, blocks:blocks, certs:orpExportCertProblems()} : null;
 }
@@ -30518,6 +30523,31 @@ function orpSetPay(id,weeks){
   orpAfterWrite();
 }
 function orpToggle(id){ ORP_OPEN=(ORP_OPEN===id)?null:id; renderOrchPlanGrid(); }
+/* Open a block's row from somewhere else on the page — the notice chips use it,
+   the way the livestock chips use lvpGoHerd. The id arrives as an attribute
+   string, and the grid compares ORP_OPEN with === against the block's own id,
+   so the id is taken off the block rather than trusted from the attribute. */
+function orpGoBlock(id){
+  if(typeof ST_PLAN!=='undefined' && ST_PLAN.activeTab!=='orchards' && typeof setPlanTab==='function') setPlanTab('orchards');
+  var hit=null;
+  (typeof orPlanRows==='function'?orPlanRows():[]).forEach(function(r){
+    if(r.b && String(r.b.id)===String(id)) hit=r.b;
+  });
+  if(!hit) return;
+  ORP_OPEN=hit.id;
+  if(typeof renderOrchPlanGrid==='function') renderOrchPlanGrid();
+  setTimeout(function(){
+    var el=document.querySelector('[data-orprow="'+String(hit.id).replace(/"/g,'')+'"]');
+    if(!el) return;
+    var item=el.closest?el.closest('.orp-item'):null; if(!item) item=el;
+    uiScrollTo(item,{block:'start'});
+    /* Orchard gold, so the ring reads as "this is the block" rather than as an
+       error — the plum ring belongs to livestock. */
+    item.style.transition='box-shadow .3s';
+    item.style.boxShadow='0 0 0 3px #C8962C';
+    setTimeout(function(){ item.style.boxShadow=''; },1500);
+  },60);
+}
 
 /* ── row parts ─────────────────────────────────────────────────────────── */
 function orpNowIdx(){
@@ -31914,7 +31944,7 @@ function bgtToggleSetup(forceOpen) {
   p.classList.toggle('open', open);
   if (open) {
     bgtFillEditor(BGT_LAST || bgtCompute());
-    try { p.scrollIntoView({behavior:'smooth', block:'start'}); } catch(e) {}
+    try { uiScrollTo(p,{block:'start'}); } catch(e) {}
   }
 }
 
@@ -32272,7 +32302,7 @@ function bgtFlagTap(side, cat) {
       if (nm && nm.textContent === cat) { hit = rows[i]; break; }
     }
     var target = hit || card;
-    if (target && target.scrollIntoView) target.scrollIntoView({behavior:'smooth', block:'center'});
+    if (target) uiScrollTo(target,{block:'center'});
     if (hit) {
       hit.classList.add('bgt-row-flash');
       setTimeout(function(){ hit.classList.remove('bgt-row-flash'); }, 1800);
@@ -33788,6 +33818,51 @@ function lvpSet(id, field, val){
 }
 /* Open a herd's row from anywhere and put it on screen. Used by the notice chips
    and the setup banner, so naming a herd always comes with a way to reach it. */
+/* ── Scrolling that actually arrives ──────────────────────────────────────
+   behavior:'smooth' is a silent no-op in this app's browser. scrollIntoView
+   returns cleanly, reports no error, and either moves nothing or stops in the
+   wrong place — and the caller cannot tell. Measured on the demo farm: a jump
+   asked for 699 sat at 1508 until the position was set outright.
+
+   So nothing calls scrollIntoView with behavior:'smooth' any more. A few
+   deliberate INSTANT scrollIntoView calls remain and are fine — the no-op is
+   specific to smooth. Work out the destination
+   against the real scroller, animate if the browser will honour it, and set the
+   position outright if the animation never happened.
+
+   block: 'start' (default) puts the element near the top, 'center' centres it,
+   'nearest' only scrolls when the element is actually off-screen. */
+function uiScroller(el){
+  var n=el.parentElement;
+  while(n && n!==document.body){
+    var oy=getComputedStyle(n).overflowY;
+    if((oy==='auto'||oy==='scroll') && n.scrollHeight>n.clientHeight+2) return n;
+    n=n.parentElement;
+  }
+  return document.querySelector('.content')||document.scrollingElement||document.documentElement;
+}
+function uiScrollTo(el, opts){
+  if(!el || !el.getBoundingClientRect) return;
+  opts=opts||{};
+  var sc=uiScroller(el); if(!sc) return;
+  var er=el.getBoundingClientRect(), sr=sc.getBoundingClientRect();
+  var top=er.top-sr.top+sc.scrollTop, target;
+  if(opts.block==='center'){
+    target=top-Math.max(0,(sc.clientHeight-er.height)/2);
+  } else if(opts.block==='nearest'){
+    /* Already fully visible — scrolling would just yank the page for nothing. */
+    if(er.top>=sr.top && er.bottom<=sr.bottom) return;
+    target=(er.top<sr.top) ? top-10 : top-Math.max(0, sc.clientHeight-er.height)+10;
+  } else {
+    target=top-(opts.pad==null?10:opts.pad);
+  }
+  target=Math.max(0, Math.min(target, Math.max(0, sc.scrollHeight-sc.clientHeight)));
+  var reduce=(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+  if(reduce){ sc.scrollTop=target; return; }
+  try{ sc.scrollTo({top:target, behavior:'smooth'}); }catch(e){ sc.scrollTop=target; return; }
+  setTimeout(function(){ if(Math.abs(sc.scrollTop-target)>4) sc.scrollTop=target; },320);
+}
+
 function lvpGoHerd(id){
   if(typeof ST_PLAN!=='undefined' && ST_PLAN.activeTab!=='livestock' && typeof setPlanTab==='function') setPlanTab('livestock');
   LVP_OPEN=id;
@@ -33796,7 +33871,7 @@ function lvpGoHerd(id){
   renderLiveCalGrid();
   setTimeout(function(){
     var el=document.querySelector('[data-lvpherd="'+String(id).replace(/"/g,'')+'"]');
-    if(el){ el.scrollIntoView({behavior:'smooth',block:'center'});
+    if(el){ uiScrollTo(el,{block:'center'});
       el.style.transition='box-shadow .3s'; el.style.boxShadow='0 0 0 3px #7C2D5A';
       setTimeout(function(){ el.style.boxShadow=''; },1500); }
   },60);
@@ -49914,7 +49989,7 @@ function impViewBatchTxns(id){
   try{ var _f=$('tx-from'), _t=$('tx-to'); if(_f) _f.value=''; if(_t) _t.value=''; }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   nav('transactions');
-  setTimeout(function(){ var b=document.querySelector('#all-tbody button[onclick*="txClearBatchFilter"]'); var t=(b&&b.closest&&b.closest('tr'))||document.querySelector('.tx-search-wrap')||document.getElementById('all-tbody'); if(t&&t.scrollIntoView){ try{ t.scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){ t.scrollIntoView(); } } }, 160);
+  setTimeout(function(){ var b=document.querySelector('#all-tbody button[onclick*="txClearBatchFilter"]'); var t=(b&&b.closest&&b.closest('tr'))||document.querySelector('.tx-search-wrap')||document.getElementById('all-tbody'); if(t){ try{ uiScrollTo(t,{block:'center'}); }catch(e){ t.scrollIntoView(); } } }, 160);
 }
 function impRenderHistory(){
   var el=document.getElementById('tx-import-history'); if(!el) return;
@@ -50895,7 +50970,7 @@ function orToggleCard(id){
   var c=$('oablk-'+id); if(!c) return;
   var wasOpen=c.classList.contains('open');
   var grid=c.parentElement; if(grid){ grid.querySelectorAll('.oa-card.open').forEach(function(x){x.classList.remove('open');}); }
-  if(!wasOpen){ c.classList.add('open'); if(c.scrollIntoView){ try{ c.scrollIntoView({behavior:'smooth',block:'nearest'}); }catch(e){} } }
+  if(!wasOpen){ c.classList.add('open'); try{ uiScrollTo(c,{block:'nearest'}); }catch(e){} }
 }
 function orActiveBlocks(){ return ST_FRUIT.blocks.filter(function(b){return !b.removed;}); }
 function orEmptyHTML(){ return '<div style="background:#fff;border:1px dashed var(--br);border-radius:var(--rl);padding:36px 22px;text-align:center"><div style="font-size:30px;margin-bottom:8px">\uD83C\uDF31</div><div style="font-weight:800;color:var(--t2);margin-bottom:4px">No blocks yet</div><div style="font-size:13px;color:var(--t3);margin-bottom:16px">Add your orchards, fruit or veg and this page will show what each one costs, yields and earns.</div><button class="btn-pri" onclick="orSetTab(\'add\')">\uFF0B Add your first block</button></div>'; }
@@ -50979,7 +51054,7 @@ function orTypeBandHTML(){
 }
 function orScrollToGroup(k){
   var el=document.querySelector('#or-ov-blocks .or-grp[data-grp="'+k+'"]');
-  if(el&&el.scrollIntoView){ el.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+  if(el){ uiScrollTo(el,{block:'center'}); return; }
   orSetTab('blocks');
   var chips=document.querySelectorAll('#or-bl-filter .or-chip');
   for(var i=0;i<chips.length;i++){ var oc=chips[i].getAttribute('onclick')||''; if(oc.indexOf("'"+k+"'")>=0){ orFilterBlocks(k,chips[i]); break; } }
