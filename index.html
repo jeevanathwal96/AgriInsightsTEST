@@ -10006,6 +10006,29 @@ function demoSeedPlanning(fresh){
         type:'sell', month:M[monthIdx], qty:qty, unit:'head', price:price,
         recur:'annual', notes:'', useMarket:false, done:false, plannedNew:false });
     }
+    /* ── The breeding calendar ──────────────────────────────────────────
+       Without pBreedStart, lvpCycle() returns null — and that emptied the
+       whole Gantt, because the event dots are positioned off the same cycle
+       window. Five herds, twelve blank months and a legend describing bands
+       that never drew. One field per herd fixes all of it.
+
+       A cattle cycle runs about sixteen months from mating to weaning, so it
+       cannot fit inside a twelve-month grid. These starts are chosen so the
+       parts that matter THIS season are the parts on screen — calving, weaning
+       and the sale — with the mating that produced them sitting in the season
+       before, which is exactly where it really happened. */
+    function setBreed(hid, label, days){
+      var hh=(ST_LS.herd||[]).filter(function(x){ return x && x.id===hid; })[0];
+      if(hh && !hh.pBreedStart){ hh.pBreedStart=label; if(days) hh.pBreedDays=days; }
+    }
+    setBreed(1, shiftLabel(M[0],-6), 70);   /* beef  · mated Nov, calves Aug–Oct, weans Mar */
+    setBreed(2, shiftLabel(M[0],-3), 65);   /* Merino· mated Feb, lambs Jul–Sep, weans Nov  */
+    setBreed(3, M[1],                65);   /* goats · mated Jun, kids Nov–Jan, weans Mar   */
+    setBreed(4, shiftLabel(M[0],-5), 60);   /* dairy · block calving Sep, dry off in Apr    */
+    /* Young stock is deliberately left alone — it is the herd the notice strip
+       reports as having no sale planned, and an empty row reads as unfinished
+       setup, which is what it is. */
+
     addSale(1,'Breeding cows','🐂','Beef cattle','Sell cull cows',      4, 3, 9000);
     addSale(3,'Boer goats',   '🐐','Boer goats (meat)','Sell ewe kids', 5, 8, 1400);
     /* The dairy herd sells its culls too, which also clears its setup flag —
@@ -33909,6 +33932,27 @@ var LVP_GRP  = {};     /* which group is open per herd */
    2-3 month income spike. Year-round bulls smear that flat. Gestation 285
    days, weaning 205-210 — SA Society for Animal Science. */
 var LVP_GEST_D = 285, LVP_WEAN_D = 205, LVP_MO = 30.44;
+/* Gestation and weaning belong to the ANIMAL, and these were cattle figures
+   applied to every species — a ewe mated in February lambed nine and a half
+   months later, which put the whole sheep row in the wrong season. Settled
+   livestock biology, not a market figure anyone has to source. */
+var LVP_SPECIES_CYCLE = {
+  cattle:{gest:285, wean:205},
+  sheep: {gest:150, wean:120},
+  goat:  {gest:150, wean:120},
+  pig:   {gest:114, wean:35}
+};
+function lvpSpeciesKey(h){
+  var s=String((h&&(h.type||h.breed||h.name))||'').toLowerCase();
+  if(/sheep|merino|dorper|ewe|lamb|wool|mutton/.test(s)) return 'sheep';
+  if(/goat|boer|kid|angora|mohair/.test(s))              return 'goat';
+  if(/pig|sow|porker|baconer|swine/.test(s))             return 'pig';
+  return 'cattle';
+}
+function lvpGestDays(h){ return (LVP_SPECIES_CYCLE[lvpSpeciesKey(h)]||{}).gest || LVP_GEST_D; }
+function lvpWeanDaysFor(h){
+  return lvpNum(h && h.pWeanDays, (LVP_SPECIES_CYCLE[lvpSpeciesKey(h)]||{}).wean || LVP_WEAN_D);
+}
 
 function lvpNum(v,d){ var n=parseFloat(v); return isNaN(n)?d:n; }
 function lvpBreedMode(h){ return h.pBreed || 'season'; }
@@ -33917,9 +33961,9 @@ function lvpCycle(h){
   if(W0==null) return null;
   var startAbs=(h.pBreedStart&&typeof planAbsIdx==='function')?planAbsIdx(h.pBreedStart):null;
   if(startAbs==null) return null;
-  var bDays=lvpNum(h.pBreedDays,65), wDays=lvpNum(h.pWeanDays,LVP_WEAN_D);
+  var bDays=lvpNum(h.pBreedDays,65), wDays=lvpWeanDaysFor(h);
   var bLen=Math.max(0,Math.round(bDays/LVP_MO));
-  var gest=Math.round(LVP_GEST_D/LVP_MO);
+  var gest=Math.round(lvpGestDays(h)/LVP_MO);
   var wean=Math.round(wDays/LVP_MO);
   var pay=lvpPayDays(h);
   var payMo=(pay<=1)?0:Math.round(pay/LVP_MO);
