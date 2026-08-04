@@ -1134,6 +1134,59 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .st-prog-lbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--t3);margin-bottom:5px}
 .st-prog{height:9px;border-radius:999px;background:var(--br2);overflow:hidden}
 .st-prog-fill{height:100%;background:linear-gradient(90deg,#40916C,#2D6A4F)}
+/* ══ Season Tracker · pace, cash and the money-weighted bar ═══════════════ */
+.st-row-cash{font-size:11.5px;margin-top:3px;font-weight:600;color:var(--gm)}
+.st-row-cash.unlogged{color:var(--or)}
+.st-row-cash.prior{color:var(--t4);font-weight:400}
+.st-hero-moved{font-size:12px;font-weight:700;color:var(--t3);margin-top:5px}
+
+.st-mw{display:flex;height:12px;border-radius:99px;overflow:hidden;background:var(--br2);margin-top:2px}
+.st-mw i{height:100%;display:block}
+.st-mw i.in{background:linear-gradient(90deg,#40916C,#2D6A4F)}
+.st-mw i.due{background:repeating-linear-gradient(135deg,var(--gp),var(--gp) 4px,transparent 4px,transparent 7px)}
+.st-mw i.rest{background:transparent}
+.st-mwl{display:flex;gap:15px;flex-wrap:wrap;font-size:10.5px;color:var(--t3);margin-top:7px}
+.st-mwl span{display:flex;align-items:center;gap:5px}
+.st-mwl i{width:9px;height:9px;border-radius:3px;display:block}
+.st-mwl i.in{background:#2D6A4F}
+.st-mwl i.due{background:repeating-linear-gradient(135deg,var(--gp),var(--gp) 3px,var(--gl) 3px,var(--gl) 4px)}
+.st-mwl i.rest{background:var(--br2)}
+
+.st-pace{background:var(--wh);border:1px solid var(--br);border-radius:var(--rl);
+  padding:18px 20px 16px;margin-bottom:16px}
+.st-pace-h{font-size:10.5px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--t4)}
+.st-pace-v{font-size:17px;font-weight:800;letter-spacing:-.3px;margin:6px 0 2px;line-height:1.35}
+.st-pace-v b{color:var(--gd)} .st-pace-v .st-pace-hl{color:var(--or)}
+.st-pacechart{overflow-x:auto;margin:12px -4px 0}
+.st-pacechart svg{display:block;min-width:620px;width:100%;height:auto}
+.st-pace-lg{display:flex;gap:18px;flex-wrap:wrap;font-size:10.5px;color:var(--t3);margin-top:8px}
+.st-pace-lg span{display:flex;align-items:center;gap:6px}
+.st-pace-lg i{display:block}
+.st-pace-lg i.ln{width:15px;height:3px;border-radius:2px;background:var(--gl)}
+.st-pace-lg i.d1{width:9px;height:9px;border-radius:50%;background:var(--gl)}
+.st-pace-lg i.d2{width:9px;height:9px;border-radius:50%;background:var(--or)}
+
+.st-prs{margin-top:14px;border-top:1px solid var(--br2);padding-top:4px}
+.st-pr{display:grid;grid-template-columns:112px 1fr 132px 88px;gap:14px;align-items:center;
+  padding:9px 0;border-bottom:1px solid var(--br2)}
+.st-pr:last-child{border-bottom:0}
+.st-pr-nm{font-size:12.5px;font-weight:700}
+.st-pr-tr{position:relative;height:18px;background:var(--br2);border-radius:5px;overflow:hidden}
+.st-pr-tr i{position:absolute;top:0;bottom:0;left:0;display:block}
+.st-pr-tr i.due{background:repeating-linear-gradient(135deg,var(--gp),var(--gp) 4px,transparent 4px,transparent 7px);
+  border-right:2px dashed var(--gl)}
+.st-pr-tr i.got{background:var(--gl);border-radius:5px 0 0 5px}
+.st-pr-tr i.got.warn{background:var(--or)}
+.st-pr-n{font-size:11.5px;color:var(--t3);text-align:right;font-variant-numeric:tabular-nums}
+.st-pr-n b{color:var(--t1);font-size:12.5px}
+.st-pr-c{font-size:10px;font-weight:800;padding:3px 9px;border-radius:99px;text-align:center;white-space:nowrap}
+.st-pr-c.ok{background:var(--gp);color:var(--gd)}
+.st-pr-c.behind{background:var(--op);color:var(--or)}
+.st-pr-c.na{background:var(--br2);color:var(--t4)}
+@media(max-width:820px){
+  .st-pr{grid-template-columns:1fr 1fr}
+  .st-pr-tr{grid-column:1/-1}
+}
 .st-attn{border:1px solid #F7D4D0;border-radius:14px;padding:14px 16px;background:#FEF6F5;margin-bottom:16px}
 .st-attn-h{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#B42318;margin-bottom:9px}
 .st-attn-card{background:#fff;border:1px solid #F7D4D0;border-radius:10px;padding:10px 12px}
@@ -10036,6 +10089,40 @@ function demoSeedPlanning(fresh){
     addSale(4,'Dairy cows',   '🐄','Dairy cattle','Sell cull cows',     6, 4, 11000);
     var dairy=(ST_LS.herd||[]).filter(function(h){ return h && h.id===4; })[0];
     if(dairy && dairy.pSelling===undefined) dairy.pSelling=true;
+
+    /* ── T5 · real spend against the orchard blocks ─────────────────────
+       The Season Tracker can now compare budget against what has actually
+       been spent, but it had nothing to compare with: the blocks carried
+       R330 195 of LIFETIME tagged spend and nothing at all in the season on
+       screen. A block that is picking in August has been spending since May.
+
+       Two blocks, deliberately different, so the tracker is seen telling them
+       apart rather than just lighting up: Vlei has front-loaded its fertiliser
+       and spray programme and runs about 10% over; Bospad, which does not pick
+       until February, sits under. Ordinary citrus and pome cost lines, and
+       none of them are Labour & Wages — that category is excluded from tagged
+       cost on purpose, because labour is allocated separately. */
+    ST.txns=ST.txns||[];
+    function dayIn(monthLabel, day){ return String(day)+' '+monthLabel; }
+    function addSpend(ent, monthIdx, day, cat, desc, amt){
+      var d=dayIn(M[monthIdx], day);
+      var dup=ST.txns.some(function(x){ return x && x.ent===ent && x.desc===desc && x.date===d; });
+      if(dup) return;
+      ST.txns.push({date:d, desc:desc, cat:cat, type:'expense', amt:amt,
+                    method:'Bank Debit', ent:ent});
+    }
+    /* Vlei block — 14 ha Valencia, picking now. ~R980 000 of a R2.24m season. */
+    addSpend('or:f1', 0, 20, 'Fertiliser',      'Citrus LAN & potash programme',   248000);
+    addSpend('or:f1', 1,  8, 'Crop Protection', 'Black spot spray round',          186000);
+    addSpend('or:f1', 1, 22, 'Fuel & Oil',      'Irrigation diesel',               124000);
+    addSpend('or:f1', 2, 10, 'Crop Protection', 'False codling moth programme',    212000);
+    addSpend('or:f1', 2, 24, 'Other Expenses',  'Picking bags & field bins',        98000);
+    addSpend('or:f1', 2, 30, 'Fuel & Oil',      'Orchard tractor diesel',          112000);
+    /* Bospad — 6 ha Cripps Pink, does not pick until February. ~R300 000. */
+    addSpend('or:f6', 0, 15, 'Fertiliser',      'Post-harvest nitrogen',            92000);
+    addSpend('or:f6', 1, 12, 'Crop Protection', 'Winter oil & scab programme',      84000);
+    addSpend('or:f6', 2, 18, 'Fuel & Oil',      'Irrigation & spraying diesel',     68000);
+    addSpend('or:f6', 2, 28, 'Other Expenses',  'Pruning contract',                 56000);
   }catch(e){}
 }
 
@@ -12891,6 +12978,9 @@ function bootAgriInsights() {
   try { demoRepairCropLands(); } catch(e){}
   try { if(typeof planSyncToCurrentYear==='function') planSyncToCurrentYear(); } catch(e){}
   try { demoSeedPlanning(!loaded); } catch(e){}
+  /* Stamp the weekly line in the sand AFTER the plan and demo seed have settled,
+     so the snapshot records the farm the farmer is about to look at. */
+  try { if(typeof recomputePlan==='function') recomputePlan(); stSnapTake(); } catch(e){}
   attachAutosave();
   registerServiceWorker();
   try { applyFarmTypeVisibility(); } catch(e){}
@@ -28977,6 +29067,12 @@ function recomputePlan() {
     m.actIncome  = 0;
     m.actExpenses= 0;
     m.lsRun      = 0;   // livestock running cost (feed + health) — populated in Step 3.5b
+    /* Phase A — planned income split by enterprise. The month only ever carried
+       a TOTAL, so nothing could ask "how much of this month's money is citrus".
+       Purely additive: m.income still holds the same sum it always did. */
+    m.incCrops   = 0;
+    m.incOrch    = 0;
+    m.incLive    = 0;
   });
 
   // ── Step 2: Distribute crop cycle figures across months ───
@@ -29018,7 +29114,7 @@ function recomputePlan() {
       var r = abs - W0;
       if(r < 0 || r > 11){ if(abs > W0 + 11) spillsAfter = true; return; }
       touched++;
-      if(inc) ST_PLAN.months[r].income   += inc;
+      if(inc){ ST_PLAN.months[r].income += inc; ST_PLAN.months[r].incCrops += inc; }
       if(exp) ST_PLAN.months[r].expenses += exp;
       if(tag) ST_PLAN.months[r].crops.push(tag);
       if(act) addActivity(r, act);
@@ -29116,7 +29212,7 @@ function recomputePlan() {
 
     var isIncome = (e.type === 'sell' || e.type === 'income');
     hitIdxs.forEach(function(mi) {
-      if (isIncome) ST_PLAN.months[mi].income   += amount;
+      if (isIncome){ ST_PLAN.months[mi].income += amount; ST_PLAN.months[mi].incLive += amount; }
       else          ST_PLAN.months[mi].expenses += amount;
       // Also tag the month with a short event label for the calendar view
       ST_PLAN.months[mi].events = ST_PLAN.months[mi].events || [];
@@ -29182,14 +29278,14 @@ function recomputePlan() {
         var perCyc=Math.round(r.income/r.pickMonths.length);
         r.pickMonths.forEach(function(pm){
           var mm=pm+shift;
-          if(mm<12) ST_PLAN.months[mm].income += perCyc;
+          if(mm<12){ ST_PLAN.months[mm].income += perCyc; ST_PLAN.months[mm].incOrch += perCyc; }
           else ST_PLAN.orchSpill += perCyc;
         });
       } else {
       var per=Math.round(r.income/span);
       for(var i=ps;i<=pe;i++){
         var m=i+shift;
-        if(m<12) ST_PLAN.months[m].income += per;
+        if(m<12){ ST_PLAN.months[m].income += per; ST_PLAN.months[m].incOrch += per; }
         else ST_PLAN.orchSpill += per;
       }
       }
@@ -33665,6 +33761,105 @@ function stCropInputByKind(crop){
   return by;
 }
 
+/* ── Phase A · cash actually banked, per enterprise ───────────────────────
+   The tracker read progress out of the Orchards and Livestock modules — tons
+   picked, head moved — and never once looked at the money. Hooglaagte had
+   R251 165 in the bank and reported "Not picked yet". Both numbers are real
+   and they answer different questions, so both are kept. */
+function stCashIn(tag){
+  if(!tag) return 0;
+  var t=0, fy=(typeof planYear!=='undefined')?planYear:null;
+  (typeof ST!=='undefined'&&ST.txns||[]).forEach(function(x){
+    if(!x || x.type!=='income' || x.ent!==tag) return;
+    if(fy!=null && typeof entTxnFY==='function'){ var f=entTxnFY(x); if(f!==null&&f!==fy) return; }
+    t+=(x.amt||0);
+  });
+  return Math.round(t);
+}
+/* Money in with nothing produced is TWO different situations, and the farmer
+   should be told which. If the picking or harvest window has already opened,
+   the crop is coming off and nobody has logged it — that is an action. If the
+   window is still ahead, the money is last season's crop being paid now —
+   that is just the calendar, and needs a label rather than a nudge. */
+function stCashState(cash, producedPct, windowOpen){
+  if(!(cash>0)) return 'none';
+  if(producedPct>0) return 'ok';
+  return windowOpen ? 'unlogged' : 'prior';
+}
+function stCashLabel(state, cash){
+  if(state==='unlogged') return stK(cash)+' in, but no harvest logged yet';
+  if(state==='prior')    return stK(cash)+' in — last season\u2019s crop, paid now';
+  if(state==='ok')       return stK(cash)+' banked';
+  return '';
+}
+
+/* ── Phase A · a weekly line in the sand ──────────────────────────────────
+   There was no history anywhere in ST, so nothing could say what had CHANGED —
+   a season tracker that cannot answer "what moved since last week" is a
+   snapshot, not a tracker. One row a week, capped at a season's worth, written
+   on load when the newest row is seven days old. Small enough to carry in the
+   saved state without anyone noticing. */
+var ST_SNAP_MAX = 60;
+function stSnapTake(){
+  try{
+    if(typeof ST==='undefined') return;
+    var V=(typeof stComputeVariance==='function')?stComputeVariance():null;
+    if(!V) return;
+    var today=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
+    var iso=today.getFullYear()+'-'+String(today.getMonth()+1).padStart(2,'0')+'-'+String(today.getDate()).padStart(2,'0');
+    ST.stSnap=ST.stSnap||[];
+    var last=ST.stSnap[ST.stSnap.length-1];
+    if(last){
+      var age=(today-new Date(last.d))/86400000;
+      if(!(age>=7)) return;                 /* not due yet */
+      if(last.d===iso) return;              /* already stamped today */
+    }
+    ST.stSnap.push({d:iso, fy:(typeof planYear!=='undefined')?planYear:null,
+                    p:V.planned, t:V.tracking, r:V.realised});
+    while(ST.stSnap.length>ST_SNAP_MAX) ST.stSnap.shift();
+  }catch(e){}
+}
+/* The most recent snapshot at least six days old — "last week" in the sense a
+   farmer means it, not the exact same weekday. */
+function stSnapPrev(){
+  var a=(typeof ST!=='undefined'&&ST.stSnap)||[];
+  var today=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
+  for(var i=a.length-1;i>=0;i--){
+    if(a[i].fy!=null && typeof planYear!=='undefined' && a[i].fy!==planYear) continue;
+    if((today-new Date(a[i].d))/86400000>=6) return a[i];
+  }
+  return null;
+}
+
+/* ── T5 · what the season is ACTUALLY costing ─────────────────────────────
+   Planned cost and actual cost used to be assigned the same value in all three
+   enterprises, so variance could only ever be revenue-driven and the tracker
+   could never tell a farmer his inputs were running over — which is the main
+   reason to open it in August.
+
+   The original comment was right that raw tagged spend would understate cost:
+   mid-season the ledger only holds part of the year. So it is blended, the same
+   way lsHerdCost already treats a herd — real spend for the months elapsed,
+   budget for the months still to come. At season end the budget share is zero
+   and the cost is purely what was spent.
+
+   entTaggedCost (not stTaggedSpend) is the base here because it EXCLUDES labour
+   categories, and labour is added separately from wkEnterpriseLabour — using
+   the labour-inclusive figure would charge the same worker twice. */
+function stActualCost(tag, modelExLabour, labour){
+  var tagged=(typeof entTaggedCost==='function')?entTaggedCost(tag):0;
+  var el=(typeof lsSeasonElapsed==='function')?lsSeasonElapsed():1;
+  var base=(tagged>0) ? (tagged + modelExLabour*(1-el)) : modelExLabour;
+  var cost=Math.round(base + (labour||0));
+  return {cost:cost, tagged:Math.round(tagged),
+          pct:(cost>0)?Math.min(100,Math.round(tagged/cost*100)):0};
+}
+/* "Real costs" / "Part real" / "Budget cost" — the same three words the crop
+   rows already use, so a farmer reads one vocabulary across the app. */
+function stCostSource(pct){
+  return (pct>=66)?'real costs':((pct>0)?'part real, part budget':'budget cost');
+}
+
 function stCropRows(){
   if(typeof entOn==='function' && !entOn('crops')) return [];
   var by={},order=[];
@@ -33680,13 +33875,32 @@ function stCropRows(){
     if(price>0) e.pricedArea+=a;
     e.tY+=a*ty; e.aY+=a*ay; if(l.actualYield!=null) e.harvArea+=a;
   });
+  /* T4 — a land's SECOND crop lives on the PLANNING line as c2, not on the
+     land, so walking lands alone dropped it without a word. Onderste land
+     carries wheat followed by 60 ha of soybeans; only the wheat was counted.
+     Cycle one is already in from the land above (the plan line is generated
+     from it), so only the second cycle is added here — no double count. */
+  (typeof ST_PLAN!=='undefined'&&ST_PLAN.crops||[]).forEach(function(c){
+    var b=(typeof plnC2==='function')?plnC2(c):null;
+    if(!b || !b.crop) return;
+    var a=c.ha||0, ty=b.yield||0, price=b.price||0;
+    if(!by[b.crop]){ by[b.crop]={crop:b.crop,area:0,plRev:0,acRev:0,budget:0,harvArea:0,tY:0,aY:0,pricedArea:0}; order.push(b.crop); }
+    var e2=by[b.crop];
+    /* Nothing is harvested off a second cycle until the Crops module knows
+       about it, so actual tracks target rather than inventing a shortfall. */
+    e2.area+=a; e2.plRev+=a*ty*price; e2.acRev+=a*ty*price;
+    e2.budget+=a*(b.inputCost||0);
+    if(price>0) e2.pricedArea+=a;
+    e2.tY+=a*ty; e2.aY+=a*ty;
+  });
   return order.map(function(c){
     var e=by[c], lab=(typeof wkEnterpriseLabour==='function')?wkEnterpriseLabour('crop:'+c):0;
     var tag='crop:'+c, tagged=stTaggedSpend(tag), harvested=e.harvArea>0;
     // Cost = the land's input budget on BOTH sides (tagged ledger spend is incomplete, so it
     // would understate cost and inflate tracking). Variance is yield-driven; tagged spend is
     // shown in the drill-down table only, as "what you've logged so far".
-    var plCost=e.budget+lab, acCost=e.budget+lab;
+    var plCost=e.budget+lab;
+    var _ac=stActualCost(tag, e.budget, lab), acCost=_ac.cost;
     var planned=Math.round(e.plRev-plCost), tracking=Math.round(e.acRev-acCost);
     /* With no price, revenue is unknown — not zero. Reporting plan and actual as minus the whole
        input budget booked a loss nobody predicted and dragged the farm's variance down with it.
@@ -33695,16 +33909,38 @@ function stCropRows(){
     if(noPrice){ planned=0; tracking=0; }
     var prog=e.area?Math.round(e.harvArea/e.area*100):0;
     var tY=e.area?e.tY/e.area:0, aY=e.area?e.aY/e.area:0, st=stStatusOf(planned,tracking,prog);
+    /* stStatusOf returns "growing" for anything not yet harvested, which meant a
+       crop already 20% over budget stayed silent until the combine moved. Costs
+       are being spent NOW, so a material overrun is judged on its own. */
+    if(prog<=0 && plCost>0 && (acCost-plCost)/plCost>=0.10) st=stStatusOf(planned,tracking,1);
     var drv;
     if(noPrice) drv='No price set for this crop, so we cannot work out what it earns — add one on the Crops page.';
     else if(prog<=0) drv='Still growing — on your plan of '+(Math.round(tY*10)/10)+' tons a hectare';
     else { var yd=tY?Math.round((aY-tY)/tY*100):0; drv=(Math.round(aY*10)/10)+' tons a hectare'+(yd!==0?' — '+(yd>0?'up ':'down ')+Math.abs(yd)+'% on plan':' — on plan'); }
+    /* A cost overrun is worth saying out loud, not just leaving in the numbers.
+       Only when it is material — a rand or two over budget is noise. */
+    var _over=plCost?Math.round((acCost-plCost)/plCost*100):0;
+    if(_over>=5) drv=drv+' \u00b7 costs '+_over+'% over budget';
+    /* Phase B — what has actually been banked against this crop. A harvest that
+       has not been logged and last season's grain being paid now look identical
+       in the ledger, so the window decides which message the farmer gets. */
+    var _cash=stCashIn(tag);
+    var _win=false;
+    (ST_PLAN.crops||[]).forEach(function(pc){
+      if(!pc || pc.crop!==c) return;
+      var hA=(typeof planAbsIdx==='function'&&pc.harvest)?planAbsIdx(pc.harvest):null;
+      var W0=(typeof planWindowStart==='function')?planWindowStart():null;
+      var nowR=(typeof lvpNowIdx==='function')?lvpNowIdx():-1;
+      if(hA!=null&&W0!=null&&(hA-W0)<=nowR) _win=true;
+    });
+    var _cs=stCashState(_cash,prog,_win);
     var byK=stCropInputByKind(c), logged=0; for(var _lk in byK) logged+=byK[_lk];
     var budLine=logged>0?(stK(logged)+' logged of your '+stK(Math.round(e.budget))+' input budget'+(e.budget?' · '+Math.round(logged/e.budget*100)+'% applied':'')):'';
     return {g:'crops',key:c,name:c,sub:Math.round(e.area)+' ha',planned:planned,tracking:tracking,progress:prog,progressLbl:'harvested',status:st,driver:drv,
+      cash:_cash,cashState:_cs,cashLabel:stCashLabel(_cs,_cash),
       _d:{plRev:Math.round(e.plRev),acRev:Math.round(e.acRev),plCost:Math.round(plCost),acCost:Math.round(acCost),tag:tag,byCat:byK,budget:Math.round(e.budget),budgetLine:budLine,
           revLbl:(aY<tY?'Smaller harvest':'Bigger harvest'),revNote:(Math.round(aY*10)/10)+' tons a hectare, planned '+(Math.round(tY*10)/10),
-          costLbl:'Inputs',costNote:'on your input budget',
+          costLbl:'Inputs',costNote:stCostSource(_ac.pct),
           openFn:"nav('crop')",openLbl:'Open your lands'} };
   });
 }
@@ -33715,43 +33951,114 @@ function stOrchRows(){
   return _pfOrchardEnts().map(function(e){
     var b=(typeof orBlockById==='function')?orBlockById(e.id):null;
     var est=(b&&b.tons)||0, act=(b&&typeof orActualTons==='function')?orActualTons(b):0;
-    var picked=est?Math.round(act/est*100):0, planned=Math.round(e.gm), tracking=planned, drv, ratio=1;
+    var _ac=stActualCost('or:'+e.id, e.ops, e.labour);
+    var picked=est?Math.round(act/est*100):0, planned=Math.round(e.gm), drv, ratio=1;
+    /* Cost is charged whether or not a single carton has moved — a block can be
+       over budget in August and used to read exactly on plan until it picked. */
+    var tracking=Math.round(e.moneyBack-_ac.cost);
     if(act>0){
       var projTons=act;
       if(picked>=90) projTons=act;
       else { var ps=(b&&b.planPickStart!=null)?b.planPickStart:null, pe=(b&&b.planPickEnd!=null)?b.planPickEnd:null;
         if(ps!=null&&pe!=null&&pe>=ps){ var span=pe-ps+1, el=Math.min(span,Math.max(0.5,mo-ps+1)), ex=el/span; projTons=(ex>0.15)?Math.min(act/ex,est*1.3):est; } else projTons=est; }
-      ratio=est?projTons/est:1; tracking=Math.round(e.moneyBack*ratio-e.ops-e.labour);
+      ratio=est?projTons/est:1; tracking=Math.round(e.moneyBack*ratio-_ac.cost);
       if(picked>=90){ var td=est?Math.round((act-est)/est*100):0; drv=(Math.round(act*10)/10)+' t picked'+(td!==0?' — '+(td>0?'up ':'down ')+Math.abs(td)+'% on estimate':' — on estimate'); }
       else drv=picked+'% picked — '+(tracking<planned-1?'trending short':'on pace');
     } else drv='Not picked yet — on your estimate';
+    var _over=e.gm!==undefined&&(e.ops+e.labour)?Math.round((_ac.cost-(e.ops+e.labour))/(e.ops+e.labour)*100):0;
+    if(_over>=5) drv=drv+' \u00b7 costs '+_over+'% over budget';
     var prog=Math.min(100,picked);
-    return {g:'orch',key:String(e.id),name:e.name,sub:(e.kind||'')+' · '+Math.round(e.area)+' ha',planned:planned,tracking:tracking,progress:prog,progressLbl:'picked',status:stStatusOf(planned,tracking,prog),driver:drv,
-      _d:{plRev:Math.round(e.moneyBack),acRev:Math.round(e.moneyBack*ratio),plCost:Math.round(e.ops+e.labour),acCost:Math.round(e.ops+e.labour),tag:'or:'+e.id,byCat:stTaggedByCat('or:'+e.id),budget:Math.round(e.ops),
+    /* Phase B — Hooglaagte sat on R251 165 and reported "Not picked yet". The
+       pick window says whether that is an unlogged harvest or last season's
+       fruit being paid for now. */
+    var _cash=stCashIn('or:'+e.id);
+    var _nowR=(typeof lvpNowIdx==='function')?lvpNowIdx():-1;
+    var _ps=(b&&b.planPickStart!=null)?b.planPickStart:null;
+    var _cs=stCashState(_cash,prog,(_ps!=null&&_ps<=_nowR));
+    var _st=stStatusOf(planned,tracking,prog);
+    if(prog<=0 && (e.ops+e.labour)>0 && (_ac.cost-(e.ops+e.labour))/(e.ops+e.labour)>=0.10) _st=stStatusOf(planned,tracking,1);
+    return {g:'orch',key:String(e.id),name:e.name,sub:(e.kind||'')+' · '+Math.round(e.area)+' ha',planned:planned,tracking:tracking,progress:prog,progressLbl:'picked',status:_st,cash:_cash,cashState:_cs,cashLabel:stCashLabel(_cs,_cash),driver:drv,
+      _d:{plRev:Math.round(e.moneyBack),acRev:Math.round(e.moneyBack*ratio),plCost:Math.round(e.ops+e.labour),acCost:_ac.cost,tag:'or:'+e.id,byCat:stTaggedByCat('or:'+e.id),budget:Math.round(e.ops),
           revLbl:(ratio<1?'Lighter crop':'Bigger crop'),revNote:(Math.round(act*10)/10)+' t picked of '+(Math.round(est*10)/10)+' t estimate',
-          costLbl:'Season costs',costNote:'packing, agent & picking',openFn:"nav('orchards')",openLbl:'Open the block'} };
+          costLbl:'Season costs',costNote:'packing, agent & picking \u00b7 '+stCostSource(_ac.pct),openFn:"nav('orchards')",openLbl:'Open the block'} };
   });
 }
 function stLiveRows(){
   if(typeof entOn==='function' && !entOn('livestock')) return [];
   if(typeof _pfLiveEnts!=='function') return [];
   return _pfLiveEnts().map(function(e){
+    var h=(typeof lvpHerdById==='function')?lvpHerdById(e.id):null;
     var moves=(typeof ST_LS!=='undefined'&&ST_LS.moves||[]).filter(function(m){return m&&m.herd===e.id;});
-    var soldQ=0,soldR=0,deaths=0;
-    moves.forEach(function(m){ if(m.reason==='sold'){soldQ+=(m.qty||0);soldR+=(m.money||0);} else if(m.reason==='died'||m.reason==='loss'||m.reason==='theft'){deaths+=(m.qty||0);} });
-    var qty=e.qty||0, cost=e.costHead||0, sell=e.sellHead||0, lab=e.labour||0;
-    var avg=soldQ?soldR/soldQ:sell, remain=Math.max(0,qty-soldQ-deaths);
-    var plRev=qty*sell, acRev=soldQ*avg+remain*sell;
-    var plCost=qty*cost+lab, acCost=qty*cost+lab;
+    var soldQ=0,soldR=0,pricedQ=0,blankQ=0,deaths=0;
+    moves.forEach(function(m){
+      if(m.reason==='sold'){
+        soldQ+=(m.qty||0);
+        /* T2 — animals recorded as gone with no money against them. Averaging
+           them in drove the price to zero and the driver line reported a 100%
+           price crash, which is not a thing that can happen. They are counted
+           separately and named as the data gap they are. */
+        if((m.money||0)>0){ pricedQ+=(m.qty||0); soldR+=(m.money||0); }
+        else blankQ+=(m.qty||0);
+      } else if(m.reason==='died'||m.reason==='loss'||m.reason==='theft'){ deaths+=(m.qty||0); }
+    });
+    var qty=e.qty||0, cost=e.costHead||0, lab=e.labour||0;
+    /* T1 — this used to be plRev = qty * sell: the WHOLE herd at target price.
+       A breeding herd sells its weaner drop and a few culls, not the cows, so
+       the tracker measured the farm against a target nobody had set — Boer
+       goats 5.5x over, and Young stock given a R132 000 target when it has no
+       sale planned at all. The planned sale is what the farmer entered, read
+       through the same lsHerdIncome the Planning and Profit tabs use. */
+    var planHead=(typeof lvpSoldHead==='function' && h)?lvpSoldHead(h):0;
+    var plRev=(typeof lsHerdIncome==='function' && h)?lsHerdIncome(h):qty*(e.sellHead||0);
+    var perHead=planHead?(plRev/planHead):(e.sellHead||0);
+    var avg=pricedQ?(soldR/pricedQ):perHead;
+    /* Money in so far, plus the head still to sell at the price he planned.
+       Deaths are reported, not netted off the sale — losing a cow does not
+       cancel the weaner draft, and inventing a revenue hit would be guessing. */
+    var toGo=Math.max(0, planHead-soldQ);
+    var acRev=soldR + blankQ*perHead + toGo*perHead;
+    /* T5 — planned is the MODEL (what keeping this herd should cost); actual is
+       the blended figure lsHerdCost already computes: logged spend for the
+       months elapsed plus model for the months still to come. */
+    var _p=(typeof lsHerdCostParts==='function' && h)?lsHerdCostParts(h):null;
+    var plCost=_p?Math.round(_p.buy+_p.keep+_p.bull+_p.extra+_p.labour):Math.round(qty*cost+lab);
+    var acCost=(typeof lsHerdCost==='function' && h)?lsHerdCost(h):plCost;
+    var _costPct=(typeof lsHerdCostSourcePct==='function' && h)?lsHerdCostSourcePct(h):0;
     var planned=Math.round(plRev-plCost), tracking=Math.round(acRev-acCost);
-    var prog=qty?Math.round(soldQ/qty*100):0, st=(soldQ===0&&deaths===0)?'growing':stStatusOf(planned,tracking,Math.max(prog,1));
+    var prog=planHead?Math.min(100,Math.round(soldQ/planHead*100)):0;
+    var noPlan=(planHead<=0 && plRev<=0);
+    var st=noPlan?'growing':((soldQ===0&&deaths===0)?'growing':stStatusOf(planned,tracking,Math.max(prog,1)));
     var drv;
-    if(soldQ===0&&deaths===0) drv='No sales yet — on your plan';
-    else { var pd=sell?Math.round((avg-sell)/sell*100):0; drv=soldQ+' of '+qty+' sold'+(soldQ&&pd!==0?' · price '+(pd>0?'up ':'down ')+Math.abs(pd)+'%':'')+(deaths>0?' · '+deaths+' lost':''); }
-    return {g:'live',key:String(e.id),name:e.name,sub:(e.type||'herd'),planned:planned,tracking:tracking,progress:prog,progressLbl:'sold',status:st,driver:drv,
+    if(noPlan){
+      drv='No sale planned yet — its keep is counted but no income is'+
+          (soldQ>0?', though '+soldQ+' head have already moved out':'');
+    } else if(soldQ===0&&deaths===0){
+      drv='No sales yet — on your plan of '+planHead+' head';
+    } else {
+      var bits=[soldQ+' of '+planHead+' sold'];
+      if(pricedQ>0 && perHead>0){
+        var pd=Math.round((avg-perHead)/perHead*100);
+        if(pd!==0) bits.push('price '+(pd>0?'up ':'down ')+Math.abs(pd)+'%');
+      }
+      if(blankQ>0) bits.push(blankQ+' with no price recorded');
+      if(deaths>0) bits.push(deaths+' lost');
+      drv=bits.join(' \u00b7 ');
+    }
+    var _lo=plCost?Math.round((acCost-plCost)/plCost*100):0;
+    if(_lo>=5) drv=drv+' \u00b7 costs '+_lo+'% over budget';
+    /* Phase B — a dairy herd banks a milk cheque every month and sells almost
+       no animals, so head-sold alone said R0 against R279 709 received. A herd
+       always has its selling window open, so cash with no sale is "banked", not
+       an unlogged harvest. */
+    var _cash=stCashIn('ls:'+e.id);
+    var _cs=stCashState(_cash, Math.max(prog, soldQ>0?1:0), true);
+    return {g:'live',key:String(e.id),name:e.name,sub:(e.type||'herd'),planned:planned,tracking:tracking,progress:prog,progressLbl:'sold',status:st,driver:drv,cash:_cash,cashState:_cs,cashLabel:stCashLabel(_cs,_cash),
       _d:{plRev:Math.round(plRev),acRev:Math.round(acRev),plCost:Math.round(plCost),acCost:Math.round(acCost),tag:'ls:'+e.id,byCat:stTaggedByCat('ls:'+e.id),budget:Math.round(qty*cost),
-          revLbl:'Sales & losses',revNote:soldQ+' sold at '+stK(Math.round(avg))+'/head'+(deaths>0?', '+deaths+' lost':''),
-          costLbl:'Running costs',costNote:'feed, vet & buy-in',openFn:"nav('livestock')",openLbl:'Open the herd'} };
+          revLbl:'Sales & losses',
+          revNote:(planHead?(soldQ+' of '+planHead+' head sold'):'no sale planned')+
+                  (pricedQ?' at '+stK(Math.round(avg))+'/head':'')+
+                  (blankQ>0?', '+blankQ+' with no price':'')+(deaths>0?', '+deaths+' lost':''),
+          costLbl:'Running costs',costNote:'feed, vet & buy-in \u00b7 '+stCostSource(_costPct),openFn:"nav('livestock')",openLbl:'Open the herd'} };
   });
 }
 function stComputeVariance(){
@@ -33762,19 +34069,155 @@ function stComputeVariance(){
   add('live','Livestock',stLiveRows());
   var planned=0,tracking=0,plRev=0,realRev=0;
   groups.forEach(function(gp){ gp.rows.forEach(function(r){ planned+=r.planned; tracking+=r.tracking; plRev+=r._d.plRev; realRev+=r._d.plRev*(Math.min(100,Math.max(0,r.progress))/100); }); });
-  return {groups:groups,planned:Math.round(planned),tracking:Math.round(tracking),realisedPct:plRev?Math.round(realRev/plRev*100):0};
+  /* The rand figure, not only the share — the header needs to say how much has
+     actually come in, and a percentage alone cannot do that. */
+  /* Cash actually banked this season, and the share of it that belongs to last
+     season's crop — kept apart so the hero never counts old money as progress. */
+  var cashAll=0, cashPrior=0;
+  groups.forEach(function(gp){ gp.rows.forEach(function(r){
+    cashAll+=(r.cash||0); if(r.cashState==='prior') cashPrior+=(r.cash||0); }); });
+  return {groups:groups,planned:Math.round(planned),tracking:Math.round(tracking),
+          realised:Math.round(realRev),realisedPct:plRev?Math.round(realRev/plRev*100):0,
+          cash:Math.round(cashAll), cashPrior:Math.round(cashPrior),
+          cashThis:Math.round(cashAll-cashPrior)};
 }
+/* T6 — every livestock item used to carry the identical sentence, and the
+   advice was generic where the data is specific. Young stock's problem was
+   never that it is behind: nobody has answered a question about it. The action
+   is now derived from the row rather than from its group. */
 function stAttention(groups){
-  var flat=[]; groups.forEach(function(gp){ gp.rows.forEach(function(r){ if(r.status==='behind'||r.status==='watch'){ flat.push(r); } }); });
+  var flat=[];
+  groups.forEach(function(gp){ gp.rows.forEach(function(r){
+    if(r.status==='behind'||r.status==='watch'||r.cashState==='unlogged') flat.push(r); }); });
   flat.sort(function(a,b){ return (a.tracking-a.planned)-(b.tracking-b.planned); });
   return flat.slice(0,3).map(function(r){
-    var gap=r.planned-r.tracking, act;
-    if(r.g==='crops') act=(r.progress>=100)?'The harvest is in, so get the best price on the grain you’re still holding, and note the extra input spend for next season’s budget.':'Keep an eye on this crop and hold your inputs where you can.';
+    var gap=r.planned-r.tracking;
+    var over=(r._d&&r._d.plCost)?Math.round((r._d.acCost-r._d.plCost)/r._d.plCost*100):0;
+    /* A harvest sitting unlogged beats every other message: the number on the
+       row is wrong until it is fixed, so nothing else on it can be trusted. */
+    if(r.cashState==='unlogged'){
+      return {t:stK(r.cash)+' banked on '+r.name+', but no harvest logged.',
+              d:'The money is in and the crop is coming off — record the pick so the rest of this row means something.'};
+    }
+    if(r.planned<=0 && (r.cash||0)<=0 && (r.progress||0)<=0){
+      return {t:r.name+' has nothing planned.',
+              d:'Its keep is counted but no income is, so your season reads worse than the farm. Say what it does this year.'};
+    }
+    if(over>=5){
+      return {t:r.name+' is '+over+'% over budget.',
+              d:stK(r._d.acCost-r._d.plCost)+' more than planned on a '+stK(r._d.plCost)+' budget. Open it to see what it went on.'};
+    }
+    var act;
+    if(r.g==='crops') act=(r.progress>=100)
+      ? 'The harvest is in, so get the best price on the grain you’re still holding.'
+      : 'Yield is tracking under your plan — worth a look before harvest.';
     else if(r.g==='orch') act='Picking is behind pace — check labour on the block before the market window closes.';
     else act='Sales are behind plan — line up buyers for the animals you still have to sell.';
-    return {t:r.name+' is '+stK(gap)+' under plan.',d:act};
+    return {t:r.name+' is '+stK(gap)+' under plan.', d:act};
   });
 }
+/* ── Phase C · pace against the calendar ──────────────────────────────────
+   1% of the money home, four months into a season, is either a disaster or
+   completely ordinary — and the app already holds the answer, because the plan
+   knows which month every crop, block and herd pays. Comparing cash-to-date
+   against a WHOLE-SEASON budget is the mistake the whole industry makes;
+   comparing it against budget-to-date is the entire idea. */
+function stPace(V){
+  var ms=(typeof ST_PLAN!=='undefined'&&ST_PLAN.months)||[];
+  if(ms.length<12) return null;
+  var now=(typeof lvpNowIdx==='function')?lvpNowIdx():-1;
+  if(now>11) now=11;
+  var cum=[], run=0, tot=0;
+  var due={crops:0,orch:0,live:0}, plan={crops:0,orch:0,live:0};
+  ms.forEach(function(m,i){
+    run+=(m.income||0); cum.push(run); tot+=(m.income||0);
+    plan.crops+=(m.incCrops||0); plan.orch+=(m.incOrch||0); plan.live+=(m.incLive||0);
+    if(now>=0 && i<=now){ due.crops+=(m.incCrops||0); due.orch+=(m.incOrch||0); due.live+=(m.incLive||0); }
+  });
+  /* Cash banked, by enterprise. Last season's crop being paid now is excluded —
+     it is real money, but it is not this season making progress. */
+  var got={crops:0,orch:0,live:0};
+  ((V&&V.groups)||[]).forEach(function(gp){
+    var k=(gp.key==='orch')?'orch':(gp.key==='live'?'live':'crops');
+    gp.rows.forEach(function(r){ if(r.cashState!=='prior') got[k]+=(r.cash||0); });
+  });
+  var dueAll=(now>=0)?cum[now]:0;
+  var gotAll=got.crops+got.orch+got.live;
+  return {labels:ms.map(function(m){return String(m.label||'').split(' ')[0];}),
+          cum:cum, total:tot, now:now,
+          due:dueAll, got:gotAll,
+          duePct:tot?Math.round(dueAll/tot*100):0,
+          gotPct:tot?Math.round(gotAll/tot*100):0,
+          byGroup:[{k:'orch', nm:'Orchards',  due:due.orch,  got:got.orch,  plan:plan.orch},
+                   {k:'live', nm:'Livestock', due:due.live,  got:got.live,  plan:plan.live},
+                   {k:'crops',nm:'Crops',     due:due.crops, got:got.crops, plan:plan.crops}]};
+}
+/* The curve is the farm's own selling calendar, so it is drawn rather than
+   described — a farmer reads the shape of his year faster than a sentence. */
+function stPaceChart(P){
+  if(!P||!P.total) return '';
+  var X0=54, X1=908, Y0=18, Y1=214, W=X1-X0;
+  function x(i){ return X0+i*(W/11); }
+  function y(v){ return Y1-(v/P.total)*(Y1-Y0); }
+  var pts=P.cum.map(function(v,i){ return x(i).toFixed(1)+','+y(v).toFixed(1); });
+  var line='M'+pts.join(' L');
+  var area=line+' L'+x(11).toFixed(1)+','+Y1+' L'+X0+','+Y1+' Z';
+  var g='';
+  for(var k=0;k<5;k++){ var yy=Y0+k*((Y1-Y0)/4);
+    g+='<line x1="'+X0+'" y1="'+yy.toFixed(1)+'" x2="'+X1+'" y2="'+yy.toFixed(1)+'"/>'; }
+  var lbl='';
+  P.labels.forEach(function(L,i){
+    var on=(i===P.now);
+    lbl+='<text x="'+x(i).toFixed(1)+'" y="234" text-anchor="middle" font-size="10.5" fill="'+
+      (on?'#7C2D5A':'var(--t4)')+'"'+(on?' font-weight="700"':'')+'>'+stEsc(L)+'</text>';
+  });
+  var marks='';
+  if(P.now>=0){
+    var mx=x(P.now), yDue=y(P.due), yGot=y(P.got);
+    marks='<line x1="'+mx.toFixed(1)+'" y1="12" x2="'+mx.toFixed(1)+'" y2="'+(Y1+6)+'" stroke="#7C2D5A" stroke-width="2" stroke-dasharray="4 3"/>'+
+      '<line x1="'+mx.toFixed(1)+'" y1="'+yDue.toFixed(1)+'" x2="'+mx.toFixed(1)+'" y2="'+yGot.toFixed(1)+'" stroke="var(--or)" stroke-width="2.5"/>'+
+      '<circle cx="'+mx.toFixed(1)+'" cy="'+yDue.toFixed(1)+'" r="5" fill="var(--gl)" stroke="var(--wh)" stroke-width="2"/>'+
+      '<circle cx="'+mx.toFixed(1)+'" cy="'+yGot.toFixed(1)+'" r="5" fill="var(--or)" stroke="var(--wh)" stroke-width="2"/>';
+  }
+  return '<div class="st-pacechart"><svg viewBox="0 0 940 244" role="img" aria-label="Planned income across the season, with today marked">'+
+    '<defs><linearGradient id="stPaceFade" x1="0" y1="0" x2="0" y2="1">'+
+      '<stop offset="0%" stop-color="var(--gl)" stop-opacity=".20"/>'+
+      '<stop offset="100%" stop-color="var(--gl)" stop-opacity="0"/></linearGradient></defs>'+
+    '<g stroke="var(--br2)" stroke-width="1">'+g+'</g>'+
+    '<path d="'+area+'" fill="url(#stPaceFade)"/>'+
+    '<path d="'+line+'" fill="none" stroke="var(--gl)" stroke-width="2.5" stroke-linejoin="round"/>'+
+    marks+lbl+'</svg></div>';
+}
+function stPaceHTML(P){
+  if(!P) return '';
+  var behind=P.due-P.got, off=(P.due>0)?(behind/P.due):0;
+  var verdict;
+  if(P.now<0) verdict='The season has not started yet.';
+  else if(P.due<=0) verdict='Nothing was due to be sold yet — the money in this plan starts later in the season.';
+  else if(off<=0.05) verdict='<b>'+stK(P.got)+'</b> of the '+stK(P.due)+' due by now is home — that is on pace.';
+  else verdict='You should have <b>'+stK(P.due)+'</b> home by now. <b class="st-pace-hl">'+stK(P.got)+'</b> is in.';
+  var rows=P.byGroup.filter(function(r){ return r.plan>0; }).map(function(r){
+    var pct=r.plan?Math.round(r.due/r.plan*100):0;
+    var gp=r.plan?Math.round(r.got/r.plan*100):0;
+    var chip, cls;
+    if(r.due<=0){ chip='not due yet'; cls='na'; }
+    else if(r.got>=r.due*0.95){ chip='on pace'; cls='ok'; }
+    else { chip='behind pace'; cls='behind'; }
+    return '<div class="st-pr"><div class="st-pr-nm">'+stEsc(r.nm)+'</div>'+
+      '<div class="st-pr-tr"><i class="due" style="width:'+Math.min(100,pct)+'%"></i>'+
+        '<i class="got'+(cls==='behind'?' warn':'')+'" style="width:'+Math.min(100,gp)+'%"></i></div>'+
+      '<div class="st-pr-n">'+(r.due>0?('<b>'+stK(r.got)+'</b> of '+stK(r.due)+' due'):'<b>—</b>nothing due yet')+'</div>'+
+      '<div class="st-pr-c '+cls+'">'+chip+'</div></div>';
+  }).join('');
+  return '<div class="st-pace"><div class="st-pace-h">Pace · '+
+      (P.now>=0?('month '+(P.now+1)+' of 12'):'before the season')+'</div>'+
+    '<div class="st-pace-v">'+verdict+'</div>'+
+    stPaceChart(P)+
+    '<div class="st-pace-lg"><span><i class="ln"></i>Income you planned, month by month</span>'+
+      '<span><i class="d1"></i>Due by today</span><span><i class="d2"></i>Actually in</span></div>'+
+    (rows?'<div class="st-prs">'+rows+'</div>':'')+'</div>';
+}
+
 function renderSeasonTracker(){
   var el=$('plan-tracker-pane'); if(!el) return;
   var V=stComputeVariance();
@@ -33788,6 +34231,16 @@ function renderSeasonTracker(){
      crop, block and herd. It does NOT carry overheads (loans, insurance, admin), so
      it must not be called profit; the Profit tab subtracts those. Calling it profit
      put a number on screen that could never agree with Budgets or Profit. */
+  /* T3 — this was one flag at >=5%, so a season with money already in still
+     announced "nothing harvested or sold yet" directly above rows showing a
+     block 4% picked and nineteen animals sold. Two questions, not one:
+     has anything happened, and is there enough in to project from. */
+  var stMoved   = V.realised > 0;
+  /* T8 — the headline used to print the same figure twice. The second line now
+     carries the one thing the farmer cannot work out for himself: what moved
+     since last week, from the weekly snapshot. */
+  var _prev=(typeof stSnapPrev==='function')?stSnapPrev():null;
+  var _movedBy=_prev?(V.tracking-_prev.t):null;
   var stStarted = V.realisedPct >= 5;
   var hero='<div class="st-hero">'+
     '<div class="st-hero-top">'+
@@ -33799,13 +34252,42 @@ function renderSeasonTracker(){
              plan back and reads as a measurement. Say plainly that it has not started. */
           : '<div class="st-hero-line"><span data-t="st.planIs">Your plan is</span> <b style="color:var(--gd)">'+stK(V.planned)+'</b> <span data-t="st.marginFrom">margin from crops, orchards and livestock</span></div>'+
             '<div class="st-hero-amt" style="color:var(--gd)">'+stK(V.planned)+' <span>planned</span></div>')+
+        (_movedBy!=null&&Math.abs(_movedBy)>=1000
+          ? '<div class="st-hero-moved">'+(_movedBy<0?'▼ ':'▲ ')+stK(Math.abs(_movedBy))+
+            ' since last week</div>' : '')+
         '<div class="st-hero-note" data-t="st.marginNote">Margin is what each crop, block and herd earns after its own growing costs — before farm overheads like loans, insurance and admin.</div></div>'+
       (stStarted
         ? '<div style="text-align:right"><div class="st-varchip '+(pos?'pos':'neg')+'">'+(pos?'▲ ':'▼ ')+stK(Math.abs(vari))+' · '+(V.planned?(pos?'+':'−')+Math.abs(Math.round(vari/Math.abs(V.planned)*100))+'%':'—')+'</div><div class="st-varsub">vs your plan</div></div>'
-        : '<div style="text-align:right"><div class="st-varchip mut" data-t="st.notStartedCap">Not started</div><div class="st-varsub" data-t="st.nothingYet">nothing harvested or sold yet</div></div>')+
+        : (stMoved
+            ? /* "realised" is progress against planned value, not cash in the bank —
+               so it must not be worded as money received. */
+            '<div style="text-align:right"><div class="st-varchip mut">Just started</div><div class="st-varsub">'+stK(V.realised)+' realised · '+V.realisedPct+'% of plan</div></div>'
+            : '<div style="text-align:right"><div class="st-varchip mut" data-t="st.notStartedCap">Not started</div><div class="st-varsub" data-t="st.nothingYet">nothing harvested or sold yet</div></div>'))+
     '</div>'+
-    '<div class="st-prog-wrap"><div class="st-prog-lbl"><span data-t="'+(stStarted?'st.progSome':'st.progNone')+'">'+(stStarted?'Season progress — money in so far':'Season progress — nothing harvested yet')+'</span><span style="font-weight:700;color:var(--t2)">'+V.realisedPct+'%</span></div><div class="st-prog"><div class="st-prog-fill" style="width:'+V.realisedPct+'%"></div></div></div>'+
+    /* T7 — crops counted hectares harvested, orchards tons picked and livestock
+       head sold, then all three were averaged into one bar. A hectare and a head
+       do not add up. Rand is the one unit they share, and splitting it into IN,
+       DUE and NOT DUE makes the shortfall the length of a gap. */
+    (function(){
+      if(!_pace || !_pace.total) return '';
+      var inPct=Math.max(0,Math.min(100, _pace.got/_pace.total*100));
+      var duePct=Math.max(0,Math.min(100-inPct, (_pace.due-_pace.got)/_pace.total*100));
+      var restPct=Math.max(0,100-inPct-duePct);
+      return '<div class="st-prog-wrap">'+
+        '<div class="st-prog-lbl"><span><b>'+stK(_pace.got)+'</b> of the season’s '+
+          stK(_pace.total)+' is home'+(_pace.due>_pace.got?' · <b>'+stK(_pace.due)+'</b> was due by now':'')+
+          '</span><span style="font-weight:700;color:var(--t2)">'+_pace.gotPct+'%</span></div>'+
+        '<div class="st-mw">'+
+          '<i class="in" style="width:'+inPct.toFixed(2)+'%"></i>'+
+          '<i class="due" style="width:'+duePct.toFixed(2)+'%"></i>'+
+          '<i class="rest" style="width:'+restPct.toFixed(2)+'%"></i></div>'+
+        '<div class="st-mwl"><span><i class="in"></i>In · '+_pace.gotPct+'%</span>'+
+          (duePct>0.05?'<span><i class="due"></i>Due but not in · '+Math.round(duePct)+'%</span>':'')+
+          '<span><i class="rest"></i>Not due yet · '+Math.round(restPct)+'%</span></div></div>';
+    })()+
   '</div>';
+  var _pace=(typeof stPace==='function')?stPace(V):null;
+  var paceH=(typeof stPaceHTML==='function')?stPaceHTML(_pace):'';
   var attn=stAttention(V.groups);
   var attnH=attn.length?'<div class="st-attn"><div class="st-attn-h">⚠ <span data-t="plan.needsAttn">Needs your attention</span></div>'+attn.map(function(a){return '<div class="st-attn-card"><div class="st-attn-t">'+stEsc(a.t)+'</div><div class="st-attn-d">'+stEsc(a.d)+'</div></div>';}).join('')+'</div>':'';
   var groupsH=V.groups.map(function(gp){
@@ -33814,7 +34296,7 @@ function renderSeasonTracker(){
     else body=gp.rows.map(function(r){ return stRowHTML(gp.key,r); }).join('');
     return '<div class="st-group"><div class="st-group-h">'+stEsc(gp.title)+'</div>'+body+'</div>';
   }).join('');
-  el.innerHTML=hero+attnH+groupsH;
+  el.innerHTML=hero+paceH+attnH+groupsH;
 }
 function stRowHTML(gkey,r){
   var v=r.tracking-r.planned, pos=v>=0, s=ST_STATUS[r.status]||ST_STATUS.ontrack;
@@ -33829,6 +34311,10 @@ function stRowHTML(gkey,r){
     stTile(gkey)+
     '<div class="st-row-main"><div class="st-row-name">'+stEsc(r.name)+' <span class="st-row-sub">'+stEsc(r.sub)+'</span> <span class="st-pill" style="color:'+s.c+';background:'+s.bg+'">'+s.l+'</span></div>'+
       '<div class="st-row-drv">'+stEsc(r.driver)+'</div>'+
+      /* Phase B — production and cash side by side. Hooglaagte was reporting
+         "Not picked yet" while holding R251 165, because the row only ever
+         looked at tons. Both are true; the farmer needs both. */
+      (r.cashLabel?'<div class="st-row-cash '+(r.cashState||'')+'">'+stEsc(r.cashLabel)+'</div>':'')+
       '<div class="st-row-progwrap"><div class="st-row-prog"><div style="width:'+r.progress+'%;background:'+s.c+'"></div></div><span class="st-row-progn">'+r.progress+'% '+r.progressLbl+'</span></div></div>'+
     '<div class="st-row-nums"><div class="st-row-pl">Planned '+stK(r.planned)+'</div>'+
       (rStarted?'<div class="st-row-tr">'+stK(r.tracking)+'</div>':'')+vchip+'</div>'+
