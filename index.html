@@ -29200,7 +29200,16 @@ function plnToggleRow(key){
     var top=item.getBoundingClientRect().top-sc.getBoundingClientRect().top+sc.scrollTop;
     /* Leave it where it is when the whole thing already fits below it. */
     if(item.getBoundingClientRect().bottom<=sc.getBoundingClientRect().bottom) return;
-    sc.scrollTo({top:Math.max(0, top-10), behavior:'smooth'});
+    var target=Math.max(0, top-10);
+    /* behavior:'smooth' silently does NOTHING in some environments — it is
+       throttled in a background tab and skipped under reduced motion — and when
+       it fails it fails quietly, leaving the farmer staring at the row he just
+       opened from halfway down it. So the destination is guaranteed: animate if
+       we can, then set the position outright if the animation never happened. */
+    var reduce=(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+    if(reduce){ sc.scrollTop=target; return; }
+    try{ sc.scrollTo({top:target, behavior:'smooth'}); }catch(e){ sc.scrollTop=target; return; }
+    setTimeout(function(){ if(Math.abs(sc.scrollTop-target)>4) sc.scrollTop=target; },320);
   },40);
 }
 
