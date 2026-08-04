@@ -1126,7 +1126,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
    from invisible to unreadable, so each is restated against it — same treatment
    the Budgets hero uses, so the two pages read as one app. */
 .st-hero .st-eyebrow{color:rgba(255,255,255,.82)}
-.st-hero .st-hero-line{color:#fff;opacity:.95}
+.st-hero .st-hero-line{color:#fff;opacity:.95;margin-top:9px}
 .st-hero .st-hero-amt{color:#fff}
 .st-hero .st-hero-amt span{color:rgba(255,255,255,.78)}
 .st-hero .st-hero-note{color:rgba(255,255,255,.70)}
@@ -10108,6 +10108,13 @@ function demoSeedPlanning(fresh){
        reports as having no sale planned, and an empty row reads as unfinished
        setup, which is what it is. */
 
+    /* The ledger holds two Karan Beef weaner cheques — R135 086 in June and
+       R126 166 in July — against a plan that said six head at R6 500 once, in
+       May. R261 252 from twenty cows is about R13 000 a cow, which is an
+       ordinary Bonsmara weaner crop; the PLAN was wrong, not the ledger, and
+       the tracker was faithfully reporting it as livestock 152% "ahead". Two
+       drafts now, priced where the farm actually sells. */
+    addSale(1,'Breeding cows','🐂','Beef cattle','Sell weaner calves (second draft)', 2, 9, 14000);
     addSale(1,'Breeding cows','🐂','Beef cattle','Sell cull cows',      4, 3, 9000);
     addSale(3,'Boer goats',   '🐐','Boer goats (meat)','Sell ewe kids', 5, 8, 1400);
     /* The dairy herd sells its culls too, which also clears its setup flag —
@@ -10115,6 +10122,32 @@ function demoSeedPlanning(fresh){
     addSale(4,'Dairy cows',   '🐄','Dairy cattle','Sell cull cows',     6, 4, 11000);
     var dairy=(ST_LS.herd||[]).filter(function(h){ return h && h.id===4; })[0];
     if(dairy && dairy.pSelling===undefined) dairy.pSelling=true;
+
+    /* ── T8 · a week of history to compare against ──────────────────────
+       stSnapPrev() needs a row at least six days old, a fresh demo only ever
+       writes one, and Restart demo wipes it — so "what moved since last week"
+       could never appear in a demo, which is where it most needs to. One
+       backdated row fixes that.
+
+       The figure is DERIVED, not invented: last week's tracking is this week's
+       plus whatever tagged spend has landed in the seven days since, because
+       that spend is exactly what pulled the number down. */
+    (function(){
+      if((ST.stSnap||[]).length) return;
+      var today=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
+      var back=new Date(today.getTime()-7*86400000);
+      var recent=0;
+      (ST.txns||[]).forEach(function(x){
+        if(!x || x.type!=='expense' || !x.ent) return;
+        var d=new Date(x.date); if(isNaN(d)) return;
+        if(d>back && d<=today) recent+=(x.amt||0);
+      });
+      var V=(typeof stComputeVariance==='function')?stComputeVariance():null;
+      if(!V) return;
+      var iso=back.getFullYear()+'-'+String(back.getMonth()+1).padStart(2,'0')+'-'+String(back.getDate()).padStart(2,'0');
+      ST.stSnap=[{d:iso, fy:(typeof planYear!=='undefined')?planYear:null,
+                  p:V.planned, t:Math.round(V.tracking+recent), r:V.realised}];
+    })();
 
     /* ── T5 · real spend against the orchard blocks ─────────────────────
        The Season Tracker can now compare budget against what has actually
@@ -28430,7 +28463,7 @@ var ST_PLAN = {
   // recur: 'one-off' | 'annual' | 'quarterly' | 'monthly'
   // animal: free-text species/breed used for grouping (e.g. 'Bonsmara cattle', 'Dorper sheep')
   events: [
-    {herdId:1,species:'Beef cattle',animal:'Breeding cows',icon:'\ud83d\udc02',desc:'Sell weaner calves',type:'sell',month:'May 2024',qty:6,unit:'head',price:6500,recur:'annual',notes:'Karan Beef contract',useMarket:true,done:false},
+    {herdId:1,species:'Beef cattle',animal:'Breeding cows',icon:'\ud83d\udc02',desc:'Sell weaner calves',type:'sell',month:'Jun 2024',qty:9,unit:'head',price:15000,recur:'annual',notes:'Karan Beef contract',useMarket:true,done:false},
     {herdId:1,species:'Beef cattle',animal:'Breeding cows',icon:'\ud83d\udc02',desc:'Annual herd vet visit',type:'cost',month:'Aug 2024',qty:1,unit:'visit',price:14500,recur:'annual',notes:'',useMarket:false,done:false},
     {herdId:2,species:'Wool sheep (Merino)',animal:'Ewe flock',icon:'\ud83d\udc11',desc:'Wool clip',type:'income',month:'Sep 2024',qty:850,unit:'kg',price:140,recur:'annual',notes:'Karoo Wool Growers',useMarket:false,done:false},
     {herdId:2,species:'Wool sheep (Merino)',animal:'Ewe flock',icon:'\ud83d\udc11',desc:'Sell cull ewes',type:'sell',month:'Oct 2024',qty:20,unit:'head',price:1850,recur:'annual',notes:'Senekal auction',useMarket:true,done:false},
@@ -34245,7 +34278,7 @@ function stPaceHTML(P){
   var verdict;
   if(P.now<0) verdict='The season has not started yet.';
   else if(P.due<=0) verdict='Nothing was due to be sold yet — the money in this plan starts later in the season.';
-  else if(off<=0.05) verdict='<b>'+stK(P.got)+'</b> of the '+stK(P.due)+' due by now is home — that is on pace.';
+  else if(off<=0.05) verdict='<b>'+stK(P.got)+'</b> is in of the <b>'+stK(P.due)+'</b> due by now — that is on pace.';
   else verdict='You should have <b>'+stK(P.due)+'</b> home by now. <b class="st-pace-hl">'+stK(P.got)+'</b> is in.';
   var rows=P.byGroup.filter(function(r){ return r.plan>0; }).map(function(r){
     var pct=r.plan?Math.round(r.due/r.plan*100):0;
@@ -34350,16 +34383,21 @@ function renderSeasonTracker(){
       var duePct=Math.max(0,Math.min(100-inPct, (_pace.due-_pace.got)/_pace.total*100));
       var restPct=Math.max(0,100-inPct-duePct);
       return '<div class="st-prog-wrap">'+
-        '<div class="st-prog-lbl"><span><b>'+stK(_pace.got)+'</b> of the season’s '+
-          stK(_pace.total)+' is home'+(_pace.due>_pace.got?' · <b>'+stK(_pace.due)+'</b> was due by now':'')+
+        /* Was "R911k of the season's R11.21m is home · R1.14m was due by now" —
+           three figures in one breath, and a second season total competing with
+           the margin above it. Two numbers, plain words: what is paid, and what
+           should have been by now. The share of the whole season is already the
+           length of the bar and the legend underneath. */
+        '<div class="st-prog-lbl"><span><b>'+stK(_pace.got)+'</b> paid in so far'+
+          (_pace.due>_pace.got?' — <b>'+stK(_pace.due)+'</b> should be in by now':'')+
           '</span><span style="font-weight:700;color:var(--t2)">'+_pace.gotPct+'%</span></div>'+
         '<div class="st-mw">'+
           '<i class="in" style="width:'+inPct.toFixed(2)+'%"></i>'+
           '<i class="due" style="width:'+duePct.toFixed(2)+'%"></i>'+
           '<i class="rest" style="width:'+restPct.toFixed(2)+'%"></i></div>'+
-        '<div class="st-mwl"><span><i class="in"></i>In · '+_pace.gotPct+'%</span>'+
-          (duePct>0.05?'<span><i class="due"></i>Due but not in · '+Math.round(duePct)+'%</span>':'')+
-          '<span><i class="rest"></i>Not due yet · '+Math.round(restPct)+'%</span></div></div>';
+        '<div class="st-mwl"><span><i class="in"></i>Paid · '+_pace.gotPct+'%</span>'+
+          (duePct>0.05?'<span><i class="due"></i>Behind · '+Math.round(duePct)+'%</span>':'')+
+          '<span><i class="rest"></i>Still to come · '+Math.round(restPct)+'%</span></div></div>';
     })()+
   '</div>';
   var attn=stAttention(V.groups);
