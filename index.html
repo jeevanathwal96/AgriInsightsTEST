@@ -1633,7 +1633,8 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
    next — grow it, pay for it, sell it. */
 /* A rule sits on its own grid row, so every pixel of it is paid for three times
    over. Kept to the height of its own text plus the hairline. */
-.pln-sect{grid-column:1/-1;font-size:9.5px;font-weight:800;letter-spacing:.11em;
+.pln-sect{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;
+  font-size:9.5px;font-weight:800;letter-spacing:.11em;
   line-height:1.1;text-transform:uppercase;color:var(--gm);padding-bottom:3px;
   margin:0 0 -2px;border-bottom:1px solid var(--br2)}
 .pln-sect:first-child{margin-top:0}
@@ -1644,6 +1645,15 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .pln-f input:focus-visible,.pln-f select:focus-visible{outline:2px solid var(--gl);outline-offset:1px}
 /* The half of a paired figure the farmer does not type, and the reminder that a
    forward position belongs to the crop rather than to this one land. */
+/* Remove-second-crop sits on its own section rule, and the invite to add one is
+   a dashed full-width row so it reads as an option rather than a field. */
+.pln-sectx{font-family:var(--fn);font-size:9.5px;font-weight:700;letter-spacing:.04em;
+  text-transform:none;background:none;border:0;color:var(--t4);cursor:pointer;padding:0}
+.pln-sectx:hover{color:var(--or)}
+.pln-addc2{grid-column:1/-1;font-family:var(--fn);font-size:11.5px;font-weight:700;
+  padding:9px 14px;border:1px dashed var(--br);border-radius:99px;background:none;
+  color:var(--gm);cursor:pointer;margin-top:2px}
+.pln-addc2:hover{border-color:var(--gl);background:var(--gb)}
 .pln-fhint{font-size:9.5px;font-weight:400;letter-spacing:0;text-transform:none;
   color:var(--t4);margin-left:5px}
 .pln-acts{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
@@ -28460,25 +28470,35 @@ function recomputePlan() {
   planActiveCrops().forEach(function(c){
     if(typeof entOn==='function' && !entOn('crops')) return;
     if(c.inForecast===false) return; // scenario / what-if crop — excluded from forecast
+    /* C6 — a land can carry two crops in a season, so each CYCLE books its own
+       months. The hectares belong to the row and are used once per cycle, which
+       is correct: the same ground grows both, one after the other. */
+    plnCycles(c).forEach(function(cy){ _planPutCycle(c, cy); });
+  });
+
+  /* One cycle's money laid across the months. Pulled out of the loop above so a
+     second crop goes through exactly the same path as the first. */
+  function _planPutCycle(c, cy){
     /* Positions are ABSOLUTE calendar months, not slots in the visible window, so a
        cycle that runs past the end of the season still books each month's money in
        the month it happens. Anything outside the window is simply not shown here —
        it is not lost, and it is not an error. */
-    var pAbs = planAbsIdx(c.plant), hAbs = planAbsIdx(c.harvest);
+    var pAbs = planAbsIdx(cy.plant), hAbs = planAbsIdx(cy.harvest);
     var W0   = planWindowStart();
+    var nm   = (cy.crop||'Crop')+(c.field?' — '+c.field:'');
     if(pAbs==null || hAbs==null || W0==null){
-      PLAN_OUTSIDE.push({nm:(c.crop||'Crop')+(c.field?' — '+c.field:''), when:'no month set'});
+      PLAN_OUTSIDE.push({nm:nm, when:'no month set'});
       return;
     }
     if(hAbs < pAbs) hAbs = pAbs;
 
     /* Same scenario-aware figures the tab shows, so the months, and therefore
        Money Flow and Budgets, move with it instead of holding the good year. */
-    var totalRevenue = c.ha * plnYieldOf(c) * plnPriceOf(c);
-    var totalInputs  = c.ha * (c.inputCost||0) * scenInputMult();
-    var totalOther   = c.ha * (c.otherCost||0) * scenInputMult();
+    var totalRevenue = c.ha * plnCycleYield(cy) * plnCyclePrice(cy);
+    var totalInputs  = c.ha * (cy.inputCost||0) * scenInputMult();
+    var totalOther   = c.ha * (cy.otherCost||0) * scenInputMult();
     var growMonths   = Math.max(1, hAbs - pAbs - 1);
-    var cropLabel    = c.crop.split('(')[0].trim();
+    var cropLabel    = String(cy.crop||'').split('(')[0].trim();
     var touched = 0, spillsAfter = false;
 
     function _put(abs, inc, exp, tag, act){
@@ -28509,10 +28529,7 @@ function recomputePlan() {
     _put(hAbs + 1, 0, Math.round(totalOther * 0.10), cropLabel, null);
 
     /* ── The money, on the farmer's terms (C3) ──
-       Default stays the old 60/40 split so no existing plan moves. */
-    /* The two cost calls above already tagged the harvest month and the one after
-       it. An income call landing on either must NOT tag again or the crop's name
-       appears twice in that month's list. */
+       Payment terms belong to the land, so both cycles are paid the same way. */
     var _pw=plnPayWhen(c);
     function _tagIfNew(abs){ return (abs===hAbs || abs===hAbs+1) ? null : cropLabel; }
     if(_pw==='store'){
@@ -28531,12 +28548,11 @@ function recomputePlan() {
     /* Only flag a line that has NO month in this season at all. A crop that merely
        finishes after the season ends is normal, and is noted separately. */
     if(!touched){
-      PLAN_OUTSIDE.push({nm:(c.crop||'Crop')+(c.field?' — '+c.field:''),
-                         when:(c.plant||'?')+' → '+(c.harvest||'?')});
+      PLAN_OUTSIDE.push({nm:nm, when:(cy.plant||'?')+' → '+(cy.harvest||'?')});
     } else if(spillsAfter){
-      PLAN_SPILL.push({nm:(c.crop||'Crop')+(c.field?' — '+c.field:''), when:c.harvest||''});
+      PLAN_SPILL.push({nm:nm, when:cy.harvest||''});
     }
-  });
+  }
 
   // Snapshot crop input/other costs — Step 2 is the ONLY expense source so far (livestock/orchards come later),
   // so each month's expenses = its crop-input cost. Used by the What-if "Crop input cost" lever.
@@ -28907,6 +28923,88 @@ function plnFertBand(c){
   return {low:b.low, high:b.high, src:b.src, v:Math.round(v),
           state:(v<b.low?'under':(v>b.high?'over':'in'))};
 }
+/* ── C7 · when it is safe to harvest ────────────────────────────────────────
+   Every logged spray already carries its pre-harvest interval and the app
+   already knows the date. The planner never looked, so a farmer could set a
+   harvest month inside a withholding period and nothing said a word. This is
+   the one warning in the crops tab with a LEGAL consequence rather than a
+   financial one — a load rejected at the silo on residue is not a margin
+   problem. Never invents an interval: no logged spray, no line. */
+function plnSafeToHarvest(c){
+  var land=plnLandFor(c);
+  if(!land || typeof ST_CROP==='undefined' || !ST_CROP.inputs) return null;
+  var best=null;
+  ST_CROP.inputs.forEach(function(i){
+    if(!i || i.land!==land.id || !(i.phi>0) || !i.date) return;
+    var d=new Date(i.date+'T00:00:00');
+    if(isNaN(d.getTime())) return;
+    d.setDate(d.getDate()+i.phi);
+    /* The LATEST clearance wins — one 42-day product sets the whole land. */
+    if(!best || d>best.date) best={date:d, product:i.product, phi:i.phi, sprayed:i.date};
+  });
+  return best;
+}
+/* Is the planned harvest month over before the land is clear? Compared against
+   the START of that month, because a harvest is not one day. */
+function plnHarvestBlocked(c){
+  var safe=plnSafeToHarvest(c); if(!safe) return null;
+  var cy=plnCycles(c);
+  for(var k=0;k<cy.length;k++){
+    var abs=planAbsIdx(cy[k].harvest); if(abs==null) continue;
+    var start=new Date(Math.floor(abs/12), ((abs%12)+12)%12, 1);
+    if(start < safe.date) return {cycle:cy[k], safe:safe, monthStart:start};
+  }
+  return null;
+}
+function plnFmtDate(d){
+  var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear();
+}
+/* Rotation — recorded on every land and, until now, never read. A repeat is a
+   choice, not a mistake, so it is a note and not a warning, and it carries no
+   yield penalty: no SA source puts a number on maize-after-maize. */
+function plnSameAsLast(c){
+  var land=plnLandFor(c);
+  if(!land || !land.prevCrop || !c.crop) return null;
+  var a=String(land.prevCrop).toLowerCase(), b=String(c.crop).toLowerCase();
+  return (a===b || a.indexOf(b)>=0 || b.indexOf(a)>=0) ? land.prevCrop : null;
+}
+
+/* ── C6 · two crops on one land ─────────────────────────────────────────────
+   A plan row is a LAND, not a crop. Before this, a second crop meant a second
+   row, and the hectares were counted twice — adding winter wheat to Vlakte took
+   the plan from 360 ha to 480 on a 435 ha farm and lifted crop profit by R1.64m
+   with no warning. The second cycle now lives inside the row, so the hectares
+   are counted once and every per-hectare figure stays honest.
+
+   Capped at two: summer-then-winter is the South African case, and vegetables
+   already have their own cycle model. Each cycle carries its own costs. */
+function plnC2(c){ return (c && c.c2 && c.c2.crop) ? c.c2 : null; }
+function plnCycles(c){
+  if(!c) return [];
+  var out=[{crop:c.crop, plant:c.plant, harvest:c.harvest, yield:c.yield, price:c.price,
+            inputCost:c.inputCost, otherCost:c.otherCost, idx:0}];
+  var b=plnC2(c);
+  if(b) out.push({crop:b.crop, plant:b.plant, harvest:b.harvest, yield:b.yield, price:b.price,
+                  inputCost:b.inputCost, otherCost:b.otherCost, idx:1});
+  return out;
+}
+function plnCycleYield(cy){ return (cy.yield||0) * scenYieldMult(); }
+function plnCycleSpot(cy){ return _cropPriceOf({crop:cy.crop, price:cy.price}) * scenPriceMult(); }
+function plnCyclePrice(cy){
+  var b=plnHedgeBlend(cy.crop);
+  return (b && b.effPrice>0) ? b.effPrice : plnCycleSpot(cy);
+}
+function plnCycleCostHa(cy){ return ((cy.inputCost||0)+(cy.otherCost||0)) * scenInputMult(); }
+/* Two crops cannot occupy the same land at once. Without this the fix simply
+   relocates the double-count instead of removing it. */
+function plnCycleClash(c){
+  var cy=plnCycles(c); if(cy.length<2) return null;
+  var h1=planAbsIdx(cy[0].harvest), p2=planAbsIdx(cy[1].plant);
+  if(h1==null || p2==null) return null;
+  return (p2 < h1) ? {firstOff:cy[0].harvest, secondIn:cy[1].plant} : null;
+}
+
 /* ── C2 · the part of the crop already sold ─────────────────────────────────
    Held per CROP, not per land: a farmer sells "my maize" forward, not "Vlakte
    specifically". Every row of that crop shares one position, and the warning
@@ -28931,14 +29029,20 @@ function plnSetHedge(cropName, field, val){
    the ones that would have caught the price spike. */
 function plnHedgeBlend(cropName){
   var h=plnHedge(cropName); if(!h) return null;
-  var rows=planCropRows().filter(function(c){ return c.crop===cropName; });
-  if(!rows.length) return null;
-  var plannedT=0, actualT=0, spotNum=0;
-  rows.forEach(function(c){
-    var pl=(c.ha||0)*(c.yield||0), ac=(c.ha||0)*plnYieldOf(c);
-    plannedT+=pl; actualT+=ac;
-    spotNum += ac * _cropPriceOf(c) * scenPriceMult();
+  /* Walks CYCLES, not rows — a second-cycle wheat on a maize land is still wheat
+     the farmer may have sold forward, and it has to join that position. */
+  var plannedT=0, actualT=0, spotNum=0, seen=0;
+  planCropRows().forEach(function(c){
+    plnCycles(c).forEach(function(cy){
+      if(cy.crop!==cropName) return;
+      seen++;
+      var ac=(c.ha||0)*plnCycleYield(cy);
+      plannedT += (c.ha||0)*(cy.yield||0);
+      actualT  += ac;
+      spotNum  += ac * plnCycleSpot(cy);
+    });
   });
+  if(!seen) return null;
   if(!(plannedT>0)) return null;
   var spot=(actualT>0)?spotNum/actualT:0;
   var contracted=plannedT*h.pct/100;
@@ -28966,11 +29070,21 @@ function plnPriceOf(c){
   var b=(c && c.crop) ? plnHedgeBlend(c.crop) : null;
   return (b && b.effPrice>0) ? b.effPrice : plnSpotOf(c);
 }
-function plnCostHa(c){ return ((c.inputCost||0) + (c.otherCost||0)) * scenInputMult(); }
-function plnMarginHa(c){ return plnYieldOf(c) * plnPriceOf(c) - plnCostHa(c); }
-function plnMargin(c){ return plnMarginHa(c) * (c.ha||0); }
-function plnRevenue(c){ return (c.ha||0) * plnYieldOf(c) * plnPriceOf(c); }
-function plnBeYield(c){ var p=plnPriceOf(c); return p>0 ? plnCostHa(c)/p : 0; }
+/* These sum over the row's CYCLES, so a double-cropped land reports the whole
+   season's money against its real hectares — counted once. With one cycle they
+   return exactly what they always did. */
+function plnCostHa(c){
+  return plnCycles(c).reduce(function(s,cy){ return s+plnCycleCostHa(cy); },0);
+}
+function plnRevenue(c){
+  return (c.ha||0) * plnCycles(c).reduce(function(s,cy){
+    return s + plnCycleYield(cy)*plnCyclePrice(cy); },0);
+}
+function plnMarginHa(c){ return (c.ha||0)>0 ? plnMargin(c)/(c.ha||1) : 0; }
+function plnMargin(c){ return plnRevenue(c) - plnCostHa(c)*(c.ha||0); }
+/* Break-even is a per-crop idea, so on a double-cropped land it answers for the
+   FIRST cycle — two crops share the hectares but not a single yield figure. */
+function plnBeYield(c){ var p=plnPriceOf(c); return p>0 ? plnCycleCostHa(plnCycles(c)[0]||{})/p : 0; }
 /* Cushion is measured against the yield this season is expected to give, so under
    a scenario it answers "how much further can it fall from here". */
 function plnCushion(c){ var y=plnYieldOf(c); return y>0 ? (y-plnBeYield(c))/y : 0; }
@@ -28982,6 +29096,35 @@ function plnCushion(c){ var y=plnYieldOf(c); return y>0 ? (y-plnBeYield(c))/y : 
 
    '' → the old split · '0' paid on delivery · '30'/'60'/'90' days
    'store' → delivered now, sold in a month the farmer picks. */
+/* Crop list for the second cycle — same catalogue the add-crop screen uses. */
+function plnCropOpts(sel){
+  var L=(typeof ST_CROP!=='undefined'&&ST_CROP.cropTypes)?ST_CROP.cropTypes:[];
+  return L.map(function(x){
+    return '<option value="'+planEscAttr(x.t)+'"'+(x.t===sel?' selected':'')+'>'+esc(x.t)+'</option>';
+  }).join('');
+}
+/* Seeded from the second-most-likely thing a farmer does after a summer crop —
+   an empty shell he fills in, never a guessed yield or price. */
+function plnAddC2(idx){
+  var c=(ST_PLAN.crops||[])[idx]; if(!c) return;
+  var L=(typeof ST_CROP!=='undefined'&&ST_CROP.cropTypes)?ST_CROP.cropTypes:[];
+  c.c2={crop:(L[0]&&L[0].t)||'Wheat', plant:'', harvest:'', yield:0, price:0,
+        inputCost:0, otherCost:0};
+  recomputePlan(); dataChanged('plan');
+}
+function plnDropC2(idx){
+  var c=(ST_PLAN.crops||[])[idx]; if(!c) return;
+  delete c.c2;
+  recomputePlan(); dataChanged('plan');
+}
+function plnSetC2(idx, field, val){
+  var c=(ST_PLAN.crops||[])[idx]; if(!c || !c.c2) return;
+  /* Same string/number split the row itself uses — an unlisted string field
+     would silently become 0. */
+  if(field==='crop'||field==='plant'||field==='harvest') c.c2[field]=val||'';
+  else { var n=parseFloat(String(val).replace(/[^0-9.\-]/g,'')); c.c2[field]=isNaN(n)?0:n; }
+  recomputePlan(); dataChanged('plan');
+}
 function plnPayWhen(c){ return c.payWhen || ''; }
 /* The share paid in the harvest month when the money is split over two. 60 was
    never a published rule — it was a smoothing assumption from before anyone
@@ -29100,6 +29243,12 @@ function plnTags(c){
     var _sp=plnSpendPct(c);
     if(_sp!=null && _sp>1) t.push('<span class="pln-tag tight" title="Logged sprays and fertiliser have passed the input budget for this land">'+
       Math.round(_sp*100)+'% of input budget</span>');
+    /* C7 — a legal blocker outranks everything else on the row. */
+    if(plnHarvestBlocked(c)) t.push('<span class="pln-tag tight" title="A spray withholding period runs past the planned harvest month">cannot harvest yet</span>');
+    /* C6 — two crops on this land. */
+    if(plnC2(c)) t.push('<span class="pln-tag'+(plnCycleClash(c)?' tight':' ann')+'" title="'+
+      (plnCycleClash(c)?'The two crops overlap in time':'This land carries two crops this season')+'">'+
+      (plnCycleClash(c)?'crops overlap':'two crops')+'</span>');
     /* C2 — oversold is the one thing on this row a farmer must not miss. */
     var _hb=plnHedgeBlend(c.crop);
     if(_hb && _hb.shortT>0) t.push('<span class="pln-tag tight" title="You have sold more tonnes forward than this season would deliver">oversold</span>');
@@ -29252,9 +29401,27 @@ function plnMathsHTML(c, idx){
     (amber?' style="color:var(--or)"':'')+'>'+v+'</b></div>'); }
   function note(t,amber){ notes.push('<div class="pln-note'+(amber?' warn':'')+'">'+t+'</div>'); }
 
-  line('Income — '+(c.ha||0)+' ha × '+(c.yield||0)+' t × R'+_grpInt(price), planFmtR(plnRevenue(c)));
-  line('Growing costs — '+(c.ha||0)+' ha × R'+_grpInt(plnCostHa(c)), planFmtR(plnCostHa(c)*(c.ha||0)));
-  line('Margin', planFmtR(plnMargin(c))+' · '+planFmtRha(plnMarginHa(c))+'/ha');
+  /* C6 — one income line per crop, so a double-cropped land shows what each one
+     brings rather than a single number the farmer cannot check. */
+  var _cys=plnCycles(c);
+  _cys.forEach(function(cy){
+    line((_cys.length>1?esc(cy.crop)+' — ':'Income — ')+(c.ha||0)+' ha × '+(cy.yield||0)+' t × R'+
+      _grpInt(Math.round(plnCycleSpot(cy))),
+      planFmtR((c.ha||0)*plnCycleYield(cy)*plnCyclePrice(cy)));
+  });
+  line('Growing costs'+(_cys.length>1?' — both crops':' — '+(c.ha||0)+' ha × R'+_grpInt(plnCostHa(c))),
+       planFmtR(plnCostHa(c)*(c.ha||0)));
+  line(_cys.length>1?'Margin for the land':'Margin',
+       planFmtR(plnMargin(c))+' · '+planFmtRha(plnMarginHa(c))+'/ha');
+  if(_cys.length>1){
+    var _cl=plnCycleClash(c);
+    if(_cl) note('<b>These two crops overlap.</b> '+esc(_cys[1].crop)+' goes in during <b>'+
+      esc(String(_cl.secondIn).split(' ')[0])+'</b> but the '+esc(String(_cys[0].crop).toLowerCase())+
+      ' is not off until <b>'+esc(String(_cl.firstOff).split(' ')[0])+'</b>. One land cannot carry '+
+      'both — move the planting month, or the second crop is counting hectares still under the first.', true);
+    else note('<b>'+(c.ha||0)+' ha counted once.</b> Margin per hectare is this land working twice '+
+      'in a season, which is the whole reason for doing it.');
+  }
 
   /* C3 — the margin is the same whenever you are paid; the cash flow is not. */
   if(!plnMissing(c)) line('Money lands', esc(plnMoneyLandsLabel(c)));
@@ -29288,6 +29455,27 @@ function plnMathsHTML(c, idx){
     note('Your '+planFmtRha(mine)+'/ha is '+verdict+' than typical for '+what+' in '+where+
       '. <span style="color:var(--t4)">'+esc(m.src)+'</span>');
   }
+
+  /* C7 — quiet when the harvest is clear, loud when it is not. */
+  var _safe=plnSafeToHarvest(c), _blocked=plnHarvestBlocked(c);
+  if(_safe && !plnMissing(c)){
+    line('Safe to harvest from', plnFmtDate(_safe.date), !!_blocked);
+    if(_blocked){
+      note('<b>You cannot legally harvest '+esc(plnLandFor(c).name)+' in '+
+        esc(String(_blocked.cycle.harvest).split(' ')[0])+'.</b> '+esc(_safe.product)+
+        ' sprayed '+plnFmtDate(new Date(_safe.sprayed+'T00:00:00'))+' carries a <b>'+_safe.phi+
+        '-day</b> withholding period, so the crop is only clear on <b>'+plnFmtDate(_safe.date)+
+        '</b>. Move the harvest, or the load fails its residue test.', true);
+    } else {
+      note('Set by <b>'+esc(_safe.product)+'</b>, '+_safe.phi+
+        '-day withholding period, sprayed '+plnFmtDate(new Date(_safe.sprayed+'T00:00:00'))+'.');
+    }
+  }
+  /* C7b — rotation. A note, never a warning. */
+  var _same=plnSameAsLast(c);
+  if(_same) note('Second season of <b>'+esc(String(c.crop).toLowerCase())+
+    '</b> on this land — last season was '+esc(_same)+' too. Back-to-back is a choice, not a '+
+    'mistake, but it is worth knowing before the seed order.');
 
   /* C4 — only when there is real logged spend to compare against. */
   var a=plnActualInputs(c);
@@ -29349,12 +29537,35 @@ function plnEditHTML(c, idx){
        list ran to nine flat fields as C2 and C3 were added, so the newest ones
        read as strangers stuck on the end rather than part of a thought. */
     fields='<div class="pln-fields">'+
-      '<div class="pln-sect">In the ground</div>'+
+      '<div class="pln-sect">'+(plnC2(c)?'Main crop':'In the ground')+'</div>'+
       '<div class="pln-f"><label>Planting month</label><select data-pln="plant" data-idx="'+idx+'">'+plnMonthOpts(c.plant)+'</select></div>'+
       '<div class="pln-f"><label>Harvest month</label><select data-pln="harvest" data-idx="'+idx+'">'+plnMonthOpts(c.harvest)+'</select></div>'+
       '<div class="pln-f"><label>Yield (t/ha)</label><input type="number" step="0.1" min="0" value="'+(c.yield||0)+'" data-pln="yield" data-idx="'+idx+'"></div>'+
       '<div class="pln-f"><label>Price (R/ton)</label><input type="number" step="50" min="0" value="'+(c.price||'')+'" placeholder="'+Math.round(_cropPriceOf(c))+'" data-pln="price" data-idx="'+idx+'"></div>'+
 
+      /* C6 — the second crop lives in the row, so the land's hectares are used
+         once. Shown only when there is one; otherwise a single quiet button. */
+      (plnC2(c)
+        ? '<div class="pln-sect">Second crop this season'+
+            '<button type="button" class="pln-sectx" title="Remove the second crop"'+
+            ' onclick="event.stopPropagation();plnDropC2('+idx+')">remove</button></div>'+
+          '<div class="pln-f"><label>Crop</label><select data-pln2="crop" data-idx="'+idx+'">'+
+            plnCropOpts(plnC2(c).crop)+'</select></div>'+
+          '<div class="pln-f"><label>Planting month</label><select data-pln2="plant" data-idx="'+idx+'">'+
+            plnMonthOpts(plnC2(c).plant)+'</select></div>'+
+          '<div class="pln-f"><label>Harvest month</label><select data-pln2="harvest" data-idx="'+idx+'">'+
+            plnMonthOpts(plnC2(c).harvest)+'</select></div>'+
+          '<div class="pln-f"><label>Yield (t/ha)</label><input type="number" step="0.1" min="0" value="'+
+            (plnC2(c).yield||0)+'" data-pln2="yield" data-idx="'+idx+'"></div>'+
+          '<div class="pln-f"><label>Price (R/ton)</label><input type="number" step="50" min="0" value="'+
+            (plnC2(c).price||'')+'" placeholder="'+Math.round(plnCycleSpot(plnCycles(c)[1]||{}))+
+            '" data-pln2="price" data-idx="'+idx+'"></div>'+
+          '<div class="pln-f"><label>Input cost (R/ha)</label><input type="number" step="100" min="0" value="'+
+            (plnC2(c).inputCost||0)+'" data-pln2="inputCost" data-idx="'+idx+'"></div>'+
+          '<div class="pln-f"><label>Other cost (R/ha)</label><input type="number" step="100" min="0" value="'+
+            (plnC2(c).otherCost||0)+'" data-pln2="otherCost" data-idx="'+idx+'"></div>'
+        : '<button type="button" class="pln-addc2" onclick="event.stopPropagation();plnAddC2('+idx+')">'+
+          '+ Add a second crop on this land</button>')+
       '<div class="pln-sect">What it costs</div>'+
       '<div class="pln-f"><label>Input cost (R/ha)</label><input type="number" step="100" min="0" value="'+(c.inputCost||0)+'" data-pln="inputCost" data-idx="'+idx+'"></div>'+
       '<div class="pln-f"><label>Other cost (R/ha)</label><input type="number" step="100" min="0" value="'+(c.otherCost||0)+'" data-pln="otherCost" data-idx="'+idx+'"></div>'+
@@ -29496,6 +29707,7 @@ document.addEventListener('input', function(e){
   /* Selects are excluded: they fire input AND change, and the non-commit path
      redraws the row, so the change event would land on a replaced element. */
   var f=el.getAttribute('data-pln');
+  if(el.getAttribute('data-pln2')) return;   /* second cycle commits on change */
   if(!f||f==='plant'||f==='harvest'||f==='payWhen'||f==='sellMonth') return;
   plnSetField(parseInt(el.getAttribute('data-idx'),10), f, el.value, false);
 });
@@ -29505,6 +29717,8 @@ document.addEventListener('change', function(e){
   /* C2 fields are keyed by crop, not by row index. */
   var hf=el.getAttribute('data-plnh');
   if(hf){ plnSetHedge(el.getAttribute('data-crop'), hf, el.value); return; }
+  var f2=el.getAttribute('data-pln2');
+  if(f2){ plnSetC2(parseInt(el.getAttribute('data-idx'),10), f2, el.value); return; }
   var f=el.getAttribute('data-pln'); if(!f) return;
   plnSetField(parseInt(el.getAttribute('data-idx'),10), f, el.value, true);
 });
@@ -37752,6 +37966,25 @@ var LANG_PAIRS = [
   ["When you are paid","Wanneer jy betaal word"],
   ["First payment (%)","Eerste betaling (%)"],
   ["Selling it","Verkoop dit"],
+  ["Main crop","Hoofgewas"],
+  ["Second crop this season","Tweede gewas hierdie seisoen"],
+  ["+ Add a second crop on this land","+ Voeg 'n tweede gewas op hierdie land by"],
+  ["Growing costs — both crops","Groeikoste — albei gewasse"],
+  ["Margin for the land","Marge vir die land"],
+  ["counted once.","een keer getel."],
+  ["Margin per hectare is this land working twice in a season, which is the whole reason for doing it.","Marge per hektaar is hierdie land wat twee keer in 'n seisoen werk, wat die hele rede daarvoor is."],
+  ["These two crops overlap.","Hierdie twee gewasse oorvleuel."],
+  ["One land cannot carry both — move the planting month, or the second crop is counting hectares still under the first.","Een land kan nie albei dra nie — skuif die plantmaand, of die tweede gewas tel hektaar wat nog onder die eerste is."],
+  ["two crops","twee gewasse"],
+  ["crops overlap","gewasse oorvleuel"],
+  ["Safe to harvest from","Veilig om te oes vanaf"],
+  ["cannot harvest yet","kan nog nie oes nie"],
+  ["-day withholding period, sprayed","-dag wagperiode, gespuit"],
+  ["Move the harvest, or the load fails its residue test.","Skuif die oes, of die vrag druip sy residutoets."],
+  ["Set by","Gestel deur"],
+  ["Second season of","Tweede seisoen van"],
+  ["on this land — last season was","op hierdie land — verlede seisoen was"],
+  ["Back-to-back is a choice, not a mistake, but it is worth knowing before the seed order.","Rug-aan-rug is 'n keuse, nie 'n fout nie, maar dit is goed om te weet voor die saadbestelling."],
   ["Worth knowing","Goed om te weet"],
   ["next month","volgende maand"],
   ["all lands","alle lande"],
