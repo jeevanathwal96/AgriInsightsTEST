@@ -1541,6 +1541,10 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .bgt-cats-more:hover{border-color:var(--gl);background:var(--gb)}
 .bgt-cats-more:focus-visible{outline:2px solid var(--gl);outline-offset:2px}
 
+/* SUPERSEDED by the .pn-card strip below — no code emits .plan-outside or
+   .plan-spill markup any more, and .po-go's only callers were the livestock
+   chips. Kept rather than deleted so the old look can be diffed against the
+   new one; safe to drop once the strip has bedded in. */
 /* Plan lines dated outside the financial year — previously dropped in silence. */
 .plan-outside{margin:12px 0;background:var(--op);border:1px solid var(--or);border-radius:var(--rl);
   padding:13px 16px;display:flex;gap:11px;align-items:flex-start;flex-wrap:wrap}
@@ -1558,6 +1562,41 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
   background:var(--wh);border:1px solid var(--or);border-radius:99px;padding:3px 10px;white-space:nowrap}
 /* Must come AFTER the shared rule — same specificity, so source order decides. */
 .plan-spill .po-list span{border-color:var(--gl);color:var(--gm)}
+
+/* ══ Planning notices — one ranked strip ═══════════════════════════════════
+   Replaces the stack of full-width boxes. Three boxes of equal weight made a
+   young block shout as loudly as a lapsed export certificate, and cost 264px
+   of prose before the farmer had decided they cared about any of it.
+   Now: one row per notice, worst first, detail behind a click. */
+.pn-card{background:var(--wh);border:1px solid var(--br);border-radius:var(--rl);
+  padding:4px 6px;display:flex;flex-direction:column;margin:12px 0}
+.pn-row{display:flex;gap:10px;align-items:center;padding:8px 9px;border-radius:var(--rs);
+  cursor:pointer;user-select:none}
+.pn-row:hover{background:var(--br2)}
+.pn-row:focus-visible{outline:2px solid var(--gl);outline-offset:-2px}
+/* Separator on the ROW, not the detail panel — an open detail must not put a
+   line between itself and the row it belongs to. */
+.pn-row+.pn-row,.pn-det+.pn-row{border-top:1px solid var(--br2)}
+.pn-dot{flex:0 0 auto;width:9px;height:9px;border-radius:50%;background:var(--gl)}
+.pn-dot.amber{background:var(--am)}
+.pn-dot.red{background:var(--rd)}
+.pn-tx{flex:1;min-width:0;font-size:12.5px;color:var(--t2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pn-tx b{color:var(--t1);font-weight:700}
+.pn-amt{flex:0 0 auto;font-size:12px;font-weight:800;color:var(--or);white-space:nowrap}
+.pn-amt.red{color:var(--rd)}
+.pn-cv{flex:0 0 auto;color:var(--t4);font-size:14px;line-height:1;
+  transition:transform .16s ease}
+.pn-row.open .pn-cv{transform:rotate(90deg)}
+.pn-det{padding:0 9px 11px 28px;font-size:12px;color:var(--t2);line-height:1.5}
+.pn-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.pn-chips span{font-size:11px;font-weight:700;color:var(--gm);background:var(--wh);
+  border:1px solid var(--gl);border-radius:99px;padding:3px 10px;white-space:nowrap}
+.pn-chips.amber span{color:var(--or);border-color:var(--or)}
+.pn-chips.red span{color:var(--rd);border-color:var(--rd)}
+.pn-chips span[onclick]{cursor:pointer}
+.pn-chips span[onclick]:hover{background:var(--br2)}
+@media (prefers-reduced-motion:reduce){.pn-cv{transition:none}}
 
 /* ══ Crop planning rows ═══════════════════════════════════════════════════
    Replaces the card list. One shared 12-column grid for the month header and
@@ -28191,22 +28230,105 @@ function planPinProjectedEvent(key){
    SPILL   — the line belongs to this season but finishes after it ends. That is
              normal for summer grain, and worth saying because the revenue lands
              in the NEXT financial year, which is a tax-timing fact. */
+/* ── One ranked notice strip ───────────────────────────────────────────────
+   Every planning tab feeds the same renderer. Three full-width boxes of equal
+   weight meant a young block shouted as loudly as a lapsed export certificate,
+   and spent 264px of prose before the farmer had decided he cared about any of
+   it. One row each now, worst first, wording behind a click.
+
+   An item is:
+     sev    'red'   money at risk because something lapsed
+            'amber' something he can actually do
+            'green' a timing fact, nothing to do
+     key    identity — used for the open/closed memory, so it must be stable
+     lead   bold text opening the line (the count)
+     tx     the rest of the line, HTML, already escaped by the caller
+     amt    optional figure held right
+     det    the full wording, revealed on click
+     chips  optional [{t:label, go:onclick}] */
+var PLAN_NOTICE_OPEN = {};
+var PN_RANK = {red:0, amber:1, green:2};
+
+function planNoticeToggle(el, key){
+  if(!el) return;
+  var det=el.nextElementSibling;
+  if(!det || det.className.indexOf('pn-det')<0) return;
+  var open=el.classList.contains('open');
+  el.classList.toggle('open', !open);
+  el.setAttribute('aria-expanded', String(!open));
+  det.style.display = open ? 'none' : '';
+  /* Remembered, because recomputePlan re-renders this on every lever drag —
+     without it an opened row would snap shut mid-read. */
+  if(key){ if(open) delete PLAN_NOTICE_OPEN[key]; else PLAN_NOTICE_OPEN[key]=1; }
+}
+
+function planNoticeCard(items){
+  items=(items||[]).filter(Boolean);
+  if(!items.length) return '';
+  items.sort(function(a,b){ return (PN_RANK[a.sev]==null?2:PN_RANK[a.sev])-(PN_RANK[b.sev]==null?2:PN_RANK[b.sev]); });
+  return '<div class="pn-card">'+items.map(function(it){
+    var open=!!PLAN_NOTICE_OPEN[it.key];
+    var k=planEscAttr(it.key);
+    var chips=(it.chips&&it.chips.length)
+      ? '<div class="pn-chips'+(it.sev==='green'?'':' '+it.sev)+'">'+it.chips.map(function(c){
+          return '<span'+(c.go?' onclick="'+c.go+'"':'')+'>'+c.t+(c.go?' &rsaquo;':'')+'</span>';
+        }).join('')+'</div>' : '';
+    return '<div class="pn-row'+(open?' open':'')+'" role="button" tabindex="0" aria-expanded="'+
+        (open?'true':'false')+'" onclick="planNoticeToggle(this,\''+k+'\')"'+
+        ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();planNoticeToggle(this,\''+k+'\');}">'+
+        '<span class="pn-dot'+(it.sev==='green'?'':' '+it.sev)+'"></span>'+
+        '<span class="pn-tx">'+(it.lead?'<b>'+it.lead+'</b> ':'')+it.tx+'</span>'+
+        (it.amt?'<span class="pn-amt'+(it.sev==='red'?' red':'')+'">'+it.amt+'</span>':'')+
+        '<span class="pn-cv">&rsaquo;</span></div>'+
+      '<div class="pn-det"'+(open?'':' style="display:none"')+'>'+it.det+chips+'</div>';
+  }).join('')+'</div>';
+}
+/* Six is where the chip row starts wrapping at the narrowest desktop width.
+   But "+1 more" hides one name to save one chip, which is just annoying — so
+   the cap only bites once it actually saves something. */
+function planNoticeCap(n){ return n<=7 ? n : 6; }
+/* Block and herd names are the farmer's own text, so they are escaped; the
+   count and the trailing "+N more" are ours. */
+function planNoticeChips(list, go){
+  var cap=planNoticeCap(list.length);
+  var out=list.slice(0,cap).map(function(o){
+    return {t:esc(o.nm)+' &middot; '+esc(o.when), go:go?go(o):''};
+  });
+  if(list.length>cap) out.push({t:'+'+(list.length-cap)+' more'});
+  return out;
+}
+
 /* Orchard equivalent of the crop spill notice: blocks whose money arrives after
    the season closes, and blocks still too young to pick. Both counts are read
    live from orPlanRows(), so the wording follows the farm, not a fixture. */
 function planOrchNotice(){
   if(typeof orPlanRows!=='function') return '';
-  /* O5 — the farm-wide total, above the rows, because a lapsed certificate is a
+  var items=[];
+  /* O5 — the farm-wide total, ranked first, because a lapsed certificate is a
      farm problem even though it lands block by block. */
   var _risk=(typeof orpExportRiskTotal==='function')?orpExportRiskTotal():null;
-  var _riskHTML='';
   if(_risk){
-    var why=_risk.certs.map(function(c){ return '<b>'+esc(c.title)+'</b> ('+esc(c.why)+')'; });
-    _riskHTML='<div class="plan-outside"><b>'+planFmtR(_risk.total)+' of export income is at risk.</b> '+
-      (why.length ? why.join(' and ')+'. ' : '')+
-      _risk.blocks.length+' block'+(_risk.blocks.length===1?'':'s')+' affected — '+
-      esc(_risk.blocks.map(function(x){return x.name;}).join(', '))+
-      '. Sorted out, nothing changes; left as it is, that fruit sells local.</div>';
+    var n=_risk.blocks.length, one=(n===1);
+    /* One lapsed certificate names itself; several just get counted, because
+       the whole point of the row is that it fits on one line. */
+    var head=(_risk.certs.length===1)
+      ? '<b>'+esc(_risk.certs[0].title)+'</b> <span data-t="pn.cert.exp">expired</span>'
+      : '<b>'+_risk.certs.length+'</b> <span data-t="pn.cert.multi">certificates have expired</span>';
+    items.push({
+      sev:'red', key:'or.risk', lead:'',
+      tx:head+' &mdash; '+n+' <span data-t="'+(one?'pn.cert.noexp1':'pn.cert.noexp')+'">'+
+         (one?'block cannot export':'blocks cannot export')+'</span>',
+      amt:planFmtR(_risk.total)+' <span data-t="pn.risk.at">at risk</span>',
+      /* With one certificate the row already named it, so the detail opens on
+         the date instead of repeating the title back at him. */
+      det:(_risk.certs.length===1
+            ? esc(_risk.certs[0].why)+'.'
+            : _risk.certs.map(function(c){ return '<b>'+esc(c.title)+'</b> &mdash; '+esc(c.why)+'.'; }).join(' '))+
+          ' <span data-t="pn.cert.det">Renewing it changes nothing in your forecast — these blocks already count as export. Left as it is, the fruit still sells, but at local prices.</span>',
+      chips:_risk.blocks.slice(0,planNoticeCap(_risk.blocks.length)).map(function(x){ return {t:esc(x.name)}; })
+            .concat(_risk.blocks.length>planNoticeCap(_risk.blocks.length)
+              ?[{t:'+'+(_risk.blocks.length-planNoticeCap(_risk.blocks.length))+' more'}]:[])
+    });
   }
   var rows=orPlanRows(), late=[], young=[];
   rows.forEach(function(r){
@@ -28218,24 +28340,25 @@ function planOrchNotice(){
       late.push({nm:r.b.name, when:'picked '+lbl.replace(/\s+\d+$/,'')});
     }
   });
-  var h='';
-  if(late.length){
-    h+='<div class="plan-spill"><div style="flex:1;min-width:0">'+
-      '<div class="ps-h">'+late.length+' '+(late.length===1?'block':'blocks')+' paid after this season ends</div>'+
-      '<div class="ps-s">The fruit is picked this season but the exporter pays later, so that money lands in your next financial year. Growing costs stay in this one.</div>'+
-      '<div class="po-list">'+late.slice(0,6).map(function(o){
-        return '<span>'+esc(o.nm)+' &middot; '+esc(o.when)+'</span>'; }).join('')+
-      (late.length>6?'<span>+'+(late.length-6)+' more</span>':'')+'</div></div></div>';
-  }
   if(young.length){
-    h+='<div class="plan-outside"><div style="flex:1;min-width:0">'+
-      '<div class="po-h">'+young.length+' '+(young.length===1?'block':'blocks')+' not picking yet</div>'+
-      '<div class="po-s">They cost a full season to keep and earn nothing until they come into bearing. The cost is counted; the income is not.</div>'+
-      '<div class="po-list">'+young.slice(0,6).map(function(o){
-        return '<span>'+esc(o.nm)+' &middot; '+esc(o.when)+'</span>'; }).join('')+
-      (young.length>6?'<span>+'+(young.length-6)+' more</span>':'')+'</div></div></div>';
+    items.push({
+      sev:'amber', key:'or.young', lead:String(young.length),
+      tx:'<span data-t="'+(young.length===1?'pn.young1':'pn.young')+'">'+
+         (young.length===1?'block is not picking yet':'blocks are not picking yet')+'</span>',
+      det:'<span data-t="pn.young.det">They cost a full season to keep and earn nothing until they come into bearing. The cost is counted; the income is not.</span>',
+      chips:planNoticeChips(young)
+    });
   }
-  return _riskHTML + (h);
+  if(late.length){
+    items.push({
+      sev:'green', key:'or.late', lead:String(late.length),
+      tx:'<span data-t="'+(late.length===1?'pn.late1':'pn.late')+'">'+
+         (late.length===1?'block is paid after this season ends':'blocks are paid after this season ends')+'</span>',
+      det:'<span data-t="pn.late.det">The fruit is picked this season but the exporter pays later, so that money lands in your next financial year. Growing costs stay in this one.</span>',
+      chips:planNoticeChips(late)
+    });
+  }
+  return planNoticeCard(items);
 }
 /* Livestock equivalent of the crop spill notice. Crops spill because they finish
    late; a herd "spills" because nobody has said whether it sells, or because the
@@ -28249,29 +28372,37 @@ function planLiveNotice(){
     else if(typeof lvpNeedsSetup==='function' && lvpNeedsSetup(h)) need.push(h);
   });
   function cost(list){ return list.reduce(function(s,h){ return s+lvpRunCostYear(h); },0); }
-  var h='';
+  /* Naming a herd and its cost without a way to reach it just makes the farmer
+     go hunting, so every chip still opens that herd's row. */
+  function herdChips(list, label){
+    var cap=planNoticeCap(list.length);
+    var out=list.slice(0,cap).map(function(x){
+      return {t:esc(x.name||x.type)+' &middot; '+label(x),
+              go:'lvpGoHerd(\''+planEscAttr(x.id)+'\')'};
+    });
+    if(list.length>cap) out.push({t:'+'+(list.length-cap)+' more'});
+    return out;
+  }
+  var items=[];
   if(need.length){
-    h+='<div class="plan-outside"><div style="flex:1;min-width:0">'+
-      '<div class="po-h">'+need.length+' herd'+(need.length===1?'':'s')+' with no sale planned</div>'+
-      '<div class="po-s">Their keep is counted but no income is, so your forecast reads worse than the farm. Say whether each one sells this season.</div>'+
-      '<div class="po-list">'+need.slice(0,6).map(function(x){
-        /* Naming a herd and its cost without a way to reach it just makes the
-           farmer go hunting. Each chip opens that herd's row. */
-        return '<span class="po-go" onclick="lvpGoHerd(\''+planEscAttr(x.id)+'\')">'+
-          esc(x.name||x.type)+' &middot; '+lvpMoney(lvpRunCostYear(x))+' a year &rsaquo;</span>'; }).join('')+
-      (need.length>6?'<span>+'+(need.length-6)+' more</span>':'')+'</div></div></div>';
+    items.push({
+      sev:'amber', key:'ls.need', lead:String(need.length),
+      tx:'<span data-t="'+(need.length===1?'pn.ls.need1':'pn.ls.need')+'">'+
+         (need.length===1?'herd has no sale planned':'herds have no sale planned')+'</span>',
+      det:'<span data-t="pn.ls.need.det">Their keep is counted but no income is, so your forecast reads worse than the farm. Say whether each one sells this season.</span>',
+      chips:herdChips(need, function(x){ return lvpMoney(lvpRunCostYear(x))+' a year'; })
+    });
   }
   if(keep.length){
-    h+='<div class="plan-spill"><div style="flex:1;min-width:0">'+
-      '<div class="ps-h">'+keep.length+' herd'+(keep.length===1?'':'s')+' kept, not sold</div>'+
-      '<div class="ps-s">You chose to keep '+(keep.length===1?'this one':'these')+' this season. '+
-      lvpMoney(cost(keep))+' of keep with no sale against it — the animals are worth more next year, but this year it is cash out.</div>'+
-      '<div class="po-list">'+keep.slice(0,6).map(function(x){
-        return '<span class="po-go" onclick="lvpGoHerd(\''+planEscAttr(x.id)+'\')">'+
-          esc(x.name||x.type)+' &middot; '+(x.qty||0)+' head &rsaquo;</span>'; }).join('')+
-      (keep.length>6?'<span>+'+(keep.length-6)+' more</span>':'')+'</div></div></div>';
+    items.push({
+      sev:'green', key:'ls.keep', lead:String(keep.length),
+      tx:'<span data-t="'+(keep.length===1?'pn.ls.keep1':'pn.ls.keep')+'">'+
+         (keep.length===1?'herd kept, not sold':'herds kept, not sold')+'</span>',
+      det:lvpMoney(cost(keep))+' <span data-t="pn.ls.keep.det">of keep with no sale against it — the animals are worth more next year, but this year it is cash out.</span>',
+      chips:herdChips(keep, function(x){ return (x.qty||0)+' head'; })
+    });
   }
-  return h;
+  return planNoticeCard(items);
 }
 function planRenderOutside(){
   var pane=document.getElementById('pg-planning'); if(!pane) return;
@@ -28296,26 +28427,28 @@ function planRenderOutside(){
   var spill=(typeof PLAN_SPILL!=='undefined'?PLAN_SPILL:[]);
   if(!miss.length && !spill.length){ host.className=''; host.innerHTML=''; return; }
 
-  var h='';
+  var items=[];
   if(miss.length){
-    h+='<div class="plan-outside"><div style="flex:1;min-width:0">'+
-      '<div class="po-h">'+miss.length+' <span data-t="'+(miss.length===1?'plan.miss.head1':'plan.miss.head')+'">'+
-        (miss.length===1?'line has no month in this season':'lines have no month in this season')+'</span></div>'+
-      '<div class="po-s" data-t="plan.miss.sub">They are not counted anywhere. Give them a planting and harvest month, '+
-      'or step to the season they belong to.</div><div class="po-list">'+
-      miss.slice(0,6).map(function(o){ return '<span>'+esc(o.nm)+' &middot; '+esc(o.when)+'</span>'; }).join('')+
-      (miss.length>6?'<span>+'+(miss.length-6)+' more</span>':'')+'</div></div></div>';
+    items.push({
+      sev:'amber', key:'cr.miss', lead:String(miss.length),
+      tx:'<span data-t="'+(miss.length===1?'plan.miss.head1':'plan.miss.head')+'">'+
+         (miss.length===1?'line has no month in this season':'lines have no month in this season')+'</span>',
+      det:'<span data-t="plan.miss.sub">They are not counted anywhere. Give them a planting and harvest month, '+
+          'or step to the season they belong to.</span>',
+      chips:planNoticeChips(miss)
+    });
   }
   if(spill.length){
-    h+='<div class="plan-spill"><div style="flex:1;min-width:0">'+
-      '<div class="ps-h">'+spill.length+' <span data-t="'+(spill.length===1?'plan.spill.head1':'plan.spill.head')+'">'+
-        (spill.length===1?'crop finishes after this season ends':'crops finish after this season ends')+'</span></div>'+
-      '<div class="ps-s" data-t="plan.spill.sub">Normal for summer grain. The growing costs sit in this season; the '+
-      'sale lands in the next financial year, so plan the tax for it there.</div><div class="po-list">'+
-      spill.slice(0,6).map(function(o){ return '<span>'+esc(o.nm)+' &middot; harvest '+esc(o.when)+'</span>'; }).join('')+
-      (spill.length>6?'<span>+'+(spill.length-6)+' more</span>':'')+'</div></div></div>';
+    items.push({
+      sev:'green', key:'cr.spill', lead:String(spill.length),
+      tx:'<span data-t="'+(spill.length===1?'plan.spill.head1':'plan.spill.head')+'">'+
+         (spill.length===1?'crop finishes after this season ends':'crops finish after this season ends')+'</span>',
+      det:'<span data-t="plan.spill.sub">Normal for summer grain. The growing costs sit in this season; the '+
+          'sale lands in the next financial year, so plan the tax for it there.</span>',
+      chips:planNoticeChips(spill.map(function(o){ return {nm:o.nm, when:'harvest '+o.when}; }))
+    });
   }
-  host.className=''; host.innerHTML=h;
+  host.className=''; host.innerHTML=planNoticeCard(items);
   try{ if(typeof langSync==='function') langSync(host); }catch(e){}
 }
 
@@ -40141,6 +40274,28 @@ I18N['demo.restart']={en:"↺ Restart demo",af:"↺ Herbegin demo"};
 I18N['demo.create']={en:"Create your farm →",af:"Skep jou plaas →"};
 I18N['ob.consent.warn']={en:"Please accept to continue.",af:"Aanvaar asseblief om voort te gaan."};
 I18N['set.legal']={en:"Privacy & terms",af:"Privaatheid & voorwaardes"};
+
+/* Planning notice strip. Keyed rather than paired: these are whole phrases with
+   a count in front, so the exact-match dictionary handles them cleanly and the
+   substring engine never gets a chance to half-translate one. */
+I18N['pn.cert.exp']={en:"expired",af:"het verval"};
+I18N['pn.cert.multi']={en:"certificates have expired",af:"sertifikate het verval"};
+I18N['pn.cert.noexp']={en:"blocks cannot export",af:"blokke kan nie uitvoer nie"};
+I18N['pn.cert.noexp1']={en:"block cannot export",af:"blok kan nie uitvoer nie"};
+I18N['pn.risk.at']={en:"at risk",af:"op die spel"};
+I18N['pn.cert.det']={en:"Renewing it changes nothing in your forecast — these blocks already count as export. Left as it is, the fruit still sells, but at local prices.",af:"Om dit te hernu verander niks aan jou vooruitskatting nie — hierdie blokke tel reeds as uitvoer. Word dit so gelaat, verkoop die vrugte steeds, maar teen plaaslike pryse."};
+I18N['pn.young']={en:"blocks are not picking yet",af:"blokke pluk nog nie"};
+I18N['pn.young1']={en:"block is not picking yet",af:"blok pluk nog nie"};
+I18N['pn.young.det']={en:"They cost a full season to keep and earn nothing until they come into bearing. The cost is counted; the income is not.",af:"Hulle kos ’n volle seisoen om te onderhou en verdien niks totdat hulle begin dra nie. Die koste tel; die inkomste nie."};
+I18N['pn.late']={en:"blocks are paid after this season ends",af:"blokke word eers ná hierdie seisoen betaal"};
+I18N['pn.late1']={en:"block is paid after this season ends",af:"blok word eers ná hierdie seisoen betaal"};
+I18N['pn.late.det']={en:"The fruit is picked this season but the exporter pays later, so that money lands in your next financial year. Growing costs stay in this one.",af:"Die vrugte word hierdie seisoen gepluk maar die uitvoerder betaal later, so daardie geld land in jou volgende finansiële jaar. Groeikoste bly in hierdie een."};
+I18N['pn.ls.need']={en:"herds have no sale planned",af:"troppe het geen verkoop beplan nie"};
+I18N['pn.ls.need1']={en:"herd has no sale planned",af:"trop het geen verkoop beplan nie"};
+I18N['pn.ls.need.det']={en:"Their keep is counted but no income is, so your forecast reads worse than the farm. Say whether each one sells this season.",af:"Hul onderhoud tel maar geen inkomste nie, so jou vooruitskatting lyk slegter as die plaas. Sê of elkeen hierdie seisoen verkoop."};
+I18N['pn.ls.keep']={en:"herds kept, not sold",af:"troppe gehou, nie verkoop nie"};
+I18N['pn.ls.keep1']={en:"herd kept, not sold",af:"trop gehou, nie verkoop nie"};
+I18N['pn.ls.keep.det']={en:"of keep with no sale against it — the animals are worth more next year, but this year it is cash out.",af:"se onderhoud met geen verkoop daarteen nie — die diere is volgende jaar meer werd, maar hierdie jaar is dit kontant uit."};
 I18N['set.legal.sub']={en:"How your information is stored and used",af:"Hoe jou inligting gestoor en gebruik word"};
 
 var SKIP_TAGS = {SCRIPT:1, STYLE:1, SVG:1, INPUT:1, TEXTAREA:1, SELECT:1, OPTION:1};
