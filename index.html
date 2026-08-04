@@ -29139,10 +29139,19 @@ function plnMathsHTML(c, idx){
     (function(){
       var m=plnBenchMeta(c); if(!m || plnMissing(c)) return '';
       var mine=Math.round(plnMarginHa(c)), diff=mine-m.v;
-      return '<div class="pln-line"><span>'+esc(_benchLabel(m))+' '+_benchWord(m.conf)+
-        ' — '+esc(m.src)+'</span><b'+(diff<0?' style="color:var(--or)"':'')+'>'+
-        planFmtRha(m.v)+'/ha · you '+(diff>=0?'+':'−')+planFmtRha(Math.abs(diff)).replace('R','R')+
-        '</b></div>';
+      /* Was "R3 000/ha · you +R5 640" — two figures joined by a middot, with no
+         word saying what either of them was. The number keeps the label/value
+         shape every other line uses; the comparison becomes a sentence. */
+      var where=m.region ? esc(m.region) : 'South Africa';
+      var what=esc(String(c.crop||'this crop').toLowerCase());
+      var verdict=(diff>0) ? '<b>'+planFmtRha(diff)+'/ha more</b>'
+                : (diff<0) ? '<b>'+planFmtRha(-diff)+'/ha less</b>'
+                           : '<b>right on the mark</b>';
+      return '<div class="pln-line"><span>Typical for '+where+'</span><b>'+
+          planFmtRha(m.v)+'/ha</b></div>'+
+        '<div class="pln-facts"'+(diff<0?' style="color:var(--or)"':'')+'>Your '+
+          planFmtRha(mine)+'/ha is '+verdict+' than typical for '+what+' in '+where+
+          '. <span style="color:var(--t4)">'+esc(m.src)+'</span></div>';
     })()+
     /* C4 — only shown when there is real logged spend to compare against. */
     (function(){
@@ -37580,6 +37589,13 @@ var LANG_PAIRS = [
   ["When you are paid","Wanneer jy betaal word"],
   ["Spent so far","Tot dusver bestee"],
   ["SA average","SA gemiddeld"],
+  ["Typical for","Tipies vir"],
+  ["South African","Suid-Afrikaanse"],
+  ["South Africa","Suid-Afrika"],
+  ["/ha more","/ha meer"],
+  ["/ha less","/ha minder"],
+  ["right on the mark","presies op die kol"],
+  [" than typical for "," as tipies vir "],
   ["crops a year","gewasse per jaar"],
   ["Planned for","Beplan vir"],
   ["at about","teen ongeveer"],
