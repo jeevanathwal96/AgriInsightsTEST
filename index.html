@@ -29927,6 +29927,48 @@ function planWhatIfReset(){
   calcWhatIf();
 }
 /* ===== Orchards / Fruit & Veg planning (auto-pulled from ST_FRUIT) ===== */
+/* ── O2 · the cultivar's own pick window ────────────────────────────────────
+   OR_PICKWIN already holds 22 cultivar windows — Midknight Jul-Sep, Eureka
+   lemon Feb-Jun, Packham pear Jan-Feb — and the planner never read them, so a
+   Valencia and a Nadorcott both defaulted to the same three months.
+
+   The two systems do NOT share an index. OR_PICKWIN is CALENDAR (0 = January);
+   the planner is FINANCIAL-YEAR relative (0 = whatever month the season opens,
+   May on this farm). Feeding one into the other unconverted moves a Midknight
+   from Aug-Oct to Dec-Feb. The conversion below is checked against a known-good
+   pair: Midknight is calendar 7-9, and (7-4+12)%12 = 3, which is exactly the
+   citrus default the planner already used. */
+function orpFyStartMonth(){
+  var M={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  var lbl=(ST_PLAN && ST_PLAN.months && ST_PLAN.months[0]) ? String(ST_PLAN.months[0].label) : '';
+  var m=M[lbl.split(' ')[0]];
+  return (m==null) ? 4 : m;                 /* fall back to May, this farm's start */
+}
+function orpCalToFy(cal){
+  if(cal==null) return null;
+  return ((cal - orpFyStartMonth()) % 12 + 12) % 12;
+}
+/* The window this block should default to: its cultivar's if we know it,
+   otherwise the category's. Never overrides a window the farmer has set. */
+function orpWindowFor(b){
+  if(b && b.cat!=='veg' && typeof orPickWindow==='function'){
+    var w=orPickWindow(b);
+    if(w && w.s!=null && w.e!=null){
+      var s=orpCalToFy(w.s), e=orpCalToFy(w.e);
+      /* A cultivar window can run past the end of the season — a Eureka lemon
+         picks Mar to Jul on a May-start year. Clamping to the season end is the
+         right figure for THIS season's forecast, because those months genuinely
+         belong to the next one. What is not right is doing it in silence, so the
+         overflow is counted and reported rather than quietly dropped. */
+      var over=0;
+      if(e<s){ over=e+1; e=11; }
+      return {s:s, e:e, src:'cultivar', spillMonths:over,
+              calFrom:w.s, calTo:w.e};
+    }
+  }
+  var d=(typeof orPlanDefaultWindow==='function')?orPlanDefaultWindow(b?b.cat:''):[2,3];
+  return {s:d[0], e:d[1], src:'category'};
+}
 function orPlanDefaultWindow(cat){ if(cat==='citrus') return [3,5]; if(cat==='berry') return [4,6]; if(cat==='fruit') return [10,11]; return [2,3]; }
 function orGrowCostSource(cat){
   if (typeof AGRI_BENCH === 'undefined' || !AGRI_BENCH.growHa[cat]) return '';
@@ -29956,9 +29998,9 @@ function orPlanRows(){
     if(ey!=null && typeof planYear==='number' && planYear<ey) return false;
     return true;
   }).map(function(b){
-    var w=orPlanDefaultWindow(b.cat);
-    var ps=(b.planPickStart==null?w[0]:b.planPickStart);
-    var pe=(b.planPickEnd==null?w[1]:b.planPickEnd); if(pe<ps) pe=ps;
+    var w=orpWindowFor(b);
+    var ps=(b.planPickStart==null?w.s:b.planPickStart);
+    var pe=(b.planPickEnd==null?w.e:b.planPickEnd); if(pe<ps) pe=ps;
     /* O1 — a veg block runs its whole cycle count in a year, so both sides are
        multiplied. One cycle's worth was all that ever reached the forecast. */
     var cy=orpVegCycles(b);
@@ -29983,6 +30025,12 @@ function orPlanSetField(id,field,val){
   else if(field==='planMatureTons'){
     b.planMatureTons = (String(val).trim()==='') ? null : Math.max(0,n);
   }
+  /* O4 — one number, one word. Anything not named here is parsed and thrown
+     away, which is how the livestock herd-type buttons once looked dead. */
+  else if(field==='altBearing'){
+    b.altBearing = (String(val).trim()==='') ? null : Math.max(0,Math.min(60,n));
+  }
+  else if(field==='altPhase'){ b.altPhase = (String(val)==='off') ? 'off' : 'on'; }
   if(typeof orSave==='function') orSave();
   recomputePlan(); renderOrchPlanGrid(); updatePlanCombinedBanner(); updatePlanSummary();
 }
@@ -30059,6 +30107,30 @@ function orpAnchorYear(){
   return (typeof planFYYear==='function') ? planFYYear()
        : ((typeof planYear==='number') ? planYear : null);
 }
+/* ── O4 · alternate bearing ─────────────────────────────────────────────────
+   There was an avocado curve that oscillates on and off year, and nothing used
+   it — no block carries that curve, and it is not an avocado problem anyway:
+   citrus and pome alternate too. So the swing is a property of the BLOCK, set
+   by the farmer, not a hidden consequence of which curve he happens to have.
+
+   No default swing. A farmer who has watched his own block knows whether it is
+   10% or 40%, and no SA source publishes a figure I could stand behind. */
+function orpAltPct(b){
+  var n=parseFloat(b && b.altBearing);
+  return (isNaN(n)||n<=0) ? 0 : Math.min(60, n);
+}
+/* Is the given year an ON year for this block? The farmer says which phase the
+   season on screen is in; every other year alternates from there. */
+function orpAltIsOn(b, year){
+  var a0=orpAnchorYear(); if(a0==null) return true;
+  var onAtAnchor=(b.altPhase!=='off');
+  var flipped=(((year-a0)%2)+2)%2===1;
+  return flipped ? !onAtAnchor : onAtAnchor;
+}
+function orpAltFactor(b, year){
+  var p=orpAltPct(b); if(!p) return 1;
+  return orpAltIsOn(b, year) ? (1+p/100) : (1-p/100);
+}
 /* Tonnage for any plan year, scaled along the curve from the anchor season. */
 function orpTonsFor(b, year){
   var ey=(typeof b.estabYr==='number')?b.estabYr:((typeof b.plant==='number')?b.plant:null);
@@ -30068,11 +30140,15 @@ function orpTonsFor(b, year){
   if(pctY==null || pctNow==null) return (b.tons||0);
   /* Same point on the curve — including the anchor season itself, and any
      plateau year — returns the farmer's figure untouched, not a rounded copy. */
-  if(pctY===pctNow) return (b.tons||0);
-  if((b.tons||0)>0 && pctNow>0) return Math.round((b.tons||0)*pctY/pctNow*10)/10;
+  /* O4 — the swing is applied RELATIVE to the anchor, so the season the farmer
+     typed his estimate for keeps that estimate exactly and only later years
+     move. Without the divide, turning alternation on would rewrite this year. */
+  var alt=orpAltFactor(b, year)/orpAltFactor(b, orpAnchorYear());
+  if(pctY===pctNow && alt===1) return (b.tons||0);
+  if((b.tons||0)>0 && pctNow>0) return Math.round((b.tons||0)*(pctY/pctNow)*alt*10)/10;
   /* Nothing picking yet: ramp the farmer's own mature figure, if he gave one. */
   var mat=orpMatureTons(b);
-  if(mat!=null) return Math.round(mat*pctY/100*10)/10;
+  if(mat!=null) return Math.round(mat*(pctY/100)*alt*10)/10;
   return (b.tons||0);
 }
 /* Income for a plan year. Routed through orBlockTotal on a copy so every pricing
@@ -30438,10 +30514,37 @@ function orpEditor(r){
       f('Picking starts','<select onchange="event.stopPropagation();'+setf+'\'planPickStart\',this.value)">'+orpMonthOpts(r.pickStart)+'</select>')+
       f('Picking ends','<select onchange="event.stopPropagation();'+setf+'\'planPickEnd\',this.value)">'+orpMonthOpts(r.pickEnd)+'</select>')+
       f('Money lands','<select onchange="event.stopPropagation();orpSetPay(\''+id+'\',this.value)">'+orpPayOpts(orpPayWeeks(b))+'</select>')+
-    '</div><div class="orp-facts">Export agents must pay within <b>10 weeks of shipping</b> (APAC rule 36) — that is the default, not a guess.</div></div>';
+    '</div>'+
+    /* O2 — a window taken from the cultivar should say so, or the farmer cannot
+       tell a real default from a guess. */
+    (function(){ var w=orpWindowFor(b);
+      if(b.cat==='veg') return '';
+      var MM=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      var cv=esc(String(b.cultivar||'').split('\u00b7').pop().trim());
+      if(w.src!=='cultivar')
+        return '<div class="orp-facts">No published window for this cultivar, so these are the '+
+          'usual <b>'+esc(b.cat)+'</b> months — set your own.</div>';
+      return '<div class="orp-facts">Months come from <b>'+cv+'</b>'+
+        (w.spillMonths>0
+          ? ', which picks <b>'+MM[w.calFrom]+'\u2013'+MM[w.calTo]+'</b>. The season ends first, so '+
+            'the plan shows the part that falls in it and the last <b>'+w.spillMonths+
+            ' month'+(w.spillMonths===1?'':'s')+'</b> land in next season\u2019s.'
+          : ' \u2014 change them if your block runs earlier or later.')+'</div>'; })()+
+    '<div class="orp-facts">Export agents must pay within <b>10 weeks of shipping</b> (APAC rule 36) — that is the default, not a guess.</div></div>';
 
   h+='<div class="orp-fg"><div class="orp-gl">What comes off the block</div><div class="orp-f3">'+
     f('Crop estimate (t)',num(set,'tons',b.tons||0,'0.1'))+
+    /* O4 — alternation belongs to the block, not to whichever curve it carries.
+       Blank means "does not alternate", which is the honest default. */
+    (b.cat==='veg' ? '' :
+      f('Alternates by (%)','<input type="number" min="0" max="60" step="5" value="'+
+        (b.altBearing||'')+'" placeholder="none" onchange="event.stopPropagation();'+
+        setf+'\'altBearing\',this.value)">')+
+      (orpAltPct(b)>0
+        ? f('This season is','<select onchange="event.stopPropagation();'+setf+'\'altPhase\',this.value)">'+
+            '<option value="on"'+(b.altPhase!=='off'?' selected':'')+'>an ON year</option>'+
+            '<option value="off"'+(b.altPhase==='off'?' selected':'')+'>an OFF year</option></select>')
+        : ''))+
     (b.cat==='veg' ? f('Top grade (%)',num(set,'grade',b.grade||0,'1'))
                    : f('Export (%)',num(set,'exp',b.exp||0,'1'))+
                      f('Carton (kg)',num(set,'cartonKg',b.cartonKg||15,'0.5')))+
