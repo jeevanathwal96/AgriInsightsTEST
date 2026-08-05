@@ -35840,7 +35840,38 @@ function uiScrollTo(el, opts){
   var reduce=(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
   if(reduce){ sc.scrollTop=target; return; }
   try{ sc.scrollTo({top:target, behavior:'smooth'}); }catch(e){ sc.scrollTop=target; return; }
-  setTimeout(function(){ if(Math.abs(sc.scrollTop-target)>4) sc.scrollTop=target; },320);
+  /* The correction is load-bearing — smooth scrolling silently does nothing in
+     some states, so the destination is forced once the animation should be over.
+     It now RE-MEASURES rather than re-asserting the original target: several
+     callers expand the very row they are scrolling to (orpGoBlock opens the
+     block, lvpGoHerd opens the herd), so everything above it grows a moment
+     after the scroll was aimed. Vlei block landed 3px above the content edge
+     with its top hairline clipped, because the target was computed against a
+     layout that no longer existed by the time the scroll finished. */
+  function settle(){
+    var want=target;
+    var er2=el.getBoundingClientRect();
+    /* Re-render can replace or hide the element inside those milliseconds. A
+       detached node measures 0x0, and re-aiming at it would scroll to the top of
+       the page — so fall back to the position we originally worked out. */
+    var gone=(!el.isConnected) || (er2.width===0 && er2.height===0);
+    if(opts.block!=='nearest' && !gone){
+      var sr2=sc.getBoundingClientRect();
+      var top2=er2.top-sr2.top+sc.scrollTop;
+      want=(opts.block==='center')
+        ? top2-Math.max(0,(sc.clientHeight-er2.height)/2)
+        : top2-(opts.pad==null?10:opts.pad);
+      want=Math.max(0, Math.min(want, Math.max(0, sc.scrollHeight-sc.clientHeight)));
+    }
+    if(Math.abs(sc.scrollTop-want)>4) sc.scrollTop=want;
+  }
+  /* Twice, because one pass is not enough. The first lands the scroll; the
+     second catches content that was still growing underneath it. An opened
+     orchard block is 1 024px tall and is still expanding at 320ms, so a single
+     correction aimed at a layout that had not finished settling and left the
+     card's top hairline 6px under the header. */
+  setTimeout(settle,320);
+  setTimeout(settle,720);
 }
 
 function lvpGoHerd(id){
