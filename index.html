@@ -1224,7 +1224,12 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 
 .mkr-tbl{background:var(--wh);border:1px solid var(--br);border-radius:var(--rl);overflow:hidden}
 .mkr-th,.mkr-r{display:grid;
-  grid-template-columns:minmax(150px,1fr) 62px 78px 88px 92px 118px 84px 20px;
+  /* Column 1 used to be the only flexible track, so it absorbed all the slack
+     — 698px of a 1349px table for a name that never needed more than 173px,
+     while every number was squeezed against the right edge. Each column now
+     has room to grow, and the two that actually gain from width — the name and
+     the cost-vs-price bar — share what is left. */
+  grid-template-columns:minmax(150px,1fr) minmax(62px,96px) minmax(78px,118px) minmax(88px,128px) minmax(92px,132px) minmax(118px,1fr) minmax(84px,122px) 20px;
   gap:11px;align-items:center}
 .mkr-th{padding:8px 15px;background:var(--br2);border-bottom:1px solid var(--br)}
 .mkr-th span{font-size:8.5px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--t4)}
@@ -1299,7 +1304,10 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
    lands. Grid is shared by .mka-hd so every header sits over its own column. */
 .mka-tbl{background:var(--wh);border:1px solid var(--br);border-radius:var(--rl);overflow:hidden}
 .mka-hd,.mka-r{display:grid;
-  grid-template-columns:minmax(122px,190px) minmax(84px,100px) 62px minmax(150px,264px) minmax(150px,1fr);
+  /* Maxima do the work at desktop widths — the last column used to be the only
+     1fr and took 657px of a 1349px table while the scale sat capped at 264.
+     Minima stay low so a narrow window still degrades instead of overflowing. */
+  grid-template-columns:minmax(130px,270px) minmax(84px,130px) minmax(60px,96px) minmax(160px,1.15fr) minmax(170px,1fr);
   gap:11px;align-items:center;padding:10px 15px}
 .mka-hd{background:var(--br2);border-bottom:1px solid var(--br);padding:8px 15px;
   font-size:8.5px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--t4)}
@@ -1341,12 +1349,13 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .mka-sc .dt.un{background:var(--or)}
 .mka-sc em{position:absolute;top:-2px;font-style:normal;font-size:9px;font-weight:750;
   letter-spacing:.2px;white-space:nowrap;transform:translateX(-50%)}
-/* The cost tick sits at the far left, so a centred label hangs off the edge. */
-.mka-sc em.c{color:var(--or);left:0;transform:none}
+.mka-sc em.c{color:var(--or)}
 .mka-sc em.p{color:var(--t4)}
-/* Near the right-hand end a centred label runs off the track, so anchor it to
-   the end instead. The tick still marks the exact position; only the label moves. */
-.mka-sc em.p.r{left:auto!important;right:0;transform:none}
+/* Labels centre on their own tick. Within 15% of either end a centred label
+   would hang off the track, so it anchors to that end and drops the centring
+   translate — .e is only ever set on a tick already at the extreme, so the
+   label still reads as belonging to it. */
+.mka-sc em.e{transform:none}
 /* Two facts, not a sentence — the column is scanned down, not read across. */
 .mka-w{font-size:11.5px;line-height:1.5;display:flex;align-items:baseline;gap:4px;flex-wrap:wrap}
 .mka-w b{font-size:12px;font-weight:750;font-variant-numeric:tabular-nums;color:var(--t1)}
@@ -38188,7 +38197,7 @@ function mkaFarm(){
   var M={};
   function put(id, cost, plan, who){
     if(!id || !(cost>0)) return;
-    var e=M[id]||(M[id]={cost:null, plan:null, who:'', under:[]});
+    var e=M[id]||(M[id]={cost:null, plan:null, who:'', under:[], thin:[]});
     if(e.cost==null || cost<e.cost){ e.cost=cost; e.plan=(plan>0?plan:null); e.who=who; }
   }
   ((typeof ST_PLAN!=='undefined'&&ST_PLAN.crops)||[]).forEach(function(c){
@@ -38202,13 +38211,19 @@ function mkaFarm(){
     var cost=(typeof lsHerdCost==='function')?lsHerdCost(h)/h.qty:0;
     put(row.id, cost, h.sell, h.name);
   });
-  /* Second pass for the ones the cheapest row hid. */
+  /* Second pass, for what anchoring on the cheapest hides. Two things are
+     worth naming: a land or herd the price does not cover at all, and one that
+     clears but only barely — "Beef Cattle +R5 840 vs cost" is true of the
+     cheapest herd while the farm's main breeding herd clears R710 a head, and
+     a roll-up that shows only the first is hiding the second. 8% of cost is
+     the same "thin" test renderMyFarm uses, so the two cannot disagree. */
   function flag(id, cost, who){
     var e=M[id]; if(!e||!(cost>0)) return;
     var row=null,i; for(i=0;i<MKT_ALL.length;i++){ if(MKT_ALL[i].id===id) row=MKT_ALL[i]; }
     if(!row) return;
-    var today=mkaToday(row);
-    if(today!=null && cost>today && who!==e.who) e.under.push(who);
+    var today=mkaToday(row); if(today==null) return;
+    if(cost>today){ if(who!==e.who) e.under.push(who); return; }
+    if((today-cost)/cost < 0.08) e.thin.push(who);
   }
   ((typeof ST_PLAN!=='undefined'&&ST_PLAN.crops)||[]).forEach(function(c){
     var row=mkaForCrop(c.crop); if(!row) return;
@@ -38282,28 +38297,62 @@ function mkaRender(){
     var scale='<span class="mka-sc"><span class="ln"></span></span>', stand;
     if(isMine){
       var cost=f.cost, plan=(f.plan>0?f.plan:null);
-      var hi=Math.max(cost,today,plan||0), lo=0;
+      /* The track spans what THIS row's own three numbers cover, padded — not
+         0 to the maximum. Anchoring at zero pushed every tick into the right
+         third of the track (cost landed at 33–73%) and pinned the plan tick
+         against the 98% ceiling on five of seven rows, so the picture was the
+         same on every line and told you nothing. */
+      var vals=[cost,today]; if(plan!=null) vals.push(plan);
+      var lo=Math.min.apply(null,vals), hi=Math.max.apply(null,vals);
+      var pad=(hi-lo)*0.16; if(!(pad>0)) pad=Math.abs(hi)*0.08||1;
+      lo-=pad; hi+=pad;
       var span=hi-lo; if(span<=0) span=1;
-      var pos=function(v){ return Math.max(2,Math.min(98, Math.round((v-lo)/span*100))); };
-      var pc=pos(cost), pt=pos(today), pp=plan?pos(plan):null;
+      var pos=function(v){ return Math.round(Math.max(0,Math.min(100,(v-lo)/span*100))); };
+      var pc=pos(cost), pt=pos(today), pp=(plan!=null)?pos(plan):null;
       var under=today<cost;
-      var fill=under
-        ? '<span class="fl sh" style="left:'+pt+'%;width:'+Math.max(1,pc-pt)+'%"></span>'
-        : '<span class="fl" style="left:'+pc+'%;width:'+Math.max(1,pt-pc)+'%"></span>';
+      /* Cost is not always the lower of the two — a plan price can sit under
+         what the ground cost — so the fill runs between them either way. */
+      var a=Math.min(pc,pt), b=Math.max(pc,pt);
+      var fill='<span class="fl'+(under?' sh':'')+'" style="left:'+a+'%;width:'+Math.max(1,b-a)+'%"></span>';
+      /* Every label rides its own tick. The previous build pinned the cost
+         label to the left edge to stop it overflowing, which left it up to
+         193px away from the tick it names. Only the two extremes get anchored,
+         and then they are at the edge anyway. */
+      var lab=function(cls,pp2,txt){
+        var st = pp2<15 ? 'left:0' : (pp2>85 ? 'right:0' : 'left:'+pp2+'%');
+        return '<em class="'+cls+((pp2<15||pp2>85)?' e':'')+'" style="'+st+'">'+txt+'</em>';
+      };
+      var cTxt=mkaR(cost,row.g==='ls'?null:row), pTxt=(pp!=null)?('plan '+mkaR(plan,row.g==='ls'?null:row)):'';
+      var labs;
+      if(pp!=null && Math.abs(pc-pp)<30){
+        /* The two ticks are too close for both labels to ride them without
+           overlapping — a plan price below what the ground cost crowds them
+           both to the left. Send them to opposite ends, ordered so the
+           left-hand label belongs to the left-hand tick, and let the tick
+           colours (orange cost, grey plan, per the header legend) carry the
+           exact positions. */
+        labs = (pc<=pp)
+          ? '<em class="c e" style="left:0">'+cTxt+'</em><em class="p e" style="right:0">'+pTxt+'</em>'
+          : '<em class="p e" style="left:0">'+pTxt+'</em><em class="c e" style="right:0">'+cTxt+'</em>';
+      } else {
+        labs = lab('c',pc,cTxt) + (pp!=null?lab('p',pp,pTxt):'');
+      }
       scale='<span class="mka-sc"><span class="ln"></span>'+fill+
         '<i class="ct" style="left:'+pc+'%"></i>'+
         (pp!=null?'<i class="pl" style="left:'+pp+'%"></i>':'')+
         '<span class="dt'+(under?' un':'')+'" style="left:'+pt+'%"></span>'+
-        '<em class="c">'+mkaR(cost,row.g==='ls'?null:row)+'</em>'+
-        (pp!=null?('<em class="p'+(pp>62?' r':'')+'" style="left:'+pp+'%">plan '+mkaR(plan,row.g==='ls'?null:row)+'</em>'):'')+
-        '</span>';
+        labs+'</span>';
 
       var vc=today-cost, vp=(plan!=null)?(today-plan):null;
       stand='<span class="mka-w"><b class="'+(vc>=0?'good':'')+'">'+mkaSigned(vc,row.g==='ls'?null:row)+
         '</b><em data-t="mkt.aVsCost">vs cost</em>';
       if(vp!=null) stand+='<b class="'+(vp>=0?'good':'')+'">'+mkaSigned(vp,row.g==='ls'?null:row)+'</b><em data-t="mkt.aVsPlan">vs plan</em>';
+      /* One chip only, so the row stays on a single line; under cost outranks
+         thin because it is the worse news. */
       if(f.under.length) stand+='<u>'+stEsc(f.under.slice(0,2).join(', '))+' '+
         (f.under.length>2?('+'+(f.under.length-2)+' '):'')+'under cost</u>';
+      else if(f.thin.length) stand+='<u>'+stEsc(f.thin.slice(0,2).join(', '))+' '+
+        (f.thin.length>2?('+'+(f.thin.length-2)+' '):'')+'barely clears</u>';
       stand+='</span>';
     } else {
       stand='<span class="mka-w mut" data-t="mkt.aNotFarmed">Not farmed &mdash; price and move only</span>';
@@ -43550,7 +43599,8 @@ LANG_PAIRS.push(
   ["per ton","per ton"],
   ["Yours","Joune"],
   ["Move","Beweging"],
-  ["Today","Vandag"]
+  ["Today","Vandag"],
+  ["barely clears","klaar net-net"]
 );
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
 
