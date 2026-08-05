@@ -3271,6 +3271,25 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .ob-qs-sub{font-size:11px;color:#6B7280}
 
 #tour-overlay{position:fixed;inset:0;z-index:8000;pointer-events:none}
+/* Walkthrough motion. A dimmed rectangle on its own reads as a slideshow —
+   what makes a demo feel live is a pointer that travels, a click that lands,
+   and the target reacting. */
+#aij-cursor{position:fixed;width:22px;height:22px;z-index:8003;pointer-events:none;opacity:0;
+  transition:transform .70s cubic-bezier(.33,.02,.24,1),opacity .2s;will-change:transform}
+#aij-cursor.on{opacity:1}
+#aij-cursor svg{display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.45))}
+#aij-ring{position:fixed;width:34px;height:34px;border-radius:50%;border:2.5px solid #40916C;
+  z-index:8002;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(.35)}
+#aij-ring.go{animation:aijRing .6s cubic-bezier(.2,.7,.3,1)}
+@keyframes aijRing{0%{opacity:.95;transform:translate(-50%,-50%) scale(.35)}
+                   100%{opacity:0;transform:translate(-50%,-50%) scale(2.1)}}
+/* the target itself answers the click */
+.aij-hit{animation:aijHit .5s cubic-bezier(.34,1.4,.5,1)}
+@keyframes aijHit{0%{transform:scale(1)}45%{transform:scale(1.022)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){
+  #aij-cursor,#aij-ring{display:none!important}
+  .aij-hit{animation:none!important}
+}
 #tour-spotlight{position:absolute;pointer-events:none;transition:all .35s cubic-bezier(.4,0,.2,1);box-shadow:0 0 0 9999px rgba(0,0,0,.55);border-radius:10px;z-index:8001}
 #tour-card{position:absolute;width:320px;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.25),0 4px 16px rgba(0,0,0,.15);pointer-events:all;z-index:8002;transition:all .3s cubic-bezier(.4,0,.2,1);overflow:hidden}
 .tour-card-accent{height:4px;background:linear-gradient(90deg,#1B4332,#40916C)}
@@ -6246,6 +6265,22 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     Demo this page
   </button>
   <button id="page-tour-fixed-dismiss" onclick="hideTourBtn()" title="Hide this button">✕</button>
+</div>
+
+<!-- Journey chooser. The 🗺️ menu had them, but a 44px unlabelled map pin in
+     the corner is not where anyone looks for a demo — and "Watch demo", the
+     button people do press, ran the old linear tour instead. -->
+<div id="aij-pick" onclick="if(event.target===this)aijPickClose()" style="display:none;position:fixed;inset:0;z-index:9800;background:rgba(10,20,15,.55);align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--wh);border-radius:var(--rl);max-width:560px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 24px 70px rgba(0,0,0,.3)">
+    <div style="padding:20px 22px 6px;display:flex;align-items:flex-start;gap:12px">
+      <div style="flex:1">
+        <div style="font-size:19px;font-weight:750;letter-spacing:-.4px">See it on your farm</div>
+        <div style="font-size:13px;color:var(--t3);margin-top:4px;line-height:1.55">Pick a question and the app walks it for you &mdash; it does the clicking, and stops once to hand you the controls.</div>
+      </div>
+      <button onclick="aijPickClose()" style="background:none;border:none;font-size:19px;color:var(--t4);cursor:pointer;line-height:1;padding:2px 4px">&#10005;</button>
+    </div>
+    <div id="aij-pick-list" style="padding:12px 16px 18px"></div>
+  </div>
 </div>
 
 <div id="tour-complete-bg" onclick="if(event.target===this)tourCompleteClose()">
@@ -35565,7 +35600,7 @@ function renderSeasonTracker(){
     }
   }catch(e){}
   var stStarted = V.realisedPct >= 5;
-  var hero='<div class="st-hero">'+
+  var hero='<div class="st-hero" id="st-hero">'+
     '<div class="st-hero-top">'+
       '<div><div class="st-eyebrow" data-t="plan.thisSeason">This season</div>'+
         /* T8 — the figure used to be printed twice: a sentence saying "your plan
@@ -35626,7 +35661,7 @@ function renderSeasonTracker(){
     })()+
   '</div>';
   var attn=stAttention(V.groups);
-  var attnH=attn.length?'<div class="st-attn"><div class="st-attn-h">⚠ <span data-t="plan.needsAttn">Needs your attention</span></div><div class="st-attn-g">'+
+  var attnH=attn.length?'<div class="st-attn" id="st-attn"><div class="st-attn-h">⚠ <span data-t="plan.needsAttn">Needs your attention</span></div><div class="st-attn-g">'+
     attn.map(function(a){
       return '<div class="st-attn-card"><div class="st-attn-t">'+stEsc(a.t)+'</div>'+
         '<div class="st-attn-d">'+stEsc(a.d)+'</div>'+
@@ -46024,7 +46059,7 @@ function taxGlanceHTML(){
 
   // total tax hero
   if(prov.ok){
-    h+='<div style="background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;border-radius:16px;padding:18px 22px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">'+
+    h+='<div id="tax-hero-card" style="background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;border-radius:16px;padding:18px 22px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">'+
       '<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.75">Your estimated tax to SARS this year</div>'+
       '<div style="font-size:32px;font-weight:800">'+fmt(total)+'</div>'+
       (bank!=null?'<div style="font-size:12px;opacity:.85">after the next set-aside, <b>'+fmt(Math.max(0,Math.round(bank-prov.provPayment)))+'</b> of your balance is yours</div>':'<div style="font-size:12px;opacity:.85">income tax, VAT and payroll combined</div>')+'</div>'+
@@ -46140,7 +46175,7 @@ function taxGlanceHTML(){
   h+='</div>';
 
   // diesel money-back
-  if(diesel>0) h+='<div class="tx-card" style="border-color:var(--gp);margin-bottom:12px"><div class="tx-h">🛢️ Money back — diesel refund</div><div style="font-size:24px;font-weight:800;color:var(--gd)">'+_grpInt(diesel)+' L</div><div style="font-size:12px;color:var(--t3)">Eligible farming diesel logged — ready to claim on your next VAT201.</div></div>';
+  if(diesel>0) h+='<div class="tx-card" id="tax-diesel-card" style="border-color:var(--gp);margin-bottom:12px"><div class="tx-h">🛢️ Money back — diesel refund</div><div style="font-size:24px;font-weight:800;color:var(--gd)">'+_grpInt(diesel)+' L</div><div style="font-size:12px;color:var(--t3)">Eligible farming diesel logged — ready to claim on your next VAT201.</div></div>';
 
   // registration nudge
   var vatThr=(STATUTORY.vatThreshold&&STATUTORY.vatThreshold.value)||1000000;
@@ -48340,14 +48375,14 @@ var AIJ = [
  { t:'Am I making money?', ic:'🌾', sub:'The verdict, then which part of the farm earns it', mins:'~45s',
    end:'profit',
    steps:[
-     {page:'dashboard', target:'dash-combo-stripe', icon:'🌾', title:'Is my farm making money?',
+     {page:'dashboard', target:'dash-combo-stripe', icon:'🌾', title:'Is my farm making money?', act:{k:'count'},
       text:'Every time you open AgriInsights you land here, and it answers one question first — profit or loss this month, worked out from what you have actually recorded.',
       tip:'Everything below this line is the detail behind that sentence.'},
-     {page:'income', target:'inc-metric-in', icon:'💵', title:'Where the money came from',
+     {page:'income', target:'inc-metric-in', icon:'💵', title:'Where the money came from', act:{k:'count'},
       text:'The money in, split by source — crop sales, fruit, livestock, grants. Switch the period pills to see a season rather than a month.'},
-     {page:'expenses', target:'exp-metric-ratio', icon:'💸', title:'And what it cost to get it',
+     {page:'expenses', target:'exp-metric-ratio', icon:'💸', title:'And what it cost to get it', act:{k:'count'},
       text:'The expense ratio is the number worth watching: how much of every rand coming in goes straight back out.'},
-     {page:'profit', target:'pf-tab-glance', icon:'📊', title:'Which part of the farm earns it',
+     {page:'profit', target:'pf-tabbtn-glance', icon:'📊', title:'Which part of the farm earns it',
       text:'Now the part that decides things — every land, herd and block costed on its own. A farm can be profitable overall and still carry a piece that loses money every season.',
       you:'Open any land, herd or block to see its own costing.'}
    ]},
@@ -48367,12 +48402,12 @@ var AIJ = [
  { t:'Will I have enough cash?', ic:'🧭', sub:'The runway, and the ways to close a gap', mins:'~45s',
    end:'budgets',
    steps:[
-     {page:'cashflow', tab:'forecast', target:'cf-fwd-answer', icon:'🧭', title:'Will I have enough?',
+     {page:'cashflow', tab:'forecast', target:'cf-fwd-answer', icon:'🧭', title:'Will I have enough?', act:{k:'count'},
       text:'Your bank balance projected forward from your own plan, with the month it gets tight named in plain words. This is the question that keeps farmers awake.',
       tip:'Line up cover before the month it names, not after.'},
-     {page:'budgets', target:'bgt-hero', icon:'🎯', title:'Am I on track for the year?',
+     {page:'budgets', target:'bgt-hero', icon:'🎯', title:'Am I on track for the year?', act:{k:'count'},
       text:'One verdict for the whole year — on plan, running tight, or falling behind — in a sentence rather than a table.'},
-     {page:'budgets', target:'bgt-cats-card', icon:'📋', title:'Judged category by category',
+     {page:'budgets', target:'bgt-kpis', icon:'📋', title:'Judged category by category', act:{k:'run',fn:'aijExpandBudgetCat'},
       text:'Each cost line measured against its own season, so a fuel bill in planting month is not flagged as an overspend.',
       you:'Open a category to see the months behind its verdict.'}
    ]},
@@ -48380,9 +48415,9 @@ var AIJ = [
  { t:'Should I sell today?', ic:'💰', sub:'Today’s price against what the ground cost you', mins:'~45s',
    end:'market',
    steps:[
-     {page:'market', tab:'crops', target:'mkr-hero', icon:'💰', title:'What is it worth today?',
+     {page:'market', tab:'crops', target:'mkr-hero', icon:'💰', title:'What is it worth today?', act:{k:'count'},
       text:'Everything you have to sell at today’s prices — and the two lines worth interrupting you for: what is losing money, and what is close enough to losing money that a small move would do it.'},
-     {page:'market', tab:'crops', target:'mkt-all-prices', icon:'📋', title:'Your cost, drawn on the price',
+     {page:'market', tab:'crops', target:'mkt-crop-browsebar', icon:'📋', title:'Your cost, drawn on the price',
       text:'Every SA price in one list. The lines you actually farm are shaded and carry a scale — where today’s price sits between what that ground cost you and what you planned to get.',
       onEnter:'aijOpenFirstMarketRow', hold:8000,
       you:'Run your mouse along the chart — it reads out against your cost and your plan.'}
@@ -48391,12 +48426,12 @@ var AIJ = [
  { t:'Plan the season, then watch it', ic:'📅', sub:'Build it, price it, then track it against reality', mins:'~55s',
    end:'planning',
    steps:[
-     {page:'planning', tab:'crops', target:'plan-cal-grid', icon:'📅', title:'The season, before it starts',
+     {page:'planning', tab:'crops', target:'plan-tab-live', icon:'📅', title:'The season, before it starts',
       text:'Every land with its crop, its hectares and its growth stages across twelve months. Orchards, fruit and veg and livestock each get their own tab beside it.'},
      {page:'planning', tab:'crops', target:'plan-fin', icon:'⚖️', title:'Priced, then stress-tested',
       text:'The plan in money, so it is a number and not a wish — and levers to drag before you commit. Take grain prices down 30% and the whole year re-prices in front of you.',
       tip:'Better to find a thin year on this screen than in August.'},
-     {page:'planning', tab:'tracker', target:'plan-tracker-pane', icon:'📈', title:'Then watch it happen',
+     {page:'planning', tab:'tracker', target:'st-attn', icon:'📈', title:'Then watch it happen', act:{k:'run',fn:'aijExpandOrchards'},
       text:'The Season Tracker holds that plan against what actually came in, month by month, all season — and tells you which group is behind rather than just that the farm is.',
       onEnter:'aijOpenTracker', hold:8000,
       you:'Open a group to see which land or block is dragging, or switch between bars and a line.'}
@@ -48405,10 +48440,10 @@ var AIJ = [
  { t:'SARS, and the paperwork', ic:'🧾', sub:'What to set aside, what you claim back, and the forms', mins:'~55s',
    end:'reports',
    steps:[
-     {page:'tax', tab:'glance', target:'tax-tab-glance', icon:'🧾', title:'SARS, handled as you go',
+     {page:'tax', tab:'glance', target:'tax-hero-card', icon:'🧾', title:'SARS, handled as you go', act:{k:'count'},
       text:'Provisional tax, VAT, payroll and write-offs worked out from what you have already captured — what to set aside each month, and what falls due when.',
       tip:'Built for SA farming: Section 12B write-offs, the diesel refund, and the farmer’s income averaging.'},
-     {page:'reports', target:'rpt-stmt-cards', icon:'📄', title:'Four statements, already filled in',
+     {page:'reports', target:'rpt-stmt-cards', icon:'📄', title:'Four statements, already filled in', act:{k:'run',fn:'aijOpenPL'}, hold:8000,
       text:'Income & Expenses, Profit & Loss, Cash Flow and a Tax Summary — built from your transactions, not a spreadsheet you still have to complete. Open any one for a full print preview.'},
      {page:'reports', target:'acc-pack', icon:'📦', title:'The packs that save a week',
       text:'An IT12 pre-fill for your return, an Accountant Pack that exports straight to Pastel and Xero, and a Bankability Report written for a loan application.',
@@ -48458,7 +48493,7 @@ function aijStart(i){
   }, closing?330:0);
 }
 function aijEnd(){
-  clearTimeout(AIJ_T); aijUnsync();
+  clearTimeout(AIJ_T); aijUnsync(); aijHideCursor(); aijStopCounts(); aijClosePL();
   var st=AIJ[AIJ_I] && AIJ[AIJ_I].steps[AIJ_S];
   if(st && st.onLeave && window[st.onLeave]){ try{ window[st.onLeave](); }catch(e){} }
   AIJ_I=-1; AIJ_HELD=false;
@@ -48547,6 +48582,87 @@ function aijSync(st){
     AIJ_RO.observe(el);
   }catch(e){}
 }
+/* Send the pointer to the step's target and land a click on it. This is the
+   difference between narrating a screenshot and showing the product working. */
+function aijPointAt(target, then){
+  var el=$(target), c=$('aij-cursor'), ring=$('aij-ring');
+  if(!el||!c||!ring){ if(then) then(); return; }
+  var r=el.getBoundingClientRect();
+  if(!r.width && !r.height){ if(then) then(); return; }
+  var x=Math.round(r.left+Math.min(r.width*0.5, 260));
+  var y=Math.round(r.top +Math.min(r.height*0.5, 46));
+  c.classList.add('on');
+  c.style.transform='translate('+x+'px,'+y+'px)';
+  setTimeout(function(){
+    if(AIJ_I<0) return;
+    ring.style.left=(x+7)+'px'; ring.style.top=(y+7)+'px';
+    ring.classList.remove('go'); void ring.offsetWidth; ring.classList.add('go');
+    el.classList.add('aij-hit'); setTimeout(function(){ el.classList.remove('aij-hit'); },520);
+    if(then) then();
+  }, 720);
+}
+function aijHideCursor(){ var c=$('aij-cursor'); if(c) c.classList.remove('on'); }
+/* ══ ACTIONS ═══════════════════════════════════════════════════════════════
+   The difference between narrating a screen and demonstrating a product. Each
+   of these drives the app's OWN functions on the REAL page — nothing is faked,
+   so what the farmer watches is what they will get. */
+
+/* Run a real figure up from zero. Reads the number out of the element, counts
+   to it, then puts the exact original string back — so no rounding or currency
+   quirk of mine can survive on screen. */
+var AIJ_COUNTS=[];
+function aijCountUp(el){
+  if(!el) return;
+  var raw=el.textContent, m=raw.match(/-?[\d][\d\s ,]*(\.\d+)?/);
+  if(!m) return;
+  var target=parseFloat(m[0].replace(/[\s ,]/g,''));
+  if(!isFinite(target)||Math.abs(target)<100) return;
+  var pre=raw.slice(0,m.index), post=raw.slice(m.index+m[0].length), t0=Date.now(), dur=1000;
+  var iv=setInterval(function(){
+    if(AIJ_I<0){ clearInterval(iv); el.textContent=raw; return; }
+    var p=Math.min(1,(Date.now()-t0)/dur), v=target*(1-Math.pow(1-p,3));
+    el.textContent = pre + ((typeof _grpInt==='function')?_grpInt(Math.round(v)):Math.round(v)) + post;
+    if(p>=1){ clearInterval(iv); el.textContent=raw; }
+  },40);
+  AIJ_COUNTS.push(iv);
+}
+function aijStopCounts(){ AIJ_COUNTS.forEach(clearInterval); AIJ_COUNTS=[]; }
+/* Count every headline figure inside the spotlighted card. */
+function aijCountIn(target, sels){
+  var root=$(target); if(!root) return;
+  (sels||['.tx-hero-v','.big','.v','.bgt-val','.n']).forEach(function(sel){
+    [].slice.call(root.querySelectorAll(sel)).slice(0,3).forEach(aijCountUp);
+  });
+}
+
+/* ── the app's own expanders, driven for real ── */
+function aijExpandOrchards(){
+  try{ if(typeof stgToggle==='function') stgToggle('orch'); }catch(e){}
+  try{ var r=document.querySelector('.stg-row.g[data-stg]'); if(r && typeof stgToggle==='function' && !document.querySelector('.stg-kids.open')) stgToggle(r.getAttribute('data-stg')); }catch(e){}
+}
+function aijExpandMarketRow(){
+  try{ var r=document.querySelector('.mkr-r'); if(r && typeof mkrTog==='function' && !document.querySelector('.mkr-det.open')) mkrTog(r); }catch(e){}
+}
+function aijExpandBudgetCat(){
+  try{ var r=document.querySelector('#bgt-cats .bgt-row'); if(r) r.click(); }catch(e){}
+}
+function aijOpenPL(){ try{ if(typeof previewStatement==='function') previewStatement('pl'); }catch(e){} }
+function aijClosePL(){
+  try{ if(typeof closeStmtPreview==='function'){ closeStmtPreview(); return; } }catch(e){}
+  try{ var bg=$('stmt-preview-bg'); if(bg) bg.style.display='none'; }catch(e){}
+}
+
+/* Fired once the spotlight has settled, so the farmer sees the thing happen
+   to the thing being pointed at. */
+function aijRunAct(st){
+  var a=st.act; if(!a) return;
+  setTimeout(function(){
+    if(AIJ_I<0) return;
+    var now=AIJ[AIJ_I] && AIJ[AIJ_I].steps[AIJ_S]; if(now!==st) return;
+    if(a.k==='count')  aijCountIn(st.target, a.sels);
+    else if(a.k==='run' && window[a.fn]) { try{ window[a.fn](); }catch(e){} }
+  }, a.after||480);
+}
 function aijShowOverlay(){
   try{ clearTimeout(TOUR_HIDE_T); }catch(e){}
   var ov=$('tour-overlay');
@@ -48555,7 +48671,7 @@ function aijShowOverlay(){
 function aijRender(){
   var j=AIJ[AIJ_I]; if(!j) return;
   var st=j.steps[AIJ_S], n=j.steps.length;
-  clearTimeout(AIJ_T); aijUnsync();
+  clearTimeout(AIJ_T); aijUnsync(); aijHideCursor(); aijStopCounts(); aijClosePL();
   aijShowOverlay();
   if(st.page && typeof nav==='function') nav(st.page);
   aijApplyTab(st);
@@ -48584,12 +48700,14 @@ function aijRender(){
   /* A pause control, injected once — journeys play on their own, so the farmer
      needs a way to stop the clock and look. */
   var pb=$('tour-btn-pause');
-  if(!pb && skipBtn && skipBtn.parentNode){
-    /* .aij-pause marks it so the skip lookup above can exclude it — it borrows
-       .tour-btn-skip only for the styling. */
-    pb=document.createElement('button'); pb.id='tour-btn-pause'; pb.className='tour-btn-skip aij-pause';
-    pb.style.marginRight='6px';
-    skipBtn.parentNode.insertBefore(pb, skipBtn);
+  if(!pb){
+    var prog=document.querySelector('#tour-card .tour-progress');
+    if(prog){
+      pb=document.createElement('button'); pb.id='tour-btn-pause'; pb.className='aij-pause';
+      pb.style.cssText='font:inherit;font-size:10.5px;font-weight:700;background:none;border:0;'+
+        'color:var(--t3);cursor:pointer;padding:2px 6px;margin-left:auto;letter-spacing:.2px';
+      prog.appendChild(pb);
+    }
   }
   if(pb){ pb.style.display=''; pb.textContent=AIJ_PAUSED?'▶ Play':'❙❙ Pause'; pb.onclick=function(){ aijPause(); }; }
 
@@ -48599,12 +48717,32 @@ function aijRender(){
   if(st.onEnter && window[st.onEnter]) setTimeout(function(){ try{ window[st.onEnter](); }catch(e){} }, 180);
   setTimeout(function(){
     tourScrollTo(st.target, function(scrolled){
-      setTimeout(function(){ tourPosition(st); aijSync(st); }, scrolled?420:0);
+      setTimeout(function(){
+        tourPosition(st); aijSync(st);
+        /* pointer travels in, then the step's action runs on the real page */
+        aijPointAt(st.target, function(){ aijRunAct(st); });
+      }, scrolled?420:0);
     });
   }, delay);
 
-  if(!AIJ_PAUSED) aijArm(st.hold || 7000);
+  if(!AIJ_PAUSED) aijArm(st.hold || 4600);
 }
+function aijPick(){
+  var host=$('aij-pick-list');
+  if(host) host.innerHTML = AIJ.map(function(j,i){
+    return '<button type="button" onclick="aijPickClose();aijStart('+i+')" '+
+      'style="display:flex;gap:13px;align-items:flex-start;width:100%;text-align:left;font:inherit;color:inherit;'+
+      'background:var(--wh);border:1px solid var(--br);border-radius:11px;padding:13px 14px;margin-bottom:8px;cursor:pointer">'+
+      '<span style="font-size:20px;line-height:1;flex:0 0 auto">'+j.ic+'</span>'+
+      '<span style="flex:1;min-width:0">'+
+        '<span style="display:block;font-size:14px;font-weight:680;letter-spacing:-.2px;margin-bottom:3px">'+stEsc(j.t)+'</span>'+
+        '<span style="display:block;font-size:12px;color:var(--t3);line-height:1.5">'+stEsc(j.sub)+'</span></span>'+
+      '<span style="flex:0 0 auto;font-size:10.5px;color:var(--t4);font-weight:650;padding-top:3px">'+j.mins+'</span>'+
+      '</button>';
+  }).join('');
+  var bg=$('aij-pick'); if(bg) bg.style.display='flex';
+}
+function aijPickClose(){ var bg=$('aij-pick'); if(bg) bg.style.display='none'; }
 function aijMenu(){
   return AIJ.map(function(j,i){
     return '<div class="tours-menu-item" onclick="toggleToursMenu();aijStart('+i+')">'+
@@ -48710,6 +48848,10 @@ function aiDemoExit(){
 }
 function aiDemoWatch(){
   try{ localStorage.removeItem('ai_guest_toured'); }catch(e){}
+  /* Offer the journeys rather than the old linear run-through: a chooser
+     converts better than one fixed path, and it is what "Watch demo" should
+     have been opening all along. */
+  try{ if(typeof aijPick==='function'){ aijPick(); return; } }catch(e){}
   try{ if(typeof tourStart==='function') tourStart(); }catch(e){}
 }
 function aiDemoRibbon(){
@@ -56525,6 +56667,10 @@ function orExportPackout(){
       </div>
     </div>
   </div>
+  <div id="aij-ring"></div>
+  <div id="aij-cursor"><svg viewBox="0 0 20 20" width="22" height="22">
+    <path d="M2 1.5 L2 16 L5.9 12.4 L8.5 18.4 L11.3 17.2 L8.7 11.4 L14 11.1 Z"
+          fill="#fff" stroke="#14281F" stroke-width="1.3" stroke-linejoin="round"/></svg></div>
   <button id="tour-close" onclick="tourEnd()" title="Close tour">✕</button>
   <button id="tour-skip-bar" onclick="tourEnd()">Skip tour — go to dashboard</button>
 </div>
