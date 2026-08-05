@@ -1389,19 +1389,39 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
    full-width bars in a tinted panel wasted a desktop's width on three short
    sentences, so the cards now sit on the page in a grid. */
 .st-attn{margin-bottom:16px}
-.st-attn-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+/* align-items:stretch is the grid default, but the CARD has to fill the track it
+   is given — without a height on the item itself, a card with one line of body
+   text sits shorter than its neighbour and the row reads as ragged. The action
+   is pushed to the bottom with margin-top:auto so the links line up across the
+   row too, whatever length the sentences above them run to. */
+.st-attn-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:10px;align-items:stretch}
+.st-attn-g>.st-attn-card{height:100%;display:flex;flex-direction:column}
+.st-attn-g>.st-attn-card .st-attn-a{margin-top:auto;padding-top:9px}
 .st-attn-h{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--or);margin-bottom:9px}
 .st-attn-card{background:var(--op);border:1px solid #F2D4B2;border-radius:12px;padding:12px 14px}
-.st-attn-card+.st-attn-card{margin-top:8px}
+/* No adjacent-sibling margin: the cards are a grid row now and `gap` spaces
+   them. This rule survived from when they stacked, and it pushed the second and
+   third card 8px down inside their own row — three equal cards that did not line
+   up, and their action links sitting on two different baselines. */
 /* The headline is the finding, so it reads as ink; the amber is carried by the
    card and the action, which is where the farmer's eye needs to land. */
 .st-attn-t{font-size:13px;font-weight:750;color:var(--t1);letter-spacing:-.2px}
 .st-attn-d{font-size:12px;color:var(--t2);margin-top:4px;line-height:1.55}
-.st-attn-a{display:inline-block;font-size:11.5px;font-weight:750;color:var(--or);
+.st-attn-a{display:block;font-size:11.5px;font-weight:750;color:var(--or);
   margin-top:9px;cursor:pointer}
 .st-attn-a:hover{text-decoration:underline}
-.st-group{border:1px solid var(--br);border-radius:14px;background:#fff;margin-bottom:12px;overflow:hidden}
-.st-group-h{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);padding:11px 14px 2px;
+/* The mock-up gives every land, block and herd its own card; the group is just a
+   labelled section around them. One card holding hairline-separated rows read as
+   a table, so the eye went across it instead of down it, and the row you opened
+   was a strip inside a box rather than a thing you had picked up. The group's
+   border and background move onto the items. */
+.st-group{border:0;background:transparent;margin:0 0 22px;overflow:visible}
+.st-item{background:var(--wh);border:1px solid var(--br);border-radius:14px;margin-bottom:9px;
+  overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.st-item:hover{border-color:#CFE0D6;box-shadow:0 10px 24px -20px rgba(17,24,39,.5)}
+.st-item.open{border-color:#B9D6C6;box-shadow:0 10px 26px -20px rgba(17,24,39,.55)}
+.st-group-h{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);padding:0 4px 9px;
   display:flex;align-items:baseline;justify-content:space-between;gap:14px}
 /* What the group adds up to. The rows each carried their own planned and tracking
    figure and the hero carried the farm's, but the enterprise in between had no
@@ -1410,9 +1430,13 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .st-group-t{font-weight:700;letter-spacing:0;text-transform:none;color:var(--t4);
   font-variant-numeric:tabular-nums;white-space:nowrap}
 .st-group-t b{color:var(--t2);font-weight:800}
-.st-emptyrow{padding:12px 14px;font-size:12.5px;color:var(--t3)}
+/* The "no plan yet" line is no longer inside a group card, so it carries its own. */
+.st-emptyrow{padding:14px 16px;font-size:12.5px;color:var(--t3);background:var(--wh);
+  border:1px solid var(--br);border-radius:14px}
 .st-empty{border:1px dashed var(--br);border-radius:14px;padding:24px;text-align:center;background:#fff}
-.st-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--br2);cursor:pointer;transition:background .12s}
+/* border-top is gone: it drew a line across the top of every card. The card's own
+   border is the separator now. */
+.st-row{display:flex;align-items:center;gap:13px;padding:14px 16px;border-top:0;cursor:pointer;transition:background .12s}
 .st-row:hover{background:#FCFCFB}
 .st-row-main{flex:1;min-width:0}
 .st-row-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;font-weight:700}
@@ -1430,7 +1454,9 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .st-caret{flex:none;transition:transform .15s}
 .st-row.open .st-caret{transform:rotate(180deg)}
 .st-row.open{background:#F5F6F7;border-top-color:var(--br);box-shadow:inset 3px 0 0 0 var(--gl)}
-.st-detail{padding:6px 16px 18px 60px;border-top:none;border-bottom:1px solid var(--br);background:#F5F6F7;box-shadow:inset 3px 0 0 0 var(--gl)}
+/* Inside the card now, so it needs a line ABOVE it and none below — the card's
+   own rounded edge closes it off. */
+.st-detail{padding:2px 16px 18px;border-top:1px solid var(--br2);border-bottom:0;background:#F7F9F8}
 .st-det-h{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);margin:14px 0 6px}
 .st-bridge{}
 .st-brow{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid #F4F4F5}
@@ -34126,6 +34152,38 @@ function stCashIn(tag){
    'T00:00:00' forces local midnight — a bare ISO date parses as UTC and slips a
    day backwards west of Greenwich, which flips a move dated the 1st of May into
    the previous season. */
+/* Take the farmer to the thing the card is about, not to the tab it lives on.
+   "R261k banked on Breeding cows" landing him on a page of nine herds means he
+   still has to find it before he can fix it. The orchard and livestock planners
+   already have per-row anchors (orpGoBlock / lvpGoHerd, which scroll AND ring
+   the row); crops had none, so this one reuses the Crops overview's own
+   data-crop card. */
+function stGoCrop(name){
+  if(typeof nav==='function') nav('crop');
+  setTimeout(function(){
+    try{
+      if(typeof cropSetTab==='function'){ ST_CROP.activeTab='overview'; cropSetTab('overview'); }
+    }catch(e){}
+    setTimeout(function(){
+      var sel=(window.CSS&&CSS.escape)?CSS.escape(name):String(name).replace(/"/g,'\\"');
+      var card=document.querySelector('#crop-view-overview .crop-land[data-crop="'+sel+'"]');
+      if(!card) return;
+      if(typeof uiScrollTo==='function') uiScrollTo(card,{block:'center'});
+      card.style.transition='box-shadow .3s';
+      card.style.boxShadow='0 0 0 3px var(--gl)';
+      setTimeout(function(){ card.style.boxShadow=''; },1500);
+    },90);
+  },60);
+}
+/* The row's own deep link, as a string for an onclick. Falls back to the tab
+   when a row has no id to aim at. */
+function stRowGoFn(g, key){
+  var k=String(key==null?'':key).replace(/'/g,"\\'");
+  if(g==='orch') return "orpGoBlock('"+k+"')";
+  if(g==='live') return "lvpGoHerd('"+k+"')";
+  if(g==='crops') return "stGoCrop('"+k+"')";
+  return "nav('crop')";
+}
 function stMoveFY(m){
   if(!m || !m.date) return null;
   var iso=(typeof _lsMoveISO==='function')?_lsMoveISO(m):String(m.date);
@@ -34295,7 +34353,7 @@ function stCropRows(){
       _d:{plRev:Math.round(e.plRev),acRev:Math.round(e.acRev),plCost:Math.round(plCost),acCost:Math.round(acCost),tag:tag,byCat:byK,budget:Math.round(e.budget),budgetLine:budLine,
           revLbl:(aY<tY?'Smaller harvest':'Bigger harvest'),revNote:(Math.round(aY*10)/10)+' tons a hectare, planned '+(Math.round(tY*10)/10),
           costLbl:'Inputs',costNote:stCostSource(_ac.pct),
-          openFn:"nav('crop')",openLbl:'Open your lands'} };
+          openFn:stRowGoFn('crops',c),openLbl:'Open '+c} };
   });
 }
 function stOrchRows(){
@@ -34334,7 +34392,7 @@ function stOrchRows(){
     return {g:'orch',key:String(e.id),name:e.name,sub:(e.kind||'')+' · '+Math.round(e.area)+' ha',planned:planned,tracking:tracking,progress:prog,progressLbl:'picked',status:_st,cash:_cash,cashState:_cs,cashLabel:stCashLabel(_cs,_cash),driver:drv,
       _d:{plRev:Math.round(e.moneyBack),acRev:Math.round(e.moneyBack*ratio),plCost:Math.round(e.ops+e.labour),acCost:_ac.cost,tag:'or:'+e.id,byCat:stTaggedByCat('or:'+e.id),budget:Math.round(e.ops),
           revLbl:(ratio<1?'Lighter crop':'Bigger crop'),revNote:(Math.round(act*10)/10)+' t picked of '+(Math.round(est*10)/10)+' t estimate',
-          costLbl:'Season costs',costNote:'packing, agent & picking \u00b7 '+stCostSource(_ac.pct),openFn:"nav('orchards')",openLbl:'Open the block'} };
+          costLbl:'Season costs',costNote:'packing, agent & picking \u00b7 '+stCostSource(_ac.pct),openFn:stRowGoFn('orch',e.id),openLbl:'Open '+e.name} };
   });
 }
 function stLiveRows(){
@@ -34445,7 +34503,7 @@ function stLiveRows(){
           revNote:(planHead?(soldQ+' of '+planHead+' head sold'):'no sale planned')+
                   (pricedQ?' at '+stK(Math.round(avg))+'/head':'')+
                   (blankQ>0?', '+blankQ+' with no price':'')+(deaths>0?', '+deaths+' lost':''),
-          costLbl:'Running costs',costNote:'feed, vet & buy-in \u00b7 '+stCostSource(_costPct),openFn:"nav('livestock')",openLbl:'Open the herd'} };
+          costLbl:'Running costs',costNote:'feed, vet & buy-in \u00b7 '+stCostSource(_costPct),openFn:stRowGoFn('live',e.id),openLbl:'Open '+e.name} };
   });
 }
 function stComputeVariance(){
@@ -34488,9 +34546,17 @@ function stAttention(groups){
     /* A harvest sitting unlogged beats every other message: the number on the
        row is wrong until it is fixed, so nothing else on it can be trusted. */
     if(r.cashState==='unlogged'){
-      return {t:stK(r.cash)+' banked on '+r.name+', but no harvest logged.',
-              d:'The money is in and the crop is coming off — record the pick so the rest of this row means something.',
-              a:_rec, fn:_go};
+      /* This card used to talk about crops whatever it was describing: "R261k
+         banked on Breeding cows, but no harvest logged … the crop is coming off
+         — record the pick". Cattle do not have a harvest and are not picked. */
+      var _noun=(r.g==='live')?'sale':(r.g==='orch'?'pick':'harvest');
+      var _why =(r.g==='live')
+        ? 'The money is in but the animals have not been booked out — record the sale so the rest of this row means something.'
+        : ((r.g==='orch')
+          ? 'The money is in and the fruit is coming off — record the pick so the rest of this row means something.'
+          : 'The money is in and the crop is coming off — record the harvest so the rest of this row means something.');
+      return {t:stK(r.cash)+' banked on '+r.name+', but no '+_noun+' logged.',
+              d:_why, a:_rec, fn:_go};
     }
     if(r.planned<=0 && (r.cash||0)<=0 && (r.progress||0)<=0){
       return {t:r.name+' has nothing planned.',
@@ -34751,8 +34817,14 @@ function stgTipHTML(i, M){
   return '<div class="stg-th"><span>'+stEsc(M.full[i])+(i===M.now?' · now':'')+'</span>'
     +'<b>'+stK(tot)+'</b></div>'+body+foot;
 }
-function stGanttHTML(V){
-  var M=stgModel(V); if(!M) return '';
+/* The model the chart was last drawn from. stComputeVariance() walks every crop,
+   block and herd and scans the whole ledger once per tag, and stgModel() reads
+   twelve months off each row on top of that — so opening a group used to pay for
+   all of it FOUR times: variance+model to build the HTML, then variance+model
+   again inside stgWire. Built once, remembered here, reused by the wiring. */
+var STG_LAST=null;
+function stGanttHTML(V, M){
+  M = M || stgModel(V); STG_LAST = M; if(!M) return '';
   var now=M.now, i;
   var rows=M.groups.map(function(g){
     var kmax=1; g.kids.forEach(function(k){ if(stgMax(k.s)>kmax) kmax=stgMax(k.s); });
@@ -34803,24 +34875,28 @@ function stGanttHTML(V){
 }
 /* Redraws the chart alone. Re-rendering the whole tracker for a toggle would
    throw away the open row underneath it and jump the page. */
+/* Opening a group changes which ROWS are drawn, never the numbers behind them,
+   so the model is rebuilt only when there isn't one to reuse. Expanding is now a
+   re-render of one card, not a recomputation of the whole farm. */
 function stgRedraw(){
   var host=$('stg-card'); if(!host) return;
-  var V=stComputeVariance(), html=stGanttHTML(V);
+  var M=STG_LAST || stgModel(stComputeVariance());
+  var html=stGanttHTML(null, M);
   if(!html) return;
   var tmp=document.createElement('div'); tmp.innerHTML=html;
   var fresh=tmp.firstChild;
   host.parentNode.replaceChild(fresh, host);
   try{ if(typeof langSync==='function') langSync(fresh); }catch(e){}
-  stgWire();
+  stgWire(M);
 }
 function stgSetMode(m){ STG_MODE=(m==='line')?'line':'bars'; stgRedraw(); }
 function stgToggle(key){ STG_OPEN[key]=!STG_OPEN[key]; stgRedraw(); }
 /* Hover never re-renders — it writes one element. On a plan this size a redraw
    per mouse move would make the chart feel broken. */
-function stgWire(){
+function stgWire(M){
   var body=$('stg-body'), tip=$('stg-tip'), hov=$('stg-hov'), tog=$('stg-tog');
   if(!body||!tip||!hov) return;
-  var M=stgModel(stComputeVariance()); if(!M) return;
+  M = M || STG_LAST || stgModel(stComputeVariance()); if(!M) return;
   if(tog) tog.onclick=function(e){
     var b=e.target.closest?e.target.closest('button'):null; if(!b) return;
     stgSetMode(b.getAttribute('data-stgm'));
@@ -35085,7 +35161,10 @@ function stRowHTML(gkey,r){
       (rStarted?'<div class="st-row-tr">'+stK(r.tracking)+'</div>':'')+vchip+'</div>'+
     '<svg class="st-caret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>'+
   '</div>';
-  return head+(open?stDetailHTML(gkey,r):'');
+  /* Row and its drill-down wrapped as ONE card. They used to be siblings inside
+     the group box, so an opened row's detail floated free of the row it belonged
+     to — and the group's single border had to carry every separation. */
+  return '<div class="st-item'+(open?' open':'')+'">'+head+(open?stDetailHTML(gkey,r):'')+'</div>';
 }
 function stDetailHTML(gkey,r){
   var d=r._d, plGM=d.plRev-d.plCost, revEff=d.acRev-d.plRev, costEff=d.plCost-d.acCost, trGM=d.acRev-d.acCost;
