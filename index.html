@@ -1288,6 +1288,137 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .mkr-btn{font:inherit;font-size:11.5px;font-weight:700;border-radius:8px;padding:7px 11px;cursor:pointer;
   border:1px solid var(--br);background:var(--wh);color:var(--t2)}
 .mkr-btn.p{background:var(--gd);border-color:var(--gd);color:#fff}
+
+/* ── All SA prices · one list, with the farmer's own numbers on it ─────────
+   Replaces the two card grids (Crops / Livestock) and the sparkline in every
+   card. Those sparklines were drawn by makeSparkline from SPK_DATA/LSK_DATA —
+   six hand-typed points per commodity, held for six of thirty-one lines and
+   invented for the rest. There is no price history in this app, so the honest
+   thing to draw is what there IS: what this ground cost you and what you
+   planned to get. A real series returns behind the same scale when a feed
+   lands. Grid is shared by .mka-hd so every header sits over its own column. */
+.mka-tbl{background:var(--wh);border:1px solid var(--br);border-radius:var(--rl);overflow:hidden}
+.mka-hd,.mka-r{display:grid;
+  grid-template-columns:minmax(122px,190px) minmax(84px,100px) 62px minmax(150px,264px) minmax(150px,1fr);
+  gap:11px;align-items:center;padding:10px 15px}
+.mka-hd{background:var(--br2);border-bottom:1px solid var(--br);padding:8px 15px;
+  font-size:8.5px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--t4)}
+.mka-hd span.e{text-align:right}
+.mka-hd .key{display:flex;align-items:center;gap:4px;text-transform:none;letter-spacing:.1px;
+  font-size:9px;font-weight:650;flex-wrap:wrap}
+.mka-hd .key u{text-decoration:none;flex:0 0 auto}
+.mka-hd .key u.c{width:2px;height:9px;background:var(--or);border-radius:1px}
+.mka-hd .key u.p{width:2px;height:9px;background:var(--t4);border-radius:1px;margin-left:4px}
+.mka-hd .key u.d{width:7px;height:7px;border-radius:50%;background:var(--gd);margin-left:4px}
+.mka-r{border-bottom:1px solid var(--br2)}
+.mka-r:last-child{border-bottom:0}
+.mka-r.mine{background:var(--gb)}
+.mka-gh{padding:7px 15px;background:var(--wh);border-bottom:1px solid var(--br2);
+  display:flex;align-items:center;gap:8px;font-size:9px;font-weight:800;
+  letter-spacing:1.1px;text-transform:uppercase;color:var(--t4)}
+.mka-gh i{font-style:normal;margin-left:auto;text-transform:none;letter-spacing:0;
+  font-size:10px;font-weight:600;color:var(--t4)}
+.mka-nm{display:flex;align-items:center;gap:8px;min-width:0;font-size:12.5px;font-weight:640}
+.mka-nm .i{font-size:15px;line-height:1;flex:0 0 auto;font-style:normal}
+.mka-nm u{text-decoration:none;font-size:8px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+  background:var(--gp);color:var(--gd);padding:2px 5px;border-radius:5px;flex:0 0 auto}
+.mka-p{text-align:right;font-size:12.5px;font-weight:700;letter-spacing:-.2px;
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.mka-p s{display:block;text-decoration:none;font-size:9.5px;font-weight:500;color:var(--t4);margin-top:1px}
+.mka-c{text-align:right;font-size:11.5px;font-weight:750;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mka-c.up{color:var(--gm)} .mka-c.dn{color:var(--or)}
+/* The scale: cost tick, plan tick, today's dot. Only drawn when we hold the
+   farmer's own cost — a scale with nothing on it is the sparkline again. */
+.mka-sc{position:relative;height:28px}
+.mka-sc .ln{position:absolute;left:0;right:0;top:14px;height:4px;border-radius:3px;background:var(--br2)}
+.mka-sc .fl{position:absolute;top:14px;height:4px;border-radius:3px;
+  background:linear-gradient(90deg,var(--gl),var(--gm))}
+.mka-sc .fl.sh{background:linear-gradient(90deg,#EFA05A,var(--or))}
+.mka-sc i{position:absolute;top:8px;width:2px;height:16px;border-radius:1px}
+.mka-sc i.ct{background:var(--or)} .mka-sc i.pl{background:var(--t4)}
+.mka-sc .dt{position:absolute;top:10px;width:12px;height:12px;border-radius:50%;background:var(--gd);
+  border:2.5px solid var(--wh);box-shadow:0 0 0 1px var(--br);transform:translateX(-6px)}
+.mka-sc .dt.un{background:var(--or)}
+.mka-sc em{position:absolute;top:-2px;font-style:normal;font-size:9px;font-weight:750;
+  letter-spacing:.2px;white-space:nowrap;transform:translateX(-50%)}
+/* The cost tick sits at the far left, so a centred label hangs off the edge. */
+.mka-sc em.c{color:var(--or);left:0;transform:none}
+.mka-sc em.p{color:var(--t4)}
+/* Near the right-hand end a centred label runs off the track, so anchor it to
+   the end instead. The tick still marks the exact position; only the label moves. */
+.mka-sc em.p.r{left:auto!important;right:0;transform:none}
+/* Two facts, not a sentence — the column is scanned down, not read across. */
+.mka-w{font-size:11.5px;line-height:1.5;display:flex;align-items:baseline;gap:4px;flex-wrap:wrap}
+.mka-w b{font-size:12px;font-weight:750;font-variant-numeric:tabular-nums;color:var(--t1)}
+.mka-w b.good{color:var(--gm)}
+.mka-w em{font-style:normal;color:var(--t4);margin-right:7px}
+.mka-w em:last-child{margin-right:0}
+/* Amber fires for one thing only: something is genuinely below its cost. */
+.mka-w u{text-decoration:none;font-size:9px;font-weight:800;letter-spacing:.3px;white-space:nowrap;
+  background:var(--op);color:#B0700B;border-radius:5px;padding:2px 7px}
+.mka-w.mut{color:var(--t4);font-size:11px}
+.mka-ft{display:flex;align-items:flex-start;gap:9px;padding:11px 15px;background:var(--br2);
+  border-top:1px solid var(--br);font-size:11.5px;color:var(--t3);line-height:1.55}
+.mka-ft b{color:var(--t1)}
+
+/* ── Your fuel · what the ledger actually holds ────────────────────────────
+   The published DoE prices below are per-fuel; the FARM's fuel is one
+   category, "Fuel & Oil", so it cannot be split into diesel and petrol
+   without inventing the split. This panel states what is described as diesel,
+   what is not described either way, and turns that gap into the diesel-refund
+   claim rather than a disclaimer. */
+.mkf{background:var(--wh);border:1px solid var(--br);border-radius:var(--rl);
+  overflow:hidden;margin-bottom:18px}
+.mkf-h{display:flex;align-items:baseline;justify-content:space-between;gap:14px;
+  padding:13px 16px 0;flex-wrap:wrap}
+.mkf-h b{font-size:14px;font-weight:730;letter-spacing:-.3px}
+.mkf-h i{font-style:normal;font-size:11.5px;color:var(--t4)}
+.mkf-g{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--br);
+  margin:12px 0 0;border-top:1px solid var(--br)}
+.mkf-k{background:var(--wh);padding:12px 16px}
+.mkf-k .k{font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--t4)}
+.mkf-k .n{font-size:19px;font-weight:800;letter-spacing:-.6px;margin-top:5px;
+  font-variant-numeric:tabular-nums;color:var(--t1)}
+.mkf-k .s{font-size:10.5px;color:var(--t4);margin-top:3px;line-height:1.45}
+.mkf-k.q .n{color:#B0700B}
+.mkf-n{display:flex;align-items:flex-start;gap:11px;padding:13px 16px;background:var(--op);
+  border-top:1px solid #F3D6B4;flex-wrap:wrap}
+.mkf-n .t{font-size:13px;font-weight:730;display:block;margin-bottom:3px}
+.mkf-n p{margin:0;font-size:12px;color:var(--t2);line-height:1.55;flex:1;min-width:280px}
+.mkf-n b{color:var(--t1)}
+.mkf-n.ok{background:var(--gb);border-top-color:var(--gp)}
+/* Remittance import — rides the existing imp-* shell, only the preview rows and
+   the explainer lines are new. */
+.rmt-why{font-size:12px;color:var(--t3);line-height:1.55;margin-top:12px}
+.rmt-why b{color:var(--t1)}
+.rmt-lnk{color:var(--gm);font-weight:700;cursor:pointer;text-decoration:underline}
+.rmt-row{display:grid;grid-template-columns:22px minmax(130px,1fr) 130px 96px 108px 96px;gap:10px;
+  align-items:center;padding:10px 12px;border:1px solid var(--br);border-radius:10px;
+  margin-bottom:7px;cursor:pointer;background:var(--wh);transition:.12s}
+.rmt-row:hover{border-color:var(--gl)}
+.rmt-row.off{opacity:.42}
+.rmt-ck{width:19px;height:19px;border-radius:5px;border:1.5px solid var(--gl);color:var(--gd);
+  font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.rmt-row.off .rmt-ck{border-color:var(--br);color:transparent}
+.rmt-nm b{display:block;font-size:13px;font-weight:700;letter-spacing:-.2px}
+.rmt-nm i{display:block;font-style:normal;font-size:11px;color:var(--t4);margin-top:1px}
+.rmt-ok{font-size:11.5px;font-weight:700;color:var(--gd);background:var(--gp);padding:2px 8px;border-radius:6px}
+.rmt-no{font-size:11.5px;font-weight:700;color:var(--or);background:var(--op);padding:2px 8px;border-radius:6px}
+.rmt-v{text-align:right;font-size:12.5px;font-weight:650;letter-spacing:-.2px;font-variant-numeric:tabular-nums}
+.rmt-v.strong{font-weight:800}
+.rmt-v s{display:block;text-decoration:none;font-size:9.5px;font-weight:500;color:var(--t4);margin-top:1px}
+.rmt-warn{margin:-3px 0 8px;padding:8px 11px;background:var(--op);border:1px solid #F3D6B4;
+  border-radius:8px;font-size:11.5px;color:var(--am);line-height:1.5}
+.rmt-sum{margin-top:10px;padding:10px 12px;background:var(--gb);border:1px solid var(--gp);
+  border-radius:9px;font-size:12.5px;color:var(--t2)}
+.rmt-sum b{color:var(--t1);font-weight:800}
+/* The prompt on the Market tab's export-fruit group. */
+.mkr-imp{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:10px 15px;
+  background:var(--op);border-top:1px solid #F3D6B4;font-size:12px;color:var(--t2);line-height:1.5}
+.mkr-imp b{color:var(--t1);font-weight:700}
+.mkr-imp span{flex:1;min-width:230px}
+.mkr-imp button{flex:0 0 auto}
+
 .mkr-note{margin-top:11px;font-size:11px;color:var(--t4);line-height:1.55;display:flex;gap:8px}
 .mkr-note b{color:var(--t3)}
 @media(max-width:1000px){ .mkr-di{grid-template-columns:1fr} }
@@ -4892,8 +5023,9 @@ body.no-orchards #plan-tab-orch{display:none}
 body.no-livestock #plan-tab-live{display:none}
 body.ent-one .plan-tabs{display:none}
 body.no-orchards .opf-wrap{display:none}
-body.no-crops #mkt-tab-crops{display:none}
-body.no-livestock #mkt-tab-livestock{display:none}
+/* Crops and Livestock prices are one tab now, so neither enterprise can hide
+   it — a livestock-only farm still wants the maize price, and the rows it does
+   not farm already say "not farmed". */
 body.no-crops .tours-menu-item.ent-crops{display:none}
 body.no-orchards .tours-menu-item.ent-orchards{display:none}
 body.no-livestock .tours-menu-item.ent-livestock{display:none}
@@ -8562,8 +8694,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 
   <!-- Tabs -->
   <div class="tabs">
-    <div class="tab on" id="mkt-tab-crops"     onclick="mktTab(this,'mkt-crops')">Crops (SAFEX)</div>
-    <div class="tab"    id="mkt-tab-livestock" onclick="mktTab(this,'mkt-livestock')">Livestock Prices</div>
+    <div class="tab on" id="mkt-tab-crops"     onclick="mktTab(this,'mkt-crops')">All SA Prices</div>
     <div class="tab"    id="mkt-tab-inputs"    onclick="mktTab(this,'mkt-inputs')">Input Prices</div>
     <div class="tab"    id="mkt-tab-alerts"    onclick="mktTab(this,'mkt-alerts')">
       Price Alerts
@@ -8571,87 +8702,49 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
   </div>
 
-  <!-- CROPS TAB -->
+  <!-- ALL SA PRICES TAB (was Crops + Livestock — merged) -->
   <div id="mkt-crops">
+    <!-- The table is open by default now: it IS the tab. The bar stays as the
+         way in to the selection panels, which used to sit one per tab. -->
     <div id="mkt-crop-browsebar" onclick="toggleMktBrowse('crop')" style="border:1px solid var(--br);border-radius:var(--rs);padding:11px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;color:var(--t2);font-size:12.5px;font-weight:600;cursor:pointer">
-      <span>Browse all SA crop prices</span><span id="mkt-crop-chev" style="font-size:11px;color:var(--t3)">▾ show</span>
+      <span>Choose which prices to show</span><span id="mkt-crop-chev" style="font-size:11px;color:var(--t3)">▾ show</span>
     </div>
     <div id="mkt-crop-browse" style="display:none">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-        <button onclick="toggleMktFilter('crop')" style="font-size:12px;font-weight:600;color:var(--gl);background:none;border:none;cursor:pointer">Edit selection ✎</button>
+      <div id="mkt-crop-filter-panel" style="background:var(--bg);border:1px solid var(--br);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px">Crops &amp; oilseeds</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px" id="mkt-crop-toggles"></div>
       </div>
-    <div id="mkt-crop-filter-panel" style="display:none;background:var(--bg);border:1px solid var(--br);border-radius:var(--rs);padding:12px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px">Select crops to display</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px" id="mkt-crop-toggles"></div>
-      <button onclick="toggleMktFilter('crop')" style="margin-top:10px;font-size:12px;font-weight:600;color:var(--gd);background:var(--gb);border:1px solid var(--gp);border-radius:var(--rs);padding:5px 14px;cursor:pointer">Done</button>
+      <div id="mkt-ls-filter-panel" style="background:var(--bg);border:1px solid var(--br);border-radius:var(--rs);padding:12px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px">Livestock &amp; fibre</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px" id="mkt-ls-toggles"></div>
+      </div>
+      <button onclick="toggleMktBrowse('crop')" style="font-size:12px;font-weight:600;color:var(--gd);background:var(--gb);border:1px solid var(--gp);border-radius:var(--rs);padding:5px 14px;cursor:pointer">Done</button>
     </div>
-    <div class="price-cards" id="mkt-crop-cards" style="grid-template-columns:repeat(3,1fr)">
-      <div class="pc"><div class="pc-ico">🌽</div><div class="pc-name">White Maize</div><div class="pc-per">Jul 2024 · SAFEX</div><div class="pc-price">R2 758/ton</div><div class="pc-chg up">↑ R84 (3.15%)</div><div class="pc-spark"><canvas id="sp1"></canvas></div><div class="pc-range">High: R2 776 · Low: R2 670</div></div>
-      <div class="pc"><div class="pc-ico">🌽</div><div class="pc-name">Yellow Maize</div><div class="pc-per">Jul 2024 · SAFEX</div><div class="pc-price">R2 646/ton</div><div class="pc-chg up">↑ R76 (2.95%)</div><div class="pc-spark"><canvas id="sp2"></canvas></div><div class="pc-range">High: R2 662 · Low: R2 560</div></div>
-      <div class="pc"><div class="pc-ico">🌾</div><div class="pc-name">Wheat</div><div class="pc-per">Jul 2024 · SAFEX</div><div class="pc-price">R4 818/ton</div><div class="pc-chg up">↑ R110 (2.34%)</div><div class="pc-spark"><canvas id="sp3"></canvas></div><div class="pc-range">High: R4 840 · Low: R4 690</div></div>
-      <div class="pc"><div class="pc-ico">🌱</div><div class="pc-name">Soybeans</div><div class="pc-per">Jul 2024 · SAFEX</div><div class="pc-price">R8 965/ton</div><div class="pc-chg up">↑ R152 (1.72%)</div><div class="pc-spark"><canvas id="sp4"></canvas></div><div class="pc-range">High: R9 010 · Low: R8 760</div></div>
-      <div class="pc"><div class="pc-ico">🌻</div><div class="pc-name">Sunflower Seed</div><div class="pc-per">Jul 2024 · SAFEX</div><div class="pc-price">R7 350/ton</div><div class="pc-chg up">↑ R95 (1.31%)</div><div class="pc-spark"><canvas id="sp5"></canvas></div><div class="pc-range">High: R7 390 · Low: R7 210</div></div>
-      <div class="pc"><div class="pc-ico">🌾</div><div class="pc-name">Sorghum</div><div class="pc-per">Jul 2024 · SAFEX</div><div class="pc-price">R2 480/ton</div><div class="pc-chg up">↑ R50 (2.06%)</div><div class="pc-spark"><canvas id="sp6"></canvas></div><div class="pc-range">High: R2 505 · Low: R2 420</div></div>
-      <div class="pc"><div class="pc-ico">🌿</div><div class="pc-name">Canola</div><div class="pc-per">Jul 2024 · SAFEX</div><div class="pc-price">R7 820/ton</div><div class="pc-chg up">↑ R65 (0.84%)</div><div class="pc-spark"><canvas id="sp13"></canvas></div><div class="pc-range">High: R7 870 · Low: R7 740</div></div>
-      <div class="pc"><div class="pc-ico">🌾</div><div class="pc-name">Barley</div><div class="pc-per">Jul 2024 · Spot</div><div class="pc-price">R4 180/ton</div><div class="pc-chg dn">↓ R30 (0.71%)</div><div class="pc-spark"><canvas id="sp14"></canvas></div><div class="pc-range">High: R4 230 · Low: R4 140</div></div>
-      <div class="pc"><div class="pc-ico">🥜</div><div class="pc-name">Groundnuts</div><div class="pc-per">Jul 2024 · Spot</div><div class="pc-price">R9 240/ton</div><div class="pc-chg up">↑ R120 (1.31%)</div><div class="pc-spark"><canvas id="sp15"></canvas></div><div class="pc-range">High: R9 290 · Low: R9 100</div></div>
-      <div class="pc"><div class="pc-ico">🌿</div><div class="pc-name">Cotton (seed)</div><div class="pc-per">Jul 2024 · Spot</div><div class="pc-price">R8 420/ton</div><div class="pc-chg up">↑ R95 (1.14%)</div><div class="pc-spark"><canvas id="sp30"></canvas></div><div class="pc-range">High: R8 480 · Low: R8 300</div></div>
-      <div class="pc"><div class="pc-ico">🫘</div><div class="pc-name">Dry Beans</div><div class="pc-per">Jul 2024 · Spot</div><div class="pc-price">R11 500/ton</div><div class="pc-chg dn">↓ R80 (0.69%)</div><div class="pc-spark"><canvas id="sp31"></canvas></div><div class="pc-range">High: R11 600 · Low: R11 400</div></div>
-      <div class="pc"><div class="pc-ico">🥔</div><div class="pc-name">Potatoes</div><div class="pc-per">Jul 2024 · FPMC</div><div class="pc-price">R2 800/ton</div><div class="pc-chg up">↑ R120 (4.48%)</div><div class="pc-spark"><canvas id="sp32"></canvas></div><div class="pc-range">Avg 10kg bag: R28.00</div></div>
-      <div class="pc"><div class="pc-ico">🎋</div><div class="pc-name">Sugarcane</div><div class="pc-per">Jul 2024 · SASA</div><div class="pc-price">R520/ton</div><div class="pc-chg up">↑ R8 (1.56%)</div><div class="pc-spark"><canvas id="sp33"></canvas></div><div class="pc-range">RV price: R520/ton cane</div></div>
-      <div class="pc"><div class="pc-ico">🌾</div><div class="pc-name">Oats</div><div class="pc-per">Jul 2024 · Spot</div><div class="pc-price">R3 820/ton</div><div class="pc-chg up">↑ R45 (1.19%)</div><div class="pc-spark"><canvas id="sp34"></canvas></div><div class="pc-range">High: R3 860 · Low: R3 780</div></div>
-      <div class="pc"><div class="pc-ico">🌱</div><div class="pc-name">Lupins</div><div class="pc-per">Jul 2024 · Spot</div><div class="pc-price">R5 600/ton</div><div class="pc-chg dn">↓ R60 (1.06%)</div><div class="pc-spark"><canvas id="sp35"></canvas></div><div class="pc-range">High: R5 680 · Low: R5 540</div></div>
-      <div class="pc"><div class="pc-ico">🥦</div><div class="pc-name">Lucerne (hay)</div><div class="pc-per">Jul 2024 · Spot</div><div class="pc-price">R3 800/ton</div><div class="pc-chg up">↑ R50 (1.33%)</div><div class="pc-spark"><canvas id="sp36"></canvas></div><div class="pc-range">Baled · Farm delivery</div></div>
-      <div class="pc"><div class="pc-ico">🌿</div><div class="pc-name">Tobacco (flue-cured)</div><div class="pc-per">Jul 2024 · Auction</div><div class="pc-price">R52 000/ton</div><div class="pc-chg up">↑ R800 (1.56%)</div><div class="pc-spark"><canvas id="sp37"></canvas></div><div class="pc-range">Zimbabwe-style auction</div></div>
-      <div class="pc"><div class="pc-ico">🫚</div><div class="pc-name">Palm / Soya Oil</div><div class="pc-per">Jul 2024 · Spot</div><div class="pc-price">R18 500/ton</div><div class="pc-chg dn">↓ R200 (1.07%)</div><div class="pc-spark"><canvas id="sp38"></canvas></div><div class="pc-range">Refined bulk SA</div></div>
-    </div><!-- end mkt-crop-cards -->
-    </div><!-- end mkt-crop-browse -->
 
-    <!-- AI Insight (dynamic) -->
+    <div id="mkt-all-prices"></div>
+    <!-- The 31 published prices now live in MKT_ALL (one JS array) and render
+         above. The old .pc card grids (Crops and Livestock) are retired: every
+         price, change and note was carried over verbatim, and MKT_VISIBLE /
+         the selection panels still hide rows by the same sp* ids. -->
+
+    <!-- AI Insight (dynamic) — both reads kept, one under the other -->
     <div class="ai-sec" id="mkt-crop-insight">
       <div class="ai-hdr"><div class="ai-title">Market Insight</div></div>
       <div id="mkt-insight-body" style="font-size:13px;color:var(--t2);line-height:1.7"></div>
     </div>
-  </div>
-
-  <!-- LIVESTOCK TAB -->
-  <div id="mkt-livestock" style="display:none">
-    <div id="mkt-ls-browsebar" onclick="toggleMktBrowse('ls')" style="border:1px solid var(--br);border-radius:var(--rs);padding:11px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;color:var(--t2);font-size:12.5px;font-weight:600;cursor:pointer">
-      <span>Browse all SA livestock prices</span><span id="mkt-ls-chev" style="font-size:11px;color:var(--t3)">▾ show</span>
-    </div>
-    <div id="mkt-ls-browse" style="display:none">
-      <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-        <button onclick="toggleMktFilter('ls')" style="font-size:12px;font-weight:600;color:var(--gl);background:none;border:none;cursor:pointer">Edit selection ✎</button>
-      </div>
-    <div id="mkt-ls-filter-panel" style="display:none;background:var(--bg);border:1px solid var(--br);border-radius:var(--rs);padding:12px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:8px">Select livestock to display</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px" id="mkt-ls-toggles"></div>
-      <button onclick="toggleMktFilter('ls')" style="margin-top:10px;font-size:12px;font-weight:600;color:var(--gd);background:var(--gb);border:1px solid var(--gp);border-radius:var(--rs);padding:5px 14px;cursor:pointer">Done</button>
-    </div>
-    <div class="price-cards" id="mkt-ls-cards" style="grid-template-columns:repeat(3,1fr)">
-      <div class="pc"><div class="pc-ico">🐄</div><div class="pc-name">Beef Cattle A2/A3</div><div class="pc-per">Steers · AMT</div><div class="pc-price">R56.80/kg</div><div class="pc-chg up">↑ R0.80 (1.43%)</div><div class="pc-spark"><canvas id="sp7"></canvas></div><div class="pc-range">Avg 380kg · Est. R21 584/head</div></div>
-      <div class="pc"><div class="pc-ico">🐄</div><div class="pc-name">Beef Cows C2/C3</div><div class="pc-per">Cows · AMT</div><div class="pc-price">R39.20/kg</div><div class="pc-chg up">↑ R0.50 (1.29%)</div><div class="pc-spark"><canvas id="sp8"></canvas></div><div class="pc-range">Avg 450kg · Est. R17 640/head</div></div>
-      <div class="pc"><div class="pc-ico">🐑</div><div class="pc-name">Lambs A2/A3</div><div class="pc-per">Lambs · AMT</div><div class="pc-price">R93.50/kg</div><div class="pc-chg up">↑ R1.30 (1.41%)</div><div class="pc-spark"><canvas id="sp9"></canvas></div><div class="pc-range">Avg 35kg · Est. R3 273/head</div></div>
-      <div class="pc"><div class="pc-ico">🐐</div><div class="pc-name">Goats Class A</div><div class="pc-per">Goats · AMT</div><div class="pc-price">R67.20/kg</div><div class="pc-chg dn">↓ R0.40 (0.59%)</div><div class="pc-spark"><canvas id="sp10"></canvas></div><div class="pc-range">Avg 30kg · Est. R2 016/head</div></div>
-      <div class="pc"><div class="pc-ico">🐷</div><div class="pc-name">Pigs Baconer</div><div class="pc-per">Pigs · AMT</div><div class="pc-price">R24.50/kg</div><div class="pc-chg up">↑ R0.20 (0.82%)</div><div class="pc-spark"><canvas id="sp11"></canvas></div><div class="pc-range">Avg 90kg · Est. R2 205/head</div></div>
-      <div class="pc"><div class="pc-ico">🐔</div><div class="pc-name">Broilers</div><div class="pc-per">Live weight · SAAPA</div><div class="pc-price">R22.80/kg</div><div class="pc-chg dn">↓ R0.15 (0.65%)</div><div class="pc-spark"><canvas id="sp12"></canvas></div><div class="pc-range">Live weight</div></div>
-      <div class="pc"><div class="pc-ico">🐄</div><div class="pc-name">Calves / Weaners</div><div class="pc-per">Weaners · AMT</div><div class="pc-price">R32.40/kg</div><div class="pc-chg up">↑ R0.60 (1.89%)</div><div class="pc-spark"><canvas id="sp40"></canvas></div><div class="pc-range">Avg 180kg · Est. R5 832/head</div></div>
-      <div class="pc"><div class="pc-ico">🐄</div><div class="pc-name">Dairy Cows (Holstein)</div><div class="pc-per">Slaughter · AMT</div><div class="pc-price">R28.50/kg</div><div class="pc-chg up">↑ R0.30 (1.06%)</div><div class="pc-spark"><canvas id="sp41"></canvas></div><div class="pc-range">Milk price: R5.80/L</div></div>
-      <div class="pc"><div class="pc-ico">🐑</div><div class="pc-name">Mutton Sheep C2/C3</div><div class="pc-per">Ewes · AMT</div><div class="pc-price">R58.20/kg</div><div class="pc-chg up">↑ R0.80 (1.39%)</div><div class="pc-spark"><canvas id="sp42"></canvas></div><div class="pc-range">Avg 50kg · Est. R2 910/head</div></div>
-      <div class="pc"><div class="pc-ico">🐑</div><div class="pc-name">Merino Wool</div><div class="pc-per">Clean · SAWF</div><div class="pc-price">R140/kg clean</div><div class="pc-chg dn">↓ R2 (1.41%)</div><div class="pc-spark"><canvas id="sp43"></canvas></div><div class="pc-range">19–21 micron · Avg 4kg/ewe</div></div>
-      <div class="pc"><div class="pc-ico">🦃</div><div class="pc-name">Ostriches</div><div class="pc-per">Slaughter · Klein Karoo</div><div class="pc-price">R48 500/bird</div><div class="pc-chg up">↑ R500 (1.04%)</div><div class="pc-spark"><canvas id="sp44"></canvas></div><div class="pc-range">Avg 90kg · Feathers incl.</div></div>
-      <div class="pc"><div class="pc-ico">🐷</div><div class="pc-name">Pigs Porker</div><div class="pc-per">Porkers · SAPPO</div><div class="pc-price">R22.10/kg</div><div class="pc-chg up">↑ R0.15 (0.68%)</div><div class="pc-spark"><canvas id="sp45"></canvas></div><div class="pc-range">Avg 60–70kg</div></div>
-      <div class="pc"><div class="pc-ico">🎯</div><div class="pc-name">Game (Venison — Kudu)</div><div class="pc-per">Live weight · PHASA</div><div class="pc-price">R85/kg</div><div class="pc-chg up">↑ R2 (2.41%)</div><div class="pc-spark"><canvas id="sp46"></canvas></div><div class="pc-range">Trophy fees additional</div></div>
-    </div><!-- end mkt-ls-cards -->
-    </div><!-- end mkt-ls-browse -->
     <div class="ai-sec">
       <div class="ai-hdr"><div class="ai-title">Livestock Market Insight</div></div>
       <div id="mkt-ls-insight-body" style="font-size:13px;color:var(--t2);line-height:1.7"></div>
     </div>
   </div>
 
+  <!-- LIVESTOCK TAB — merged into "All SA Prices" above (MKT_ALL) -->
+
   <!-- INPUT PRICES TAB -->
   <div id="mkt-inputs" style="display:none">
+    <!-- What the FARM spent, before the published prices — the farm's own
+         number is the one that decides anything. -->
+    <div id="mkt-your-fuel"></div>
     <!-- Fuel -->
     <div style="font-size:14px;font-weight:700;margin-bottom:10px">Fuel Prices <span style="font-size:12px;color:var(--t3);font-weight:400" id="mkt-fuel-eff">· Monthly DoE adjustment</span></div>
     <div class="price-cards" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
@@ -8686,7 +8779,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       </table>
     </div>
 
-    <div class="tipbar"><div class="tipbar-left"><svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>Diesel is one of the biggest costs on most farms — bulk storage and the SARS diesel rebate both help take the sting out.</span></div></div>
+    <div class="tipbar"><div class="tipbar-left"><svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span>These are the published DoE prices, not what you paid. Your own fuel bill is at the top of this tab &mdash; including how much of it can go on a diesel-refund claim.</span></div></div>
   </div>
 
   <!-- PRICE ALERTS TAB -->
@@ -12345,11 +12438,9 @@ function applyFarmTypeVisibility(){
   }
   // Market Prices: if the active tab is now hidden, switch to a visible one
   try{
-    var mc=$('mkt-tab-crops'), ml=$('mkt-tab-livestock');
-    if(document.querySelector('#pg-market.on')){
-      var activeHidden = (mc&&mc.classList.contains('on')&&!c)||(ml&&ml.classList.contains('on')&&!l);
-      if(activeHidden){ var first = c?mc:(l?ml:$('mkt-tab-inputs')); if(first) first.click(); }
-    }
+    /* The prices tab is no longer split by enterprise, so nothing to redirect
+       away from — just redraw so the rows match what is switched on. */
+    if(document.querySelector('#pg-market.on') && typeof mkaRender==='function') mkaRender();
   }catch(e){}
   entApplyCategoryFilter();
   // Redirect away from a page that's now hidden
@@ -16618,7 +16709,13 @@ function nav(id) {
     if (id === 'planning')    { recomputePlan(); setPlanTab(ST_PLAN.activeTab || 'crops'); updatePlanCombinedBanner(); updatePlanTabCounts(); }
     if (id === 'expenses')    { try { lazyInitCharts('expenses'); } catch (e) {} renderTable('expense'); renderExpBar(); updateExpPage(); }
     if (id === 'cashflow')    { try { lazyInitCharts('cashflow'); } catch (e) {} updateCfPage(); }
-    if (id === 'market')      { try { lazyInitCharts('market'); } catch (e) {} renderMyFarm(); renderMktInsight(); if (typeof mktRefreshDateLabels==='function') mktRefreshDateLabels(); }
+    if (id === 'market')      { try { lazyInitCharts('market'); } catch (e) {} renderMyFarm();
+      /* Not inside lazyInitCharts: that is guarded by CHARTS_INITED and runs
+         once, but these change whenever a remittance lands or an enterprise is
+         switched on. */
+      try { mkaRender(); mkaRenderFuel(); } catch (e) {}
+      renderMktInsight(); if (typeof renderLsInsight==='function') renderLsInsight();
+      if (typeof mktRefreshDateLabels==='function') mktRefreshDateLabels(); }
     if (id === 'transactions'){ if(typeof txRefreshDeletedChip==='function') txRefreshDeletedChip(); }
   if (id === 'settings')    {
     var sf=$('set-farm');   if(sf) sf.value = ST.farmName   || '';
@@ -37936,11 +38033,14 @@ var ST_ALERTS = [];
 function mktTab(btn, sectionId) {
   document.querySelectorAll('#pg-market .tab').forEach(function(t){ t.classList.remove('on'); });
   btn.classList.add('on');
-  var ids=['mkt-crops','mkt-livestock','mkt-inputs','mkt-alerts'];
+  var ids=['mkt-crops','mkt-inputs','mkt-alerts'];
   ids.forEach(function(id){ var el=$(id); if(el) el.style.display=id===sectionId?'block':'none'; });
-  if(sectionId==='mkt-crops')    { initSparklines();  renderMktInsight(); applyMktFilter('crop'); }
-  if(sectionId==='mkt-livestock'){ initLivestockSparklines(); renderLsInsight(); applyMktFilter('ls'); }
-  if(sectionId==='mkt-inputs')   { initInputSparklines(); }
+  /* One merged list now, so both insights render together and mkaRender draws
+     the rows. No sparkline init: MKT_ALL has no series behind it to draw. */
+  if(sectionId==='mkt-crops')  { mkaRender(); renderMktInsight(); renderLsInsight(); }
+  /* Chart.js is a separate script; if it has not loaded, makeSparkline throws
+     and used to take the rest of the tab switch with it. */
+  if(sectionId==='mkt-inputs') { mkaRenderFuel(); try{ initInputSparklines(); }catch(e){} }
   if(sectionId==='mkt-alerts')   { renderAlerts(); }
 }
 
@@ -38000,21 +38100,333 @@ var MKT_LS_INFO = [
   {id:'sp46', label:'🎯 Game (Venison — Kudu)'}
 ];
 
+/* ── MKT_ALL · the 31 published prices, lifted out of hardcoded cards ──────
+   Every price, change and note below is verbatim from the .pc cards this
+   replaces — nothing added, nothing dropped. `id` stays the old sparkline
+   canvas id so MKT_VISIBLE, MKT_CROP_INFO, MKT_LS_INFO and the "Edit
+   selection" panel keep working against the same keys.
+   kg = average carcass weight, and it is present ONLY where the old card
+   already printed one ("Avg 380kg · Est. R21 584/head"). Where a card gave no
+   average, there is no kg here and no per-head figure is shown, because there
+   is nothing to work it out from. */
+var MKT_ALL = [
+  {id:'sp1', g:'crop', ic:'🌽', nm:'White Maize',        p:2758,  u:'ton', chg:84,   pct:3.15, src:'SAFEX',   note:'High R2 776 · Low R2 670'},
+  {id:'sp2', g:'crop', ic:'🌽', nm:'Yellow Maize',       p:2646,  u:'ton', chg:76,   pct:2.95, src:'SAFEX',   note:'High R2 662 · Low R2 560'},
+  {id:'sp3', g:'crop', ic:'🌾', nm:'Wheat',              p:4818,  u:'ton', chg:110,  pct:2.34, src:'SAFEX',   note:'High R4 840 · Low R4 690'},
+  {id:'sp4', g:'crop', ic:'🌱', nm:'Soybeans',           p:8965,  u:'ton', chg:152,  pct:1.72, src:'SAFEX',   note:'High R9 010 · Low R8 760'},
+  {id:'sp5', g:'crop', ic:'🌻', nm:'Sunflower Seed',     p:7350,  u:'ton', chg:95,   pct:1.31, src:'SAFEX',   note:'High R7 390 · Low R7 210'},
+  {id:'sp6', g:'crop', ic:'🌾', nm:'Sorghum',            p:2480,  u:'ton', chg:50,   pct:2.06, src:'SAFEX',   note:'High R2 505 · Low R2 420'},
+  {id:'sp13',g:'crop', ic:'🌿', nm:'Canola',             p:7820,  u:'ton', chg:65,   pct:0.84, src:'SAFEX',   note:'High R7 870 · Low R7 740'},
+  {id:'sp14',g:'crop', ic:'🌾', nm:'Barley',             p:4180,  u:'ton', chg:-30,  pct:-0.71,src:'Spot',    note:'High R4 230 · Low R4 140'},
+  {id:'sp15',g:'crop', ic:'🥜', nm:'Groundnuts',         p:9240,  u:'ton', chg:120,  pct:1.31, src:'Spot',    note:'High R9 290 · Low R9 100'},
+  {id:'sp30',g:'crop', ic:'🌿', nm:'Cotton (seed)',      p:8420,  u:'ton', chg:95,   pct:1.14, src:'Spot',    note:'High R8 480 · Low R8 300'},
+  {id:'sp31',g:'crop', ic:'🫘', nm:'Dry Beans',          p:11500, u:'ton', chg:-80,  pct:-0.69,src:'Spot',    note:'High R11 600 · Low R11 400'},
+  {id:'sp32',g:'crop', ic:'🥔', nm:'Potatoes',           p:2800,  u:'ton', chg:120,  pct:4.48, src:'FPMC',    note:'Avg 10kg bag R28.00'},
+  {id:'sp33',g:'crop', ic:'🎋', nm:'Sugarcane',          p:520,   u:'ton', chg:8,    pct:1.56, src:'SASA',    note:'RV price per ton cane'},
+  {id:'sp34',g:'crop', ic:'🌾', nm:'Oats',               p:3820,  u:'ton', chg:45,   pct:1.19, src:'Spot',    note:'High R3 860 · Low R3 780'},
+  {id:'sp35',g:'crop', ic:'🌱', nm:'Lupins',             p:5600,  u:'ton', chg:-60,  pct:-1.06,src:'Spot',    note:'High R5 680 · Low R5 540'},
+  {id:'sp36',g:'crop', ic:'🥦', nm:'Lucerne (hay)',      p:3800,  u:'ton', chg:50,   pct:1.33, src:'Spot',    note:'Baled · farm delivery'},
+  {id:'sp37',g:'crop', ic:'🌿', nm:'Tobacco (flue-cured)',p:52000,u:'ton', chg:800,  pct:1.56, src:'Auction', note:'Zimbabwe-style auction'},
+  {id:'sp38',g:'crop', ic:'🫚', nm:'Palm / Soya Oil',    p:18500, u:'ton', chg:-200, pct:-1.07,src:'Spot',    note:'Refined bulk SA'},
+  {id:'sp7', g:'ls',   ic:'🐄', nm:'Beef Cattle A2/A3',  p:56.80, u:'kg',  chg:0.80, pct:1.43, src:'AMT · steers', kg:380, note:'Avg 380 kg carcass'},
+  {id:'sp8', g:'ls',   ic:'🐄', nm:'Beef Cows C2/C3',    p:39.20, u:'kg',  chg:0.50, pct:1.29, src:'AMT · cows',   kg:450, note:'Avg 450 kg carcass'},
+  {id:'sp9', g:'ls',   ic:'🐑', nm:'Lambs A2/A3',        p:93.50, u:'kg',  chg:1.30, pct:1.41, src:'AMT · lambs',  kg:35,  note:'Avg 35 kg carcass'},
+  {id:'sp10',g:'ls',   ic:'🐐', nm:'Goats Class A',      p:67.20, u:'kg',  chg:-0.40,pct:-0.59,src:'AMT · goats',  kg:30,  note:'Avg 30 kg carcass'},
+  {id:'sp11',g:'ls',   ic:'🐷', nm:'Pigs Baconer',       p:24.50, u:'kg',  chg:0.20, pct:0.82, src:'AMT · pigs',   kg:90,  note:'Avg 90 kg carcass'},
+  {id:'sp12',g:'ls',   ic:'🐔', nm:'Broilers',           p:22.80, u:'kg',  chg:-0.15,pct:-0.65,src:'SAAPA',        note:'Live weight'},
+  {id:'sp40',g:'ls',   ic:'🐄', nm:'Calves / Weaners',   p:32.40, u:'kg',  chg:0.60, pct:1.89, src:'AMT · weaners',kg:180, note:'Avg 180 kg'},
+  {id:'sp41',g:'ls',   ic:'🐄', nm:'Dairy Cows (Holstein)',p:28.50,u:'kg', chg:0.30, pct:1.06, src:'AMT · slaughter', note:'Milk price R5.80/L'},
+  {id:'sp42',g:'ls',   ic:'🐑', nm:'Mutton Sheep C2/C3', p:58.20, u:'kg',  chg:0.80, pct:1.39, src:'AMT · ewes',   kg:50,  note:'Avg 50 kg carcass'},
+  {id:'sp43',g:'ls',   ic:'🐑', nm:'Merino Wool',        p:140,   u:'kg',  chg:-2,   pct:-1.41,src:'Cape Wools',   note:'Clean · 19–21 micron · avg 4 kg/ewe'},
+  {id:'sp44',g:'ls',   ic:'🦃', nm:'Ostriches',          p:48500, u:'bird',chg:500,  pct:1.04, src:'Klein Karoo',  note:'Avg 90 kg · feathers incl.'},
+  {id:'sp45',g:'ls',   ic:'🐷', nm:'Pigs Porker',        p:22.10, u:'kg',  chg:0.15, pct:0.68, src:'SAPPO',        note:'Avg 60–70 kg'},
+  {id:'sp46',g:'ls',   ic:'🎯', nm:'Game (Venison — Kudu)',p:85,  u:'kg',  chg:2,    pct:2.41, src:'PHASA',        note:'Live weight · trophy fees extra'}
+];
+/* Which MKT_ALL row a plan crop belongs to. Same aliasing chain as
+   mktPriceFor, which returns the PRICE object; this needs the row. */
+function mkaForCrop(name){
+  var n=String(name||'').toLowerCase(), i;
+  function byName(t){ for(i=0;i<MKT_ALL.length;i++){ if(MKT_ALL[i].nm===t) return MKT_ALL[i]; } return null; }
+  var exact=byName(String(name||'')); if(exact) return exact;
+  if(n.indexOf('maize')>-1) return byName(n.indexOf('yellow')>-1?'Yellow Maize':'White Maize');
+  if(n.indexOf('soy')>-1)   return byName('Soybeans');
+  if(n.indexOf('wheat')>-1) return byName('Wheat');
+  if(n.indexOf('sun')>-1)   return byName('Sunflower Seed');
+  if(n.indexOf('sorghum')>-1)   return byName('Sorghum');
+  if(n.indexOf('canola')>-1)    return byName('Canola');
+  if(n.indexOf('barley')>-1)    return byName('Barley');
+  if(n.indexOf('groundnut')>-1) return byName('Groundnuts');
+  if(n.indexOf('potato')>-1)    return byName('Potatoes');
+  if(n.indexOf('oat')>-1)       return byName('Oats');
+  if(n.indexOf('lucerne')>-1)   return byName('Lucerne (hay)');
+  return byName(String(name||'').replace(' (white)','').replace(' (yellow)','').trim());
+}
+/* What the farm itself puts against each published price. Keyed by MKT_ALL id.
+   cost is the CHEAPEST land or herd carrying that commodity, and `under` names
+   any other one whose own cost the price does not cover — because a single
+   "White Maize" line hides that Vlakte clears and Grootvlei does not. plan is
+   read from the same land the cost came from, so the two ticks on the scale
+   always describe one piece of ground rather than two averages. */
+/* A herd only belongs on a carcass price if it is actually being sold into
+   one this season. Without this, "Young stock" — 12 weaners with a nil sale
+   draft and a R4 440 per-head cost, because they have barely been fed yet —
+   anchored the Beef Cattle row and reported R17 144 a head clear against a
+   380 kg carcass they are years away from. Same test mkrRows uses (head>0),
+   so the merged list and the My Farm table cannot disagree. */
+function mkaHerdSells(h){
+  if(!h||h.removed||h.planned||h.inPlanning||!h.qty) return false;
+  var head=(typeof lvpSoldHead==='function')?lvpSoldHead(h):0;
+  return head>0;
+}
+function mkaForHerd(h){
+  var key=(typeof animalMarketKey==='function')?animalMarketKey(h.type):null;
+  if(!key) return null;
+  for(var i=0;i<MKT_ALL.length;i++){ if(MKT_ALL[i].nm===key) return MKT_ALL[i]; }
+  return null;
+}
+function mkaFarm(){
+  var M={};
+  function put(id, cost, plan, who){
+    if(!id || !(cost>0)) return;
+    var e=M[id]||(M[id]={cost:null, plan:null, who:'', under:[]});
+    if(e.cost==null || cost<e.cost){ e.cost=cost; e.plan=(plan>0?plan:null); e.who=who; }
+  }
+  ((typeof ST_PLAN!=='undefined'&&ST_PLAN.crops)||[]).forEach(function(c){
+    var row=mkaForCrop(c.crop); if(!row) return;
+    var cost=(c.yield>0)?(((c.inputCost||0)+(c.otherCost||0))/c.yield):0;
+    put(row.id, cost, c.price, c.field||c.crop);
+  });
+  ((typeof ST_LS!=='undefined'&&ST_LS.herd)||[]).forEach(function(h){
+    if(!mkaHerdSells(h)) return;
+    var row=mkaForHerd(h); if(!row) return;
+    var cost=(typeof lsHerdCost==='function')?lsHerdCost(h)/h.qty:0;
+    put(row.id, cost, h.sell, h.name);
+  });
+  /* Second pass for the ones the cheapest row hid. */
+  function flag(id, cost, who){
+    var e=M[id]; if(!e||!(cost>0)) return;
+    var row=null,i; for(i=0;i<MKT_ALL.length;i++){ if(MKT_ALL[i].id===id) row=MKT_ALL[i]; }
+    if(!row) return;
+    var today=mkaToday(row);
+    if(today!=null && cost>today && who!==e.who) e.under.push(who);
+  }
+  ((typeof ST_PLAN!=='undefined'&&ST_PLAN.crops)||[]).forEach(function(c){
+    var row=mkaForCrop(c.crop); if(!row) return;
+    flag(row.id, (c.yield>0)?(((c.inputCost||0)+(c.otherCost||0))/c.yield):0, c.field||c.crop);
+  });
+  ((typeof ST_LS!=='undefined'&&ST_LS.herd)||[]).forEach(function(h){
+    if(!mkaHerdSells(h)) return;
+    var row=mkaForHerd(h); if(!row) return;
+    flag(row.id, (typeof lsHerdCost==='function')?lsHerdCost(h)/h.qty:0, h.name);
+  });
+  return M;
+}
+/* The figure a farm cost is comparable with. A herd cost is per HEAD, so an
+   AMT rand-per-kilo has to be taken to a carcass before the two can sit on one
+   scale — and only where the published card gave an average weight. */
+function mkaToday(row){
+  if(!row) return null;
+  if(row.g==='ls') return row.kg?(row.p*row.kg):null;
+  return row.p;
+}
+function mkaUnitWord(row){ return row.g==='ls' ? (row.kg?'head':row.u) : row.u; }
+/* Rands the way the unit deserves — a kilo is not a ton. Sign outside the R,
+   because _grpInt drops the minus (34 callers pass Math.abs). */
+function mkaR(v,row){
+  if(v==null) return '—';
+  var neg=v<0, a=Math.abs(v), body;
+  if(row && row.u==='kg' && a<1000) body=(Math.round(a*100)/100).toFixed(2);
+  else body=(typeof _grpInt==='function')?_grpInt(Math.round(a)):String(Math.round(a));
+  return (neg?'-R':'R')+body;
+}
+function mkaSigned(v,row){ if(v==null) return '—'; return (v>=0?'+':'−')+mkaR(Math.abs(v),row); }
+function mkaPct(v){ return (v>=0?'+':'−')+Math.abs(v).toFixed(2)+'%'; }
+var MKA_GRP={ crop:{t:'Crops & oilseeds', u:'per ton'},
+              ls:  {t:'Livestock & fibre', u:'per head where an average carcass weight is published, otherwise per kilo'} };
+/* One list. Rows the farm actually carries get the scale and the two facts;
+   everything else is the price and the move, and says so — a row with no cost
+   behind it has nothing to compare against, and drawing one anyway is what the
+   sparklines were doing. */
+function mkaRender(){
+  var el=(typeof $==='function')?$('mkt-all-prices'):null; if(!el) return;
+  var F=mkaFarm(), h='', last=null, mine=0;
+  h+='<div class="mka-tbl"><div class="mka-hd">'+
+     '<span data-t="mkt.aCommodity">Commodity</span>'+
+     '<span class="e" data-t="mkt.aToday">Today</span>'+
+     '<span class="e" data-t="mkt.aMove">Move</span>'+
+     '<span class="key"><u class="c"></u><span data-t="mkt.aKeyCost">your cost</span>'+
+       '<u class="p"></u><span data-t="mkt.aKeyPlan">your plan</span>'+
+       '<u class="d"></u><span data-t="mkt.aKeyToday">today</span></span>'+
+     '<span data-t="mkt.aStand">Where you stand</span></div>';
+
+  MKT_ALL.forEach(function(row){
+    /* The "Edit selection" panel writes into MKT_VISIBLE against these same
+       ids, so hiding a commodity keeps working exactly as it did. */
+    var vis=(row.g==='crop')?MKT_VISIBLE.crops:MKT_VISIBLE.livestock;
+    if(vis && vis[row.id]===false) return;
+    if(row.g!==last){
+      last=row.g;
+      h+='<div class="mka-gh"><span>'+stEsc(MKA_GRP[row.g].t)+'</span><i>'+stEsc(MKA_GRP[row.g].u)+'</i></div>';
+    }
+    var f=F[row.id]||null, today=mkaToday(row);
+    var isMine=!!(f && f.cost>0 && today!=null);
+    if(isMine) mine++;
+
+    /* Price column. A herd is costed per head, so that is the figure shown
+       when it is the farm's own — with the rand-per-kilo it came from kept
+       underneath, never replaced by it. */
+    var price = (isMine && row.g==='ls' && row.kg)
+      ? mkaR(today,null)+'<s>'+mkaR(row.p,row)+'/kg × '+row.kg+' kg</s>'
+      : mkaR(row.p,row)+'<s>'+stEsc(row.g==='crop'?('/'+row.u+' · '+row.src):(('/'+row.u)+' · '+row.src))+'</s>';
+
+    var scale='<span class="mka-sc"><span class="ln"></span></span>', stand;
+    if(isMine){
+      var cost=f.cost, plan=(f.plan>0?f.plan:null);
+      var hi=Math.max(cost,today,plan||0), lo=0;
+      var span=hi-lo; if(span<=0) span=1;
+      var pos=function(v){ return Math.max(2,Math.min(98, Math.round((v-lo)/span*100))); };
+      var pc=pos(cost), pt=pos(today), pp=plan?pos(plan):null;
+      var under=today<cost;
+      var fill=under
+        ? '<span class="fl sh" style="left:'+pt+'%;width:'+Math.max(1,pc-pt)+'%"></span>'
+        : '<span class="fl" style="left:'+pc+'%;width:'+Math.max(1,pt-pc)+'%"></span>';
+      scale='<span class="mka-sc"><span class="ln"></span>'+fill+
+        '<i class="ct" style="left:'+pc+'%"></i>'+
+        (pp!=null?'<i class="pl" style="left:'+pp+'%"></i>':'')+
+        '<span class="dt'+(under?' un':'')+'" style="left:'+pt+'%"></span>'+
+        '<em class="c">'+mkaR(cost,row.g==='ls'?null:row)+'</em>'+
+        (pp!=null?('<em class="p'+(pp>62?' r':'')+'" style="left:'+pp+'%">plan '+mkaR(plan,row.g==='ls'?null:row)+'</em>'):'')+
+        '</span>';
+
+      var vc=today-cost, vp=(plan!=null)?(today-plan):null;
+      stand='<span class="mka-w"><b class="'+(vc>=0?'good':'')+'">'+mkaSigned(vc,row.g==='ls'?null:row)+
+        '</b><em data-t="mkt.aVsCost">vs cost</em>';
+      if(vp!=null) stand+='<b class="'+(vp>=0?'good':'')+'">'+mkaSigned(vp,row.g==='ls'?null:row)+'</b><em data-t="mkt.aVsPlan">vs plan</em>';
+      if(f.under.length) stand+='<u>'+stEsc(f.under.slice(0,2).join(', '))+' '+
+        (f.under.length>2?('+'+(f.under.length-2)+' '):'')+'under cost</u>';
+      stand+='</span>';
+    } else {
+      stand='<span class="mka-w mut" data-t="mkt.aNotFarmed">Not farmed &mdash; price and move only</span>';
+    }
+
+    h+='<div class="mka-r'+(isMine?' mine':'')+'">'+
+      '<span class="mka-nm"><span class="i">'+stEsc(row.ic)+'</span><span>'+stEsc(row.nm)+'</span>'+
+        (isMine?'<u data-t="mkt.aYours">Yours</u>':'')+'</span>'+
+      '<span class="mka-p">'+price+'</span>'+
+      '<span class="mka-c '+(row.pct>=0?'up':'dn')+'">'+mkaPct(row.pct)+'</span>'+
+      scale+ stand +'</div>';
+  });
+
+  h+='<div class="mka-ft"><span>&#8505;&#65039;</span><span data-t="mkt.aFoot"><b>Where you stand</b> '+
+     'compares today&rsquo;s price with what that ground cost you and what you planned to get &mdash; both '+
+     'your own numbers, and the two that decide whether to sell. Rows you do not farm carry no cost to '+
+     'compare against, so they show the price and the move only.</span></div></div>';
+
+  el.innerHTML=h;
+  try{ if(typeof langSync==='function') langSync(el); }catch(e){}
+  return mine;
+}
+/* ── Your fuel · answering "diesel or petrol?" honestly ────────────────────
+   We do NOT know. There is one expense category, "Fuel & Oil"; the app has no
+   fuel-type field and no per-transaction litres. All that can be read is what
+   each description happens to say — and on a mixed farm most of it says
+   neither ("Sasol fuel card — farm vehicles"), which covers the bakkie as well
+   as the tractor.
+   That gap is worth money rather than being a footnote: a primary producer can
+   claim the SARS diesel refund, but it is claimed on eligible LITRES of
+   diesel, so the unsplit share is the part that cannot be claimed. The app
+   already holds ST_CROP.compliance.dieselLitres (entered against the crop
+   compliance item), so this panel reconciles the two rather than dividing the
+   whole fuel bill by a pump price and calling the answer diesel. */
+function mkaFuel(){
+  var fy=(typeof fyOf==='function')?fyOf():null;
+  var tot=0, dsl=0, unspl=0, n=0, nd=0;
+  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
+    if(!t||t.type!=='expense') return;
+    if(String(t.cat||'')!=='Fuel & Oil') return;
+    if(fy!=null && typeof fyOf==='function' && fyOf(t.date)!==fy) return;
+    var a=Math.abs(t.amt||0), d=String(t.desc||'');
+    tot+=a; n++;
+    if(/diesel/i.test(d)){ dsl+=a; nd++; } else unspl+=a;
+  });
+  var litres=(typeof ST_CROP!=='undefined'&&ST_CROP.compliance&&ST_CROP.compliance.dieselLitres)||0;
+  var book=!!(typeof ST_CROP!=='undefined'&&ST_CROP.compliance&&ST_CROP.compliance.dieselLogbook);
+  return {fy:fy, total:tot, diesel:dsl, unsplit:unspl, txns:n, dieselTxns:nd, litres:litres, logbook:book};
+}
+function mkaRenderFuel(){
+  var el=(typeof $==='function')?$('mkt-your-fuel'):null; if(!el) return;
+  var f=mkaFuel();
+  if(!f.txns){
+    el.innerHTML='<div class="mkf"><div class="mkf-h"><b data-t="mkt.fYour">Your fuel</b>'+
+      '<i data-t="mkt.fNone">nothing under Fuel &amp; Oil yet this financial year</i></div>'+
+      '<div class="mkf-n"><p data-t="mkt.fNoneP">Once fuel goes through the books, this shows what you have '+
+      'spent and how much of it can be claimed back under the SARS diesel refund.</p></div></div>';
+    try{ if(typeof langSync==='function') langSync(el); }catch(e){}
+    return;
+  }
+  var R=function(v){ return 'R'+((typeof _grpInt==='function')?_grpInt(Math.round(v)):Math.round(v)); };
+  var N=function(v){ return (typeof _grpInt==='function')?_grpInt(Math.round(v)):String(Math.round(v)); };
+  var pctUn=Math.round(f.unsplit/f.total*100);
+
+  var nudge;
+  if(!f.litres){
+    nudge='<div class="mkf-n"><span style="font-size:17px">⛽</span><p><span class="t" data-t="mkt.fClaimT">'+
+      'Split the diesel out and you can claim it back</span>'+
+      'A primary producer claims the SARS diesel refund on <b>eligible litres of diesel</b>, on the VAT201 '+
+      'using form DA66. Right now this farm has <b>no litres logged</b>, so none of '+R(f.total)+' can be '+
+      'claimed. Record the litres against the crop compliance item and the claim opens up.</p>'+
+      '<button type="button" class="mkr-btn p" onclick="nav(\'crop\')" data-t="mkt.fLogLitres">Log diesel litres</button></div>';
+  } else {
+    /* Reconcile the two numbers rather than print them side by side. Logged
+       litres at the pump price SHOULD land near the spend the descriptions
+       call diesel; a gap either way says something, and which way it points
+       changes the advice. */
+    var worth=f.litres*22.95;
+    var covers=f.diesel>0?Math.round(worth/f.diesel*100):null;
+    var read='';
+    if(covers==null) read='Nothing in this year&rsquo;s fuel is described as diesel, so there is no spend to check those litres against.';
+    else if(covers>110) read='At the pump those litres come to about <b>'+R(worth)+'</b> — more than the '+
+      R(f.diesel)+' your descriptions actually call diesel. So part of the '+R(f.unsplit)+
+      ' on the fuel card is diesel too. That is fine for the claim; it is the bookkeeping that is behind.';
+    else if(covers<90) read='At the pump those litres come to about <b>'+R(worth)+'</b>, against '+R(f.diesel)+
+      ' of spend your descriptions call diesel — so <b>some diesel looks unlogged</b>, and unlogged litres cannot be claimed.';
+    else read='At the pump those litres come to about <b>'+R(worth)+'</b>, which lines up with the '+R(f.diesel)+
+      ' your descriptions call diesel.';
+    nudge='<div class="mkf-n ok"><span style="font-size:17px">✅</span><p><span class="t" data-t="mkt.fLoggedT">'+
+      N(f.litres)+' litres logged for the diesel refund</span>'+
+      'Claimed on the VAT201 using form DA66'+(f.logbook?', with a per-activity logbook kept':
+      ' — but <b>no per-activity logbook</b> yet, which SARS asks for')+'. '+read+
+      '</p><button type="button" class="mkr-btn" onclick="nav(\'crop\')" data-t="mkt.fReview">Review the logbook</button></div>';
+  }
+
+  el.innerHTML='<div class="mkf"><div class="mkf-h"><b data-t="mkt.fYour">Your fuel</b>'+
+    '<i>'+(f.fy!=null?('financial year '+f.fy):'')+' · '+f.txns+' entries under Fuel &amp; Oil</i></div>'+
+    '<div class="mkf-g">'+
+      '<div class="mkf-k"><div class="k" data-t="mkt.fSpent">Fuel spent</div><div class="n">'+R(f.total)+'</div>'+
+        '<div class="s" data-t="mkt.fSpentS">One category. The app has no fuel-type field, so this is diesel and petrol together.</div></div>'+
+      '<div class="mkf-k"><div class="k" data-t="mkt.fCalled">Your notes call this diesel</div><div class="n">'+R(f.diesel)+'</div>'+
+        '<div class="s">'+f.dieselTxns+' of '+f.txns+' entries say diesel in the description</div></div>'+
+      '<div class="mkf-k q"><div class="k" data-t="mkt.fNotSplit">Not split either way</div><div class="n">'+R(f.unsplit)+'</div>'+
+        '<div class="s">'+pctUn+'% of the bill — fuel-card entries that cover bakkies as well as tractors</div></div>'+
+    '</div>'+nudge+'</div>';
+  try{ if(typeof langSync==='function') langSync(el); }catch(e){}
+}
+/* Kept: the panels are always visible inside the one browse drawer now, so
+   this just opens the drawer and refreshes. */
 function toggleMktFilter(type) {
-  var panel = $(type==='crop' ? 'mkt-crop-filter-panel' : 'mkt-ls-filter-panel');
-  if(!panel) return;
-  var open = panel.style.display !== 'none';
-  panel.style.display = open ? 'none' : 'block';
-  if(!open) renderMktFilterToggles(type);
+  var b = $('mkt-crop-browse');
+  if(b && (b.style.display==='none' || !b.style.display)) { toggleMktBrowse('crop'); return; }
+  renderMktFilterToggles(type||'crop');
 }
 
 function toggleMktBrowse(type) {
-  var b = $(type==='crop' ? 'mkt-crop-browse' : 'mkt-ls-browse');
-  var ch = $(type==='crop' ? 'mkt-crop-chev' : 'mkt-ls-chev');
+  var b = $('mkt-crop-browse'), ch = $('mkt-crop-chev');
   if(!b) return;
   var open = !(b.style.display==='none' || !b.style.display);
   b.style.display = open ? 'none' : 'block';
   if(ch) ch.textContent = open ? '\u25BE show' : '\u25B4 hide';
+  /* Both selection panels live in there now, so fill both when it opens. */
+  if(!open){ renderMktFilterToggles('crop'); renderMktFilterToggles('ls'); }
 }
 
 function renderMktFilterToggles(type) {
@@ -38043,23 +38455,11 @@ setTimeout(function(){
   }, 20);
 }
 
+/* The selection panels still write MKT_VISIBLE[type][spId] = false. There are
+   no cards to hide any more, so the merged table simply redraws and skips
+   them — same state, same ids, same result. */
 function applyMktFilter(type) {
-  var cardsId = type==='crop' ? 'mkt-crop-cards' : 'mkt-ls-cards';
-  var container = $(cardsId); if(!container) return;
-  var items = type==='crop' ? MKT_CROP_INFO : MKT_LS_INFO;
-  var vis   = type==='crop' ? MKT_VISIBLE.crops : MKT_VISIBLE.livestock;
-
-  var cards = container.querySelectorAll('.pc');
-
-  var cardMap = {};
-  cards.forEach(function(card) {
-    var canvas = card.querySelector('canvas');
-    if (canvas && canvas.id) cardMap[canvas.id] = card;
-  });
-  items.forEach(function(item) {
-    var card = cardMap[item.id];
-    if (card) card.style.display = vis[item.id] !== false ? '' : 'none';
-  });
+  if (typeof mkaRender === 'function') mkaRender();
 }
 
 // ── My Farm section (recommendation 1 + 2) ───────────────────
@@ -38124,11 +38524,14 @@ function mkrRows(){
     if(!r.income) return;
     var b=r.b, tons=b.tons||0, cat=((typeof OR_CATS!=='undefined'&&OR_CATS[b.cat])||{}).nm||b.cat||'';
     var veg=/veg/i.test(cat);
+    /* A block priced from a real remittance is no longer an estimate — it is
+       the best figure on the page, because it is what the grower was paid. */
+    var rem=(typeof orBlockRemit==='function')?orBlockRemit(b):null;
     grp(veg?'veg':'fruit').rows.push({
       name:b.name, sub:cat+' · '+Math.round(b.ha||0)+' ha', icon:b.icon||(veg?'🥬':'🍊'),
       qty:tons, qtyU:'t', qtyNote:'expected',
       cost:tons?r.cost/tons:null, price:tons?r.income/tons:null, unit:'ton',
-      est:!veg, worth:r.income, kind:'orch', ref:b.id
+      est:(!veg && !rem), remit:rem, worth:r.income, kind:'orch', ref:b.id
     });
   });
   /* ── livestock ── */
@@ -38326,7 +38729,8 @@ function renderMyFarm() {
       var mcls = (r.margin==null) ? 'non'
                : (r.margin<0 ? 'dn' : ((r.cost>0 && r.margin/r.cost<0.08) ? 'thin' : 'up'));
       var planNote = (r.plan>0 && r.price!=null)
-        ? '<s>'+mkrSigned(r.price-r.plan,r.unit)+' vs plan</s>' : (r.est?'<s>est</s>':'');
+        ? '<s>'+mkrSigned(r.price-r.plan,r.unit)+' vs plan</s>'
+        : (r.remit ? '<s>from your remittance</s>' : (r.est?'<s>your estimate</s>':''));
       h+='<div class="mkr-r" data-mkr="'+stEsc(id)+'" onclick="mkrTog(this)">'+
         '<span class="mkr-who"><span class="i">'+stEsc(r.icon||'')+'</span>'+
           '<span><b>'+stEsc(r.name)+'</b><em>'+stEsc(r.sub)+'</em></span></span>'+
@@ -38340,6 +38744,21 @@ function renderMyFarm() {
         '<span class="mkr-cv">▼</span></div>'+
         '<div class="mkr-det" data-mkrd="'+stEsc(id)+'"></div>';
     });
+    /* Export fruit is the one group a feed can never price, so it carries the
+       way to fix that. The count comes down as remittances are loaded and the
+       prompt disappears at zero — a to-do, not a permanent disclaimer. */
+    if(g.key==='fruit'){
+      var noRem=g.rows.filter(function(r){ return !r.remit; }).length;
+      if(noRem>0){
+        h+='<div class="mkr-imp"><span>📄 <b>'+noRem+' of '+g.rows.length+' blocks</b> are still on your own '+
+           'estimate. Load a remittance and they show <b>what you were actually paid</b>, per carton.</span>'+
+           '<button type="button" class="mkr-btn p" onclick="openRemitImport()" data-t="mkt.importRemit">Import a remittance</button></div>';
+      } else {
+        h+='<div class="mkr-imp" style="background:var(--gb);border-top-color:var(--gp)"><span>✅ '+
+           'Every block is priced from a remittance — <b>what you were actually paid</b>.</span>'+
+           '<button type="button" class="mkr-btn" onclick="openRemitImport()" data-t="mkt.importAnother">Import another</button></div>';
+      }
+    }
   });
   h+='</div>';
 
@@ -42935,6 +43354,34 @@ LANG_PAIRS.push(
   /* Column headings. Bare words, but each was tested against all 1 968 existing
      English keys and not one changed — every longer phrase containing them is
      already paired and sorts ahead. */
+  /* Packhouse remittance import (2026-08). Whole phrases — the bare pairs turned
+     "per block" into "per blok" and "by their headings" into "by their kopi". */
+  ["Import a packhouse remittance","Voer ’n pakstoor-oorbetaling in"],
+  ["What your fruit actually fetched, per block","Wat jou vrugte werklik behaal het, per blok"],
+  ["Who sent the remittance?","Wie het die oorbetaling gestuur?"],
+  ["Export agent","Uitvoeragent"],
+  ["Packhouse","Pakstoor"],
+  ["Someone else","Iemand anders"],
+  ["Any packhouse or agent","Enige pakstoor of agent"],
+  ["Use a sample remittance","Gebruik ’n voorbeeld-oorbetaling"],
+  ["Columns can be in any order — we read them by their headings.",
+   "Kolomme kan in enige volgorde wees — ons lees hulle aan hul opskrifte."],
+  ["What this changes","Wat dit verander"],
+  ["Use these prices","Gebruik hierdie pryse"],
+  ["no block matched","geen blok gepas nie"],
+  ["net a carton","netto per kis"],
+  ["vs your estimate","teenoor jou skatting"],
+  ["we make it","ons maak dit"],
+  ["from your remittance","uit jou oorbetaling"],
+  ["your estimate","jou skatting"],
+  ["Import a remittance","Voer ’n oorbetaling in"],
+  ["Import another","Voer nog een in"],
+  ["Every block is priced from a remittance","Elke blok word uit ’n oorbetaling geprys"],
+  ["blocks are still on your own estimate","blokke loop nog op jou eie skatting"],
+  ["Load a remittance and they show","Laai ’n oorbetaling en hulle wys"],
+  ["what you were actually paid","wat jy werklik betaal is"],
+  ["Remittance","Oorbetaling"],
+  ["Agent","Agent"],
   ["Your cost","Jou koste"],
   ["Expected","Verwag"],
   ["Price","Prys"],
@@ -43066,6 +43513,44 @@ LANG_PAIRS.push(
   ["Loans & debt","Lenings & skuld"],
   ["Planned crops","Beplande gewasse"],
   ["Animals","Diere"]
+);
+/* Market Prices — merged "All SA Prices" list and the Your-fuel panel.
+   Longest-first (the sort below) is what stops "Price" turning "All SA Prices"
+   into "All SA Pryss" and "Split" turning the diesel line half-Afrikaans. */
+LANG_PAIRS.push(
+  ["Split the diesel out and you can claim it back","Deel die diesel uit en jy kan dit terugeis"],
+  ["One category. The app has no fuel-type field, so this is diesel and petrol together.",
+   "Een kategorie. Die program het geen brandstoftipe-veld nie, so dit is diesel en petrol saam."],
+  ["per head where an average carcass weight is published, otherwise per kilo",
+   "per kop waar 'n gemiddelde karkasmassa gepubliseer is, andersins per kilogram"],
+  ["Not farmed — price and move only","Nie geboer nie — net prys en beweging"],
+  ["fuel-card entries that cover bakkies as well as tractors","brandstofkaart-inskrywings wat bakkies sowel as trekkers dek"],
+  ["entries say diesel in the description","inskrywings sê diesel in die beskrywing"],
+  ["nothing under Fuel & Oil yet this financial year","nog niks onder Brandstof & Olie hierdie finansiële jaar nie"],
+  ["Choose which prices to show","Kies watter pryse om te wys"],
+  ["Your notes call this diesel","Jou notas noem dit diesel"],
+  ["litres logged for the diesel refund","liters aangeteken vir die dieselterugbetaling"],
+  ["entries under Fuel & Oil","inskrywings onder Brandstof & Olie"],
+  ["Every SA price, in one list","Elke SA prys, in een lys"],
+  ["Not split either way","Nie opgedeel nie"],
+  ["Crops & oilseeds","Gewasse & oliesade"],
+  ["Livestock & fibre","Vee & vesel"],
+  ["Log diesel litres","Teken dieselliters aan"],
+  ["Review the logbook","Gaan die logboek na"],
+  ["All SA Prices","Alle SA Pryse"],
+  ["Where you stand","Waar jy staan"],
+  ["financial year","finansiële jaar"],
+  ["Fuel spent","Brandstof bestee"],
+  ["Your fuel","Jou brandstof"],
+  ["Commodity","Kommoditeit"],
+  ["under cost","onder koste"],
+  ["your cost","jou koste"],
+  ["your plan","jou plan"],
+  ["vs cost","teenoor koste"],
+  ["per ton","per ton"],
+  ["Yours","Joune"],
+  ["Move","Beweging"],
+  ["Today","Vandag"]
 );
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
 
@@ -46009,13 +46494,6 @@ function lazyInitCharts(page) {
   if(page==='income')      { initIncomeCharts(); renderIncBySource(); }
   if(page==='expenses')    { initExpCharts(); renderExpByCat && renderExpByCat(); }
   if(page==='cashflow')    { initCfChart(); updateCfPage(); }
-  if(page==='market')      { var _mc=$('mkt-tab-crops'),_ml=$('mkt-tab-livestock');
-    if(typeof entOn==='function'){
-      var _act=document.querySelector('#pg-market .tab.on');
-      var _actHidden=(_act&&_act.id==='mkt-tab-crops'&&!entOn('crops'))||(_act&&_act.id==='mkt-tab-livestock'&&!entOn('livestock'));
-      if(_actHidden){ var _first=entOn('crops')?_mc:(entOn('livestock')?_ml:$('mkt-tab-inputs')); if(_first){ _first.click(); } }
-    }
-    initSparklines(); }
 }
 
 // ============================================================
@@ -48462,14 +48940,13 @@ var PAGE_TOURS = {
   market: [
     { target:'mkt-myfarm-section', title:'Today\u2019s calls on your farm', icon:'🌾', tab:'crops',
       text:'Your crops and livestock at today\u2019s prices, each with a plain SELL or HOLD \u2014 green when the price beats what it cost you to grow (or your sale target), amber when it doesn\u2019t. Tap any row to open its detail and price graph.', tip:'The big number up top is your whole farm\u2019s worth if you sold everything today.', pos:'smart' },
-    { target:'mkt-crop-browsebar', title:'Browse all SA prices', icon:'📋', tab:'crops',
-      text:'Want the full picture beyond your own farm? Open this to see every SA grain price, then use the tabs for livestock, fuel and fertiliser.', pos:'smart' },
+    { target:'mkt-all-prices', title:'Every SA price, in one list', icon:'📋', tab:'crops',
+      text:'Grain, oilseeds, livestock and fibre together \u2014 no more hopping between tabs. The lines you actually farm are shaded and carry a scale: where today\u2019s price sits between what that ground cost you and what you planned to get.',
+      tip:'The bar next to the list lets you switch off anything you never sell, so the list stays yours.', pos:'smart' },
     { target:'mkt-crop-insight', title:'What the prices mean', icon:'💡', tab:'crops',
-      text:'A plain-language read on the market \u2014 which crops are climbing, which are slipping, and what that means for your selling decisions this week.', pos:'smart' },
-    { target:'mkt-tab-livestock', title:'Livestock prices', icon:'🐄', tab:'livestock',
-      text:'The same idea for your herd \u2014 a SELL or HOLD on each group based on today\u2019s per-head value against your target sale price, with the full AMT price list to browse.', pos:'smart' },
+      text:'A plain-language read on the market \u2014 crops first, then your herd \u2014 which lines are climbing, which are slipping, and what that means for selling this week.', pos:'smart' },
     { target:'mkt-tab-inputs', title:'Input & fuel prices', icon:'⛽', tab:'inputs',
-      text:'Track the cost side too \u2014 diesel, fertiliser and seed \u2014 so you can see your margin squeezed from both ends, not just the selling price.', pos:'smart' },
+      text:'The cost side, so you see the margin squeezed from both ends. It opens with your own fuel bill \u2014 what you spent, how much of it your notes call diesel, and how much of that can go on a SARS diesel-refund claim.', pos:'smart' },
     { target:'mkt-tab-alerts', title:'Price alerts', icon:'🔔', tab:'alerts',
       text:'Set a target price for any crop or class and the app flags it the moment the market gets there \u2014 so you don\u2019t miss a selling window.', pos:'smart' }
   ],
@@ -48971,7 +49448,7 @@ var SEASONAL_DATA = {
           action:'Add expense', actionFn:"openAddExpense()" },
     6:  { type:'danger', icon:'💸', title:'July — Peak feed month',
           body:'Highest feed and supplementation costs of the year. Monitor body condition scores. If selling underperforming animals, check current AMT prices first.',
-          action:'View livestock prices', actionFn:"nav('market');mktTab(document.querySelector('.tab'),\'mkt-livestock\')" },
+          action:'View livestock prices', actionFn:"nav('market');mktTab($('mkt-tab-crops'),'mkt-crops')" },
     7:  { type:'warning', icon:'🌿', title:'August — Veld greening watch',
           body:'Early spring veld flush begins in warmer areas. Gradually reduce supplementary feed. Dipping and dosing for internal parasites needed as animals gain condition.',
           action:'Log health events', actionFn:"nav('livestock');lsTab('health')" },
@@ -53056,6 +53533,237 @@ function parseCoopText(text, src){
   return rows;
 }
 
+/* ── Packhouse / agent remittance import ───────────────────────────────────
+   Export fruit is the one thing on the Market tab no price feed can quote. A
+   citrus grower is not paid a daily screen price — weeks after shipping the
+   agent sends a remittance: cartons, the price they fetched, then packing,
+   cooling, freight, commission and the industry levy taken off the top.
+
+   The happy accident is that ST_FRUIT.pricing[blockId] already holds EXACTLY
+   those fields — price, comm, pack, ship, levy — because orNetPer() works the
+   same sum. So a remittance does not need a new data model: it overwrites the
+   block's pricing with what actually happened, and every figure downstream
+   (orBlockTotal, orPlanRows, the Profit tab, the Market tab) becomes real with
+   no further change. That also closes the orchard-audit finding that 7 of 9
+   blocks were running on published industry defaults with nothing saying so. */
+var RMT_AGENTS = {
+  capespan:'Capespan', core:'Core Fruit', alg:'ALG Estates',
+  fruitone:'Fruit One', mahela:'Mahela', other:'Another packhouse or agent'
+};
+var RMT = { src:null, rawText:'', parsed:[], step:1 };
+
+function getRemitSample(src){
+  var D = (typeof bankSampleDate==='function') ? bankSampleDate : function(){ return '2026-07-18'; };
+  var hdr = 'Date,Block,Variety,Cartons,Gross R/carton,Packing,Cooling & freight,Commission %,Levy,Net R\n';
+  switch(src){
+    case 'capespan': return '# CAPESPAN — Producer remittance\n' + hdr +
+      D(21,'iso-dash') + ',Vlei block,Valencia,14200,168.50,44.00,26.00,8,1.64,1183996.00\n' +
+      D(21,'iso-dash') + ',Hooglaagte,Midknight,6800,151.00,44.00,26.00,8,1.64,457504.00\n';
+    case 'core': return '# CORE FRUIT — Remittance advice\n' + hdr +
+      D(14,'iso-dash') + ',Rivierkant,Lemons,9100,132.00,41.00,24.00,7.5,1.64,486941.00\n';
+    case 'alg': return '# ALG ESTATES — Grower payment\n' + hdr +
+      D(9,'iso-dash') + ',Bospad,Navel,7400,158.00,42.00,25.00,8,1.64,555334.00\n';
+    default: return '# Packhouse remittance\n' + hdr +
+      D(12,'iso-dash') + ',Block name,Variety,5000,150.00,44.00,26.00,8,1.64,362800.00\n';
+  }
+}
+/* Header-driven so a real agent's column order does not matter. Everything is
+   PER CARTON except the net total, which is the money that actually landed. */
+function parseRemitText(text){
+  var lines = String(text||'').replace(/\r\n/g,'\n').split('\n')
+    .filter(function(l){ return l.trim() && !/^#/.test(l.trim()); });
+  if(!lines.length) return [];
+  var hdr = (typeof splitCSVLine==='function') ? splitCSVLine(lines[0].toLowerCase()) : lines[0].toLowerCase().split(',');
+  function col(re,d){ var i=hdr.findIndex(function(h){ return re.test(h); }); return i<0?(d==null?-1:d):i; }
+  var iDate=col(/date|datum/,0), iBlk=col(/block|orchard|boord|blok/,1), iVar=col(/variety|cultivar|kultivar/,-1),
+      iCtn=col(/carton|box|kist/,-1), iGross=col(/gross|bruto|price|prys/,-1),
+      iPack=col(/pack|verpak/,-1), iShip=col(/cool|freight|ship|vrag|verkoel/,-1),
+      iComm=col(/commission|kommissie/,-1), iLevy=col(/levy|heffing|cga|subtrop/,-1),
+      iNet=col(/net/,-1);
+  var A=(typeof parseAmount==='function')?parseAmount:function(x){ return parseFloat(String(x).replace(/[^0-9.\-]/g,''))||0; };
+  var out=[];
+  for(var i=1;i<lines.length;i++){
+    var p=(typeof splitCSVLine==='function')?splitCSVLine(lines[i]):lines[i].split(',');
+    if(p.length<4) continue;
+    var d=(typeof parseFlexDate==='function')?parseFlexDate(p[iDate]):p[iDate];
+    if(!d) continue;
+    /* dateToTxFormat, same as the co-op parser — parseFlexDate returns {d,m,y}
+       and the ledger stores "18 Jul 2026". Skipping it put an object into
+       every txn date and printed [object Object] on the block. */
+    var r={ date:(typeof dateToTxFormat==='function')?dateToTxFormat(d):String(d),
+            block:(p[iBlk]||'').trim(), variety:(iVar>=0?(p[iVar]||'').trim():''),
+            cartons:iCtn>=0?A(p[iCtn]):0, gross:iGross>=0?A(p[iGross]):0,
+            pack:iPack>=0?A(p[iPack]):0, ship:iShip>=0?A(p[iShip]):0,
+            comm:iComm>=0?A(p[iComm]):0, levy:iLevy>=0?A(p[iLevy]):0,
+            net:iNet>=0?A(p[iNet]):0, include:true };
+    if(!r.cartons && !r.net) continue;
+    /* The net is DERIVED from the line items, never taken on trust. An agent's
+       net column can carry a sub-total, a rounding, or simply be wrong — and a
+       grower who spots that is owed real money. The stated figure is kept and
+       compared, so a disagreement is surfaced instead of silently booked. */
+    r.netPer   = r.gross - (r.gross*r.comm/100) - r.pack - r.ship - r.levy;
+    r.grossTot = Math.round(r.gross*r.cartons);
+    r.netStated= r.net || 0;
+    r.net      = Math.round(r.netPer*r.cartons);
+    r.gap      = r.netStated ? (r.netStated - r.net) : 0;
+    r.mismatch = Math.abs(r.gap) > 1;
+    r.ded = Math.max(0, r.grossTot - r.net);
+    r.match = remitMatchBlock(r.block);
+    out.push(r);
+  }
+  return out;
+}
+/* Match on the block's own name, then on the variety, then give up — a wrong
+   block would rewrite the pricing of ground the remittance never mentioned. */
+function remitMatchBlock(name){
+  var bl=(typeof ST_FRUIT!=='undefined'&&ST_FRUIT.blocks)?ST_FRUIT.blocks:[];
+  var n=String(name||'').toLowerCase().trim(); if(!n) return null;
+  var hit=bl.filter(function(b){ return !b.removed && String(b.name||'').toLowerCase().trim()===n; })[0];
+  if(hit) return hit;
+  hit=bl.filter(function(b){ var bn=String(b.name||'').toLowerCase();
+    return !b.removed && bn && (bn.indexOf(n)>=0 || n.indexOf(bn)>=0); })[0];
+  return hit||null;
+}
+function openRemitImport(){
+  var bg=document.getElementById('rmt-imp-bg');
+  if(!bg){ if(typeof toast==='function') toast('Import dialog not loaded yet — refresh the page','error'); return; }
+  RMT={ src:null, rawText:'', parsed:[], step:1 };
+  bg.classList.add('on'); remitSetStep(1);
+  document.querySelectorAll('#rmt-imp-st1 .src-tile').forEach(function(t){ t.classList.remove('on'); });
+  var p=document.getElementById('rmt-paste'); if(p) p.value='';
+  var n=document.getElementById('rmt-imp-next'); if(n) n.disabled=true;
+}
+function closeRemitImport(){ var b=document.getElementById('rmt-imp-bg'); if(b) b.classList.remove('on'); }
+function remitPickSrc(s){
+  RMT.src=s;
+  document.querySelectorAll('#rmt-imp-st1 .src-tile').forEach(function(t){
+    t.classList.toggle('on', t.getAttribute('data-src')===s); });
+  var n=document.getElementById('rmt-imp-next'); if(n) n.disabled=false;
+  var sub=document.getElementById('rmt-imp-sub'); if(sub) sub.textContent=(RMT_AGENTS[s]||'Packhouse')+' remittance';
+  var nm=document.getElementById('rmt-st2-name'); if(nm) nm.textContent=RMT_AGENTS[s]||'your agent';
+}
+function remitSetStep(step){
+  RMT.step=step;
+  ['1','2','3'].forEach(function(n){ var c=document.getElementById('rmt-imp-st'+n); if(c) c.classList.toggle('on', n===String(step)); });
+  document.querySelectorAll('#rmt-imp-bg .imp-step').forEach(function(el){
+    var n=+el.getAttribute('data-st');
+    el.classList.toggle('on', n===step); el.classList.toggle('done', n<step); });
+  var back=document.getElementById('rmt-imp-back'), next=document.getElementById('rmt-imp-next'),
+      go=document.getElementById('rmt-imp-go');
+  if(back) back.style.display = step>1?'inline-flex':'none';
+  if(next) next.style.display = step<3?'inline-flex':'none';
+  if(go)   go.style.display   = step===3?'inline-flex':'none';
+}
+function remitUseSample(){ var p=document.getElementById('rmt-paste'); if(p) p.value=getRemitSample(RMT.src); }
+function remitNext(){
+  if(RMT.step===1){ remitSetStep(2); return; }
+  if(RMT.step===2){
+    var p=document.getElementById('rmt-paste');
+    RMT.rawText=p?p.value:'';
+    RMT.parsed=parseRemitText(RMT.rawText);
+    if(!RMT.parsed.length){ if(typeof toast==='function') toast('Nothing readable in that remittance — check the columns','error'); return; }
+    remitRenderPreview(); remitSetStep(3);
+  }
+}
+function remitBack(){ if(RMT.step>1) remitSetStep(RMT.step-1); }
+function remitToggleRow(i){ if(RMT.parsed[i]){ RMT.parsed[i].include=!RMT.parsed[i].include; remitRenderPreview(); } }
+function remitRenderPreview(){
+  var el=document.getElementById('rmt-preview'); if(!el) return;
+  var agent=RMT_AGENTS[RMT.src]||'your agent';
+  var h='', n=0, tot=0;
+  RMT.parsed.forEach(function(r,i){
+    if(r.include){ n++; tot+=r.net; }
+    var old=r.match?orNetPer(r.match):null;
+    var move=(old!=null)?(r.netPer-old):null;
+    h+='<div class="rmt-row'+(r.include?'':' off')+'" onclick="remitToggleRow('+i+')">'+
+      '<span class="rmt-ck">'+(r.include?'✓':'')+'</span>'+
+      '<span class="rmt-nm"><b>'+stEsc(r.block||'—')+'</b><i>'+stEsc(r.variety||'')+
+        ' · '+mkrNum(r.cartons)+' cartons</i></span>'+
+      '<span class="rmt-b">'+(r.match
+        ? '<span class="rmt-ok">→ '+stEsc(r.match.name)+'</span>'
+        : '<span class="rmt-no">no block matched</span>')+'</span>'+
+      '<span class="rmt-v">'+mkrPer(r.netPer,'kg')+'<s>net a carton</s></span>'+
+      '<span class="rmt-v">'+(move==null?'—':mkrSigned(move,'kg'))+
+        '<s>vs '+(orBlockRemit(r.match)?'the last one':'your estimate')+'</s></span>'+
+      '<span class="rmt-v strong">'+mkrK(r.net)+'<s>'+(r.mismatch?'we make it':'paid')+'</s></span></div>'+
+      (r.mismatch?('<div class="rmt-warn">⚠ '+stEsc(r.block)+' — the remittance says '+mkrK(r.netStated)+
+        ' but the lines on it add up to '+mkrK(r.net)+'. That is '+mkrK(Math.abs(r.gap))+
+        (r.gap>0?' more than':' less than')+' the line items. We book the lines; worth querying.</div>'):'');
+  });
+  el.innerHTML=h;
+  var f=document.getElementById('rmt-sum');
+  if(f) f.innerHTML='<b>'+n+'</b> of '+RMT.parsed.length+' lines · <b>'+mkrK(tot)+'</b> from '+stEsc(agent);
+  var go=document.getElementById('rmt-imp-go'); if(go) go.disabled = !n;
+}
+function remitCommitImport(){
+  var sel=RMT.parsed.filter(function(r){ return r.include && r.match; });
+  if(!sel.length){ if(typeof toast==='function') toast('No lines matched a block','error'); return; }
+  if(typeof ST==='undefined' || !ST.txns){ if(typeof toast==='function') toast('App state not ready','error'); return; }
+  var agent=RMT_AGENTS[RMT.src]||'Packhouse';
+  ST_FRUIT.remits = ST_FRUIT.remits || [];
+  var added=[], expTx=[], recs=[];
+  sel.forEach(function(r){
+    var b=r.match;
+    /* The whole point: the block stops running on a published default and starts
+       running on what this grower was actually paid. `local` is carried over —
+       a remittance covers the export line, not the bakkie sales at the gate. */
+    var prev=(ST_FRUIT.pricing&&ST_FRUIT.pricing[b.id])||{};
+    ST_FRUIT.pricing=ST_FRUIT.pricing||{};
+    ST_FRUIT.pricing[b.id]={
+      price:r.gross, comm:r.comm, pack:r.pack, ship:r.ship,
+      levy:r.levy, levyName:prev.levyName||'Levy',
+      others:prev.others||[{label:'Other costs',amt:0}],
+      local:prev.local||{price:0,comm:0,trans:0,other:0},
+      src:'remittance', on:r.date, agent:agent, cartons:r.cartons
+    };
+    /* Gross method, same as the co-op path: book the full sale as income, then
+       each deduction as its own deductible expense. Profit nets to the same
+       figure but turnover, expenses and VAT are each right. */
+    var desc=(b.name||'Block')+(r.variety?' — '+r.variety:'')+' · '+mkrNum(r.cartons)+' cartons ('+agent+')';
+    var inc={ date:r.date, desc:desc, cat:'Fruit Sales', type:'income', amt:r.grossTot,
+              method:agent+' remittance', source:'Remittance import', ent:'or:'+b.id };
+    ST.txns.unshift(inc); added.push(inc);
+    [['Packing',r.pack],['Cooling & freight',r.ship],
+     ['Commission',r.gross*r.comm/100],['Levy',r.levy]].forEach(function(d){
+      var amt=Math.round((d[1]||0)*r.cartons); if(amt<=0) return;
+      var et={ date:r.date, desc:(b.name||'Block')+' — '+d[0]+' ('+agent+')',
+               cat:'Packing & marketing', type:'expense', amt:amt,
+               method:agent+' remittance', source:'Remittance deduction', ent:'or:'+b.id };
+      ST.txns.unshift(et); expTx.push(et);
+    });
+    var rec={ date:r.date, agent:agent, blockId:b.id, block:b.name, variety:r.variety,
+              cartons:r.cartons, gross:r.gross, netPer:r.netPer, net:r.net, ded:r.ded };
+    ST_FRUIT.remits.unshift(rec); recs.push(rec);
+  });
+  if(added.length && typeof impRegisterBatch==='function'){
+    var dates=added.map(function(t){return t.date;});
+    var bid=impRegisterBatch({source:agent+' remittance', kind:'remit',
+      span:(typeof impSpan==='function')?impSpan(dates):''}, added);
+    expTx.forEach(function(t){ t.batch=bid; });
+    recs.forEach(function(x){ x.batch=bid; });
+  }
+  try{
+    if(window.AI && AI.farm && AI.farm.active() && typeof txnWriteThrough==='function'){
+      added.forEach(function(t){ txnWriteThrough(t, (typeof _txnSnapshot==='function')?_txnSnapshot(t):t); });
+      expTx.forEach(function(t){ txnWriteThrough(t, (typeof _txnSnapshot==='function')?_txnSnapshot(t):t); });
+    }
+  }catch(e){}
+  try{ if(typeof orSave==='function') orSave(); }catch(e){}
+  try{ if(typeof saveState==='function') saveState(); }catch(e){}
+  try{ if(typeof recomputePlan==='function') recomputePlan(); }catch(e){}
+  closeRemitImport();
+  if(typeof toast==='function')
+    toast(sel.length+' block'+(sel.length===1?'':'s')+' now priced on what you were actually paid.','success');
+  try{ if(typeof renderMyFarm==='function') renderMyFarm(); }catch(e){}
+  try{ var pg=document.querySelector('.pg.on');
+    if(pg&&pg.id==='pg-orchards'&&typeof orRenderOverview==='function') orRenderOverview(); }catch(e){}
+}
+/* Has this block been priced from a real remittance? Drives the "actual" vs
+   "your estimate" wording wherever an orchard figure is shown. */
+function orBlockRemit(b){
+  var p=(b&&typeof ST_FRUIT!=='undefined'&&ST_FRUIT.pricing)?ST_FRUIT.pricing[b.id]:null;
+  return (p&&p.src==='remittance')?p:null;
+}
 function openCoopImport(){
   var bg = document.getElementById('coop-imp-bg');
   if(!bg){ toast('Import dialog not loaded yet — refresh the page','error'); return; }
@@ -55267,6 +55975,70 @@ function orExportPackout(){
         <button class="btn-sec" id="coop-imp-back" onclick="coopImpBack()" style="display:none">← Back</button>
         <button class="btn-sec" onclick="closeCoopImport()">Cancel</button>
         <button class="btn-pri" id="coop-imp-next" onclick="coopImpNext()" disabled>Continue →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PACKHOUSE / AGENT REMITTANCE IMPORT ============ -->
+<div class="imp-bg" id="rmt-imp-bg">
+  <div class="imp-shell">
+    <div class="imp-hdr">
+      <div class="imp-hdr-l">
+        <div class="imp-hdr-ic" style="background:#E07B2A">&#127818;</div>
+        <div>
+          <div class="imp-hdr-t">Import a packhouse remittance</div>
+          <div class="imp-hdr-s" id="rmt-imp-sub">What your fruit actually fetched, per block</div>
+        </div>
+      </div>
+      <button class="imp-close" onclick="closeRemitImport()">&times;</button>
+    </div>
+    <div class="imp-body">
+      <div class="imp-steps">
+        <div class="imp-step on" data-st="1"><div class="imp-step-num">1</div><div class="imp-step-lbl">Agent</div></div>
+        <div class="imp-step-bar"></div>
+        <div class="imp-step" data-st="2"><div class="imp-step-num">2</div><div class="imp-step-lbl">Remittance</div></div>
+        <div class="imp-step-bar"></div>
+        <div class="imp-step" data-st="3"><div class="imp-step-num">3</div><div class="imp-step-lbl">Review</div></div>
+      </div>
+
+      <div class="imp-step-content on" id="rmt-imp-st1">
+        <div class="imp-step-h">Who sent the remittance?</div>
+        <div class="src-grid">
+          <div class="src-tile" data-src="capespan" onclick="remitPickSrc('capespan')"><b>Capespan</b><span>Export agent</span></div>
+          <div class="src-tile" data-src="core"     onclick="remitPickSrc('core')"><b>Core Fruit</b><span>Export agent</span></div>
+          <div class="src-tile" data-src="alg"      onclick="remitPickSrc('alg')"><b>ALG Estates</b><span>Packhouse</span></div>
+          <div class="src-tile" data-src="fruitone" onclick="remitPickSrc('fruitone')"><b>Fruit One</b><span>Export agent</span></div>
+          <div class="src-tile" data-src="mahela"   onclick="remitPickSrc('mahela')"><b>Mahela</b><span>Packhouse</span></div>
+          <div class="src-tile" data-src="other"    onclick="remitPickSrc('other')"><b>Someone else</b><span>Any packhouse or agent</span></div>
+        </div>
+        <div class="rmt-why">A remittance is what the agent pays you weeks after shipping &mdash; the carton
+          price less packing, cooling, freight, commission and the levy. Load one and the block stops
+          running on an industry average and starts running on <b>what you were actually paid</b>.</div>
+      </div>
+
+      <div class="imp-step-content" id="rmt-imp-st2">
+        <div class="imp-step-h">Paste the remittance from <span id="rmt-st2-name">your agent</span></div>
+        <textarea id="rmt-paste" class="imp-paste" rows="9" placeholder="Date,Block,Variety,Cartons,Gross R/carton,Packing,Cooling &amp; freight,Commission %,Levy,Net R"></textarea>
+        <div class="rmt-why">Columns can be in any order &mdash; we read them by their headings.
+          <span class="rmt-lnk" onclick="remitUseSample()">Use a sample remittance</span></div>
+      </div>
+
+      <div class="imp-step-content" id="rmt-imp-st3">
+        <div class="imp-step-h">What this changes</div>
+        <div id="rmt-preview"></div>
+        <div class="rmt-sum" id="rmt-sum"></div>
+        <div class="rmt-why">Committing books the full sale as income and each deduction as its own
+          expense, and rewrites the block&rsquo;s pricing so every figure that uses it &mdash; Profit,
+          Orchards and Market Prices &mdash; becomes real.</div>
+      </div>
+    </div>
+    <div class="imp-foot">
+      <div class="imp-foot-l"><button class="btn-sec" id="rmt-imp-back" onclick="remitBack()" style="display:none">&larr; Back</button></div>
+      <div class="imp-foot-r">
+        <button class="btn-sec" onclick="closeRemitImport()">Cancel</button>
+        <button class="btn-pri" id="rmt-imp-next" onclick="remitNext()" disabled>Continue &rarr;</button>
+        <button class="btn-pri" id="rmt-imp-go" onclick="remitCommitImport()" style="display:none">Use these prices</button>
       </div>
     </div>
   </div>
