@@ -1282,6 +1282,38 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .mkr-ch .h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
 .mkr-ch .h b{font-size:11.5px;font-weight:750} .mkr-ch .h span{font-size:10px;color:var(--t4)}
 .mkr-ch svg{display:block;width:100%;height:96px;overflow:visible}
+/* Drill-down chart: dated x-axis, y range, and a crosshair readout.
+   Axis text lives in HTML, not in the SVG — the plot is drawn with
+   preserveAspectRatio="none" so any <text> inside it would be stretched
+   horizontally by whatever width the card happens to be. */
+.mkr-plot{position:relative;height:96px;cursor:crosshair}
+.mkr-plot svg{display:block;width:100%;height:96px;overflow:visible}
+.mkr-cross{position:absolute;top:0;bottom:0;width:1px;background:var(--t4);opacity:0;
+  pointer-events:none;transition:opacity .12s}
+.mkr-hdot{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--gd);
+  border:2px solid var(--wh);box-shadow:0 0 0 1px var(--br);transform:translate(-50%,-50%);
+  opacity:0;pointer-events:none;transition:opacity .12s}
+.mkr-plot.on .mkr-cross,.mkr-plot.on .mkr-hdot{opacity:1}
+.mkr-tip{position:absolute;z-index:5;background:var(--t1);color:#fff;border-radius:8px;
+  padding:7px 10px;font-size:10.5px;line-height:1.55;white-space:nowrap;pointer-events:none;
+  opacity:0;transition:opacity .12s;box-shadow:0 6px 18px rgba(0,0,0,.18);
+  font-variant-numeric:tabular-nums}
+.mkr-plot.on .mkr-tip{opacity:1}
+.mkr-tip u{text-decoration:none;display:block;font-size:9px;letter-spacing:.6px;
+  text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:3px}
+.mkr-tip b{font-size:12.5px;font-weight:750;display:block;margin-bottom:2px}
+.mkr-tip i{font-style:normal;color:rgba(255,255,255,.55)}
+.mkr-tip s{text-decoration:none;font-weight:700;color:#8BDCAE}
+.mkr-tip s.dn{color:#F2BE8A}
+/* The range labels sit at the top and bottom of the plot, which is exactly
+   where the cost and plan lines land when those are the extremes — without a
+   ground behind the text the dashed line runs straight through it. */
+.mkr-yl{position:absolute;left:2px;font-size:9px;font-weight:650;color:var(--t3);
+  pointer-events:none;font-variant-numeric:tabular-nums;
+  background:var(--wh);padding:0 4px;border-radius:3px;line-height:1.5}
+.mkr-xax{display:flex;justify-content:space-between;margin-top:6px;padding:0 1px;
+  font-size:9px;font-weight:650;color:var(--t4);font-variant-numeric:tabular-nums}
+.mkr-xax span:last-child{color:var(--gm)}
 .mkr-lg{display:flex;gap:13px;margin-top:6px;font-size:10px;color:var(--t3);flex-wrap:wrap}
 .mkr-lg span{display:flex;align-items:center;gap:5px}
 .mkr-lg u{text-decoration:none;width:13px;height:2.5px;border-radius:2px;display:inline-block}
@@ -38646,34 +38678,109 @@ function mkrTog(row){
    "when was this last worth selling" is something you look at rather than work
    out. The series is mktSeries — the same shape the sparklines already use —
    until a real feed lands, and it says so. */
+/* ── Drill-down chart · dated axis and crosshair readout ───────────────────
+   The six points come from mktSeries, unchanged — a placeholder series until a
+   feed lands, and the card says so on its face ("illustrative until the feed is
+   live"). What is new is that the chart is now readable: a weekly x-axis, the
+   value range labelled, and a crosshair that tells you what any point is worth
+   against your cost and your plan. */
+var MKR_CH={};
+var MKR_MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+/* APP_TODAY, never new Date() — the app can be run against a set date, and a
+   chart axis that ignores the app's own clock is the LS_TODAY bug again. */
+function mkrChartDates(n){
+  var base=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY.getTime()):new Date();
+  var out=[],i,d;
+  for(i=n-1;i>=0;i--){ d=new Date(base.getTime()); d.setDate(d.getDate()-i*7); out.push(d); }
+  return out;
+}
+function mkrDayLabel(d){ return d.getDate()+' '+MKR_MON[d.getMonth()]; }
+function mkrHover(e, el){
+  var C=MKR_CH[el.getAttribute('data-mkrc')]; if(!C||!C.ser.length) return;
+  var b=el.getBoundingClientRect(); if(!b.width||!b.height) return;
+  var n=C.ser.length;
+  var f=Math.max(0,Math.min(1,(e.clientX-b.left)/b.width));
+  var i=(n>1)?Math.round(f*(n-1)):0;
+  var v=C.ser[i], xPct=(n>1)?(i/(n-1)*100):50;
+  /* Same mapping the SVG uses, expressed as a fraction of the plot height so
+     the dot sits exactly on the drawn line however tall the card renders. */
+  var inner=1-C.pad*2;
+  var yPct=(C.pad+inner*(1-(v-C.lo)/(C.hi-C.lo)))*100;
+  var cross=el.querySelector('.mkr-cross'), dot=el.querySelector('.mkr-hdot'), tip=el.querySelector('.mkr-tip');
+  if(!cross||!dot||!tip) return;
+  cross.style.left=xPct+'%';
+  dot.style.left=xPct+'%'; dot.style.top=yPct+'%';
+  var h='<u>'+stEsc(C.dates[i]+(i===n-1?' · today':''))+'</u><b>'+mkrPer(v,C.unit)+'</b>';
+  if(C.cost!=null){ var d1=v-C.cost;
+    h+='<div><s class="'+(d1>=0?'':'dn')+'">'+mkrSigned(d1,C.unit)+'</s> <i>vs cost</i></div>'; }
+  if(C.plan!=null){ var d2=v-C.plan;
+    h+='<div><s class="'+(d2>=0?'':'dn')+'">'+mkrSigned(d2,C.unit)+'</s> <i>vs plan</i></div>'; }
+  tip.innerHTML=h;
+  el.classList.add('on');
+  /* Placed after the content is in, so the real width is known and the card
+     edge can clamp it instead of the tooltip hanging outside. */
+  var tw=tip.offsetWidth, th=tip.offsetHeight;
+  var left=b.width*xPct/100-tw/2;
+  left=Math.max(2,Math.min(b.width-tw-2,left));
+  var top=b.height*yPct/100-th-12;
+  if(top<2) top=b.height*yPct/100+14;
+  tip.style.left=left+'px'; tip.style.top=top+'px';
+}
+function mkrHoverOut(el){ el.classList.remove('on'); }
 function mkrDetail(id){
   var M=mkrRows(), p=String(id).split(':'), r=null, g=null;
   M.groups.forEach(function(x){ if(x.key===p[0]){ g=x; r=x.rows[+p[1]]; } });
   if(!r) return '';
-  var W=620,H=96,PAD=6;
-  var body='', legend='';
+  var W=620,H=96,PAD=8;
+  var body='', legend='', plot='', xax='';
   if(r.price!=null){
     var ser=(typeof mktSeries==='function')?mktSeries(r.price,6,r.name):[r.price];
-    var lo=Math.min.apply(null,ser.concat(r.cost!=null?[r.cost]:[]));
-    var hi=Math.max.apply(null,ser.concat(r.cost!=null?[r.cost]:[]));
+    var dts=mkrChartDates(ser.length);
+    /* The plan used to be left out of the range, so a plan above the price band
+       was drawn above the viewBox — the legend named a grey line that was not
+       on the chart. Everything drawn is now inside the range that scales it. */
+    var all=ser.slice();
+    if(r.cost!=null) all.push(r.cost);
+    if(r.plan>0)     all.push(r.plan);
+    var lo=Math.min.apply(null,all), hi=Math.max.apply(null,all);
     if(hi===lo) hi=lo+1;
     var y=function(v){ return PAD+(H-PAD*2)*(1-(v-lo)/(hi-lo)); };
     var pts=ser.map(function(v,i){ return (i/(ser.length-1)*W).toFixed(1)+','+y(v).toFixed(1); });
-    body='<path d="M'+pts.join(' L')+'" fill="none" stroke="var(--gl)" stroke-width="2.4" '+
-         'stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'+
-         '<circle cx="'+W+'" cy="'+y(r.price).toFixed(1)+'" r="4" fill="var(--gl)" stroke="var(--wh)" '+
-         'stroke-width="2.5" vector-effect="non-scaling-stroke"/>';
-    legend='<span><u style="background:var(--gl)"></u>Price</span>';
+    /* Faint gridline per reading, so the crosshair has something to land on. */
+    var gi; for(gi=0;gi<ser.length;gi++){
+      var gx=(gi/(ser.length-1)*W).toFixed(1);
+      body+='<line x1="'+gx+'" y1="0" x2="'+gx+'" y2="'+H+'" stroke="var(--br2)" stroke-width="1" '+
+            'vector-effect="non-scaling-stroke"/>';
+    }
     if(r.cost!=null){
       body+='<line x1="0" y1="'+y(r.cost).toFixed(1)+'" x2="'+W+'" y2="'+y(r.cost).toFixed(1)+
             '" stroke="var(--or)" stroke-width="2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke"/>';
-      legend+='<span><u style="background:var(--or)"></u>What it cost you · '+mkrPer(r.cost,r.unit)+'</span>';
     }
     if(r.plan>0){
       body+='<line x1="0" y1="'+y(r.plan).toFixed(1)+'" x2="'+W+'" y2="'+y(r.plan).toFixed(1)+
             '" stroke="var(--t4)" stroke-width="1.5" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>';
-      legend+='<span><u style="background:var(--t4)"></u>Your plan price · '+mkrPer(r.plan,r.unit)+'</span>';
     }
+    body+='<path d="M'+pts.join(' L')+'" fill="none" stroke="var(--gl)" stroke-width="2.4" '+
+          'stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'+
+          '<circle cx="'+W+'" cy="'+y(r.price).toFixed(1)+'" r="4" fill="var(--gl)" stroke="var(--wh)" '+
+          'stroke-width="2.5" vector-effect="non-scaling-stroke"/>';
+    legend='<span><u style="background:var(--gl)"></u>Price</span>';
+    if(r.cost!=null) legend+='<span><u style="background:var(--or)"></u>What it cost you &middot; '+mkrPer(r.cost,r.unit)+'</span>';
+    if(r.plan>0)     legend+='<span><u style="background:var(--t4)"></u>Your plan price &middot; '+mkrPer(r.plan,r.unit)+'</span>';
+
+    /* Held for the crosshair readout: the same numbers the chart is drawn from,
+       so the tooltip can never disagree with the line. */
+    MKR_CH[id]={ser:ser, dates:dts.map(function(d){return mkrDayLabel(d);}),
+                lo:lo, hi:hi, pad:PAD/H, cost:(r.cost!=null?r.cost:null),
+                plan:(r.plan>0?r.plan:null), unit:r.unit};
+    var esc=String(id).replace(/"/g,'');
+    plot='<div class="mkr-plot" data-mkrc="'+esc+'" onmousemove="mkrHover(event,this)" onmouseleave="mkrHoverOut(this)">'+
+      '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true">'+body+'</svg>'+
+      '<span class="mkr-yl" style="top:1px">'+mkrPer(hi,r.unit)+'</span>'+
+      '<span class="mkr-yl" style="bottom:1px">'+mkrPer(lo,r.unit)+'</span>'+
+      '<span class="mkr-cross"></span><span class="mkr-hdot"></span><span class="mkr-tip"></span></div>';
+    xax='<div class="mkr-xax">'+dts.map(function(d,i){
+      return '<span>'+(i===dts.length-1?'today':stEsc(mkrDayLabel(d)))+'</span>'; }).join('')+'</div>';
   }
   var side='';
   side+='<div class="sr"><span>'+stEsc(r.sub)+'</span><b>'+(r.qty!=null?(mkrNum(r.qty)+' '+r.qtyU):'—')+'</b></div>';
@@ -38688,7 +38795,7 @@ function mkrDetail(id){
 
   return '<div class="mkr-di"><div class="mkr-ch"><div class="h"><b>'+stEsc(r.name)+' &mdash; '+stEsc(g.src.nm)+
     '</b><span data-t="mkt.illustrative">illustrative until the feed is live</span></div>'+
-    (body?('<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-hidden="true">'+body+'</svg>'):
+    (plot?(plot+xax):
       '<div style="padding:22px 0;text-align:center;font-size:12px;color:var(--t4)" data-t="mkt.noUnitPrice">'+
       'No per-unit price for this one yet &mdash; only the season total.</div>')+
     '<div class="mkr-lg">'+legend+'</div></div>'+
@@ -38818,6 +38925,15 @@ function renderMyFarm() {
      'and alerts are in the tabs below.</span></div>';
 
   el.innerHTML=h;
+  /* Re-open whatever was open. MKR_OPEN was being tracked and never used, so
+     any re-render — landing on the tab again, committing a remittance — threw
+     away an expanded row and its chart while the farmer was reading it. */
+  try{
+    if(MKR_OPEN){
+      var _r=el.querySelector('.mkr-r[data-mkr="'+String(MKR_OPEN).replace(/"/g,'')+'"]');
+      if(_r){ MKR_OPEN=null; mkrTog(_r); } else { MKR_OPEN=null; }
+    }
+  }catch(e){}
   try{ if(typeof langSync==='function') langSync(el); }catch(e){}
 }
 
