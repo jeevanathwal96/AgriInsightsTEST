@@ -1192,6 +1192,176 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .st-pace-lg i.d1{width:9px;height:9px;border-radius:50%;background:var(--gl)}
 .st-pace-lg i.d2{width:9px;height:9px;border-radius:50%;background:var(--or)}
 
+/* ── Season Gantt · when the money comes in ──────────────────────────────
+   Replaces the cumulative pace curve. A cumulative line answers "am I ahead
+   of the money" but never "which block pays me in November" — this does both,
+   because each enterprise gets its own row and opens to its blocks, lands and
+   herds. No color-mix(): it appears nowhere else in this file, so a browser
+   without it would drop the hover column silently. */
+.stg{border:1px solid var(--br);border-radius:var(--rl);overflow:hidden;margin:14px 0 0;
+  background:var(--wh)}
+.stg-top{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:12px 15px;border-bottom:1px solid var(--br2);flex-wrap:wrap}
+.stg-top h4{font-size:13.5px;font-weight:800;letter-spacing:-.3px;margin:0}
+.stg-top p{font-size:11px;color:var(--t4);margin:3px 0 0}
+.stg-right{display:flex;align-items:center;gap:13px}
+.stg-tot{text-align:right}
+.stg-tot b{display:block;font-size:14px;font-weight:800;letter-spacing:-.4px;
+  font-variant-numeric:tabular-nums}
+.stg-tot i{display:block;font-style:normal;font-size:10px;color:var(--t4);margin-top:1px}
+.stg-tog{display:inline-flex;gap:2px;background:var(--br2);border:1px solid var(--br);
+  padding:3px;border-radius:9px}
+.stg-tog button{font:inherit;font-size:11px;font-weight:700;border:0;background:transparent;
+  color:var(--t3);padding:5px 11px;border-radius:6px;cursor:pointer;display:inline-flex;
+  align-items:center;gap:5px;line-height:1}
+.stg-tog button[aria-pressed="true"]{background:var(--wh);color:var(--t1);
+  box-shadow:0 1px 2px rgba(17,24,39,.12)}
+.stg-tog svg{width:12px;height:12px;flex:0 0 12px}
+
+.stg-mrow{display:grid;grid-template-columns:230px 1fr;background:var(--br2);
+  border-bottom:1px solid var(--br)}
+.stg-mrow>i{font-style:normal;font-size:9px;font-weight:800;letter-spacing:1.1px;
+  text-transform:uppercase;color:var(--t4);padding:8px 15px;align-self:center}
+.stg-mons{display:grid;grid-template-columns:repeat(12,1fr)}
+.stg-mons span{text-align:center;font-size:10px;font-weight:700;color:var(--t4);padding:8px 0;
+  letter-spacing:.2px}
+.stg-mons span.past{opacity:.5}
+.stg-mons span.now{color:var(--or);opacity:1}
+
+.stg-body{position:relative}
+.stg-today{position:absolute;top:0;bottom:0;pointer-events:none;z-index:4;
+  border-left:1.5px dashed var(--or);opacity:.7}
+.stg-todaycap{position:absolute;top:0;transform:translateX(-50%);z-index:5;font-size:8.5px;
+  font-weight:800;letter-spacing:.6px;text-transform:uppercase;color:var(--wh);
+  background:var(--or);padding:2px 6px;border-radius:0 0 5px 5px;pointer-events:none}
+
+.stg-row{display:grid;grid-template-columns:230px 1fr;border-bottom:1px solid var(--br2);
+  position:relative;z-index:1}
+.stg-row:last-child{border-bottom:0}
+.stg-row.g{cursor:pointer;user-select:none}
+.stg-row.g:hover{background:var(--gb)}
+.stg-row.k{background:var(--br2)}
+.stg-lab{display:flex;align-items:center;gap:8px;padding:0 13px 0 14px;min-height:58px;
+  border-right:1px solid var(--br2)}
+.stg-row.k .stg-lab{min-height:42px;padding-left:34px}
+.stg-chev{width:13px;flex:0 0 13px;color:var(--t4);font-size:8px;display:inline-flex;
+  justify-content:center;transition:transform .18s;cursor:pointer}
+.stg-row.g.open .stg-chev{transform:rotate(90deg);color:var(--gm)}
+.stg-nm{flex:1;min-width:0}
+.stg-nm b{display:block;font-size:13px;font-weight:750;letter-spacing:-.2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stg-row.k .stg-nm b{font-size:12px;font-weight:600;color:var(--t2)}
+.stg-nm i{display:block;font-style:normal;font-size:10.5px;color:var(--t4);margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stg-amt{text-align:right;flex:0 0 auto}
+.stg-amt b{display:block;font-size:12px;font-weight:800;letter-spacing:-.3px;
+  font-variant-numeric:tabular-nums}
+.stg-row.k .stg-amt b{font-size:11px;font-weight:600;color:var(--t2)}
+.stg-amt i{display:block;font-style:normal;font-size:9.5px;color:var(--t4);margin-top:2px;
+  white-space:nowrap}
+.stg-amt i.warn{color:var(--or);font-weight:800}
+.stg-kids{display:none} .stg-kids.open{display:block}
+
+.stg-track{position:relative}
+.stg-grid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(12,1fr);
+  pointer-events:none}
+.stg-grid div{border-right:1px solid var(--br2)}
+.stg-grid div:last-child{border-right:0}
+.stg-grid div.past{background:var(--gb);opacity:.6}
+
+.stg-bars{position:relative;height:100%;display:grid;grid-template-columns:repeat(12,1fr);
+  gap:3px;align-items:end;padding:16px 6px 11px}
+.stg-row.k .stg-bars{padding:11px 6px 8px}
+.stg-bars>div{border-radius:4px 4px 2px 2px;min-height:3px;position:relative;
+  background:linear-gradient(180deg,var(--gl),var(--gm))}
+.stg-bars>div.z{background:var(--br2);height:3px !important;min-height:3px}
+.stg-bars>div.late{background:linear-gradient(180deg,var(--am),var(--or))}
+.stg-bars em{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 3px);
+  font-style:normal;font-size:9px;font-weight:700;color:var(--t3);white-space:nowrap;
+  letter-spacing:-.2px;font-variant-numeric:tabular-nums;opacity:0;transition:opacity .12s}
+.stg-bars em.big{opacity:1}
+.stg-bars>div.late em{color:var(--or);opacity:1}
+
+.stg-flow{position:relative;height:100%;padding:9px 0}
+.stg-flow svg{display:block;width:100%;height:100%;overflow:visible}
+.stg-flow .stg-dot{opacity:0;transition:opacity .12s}
+
+.stg-hov{position:absolute;top:0;bottom:0;right:0;display:grid;
+  grid-template-columns:repeat(12,1fr);z-index:3}
+.stg-hov>div{cursor:crosshair}
+/* The column tint is driven by data-h, not by :hover alone. :hover drops the
+   moment the pointer crosses onto the tooltip, which left the card describing a
+   month that was no longer marked. data-h is set by the same handler that fills
+   the card, so the highlight and the numbers can never come apart. */
+.stg-hov>div:hover{background:rgba(45,106,79,.07)}
+.stg-body[data-h="0"] .stg-hov>div:nth-child(1),
+.stg-body[data-h="1"] .stg-hov>div:nth-child(2),
+.stg-body[data-h="2"] .stg-hov>div:nth-child(3),
+.stg-body[data-h="3"] .stg-hov>div:nth-child(4),
+.stg-body[data-h="4"] .stg-hov>div:nth-child(5),
+.stg-body[data-h="5"] .stg-hov>div:nth-child(6),
+.stg-body[data-h="6"] .stg-hov>div:nth-child(7),
+.stg-body[data-h="7"] .stg-hov>div:nth-child(8),
+.stg-body[data-h="8"] .stg-hov>div:nth-child(9),
+.stg-body[data-h="9"] .stg-hov>div:nth-child(10),
+.stg-body[data-h="10"] .stg-hov>div:nth-child(11),
+.stg-body[data-h="11"] .stg-hov>div:nth-child(12){background:rgba(45,106,79,.08);
+  box-shadow:inset 1px 0 0 rgba(45,106,79,.24),inset -1px 0 0 rgba(45,106,79,.24)}
+.stg-body[data-h] .stg-bars em.big{opacity:.22}
+.stg-body[data-h="0"] .stg-bars>div:nth-child(1) em,
+.stg-body[data-h="1"] .stg-bars>div:nth-child(2) em,
+.stg-body[data-h="2"] .stg-bars>div:nth-child(3) em,
+.stg-body[data-h="3"] .stg-bars>div:nth-child(4) em,
+.stg-body[data-h="4"] .stg-bars>div:nth-child(5) em,
+.stg-body[data-h="5"] .stg-bars>div:nth-child(6) em,
+.stg-body[data-h="6"] .stg-bars>div:nth-child(7) em,
+.stg-body[data-h="7"] .stg-bars>div:nth-child(8) em,
+.stg-body[data-h="8"] .stg-bars>div:nth-child(9) em,
+.stg-body[data-h="9"] .stg-bars>div:nth-child(10) em,
+.stg-body[data-h="10"] .stg-bars>div:nth-child(11) em,
+.stg-body[data-h="11"] .stg-bars>div:nth-child(12) em{opacity:1}
+.stg-body[data-h="0"] .stg-dot[data-i="0"],.stg-body[data-h="1"] .stg-dot[data-i="1"],
+.stg-body[data-h="2"] .stg-dot[data-i="2"],.stg-body[data-h="3"] .stg-dot[data-i="3"],
+.stg-body[data-h="4"] .stg-dot[data-i="4"],.stg-body[data-h="5"] .stg-dot[data-i="5"],
+.stg-body[data-h="6"] .stg-dot[data-i="6"],.stg-body[data-h="7"] .stg-dot[data-i="7"],
+.stg-body[data-h="8"] .stg-dot[data-i="8"],.stg-body[data-h="9"] .stg-dot[data-i="9"],
+.stg-body[data-h="10"] .stg-dot[data-i="10"],.stg-body[data-h="11"] .stg-dot[data-i="11"]{opacity:1}
+
+.stg-tip{position:absolute;z-index:9;pointer-events:none;opacity:0;
+  transform:translate(-50%,-6px);transition:opacity .13s,transform .13s;
+  background:var(--gd);color:var(--wh);border-radius:12px;padding:12px 14px 11px;width:246px;
+  box-shadow:0 20px 42px -16px rgba(11,32,24,.6)}
+.stg-tip.on{opacity:1;transform:translate(-50%,0)}
+.stg-tip .stg-th{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding-bottom:8px;margin-bottom:7px;border-bottom:1px solid rgba(255,255,255,.16)}
+.stg-tip .stg-th span{font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;
+  color:rgba(255,255,255,.55)}
+.stg-tip .stg-th b{font-size:14.5px;font-weight:800;letter-spacing:-.4px;
+  font-variant-numeric:tabular-nums}
+.stg-tip .stg-tr{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  font-size:11.5px;padding:3px 0;color:rgba(255,255,255,.84)}
+.stg-tip .stg-tr u{text-decoration:none;min-width:0;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.stg-tip .stg-tr b{font-weight:800;color:var(--wh);flex:0 0 auto;
+  font-variant-numeric:tabular-nums}
+.stg-tip .stg-tr.mute{color:rgba(255,255,255,.36)}
+.stg-tip .stg-tr.mute b{color:rgba(255,255,255,.36);font-weight:600}
+.stg-tip .stg-tf{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.16);
+  font-size:11px;line-height:1.5;color:rgba(255,255,255,.64)}
+.stg-tip .stg-tf b{color:var(--wh);font-weight:700}
+.stg-tip .stg-tf.warn{color:#F7C56B} .stg-tip .stg-tf.warn b{color:#F7C56B}
+
+.stg-foot{padding:10px 15px;border-top:1px solid var(--br2);background:var(--br2);
+  font-size:11px;color:var(--t4);display:flex;justify-content:space-between;gap:14px;
+  flex-wrap:wrap}
+.stg-foot b{color:var(--t2);font-weight:700}
+.stg-key{display:flex;gap:14px;flex-wrap:wrap}
+.stg-key span{display:inline-flex;align-items:center;gap:5px}
+.stg-key u{text-decoration:none;width:10px;height:10px;border-radius:3px;display:inline-block}
+.stg-key u.a{background:linear-gradient(180deg,var(--gl),var(--gm))}
+.stg-key u.b{background:var(--or)}
+.stg-key u.c{background:var(--br2);box-shadow:inset 0 0 0 1px var(--br)}
+
 .st-prs{margin-top:14px;border-top:1px solid var(--br2);padding-top:4px}
 .st-pr{display:grid;grid-template-columns:112px 1fr 132px 88px;gap:14px;align-items:center;
   padding:9px 0;border-bottom:1px solid var(--br2)}
@@ -1213,14 +1383,33 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
   .st-pr{grid-template-columns:1fr 1fr}
   .st-pr-tr{grid-column:1/-1}
 }
-.st-attn{border:1px solid #F7D4D0;border-radius:14px;padding:14px 16px;background:#FEF6F5;margin-bottom:16px}
-.st-attn-h{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#B42318;margin-bottom:9px}
-.st-attn-card{background:#fff;border:1px solid #F7D4D0;border-radius:10px;padding:10px 12px}
+/* Amber, not red, and no outer tinted box. Red said "error" for a herd that is
+   simply behind, and it sat directly under a chart marking the same shortfall in
+   amber — one screen, one idea, two colours. The container went with it: three
+   full-width bars in a tinted panel wasted a desktop's width on three short
+   sentences, so the cards now sit on the page in a grid. */
+.st-attn{margin-bottom:16px}
+.st-attn-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}
+.st-attn-h{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--or);margin-bottom:9px}
+.st-attn-card{background:var(--op);border:1px solid #F2D4B2;border-radius:12px;padding:12px 14px}
 .st-attn-card+.st-attn-card{margin-top:8px}
-.st-attn-t{font-size:13px;font-weight:700;color:#B42318}
-.st-attn-d{font-size:12px;color:var(--t3);margin-top:2px;line-height:1.5}
+/* The headline is the finding, so it reads as ink; the amber is carried by the
+   card and the action, which is where the farmer's eye needs to land. */
+.st-attn-t{font-size:13px;font-weight:750;color:var(--t1);letter-spacing:-.2px}
+.st-attn-d{font-size:12px;color:var(--t2);margin-top:4px;line-height:1.55}
+.st-attn-a{display:inline-block;font-size:11.5px;font-weight:750;color:var(--or);
+  margin-top:9px;cursor:pointer}
+.st-attn-a:hover{text-decoration:underline}
 .st-group{border:1px solid var(--br);border-radius:14px;background:#fff;margin-bottom:12px;overflow:hidden}
-.st-group-h{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);padding:11px 14px 2px}
+.st-group-h{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--t3);padding:11px 14px 2px;
+  display:flex;align-items:baseline;justify-content:space-between;gap:14px}
+/* What the group adds up to. The rows each carried their own planned and tracking
+   figure and the hero carried the farm's, but the enterprise in between had no
+   total at all — so "is my orchard block doing better than my herd" could only be
+   answered with a calculator. */
+.st-group-t{font-weight:700;letter-spacing:0;text-transform:none;color:var(--t4);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.st-group-t b{color:var(--t2);font-weight:800}
 .st-emptyrow{padding:12px 14px;font-size:12.5px;color:var(--t3)}
 .st-empty{border:1px dashed var(--br);border-radius:14px;padding:24px;text-align:center;background:#fff}
 .st-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--br2);cursor:pointer;transition:background .12s}
@@ -9670,7 +9859,13 @@ function migrateDemoData() {
   // productivity insights demonstrate live (otherwise the demo dates sit in the past
   // and every card reads "not enough recorded").
   if (typeof ST_LS !== 'undefined' && ST_LS.moves && ST_LS.moves.length) {
-    var sm = ST.fyStartMonth || 3;
+    /* Anchored on the SEASON (May), not the tax year (March). The two are two
+       months apart, and the Season Tracker now counts only movements inside the
+       season it reports on — so shifting to the March year parked six of the nine
+       seeded moves, including every cattle, goat and steer sale, in the month
+       BEFORE the season opened. The demo farm then read "no sales yet" on herds
+       whose sales are the whole point of showing them. */
+    var sm = (typeof PLAN_SEASON_START==='number') ? PLAN_SEASON_START : (ST.fyStartMonth || 3);
     var fyStartY = (APP_TODAY.getMonth()+1) >= sm ? APP_TODAY.getFullYear() : APP_TODAY.getFullYear()-1;
     // Spread the seeded moves across the early months of this FY, but never in the future.
     var offset = [1,1,2,2,2,0,0]; // months after FY start per seeded move (m1..m7)
@@ -9990,6 +10185,11 @@ function demoSeedPlanning(fresh){
       if(mi<0||!p[1]) return '';
       return p[1]+'-'+String(mi+1).padStart(2,'0')+'-'+String(day||15).padStart(2,'0');
     }
+
+    /* Seeded herd movements are NOT re-dated here — loadState already shifts
+       them into the current season (see the "Shift seeded livestock movements"
+       block), and a second mechanism doing the same job is how the two drift
+       apart. */
 
     /* ── C6 · two crops on one land ─────────────────────────────────────
        Onderste land is the pivot. Irrigated wheat goes in around June and
@@ -21659,7 +21859,12 @@ var ST_LS = {
     {id:'m1',herd:1,reason:'born',qty:3,date:'2024-05-18',note:'3 calves',money:0},
     {id:'m2',herd:1,reason:'sold',qty:4,date:'2024-05-14',note:'Vleissentraal',money:26000},
     {id:'m3',herd:1,reason:'died',qty:1,date:'2024-05-09',note:'Illness',money:0},
-    {id:'m4',herd:2,reason:'sold',qty:6,date:'2024-05-12',note:'BKB auction',money:37200},
+    /* R37 200 for six cull ewes is R6 200 a head — the weaner-calf price from m2
+       above, copied onto sheep. The herd's own plan sells cull ewes at R1 850,
+       so the tracker read the flock as 235% up on price. R2 100 is a realistic
+       cull-ewe price and sits just above the plan, which is what a good year
+       looks like. */
+    {id:'m4',herd:2,reason:'sold',qty:6,date:'2024-05-12',note:'BKB auction',money:12600},
     {id:'m5',herd:3,reason:'born',qty:4,date:'2024-05-20',note:'4 kids',money:0},
     {id:'m6',herd:1,reason:'bought',qty:4,date:'2024-04-22',note:'Replacement heifers',money:72000},
     {id:'m7',herd:3,reason:'slaughter',qty:2,date:'2024-04-15',note:'Home & staff rations',money:0},
@@ -29128,6 +29333,19 @@ function lvpSaleHTML(h){
   '</div>';
 }
 
+/* One month's planned income, remembered against the enterprise that earns it.
+   Every income site in recomputePlan calls this alongside the group total it
+   already keeps, so the season Gantt can draw a group row and its children from
+   the same numbers rather than a second, drifting model. A site with no tag
+   (a livestock event entered without a herd) simply is not attributed — the
+   group row stays the truth and the children carry what can be traced. */
+function planIncBy(r, tag, amt){
+  if(!tag || !amt) return;
+  var m = (typeof ST_PLAN!=='undefined' && ST_PLAN.months) ? ST_PLAN.months[r] : null;
+  if(!m) return;
+  if(!m.incBy) m.incBy = {};
+  m.incBy[tag] = (m.incBy[tag]||0) + amt;
+}
 function recomputePlan() {
   PLAN_OUTSIDE = []; PLAN_SPILL = [];
   // ── Step 1: Reset all months ──────────────────────────────
@@ -29146,6 +29364,12 @@ function recomputePlan() {
     m.incCrops   = 0;
     m.incOrch    = 0;
     m.incLive    = 0;
+    /* Gantt — the same planned income again, but keyed by the enterprise TAG
+       ('crop:White maize', 'or:3', 'ls:7') so the season chart can open a group
+       and show the block, land or herd underneath it. incCrops/incOrch/incLive
+       only ever held a group total, so nothing could ask "which block is the
+       November money". Purely additive: m.income is untouched. */
+    m.incBy      = {};
   });
 
   // ── Step 2: Distribute crop cycle figures across months ───
@@ -29187,7 +29411,12 @@ function recomputePlan() {
       var r = abs - W0;
       if(r < 0 || r > 11){ if(abs > W0 + 11) spillsAfter = true; return; }
       touched++;
-      if(inc){ ST_PLAN.months[r].income += inc; ST_PLAN.months[r].incCrops += inc; }
+      if(inc){ ST_PLAN.months[r].income += inc; ST_PLAN.months[r].incCrops += inc;
+        /* Every payment path — store, deferred terms and the split — funnels
+           through _put, so tagging here covers all three at once. The key is the
+           raw cycle crop, which is what stCropRows() groups by; cropLabel has
+           had its bracketed variety stripped and would not match. */
+        planIncBy(r, 'crop:'+(cy.crop||''), inc); }
       if(exp) ST_PLAN.months[r].expenses += exp;
       if(tag) ST_PLAN.months[r].crops.push(tag);
       if(act) addActivity(r, act);
@@ -29285,7 +29514,11 @@ function recomputePlan() {
 
     var isIncome = (e.type === 'sell' || e.type === 'income');
     hitIdxs.forEach(function(mi) {
-      if (isIncome){ ST_PLAN.months[mi].income += amount; ST_PLAN.months[mi].incLive += amount; }
+      if (isIncome){ ST_PLAN.months[mi].income += amount; ST_PLAN.months[mi].incLive += amount;
+        /* An event entered against a herd is attributable; a free-standing one
+           (no herdId) is real income but belongs to no row, so it stays in the
+           group total only rather than being guessed onto a herd. */
+        if(e.herdId!=null) planIncBy(mi, 'ls:'+e.herdId, amount); }
       else          ST_PLAN.months[mi].expenses += amount;
       // Also tag the month with a short event label for the calendar view
       ST_PLAN.months[mi].events = ST_PLAN.months[mi].events || [];
@@ -29349,6 +29582,7 @@ function recomputePlan() {
       for(var pi=0; pi<ST_PLAN.months.length; pi++){
         ST_PLAN.months[pi].income  += per;
         ST_PLAN.months[pi].incLive += per;
+        planIncBy(pi, 'ls:'+h.id, per);
         ST_PLAN.months[pi].events = ST_PLAN.months[pi].events || [];
         ST_PLAN.months[pi].events.push({ type:'income',
           animal:(typeof lsHerdName==='function'?lsHerdName(h):(h.name||'Livestock')),
@@ -29376,14 +29610,16 @@ function recomputePlan() {
         var perCyc=Math.round(r.income/r.pickMonths.length);
         r.pickMonths.forEach(function(pm){
           var mm=pm+shift;
-          if(mm<12){ ST_PLAN.months[mm].income += perCyc; ST_PLAN.months[mm].incOrch += perCyc; }
+          if(mm<12){ ST_PLAN.months[mm].income += perCyc; ST_PLAN.months[mm].incOrch += perCyc;
+            planIncBy(mm, 'or:'+r.b.id, perCyc); }
           else ST_PLAN.orchSpill += perCyc;
         });
       } else {
       var per=Math.round(r.income/span);
       for(var i=ps;i<=pe;i++){
         var m=i+shift;
-        if(m<12){ ST_PLAN.months[m].income += per; ST_PLAN.months[m].incOrch += per; }
+        if(m<12){ ST_PLAN.months[m].income += per; ST_PLAN.months[m].incOrch += per;
+          planIncBy(m, 'or:'+r.b.id, per); }
         else ST_PLAN.orchSpill += per;
       }
       }
@@ -33879,6 +34115,26 @@ function stCashIn(tag){
    the crop is coming off and nobody has logged it — that is an action. If the
    window is still ahead, the money is last season's crop being paid now —
    that is just the calendar, and needs a label rather than a nudge. */
+/* Which SEASON a livestock movement belongs to. The tracker measures May–April
+   (PLAN_SEASON_START), which is NOT the tax year lsHerdMovesFy() filters on —
+   ST.fyStartMonth defaults to March, so that helper folds March and April of the
+   previous season into this one. stLiveRows had no date filter at all: it took
+   every movement ever recorded against a herd, so a 2024 auction still counted
+   as this season's sales, and "6 of 20 sold" could be describing two seasons ago.
+   Same family as entTxnFY(), and deliberately built on the same PLAN_SEASON_START
+   so the herd rows, the tagged spend and the Gantt all cut the year identically.
+   'T00:00:00' forces local midnight — a bare ISO date parses as UTC and slips a
+   day backwards west of Greenwich, which flips a move dated the 1st of May into
+   the previous season. */
+function stMoveFY(m){
+  if(!m || !m.date) return null;
+  var iso=(typeof _lsMoveISO==='function')?_lsMoveISO(m):String(m.date);
+  if(!iso) return null;
+  var t=new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? (iso+'T00:00:00') : iso);
+  if(isNaN(t)) return null;
+  var st=(typeof PLAN_SEASON_START==='number') ? (PLAN_SEASON_START-1) : 4;
+  return (t.getMonth()>=st) ? t.getFullYear() : t.getFullYear()-1;
+}
 function stCashState(cash, producedPct, windowOpen){
   if(!(cash>0)) return 'none';
   if(producedPct>0) return 'ok';
@@ -34086,7 +34342,12 @@ function stLiveRows(){
   if(typeof _pfLiveEnts!=='function') return [];
   return _pfLiveEnts().map(function(e){
     var h=(typeof lvpHerdById==='function')?lvpHerdById(e.id):null;
-    var moves=(typeof ST_LS!=='undefined'&&ST_LS.moves||[]).filter(function(m){return m&&m.herd===e.id;});
+    /* THIS season's movements only. Without the year test a herd's progress bar,
+       its sold count, its average price and its whole variance were computed from
+       every sale it had ever made. */
+    var _fy=(typeof planYear==='number')?planYear:null;
+    var moves=(typeof ST_LS!=='undefined'&&ST_LS.moves||[]).filter(function(m){
+      return m && m.herd===e.id && (_fy===null || stMoveFY(m)===_fy); });
     var soldQ=0,soldR=0,pricedQ=0,blankQ=0,deaths=0;
     moves.forEach(function(m){
       if(m.reason==='sold'){
@@ -34108,13 +34369,27 @@ function stLiveRows(){
        through the same lsHerdIncome the Planning and Profit tabs use. */
     var planHead=(typeof lvpSoldHead==='function' && h)?lvpSoldHead(h):0;
     var plRev=(typeof lsHerdIncome==='function' && h)?lsHerdIncome(h):qty*(e.sellHead||0);
-    var perHead=planHead?(plRev/planHead):(e.sellHead||0);
+    /* Milk and wool are NOT a head sale, so they must come out before the money
+       is divided by the animals. Dividing the whole figure by head sold priced
+       every unsold ewe at R7 809 against a planned R6 200 — the wool cheque
+       smeared across the sheep — and then reported "price down 21%" when the
+       farmer had sold at exactly the price he planned. */
+    var prodRev=(typeof lsHerdProdIn==='function' && h)?lsHerdProdIn(h):0;
+    var saleRev=Math.max(0, plRev-prodRev);
+    var perHead=planHead?(saleRev/planHead):(e.sellHead||0);
     var avg=pricedQ?(soldR/pricedQ):perHead;
     /* Money in so far, plus the head still to sell at the price he planned.
        Deaths are reported, not netted off the sale — losing a cow does not
        cancel the weaner draft, and inventing a revenue hit would be guessing. */
     var toGo=Math.max(0, planHead-soldQ);
-    var acRev=soldR + blankQ*perHead + toGo*perHead;
+    /* + prodRev, and this is the whole dairy bug: actual revenue was assembled
+       purely out of head sales, so a herd that earns from milk had R950 400 on
+       the planned side and nothing on the actual side. The tracker then reported
+       the dairy as −R504k — its costs, with none of its income — against a plan
+       of +R406k, on a herd where not one thing had happened yet. The cows go on
+       milking whether or not anybody sells an animal, so the milk belongs on
+       both sides; what differs between them is the SALE, which is the point. */
+    var acRev=soldR + blankQ*perHead + toGo*perHead + prodRev;
     /* T5 — planned is the MODEL (what keeping this herd should cost); actual is
        the blended figure lsHerdCost already computes: logged spend for the
        months elapsed plus model for the months still to come. */
@@ -34130,6 +34405,15 @@ function stLiveRows(){
     if(noPlan){
       drv='No sale planned yet — its keep is counted but no income is'+
           (soldQ>0?', though '+soldQ+' head have already moved out':'');
+    } else if(prodRev>0 && prodRev>=saleRev && soldQ===0){
+      /* A dairy sells almost no animals on purpose. "No sales yet — on your plan
+         of 0 head" measured it against a target it was never given and said
+         nothing about the only income it has. Keyed on which income actually
+         dominates rather than on planHead being zero, because the demo dairy
+         also plans four culls — four head must not silence R950 400 of milk. */
+      drv='Milk and wool are the income here — '+stK(Math.round(prodRev))+' planned for the year'+
+          (soldQ>0 ? ' · '+soldQ+' head sold on top'
+                   : (planHead>0 ? ' · '+planHead+' head still to sell' : ''));
     } else if(soldQ===0&&deaths===0){
       drv='No sales yet — on your plan of '+planHead+' head';
     } else {
@@ -34140,6 +34424,11 @@ function stLiveRows(){
       }
       if(blankQ>0) bits.push(blankQ+' with no price recorded');
       if(deaths>0) bits.push(deaths+' lost');
+      /* Once animals have moved, the sale is the useful story \u2014 but on the Ewe
+         flock the wool cheque is R119 000 against R37 000 of sheep, so dropping
+         it would hide three quarters of the herd's income. Appended, not
+         substituted: the farmer gets the price he got AND what the clip is worth. */
+      if(prodRev>0) bits.push(stK(Math.round(prodRev))+' of milk and wool on top');
       drv=bits.join(' \u00b7 ');
     }
     var _lo=plCost?Math.round((acCost-plCost)/plCost*100):0;
@@ -34191,19 +34480,27 @@ function stAttention(groups){
   return flat.slice(0,3).map(function(r){
     var gap=r.planned-r.tracking;
     var over=(r._d&&r._d.plCost)?Math.round((r._d.acCost-r._d.plCost)/r._d.plCost*100):0;
+    /* The card's action is the row's own openFn — the same destination the row's
+       drill-down offers, so a card can never point somewhere the row does not. */
+    var _go=(r._d&&r._d.openFn)||'';
+    var _rec=(r.g==='orch')?'Record the pick'
+            :(r.g==='live'?'Record the sale':'Record the harvest');
     /* A harvest sitting unlogged beats every other message: the number on the
        row is wrong until it is fixed, so nothing else on it can be trusted. */
     if(r.cashState==='unlogged'){
       return {t:stK(r.cash)+' banked on '+r.name+', but no harvest logged.',
-              d:'The money is in and the crop is coming off — record the pick so the rest of this row means something.'};
+              d:'The money is in and the crop is coming off — record the pick so the rest of this row means something.',
+              a:_rec, fn:_go};
     }
     if(r.planned<=0 && (r.cash||0)<=0 && (r.progress||0)<=0){
       return {t:r.name+' has nothing planned.',
-              d:'Its keep is counted but no income is, so your season reads worse than the farm. Say what it does this year.'};
+              d:'Its keep is counted but no income is, so your season reads worse than the farm. Say what it does this year.',
+              a:'Set its plan', fn:_go};
     }
     if(over>=5){
       return {t:r.name+' is '+over+'% over budget.',
-              d:stK(r._d.acCost-r._d.plCost)+' more than planned on a '+stK(r._d.plCost)+' budget. Open it to see what it went on.'};
+              d:stK(r._d.acCost-r._d.plCost)+' more than planned on a '+stK(r._d.plCost)+' budget. Open it to see what it went on.',
+              a:'See what it went on', fn:_go};
     }
     var act;
     if(r.g==='crops') act=(r.progress>=100)
@@ -34211,7 +34508,8 @@ function stAttention(groups){
       : 'Yield is tracking under your plan — worth a look before harvest.';
     else if(r.g==='orch') act='Picking is behind pace — check labour on the block before the market window closes.';
     else act='Sales are behind plan — line up buyers for the animals you still have to sell.';
-    return {t:r.name+' is '+stK(gap)+' under plan.', d:act};
+    return {t:r.name+' is '+stK(gap)+' under plan.', d:act,
+            a:(r._d&&r._d.openLbl)||'Open it', fn:_go};
   });
 }
 /* ── Phase C · pace against the calendar ──────────────────────────────────
@@ -34250,8 +34548,317 @@ function stPace(V){
                    {k:'live', nm:'Livestock', due:due.live,  got:got.live,  plan:plan.live},
                    {k:'crops',nm:'Crops',     due:due.crops, got:got.crops, plan:plan.crops}]};
 }
+/* ── Season Gantt · when the money comes in ───────────────────────────────
+   The cumulative curve said whether the farm was ahead of its money. It could
+   not say WHICH block pays in November, because the month only ever held a
+   total. planIncBy() now keeps the same planned income against each enterprise
+   tag, so one row per enterprise opens to the blocks, lands and herds beneath
+   it — the rollup pattern every serious Gantt uses, and the reason a summary
+   row can be trusted: it is the sum of the rows it hides. */
+var STG_MODE = 'bars';   /* 'bars' | 'line' — the farmer's choice, kept for the session */
+var STG_OPEN = {};       /* group key -> expanded */
+var STG_FIELD = {crops:'incCrops', orch:'incOrch', live:'incLive'};
+
+function stgMonths(){ return (typeof ST_PLAN!=='undefined'&&ST_PLAN.months)||[]; }
+function stgNow(){ var n=(typeof lvpNowIdx==='function')?lvpNowIdx():-1; return n>11?11:n; }
+function stgSum(a){ var t=0,i; for(i=0;i<a.length;i++) t+=a[i]; return t; }
+function stgMax(a){ var t=0,i; for(i=0;i<a.length;i++) if(a[i]>t) t=a[i]; return t; }
+/* A group's month curve — the enterprise total the plan already keeps. */
+function stgGroupSeries(gkey){
+  var f=STG_FIELD[gkey]||'incCrops';
+  return stgMonths().slice(0,12).map(function(m){ return Math.round(m[f]||0); });
+}
+/* One row's month curve, read through the very tag the tracker row carries, so
+   the chart and the row beneath it can never be drawn from different numbers. */
+function stgRowSeries(tag){
+  return stgMonths().slice(0,12).map(function(m){
+    return Math.round((m.incBy&&tag&&m.incBy[tag])||0); });
+}
+/* The month to mark: the last one at or before today in which money was due.
+   Marking "now" would be wrong — the money was due in July, not today. */
+function stgLateIdx(s, now){
+  for(var i=Math.min(now,11); i>=0; i--) if(s[i]>0) return i;
+  return null;
+}
+/* Behind = what the plan said should be in by now, less what has actually been
+   banked against this row. Last season's crop being paid now is excluded, the
+   same rule stPace() uses, so old money never covers a new shortfall. A gap
+   under 5% or R1 000 is noise, not news. */
+function stgRowGot(r){ return (r.cashState==='prior')?0:Math.max(0, r.cash||0); }
+function stgRowLate(r, s, now){
+  if(now<0) return null;
+  var due=0; for(var i=0;i<=now&&i<12;i++) due+=s[i];
+  if(due<=0) return null;
+  var gap=Math.round(due-stgRowGot(r));
+  if(gap < Math.max(1000, due*0.05)) return null;
+  return {i:stgLateIdx(s,now), short:gap};
+}
+/* A group is behind on its OWN due-versus-banked, not on the sum of its rows'
+   shortfalls. On the demo farm those differ by R370 000: Hooglaagte is short
+   R789k, but other blocks were paid ahead of their window, so Orchards as a
+   whole is R419k short. Summing the rows would have printed "R789k behind" on
+   the group directly above a pace line reading R97k — the same figure twice,
+   disagreeing with itself. This uses the identical rule stPace() uses, so the
+   chart and the pace rows beneath it can never contradict each other. */
+function stgGroupLate(rows, s, now){
+  if(now<0) return null;
+  var due=0, got=0, i;
+  for(i=0;i<=now&&i<12;i++) due+=s[i];
+  if(due<=0) return null;
+  rows.forEach(function(r){ got+=stgRowGot(r); });
+  var gap=Math.round(due-got);
+  if(gap < Math.max(1000, due*0.05)) return null;
+  return {i:stgLateIdx(s,now), short:gap};
+}
+/* Everything the chart draws, assembled once so the bars, the line and the
+   hover card are all reading the same object. */
+function stgModel(V){
+  var ms=stgMonths(); if(ms.length<12) return null;
+  var now=stgNow(), groups=[];
+  ((V&&V.groups)||[]).forEach(function(gp){
+    if(!gp.rows||!gp.rows.length) return;
+    var gs=stgGroupSeries(gp.key);
+    if(!stgSum(gs)) return;
+    var kids=[];
+    gp.rows.forEach(function(r){
+      var s=stgRowSeries(r._d&&r._d.tag);
+      if(!stgSum(s)) return;             /* nothing planned to arrive — no row to draw */
+      kids.push({name:r.name, sub:r.sub, s:s, late:stgRowLate(r,s,now), total:stgSum(s)});
+    });
+    groups.push({key:gp.key, title:gp.title, s:gs, kids:kids, total:stgSum(gs),
+      late: stgGroupLate(gp.rows, gs, now)});
+  });
+  if(!groups.length) return null;
+  var labels=ms.slice(0,12).map(function(m){ return String(m.label||'').split(' ')[0]; });
+  var full=ms.slice(0,12).map(function(m){ return String(m.label||''); });
+  var season=0, gmax=0;
+  groups.forEach(function(g){ season+=g.total; if(stgMax(g.s)>gmax) gmax=stgMax(g.s); });
+  return {groups:groups, labels:labels, full:full, now:now, season:season, gmax:gmax||1,
+          rows:groups.reduce(function(a,g){ return a+g.kids.length; },0)};
+}
+
+/* Bars — height IS the money, so one row says both when it arrives and how
+   much. Labels stay hidden until the month is hovered; a chart with twelve
+   numbers printed on every row is a spreadsheet, not a picture. */
+function stgBars(s, scale, isKid, late){
+  var h='<div class="stg-bars">', i;
+  for(i=0;i<12;i++){
+    var v=s[i];
+    if(!v){ h+='<div class="z"></div>'; continue; }
+    var pc=Math.max(9, Math.round(v/scale*100)), lt=(late&&late.i===i);
+    var big=(!isKid && v/scale>=0.28)?' class="big"':'';
+    h+='<div class="'+(lt?'late':'')+'" style="height:'+pc+'%"><em'+big+'>'+stK(v)+'</em></div>';
+  }
+  return h+'</div>';
+}
+function stgSmooth(p){
+  var d='M'+p[0][0].toFixed(1)+','+p[0][1].toFixed(1), i;
+  for(i=0;i<p.length-1;i++){
+    var a=p[i?i-1:0], b=p[i], c=p[i+1], e=p[i+2]||c;
+    d+='C'+(b[0]+(c[0]-a[0])/6).toFixed(1)+','+(b[1]+(c[1]-a[1])/6).toFixed(1)
+      +' '+(c[0]-(e[0]-b[0])/6).toFixed(1)+','+(c[1]-(e[1]-b[1])/6).toFixed(1)
+      +' '+c[0].toFixed(1)+','+c[1].toFixed(1);
+  }
+  return d;
+}
+var STG_GRAD=0;
+/* Line — the same shape drawn softly. Better for reading the lull between
+   harvests, which is where an overdraft is decided. */
+function stgLine(s, scale, isKid, late){
+  var W=1200, H=isKid?38:58, BASE=H-3, TOP=4, id='stgG'+(++STG_GRAD), p=[], i;
+  for(i=0;i<12;i++) p.push([(i+0.5)/12*W, BASE-(s[i]/scale)*(BASE-TOP)]);
+  var line=stgSmooth(p);
+  var area=line+'L'+p[11][0].toFixed(1)+','+BASE+'L'+p[0][0].toFixed(1)+','+BASE+'Z';
+  var dots='';
+  for(i=0;i<12;i++){
+    var lt=(late&&late.i===i);
+    dots+='<circle class="stg-dot" data-i="'+i+'" cx="'+p[i][0].toFixed(1)+'" cy="'+p[i][1].toFixed(1)
+      +'" r="'+(isKid?3.2:4.3)+'" fill="'+(lt?'var(--or)':'var(--gm)')
+      +'" stroke="var(--wh)" stroke-width="2.4" vector-effect="non-scaling-stroke"/>';
+  }
+  var mark='';
+  if(late&&late.i!=null) mark='<line x1="'+p[late.i][0].toFixed(1)+'" y1="'+p[late.i][1].toFixed(1)
+    +'" x2="'+p[late.i][0].toFixed(1)+'" y2="'+BASE+'" stroke="var(--or)" stroke-width="2" '
+    +'vector-effect="non-scaling-stroke"/><circle cx="'+p[late.i][0].toFixed(1)+'" cy="'
+    +p[late.i][1].toFixed(1)+'" r="'+(isKid?3.2:4.3)+'" fill="var(--or)" stroke="var(--wh)" '
+    +'stroke-width="2.4" vector-effect="non-scaling-stroke"/>';
+  return '<div class="stg-flow"><svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" '
+    +'aria-hidden="true"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1">'
+    +'<stop offset="0%" stop-color="var(--gl)" stop-opacity="'+(isKid?'.28':'.44')+'"/>'
+    +'<stop offset="100%" stop-color="var(--gl)" stop-opacity="0"/></linearGradient></defs>'
+    +'<path d="'+area+'" fill="url(#'+id+')"/>'
+    +'<path d="'+line+'" fill="none" stroke="var(--gm)" stroke-width="'+(isKid?1.6:2.3)+'" '
+    +'stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>'
+    +mark+dots+'</svg></div>';
+}
+function stgDraw(s, scale, isKid, late){
+  return (STG_MODE==='line') ? stgLine(s,scale,isKid,late) : stgBars(s,scale,isKid,late);
+}
+function stgGridHTML(now){
+  var h='<div class="stg-grid">', i;
+  for(i=0;i<12;i++) h+='<div class="'+(i<=now?'past':'')+'"></div>';
+  return h+'</div>';
+}
+function stgLabHTML(o, isKid){
+  /* Different words because they measure different things: the group is net of
+     blocks that were paid early, a row is only ever its own gross gap. Calling
+     both "behind" would have a child claiming more than its parent. */
+  var st = o.late
+    ? '<i class="warn">'+stK(o.late.short)+(isKid?' not in':' behind')+'</i>'
+    : (isKid ? '' : '<i>on plan</i>');
+  return '<div class="stg-lab">'+(isKid?'':'<span class="stg-chev">▶</span>')
+    +'<span class="stg-nm"><b>'+stEsc(o.name||o.title)+'</b>'
+    +(o.sub?'<i>'+stEsc(o.sub)+'</i>':'<i>'+(o.kids?o.kids.length:0)+' in this group</i>')+'</span>'
+    +'<span class="stg-amt"><b>'+stK(o.total)+'</b>'+st+'</span></div>';
+}
+/* The hover card lists whatever is on screen: three enterprises when the groups
+   are closed, the named blocks when one is open. A tooltip that shows something
+   other than what the eye is on is worse than no tooltip. */
+function stgTipHTML(i, M){
+  var rows=[], tot=0;
+  M.groups.forEach(function(g){
+    if(STG_OPEN[g.key]) g.kids.forEach(function(k){ rows.push(k); });
+    else rows.push({name:g.title, s:g.s, late:g.late});
+  });
+  rows.forEach(function(r){ tot+=r.s[i]; });
+  var body=rows.map(function(r){
+    var v=r.s[i], lt=(r.late&&r.late.i===i);
+    return '<div class="stg-tr'+(v?'':' mute')+'"><u>'+stEsc(r.name)+(lt?' ⚠':'')+'</u>'
+      +'<b>'+(v?stK(v):'—')+'</b></div>';
+  }).join('');
+  var lateRow=null;
+  rows.forEach(function(r){ if(r.late&&r.late.i===i) lateRow=r; });
+  var foot;
+  /* lateRow is the ROW, so the figure hangs off its .late — reading .short from
+     the row itself printed "R0 of this has not come in" on the one month the
+     card exists to explain.
+     And the shortfall is everything due since the season opened, not this month
+     alone: on the demo farm August shows R473k while Hooglaagte is R789k short.
+     "of this has not come in" made a cumulative figure look like a slice of the
+     month, and a bigger one — so the sentence says what it actually measures. */
+  if(lateRow) foot='<div class="stg-tf warn">Behind on '+stEsc(lateRow.name)+' — <b>'
+    +stK(lateRow.late.short)+'</b> was due by now and is not in.</div>';
+  else if(i<M.now) foot='<div class="stg-tf">Paid · nothing outstanding for this month.</div>';
+  else if(i===M.now) foot='<div class="stg-tf">This month · <b>'+stK(tot)+'</b> due.</div>';
+  else {
+    var all=[], j, k;
+    for(j=0;j<12;j++){ var t=0; for(k=0;k<M.groups.length;k++) t+=M.groups[k].s[j]; all.push(t); }
+    var peak=all.indexOf(stgMax(all)), away=i-M.now;
+    foot=(i===peak)
+      ? '<div class="stg-tf"><b>Your biggest month.</b> Plan the cash around it.</div>'
+      : '<div class="stg-tf">Still to come · '+away+' month'+(away>1?'s':'')+' away.</div>';
+  }
+  return '<div class="stg-th"><span>'+stEsc(M.full[i])+(i===M.now?' · now':'')+'</span>'
+    +'<b>'+stK(tot)+'</b></div>'+body+foot;
+}
+function stGanttHTML(V){
+  var M=stgModel(V); if(!M) return '';
+  var now=M.now, i;
+  var rows=M.groups.map(function(g){
+    var kmax=1; g.kids.forEach(function(k){ if(stgMax(k.s)>kmax) kmax=stgMax(k.s); });
+    /* Children are scaled to their own group's peak. On the farm's own scale a
+       R79k milk month next to a R2.1m citrus month is a flat line, and a row
+       you cannot read is a row you may as well not draw. */
+    var kids=g.kids.map(function(k){
+      return '<div class="stg-row k">'+stgLabHTML(k,true)
+        +'<div class="stg-track">'+stgGridHTML(now)+stgDraw(k.s,kmax,true,k.late)+'</div></div>';
+    }).join('');
+    return '<div class="stg-row g'+(STG_OPEN[g.key]?' open':'')+'" data-stg="'+stEsc(g.key)+'">'
+      +stgLabHTML(g,false)
+      +'<div class="stg-track">'+stgGridHTML(now)+stgDraw(g.s,M.gmax,false,g.late)+'</div></div>'
+      +'<div class="stg-kids'+(STG_OPEN[g.key]?' open':'')+'" data-stgk="'+stEsc(g.key)+'">'
+      +kids+'</div>';
+  }).join('');
+  var mons='';
+  for(i=0;i<12;i++) mons+='<span class="'+(i===now?'now':(i<now?'past':''))+'">'
+    +stEsc(M.labels[i])+'</span>';
+  var hov='';
+  for(i=0;i<12;i++) hov+='<div data-stgi="'+i+'"></div>';
+  var tPos=(now>=0)? 'left:calc(230px + (100% - 230px) * '+(((now+1)/12).toFixed(4))+')' : 'display:none';
+  var barIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" '
+    +'stroke-linecap="round"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>';
+  var lineIco='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" '
+    +'stroke-linecap="round" stroke-linejoin="round"><path d="M3 16l5-6 4 3 4-7 5 4"/></svg>';
+  return '<div class="stg" id="stg-card">'
+    +'<div class="stg-top"><div><h4>When the money comes in</h4>'
+    +'<p>Hover a month to see what makes it up</p></div>'
+    +'<div class="stg-right"><div class="stg-tot"><b>'+stK(M.season)+'</b><i>full season income</i></div>'
+    +'<div class="stg-tog" id="stg-tog">'
+    +'<button type="button" data-stgm="bars" aria-pressed="'+(STG_MODE!=='line')+'">'+barIco+'Bars</button>'
+    +'<button type="button" data-stgm="line" aria-pressed="'+(STG_MODE==='line')+'">'+lineIco+'Line</button>'
+    +'</div></div></div>'
+    +'<div class="stg-mrow"><i>'+(M.groups.length>1?'Enterprise':stEsc(M.groups[0].title))+'</i>'
+    +'<div class="stg-mons">'+mons+'</div></div>'
+    +'<div class="stg-body" id="stg-body">'
+    +'<div class="stg-today" style="'+tPos+'"></div>'
+    +(now>=0?'<div class="stg-todaycap" style="'+tPos+'">now</div>':'')
+    +rows
+    +'<div class="stg-hov" id="stg-hov" style="left:230px">'+hov+'</div>'
+    +'<div class="stg-tip" id="stg-tip"></div></div>'
+    +'<div class="stg-foot"><span>Double-click a row to open the blocks, lands and herds inside it '
+    +'· <b>'+M.rows+' in total</b></span>'
+    +'<span class="stg-key"><span><u class="a"></u>money due</span>'
+    +'<span><u class="b"></u>not in yet</span><span><u class="c"></u>nothing due</span></span></div>'
+    +'</div>';
+}
+/* Redraws the chart alone. Re-rendering the whole tracker for a toggle would
+   throw away the open row underneath it and jump the page. */
+function stgRedraw(){
+  var host=$('stg-card'); if(!host) return;
+  var V=stComputeVariance(), html=stGanttHTML(V);
+  if(!html) return;
+  var tmp=document.createElement('div'); tmp.innerHTML=html;
+  var fresh=tmp.firstChild;
+  host.parentNode.replaceChild(fresh, host);
+  try{ if(typeof langSync==='function') langSync(fresh); }catch(e){}
+  stgWire();
+}
+function stgSetMode(m){ STG_MODE=(m==='line')?'line':'bars'; stgRedraw(); }
+function stgToggle(key){ STG_OPEN[key]=!STG_OPEN[key]; stgRedraw(); }
+/* Hover never re-renders — it writes one element. On a plan this size a redraw
+   per mouse move would make the chart feel broken. */
+function stgWire(){
+  var body=$('stg-body'), tip=$('stg-tip'), hov=$('stg-hov'), tog=$('stg-tog');
+  if(!body||!tip||!hov) return;
+  var M=stgModel(stComputeVariance()); if(!M) return;
+  if(tog) tog.onclick=function(e){
+    var b=e.target.closest?e.target.closest('button'):null; if(!b) return;
+    stgSetMode(b.getAttribute('data-stgm'));
+  };
+  Array.prototype.forEach.call(body.querySelectorAll('.stg-row.g'), function(r){
+    var key=r.getAttribute('data-stg');
+    r.ondblclick=function(){ stgToggle(key); };
+    var c=r.querySelector('.stg-chev');
+    if(c) c.onclick=function(e){ e.stopPropagation(); stgToggle(key); };
+  });
+  hov.onmouseleave=function(){ body.removeAttribute('data-h'); tip.className='stg-tip'; };
+  Array.prototype.forEach.call(hov.children, function(c){
+    c.onmouseenter=function(){
+      var i=parseInt(c.getAttribute('data-stgi'),10);
+      body.setAttribute('data-h', i);
+      tip.innerHTML=stgTipHTML(i, M);
+      /* The card is written on hover, long after the page was translated, so it
+         has to be run through the language pass itself — otherwise an Afrikaans
+         farmer gets an English tooltip on a translated chart. Scoped to the tip,
+         and langSync is a no-op in English, so nothing else is touched. */
+      try{ if(typeof langSync==='function') langSync(tip); }catch(e){}
+      tip.className='stg-tip on';
+      /* Sit the card BESIDE the hovered column, never on top of it. Centred on
+         the month, it covered the very bars the farmer was pointing at — and on
+         a wide farm that is five months of the year hidden behind the answer. */
+      var w=body.offsetWidth, tw=tip.offsetWidth||246, gap=14;
+      var cx=c.offsetLeft+230+c.offsetWidth/2;
+      var x=(cx > w/2) ? (cx - c.offsetWidth/2 - gap - tw/2)   /* right half → card to the left */
+                       : (cx + c.offsetWidth/2 + gap + tw/2);
+      tip.style.left=Math.max(tw/2+8, Math.min(w-tw/2-8, x))+'px';
+      tip.style.top=Math.max(8, Math.min(66, body.offsetHeight-tip.offsetHeight-12))+'px';
+    };
+  });
+}
 /* The curve is the farm's own selling calendar, so it is drawn rather than
-   described — a farmer reads the shape of his year faster than a sentence. */
+   described — a farmer reads the shape of his year faster than a sentence.
+   Kept as the fallback for a plan the Gantt cannot draw: a farm whose lines
+   carry no month at all still gets its season picture. */
 function stPaceChart(P){
   if(!P||!P.total) return '';
   var X0=54, X1=908, Y0=18, Y1=214, W=X1-X0;
@@ -34286,7 +34893,7 @@ function stPaceChart(P){
     '<path d="'+line+'" fill="none" stroke="var(--gl)" stroke-width="2.5" stroke-linejoin="round"/>'+
     marks+lbl+'</svg></div>';
 }
-function stPaceHTML(P){
+function stPaceHTML(P, V){
   if(!P) return '';
   var behind=P.due-P.got, off=(P.due>0)?(behind/P.due):0;
   var verdict;
@@ -34310,9 +34917,17 @@ function stPaceHTML(P){
   return '<div class="st-pace"><div class="st-pace-h">Pace · '+
       (P.now>=0?('month '+(P.now+1)+' of 12'):'before the season')+'</div>'+
     '<div class="st-pace-v">'+verdict+'</div>'+
-    stPaceChart(P)+
-    '<div class="st-pace-lg"><span><i class="ln"></i>Income you planned, month by month</span>'+
-      '<span><i class="d1"></i>Due by today</span><span><i class="d2"></i>Actually in</span></div>'+
+    /* The Gantt replaces the cumulative curve. Both drew the same money; only
+       one of them can be opened to find out which block it belongs to. The
+       curve stays as the fallback for a plan with no per-month income at all,
+       so no farm loses its season picture. */
+    (function(){
+      var g=(typeof stGanttHTML==='function')?stGanttHTML(V):'';
+      return g ? g
+        : (stPaceChart(P)+
+           '<div class="st-pace-lg"><span><i class="ln"></i>Income you planned, month by month</span>'+
+           '<span><i class="d1"></i>Due by today</span><span><i class="d2"></i>Actually in</span></div>');
+    })()+
     (rows?'<div class="st-prs">'+rows+'</div>':'')+'</div>';
 }
 
@@ -34337,7 +34952,7 @@ function renderSeasonTracker(){
      while that string is being assembled, and a var declared later hoists as
      undefined, so the bar silently rendered nothing. */
   var _pace=(typeof stPace==='function')?stPace(V):null;
-  var paceH=(typeof stPaceHTML==='function')?stPaceHTML(_pace):'';
+  var paceH=(typeof stPaceHTML==='function')?stPaceHTML(_pace, V):'';
   var stMoved   = V.realised > 0;
   /* T8 — the headline used to print the same figure twice. The second line now
      carries the one thing the farmer cannot work out for himself: what moved
@@ -34415,14 +35030,38 @@ function renderSeasonTracker(){
     })()+
   '</div>';
   var attn=stAttention(V.groups);
-  var attnH=attn.length?'<div class="st-attn"><div class="st-attn-h">⚠ <span data-t="plan.needsAttn">Needs your attention</span></div>'+attn.map(function(a){return '<div class="st-attn-card"><div class="st-attn-t">'+stEsc(a.t)+'</div><div class="st-attn-d">'+stEsc(a.d)+'</div></div>';}).join('')+'</div>':'';
+  var attnH=attn.length?'<div class="st-attn"><div class="st-attn-h">⚠ <span data-t="plan.needsAttn">Needs your attention</span></div><div class="st-attn-g">'+
+    attn.map(function(a){
+      return '<div class="st-attn-card"><div class="st-attn-t">'+stEsc(a.t)+'</div>'+
+        '<div class="st-attn-d">'+stEsc(a.d)+'</div>'+
+        /* A card that names a problem and gives no way to it makes the farmer go
+           hunting for the row it is about. The target is the row's own openFn,
+           so the card cannot point somewhere the row does not. */
+        (a.fn?'<div class="st-attn-a" onclick="'+a.fn+'">'+stEsc(a.a)+' →</div>':'')+
+      '</div>';
+    }).join('')+'</div></div>':'';
   var groupsH=V.groups.map(function(gp){
     var body;
     if(gp.empty){ body='<div class="st-emptyrow">No '+gp.title.toLowerCase()+' plan yet — <span onclick="setPlanTab(\''+(gp.key==='orch'?'orchards':gp.key==='live'?'livestock':'crops')+'\')" style="color:var(--gd);font-weight:700;cursor:pointer">set one up →</span></div>'; }
     else body=gp.rows.map(function(r){ return stRowHTML(gp.key,r); }).join('');
-    return '<div class="st-group"><div class="st-group-h">'+stEsc(gp.title)+'</div>'+body+'</div>';
+    /* Only shown once something has actually happened in this group. Before that
+       "tracking" is the plan repeated back, and printing it twice would claim a
+       result nobody has earned yet — the same trap T3 was on the hero. */
+    var gt='';
+    if(!gp.empty){
+      var gPl=0, gTr=0, gStarted=false;
+      gp.rows.forEach(function(r){ gPl+=r.planned; gTr+=r.tracking; if((r.progress||0)>0) gStarted=true; });
+      gt='<span class="st-group-t">'+(gStarted
+        ? '<b>'+stK(gTr)+'</b> tracking · '+stK(gPl)+' planned'
+        : stK(gPl)+' planned')+'</span>';
+    }
+    return '<div class="st-group"><div class="st-group-h"><span>'+stEsc(gp.title)+'</span>'+gt+'</div>'+body+'</div>';
   }).join('');
   el.innerHTML=hero+paceH+attnH+groupsH;
+  /* The chart's hover and toggles are bound after the HTML lands, and again on
+     every tracker re-render — stToggleDetail rebuilds this whole pane, which
+     would otherwise leave the chart drawn but dead. */
+  try{ if(typeof stgWire==='function') stgWire(); }catch(e){}
 }
 function stRowHTML(gkey,r){
   var v=r.tracking-r.planned, pos=v>=0, s=ST_STATUS[r.status]||ST_STATUS.ontrack;
@@ -34904,24 +35543,52 @@ function lsHerdCostSourcePct(h){
 }
 /* A sale the farmer entered is a sale, whatever the herd is typed. The type is
    a default for herds nobody has told us about; a dated event is a statement. */
-function lsHerdIncome(h){
+/* The production income lsHerdIncome() actually counts for this herd — milk and
+   wool, or zero when the farmer has entered it as an income event, because it is
+   then already inside lvpPlannedIncome and adding it again would double it.
+   Pulled out of lsHerdIncome so the tracker can ask "how much of this herd's
+   money is NOT a sale" and get the identical answer, rather than recomputing the
+   rule and drifting from it. */
+function lsHerdProd(h){
   if(!h) return 0;
-  /* Milk and wool do not wait for anyone to answer a question about selling
-     animals. Every "no sale planned" gate below used to return a flat 0, which
-     threw away R950 400 of milk and showed the dairy herd as a pure loss. It is
-     added back on every path except the event path, which already contains it. */
   var prod=(typeof lvpProdIncome==='function')?lvpProdIncome(h):0;
-  /* A wool clip entered as an INCOME event is already inside lvpPlannedIncome,
-     so adding production on top would count it twice. A milk cheque usually is
-     NOT evented. Adding a cull-cow SALE event to the dairy herd used to wipe
-     R950 400 of milk off it, because any event at all took the early return. */
   var hasProdEvent=false;
   try{
     ((typeof planActiveEvents==='function')?planActiveEvents():[]).forEach(function(e){
       if(e && e.herdId===h.id && !e.done && e.inForecast!==false && e.type==='income') hasProdEvent=true;
     });
   }catch(e){}
-  if(hasProdEvent) prod=0;
+  return hasProdEvent?0:prod;
+}
+/* ALL the production money inside lsHerdIncome()'s answer, however it got in:
+   the modelled milk or wool the function adds itself, or the income EVENTS the
+   farmer entered, which lvpPlannedIncome has already folded into the total.
+   lsHerdProd() above answers a different question — what gets ADDED — and is
+   zero exactly when the money is evented, so it cannot be used to take
+   production back out again. The Ewe flock is the case that needs this one: its
+   wool is an income event, so lsHerdProd says 0 while R11 827 of the herd's
+   R156 000 is wool, and dividing the lot by 20 head priced every unsold ewe at
+   R7 800 against a plan of R7 209. lvpPlannedIncome counts 'sell' and 'income'
+   together; only 'income' is production, so the split is exact, not inferred. */
+function lsHerdProdIn(h){
+  if(!h) return 0;
+  var evt=0, any=false;
+  try{
+    ((typeof planActiveEvents==='function')?planActiveEvents():((typeof ST_PLAN!=='undefined'&&ST_PLAN.events)||[]))
+      .forEach(function(e){
+        if(!e || e.herdId!==h.id || e.done || e.inForecast===false) return;
+        if(e.type==='income'){ evt += (e.qty||0)*(e.price||0); any=true; }
+      });
+  }catch(e){}
+  return any ? evt : lsHerdProd(h);
+}
+function lsHerdIncome(h){
+  if(!h) return 0;
+  /* Milk and wool do not wait for anyone to answer a question about selling
+     animals. Every "no sale planned" gate below used to return a flat 0, which
+     threw away R950 400 of milk and showed the dairy herd as a pure loss. It is
+     added back on every path except the event path, which already contains it. */
+  var prod=lsHerdProd(h);
   var planned=(typeof lvpPlannedIncome==='function')?lvpPlannedIncome(h):0;
   if(planned>0) return planned+prod;
   /* A trading herd's whole point is the sale at the end of the cycle. */
@@ -41454,6 +42121,58 @@ LANG_PAIRS.push(
   ["Documents","Dokumente"],
   ["Training","Opleiding"],
   ["Attach","Heg aan"],
+  /* Season Gantt (2026-08). Whole phrases: simulating the runtime over the bare
+     English showed "Income expected each month" coming back as "Inkomste expected
+     each month" and the footer as "…blokke, lands and kuddes" — half-translated off
+     the word-level pairs. Longest-first sorting lets these fire first. Nothing here
+     is a substring of shorter existing copy, so no other screen is touched. */
+  ["When the money comes in","Wanneer die geld inkom"],
+  ["Hover a month to see what makes it up","Beweeg oor ’n maand om te sien waaruit dit bestaan"],
+  ["Double-click a row to open the blocks, lands and herds inside it","Dubbelklik ’n ry om die blokke, lande en kuddes daarin oop te maak"],
+  ["full season income","volle seisoen se inkomste"],
+  ["Paid · nothing outstanding for this month.","Betaal · niks uitstaande vir hierdie maand nie."],
+  ["Your biggest month.","Jou grootste maand."],
+  ["Plan the cash around it.","Beplan die kontant daarom."],
+  ["was due by now and is not in.","was teen nou verskuldig en is nie in nie."],
+  ["Behind on","Agter op"],
+  /* Attention-card actions and the enterprise total (2026-08). "Set its plan"
+     came back as "Gestel its plan" off the bare 'Set' pair — a real mangle, not
+     a partial. Whole phrases only, and each was checked against all 1891
+     existing English keys for collateral. */
+  ["Record the harvest","Teken die oes aan"],
+  ["Record the pick","Teken die pluk aan"],
+  ["Record the sale","Teken die verkoop aan"],
+  ["See what it went on","Kyk waarop dit gegaan het"],
+  ["Set its plan","Stel sy plan op"],
+  ["Open your lands","Maak jou lande oop"],
+  ["Open it","Maak dit oop"],
+  ["tracking ·","op koers ·"],
+  /* Dairy driver line (2026-08). A production herd was being measured against a
+     head-sale target it never had — "No sales yet — on your plan of 0 head". */
+  ["Milk and wool are the income here —","Melk en wol is hier die inkomste —"],
+  ["planned for the year","beplan vir die jaar"],
+  /* Not ", and" — as a pair it fires on "Selfde wins, ander registrasie" after
+     "different"→"ander" has run, giving "Selfde winsener registrasie". The
+     sentence uses the driver line's own " · " separator instead. */
+  ["head sold on top","stuks boonop verkoop"],
+  ["head still to sell","stuks nog om te verkoop"],
+  ["of milk and wool on top","aan melk en wol boonop"],
+  ["in this group","in hierdie groep"],
+  ["nothing due","niks verskuldig"],
+  ["money due","geld verskuldig"],
+  ["not in yet","nog nie in nie"],
+  ["in total","in totaal"],
+  ["Enterprise","Onderneming"],
+  ["Bars","Stawe"],
+  ["Line","Lyn"],
+  /* These four are fragments, because the rand figure or the month count sits in
+     the middle of the sentence and a whole-phrase pair cannot match a number.
+     Each was tested by re-translating every one of the 1889 existing English keys
+     with and without them: not one changed, so none of them leak. */
+  ["months away","maande weg"],
+  ["month away","maand weg"],
+  ["on plan","op plan"],
+  ["behind","agter"],
   /* Planned-crop toggle (Profit tab). Whole phrases and whole sentences only — LANG_PAIRS is a
      substring pass, so short generic words here would leak into unrelated copy. Longest-first
      sorting means these fire before the word-level pairs get a chance to half-translate them. */
