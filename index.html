@@ -1119,6 +1119,8 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .plan-tab .tab-count{font-size:10.5px;font-weight:800;background:var(--br2);color:var(--t3);padding:2px 7px;border-radius:99px;margin-left:2px;letter-spacing:.04em}
 /* ── Season Tracker (Plan vs Actual) ── */
 .st-tile{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex:none}
+/* Emoji sit high on their line box; line-height:1 centres them in the tile. */
+.st-tile-em{font-size:18px;line-height:1}
 .st-hero{border:0;border-radius:var(--rl);padding:22px 24px;margin-bottom:14px;
   box-shadow:var(--sh);color:#fff;position:relative;overflow:hidden;
   background:linear-gradient(135deg,var(--gd) 0%,var(--gm) 100%)}
@@ -34074,7 +34076,15 @@ var ST_ICON={
   orch:{bg:'#FFF3E8',s:'#E07B2A',p:'<circle cx="12" cy="14" r="7.5"/><path d="M12 6.5V14M5 11.5h14"/><path d="M12 6.5c.4-2.2 2.2-3.5 4.2-3.5-.2 2.1-1.8 3.4-3.6 3.6"/>'},
   live:{bg:'#FFF3E0',s:'#B45309',p:'<ellipse cx="13" cy="9.8" rx="6.2" ry="3.5"/><ellipse cx="5.3" cy="9" rx="2.8" ry="2.4"/><ellipse cx="3.1" cy="10.7" rx="1.5" ry="1.1"/><path d="M8.6 13.1V19M10.8 13.3V19M16 13.3V19M18.2 12.8V19"/><path d="M19.1 7.7C20.7 8.2 21.2 10.5 20 12.4"/>'}
 };
-function stTile(g){ var c=ST_ICON[g]||ST_ICON.crops; return '<div class="st-tile" style="background:'+c.bg+'"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="'+c.s+'" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+c.p+'</svg></div>'; }
+/* The row's OWN icon when it has one — maize is not a sprout, a Merino is not
+   the same picture as a dairy cow, and a farmer scanning eighteen rows finds his
+   herd by its shape long before he reads its name. The group's generic SVG stays
+   as the fallback for anything without one, so nothing renders empty. */
+function stTile(g, icon){
+  var c=ST_ICON[g]||ST_ICON.crops;
+  if(icon) return '<div class="st-tile st-tile-em" style="background:'+c.bg+'">'+stEsc(icon)+'</div>';
+  return '<div class="st-tile" style="background:'+c.bg+'"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="'+c.s+'" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+c.p+'</svg></div>';
+}
 function stStatusOf(planned,tracking,progress){
   if(!progress || progress<=0) return 'growing';
   var v=(planned>0)?(tracking-planned)/Math.abs(planned):(tracking<planned?-1:0);
@@ -34348,7 +34358,7 @@ function stCropRows(){
     var _cs=stCashState(_cash,prog,_win);
     var byK=stCropInputByKind(c), logged=0; for(var _lk in byK) logged+=byK[_lk];
     var budLine=logged>0?(stK(logged)+' logged of your '+stK(Math.round(e.budget))+' input budget'+(e.budget?' · '+Math.round(logged/e.budget*100)+'% applied':'')):'';
-    return {g:'crops',key:c,name:c,sub:Math.round(e.area)+' ha',planned:planned,tracking:tracking,progress:prog,progressLbl:'harvested',status:st,driver:drv,
+    return {g:'crops',key:c,name:c,sub:Math.round(e.area)+' ha',icon:(typeof cropIcon==='function'?cropIcon(c):''),planned:planned,tracking:tracking,progress:prog,progressLbl:'harvested',status:st,driver:drv,
       cash:_cash,cashState:_cs,cashLabel:stCashLabel(_cs,_cash),
       _d:{plRev:Math.round(e.plRev),acRev:Math.round(e.acRev),plCost:Math.round(plCost),acCost:Math.round(acCost),tag:tag,byCat:byK,budget:Math.round(e.budget),budgetLine:budLine,
           revLbl:(aY<tY?'Smaller harvest':'Bigger harvest'),revNote:(Math.round(aY*10)/10)+' tons a hectare, planned '+(Math.round(tY*10)/10),
@@ -34389,7 +34399,7 @@ function stOrchRows(){
     var _cs=stCashState(_cash,prog,(_ps!=null&&_ps<=_nowR));
     var _st=stStatusOf(planned,tracking,prog);
     if(prog<=0 && (e.ops+e.labour)>0 && (_ac.cost-(e.ops+e.labour))/(e.ops+e.labour)>=0.10) _st=stStatusOf(planned,tracking,1);
-    return {g:'orch',key:String(e.id),name:e.name,sub:(e.kind||'')+' · '+Math.round(e.area)+' ha',planned:planned,tracking:tracking,progress:prog,progressLbl:'picked',status:_st,cash:_cash,cashState:_cs,cashLabel:stCashLabel(_cs,_cash),driver:drv,
+    return {g:'orch',key:String(e.id),name:e.name,sub:(e.kind||'')+' · '+Math.round(e.area)+' ha',icon:(e.icon||''),planned:planned,tracking:tracking,progress:prog,progressLbl:'picked',status:_st,cash:_cash,cashState:_cs,cashLabel:stCashLabel(_cs,_cash),driver:drv,
       _d:{plRev:Math.round(e.moneyBack),acRev:Math.round(e.moneyBack*ratio),plCost:Math.round(e.ops+e.labour),acCost:_ac.cost,tag:'or:'+e.id,byCat:stTaggedByCat('or:'+e.id),budget:Math.round(e.ops),
           revLbl:(ratio<1?'Lighter crop':'Bigger crop'),revNote:(Math.round(act*10)/10)+' t picked of '+(Math.round(est*10)/10)+' t estimate',
           costLbl:'Season costs',costNote:'packing, agent & picking \u00b7 '+stCostSource(_ac.pct),openFn:stRowGoFn('orch',e.id),openLbl:'Open '+e.name} };
@@ -34497,7 +34507,9 @@ function stLiveRows(){
        an unlogged harvest. */
     var _cash=stCashIn('ls:'+e.id);
     var _cs=stCashState(_cash, Math.max(prog, soldQ>0?1:0), true);
-    return {g:'live',key:String(e.id),name:e.name,sub:(e.type||'herd'),planned:planned,tracking:tracking,progress:prog,progressLbl:'sold',status:st,driver:drv,cash:_cash,cashState:_cs,cashLabel:stCashLabel(_cs,_cash),
+    return {g:'live',key:String(e.id),name:e.name,sub:(e.type||'herd'),
+      icon:(h&&typeof lsHerdIcon==='function')?lsHerdIcon(h)
+           :(typeof _pfLiveIcon==='function'?_pfLiveIcon(e.type):''),planned:planned,tracking:tracking,progress:prog,progressLbl:'sold',status:st,driver:drv,cash:_cash,cashState:_cs,cashLabel:stCashLabel(_cs,_cash),
       _d:{plRev:Math.round(plRev),acRev:Math.round(acRev),plCost:Math.round(plCost),acCost:Math.round(acCost),tag:'ls:'+e.id,byCat:stTaggedByCat('ls:'+e.id),budget:Math.round(qty*cost),
           revLbl:'Sales & losses',
           revNote:(planHead?(soldQ+' of '+planHead+' head sold'):'no sale planned')+
@@ -34867,7 +34879,7 @@ function stGanttHTML(V, M){
     +rows
     +'<div class="stg-hov" id="stg-hov" style="left:230px">'+hov+'</div>'
     +'<div class="stg-tip" id="stg-tip"></div></div>'
-    +'<div class="stg-foot"><span>Double-click a row to open the blocks, lands and herds inside it '
+    +'<div class="stg-foot"><span>Click a row to open the blocks, lands and herds inside it '
     +'· <b>'+M.rows+' in total</b></span>'
     +'<span class="stg-key"><span><u class="a"></u>money due</span>'
     +'<span><u class="b"></u>not in yet</span><span><u class="c"></u>nothing due</span></span></div>'
@@ -34890,7 +34902,23 @@ function stgRedraw(){
   stgWire(M);
 }
 function stgSetMode(m){ STG_MODE=(m==='line')?'line':'bars'; stgRedraw(); }
-function stgToggle(key){ STG_OPEN[key]=!STG_OPEN[key]; stgRedraw(); }
+/* The child rows are ALREADY drawn — the .stg-kids block is rendered with every
+   chart and merely hidden. Opening a group was tearing down all 677 elements of
+   the card and building them again, 24ms to a painted frame, to show rows that
+   were sitting there the whole time. It is a class flip. The hover card reads
+   STG_OPEN live, so it follows without being told. */
+function stgToggle(key){
+  STG_OPEN[key]=!STG_OPEN[key];
+  var on=!!STG_OPEN[key];
+  var row=document.querySelector('.stg-row.g[data-stg="'+String(key).replace(/"/g,'')+'"]');
+  var kids=document.querySelector('.stg-kids[data-stgk="'+String(key).replace(/"/g,'')+'"]');
+  if(row&&kids){
+    row.classList.toggle('open', on);
+    kids.classList.toggle('open', on);
+    return;
+  }
+  stgRedraw();   /* chart not on screen in the expected shape — rebuild rather than fail silently */
+}
 /* Hover never re-renders — it writes one element. On a plan this size a redraw
    per mouse move would make the chart feel broken. */
 function stgWire(M){
@@ -34901,11 +34929,25 @@ function stgWire(M){
     var b=e.target.closest?e.target.closest('button'):null; if(!b) return;
     stgSetMode(b.getAttribute('data-stgm'));
   };
+  /* Opens on a SINGLE click. Most of the wait on a double-click was never the
+     code — it is the gap between the two clicks, which no amount of tuning
+     reaches. A habitual double-click still opens the group once rather than
+     opening and closing it: the second click of a rapid pair is swallowed. */
   Array.prototype.forEach.call(body.querySelectorAll('.stg-row.g'), function(r){
     var key=r.getAttribute('data-stg');
-    r.ondblclick=function(){ stgToggle(key); };
+    /* Per ROW, not shared. A single counter across all three groups swallowed a
+       genuine click on Orchards that happened to land within 350ms of one on
+       Livestock — opening one group then another quickly did nothing. */
+    var last=0;
+    r.onclick=function(e){
+      var now=(e&&e.timeStamp)||Date.now();
+      if(now-last<350){ last=now; return; }   /* second click of a double — already open */
+      last=now;
+      stgToggle(key);
+    };
     var c=r.querySelector('.stg-chev');
-    if(c) c.onclick=function(e){ e.stopPropagation(); stgToggle(key); };
+    if(c) c.onclick=function(e){ e.stopPropagation(); e.preventDefault();
+      last=(e&&e.timeStamp)||Date.now(); stgToggle(key); };
   });
   hov.onmouseleave=function(){ body.removeAttribute('data-h'); tip.className='stg-tip'; };
   Array.prototype.forEach.call(hov.children, function(c){
@@ -35149,7 +35191,7 @@ function stRowHTML(gkey,r){
     ? '<span class="st-rchip" style="color:'+(pos?'#1B7A3E':'#B42318')+';background:'+(pos?'#F0FAF4':'#FEF3F2')+'">'+stSK(v)+'</span>'
     : '<span class="st-rchip" style="color:var(--t3);background:var(--br2)" data-t="st.notStarted">not started</span>';
   var head='<div class="st-row'+(open?' open':'')+'" onclick="stToggleDetail(\''+gkey+'\',\''+String(r.key).replace(/'/g,"\\'")+'\')">'+
-    stTile(gkey)+
+    stTile(gkey, r.icon)+
     '<div class="st-row-main"><div class="st-row-name">'+stEsc(r.name)+' <span class="st-row-sub">'+stEsc(r.sub)+'</span> <span class="st-pill" style="color:'+s.c+';background:'+s.bg+'">'+s.l+'</span></div>'+
       '<div class="st-row-drv">'+stEsc(r.driver)+'</div>'+
       /* Phase B — production and cash side by side. Hooglaagte was reporting
@@ -42207,7 +42249,7 @@ LANG_PAIRS.push(
      is a substring of shorter existing copy, so no other screen is touched. */
   ["When the money comes in","Wanneer die geld inkom"],
   ["Hover a month to see what makes it up","Beweeg oor ’n maand om te sien waaruit dit bestaan"],
-  ["Double-click a row to open the blocks, lands and herds inside it","Dubbelklik ’n ry om die blokke, lande en kuddes daarin oop te maak"],
+  ["Click a row to open the blocks, lands and herds inside it","Klik ’n ry om die blokke, lande en kuddes daarin oop te maak"],
   ["full season income","volle seisoen se inkomste"],
   ["Paid · nothing outstanding for this month.","Betaal · niks uitstaande vir hierdie maand nie."],
   ["Your biggest month.","Jou grootste maand."],
