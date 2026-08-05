@@ -33728,6 +33728,15 @@ function bgtMergeHero() {
   hero.classList.add('merged');
 }
 
+/* Idempotent open, for the tour. Two consecutive steps live inside this
+   drawer, so calling the toggle on each would open it and then shut it again
+   on the second — the farmer would watch the panel close as they advanced. */
+function bgtTourOpenMore() {
+  var b = $('bgt-more-body'), c2 = $('bgt-more-c'); if (!b) return;
+  if (b.classList.contains('open')) return;
+  b.classList.add('open');
+  if (c2) c2.innerHTML = 'Close &#9652;';
+}
 function bgtToggleMore() {
   var b = $('bgt-more-body'), c2 = $('bgt-more-c'); if (!b) return;
   var open = !b.classList.contains('open');
@@ -33752,7 +33761,6 @@ var GBP_LIFT    = 0.05;    // assumed lift on income still inside its season
 var GBP_KEEP    = 0.33;    // share of an underspend assumed to be real saving
 var GBP_TAX     = 0.27;    // rate used for the provisional-tax estimate
 var GBP_DSL_RE  = 3.66;    // rand/litre refundable — SARS Sch 6 Pt 3
-var GBP_DSL_PR  = 25;      // assumed rand/litre paid at the pump
 var GBP_MIN     = 5000;    // ignore levers smaller than this
 
 function gbpGap(c) { return Math.round(c.annualNet - (c.projIn - c.projOut)); }
@@ -33874,23 +33882,54 @@ function gbpLevers(c) {
   }
 
   /* ── Statutory money. Published rules, and nobody else surfaces them. ── */
+  /* The refund is claimed on eligible LITRES of diesel, on a VAT201/DA66 — not
+     on rands of fuel. This used to take the whole Fuel & Oil line, divide it by
+     an assumed pump price and call every litre diesel, which quietly billed the
+     farmer's bakkie to a farming refund and put a confident rand figure on a
+     number the app does not hold: there is one fuel category and no fuel-type
+     field. So the claim is worked out from the litres actually logged against
+     the crop compliance item, and when none are logged the lever says so and
+     becomes "log them" rather than inventing a value. */
   var fuel = gbpCatRow(cats.expense.rows, /fuel|diesel|petrol/i);
   if (fuel && fuel.act > 0) {
-    var litres = fuel.act / GBP_DSL_PR, dsl = Math.round(litres * GBP_DSL_RE);
-    if (dsl > 500) ways.push({
-      ico:'⛽', v:dsl, sure:3, conf:'near certain', cat:'tax', catL:'Tax & grants',
-      t:'Claim your diesel refund',
-      ev:'About ' + Math.round(litres).toLocaleString('en-ZA').replace(/,/g, ' ') +
-         ' litres of farm diesel this year.',
-      facts:['Fuel spend ' + bgtFmt(fuel.act) + ' so far this year',
-             'From 1 April 2026 you may claim on 100% of eligible diesel, up from 80%',
-             'Claims can be made in arrears, with records kept five years'],
-      steps:['Keep a logbook of diesel used on the land.',
-             'Claim on your VAT201 using form DA66.',
-             'Check the current cents-per-litre rate on the SARS schedule.'],
-      note:'Small, but it is money you are entitled to and it repeats every year.',
-      src:'SARS Diesel Refund Scheme, Customs & Excise Act Schedule 6 Part 3. The 80% to 100% increase is confirmed; confirm the current rate per litre before filing.'
-    });
+    var _dc  = (typeof ST_CROP !== 'undefined' && ST_CROP.compliance) ? ST_CROP.compliance : null;
+    var lit  = (_dc && _dc.dieselLitres) || 0;
+    var book = !!(_dc && _dc.dieselLogbook);
+    var dsl  = Math.round(lit * GBP_DSL_RE);
+    if (lit > 0 && dsl > 500) {
+      ways.push({
+        ico:'⛽', v:dsl, sure:3, conf:'near certain', cat:'tax', catL:'Tax & grants',
+        t:'Claim your diesel refund',
+        ev:_grpInt(lit) + ' litres of eligible diesel are logged and can be claimed.',
+        facts:['Worked out on your logged litres, not on the fuel bill — the ' + bgtFmt(fuel.act) +
+               ' under Fuel & Oil covers diesel and petrol together',
+               book ? 'Your per-activity logbook is kept, which is what SARS asks for'
+                    : 'No per-activity logbook yet — SARS wants date, machine and litres',
+               'From 1 April 2026 you may claim on 100% of eligible diesel, up from 80%',
+               'Claims can be made in arrears, with records kept five years'],
+        steps:['Claim on your VAT201 using form DA66.',
+               'Check the current cents-per-litre rate on the SARS schedule.',
+               book ? 'Keep the logbook up to date for next year\u2019s claim.'
+                    : 'Start a per-activity logbook so the claim survives an audit.'],
+        note:'Small, but it is money you are entitled to and it repeats every year.',
+        src:'SARS Diesel Refund Scheme, Customs & Excise Act Schedule 6 Part 3. The 80% to 100% increase is confirmed; confirm the current rate per litre before filing.'
+      });
+    } else if (lit <= 0) {
+      ways.push({
+        ico:'⛽', v:0, sure:2, conf:'needs your litres', cat:'tax', catL:'Tax & grants',
+        t:'Log your diesel litres to open a refund claim',
+        ev:'None of the ' + bgtFmt(fuel.act) + ' you have spent on fuel can be claimed yet.',
+        facts:['The refund is paid on eligible litres of diesel, not on rands of fuel',
+               'Fuel & Oil is one category here, so diesel and petrol are not split',
+               'From 1 April 2026 you may claim on 100% of eligible diesel, up from 80%',
+               'Claims can be made in arrears, with records kept five years'],
+        steps:['Record eligible diesel litres against the crop compliance item.',
+               'Keep a per-activity logbook — date, machine, litres.',
+               'Then claim on your VAT201 using form DA66.'],
+        note:'No rand figure here on purpose: without litres there is nothing to work it out from.',
+        src:'SARS Diesel Refund Scheme, Customs & Excise Act Schedule 6 Part 3.'
+      });
+    }
   }
 
   var zr = 0, zrNames = [];
@@ -38855,7 +38894,7 @@ function renderMyFarm() {
   }
   if(!flags.length) flags.push('<div class="mkr-fl"><u class="thin">On top</u><span>Every line is clearing its growing cost at today&rsquo;s prices.</span></div>');
 
-  var h='<div class="mkr-hero"><div>'+
+  var h='<div class="mkr-hero" id="mkr-hero"><div>'+
       '<div class="l" data-t="mkt.expectedToSell">Expected to sell this season</div>'+
       '<div class="v">'+mkrK(M.total)+'</div>'+
       '<div class="mkr-flag">'+flags.join('')+'</div></div>'+
@@ -47483,187 +47522,85 @@ function obSkip() {
 var TOUR_STEP  = 0;
 var TOUR_ACTIVE = false;
 
+/* ── The user demo ────────────────────────────────────────────────────────
+   Six steps, each spotlighting the thing it is talking about.
+
+   This was nineteen steps, and seventeen of them highlighted a word in the
+   sidebar: the copy described a status card while the ring sat on the menu
+   item you would click to go and find it. It was a table of contents, and it
+   duplicated the per-page "Demo this page" tours, which do the same job
+   properly one page at a time.
+
+   So this now follows the arc a farmer actually walks — am I making money,
+   how do I record it, will I have enough, what is each part earning, is SARS
+   handled, what is it worth today — and every other page keeps its own tour.
+   `tab` is applied synchronously right after nav (see tourRender): onEnter
+   fires at 200ms, which is after the spotlight has already been measured. */
 var TOUR_STEPS = [
   {
-    target: 'nav-dashboard',
     page:   'dashboard',
-    icon:   '📊',
-    title:  'Dashboard — Your farm at a glance',
-    desc:   'This is your home screen. Every time you open AgriInsights you land here. It answers the one question every farmer asks: Is my farm making money this month?',
-    tip:    'The big green card at the top tells you instantly whether you are profitable. No maths needed.',
-    pos:    'right'
-  },
-  {
-    target: 'pg-dashboard',
-    scroll: 'prov-tax-card',
-    icon:   '💰',
-    title:  'Dashboard — Cashflow & budget bars',
-    desc:   'Scroll down to see your money in vs money out, budget progress bars, income by source, and your provisional tax estimate — all calculated live from your transactions.',
-    tip:    'The + button at the bottom right lets you record a transaction from any screen without leaving what you are doing.',
-    pos:    'center'
-  },
-  {
-    target: 'nav-transactions',
-    page:   'transactions',
-    icon:   '📝',
-    title:  'Transactions — Every entry in one place',
-    desc:   'Every sale and expense you record lands here in one searchable list, newest first — whether you added it from the + button, a bank import or any other screen.',
-    tip:    'Filter by income or expense, pick a category from the dropdown to narrow down, or search by description, date or amount. Tap any row to open, edit or delete it — changes sync across every screen and report instantly.',
-    pos:    'right'
-  },
-  {
-    target: 'nav-income',
-    page:   'income',
-    icon:   '💵',
-    title:  'Income — Every rand that comes in',
-    desc:   'See all your income by source — crop sales, livestock, grants, rentals. Switch between 1 month, 3 months, 6 months or 12 months to spot your seasonal patterns.',
-    tip:    'Tap "How to add income" for a guided walkthrough. Or tap "Record Sale" to add income now.',
-    pos:    'right'
-  },
-  {
-    target: 'nav-expenses',
-    page:   'expenses',
-    icon:   '💸',
-    title:  'Expenses — Know where your money goes',
-    desc:   'All your costs in one place — fuel, fertiliser, labour, vet fees, repairs. The expense ratio shows how much of your income is being spent.',
-    tip:    'Tap "How to add expense" for a step-by-step walkthrough of recording your first expense.',
-    pos:    'right'
+    target: 'dash-combo-stripe',
+    icon:   '🌾',
+    iconBg: '#D8F3DC',
+    title:  'Is my farm making money?',
+    desc:   'The one question worth opening an app for, answered in a sentence the moment you land — profit or loss this month, worked out from what you have actually recorded, not what you meant to record.',
+    tip:    'Everything below this line is the detail behind that sentence.',
+    pos:    'smart'
   },
   {
     target: 'qc-fab',
     icon:   '➕',
     iconBg: '#D8F3DC',
-    title:  'Quick Add — Record in 10 seconds',
-    desc:   'This green + button is the fastest way to capture a transaction. Tap it, say whether you received or spent money, enter the amount, describe it briefly — done.',
-    tip:    'Watch: the app auto-fills the category from your description. Type "Diesel 450L" and it detects Fuel & Oil instantly.',
+    title:  'Record it in ten seconds',
+    desc:   'None of it works if capturing a sale is a chore. Watch — the amount, a few words, and the app works out the category itself.',
+    tip:    'Type "Diesel 450L" and it files it under Fuel & Oil on its own. No category list to learn.',
     pos:    'top',
     spotlight_pad: 12,
     onEnter: 'tourDemoQC',
-    onLeave: 'tourCloseQC',
     onLeave: 'tourCloseQC'
   },
   {
-    target: 'nav-cashflow',
     page:   'cashflow',
-    icon:   '💧',
-    title:  'Money Flow — Will I have enough?',
-    desc:   'Two views in one page. The top section, "What\'s happening now", shows your money in, money out and profit for the last 1, 3, 6 or 12 months. The bottom section, "Looking ahead", projects your bank balance forward so you can spot tough months before they arrive.',
-    tip:    'The forecast pulls from your crop plan and any recurring items (loans, salaries, rental income). The more accurate those are, the more accurate your runway.',
-    pos:    'right'
+    tab:    'forecast',
+    target: 'cf-fwd-answer',
+    icon:   '🧭',
+    iconBg: '#D8F3DC',
+    title:  'Will I have enough?',
+    desc:   'Your bank balance projected forward from your own plan, and the month it gets tight named in plain words. This is the question that keeps farmers awake, and most farm software answers it with a chart and leaves you to squint.',
+    tip:    'Line up cover before the month it names, not after.',
+    pos:    'smart'
   },
   {
-    target: 'nav-budgets',
-    page:   'budgets',
-    icon:   '🎯',
-    title:  'Budgets — Am I on track?',
-    desc:   'Two tabs in one page: Income tracks money coming in, Expenses tracks money going out. The big status card up top tells you in plain language whether you are on track for profit, running tight, or falling behind. The three KPI boxes show your YTD income, costs and net profit at a glance.',
-    tip:    'Tap "Pull from my plan" on either tab to fill in your targets automatically from what you have set up on Planning. The page wording adapts to whether you farm crops, livestock, or both.',
-    pos:    'right'
-  },
-  {
-    target: 'nav-loans',
-    page:   'loans',
-    icon:   '🏦',
-    title:  'Loans & Debt — what you owe, and what it costs',
-    desc:   "Every loan, overdraft and co-op account in one place — what you owe, what you pay, and how much is interest versus coming off the balance. Overdrafts and co-op accounts are there to use as needed — you only pay interest on what you've drawn. The Summary shows how much of the farm is already yours.",
-    tip:    "New: tag any loan, overdraft or co-op account to the part of your farm it funds, so you can see what each one really carries. And when you pay one down — from the card or the expense form — it's recorded as money out (Bank or Cash), so your bank balance stays right. Only interest counts as a cost on your Profit and Tax pages.",
-    pos:    'right'
-  },
-  {
-    target: 'nav-tax',
-    page:   'tax',
-    icon:   '🧾',
-    title:  'Tax & SARS — what to set aside, and when',
-    desc:   "Everything SARS, in plain words — provisional tax, VAT, payroll and depreciation — worked out from what you've already recorded. It shows what to set aside each month and what's due when, so a payment never sneaks up on you.",
-    tip:    "Three tabs: At a glance (what you owe and when), Reports (the actual SARS forms — IT12, EMP201, VAT201) and What-if (test a big sale or an equipment purchase before it happens).",
-    pos:    'right'
-  },
-  {
-    target: 'nav-reports',
-    page:   'reports',
-    icon:   '📋',
-    title:  'Reports — Print-ready for SARS',
-    desc:   'Four official statements — Income & Expenses, Profit & Loss, Cash Flow and Tax Summary — all calculated from your recorded transactions. Click any one for a full print preview. Further down, the Accountant Pack bundles your year-end exports.',
-    tip:    'The Accountant Pack previews everything your accountant needs — P&L, transactions, general ledger, asset register and a Pastel/Xero import — then downloads it in one go, or invite your accountant by email.',
-    pos:    'right'
-  },
-  {
-    target: 'nav-planning',
-    page:   'planning',
-    icon:   '🌱',
-    title:  'My Plan — Crops & livestock for the year ahead',
-    desc:   'Two tabs side by side. Crops shows your planting calendar with growth stages across all 12 months. Livestock shows scheduled events — auctions, weaner sales, dipping rounds, replacement stock buys — each with their expected income or cost.',
-    tip:    'The What-If tool lets you stress-test the plan: "What if maize prices drop 10%?" or "What if I sell weaners two months earlier?" — see the impact on profit instantly.',
-    pos:    'right'
-  },
-  {
-    target: 'nav-crop',
-    requireNav: 'nav-crop',
-    page:   'crop',
-    icon:   '🌾',
-    title:  'Crops — Lands, inputs & compliance',
-    desc:   'Everything for your crops in one place: each land with its crop, area and growth stage; your spray & input log; and a full compliance tracker for the Acts that touch crop farming — water, agrochemicals, GMO, seed and more.',
-    tip:    'The Compliance tab keeps your records, reminds you when a check is due, stores your licences with expiry alerts, and builds an audit pack you can hand to an inspector or buyer.',
-    pos:    'right'
-  },
-  {
-    target: 'nav-orchards',
-    page:   'orchards',
-    requireNav: 'nav-orchards',
-    icon:   '🍊',
-    title:  'Orchards, Fruit & Veg — every block\'s money back',
-    desc:   'For citrus, apples, berries and veg: see what each block brings in (money back, after the packhouse and agent), when to pick, and your spray and certificate records — all worked out from your pricing and tonnage, the same number on every page.',
-    tip:    'The season Overview flags blocks falling behind, certificates about to expire and fruit ready to pick. Set pick windows and season costs on the Planning tab and the money flows into your forecast and budgets.',
-    pos:    'right'
-  },
-  {
-    target: 'nav-livestock',
-    requireNav: 'nav-livestock',
-    page:   'livestock',
-    icon:   '🐄',
-    title:  'Livestock — Herd value, health & planning',
-    desc:   'Track your herd groups, calculate ROI on each animal type, and log health events like vaccinations, dipping and vet treatments. The overview shows your total herd value vs today\'s AMT market price. The Plan tab lets you forecast any animal — cattle, sheep, goats, pigs, game and poultry — over 3 to 5 years before you commit a cent.',
-    tip:    'Health events with a cost are automatically added to your expenses, and planned new lines stay out of your totals until you confirm the buy — so the numbers never lie.',
-    pos:    'right'
-  },
-  {
-    target: 'nav-profit',
     page:   'profit',
+    target: 'pf-tab-glance',
     icon:   '📊',
-    title:  'Your Profit Margins — what each part of your farm earns',
-    desc:   "This is where the money makes sense. It works out the profit of every crop, herd and fruit block on its own — per hectare for crops, per livestock unit for herds and per hectare for orchards — so you can see which parts carry the farm and which are just keeping you busy.",
-    tip:    "Three views: At a glance ranks your earners; Details drills into one part of your farm (cost make-up, field-by-field, vs the regional benchmark); What-if lets you drag price, yield and cost sliders to test a season before it happens.",
-    pos:    'right'
+    iconBg: '#D8F3DC',
+    title:  'What is each part of the farm earning?',
+    desc:   'Every land, herd and block costed on its own — per hectare for crops, per livestock unit for herds. A farm that is profitable overall can still be carrying a piece that loses money every season, and this is where you see which.',
+    tip:    'The weakest line is usually the surprise, not the one you already suspect.',
+    pos:    'smart'
   },
   {
-    target: 'nav-assets',
-    page:   'assets',
-    icon:   '🚜',
-    title:  'Assets — What your farm is worth',
-    desc:   'Record everything your farm owns — land, tractors, irrigation, silos, vehicles, even solar and dams. The app picks the right SARS write-off for each one and tracks its tax value. Two tabs: the Register lists every asset; Insights turns it all into plain-language charts.',
-    tip:    'Tap any asset to add its finance, insurance and documents. The Insights tab then shows what you own vs the bank, your tax write-off forecast, ageing gear and insurance gaps — and you can tap any chart to see exactly which assets make up the number.',
-    pos:    'right'
+    page:   'tax',
+    target: 'tax-tab-glance',
+    icon:   '🧾',
+    iconBg: '#D8F3DC',
+    title:  'SARS, handled as you go',
+    desc:   'Provisional tax, VAT, payroll and write-offs worked out from what you have already captured — what to put aside each month and what falls due when, so a payment never arrives as a surprise.',
+    tip:    'Built for South African farming: Section 12B write-offs, the diesel refund, and the farmer\u2019s three-year income averaging.',
+    pos:    'smart'
   },
   {
-    target: 'nav-workers',
-    requireNav: 'nav-workers',
-    page:   'workers',
-    icon:   '👥',
-    title:  'Workers & Pay — your team, payroll and the law',
-    desc:   "Your whole team in one place. Run monthly payroll in a tap — UIF, any advance or savings, and a minimum-wage check all worked out — then it posts straight to your Labour & Wages costs. Seasonal workers are each tracked by name and the days they worked, and everyone gets a proper payslip. A Compliance tab covers minimum wage, UIF, contracts, leave, COIDA, SDL and on-farm housing — with reminders and a labour file you can hand an inspector.",
-    tip:    "New: wages now feed your costs, cashflow and profit from one place — no double entry — and you can undo a pay run if you mis-tap. Tag a seasonal worker to a part of your farm and their pay flows into Your Profit Margins. Advances and savings you pay out show in Money Flow, and you can add a 13th cheque or Sunday & public-holiday pay to any run.",
-    pos:    'right'
-  },
-  {
-    target: 'nav-market',
     page:   'market',
-    icon:   '📈',
-    title:  'Market Prices — what your produce is worth',
-    desc:   'See what your crops and livestock are worth at today\'s prices, each with a plain SELL or HOLD — green when the price beats what it cost you to grow (or your sale target), amber when it doesn\'t. Tap any one for the detail and a price-vs-cost graph.',
-    tip:    'The full SA price list — grain, livestock, fuel and fertiliser — is one tap away, and you can set a price alert to be notified the moment a target is hit.',
+    target: 'mkr-hero',
+    icon:   '💰',
+    iconBg: '#D8F3DC',
+    title:  'What is it worth today?',
+    desc:   'Today\u2019s prices against what that ground actually cost you to farm — so "should I sell" is a number you read, not a feeling. Open any line for its detail.',
+    tip:    'Orchards go further: load a packhouse remittance and every block switches from an estimate to what you were really paid.',
     pos:    'smart'
   }
-];
+];;
 
 // ── Demo the Quick Add sheet during the tour ─────────────────
 var TOUR_PREV_STEP = null;
@@ -47846,6 +47783,19 @@ var prevStep = TOUR_STEPS[TOUR_STEP - 1] || TOUR_STEPS[TOUR_STEP + 1];
   TOUR_PREV_STEP = TOUR_STEP;
 
 if (step.page) nav(step.page);
+
+/* Sub-tab, applied synchronously right after nav — onEnter fires at 200ms,
+   which is after tourScrollTo/tourPosition have already measured the target
+   at 120ms, so a step that needs a different tab has to switch it here. */
+if (step.tab) {
+    try {
+      if (step.page==='cashflow' && typeof mfTab==='function')  mfTab(step.tab);
+      else if (step.page==='profit'   && typeof pfTab==='function')  pfTab(step.tab);
+      else if (step.page==='tax'      && typeof taxTab==='function') taxTab(step.tab);
+      else if (step.page==='budgets'  && typeof setBudgetTab==='function') setBudgetTab(step.tab);
+      else if (step.page==='market') { var _tb=$('mkt-tab-'+step.tab); if(_tb) _tb.click(); }
+    } catch(e){}
+  }
 
 if (step.onEnter) {
     setTimeout(function(){ if(window[step.onEnter]) window[step.onEnter](); }, 200);
@@ -49034,9 +48984,9 @@ var PAGE_TOURS = {
       text:'The green mountain is money that has come in, growing through the year. Stay on top of the grey dashed line and you’re ahead of plan. Switch to Spending to see costs the same way.', pos:'smart' },
     { target:'bgt-cats-card', title:'Every category, judged fairly', icon:'🧾',
       text:'Income and spending split into the same categories you already record with. Steady ones are watched month by month; big seasonal ones are only judged against their season — so nothing cries wolf.', pos:'smart' },
-    { target:'bgt-months-card', title:'Month by month', icon:'🗓️',
+    { onEnter:'bgtTourOpenMore', target:'bgt-months-card', title:'Month by month', icon:'🗓️',
       text:'Finished months get a simple verdict. Tap any month to fine-tune its target — you choose whether the year total stays the same or moves with your change.', pos:'smart' },
-    { target:'bgt-setup-row', title:'Your targets live here', icon:'✏️',
+    { onEnter:'bgtTourOpenMore', target:'bgt-setup-row', title:'Your targets live here', icon:'✏️',
       text:'Edit targets opens the full setup — annual totals, seasonal patterns, and pulling figures straight from your Planning page.', pos:'smart' }
   ],
   planning: [
@@ -49109,7 +49059,7 @@ var PAGE_TOURS = {
   ],
   market: [
     { target:'mkt-myfarm-section', title:'Today\u2019s calls on your farm', icon:'🌾', tab:'crops',
-      text:'Your crops and livestock at today\u2019s prices, each with a plain SELL or HOLD \u2014 green when the price beats what it cost you to grow (or your sale target), amber when it doesn\u2019t. Tap any row to open its detail and price graph.', tip:'The big number up top is your whole farm\u2019s worth if you sold everything today.', pos:'smart' },
+      text:'Every land, block and herd at today\u2019s prices, against what that ground actually cost you \u2014 the margin a ton or a head clears, and a bar that runs green while the price covers the cost and turns orange when it stops. Tap any row for its detail and chart.', tip:'The big number up top is your whole farm\u2019s worth if you sold everything today.', pos:'smart' },
     { target:'mkt-all-prices', title:'Every SA price, in one list', icon:'📋', tab:'crops',
       text:'Grain, oilseeds, livestock and fibre together \u2014 no more hopping between tabs. The lines you actually farm are shaded and carry a scale: where today\u2019s price sits between what that ground cost you and what you planned to get.',
       tip:'The bar next to the list lets you switch off anything you never sell, so the list stays yours.', pos:'smart' },
@@ -49228,10 +49178,69 @@ function startPageTour(page) {
   PAGE_TOUR_ACTIVE = true;
   nav(page);
   setTimeout(function(){
+    /* Drop steps whose target cannot be shown on THIS farm. Done after nav so
+       the page has rendered, and driving each step's own tab first because
+       that is usually what reveals the target. Falls back to the unfiltered
+       list rather than ever leaving a page with no tour. */
+    var keep = PAGE_TOUR_STEPS.filter(function(st){
+      pageTourApplyStep(st);
+      return pageTourTargetVisible(st);
+    });
+    if (keep.length) PAGE_TOUR_STEPS = keep;
+    PAGE_TOUR_STEP = 0;
     var ov = $('tour-overlay');
     if (ov) ov.style.display = 'block';
     pageTourRender();
   }, 150);
+}
+
+/* Put the page into the state a step needs — its sub-tab, then its onEnter.
+   Lifted out of pageTourRender so the visibility probe below can drive the
+   exact same path, because for most steps it is the tab switch that puts the
+   target on screen at all. */
+function pageTourApplyStep(step) {
+  if (!step) return;
+  if (step.tab) {
+    try {
+      if (PAGE_TOUR_PAGE==='crop'      && typeof cropSetTab==='function') cropSetTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='planning'  && typeof setPlanTab==='function') setPlanTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='livestock' && typeof lsTab==='function')      lsTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='market') { var _mb=$('mkt-tab-'+step.tab); if(_mb) _mb.click(); }
+      else if (PAGE_TOUR_PAGE==='assets'    && typeof astTab==='function')    astTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='loans'     && typeof lnTab==='function')     lnTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='cashflow'  && typeof mfTab==='function')     mfTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='budgets'   && typeof setBudgetTab==='function') setBudgetTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='tax'       && typeof taxTab==='function')    taxTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='profit'    && typeof pfTab==='function')     pfTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='workers'   && typeof wkTab==='function')     wkTab(step.tab);
+      else if (PAGE_TOUR_PAGE==='orchards'  && typeof orSetTab==='function')  orSetTab(step.tab);
+    } catch(e){}
+  }
+  if (step.onEnter && window[step.onEnter]) { try{ window[step.onEnter](); }catch(e){} }
+}
+/* Can this step actually show the farmer anything? A spotlight drawn around a
+   collapsed or empty element is worse than no step at all — it frames blank
+   space and reads as a broken app. Budgets steps 5 and 6 pointed inside the
+   closed "More detail" drawer; Income and Expenses step 2 pointed at the
+   "Worth knowing" strip, which _ieRenderWorth hides whenever there is no
+   insight to show. Both looked fine in the source and broken on screen. */
+function pageTourTargetVisible(step) {
+  if (!step || !step.target) return false;
+  var el = $(step.target); if (!el) return false;
+  var cs;
+  try {
+    cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    /* A fixed element has no offsetParent by definition, so it would fail the
+       test below despite being perfectly visible. */
+    if (cs.position === 'fixed') return true;
+  } catch(e){}
+  /* offsetParent goes null when this element OR AN ANCESTOR is display:none —
+     which is the collapsed-drawer case, and the one a computed style on the
+     element itself cannot see. Deliberately not a size check: a zero box is
+     also what you get from an element whose layout has simply not flushed yet,
+     and that false negative would drop good steps. */
+  return el.offsetParent !== null;
 }
 
 function pageTourRender() {
@@ -49279,24 +49288,7 @@ if (prevBtn) prevBtn.onclick = function(){ pageTourPrev(); };
 
   // Let a step switch a sub-tab (e.g. crop Compliance) before spotlighting
   var _posDelay = 100;
-  if (step.tab) {
-    try {
-      if (PAGE_TOUR_PAGE==='crop'      && typeof cropSetTab==='function') cropSetTab(step.tab);
-      else if (PAGE_TOUR_PAGE==='planning'  && typeof setPlanTab==='function') setPlanTab(step.tab);
-      else if (PAGE_TOUR_PAGE==='livestock' && typeof lsTab==='function')      lsTab(step.tab);
-      else if (PAGE_TOUR_PAGE==='market') { var _mb=$('mkt-tab-'+step.tab); if(_mb) _mb.click(); }
-      else if (PAGE_TOUR_PAGE==='assets'    && typeof astTab==='function')    astTab(step.tab);
-      else if (PAGE_TOUR_PAGE==='loans'     && typeof lnTab==='function')     lnTab(step.tab);
-      else if (PAGE_TOUR_PAGE==='cashflow'  && typeof mfTab==='function')     mfTab(step.tab);
-      else if (PAGE_TOUR_PAGE==='budgets'   && typeof setBudgetTab==='function') setBudgetTab(step.tab);
-      else if (PAGE_TOUR_PAGE==='tax'       && typeof taxTab==='function')    taxTab(step.tab);
-      else if (PAGE_TOUR_PAGE==='profit'    && typeof pfTab==='function')     pfTab(step.tab);
-      else if (PAGE_TOUR_PAGE==='workers'   && typeof wkTab==='function')     wkTab(step.tab);
-      else if (PAGE_TOUR_PAGE==='orchards'  && typeof orSetTab==='function')  orSetTab(step.tab);
-    } catch(e){}
-    _posDelay = 280;
-  }
-  if (step.onEnter && window[step.onEnter]) { try{ window[step.onEnter](); }catch(e){} _posDelay = 280; }
+  if (step.tab || step.onEnter) { pageTourApplyStep(step); _posDelay = 280; }
   setTimeout(function(){ tourScrollTo(step.target, function(scrolled){ setTimeout(function(){ tourPosition(step); }, scrolled ? 420 : 0); }); }, _posDelay);
 }
 
