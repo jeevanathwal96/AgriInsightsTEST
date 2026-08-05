@@ -6251,11 +6251,11 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 <div id="tour-complete-bg" onclick="if(event.target===this)tourCompleteClose()">
   <div class="tour-complete-card">
     <div class="tcc-ic">✅</div>
-    <div class="tcc-h">Overview complete!</div>
-    <div class="tcc-p">You’ve seen the whole app. Every tab also has its own <b>detailed walkthrough</b> — handy when you want to go deeper on Crops, Money Flow or Compliance.</div>
+    <div class="tcc-h" id="tcc-h">Overview complete!</div>
+    <div class="tcc-p" id="tcc-p">You’ve seen the whole app. Every tab also has its own <b>detailed walkthrough</b> — handy when you want to go deeper on Crops, Money Flow or Compliance.</div>
     <div class="tcc-hl">&#x1F5FA;&#xFE0F; Tap the <b>map button</b> in the bottom-right corner any time — it lists every tab’s walkthrough, so you can open the one you want to see.</div>
     <div class="tcc-row">
-      <button class="tcc-b1" onclick="tourCompleteDemoNow()">Demo this page now</button>
+      <button class="tcc-b1" id="tcc-b1" onclick="tourCompleteDemoNow()">Demo this page now</button>
       <button class="tcc-b2" onclick="tourCompleteClose()">Got it</button>
     </div>
   </div>
@@ -47731,10 +47731,13 @@ function tourStart() {
   tourRender();
 }
 
+var TOUR_HIDE_T = null;   /* the pending overlay fade-out, so it can be cancelled */
 function tourEnd() {
   TOUR_ACTIVE = false;
   var ov = $('tour-overlay');
-  if (ov) { ov.style.opacity='0'; ov.style.transition='opacity .25s'; setTimeout(function(){ ov.style.display='none'; ov.style.opacity=''; ov.style.transition=''; },280); }
+  if (ov) { ov.style.opacity='0'; ov.style.transition='opacity .25s';
+    clearTimeout(TOUR_HIDE_T);
+    TOUR_HIDE_T=setTimeout(function(){ ov.style.display='none'; ov.style.opacity=''; ov.style.transition=''; },280); }
 
   nav('dashboard');
 }
@@ -48320,9 +48323,300 @@ function qcSuggestNo() {
 // ============================================================
 
 // ============================================================
+/* ══ GUIDED JOURNEYS ════════════════════════════════════════════════════════
+   Six use cases the app walks by itself. Each one navigates, switches the sub-
+   tab, spotlights the thing it is talking about, performs a real action on the
+   real screen, narrates, and advances on a timer — then stops ONCE and hands
+   the farmer the controls before finishing on that page's own tab demo.
+
+   Why this shape: multi-path demos where the visitor chooses complete far
+   better than one linear tour, the best-completing flows run well under ten
+   steps, and passive demos convert below ones people actually touch. So:
+   short, chosen, auto-playing, with a hand-over.
+
+   It reuses the existing tour overlay, spotlight and positioning wholesale —
+   nothing new is drawn. The actions are the app's own functions. */
+var AIJ = [
+ { t:'Am I making money?', ic:'🌾', sub:'The verdict, then which part of the farm earns it', mins:'~45s',
+   end:'profit',
+   steps:[
+     {page:'dashboard', target:'dash-combo-stripe', icon:'🌾', title:'Is my farm making money?',
+      text:'Every time you open AgriInsights you land here, and it answers one question first — profit or loss this month, worked out from what you have actually recorded.',
+      tip:'Everything below this line is the detail behind that sentence.'},
+     {page:'income', target:'inc-metric-in', icon:'💵', title:'Where the money came from',
+      text:'The money in, split by source — crop sales, fruit, livestock, grants. Switch the period pills to see a season rather than a month.'},
+     {page:'expenses', target:'exp-metric-ratio', icon:'💸', title:'And what it cost to get it',
+      text:'The expense ratio is the number worth watching: how much of every rand coming in goes straight back out.'},
+     {page:'profit', target:'pf-tab-glance', icon:'📊', title:'Which part of the farm earns it',
+      text:'Now the part that decides things — every land, herd and block costed on its own. A farm can be profitable overall and still carry a piece that loses money every season.',
+      you:'Open any land, herd or block to see its own costing.'}
+   ]},
+
+ { t:'Record a sale in ten seconds', ic:'➕', sub:'Watch it typed, filed and landed', mins:'~35s',
+   end:'transactions',
+   steps:[
+     {page:'dashboard', target:'qc-fab', icon:'➕', title:'Record it in ten seconds',
+      text:'None of this works if capturing a sale is a chore. Watch — the amount, a few words, and the app works out the category itself.',
+      tip:'Type "Diesel 450L" and it files it under Fuel & Oil on its own. No category list to learn.',
+      pad:12, onEnter:'tourDemoQC', onLeave:'tourCloseQC', hold:9000,
+      you:'Type your own description — anything — and watch the category find itself.'},
+     {page:'transactions', target:'tx-summary-strip', icon:'🧾', title:'It lands in the ledger',
+      text:'Every entry you make arrives here, newest first — and every figure built on it moves with it: dashboard, income, profit, provisional tax.'}
+   ]},
+
+ { t:'Will I have enough cash?', ic:'🧭', sub:'The runway, and the ways to close a gap', mins:'~45s',
+   end:'budgets',
+   steps:[
+     {page:'cashflow', tab:'forecast', target:'cf-fwd-answer', icon:'🧭', title:'Will I have enough?',
+      text:'Your bank balance projected forward from your own plan, with the month it gets tight named in plain words. This is the question that keeps farmers awake.',
+      tip:'Line up cover before the month it names, not after.'},
+     {page:'budgets', target:'bgt-hero', icon:'🎯', title:'Am I on track for the year?',
+      text:'One verdict for the whole year — on plan, running tight, or falling behind — in a sentence rather than a table.'},
+     {page:'budgets', target:'bgt-cats-card', icon:'📋', title:'Judged category by category',
+      text:'Each cost line measured against its own season, so a fuel bill in planting month is not flagged as an overspend.',
+      you:'Open a category to see the months behind its verdict.'}
+   ]},
+
+ { t:'Should I sell today?', ic:'💰', sub:'Today’s price against what the ground cost you', mins:'~45s',
+   end:'market',
+   steps:[
+     {page:'market', tab:'crops', target:'mkr-hero', icon:'💰', title:'What is it worth today?',
+      text:'Everything you have to sell at today’s prices — and the two lines worth interrupting you for: what is losing money, and what is close enough to losing money that a small move would do it.'},
+     {page:'market', tab:'crops', target:'mkt-all-prices', icon:'📋', title:'Your cost, drawn on the price',
+      text:'Every SA price in one list. The lines you actually farm are shaded and carry a scale — where today’s price sits between what that ground cost you and what you planned to get.',
+      onEnter:'aijOpenFirstMarketRow', hold:8000,
+      you:'Run your mouse along the chart — it reads out against your cost and your plan.'}
+   ]},
+
+ { t:'Plan the season, then watch it', ic:'📅', sub:'Build it, price it, then track it against reality', mins:'~55s',
+   end:'planning',
+   steps:[
+     {page:'planning', tab:'crops', target:'plan-cal-grid', icon:'📅', title:'The season, before it starts',
+      text:'Every land with its crop, its hectares and its growth stages across twelve months. Orchards, fruit and veg and livestock each get their own tab beside it.'},
+     {page:'planning', tab:'crops', target:'plan-fin', icon:'⚖️', title:'Priced, then stress-tested',
+      text:'The plan in money, so it is a number and not a wish — and levers to drag before you commit. Take grain prices down 30% and the whole year re-prices in front of you.',
+      tip:'Better to find a thin year on this screen than in August.'},
+     {page:'planning', tab:'tracker', target:'plan-tracker-pane', icon:'📈', title:'Then watch it happen',
+      text:'The Season Tracker holds that plan against what actually came in, month by month, all season — and tells you which group is behind rather than just that the farm is.',
+      onEnter:'aijOpenTracker', hold:8000,
+      you:'Open a group to see which land or block is dragging, or switch between bars and a line.'}
+   ]},
+
+ { t:'SARS, and the paperwork', ic:'🧾', sub:'What to set aside, what you claim back, and the forms', mins:'~55s',
+   end:'reports',
+   steps:[
+     {page:'tax', tab:'glance', target:'tax-tab-glance', icon:'🧾', title:'SARS, handled as you go',
+      text:'Provisional tax, VAT, payroll and write-offs worked out from what you have already captured — what to set aside each month, and what falls due when.',
+      tip:'Built for SA farming: Section 12B write-offs, the diesel refund, and the farmer’s income averaging.'},
+     {page:'reports', target:'rpt-stmt-cards', icon:'📄', title:'Four statements, already filled in',
+      text:'Income & Expenses, Profit & Loss, Cash Flow and a Tax Summary — built from your transactions, not a spreadsheet you still have to complete. Open any one for a full print preview.'},
+     {page:'reports', target:'acc-pack', icon:'📦', title:'The packs that save a week',
+      text:'An IT12 pre-fill for your return, an Accountant Pack that exports straight to Pastel and Xero, and a Bankability Report written for a loan application.',
+      you:'Open a statement — it is the real print preview, filled in with your figures.'}
+   ]}
+];
+
+var AIJ_I=-1, AIJ_S=0, AIJ_T=null, AIJ_PAUSED=false, AIJ_HELD=false;
+
+/* ── actions: the app's own functions, nothing simulated ── */
+function aijOpenFirstMarketRow(){
+  try{ var r=document.querySelector('#mkt-all-prices .mka-r.mine') || document.querySelector('.mkr-r');
+       if(r && typeof mkrTog==='function' && r.classList.contains('mkr-r')) mkrTog(r); }catch(e){}
+}
+function aijOpenTracker(){
+  try{ if(typeof setPlanTab==='function') setPlanTab('tracker'); }catch(e){}
+}
+function aijApplyTab(st){
+  if(!st.tab) return;
+  try{
+    if(st.page==='cashflow'  && typeof mfTab==='function')        mfTab(st.tab);
+    else if(st.page==='profit'   && typeof pfTab==='function')     pfTab(st.tab);
+    else if(st.page==='tax'      && typeof taxTab==='function')    taxTab(st.tab);
+    else if(st.page==='budgets'  && typeof setBudgetTab==='function') setBudgetTab(st.tab);
+    else if(st.page==='planning' && typeof setPlanTab==='function') setPlanTab(st.tab);
+    else if(st.page==='crop'     && typeof cropSetTab==='function') cropSetTab(st.tab);
+    else if(st.page==='livestock'&& typeof lsTab==='function')      lsTab(st.tab);
+    else if(st.page==='orchards' && typeof orSetTab==='function')   orSetTab(st.tab);
+    else if(st.page==='market'){ var b=$('mkt-tab-'+st.tab); if(b) b.click(); }
+  }catch(e){}
+}
+
+function aijStart(i){
+  if(!AIJ[i]) return;
+  var closing=false;
+  try{ if(typeof tourEnd==='function' && typeof TOUR_ACTIVE!=='undefined' && TOUR_ACTIVE){ tourEnd(); closing=true; } }catch(e){}
+  try{ if(typeof pageTourEnd==='function' && typeof PAGE_TOUR_ACTIVE!=='undefined' && PAGE_TOUR_ACTIVE){ pageTourEnd(); closing=true; } }catch(e){}
+  AIJ_I=i; AIJ_S=0; AIJ_PAUSED=false; AIJ_HELD=false;
+  /* tourEnd() hides the SHARED overlay on a fade timer. A journey opened just
+     afterwards looked fine for a quarter of a second and was then killed by
+     that pending timeout — and it fires whether or not a tour was actually
+     running, so detecting "was one active" is the wrong guard. Cancel it. */
+  try{ clearTimeout(TOUR_HIDE_T); }catch(e){}
+  setTimeout(function(){
+    aijShowOverlay();
+    aijRender();
+  }, closing?330:0);
+}
+function aijEnd(){
+  clearTimeout(AIJ_T); aijUnsync();
+  var st=AIJ[AIJ_I] && AIJ[AIJ_I].steps[AIJ_S];
+  if(st && st.onLeave && window[st.onLeave]){ try{ window[st.onLeave](); }catch(e){} }
+  AIJ_I=-1; AIJ_HELD=false;
+  var ov=$('tour-overlay');
+  if(ov){ ov.style.opacity='0'; ov.style.transition='opacity .25s';
+    setTimeout(function(){ ov.style.display='none'; ov.style.opacity=''; ov.style.transition=''; },280); }
+}
+function aijPause(){
+  if(AIJ_I<0) return;
+  AIJ_PAUSED=!AIJ_PAUSED;
+  var b=$('tour-btn-pause'); if(b) b.textContent=AIJ_PAUSED?'▶ Play':'❙❙ Pause';
+  if(AIJ_PAUSED) clearTimeout(AIJ_T);
+  else aijArm(1200);
+}
+function aijArm(ms){
+  clearTimeout(AIJ_T);
+  AIJ_T=setTimeout(function(){ if(!AIJ_PAUSED) aijNext(); }, ms);
+}
+function aijNext(){
+  var j=AIJ[AIJ_I]; if(!j) return;
+  var st=j.steps[AIJ_S];
+  /* The hand-over: pause here once, on the step that invites the farmer in.
+     Pressing Next again moves on. */
+  if(st && st.you && !AIJ_HELD){
+    AIJ_HELD=true; AIJ_PAUSED=true; clearTimeout(AIJ_T);
+    setEl('tour-desc', st.you);
+    var t=$('tour-title'); if(t) t.textContent='Your turn';
+    var ic=$('tour-icon'); if(ic) ic.textContent='👆';
+    var nb=$('tour-next'); if(nb) nb.textContent = (AIJ_S===j.steps.length-1) ? 'Finish ✓' : 'Carry on →';
+    var pb=$('tour-btn-pause'); if(pb) pb.style.display='none';
+    return;
+  }
+  if(st && st.onLeave && window[st.onLeave]){ try{ window[st.onLeave](); }catch(e){} }
+  if(AIJ_S < j.steps.length-1){ AIJ_S++; AIJ_HELD=false; aijRender(); }
+  else aijFinish();
+}
+function aijPrev(){
+  var j=AIJ[AIJ_I]; if(!j || AIJ_S<=0) return;
+  var st=j.steps[AIJ_S];
+  if(st && st.onLeave && window[st.onLeave]){ try{ window[st.onLeave](); }catch(e){} }
+  AIJ_S--; AIJ_HELD=false; aijRender();
+}
+function aijFinish(){
+  var j=AIJ[AIJ_I], page=j&&j.end;
+  aijEnd();
+  /* Hand off to the page's own tab demo — curiosity first, detail second. */
+  setTimeout(function(){
+    if(page && typeof PAGE_TOURS!=='undefined' && PAGE_TOURS[page]){
+      if(typeof aijOfferTour==='function') aijOfferTour(page);
+    }
+  }, 420);
+}
+function aijOfferTour(page){
+  var bg=$('tour-complete-bg');
+  if(!bg){ return; }
+  var t=$('tcc-h'), s2=$('tcc-p'), b1=$('tcc-b1');
+  if(t) t.textContent='Journey done';
+  if(s2) s2.textContent='Want the detail on this page? Its own demo walks every control on it.';
+  if(b1){ b1.textContent='Demo this page'; b1.onclick=function(){ tourCompleteClose(); startPageTour(page); }; }
+  bg.style.display='flex';
+}
+/* Keep the spotlight glued to its target while the page settles.
+
+   One measurement is never enough here: pages finish rendering after the step
+   opens, and they move BOTH ways — the My Farm hero was framed at 76px against
+   its real 134px, and the Tax glance panel was framed at 76px against its real
+   1355px because it filled in later. A fixed re-measure delay, or a capped
+   animation-frame loop, only moves where the miss happens; the tax panel grew
+   after 2.5 seconds and was still wrong.
+
+   So watch the element itself. ResizeObserver has no window to miss, costs
+   nothing while the page is still, and is torn down the moment the step
+   changes or the journey ends. */
+var AIJ_RO=null;
+function aijUnsync(){ try{ if(AIJ_RO) AIJ_RO.disconnect(); }catch(e){} AIJ_RO=null; }
+function aijSync(st){
+  aijUnsync();
+  var el=$(st.target); if(!el || typeof ResizeObserver!=='function') return;
+  try{
+    AIJ_RO=new ResizeObserver(function(){
+      if(AIJ_I<0){ aijUnsync(); return; }
+      var now=AIJ[AIJ_I] && AIJ[AIJ_I].steps[AIJ_S];
+      if(now!==st){ aijUnsync(); return; }
+      try{ tourPosition(st); }catch(e){}
+    });
+    AIJ_RO.observe(el);
+  }catch(e){}
+}
+function aijShowOverlay(){
+  try{ clearTimeout(TOUR_HIDE_T); }catch(e){}
+  var ov=$('tour-overlay');
+  if(ov){ ov.style.display='block'; ov.style.opacity=''; ov.style.transition=''; }
+}
+function aijRender(){
+  var j=AIJ[AIJ_I]; if(!j) return;
+  var st=j.steps[AIJ_S], n=j.steps.length;
+  clearTimeout(AIJ_T); aijUnsync();
+  aijShowOverlay();
+  if(st.page && typeof nav==='function') nav(st.page);
+  aijApplyTab(st);
+
+  var dots=$('tour-dots');
+  if(dots){ dots.innerHTML='';
+    for(var i=0;i<n;i++){ var d=document.createElement('div');
+      d.className='tour-prog-dot'+(i<=AIJ_S?' on':''); dots.appendChild(d); } }
+  setEl('tour-prog-lbl',(AIJ_S+1)+' / '+n);
+  setEl('tour-icon', st.icon||j.ic||'📌');
+  setEl('tour-title', st.title||'');
+  setEl('tour-desc', st.text||'');
+  var ie=$('tour-icon'); if(ie) ie.style.background='#D8F3DC';
+
+  var tipEl=$('tour-tip'), tipTxt=$('tour-tip-text');
+  if(tipEl&&tipTxt){ if(st.tip){ tipTxt.textContent=st.tip; tipEl.style.display='flex'; } else tipEl.style.display='none'; }
+
+  var prevBtn=$('tour-prev'), nextBtn=$('tour-next'),
+      skipBtn=document.querySelector('#tour-card .tour-btn-skip:not(.aij-pause)');
+  if(prevBtn){ prevBtn.style.visibility = AIJ_S===0?'hidden':'visible'; prevBtn.onclick=function(){ aijPrev(); }; }
+  if(nextBtn){ nextBtn.textContent = (AIJ_S===n-1 && !st.you) ? 'Finish ✓' : 'Next →'; nextBtn.onclick=function(){ aijNext(); }; }
+  if(skipBtn) skipBtn.onclick=function(){ aijEnd(); };
+  var cl=$('tour-close'); if(cl) cl.onclick=function(){ aijEnd(); };
+  var sb=$('tour-skip-bar'); if(sb) sb.onclick=function(){ aijEnd(); };
+
+  /* A pause control, injected once — journeys play on their own, so the farmer
+     needs a way to stop the clock and look. */
+  var pb=$('tour-btn-pause');
+  if(!pb && skipBtn && skipBtn.parentNode){
+    /* .aij-pause marks it so the skip lookup above can exclude it — it borrows
+       .tour-btn-skip only for the styling. */
+    pb=document.createElement('button'); pb.id='tour-btn-pause'; pb.className='tour-btn-skip aij-pause';
+    pb.style.marginRight='6px';
+    skipBtn.parentNode.insertBefore(pb, skipBtn);
+  }
+  if(pb){ pb.style.display=''; pb.textContent=AIJ_PAUSED?'▶ Play':'❙❙ Pause'; pb.onclick=function(){ aijPause(); }; }
+
+  var card=$('tour-card'); if(card){ card.className=''; void card.offsetWidth; card.className='tour-card-enter'; }
+
+  var delay = st.onEnter ? 320 : 140;
+  if(st.onEnter && window[st.onEnter]) setTimeout(function(){ try{ window[st.onEnter](); }catch(e){} }, 180);
+  setTimeout(function(){
+    tourScrollTo(st.target, function(scrolled){
+      setTimeout(function(){ tourPosition(st); aijSync(st); }, scrolled?420:0);
+    });
+  }, delay);
+
+  if(!AIJ_PAUSED) aijArm(st.hold || 7000);
+}
+function aijMenu(){
+  return AIJ.map(function(j,i){
+    return '<div class="tours-menu-item" onclick="toggleToursMenu();aijStart('+i+')">'+
+      '<span class="tours-menu-icon">'+j.ic+'</span>'+
+      '<div><div class="tours-menu-label">'+stEsc(j.t)+'</div>'+
+      '<div class="tours-menu-sub">'+stEsc(j.sub)+' &middot; '+j.mins+'</div></div></div>';
+  }).join('');
+}
 function toggleToursMenu() {
   var el = $('tours-menu');
   if (!el) return;
+  try{ var jm=$('tours-menu-journeys'); if(jm && !jm.innerHTML) jm.innerHTML=aijMenu(); }catch(e){}
   // keep the contextual "Demo this page" row in step with the page you're on
   try{
     var cur=$('tours-menu-current'), has=!!(typeof PAGE_TOURS!=='undefined' && PAGE_TOURS && PAGE_TOURS[CURRENT_PAGE]);
@@ -56267,6 +56561,12 @@ function orExportPackout(){
     🗺️ Guides
     <button class="tours-menu-close" onclick="toggleToursMenu()">✕</button>
   </div>
+  <!-- Guided journeys: use cases the app walks by itself. Filled by aijMenu()
+       on open so the list stays in step with AIJ. -->
+  <div style="font-size:9.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--t4);padding:9px 14px 5px">Guided journeys</div>
+  <div id="tours-menu-journeys"></div>
+  <div style="height:1px;background:var(--br);margin:7px 12px"></div>
+  <div style="font-size:9.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--t4);padding:4px 14px 5px">Page demos</div>
   <!-- contextual entry — replaces the retired always-on #page-tour-fixed pill -->
   <div class="tours-menu-item" id="tours-menu-current" style="display:none" onclick="toggleToursMenu();startCurrentPageTour()">
     <span class="tours-menu-icon">▶</span>
