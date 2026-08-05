@@ -1128,6 +1128,8 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
    from invisible to unreadable, so each is restated against it — same treatment
    the Budgets hero uses, so the two pages read as one app. */
 .st-hero .st-eyebrow{color:rgba(255,255,255,.82)}
+.st-hero-yr{font-size:11px;font-weight:600;color:rgba(255,255,255,.5);margin-top:2px;
+  font-variant-numeric:tabular-nums;letter-spacing:.2px}
 .st-hero .st-hero-line{color:#fff;opacity:.95;margin-top:9px}
 .st-hero .st-hero-amt{color:#fff}
 .st-hero .st-hero-amt span{color:rgba(255,255,255,.78)}
@@ -1200,6 +1202,16 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
    because each enterprise gets its own row and opens to its blocks, lands and
    herds. No color-mix(): it appears nowhere else in this file, so a browser
    without it would drop the hover column silently. */
+/* Which of the farm's two years a screen is counting. Neutral styling so it
+   reads as a fact, not a warning. */
+.yr-chip{display:inline-flex;align-items:baseline;gap:6px;font-size:11px;font-weight:700;
+  color:var(--t3);background:var(--br2);border:1px solid var(--br);border-radius:999px;
+  padding:3px 10px;white-space:nowrap;font-variant-numeric:tabular-nums;vertical-align:middle}
+.yr-chip i{font-style:normal;font-size:9px;font-weight:800;letter-spacing:.9px;
+  text-transform:uppercase;color:var(--t4)}
+.yr-chip.s{background:var(--gb);border-color:#D6E8DC;color:var(--gd)}
+.yr-chip.s i{color:var(--gm)}
+
 .stg{border:1px solid var(--br);border-radius:var(--rl);overflow:hidden;margin:14px 0 0;
   background:var(--wh)}
 .stg-top{display:flex;align-items:center;justify-content:space-between;gap:16px;
@@ -9000,12 +9012,23 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       <div class="set-card">
         <div class="set-h"><span class="ic">📋</span>Tax &amp; VAT</div>
         <div class="fg2" style="margin-bottom:12px">
-          <div><label>Financial year start</label>
+          <div><label>Financial year start <span class="set-ihint"><button type="button" class="set-i" onclick="setPop(this,event)" aria-label="Why we ask">i</button><span class="set-pop"><b>Your tax year.</b> SARS runs a natural person&rsquo;s year from 1 March to the end of February. A company may have chosen a different year-end — use that one. This drives Tax &amp; SARS, Reports, Profit and Budgets.</span></span></label>
             <select id="set-fystart">
               <option value="3">March (SA standard)</option>
               <option value="1">January</option>
               <option value="4">April</option>
               <option value="7">July</option>
+            </select>
+          </div>
+          <div><label>Season starts <span class="set-ihint"><button type="button" class="set-i" onclick="setPop(this,event)" aria-label="Why we ask">i</button><span class="set-pop"><b>Your growing year</b>, which is not your tax year. It sets the twelve months the Planning and Season Tracker screens run over. Summer grain usually starts in May; a winter-rainfall farm or an orchard may start somewhere else. Your tax year is unaffected.</span></span></label>
+            <select id="set-season">
+              <option value="5">May (summer grain)</option>
+              <option value="3">March</option>
+              <option value="4">April</option>
+              <option value="6">June</option>
+              <option value="7">July (winter rainfall)</option>
+              <option value="9">September</option>
+              <option value="10">October</option>
             </select>
           </div>
           <div><label>VAT registered</label>
@@ -9854,8 +9877,12 @@ function migrateDemoData() {
     }
   }
 
-  var fyStart = ST.fyStartMonth || 3; // March = SA farming default
-  var fyYear  = computeFyYear(APP_TODAY, fyStart);
+  /* Keep the global in step with the saved setting before anything works out a
+     season, or a farmer who chose July still gets May everywhere. */
+  if(typeof PLAN_SEASON_START!=='undefined') PLAN_SEASON_START = seasonStartMonth();
+
+  var fyStart = fyStartMonth();       // TAX year — correct for the budget rekey below
+  var fyYear  = fyOf();
 
   // Rekey monthly budgets to the new FY, preserving the seasonal pattern.
   if (ST.budgets) {
@@ -9877,7 +9904,10 @@ function migrateDemoData() {
     ST.budgets.currentMonth = MONTH_LABELS_SHORT[APP_TODAY.getMonth()] + ' ' + APP_TODAY.getFullYear();
   }
 
-  ST.planYear = fyYear;
+  /* SEASON, not fyYear. The plan grid is season-anchored (planFYMonths runs from
+     seasonStartMonth), so handing it the March tax year put every March and
+     April user a full season out. */
+  ST.planYear = seasonOf();
   if (typeof RPT_STATE !== 'undefined') {
     RPT_STATE.year     = APP_TODAY.getFullYear();
     RPT_STATE.monthIdx = APP_TODAY.getMonth();
@@ -9893,8 +9923,10 @@ function migrateDemoData() {
        seeded moves, including every cattle, goat and steer sale, in the month
        BEFORE the season opened. The demo farm then read "no sales yet" on herds
        whose sales are the whole point of showing them. */
-    var sm = (typeof PLAN_SEASON_START==='number') ? PLAN_SEASON_START : (ST.fyStartMonth || 3);
-    var fyStartY = (APP_TODAY.getMonth()+1) >= sm ? APP_TODAY.getFullYear() : APP_TODAY.getFullYear()-1;
+    /* Was: season, "or the tax year if the season is not in scope" — the exact
+       silent substitution this whole split exists to stop. Named basis now. */
+    var sm = seasonStartMonth();
+    var fyStartY = seasonOf();
     // Spread the seeded moves across the early months of this FY, but never in the future.
     var offset = [1,1,2,2,2,0,0]; // months after FY start per seeded move (m1..m7)
     ST_LS.moves.forEach(function(m, i){
@@ -10434,7 +10466,10 @@ function demoSeedPlanning(fresh){
 // seasonal income. Runs on a fresh demo only (guarded by !loaded at the call site).
 function demoAlignForecast(){
   if(typeof ST_PLAN==='undefined') return;
-  var py = ST.planYear || (typeof computeFyYear==='function' ? computeFyYear(APP_TODAY, ST.fyStartMonth||3)
+  /* SEASON, not the tax year. This feeds planMonthsFor(), which builds a
+     season-anchored grid — deriving its year from the March tax year seeded the
+     wrong season for anyone opening the app in March or April. */
+  var py = ST.planYear || (typeof seasonOf==='function' ? seasonOf()
          : (typeof planYear!=='undefined' && planYear ? planYear : APP_TODAY.getFullYear()));
   var L = (typeof planMonthsFor==='function') ? planMonthsFor(py).map(function(m){return m.label;})
         : (ST_PLAN.months||[]).map(function(m){return m.label;});
@@ -12271,11 +12306,11 @@ function _pfTaggedLabourTotal(){
 // Sum of real EXPENSE transactions tagged to an enterprise (excludes labour — that is added via wkEnterpriseLabour).
 /* Which financial year a transaction falls in — the same May–April year the
    planner uses (see planLabelFY), so a cost and the season it belongs to agree. */
+/* SEASON basis — this feeds enterprise margins, which are a production question
+   ("what did this block earn me this season"), not an accounting one. */
 function entTxnFY(x){
   if(!x || !x.date) return null;
-  var t=new Date(x.date); if(isNaN(t)) return null;
-  var st=(typeof PLAN_SEASON_START==='number') ? (PLAN_SEASON_START-1) : 4;
-  return (t.getMonth()>=st) ? t.getFullYear() : t.getFullYear()-1;
+  return seasonOf(x.date);
 }
 /* This summed the WHOLE ledger, with no date filter at all: three seasons of
    feed were read as one season's cost. Breeding cows showed R516 495 of "real
@@ -13317,7 +13352,8 @@ var ST = {
   vatNumber: '',
   taxNumber: '',
   entityType: 'sole',
-  fyStartMonth: 3,
+  fyStartMonth: 3,        // TAX year — SARS: 1 March to end February for a natural person
+  seasonStartMonth: 5,    // SEASON — May, SA summer-grain default. Not the same year.
   saleType: 'Crops',
   saleFreq: 'One-off',
   expType: 'Seeds & Planting',
@@ -16206,6 +16242,8 @@ function saveSettings() {
   var owner = ownerEl ? ownerEl.value.trim() : '';
   var ha    = haEl    ? parseFloat(haEl.value) || ST.farmHa : ST.farmHa;
   var fy    = fyEl    ? parseInt(fyEl.value) || 3 : 3;
+  var seasEl = document.getElementById('set-season');
+  var seas   = seasEl ? (parseInt(seasEl.value,10) || seasonStartMonth()) : seasonStartMonth();
   var vat   = vatEl   ? vatEl.value : 'yes';
   var lang  = langEl  ? langEl.value : ST.lang;
 
@@ -16213,6 +16251,52 @@ if (name)  { ST.farmName = name;  FARM.name  = name; }
   if (owner) { ST.ownerName = owner; FARM.owner = owner; updateUserAvatar(); }
   ST.farmHa       = ha;  FARM.ha  = ha;
   ST.fyStartMonth = fy;
+  /* Moving the season re-anchors the whole twelve-month plan grid.
+     The catch: a block's planPickStart/planPickEnd are stored as SLOTS 0-11
+     INSIDE the window, not as calendar months — orpFyStartMonth() reads the
+     basis off ST_PLAN.months[0]. So re-anchoring without converting them leaves
+     every stored pick meaning a different month: on the demo farm, shifting May
+     to July moved R8.3m of orchard income into the following May and June and
+     inflated the season by 50%. Convert first, rebuild second. */
+  var _oldStart = seasonStartMonth();
+  var _seasonMoved = (seas !== _oldStart);
+  /* Moving the season means the plan is read over a DIFFERENT twelve months, so
+     harvests that used to fall past the end now land inside it and vice versa.
+     Nothing is invented — on the demo farm five crop payments sat in Apr/May
+     2027 and were being reported as spill past a May season's edge; a July
+     season simply catches them, and the crop figure goes from R2.0m to R7.5m.
+     That is correct and it is also alarming, so it is never done silently. */
+  if(_seasonMoved && typeof confirm==='function'){
+    var _MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    if(!confirm('Change your season from '+_MN[_oldStart-1]+' to '+_MN[seas-1]+'?\n\n'+
+      'Your Planning and Season Tracker screens will run over a different twelve months, '+
+      'so their totals will change — harvests that fell just outside the old season may now '+
+      'fall inside it.\n\nYour tax year, your records and your transactions are not affected.')){
+      var _rv=document.getElementById('set-season'); if(_rv) _rv.value=String(_oldStart);
+      seas=_oldStart; _seasonMoved=false;
+    }
+  }
+  if(_seasonMoved){
+    try{
+      var _o=_oldStart-1, _n=seas-1;
+      var _reslot=function(v){ return (v==null) ? v : ((((v+_o)-_n)%12)+12)%12; };
+      ((typeof ST_FRUIT!=='undefined' && ST_FRUIT.blocks) ? ST_FRUIT.blocks : []).forEach(function(b){
+        if(!b) return;
+        if(b.planPickStart!=null) b.planPickStart=_reslot(b.planPickStart);
+        if(b.planPickEnd!=null)   b.planPickEnd  =_reslot(b.planPickEnd);
+      });
+    }catch(e){}
+  }
+  ST.seasonStartMonth = seas;
+  if(typeof PLAN_SEASON_START!=='undefined') PLAN_SEASON_START = seas;
+  if(_seasonMoved){
+    try{
+      ST.planYear = seasonOf();
+      if(typeof planMonthsFor==='function' && typeof ST_PLAN!=='undefined')
+        ST_PLAN.months = planMonthsFor(ST.planYear);
+      if(typeof recomputePlan==='function') recomputePlan();
+    }catch(e){}
+  }
   ST.vatRegistered = (vat === 'yes'); FARM.vat = ST.vatRegistered;
   var entEl = document.getElementById('set-entity'); if (entEl && entEl.value) ST.entityType = entEl.value;
   var provEl = document.getElementById('set-province'); if (provEl && provEl.value) ST.province = provEl.value;
@@ -16388,6 +16472,12 @@ function nav(id) {
     item.classList.toggle('on', oc.indexOf("'" + id + "'") >= 0);
   });
 
+  /* Say which of the farm's two years this page counts on. A season and a tax
+     year are two months apart, so two pages CAN show different totals for "this
+     year" and both be right — but only a labelled screen makes that obvious
+     instead of looking like a bug. */
+  try{ if(typeof yrStampPage==='function') yrStampPage(id); }catch(e){}
+
   closeDrop('farm-drop');
   closeDrop('lang-drop');
   closeDrop('notif-drop');
@@ -16449,6 +16539,11 @@ function nav(id) {
     var svc=$('set-vatcat'); if(svc) svc.value = ST.vatCategory || 'A';
     if(typeof _setVatCatVis==='function') _setVatCatVis();
     var sen=$('set-entity'); if(sen) sen.value = ST.entityType || 'sole';
+    /* Both year selects were never populated from state — they always opened on
+       their first option, so a farmer who had chosen July saw "March" staring
+       back at him and re-saving silently reset it. */
+    var sfy=$('set-fystart'); if(sfy) sfy.value = String(fyStartMonth());
+    var sse=$('set-season');  if(sse) sse.value = String(seasonStartMonth());
     var stb=$('set-tour-btn'); if(stb) stb.checked = ST.showTourBtn !== false;
     var sdb=$('set-demo-btn'); if(sdb) sdb.checked = ST.showDemoBtn !== false;
     var sdg=$('set-diag'); if(sdg) sdg.checked = ST.diagnostics===true;
@@ -25372,7 +25467,13 @@ function _lsReproCard(b,cfg,act){
     '<div class="ls-calc"><b>'+births+' '+cfg.unit+(partial?' so far':'')+'</b> \u00f7 <b>'+bf.n+' '+cfg.femLabel+'</b> this season.'+(partial?' This will rise as the season finishes \u2014 a guide, not a final figure.':'')+'</div>'+
     '<div class="ls-derived">\u21b3 from your movement register'+(lsBenchIsCustom(cfg.benchKey)?' \u00b7 your target '+target+'%':'')+'</div></div>';
 }
-function _lsSeasonOngoing(){ var sm=ST.fyStartMonth||3, mo=new Date().getMonth()+1; var into=((mo-sm)+12)%12; return into<=7; }
+/* SEASON basis — "are we still mid-season" is a growing question, not a tax one.
+   And APP_TODAY, so it moves with the app's clock like everything else. */
+function _lsSeasonOngoing(){
+  var t=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
+  var into=(((t.getMonth()+1)-seasonStartMonth())+12)%12;
+  return into<=7;
+}
 function _lsHerdOpening(act){
   var ids=act.map(function(h){return h.id;});
   var inn=lsMovesThisFy(function(m){return (m.reason==='born'||m.reason==='bought') && ids.indexOf(m.herd)>=0;}).reduce(function(s,m){return s+m.qty;},0);
@@ -26217,7 +26318,10 @@ function _lsRemApply(ids){
 }
 function _lsTxnISO(d){ return (d && /^\d{4}-\d{2}-\d{2}/.test(String(d))) ? String(d).slice(0,10) : new Date().toISOString().slice(0,10); }
 function lsDispFromISO(iso){ try{ var d=new Date(iso+'T00:00:00'); return d.toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return iso; } }
-function lsFyStartISO(){ var sm=ST.fyStartMonth||3, t=new Date(); var startY=(t.getMonth()+1)>=sm ? t.getFullYear() : t.getFullYear()-1; return startY+'-'+String(sm).padStart(2,'0')+'-01'; }
+/* TAX basis, deliberately — this drives herd reconciliation and closing stock
+   valuation, which is an accountant's number. APP_TODAY, not new Date(): it was
+   ignoring the app's own clock. */
+function lsFyStartISO(){ var sm=fyStartMonth(); return fyOf()+'-'+String(sm).padStart(2,'0')+'-01'; }
 function _lsMoveISO(m){ if(/^\d{4}-\d{2}-\d{2}/.test(m.date||'')) return m.date.slice(0,10); var d=new Date(m.date); return isNaN(d)?'':d.toISOString().slice(0,10); }
 function lsMovesThisFy(pred){ var from=lsFyStartISO(); return (ST_LS.moves||[]).filter(function(m){ var iso=_lsMoveISO(m); return iso>=from && pred(m); }); }
 function lsHerdMoves(id){ return (ST_LS.moves||[]).filter(function(m){return m.herd===id;}); }
@@ -28749,18 +28853,112 @@ function updatePlanPeriod() {
    (planAbsIdx below), so a cycle that crosses into the next financial year keeps
    its costs and its revenue in the months they actually fall — Budgets and Tax
    then pick each month up in whichever financial year it belongs to. */
-var PLAN_SEASON_START = 5;   // May — SA summer-grain convention
+/* ── The farm's two years ──────────────────────────────────────────────────
+   A farm runs on two calendars and BOTH are correct:
+
+     · the TAX year   — 1 March to end February for a natural person. SARS sets
+                        it; a company picks its own year-end, which is why
+                        ST.fyStartMonth is a setting.
+     · the SEASON     — when the farm plants, grows and sells. Agronomy sets it.
+
+   With the SA defaults (tax from March, season from May) they disagree for
+   exactly two months a year: a sale on 15 March is in the new TAX year but
+   still belongs to LAST season. Both answers are right, which is precisely why
+   the code must never guess between them.
+
+   The bug this replaces was not duplication — it was silence. Nothing declared
+   which basis a figure was on, so ~25 sites open-coded (ST.fyStartMonth||3)-1
+   by hand and at least one fell back from the season to the tax year when the
+   season was not in scope. Every year calculation now calls fyOf() or seasonOf()
+   BY NAME. If you cannot say which one you want, you do not yet know what you
+   are calculating. */
+var PLAN_SEASON_START = 5;   // May — SA summer-grain default; ST.seasonStartMonth overrides
+
+/* The month a season opens (1-12). Read through here, never off the global, so
+   changing it in Settings takes effect everywhere at once. */
+function seasonStartMonth(){
+  var m=(typeof ST!=='undefined' && ST && ST.seasonStartMonth)|0;
+  return (m>=1 && m<=12) ? m : 5;
+}
+/* The month the tax year opens (1-12). SA default is March. */
+function fyStartMonth(){
+  var m=(typeof ST!=='undefined' && ST && ST.fyStartMonth)|0;
+  return (m>=1 && m<=12) ? m : 3;
+}
+function _yearOf(d, startMonth){
+  var t;
+  if(d==null){
+    /* APP_TODAY, never new Date() — the app can be run against a set date, and a
+       year function that ignores its own clock is the LS_TODAY bug again. */
+    t=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
+  } else if(d instanceof Date){
+    t=d;
+  } else {
+    var s=String(d);
+    /* A bare ISO date parses as UTC and slips a day backwards west of
+       Greenwich, which flips the 1st of a month into the previous year. */
+    t=new Date(/^\d{4}-\d{2}-\d{2}$/.test(s) ? (s+'T00:00:00') : s);
+  }
+  if(isNaN(t)) return null;
+  return (t.getMonth() >= (startMonth-1)) ? t.getFullYear() : t.getFullYear()-1;
+}
+/* ACCOUNTING basis. Use for anything an accountant or SARS will read: Tax &
+   SARS, Reports, Profit, Budgets, "this financial year" totals. */
+function fyOf(d){ return _yearOf(d, fyStartMonth()); }
+/* PRODUCTION basis. Use for anything about growing and selling: Planning, the
+   Season Tracker, Crops, Orchards, Livestock, the Money Flow forecast. */
+function seasonOf(d){ return _yearOf(d, seasonStartMonth()); }
+/* Human labels, so a screen can say which year it is showing rather than
+   leaving two different totals looking like a contradiction. */
+var _YR_MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _yrLabel(y, startMonth){
+  var s=_YR_MON[(startMonth-1)%12], e=_YR_MON[(startMonth+10)%12];
+  return s+' '+y+' – '+e+' '+(y+1);
+}
+function seasonLabel(y){ return _yrLabel(y==null?seasonOf():y, seasonStartMonth()); }
+function fyLabel(y){ return _yrLabel(y==null?fyOf():y, fyStartMonth()); }
+/* A chip that says WHICH year a screen is counting. Two screens showing
+   different totals for "this year" is not a contradiction — it is a season and a
+   tax year, two months apart — but only if the screen says so. */
+function yrChip(basis, y){
+  var season=(basis==='season');
+  return '<span class="yr-chip'+(season?' s':'')+'">'+
+    '<i>'+(season?'Season':'Tax year')+'</i>'+
+    (season?seasonLabel(y):fyLabel(y))+'</span>';
+}
+/* Which basis each page counts on. Decided once, here, rather than inferred at
+   twenty call sites — that inference is what let the two years drift apart. */
+var YR_BASIS={
+  planning:'season', crop:'season', orchards:'season', livestock:'season', cashflow:'season',
+  tax:'fy', reports:'fy', profit:'fy', budgets:'fy'
+};
+/* Stamps the chip into a page header. Idempotent: nav() runs constantly, so the
+   chip is replaced rather than stacked. */
+function yrStampPage(id){
+  try{
+    var basis=YR_BASIS[id]; if(!basis) return;
+    var pg=document.getElementById('pg-'+id); if(!pg) return;
+    var hdr=pg.querySelector('.page-hdr'); if(!hdr) return;
+    var host=hdr.querySelector('.page-sub');
+    host=host?host.parentNode:hdr.firstElementChild;
+    if(!host) return;
+    var old=host.querySelector(':scope > .yr-chip');
+    var y=(basis==='season' && typeof planYear==='number') ? planYear : null;
+    var tmp=document.createElement('div');
+    tmp.innerHTML=yrChip(basis==='season'?'season':'fy', y);
+    var chip=tmp.firstChild;
+    chip.style.marginTop='6px';
+    if(old) host.replaceChild(chip, old); else host.appendChild(chip);
+  }catch(e){}
+}
 
 function planFYMonths(py){
   var nm=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var sm=PLAN_SEASON_START-1, out=[];
+  var sm=seasonStartMonth()-1, out=[];
   for(var i=0;i<12;i++){ var k=sm+i; out.push(nm[k%12]+' '+(k<12?py:py+1)); }
   return out;
 }
-function planFYYear(){
-  var t=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date();
-  return t.getMonth()>=(PLAN_SEASON_START-1) ? t.getFullYear() : t.getFullYear()-1;
-}
+function planFYYear(){ return seasonOf(); }
 /* Absolute month index — "Nov 2026" -> 2026*12+10. Lets the distributor work on
    the real calendar instead of a position inside a 12-slot window. */
 function planAbsIdx(label){
@@ -34197,11 +34395,7 @@ function stRowGoFn(g, key){
 function stMoveFY(m){
   if(!m || !m.date) return null;
   var iso=(typeof _lsMoveISO==='function')?_lsMoveISO(m):String(m.date);
-  if(!iso) return null;
-  var t=new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? (iso+'T00:00:00') : iso);
-  if(isNaN(t)) return null;
-  var st=(typeof PLAN_SEASON_START==='number') ? (PLAN_SEASON_START-1) : 4;
-  return (t.getMonth()>=st) ? t.getFullYear() : t.getFullYear()-1;
+  return iso ? seasonOf(iso) : null;
 }
 function stCashState(cash, producedPct, windowOpen){
   if(!(cash>0)) return 'none';
@@ -35090,6 +35284,9 @@ function renderSeasonTracker(){
   var hero='<div class="st-hero">'+
     '<div class="st-hero-top">'+
       '<div><div class="st-eyebrow" data-t="plan.thisSeason">This season</div>'+
+        /* Says WHICH twelve months, so this total and the Tax page's total stop
+           looking like they disagree — they are two different years. */
+        '<div class="st-hero-yr">'+((typeof seasonLabel==='function')?stEsc(seasonLabel(planYear)):'')+'</div>'+
         /* T8 — the figure used to be printed twice: a sentence saying "your plan
            is R6.8m" sitting directly above "R6.8m planned". The number leads now,
            and the line beneath it carries the one thing the farmer cannot work
@@ -42309,6 +42506,20 @@ LANG_PAIRS.push(
   ["head sold on top","stuks boonop verkoop"],
   ["head still to sell","stuks nog om te verkoop"],
   ["of milk and wool on top","aan melk en wol boonop"],
+  /* The farm's two years (2026-08). "Season" and "Tax year" are the chip labels
+     that tell a farmer WHICH twelve months a screen is counting — the whole
+     point is that they read as different things, so they are paired as whole
+     words and checked against every existing key for collateral. */
+  ["Tax year","Belastingjaar"],
+  /* Bare, because the chip label stands alone. Tested against all 1 911 existing
+     English keys: not one changes — every longer phrase containing "season" is
+     already paired and sorts ahead of this. */
+  ["Season","Seisoen"],
+  ["season","seisoen"],
+  ["Season starts","Seisoen begin"],
+  ["Financial year start","Finansiële jaar begin"],
+  ["May (summer grain)","Mei (somergraan)"],
+  ["July (winter rainfall)","Julie (winterreën)"],
   ["in this group","in hierdie groep"],
   ["nothing due","niks verskuldig"],
   ["money due","geld verskuldig"],
