@@ -3274,6 +3274,29 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 /* Walkthrough motion. A dimmed rectangle on its own reads as a slideshow —
    what makes a demo feel live is a pointer that travels, a click that lands,
    and the target reacting. */
+/* THE STAKES CARD. A walkthrough that opens by pointing at a dashboard is a
+   slideshow. Demos land when they open on a problem the viewer recognises —
+   attention spikes on the threat, then the product delivers the relief, and
+   the relief is what gets remembered. So every journey opens full-bleed with
+   one number and the thing it costs, before a single feature is shown. */
+#aij-stakes{position:fixed;inset:0;z-index:8004;display:none;align-items:center;justify-content:center;
+  background:rgba(8,18,13,.94);opacity:0;transition:opacity .45s ease;padding:32px;pointer-events:all}
+#aij-stakes.on{display:flex;opacity:1}
+#aij-stakes .sk{max-width:660px;text-align:center;transform:translateY(14px) scale(.985);
+  opacity:0;transition:transform .6s cubic-bezier(.2,.7,.3,1),opacity .5s}
+#aij-stakes.in .sk{transform:none;opacity:1}
+#aij-stakes .sk-k{font-size:11px;font-weight:800;letter-spacing:2.4px;text-transform:uppercase;
+  color:#E0A33F;margin-bottom:20px}
+#aij-stakes .sk-n{font-size:76px;line-height:.95;font-weight:800;letter-spacing:-3.5px;color:#fff;
+  margin-bottom:18px;font-variant-numeric:tabular-nums}
+#aij-stakes .sk-n.g{color:#6FCB9B}
+#aij-stakes .sk-t{font-size:21px;line-height:1.45;color:#EAF1ED;font-weight:600;letter-spacing:-.3px;
+  max-width:34ch;margin:0 auto 10px}
+#aij-stakes .sk-s{font-size:14.5px;line-height:1.6;color:#9DB3A8;max-width:44ch;margin:0 auto}
+#aij-stakes .sk-go{margin-top:30px;font:inherit;font-size:13.5px;font-weight:750;cursor:pointer;
+  background:#4FA97F;color:#08120D;border:0;border-radius:10px;padding:12px 24px}
+@media(max-width:700px){#aij-stakes .sk-n{font-size:52px;letter-spacing:-2px}#aij-stakes .sk-t{font-size:17px}}
+@media (prefers-reduced-motion:reduce){#aij-stakes,#aij-stakes .sk{transition:none!important}}
 #aij-cursor{position:fixed;width:22px;height:22px;z-index:8003;pointer-events:none;opacity:0;
   transition:transform .70s cubic-bezier(.33,.02,.24,1),opacity .2s;will-change:transform}
 #aij-cursor.on{opacity:1}
@@ -47768,7 +47791,7 @@ function tourStart() {
 
 var TOUR_HIDE_T = null;   /* the pending overlay fade-out, so it can be cancelled */
 function tourEnd() {
-  TOUR_ACTIVE = false;
+  TOUR_ACTIVE = false; tourUnstick();
   var ov = $('tour-overlay');
   if (ov) { ov.style.opacity='0'; ov.style.transition='opacity .25s';
     clearTimeout(TOUR_HIDE_T);
@@ -47876,7 +47899,24 @@ var prevBtn = $('tour-prev');
 var card = $('tour-card');
   if (card) { card.className = ''; void card.offsetWidth; card.className = 'tour-card-enter'; }
 
-setTimeout(function(){ tourScrollTo(step.target, function(scrolled){ setTimeout(function(){ tourPosition(step); }, scrolled ? 420 : 0); }); }, 120);
+setTimeout(function(){ tourScrollTo(step.target, function(scrolled){
+    setTimeout(function(){ tourPosition(step); tourStick(step); }, scrolled ? 420 : 0); }); }, 120);
+}
+/* Same problem the journeys had: one measurement is not enough on a cold load,
+   because the page is still filling in underneath and the ring lands on where
+   the card WAS. Watch the target and follow it until the step changes. */
+var TOUR_RO=null;
+function tourUnstick(){ try{ if(TOUR_RO) TOUR_RO.disconnect(); }catch(e){} TOUR_RO=null; }
+function tourStick(step){
+  tourUnstick();
+  var el=$(step.target); if(!el || typeof ResizeObserver!=='function') return;
+  try{
+    TOUR_RO=new ResizeObserver(function(){
+      if(!TOUR_ACTIVE || TOUR_STEPS[TOUR_STEP]!==step){ tourUnstick(); return; }
+      try{ tourPosition(step); }catch(e){}
+    });
+    TOUR_RO.observe(el);
+  }catch(e){}
 }
 
 // Smoothly bring a tour target into view (centred) before highlighting it,
@@ -47905,6 +47945,19 @@ function tourScrollTo(targetId, done){
   done(true);
 }
 
+/* Height of any bar fixed to the bottom of the viewport (the demo ribbon
+   today), so the tour card can stay clear of it. */
+function tourBottomInset(){
+  var pad=0;
+  ['ai-demo-ribbon','offline-bar','save-fail-bar'].forEach(function(id){
+    var e=document.getElementById(id); if(!e) return;
+    var cs=getComputedStyle(e);
+    if(cs.position!=='fixed'||cs.display==='none') return;
+    var r=e.getBoundingClientRect();
+    if(r.height && r.bottom>=window.innerHeight-2) pad=Math.max(pad, r.height);
+  });
+  return pad?pad+10:0;
+}
 function tourPosition(step) {
   var spotlight = $('tour-spotlight');
   var card      = $('tour-card');
@@ -47944,7 +47997,10 @@ spotlight.style.display = 'block';
   card.style.overflowY = '';
   var cardW = card.offsetWidth  || 320;
   var cardH = card.offsetHeight || 310;
-  var vw = window.innerWidth, vh = window.innerHeight;
+  /* The guest-demo ribbon is fixed to the bottom at a far higher z-index than
+     the tour card, so clamping to the window edge tucked the card's buttons
+     underneath it. Treat anything pinned to the bottom as unusable space. */
+  var vw = window.innerWidth, vh = window.innerHeight - tourBottomInset();
   // If the card is taller than the window, cap it and let it scroll so the
   // Next / Back buttons always stay reachable.
   if (cardH > vh - 16) {
@@ -48372,81 +48428,93 @@ function qcSuggestNo() {
    It reuses the existing tour overlay, spotlight and positioning wholesale —
    nothing new is drawn. The actions are the app's own functions. */
 var AIJ = [
- { t:'Am I making money?', ic:'🌾', sub:'The verdict, then which part of the farm earns it', mins:'~45s',
+ { t:'Am I making money?', ic:'🌾', sub:'The verdict, then which part of the farm earns it', mins:'~50s',
    end:'profit',
+   stakes:{kicker:'Most farms find out in June',n:'R459',line:'A ton. That is what one of your lands is losing on every ton it grows.',sub:'Same crop as the land next to it. Same price. You would not see it in a bank balance — the farm is profitable overall.'},
+   payoff:{kicker:'Now it has a name',n:'Grootvlei',line:'80 hectares of white maize, losing money on every ton.',sub:'Costed on its own, on a screen you open anyway. You would know in August, not next June.'},
    steps:[
      {page:'dashboard', target:'dash-combo-stripe', icon:'🌾', title:'Is my farm making money?', act:{k:'count'},
-      text:'Every time you open AgriInsights you land here, and it answers one question first — profit or loss this month, worked out from what you have actually recorded.',
+      text:'One question, answered the moment you land. <b>From what you actually recorded.</b>',
       tip:'Everything below this line is the detail behind that sentence.'},
      {page:'income', target:'inc-metric-in', icon:'💵', title:'Where the money came from', act:{k:'count'},
-      text:'The money in, split by source — crop sales, fruit, livestock, grants. Switch the period pills to see a season rather than a month.'},
+      text:'Every rand in, by source. Switch the pills for a season.'},
      {page:'expenses', target:'exp-metric-ratio', icon:'💸', title:'And what it cost to get it', act:{k:'count'},
-      text:'The expense ratio is the number worth watching: how much of every rand coming in goes straight back out.'},
+      text:'And what it cost. <b>6.9c of every rand in goes straight back out.</b>'},
      {page:'profit', target:'pf-tabbtn-glance', icon:'📊', title:'Which part of the farm earns it',
-      text:'Now the part that decides things — every land, herd and block costed on its own. A farm can be profitable overall and still carry a piece that loses money every season.',
+      text:'Now the one that matters. <b>Every land, herd and block costed on its own.</b>',
       you:'Open any land, herd or block to see its own costing.'}
    ]},
 
- { t:'Record a sale in ten seconds', ic:'➕', sub:'Watch it typed, filed and landed', mins:'~35s',
+ { t:'Record a sale in ten seconds', ic:'➕', sub:'Watch it typed, filed and landed', mins:'~40s',
    end:'transactions',
+   stakes:{kicker:'The reason farm books go stale',n:'10 sec',good:true,line:'If capturing a load takes longer than this, it will not get done.',sub:'Every figure in here is only as good as the last thing you bothered to record. So this part has to be effortless.'},
+   payoff:{kicker:'One entry, and',n:'4 screens',line:'Dashboard, income, profit and your tax estimate all moved with it.',sub:'No re-keying, no month-end catch-up, no spreadsheet waiting for you on Sunday night.'},
    steps:[
      {page:'dashboard', target:'qc-fab', icon:'➕', title:'Record it in ten seconds',
-      text:'None of this works if capturing a sale is a chore. Watch — the amount, a few words, and the app works out the category itself.',
+      text:'Amount. A few words. <b>It finds the category itself.</b>',
       tip:'Type "Diesel 450L" and it files it under Fuel & Oil on its own. No category list to learn.',
       pad:12, onEnter:'tourDemoQC', onLeave:'tourCloseQC', hold:9000,
       you:'Type your own description — anything — and watch the category find itself.'},
      {page:'transactions', target:'tx-summary-strip', icon:'🧾', title:'It lands in the ledger',
-      text:'Every entry you make arrives here, newest first — and every figure built on it moves with it: dashboard, income, profit, provisional tax.'}
+      text:'Filed. And <b>four other screens just moved with it.</b>'}
    ]},
 
- { t:'Will I have enough cash?', ic:'🧭', sub:'The runway, and the ways to close a gap', mins:'~45s',
+ { t:'Will I have enough cash?', ic:'🧭', sub:'The runway, and the ways to close a gap', mins:'~50s',
    end:'budgets',
+   stakes:{kicker:'The question that wakes farmers at 3am',n:'February',line:'That is the month this farm gets tight — and it is six months away.',sub:'Knowing now means arranging cover on your terms. Finding out in February means taking whatever the bank offers.'},
+   payoff:{kicker:'You have',n:'6 months',line:'To arrange it on your terms, with the numbers to back the ask.',sub:'And nine ranked ways to close the gap without borrowing at all.'},
    steps:[
      {page:'cashflow', tab:'forecast', target:'cf-fwd-answer', icon:'🧭', title:'Will I have enough?', act:{k:'count'},
-      text:'Your bank balance projected forward from your own plan, with the month it gets tight named in plain words. This is the question that keeps farmers awake.',
+      text:'Your balance, projected forward. <b>The tight month, named.</b>',
       tip:'Line up cover before the month it names, not after.'},
      {page:'budgets', target:'bgt-hero', icon:'🎯', title:'Am I on track for the year?', act:{k:'count'},
-      text:'One verdict for the whole year — on plan, running tight, or falling behind — in a sentence rather than a table.'},
+      text:'One verdict for the year. Not a table to decode.'},
      {page:'budgets', target:'bgt-kpis', icon:'📋', title:'Judged category by category', act:{k:'run',fn:'aijExpandBudgetCat'},
-      text:'Each cost line measured against its own season, so a fuel bill in planting month is not flagged as an overspend.',
+      text:'Each line judged against <b>its own season</b> — not a flat monthly average.',
       you:'Open a category to see the months behind its verdict.'}
    ]},
 
- { t:'Should I sell today?', ic:'💰', sub:'Today’s price against what the ground cost you', mins:'~45s',
+ { t:'Should I sell today?', ic:'💰', sub:'Today’s price against what the ground cost you', mins:'~50s',
    end:'market',
+   stakes:{kicker:'If you sold Grootvlei this morning',n:'R169 000',line:'Gone. On one land, at today’s price, before the truck reached the silo.',sub:'The price is fine. The problem is what that particular ground cost to farm — and no price feed knows that.'},
+   payoff:{kicker:'Caught before the truck loaded',n:'R169 000',good:true,line:'Still yours — because the price was read against what the ground cost.',sub:'Vlakte clears R564 a ton at the same price. Same crop, different ground. Only one of them should go today.'},
    steps:[
      {page:'market', tab:'crops', target:'mkr-hero', icon:'💰', title:'What is it worth today?', act:{k:'count'},
-      text:'Everything you have to sell at today’s prices — and the two lines worth interrupting you for: what is losing money, and what is close enough to losing money that a small move would do it.'},
+      text:'Everything you have to sell, at today’s price. <b>Losing lines first.</b>'},
      {page:'market', tab:'crops', target:'mkt-crop-browsebar', icon:'📋', title:'Your cost, drawn on the price',
-      text:'Every SA price in one list. The lines you actually farm are shaded and carry a scale — where today’s price sits between what that ground cost you and what you planned to get.',
+      text:'Every SA price. Yours carry <b>your cost and your plan</b> on the same scale.',
       onEnter:'aijOpenFirstMarketRow', hold:8000,
       you:'Run your mouse along the chart — it reads out against your cost and your plan.'}
    ]},
 
- { t:'Plan the season, then watch it', ic:'📅', sub:'Build it, price it, then track it against reality', mins:'~55s',
+ { t:'Plan the season, then watch it', ic:'📅', sub:'Build it, price it, then track it against reality', mins:'~60s',
    end:'planning',
+   stakes:{kicker:'Four months into the season',n:'R419 000',line:'Behind plan. Not the farm — one part of it, and you can name which.',sub:'A plan you write in May and never look at again is a wish. This one tells you in August, while there is still a season left to fix it.'},
+   payoff:{kicker:'Orchards. Not crops, not the herd',n:'8 months',line:'Left to close it — and you know exactly which blocks to chase.',sub:'Crops and livestock are on plan. That is the difference between a warning and a wild goose chase.'},
    steps:[
      {page:'planning', tab:'crops', target:'plan-tab-live', icon:'📅', title:'The season, before it starts',
-      text:'Every land with its crop, its hectares and its growth stages across twelve months. Orchards, fruit and veg and livestock each get their own tab beside it.'},
+      text:'The whole season, before it starts. Crops, orchards, herds.'},
      {page:'planning', tab:'crops', target:'plan-fin', icon:'⚖️', title:'Priced, then stress-tested',
-      text:'The plan in money, so it is a number and not a wish — and levers to drag before you commit. Take grain prices down 30% and the whole year re-prices in front of you.',
+      text:'Priced, not wished. <b>Drag grain down 30% and the year re-prices.</b>',
       tip:'Better to find a thin year on this screen than in August.'},
      {page:'planning', tab:'tracker', target:'st-attn', icon:'📈', title:'Then watch it happen', act:{k:'run',fn:'aijExpandOrchards'},
-      text:'The Season Tracker holds that plan against what actually came in, month by month, all season — and tells you which group is behind rather than just that the farm is.',
+      text:'Plan against reality, all season. <b>It names which part is behind.</b>',
       onEnter:'aijOpenTracker', hold:8000,
       you:'Open a group to see which land or block is dragging, or switch between bars and a line.'}
    ]},
 
- { t:'SARS, and the paperwork', ic:'🧾', sub:'What to set aside, what you claim back, and the forms', mins:'~55s',
+ { t:'SARS, and the paperwork', ic:'🧾', sub:'What to set aside, what you claim back, and the forms', mins:'~60s',
    end:'reports',
+   stakes:{kicker:'Money SARS owes you',n:'R67 344',good:true,line:'Your diesel refund. Most farms never claim it.',sub:'18 400 litres already logged. It is claimed on the VAT201 with form DA66 — and it repeats every single year.'},
+   payoff:{kicker:'And the paperwork behind it',n:'4 statements',line:'Printed, plus an IT12 pre-fill and a pack your accountant can open.',sub:'Every year. From the entries you were making anyway.'},
    steps:[
      {page:'tax', tab:'glance', target:'tax-hero-card', icon:'🧾', title:'SARS, handled as you go', act:{k:'count'},
-      text:'Provisional tax, VAT, payroll and write-offs worked out from what you have already captured — what to set aside each month, and what falls due when.',
+      text:'What to set aside. What falls due. Already worked out.',
       tip:'Built for SA farming: Section 12B write-offs, the diesel refund, and the farmer’s income averaging.'},
      {page:'reports', target:'rpt-stmt-cards', icon:'📄', title:'Four statements, already filled in', act:{k:'run',fn:'aijOpenPL'}, hold:8000,
-      text:'Income & Expenses, Profit & Loss, Cash Flow and a Tax Summary — built from your transactions, not a spreadsheet you still have to complete. Open any one for a full print preview.'},
+      text:'Four statements, built from your ledger. <b>Watch one open.</b>'},
      {page:'reports', target:'acc-pack', icon:'📦', title:'The packs that save a week',
-      text:'An IT12 pre-fill for your return, an Accountant Pack that exports straight to Pastel and Xero, and a Bankability Report written for a loan application.',
+      text:'IT12 pre-fill. Pastel and Xero exports. A report written for your bank.',
       you:'Open a statement — it is the real print preview, filled in with your figures.'}
    ]}
 ];
@@ -48489,11 +48557,11 @@ function aijStart(i){
   try{ clearTimeout(TOUR_HIDE_T); }catch(e){}
   setTimeout(function(){
     aijShowOverlay();
-    aijRender();
+    aijStakes(AIJ[i], function(){ aijRender(); });
   }, closing?330:0);
 }
 function aijEnd(){
-  clearTimeout(AIJ_T); aijUnsync(); aijHideCursor(); aijStopCounts(); aijClosePL();
+  clearTimeout(AIJ_T); aijUnsync(); aijHideCursor(); aijStopCounts(); aijClosePL(); aijStakesHide();
   var st=AIJ[AIJ_I] && AIJ[AIJ_I].steps[AIJ_S];
   if(st && st.onLeave && window[st.onLeave]){ try{ window[st.onLeave](); }catch(e){} }
   AIJ_I=-1; AIJ_HELD=false;
@@ -48537,14 +48605,24 @@ function aijPrev(){
   AIJ_S--; AIJ_HELD=false; aijRender();
 }
 function aijFinish(){
-  var j=AIJ[AIJ_I], page=j&&j.end;
-  aijEnd();
-  /* Hand off to the page's own tab demo — curiosity first, detail second. */
-  setTimeout(function(){
-    if(page && typeof PAGE_TOURS!=='undefined' && PAGE_TOURS[page]){
-      if(typeof aijOfferTour==='function') aijOfferTour(page);
-    }
-  }, 420);
+  var j=AIJ[AIJ_I], page=j&&j.end, pay=j&&j.payoff;
+  var hand=function(){
+    setTimeout(function(){
+      if(page && typeof PAGE_TOURS!=='undefined' && PAGE_TOURS[page]){
+        if(typeof aijOfferTour==='function') aijOfferTour(page);
+      }
+    }, 380);
+  };
+  if(pay){
+    /* Close the loop on the same number the journey opened with. The threat is
+       what bought the attention; this is the part that gets remembered. */
+    AIJ_PAUSED=false;
+    aijStakes({stakes:{kicker:pay.kicker,n:pay.n,line:pay.line,sub:pay.sub,good:pay.good!==false,
+                       cta:pay.cta||'Explore it yourself \u2192', hold:pay.hold||4600}},
+      function(){ aijEnd(); hand(); });
+    return;
+  }
+  aijEnd(); hand();
 }
 function aijOfferTour(page){
   var bg=$('tour-complete-bg');
@@ -48663,6 +48741,38 @@ function aijRunAct(st){
     else if(a.k==='run' && window[a.fn]) { try{ window[a.fn](); }catch(e){} }
   }, a.after||480);
 }
+/* Open on the stakes, count the number up so it lands, then go. */
+function aijStakes(j, done){
+  var k=j.stakes; if(!k){ done(); return; }
+  var bg=$('aij-stakes'); if(!bg){ done(); return; }
+  setEl('aij-sk-k', k.kicker||'');
+  setEl('aij-sk-t', k.line||'');
+  setEl('aij-sk-s', k.sub||'');
+  var n=$('aij-sk-n');
+  if(n){ n.className='sk-n'+(k.good?' g':''); n.textContent=k.n||''; }
+  var go=$('aij-sk-go'); if(go) go.textContent=k.cta||'Show me \u2192';
+  var card=$('tour-card'), spot=$('tour-spotlight');
+  if(card) card.style.visibility='hidden';
+  if(spot) spot.style.display='none';
+  bg.classList.add('on');
+  requestAnimationFrame(function(){ bg.classList.add('in'); });
+  AIJ_STAKES_GO=done;
+  /* the figure runs up, so the eye is pulled to it rather than reading past it */
+  setTimeout(function(){ if(n) aijCountUp(n); }, 420);
+  /* auto-advance, but the button is there for anyone who wants to move now */
+  clearTimeout(AIJ_T);
+  AIJ_T=setTimeout(function(){ if(!AIJ_PAUSED) aijStakesGo(); }, k.hold||4200);
+}
+var AIJ_STAKES_GO=null;
+function aijStakesGo(){
+  var bg=$('aij-stakes'); if(bg){ bg.classList.remove('in','on'); }
+  var card=$('tour-card'); if(card) card.style.visibility='';
+  var f=AIJ_STAKES_GO; AIJ_STAKES_GO=null;
+  clearTimeout(AIJ_T);
+  if(f) f();
+}
+function aijStakesHide(){ var bg=$('aij-stakes'); if(bg) bg.classList.remove('in','on');
+  var c=$('tour-card'); if(c) c.style.visibility=''; AIJ_STAKES_GO=null; }
 function aijShowOverlay(){
   try{ clearTimeout(TOUR_HIDE_T); }catch(e){}
   var ov=$('tour-overlay');
@@ -48683,7 +48793,7 @@ function aijRender(){
   setEl('tour-prog-lbl',(AIJ_S+1)+' / '+n);
   setEl('tour-icon', st.icon||j.ic||'📌');
   setEl('tour-title', st.title||'');
-  setEl('tour-desc', st.text||'');
+  var dsc=$('tour-desc'); if(dsc) dsc.innerHTML = st.text||'';   /* <b> is markup, not text */
   var ie=$('tour-icon'); if(ie) ie.style.background='#D8F3DC';
 
   var tipEl=$('tour-tip'), tipTxt=$('tour-tip-text');
@@ -56667,6 +56777,13 @@ function orExportPackout(){
       </div>
     </div>
   </div>
+  <div id="aij-stakes"><div class="sk">
+    <div class="sk-k" id="aij-sk-k"></div>
+    <div class="sk-n" id="aij-sk-n"></div>
+    <div class="sk-t" id="aij-sk-t"></div>
+    <div class="sk-s" id="aij-sk-s"></div>
+    <button class="sk-go" id="aij-sk-go" onclick="aijStakesGo()">Show me &rarr;</button>
+  </div></div>
   <div id="aij-ring"></div>
   <div id="aij-cursor"><svg viewBox="0 0 20 20" width="22" height="22">
     <path d="M2 1.5 L2 16 L5.9 12.4 L8.5 18.4 L11.3 17.2 L8.7 11.4 L14 11.1 Z"
