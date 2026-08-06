@@ -3297,6 +3297,11 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
   background:#4FA97F;color:#08120D;border:0;border-radius:10px;padding:12px 24px}
 @media(max-width:700px){#aij-stakes .sk-n{font-size:52px;letter-spacing:-2px}#aij-stakes .sk-t{font-size:17px}}
 @media (prefers-reduced-motion:reduce){#aij-stakes,#aij-stakes .sk{transition:none!important}}
+/* The one element the farmer is invited to click. It sits inside the lit hole
+   of the spotlight, so a white pulse reads against the dimmed page. */
+.aij-invite{cursor:pointer;animation:aijInvite 1.5s ease-in-out infinite}
+@keyframes aijInvite{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.60)}50%{box-shadow:0 0 0 7px rgba(255,255,255,0)}}
+@media (prefers-reduced-motion:reduce){.aij-invite{animation:none;outline:2px solid rgba(255,255,255,.7)}}
 #aij-cursor{position:fixed;width:22px;height:22px;z-index:8003;pointer-events:none;opacity:0;
   transition:transform .70s cubic-bezier(.33,.02,.24,1),opacity .2s;will-change:transform}
 #aij-cursor.on{opacity:1}
@@ -38931,6 +38936,7 @@ function renderMyFarm() {
 
   /* The two lines worth interrupting a farmer for: what is losing money, and
      what is close enough to losing money that a small move would do it. */
+  window.__mkrLossTagged=0;
   var flags=[], all=[];
   M.groups.forEach(function(g){ g.rows.forEach(function(r){ if(r.margin!=null) all.push(r); }); });
   var losing=all.filter(function(r){ return r.margin<0; })
@@ -38988,7 +38994,10 @@ function renderMyFarm() {
       var planNote = (r.plan>0 && r.price!=null)
         ? '<s>'+mkrSigned(r.price-r.plan,r.unit)+' vs plan</s>'
         : (r.remit ? '<s>from your remittance</s>' : (r.est?'<s>your estimate</s>':''));
-      h+='<div class="mkr-r" data-mkr="'+stEsc(id)+'" onclick="mkrTog(this)">'+
+      /* The first line that is under water gets an id: it is the single most
+         arresting thing on this screen, and the opening film points at it. */
+      var _lossId = (r.loss && !window.__mkrLossTagged) ? (window.__mkrLossTagged=1, ' id="mkr-loss"') : '';
+      h+='<div class="mkr-r'+'" '+_lossId+' data-mkr="'+stEsc(id)+'" onclick="mkrTog(this)">'+
         '<span class="mkr-who"><span class="i">'+stEsc(r.icon||'')+'</span>'+
           '<span><b>'+stEsc(r.name)+'</b><em>'+stEsc(r.sub)+'</em></span></span>'+
         '<span class="mkr-n">'+(r.qty!=null?(mkrNum(r.qty)+' '+r.qtyU+(r.qtyNote?'<s>'+r.qtyNote+'</s>':'')):'—')+'</span>'+
@@ -48046,9 +48055,26 @@ spotlight.style.display = 'block';
     }
   }
 
+  left = Math.max(8, Math.min(left, vw - cardW - 8));
+  top  = Math.max(8, Math.min(top,  vh - cardH - 8));
+
+  /* A wide target (a full-width table row, a hero band) leaves no room beside
+     it, so the clamps above park the card ON the thing it is pointing at —
+     the card covers the very number being narrated. Escape to below, then
+     above, whichever genuinely fits; if neither does, sit clear of the
+     spotlight horizontally rather than over its middle. */
+  if (left < r.right + 6 && left + cardW > r.left - 6 &&
+      top  < r.bottom + 6 && top  + cardH > r.top  - 6) {
+    var below = r.bottom + 14, above = r.top - cardH - 14;
+    if (below + cardH + 8 <= vh)      top = below;
+    else if (above >= 8)              top = above;
+    else if (r.left > vw - r.right)   left = Math.max(8, r.left - cardW - 14);
+    else                              left = Math.min(r.right + 14, vw - cardW - 8);
+  }
+
   card.style.transform = 'none';
-  card.style.left = Math.max(8, Math.min(left, vw - cardW - 8)) + 'px';
-  card.style.top  = Math.max(8, Math.min(top,  vh - cardH - 8)) + 'px';
+  card.style.left = left + 'px';
+  card.style.top  = top  + 'px';
 }
 
 document.addEventListener('keydown', function(e) {
@@ -48428,6 +48454,65 @@ function qcSuggestNo() {
    It reuses the existing tour overlay, spotlight and positioning wholesale —
    nothing new is drawn. The actions are the app's own functions. */
 var AIJ = [
+ /* ── THE OPENING FILM ─────────────────────────────────────────────────────
+    What plays the moment a farmer arrives. Not a tour, and not a menu of six
+    things to choose from — that reads as random, because it is. One story,
+    told fast: a healthy-looking farm, the problem hiding inside it, when that
+    problem bites, what you are owed, and the paperwork already done.
+
+    Short beats on purpose. The research is blunt that you cannot teach anyone
+    anything in the first thirty seconds — you can only show them something
+    worth staying for. So every beat is one real number off this farm, moving. */
+ { t:'Your farm in 30 seconds', ic:'🎬', sub:'The whole app, one story — start here', mins:'~30s',
+   end:'dashboard', film:true,
+   stakes:{kicker:'Doringkloof Boerdery · 420 hectares · August 2026',n:'{lossFull}',
+     line:'Jaco is about to lose this. Today. And nothing on his bank statement would tell him.',
+     sub:'His books say the farm is profitable. They are right. Watch the app find it anyway.',
+     cta:'Show me →', hold:4800},
+   /* The number the film opened on, returned in green. The threat is what buys
+      the attention; the relief is the part that gets remembered. */
+   payoff:{kicker:'Because he found it in August',n:'{lossFull}',good:true,
+     line:'Still Jaco’s.',
+     sub:'Same farm, same records, same morning. The only difference is that the app costed each land on its own — and said so.',
+     cta:'Explore the farm →', hold:5400},
+   /* ONE story, not a tour of tabs. Research is blunt about this: a feature
+      walkthrough is the worst way to demo an app, and the flows that finish are
+      1-6 steps. So this follows a single thread — one land, Grootvlei — from
+      "the farm looks fine" to "here is the R169 000 and here is why", and it
+      goes DEEPER on one screen instead of sideways across seven. The black card
+      is the narrator between acts; the app itself is the evidence. */
+   steps:[
+     /* ACT 1 — every day. The books say everything is fine. */
+     {page:'dashboard', target:'dash-combo-stripe', icon:'🌾', title:'Jaco’s farm, this morning',
+      text:'<b>Profitable.</b> 93% margin, up on last month. Nothing to worry about.',
+      act:{k:'count'}, hold:3200},
+
+     /* ACT 2 — one day. The same farm, costed land by land. */
+     {page:'market', tab:'crops', narr:{kicker:'Act two · the same farm, one level down',
+       n:'{total}', line:'That profit is the whole farm added up.',
+       sub:'Add it up and every farm looks fine. So take it apart — land by land, costed against what each one grew.',
+       cta:'Take it apart →', hold:3800}},
+     {page:'market', tab:'crops', target:'mkr-hero', icon:'🔎', title:'Priced at today’s market',
+      onEnter:'aijCollapseMarketRows',
+      text:'Same {total}. But now <b>{lossName} is in trouble.</b>', act:{k:'count'}, hold:3200},
+     /* The one place the farmer's own hand is on the product. */
+     {page:'market', tab:'crops', target:'mkr-loss', icon:'⚠️', title:'There it is',
+      text:'<b>{lossName} loses {lossPer} a {lossUnit}.</b> {compare}',
+      doit:{prompt:'Your turn — click the {lossName} row', wait:6500},
+      act:{k:'run',fn:'aijOpenLosingRow',after:0}, hold:4000},
+     {page:'market', tab:'crops', target:'mkr-why', icon:'📉', title:'Why, on the same screen',
+      onEnter:'aijOpenLosingRow',
+      text:'It was never the price. <b>{cost} a {lossUnit} to grow, {price} to sell.</b>', hold:4000},
+
+     /* ACT 3 — until finally. The paperwork writes itself. */
+     {page:'reports', narr:{kicker:'Act three · the cause, not the symptom',
+       n:'{lossPer}', line:'A {lossUnit}. On {lossQty}, that is the {lossFull} you were shown at the start.',
+       sub:'Found in August — in time to sell it elsewhere, or stop growing it there. Not next June, when the accountant adds it up.',
+       cta:'And the paperwork →', hold:4000}},
+     {page:'reports', target:'rpt-stmt-cards', icon:'📄', title:'Nobody typed this',
+      text:'Four statements, already filled in. <b>Watch one open.</b>',
+      act:{k:'run',fn:'aijOpenPL'}, hold:4400}
+   ]},
  { t:'Am I making money?', ic:'🌾', sub:'The verdict, then which part of the farm earns it', mins:'~50s',
    end:'profit',
    stakes:{kicker:'Most farms find out in June',n:'R459',line:'A ton. That is what one of your lands is losing on every ton it grows.',sub:'Same crop as the land next to it. Same price. You would not see it in a bank balance — the farm is profitable overall.'},
@@ -48550,6 +48635,9 @@ function aijStart(i){
   try{ if(typeof tourEnd==='function' && typeof TOUR_ACTIVE!=='undefined' && TOUR_ACTIVE){ tourEnd(); closing=true; } }catch(e){}
   try{ if(typeof pageTourEnd==='function' && typeof PAGE_TOUR_ACTIVE!=='undefined' && PAGE_TOUR_ACTIVE){ pageTourEnd(); closing=true; } }catch(e){}
   AIJ_I=i; AIJ_S=0; AIJ_PAUSED=false; AIJ_HELD=false;
+  /* Re-read the farm each play — a farmer who has been clicking around, or a
+     changed demo seed, must not leave the narration quoting stale figures. */
+  AIJ_F=null;
   /* tourEnd() hides the SHARED overlay on a fade timer. A journey opened just
      afterwards looked fine for a quarter of a second and was then killed by
      that pending timeout — and it fires whether or not a tour was actually
@@ -48561,7 +48649,7 @@ function aijStart(i){
   }, closing?330:0);
 }
 function aijEnd(){
-  clearTimeout(AIJ_T); aijUnsync(); aijHideCursor(); aijStopCounts(); aijClosePL(); aijStakesHide();
+  clearTimeout(AIJ_T); aijUnsync(); aijHideCursor(); aijStopCounts(); aijClosePL(); aijStakesHide(); aijClearClick();
   var st=AIJ[AIJ_I] && AIJ[AIJ_I].steps[AIJ_S];
   if(st && st.onLeave && window[st.onLeave]){ try{ window[st.onLeave](); }catch(e){} }
   AIJ_I=-1; AIJ_HELD=false;
@@ -48721,6 +48809,30 @@ function aijExpandOrchards(){
 function aijExpandMarketRow(){
   try{ var r=document.querySelector('.mkr-r'); if(r && typeof mkrTog==='function' && !document.querySelector('.mkr-det.open')) mkrTog(r); }catch(e){}
 }
+/* The expansion is a reveal, so the row must be shut when the act opens.
+   MKR_OPEN survives a re-render, so a farmer who had already opened a row
+   would otherwise see the answer before the question. */
+function aijCollapseMarketRows(){
+  try{
+    if(!document.querySelector('.mkr-det.open')) return;
+    var r=document.querySelector('.mkr-r.open');
+    if(r && typeof mkrTog==='function') mkrTog(r);
+  }catch(e){}
+}
+/* The story beat: open the LOSING row, not whichever row happens to be first,
+   and tag its detail panel so the next beat can spotlight the reason. */
+function aijOpenLosingRow(){
+  try{
+    var r=$('mkr-loss'); if(!r || typeof mkrTog!=='function') return;
+    var sel='.mkr-det[data-mkrd="'+String(r.getAttribute('data-mkr')).replace(/"/g,'')+'"]';
+    var d=r.parentNode.querySelector(sel);
+    /* renderMyFarm re-opens MKR_OPEN on every re-render but rebuilds the nodes,
+       so the id is lost while the panel stays open. Tag it either way — an
+       early return here left the next beat with no target at all. */
+    if(!d || !d.classList.contains('open')){ mkrTog(r); d=r.parentNode.querySelector(sel); }
+    if(d) d.id='mkr-why';
+  }catch(e){}
+}
 function aijExpandBudgetCat(){
   try{ var r=document.querySelector('#bgt-cats .bgt-row'); if(r) r.click(); }catch(e){}
 }
@@ -48728,6 +48840,127 @@ function aijOpenPL(){ try{ if(typeof previewStatement==='function') previewState
 function aijClosePL(){
   try{ if(typeof closeStmtPreview==='function'){ closeStmtPreview(); return; } }catch(e){}
   try{ var bg=$('stmt-preview-bg'); if(bg) bg.style.display='none'; }catch(e){}
+}
+
+/* ── The film's facts ───────────────────────────────────────────────────────
+   Every figure the narration says out loud is derived here, from the same call
+   the cards render from and through the same formatters. Hard-coded copy had
+   already drifted from the screen three times; this makes that impossible —
+   the demo seed can change and the story stays true. */
+var AIJ_F=null, AIJ_F_LANG=null;
+function aijFacts(){
+  /* `compare` is a whole sentence built here, so it has to be rebuilt when the
+     farmer switches language — the cache is keyed on it. */
+  var lang=(function(){ try{ return (ST&&ST.lang)||'en'; }catch(e){ return 'en'; } })();
+  if(AIJ_F && AIJ_F_LANG===lang) return AIJ_F;
+  /* Defaults describe the shipped demo farm. Live values overwrite them below,
+     so a token always resolves to something readable even if a lookup fails. */
+  var f={total:'R22.78m', loss:'R169k', lossFull:'R168 912', lossName:'Grootvlei',
+         lossPer:'R459', lossQty:'368 t', lossUnit:'ton', cost:'R3 217',
+         price:'R2 758', crop:'maize', compare:''};
+  var grp=function(n){
+    return String(Math.round(Math.abs(n))).replace(/\B(?=(\d{3})+(?!\d))/g,' ');
+  };
+  try{
+    var M=(typeof mkrRows==='function')?mkrRows():null;
+    if(M && M.groups && M.groups.length){
+      var all=[];
+      M.groups.forEach(function(g){ (g.rows||[]).forEach(function(r){ if(r.margin!=null) all.push(r); }); });
+      if(M.total) f.total=mkrK(M.total);
+      /* Same ordering renderMyFarm uses for its Losing flag, so the film always
+         names the row the hero names. */
+      var losing=all.filter(function(r){ return r.margin<0; })
+                    .sort(function(a,b){ return (a.margin*a.qty)-(b.margin*b.qty); });
+      if(losing.length){
+        var L=losing[0], hit=Math.abs(L.margin*(L.qty||0));
+        var cropOf=function(r){ return String(r.sub||'').split('·')[0].trim(); };
+        f.lossName=L.name;
+        f.lossUnit=L.unit||'ton';
+        f.lossPer=mkrPer(Math.abs(L.margin),L.unit);
+        f.lossQty=mkrNum(L.qty)+' '+L.qtyU;
+        f.loss=mkrK(hit);
+        f.lossFull='R'+grp(hit);
+        f.crop=(cropOf(L)||'crop').toLowerCase();
+        if(L.cost!=null)  f.cost=mkrPer(L.cost,L.unit);
+        if(L.price!=null) f.price=mkrPer(L.price,L.unit);
+        /* The comparison only earns its place if another line grows the SAME
+           thing — otherwise say nothing rather than imply a like-for-like. */
+        var same=all.filter(function(r){ return r!==L && r.margin>0 && cropOf(r)===cropOf(L); })
+                    .sort(function(a,b){ return b.margin-a.margin; });
+        if(same.length){
+          var cn=stEsc(same[0].name), cp=mkrPer(same[0].margin,same[0].unit);
+          f.compare = (lang==='af')
+            ? (cn+', dieselfde '+f.crop+' teen dieselfde prys, maak '+cp+' skoon.')
+            : (cn+', the same '+f.crop+' at the same price, clears '+cp+'.');
+        }
+      }
+    }
+  }catch(e){}
+  AIJ_F=f; AIJ_F_LANG=lang; return f;
+}
+/* Step copy is written per-step and is never swept by applyLangNodes, so
+   without this the film plays in English on an Afrikaans farm. Exact-match, so
+   none of the LANG_PAIRS substring accidents can reach it. */
+var AIJ_AF={
+  'Your farm in 30 seconds':'Jou plaas in 30 sekondes',
+  'The whole app, one story — start here':'Die hele program, een storie — begin hier',
+  'Jaco’s farm, this morning':'Jaco se plaas, vanoggend',
+  '<b>Profitable.</b> 93% margin, up on last month. Nothing to worry about.':
+    '<b>Wins.</b> 93% marge, op teenoor verlede maand. Niks om oor bekommerd te wees nie.',
+  'Priced at today’s market':'Teen vandag se markprys',
+  'Same {total}. But now <b>{lossName} is in trouble.</b>':
+    'Dieselfde {total}. Maar nou is <b>{lossName} in die moeilikheid.</b>',
+  'There it is':'Daar is dit',
+  '<b>{lossName} loses {lossPer} a {lossUnit}.</b> {compare}':
+    '<b>{lossName} verloor {lossPer} per {lossUnit}.</b> {compare}',
+  'Why, on the same screen':'Hoekom, op dieselfde skerm',
+  'It was never the price. <b>{cost} a {lossUnit} to grow, {price} to sell.</b>':
+    'Dit was nooit die prys nie. <b>{cost} per {lossUnit} om te kweek, {price} om te verkoop.</b>',
+  'Nobody typed this':'Niemand het dit getik nie',
+  'Four statements, already filled in. <b>Watch one open.</b>':
+    'Vier state, reeds ingevul. <b>Kyk hoe een oopmaak.</b>',
+  'Your turn — click the {lossName} row':'Jou beurt — klik op die {lossName} ry'
+};
+/* Language first (the Afrikaans carries the same tokens), then the figures. */
+function aijFill(s){
+  s=String(s==null?'':s);
+  try{ if(typeof ST!=='undefined' && ST.lang==='af' && AIJ_AF[s]) s=AIJ_AF[s]; }catch(e){}
+  if(s.indexOf('{')<0) return s;
+  var f=aijFacts();
+  return s.replace(/\{(\w+)\}/g,function(m,k){ return f[k]!=null?f[k]:''; });
+}
+
+/* ── The one real click ─────────────────────────────────────────────────────
+   A demo you click converts several times better than one you watch, and this
+   is the moment worth spending it on: the farmer opens the losing land
+   himself. It must never strand anyone, so if the click does not come we do it
+   for them and the story carries on. */
+var AIJ_CLICK=null;
+function aijClearClick(){
+  if(!AIJ_CLICK) return;
+  try{ AIJ_CLICK.el.removeEventListener('click',AIJ_CLICK.fn,true); }catch(e){}
+  try{ AIJ_CLICK.el.classList.remove('aij-invite'); }catch(e){}
+  clearTimeout(AIJ_CLICK.t); AIJ_CLICK=null;
+}
+function aijAwaitClick(st){
+  aijClearClick();
+  var el=$(st.target);
+  if(!el){ if(!AIJ_PAUSED) aijArm(st.hold||4000); return; }
+  var done=function(byUser){
+    if(!aijStepCurrent(st)) return;
+    aijClearClick();
+    /* Their click already ran the row's own handler; ours only covers the
+       farmer who watched instead. */
+    if(!byUser) aijRunAct(st);
+    clearTimeout(AIJ_T);
+    AIJ_T=setTimeout(function(){
+      if(aijStepCurrent(st) && !AIJ_PAUSED) aijNext();
+    }, byUser?1700:1500);
+  };
+  var fn=function(){ done(true); };
+  el.classList.add('aij-invite');
+  el.addEventListener('click',fn,true);
+  AIJ_CLICK={el:el,fn:fn,t:setTimeout(function(){ done(false); },(st.doit&&st.doit.wait)||6500)};
 }
 
 /* Fired once the spotlight has settled, so the farmer sees the thing happen
@@ -48745,12 +48978,12 @@ function aijRunAct(st){
 function aijStakes(j, done){
   var k=j.stakes; if(!k){ done(); return; }
   var bg=$('aij-stakes'); if(!bg){ done(); return; }
-  setEl('aij-sk-k', k.kicker||'');
-  setEl('aij-sk-t', k.line||'');
-  setEl('aij-sk-s', k.sub||'');
+  setEl('aij-sk-k', aijFill(k.kicker||''));
+  setEl('aij-sk-t', aijFill(k.line||''));
+  setEl('aij-sk-s', aijFill(k.sub||''));
   var n=$('aij-sk-n');
-  if(n){ n.className='sk-n'+(k.good?' g':''); n.textContent=k.n||''; }
-  var go=$('aij-sk-go'); if(go) go.textContent=k.cta||'Show me \u2192';
+  if(n){ n.className='sk-n'+(k.good?' g':''); n.textContent=aijFill(k.n||''); }
+  var go=$('aij-sk-go'); if(go) go.textContent=aijFill(k.cta||'Show me \u2192');
   var card=$('tour-card'), spot=$('tour-spotlight');
   if(card) card.style.visibility='hidden';
   if(spot) spot.style.display='none';
@@ -48781,8 +49014,22 @@ function aijShowOverlay(){
 function aijRender(){
   var j=AIJ[AIJ_I]; if(!j) return;
   var st=j.steps[AIJ_S], n=j.steps.length;
-  clearTimeout(AIJ_T); aijUnsync(); aijHideCursor(); aijStopCounts(); aijClosePL();
+  clearTimeout(AIJ_T); aijUnsync(); aijHideCursor(); aijStopCounts(); aijClosePL(); aijClearClick();
   aijShowOverlay();
+  /* An act break. The black card is the narrator; the app is the evidence.
+     Alternating the two is what makes it read as a story instead of a tour —
+     it also lets the farm move on (a page can load) behind the words. */
+  if(st.narr){
+    if(st.page && typeof nav==='function') nav(st.page);
+    aijApplyTab(st);
+    aijStakes({stakes:st.narr}, function(){ aijNext(); });
+    return;
+  }
+  /* Evidence beat: the narrator card must be gone. It is fixed at z-index 8004
+     with pointer-events:all, so any stray showing of it silently swallows the
+     farmer's click on the step that asks for one. Normally already hidden by
+     aijStakesGo — this is the repair for every path that is not normal. */
+  aijStakesHide();
   if(st.page && typeof nav==='function') nav(st.page);
   aijApplyTab(st);
 
@@ -48792,12 +49039,14 @@ function aijRender(){
       d.className='tour-prog-dot'+(i<=AIJ_S?' on':''); dots.appendChild(d); } }
   setEl('tour-prog-lbl',(AIJ_S+1)+' / '+n);
   setEl('tour-icon', st.icon||j.ic||'📌');
-  setEl('tour-title', st.title||'');
-  var dsc=$('tour-desc'); if(dsc) dsc.innerHTML = st.text||'';   /* <b> is markup, not text */
+  setEl('tour-title', aijFill(st.title||''));
+  var dsc=$('tour-desc'); if(dsc) dsc.innerHTML = aijFill(st.text||'');   /* <b> is markup, not text */
   var ie=$('tour-icon'); if(ie) ie.style.background='#D8F3DC';
 
+  /* On a click step the tip line carries the invitation. */
   var tipEl=$('tour-tip'), tipTxt=$('tour-tip-text');
-  if(tipEl&&tipTxt){ if(st.tip){ tipTxt.textContent=st.tip; tipEl.style.display='flex'; } else tipEl.style.display='none'; }
+  var tipStr = st.doit ? (st.doit.prompt||'') : (st.tip||'');
+  if(tipEl&&tipTxt){ if(tipStr){ tipTxt.textContent=aijFill(tipStr); tipEl.style.display='flex'; } else tipEl.style.display='none'; }
 
   var prevBtn=$('tour-prev'), nextBtn=$('tour-next'),
       skipBtn=document.querySelector('#tour-card .tour-btn-skip:not(.aij-pause)');
@@ -48826,16 +49075,40 @@ function aijRender(){
   var delay = st.onEnter ? 320 : 140;
   if(st.onEnter && window[st.onEnter]) setTimeout(function(){ try{ window[st.onEnter](); }catch(e){} }, 180);
   setTimeout(function(){
-    tourScrollTo(st.target, function(scrolled){
-      setTimeout(function(){
-        tourPosition(st); aijSync(st);
-        /* pointer travels in, then the step's action runs on the real page */
-        aijPointAt(st.target, function(){ aijRunAct(st); });
-      }, scrolled?420:0);
+    /* Market and Tax paint after nav() returns, so a fixed timer used to
+       measure a target that did not exist yet — tourPosition then hid the
+       spotlight and centred the card, and aijSync had no node to observe, so
+       nothing ever recovered it. Wait for the node, then start the clock. */
+    aijAwaitTarget(st, function(){
+      tourScrollTo(st.target, function(scrolled){
+        setTimeout(function(){
+          if(!aijStepCurrent(st)) return;
+          tourPosition(st); aijSync(st);
+          /* pointer travels in, then the step's action runs on the real page —
+             unless this is the step the farmer is asked to do himself */
+          aijPointAt(st.target, function(){ if(!st.doit) aijRunAct(st); });
+          if(st.doit) aijAwaitClick(st);
+          else if(!AIJ_PAUSED) aijArm(st.hold || 4600);
+        }, scrolled?420:0);
+      });
     });
   }, delay);
-
-  if(!AIJ_PAUSED) aijArm(st.hold || 4600);
+}
+/* True only while `st` is still the step being played. */
+function aijStepCurrent(st){
+  var j=AIJ[AIJ_I];
+  return !!(j && AIJ_I>=0 && j.steps[AIJ_S]===st);
+}
+/* Resolve as soon as the step's target exists and has been laid out; give up
+   after ~1.6s and continue anyway so a step can never strand the film. */
+function aijAwaitTarget(st, cb){
+  var t0=Date.now();
+  (function poll(){
+    if(!aijStepCurrent(st)) return;
+    var el=st.target?$(st.target):null;
+    if((el && el.getBoundingClientRect().height>0) || !st.target || Date.now()-t0>1600) return cb();
+    requestAnimationFrame(poll);
+  })();
 }
 function aijPick(){
   var host=$('aij-pick-list');
@@ -48958,10 +49231,10 @@ function aiDemoExit(){
 }
 function aiDemoWatch(){
   try{ localStorage.removeItem('ai_guest_toured'); }catch(e){}
-  /* Offer the journeys rather than the old linear run-through: a chooser
-     converts better than one fixed path, and it is what "Watch demo" should
-     have been opening all along. */
-  try{ if(typeof aijPick==='function'){ aijPick(); return; } }catch(e){}
+  /* Play the film. A chooser is a decision, and a decision is friction at the
+     exact moment you have their attention — the six use-case journeys stay one
+     tap away in the 🗺️ menu for anyone who wants to go deeper. */
+  try{ if(typeof aijStart==='function' && typeof AIJ!=='undefined' && AIJ.length){ aijStart(0); return; } }catch(e){}
   try{ if(typeof tourStart==='function') tourStart(); }catch(e){}
 }
 function aiDemoRibbon(){
@@ -49011,7 +49284,12 @@ function aiDemoStart(){
   try{
     if(localStorage.getItem('ai_guest_toured')!=='1'){
       localStorage.setItem('ai_guest_toured','1');
-      if(typeof tourStart==='function') setTimeout(function(){ try{ tourStart(); }catch(e){} },900);
+      /* The film, not the old page-by-page tour: a farmer who has just landed
+         needs a reason to stay, not a table of contents. */
+      setTimeout(function(){
+        try{ if(typeof aijStart==='function' && typeof AIJ!=='undefined' && AIJ.length){ aijStart(0); return; } }catch(e){}
+        try{ if(typeof tourStart==='function') tourStart(); }catch(e){}
+      },900);
     }
   }catch(e){}
 }
@@ -56826,7 +57104,7 @@ function orExportPackout(){
   </div>
   <!-- Guided journeys: use cases the app walks by itself. Filled by aijMenu()
        on open so the list stays in step with AIJ. -->
-  <div style="font-size:9.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--t4);padding:9px 14px 5px">Guided journeys</div>
+  <div style="font-size:9.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--t4);padding:9px 14px 5px">Watch</div>
   <div id="tours-menu-journeys"></div>
   <div style="height:1px;background:var(--br);margin:7px 12px"></div>
   <div style="font-size:9.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:var(--t4);padding:4px 14px 5px">Page demos</div>
