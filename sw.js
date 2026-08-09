@@ -11,7 +11,7 @@
  */
 'use strict';
 
-var APP_VERSION = '2026-07-20-214';
+var APP_VERSION = '2026-08-09-215';
 var CACHE = 'agriinsights-' + APP_VERSION;
 
 /* App shell precached on install. The ?v=-suffixed JS is intentionally left to
@@ -24,6 +24,7 @@ var PRECACHE = [
   './vendor/chart.umd.js',
   './vendor/supabase.js',
   './Logo.png',
+  './img/hero-farmland.jpg',
   './icon-192.png',
   './icon-512.png',
   './maskable-512.png',
