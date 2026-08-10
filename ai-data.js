@@ -770,8 +770,8 @@
     return h; }
   function classRows(h,fid){ return (h.classes||[]).map(function(c){ return { farm_id:fid, herd_local_id:String(h.id), class_key:c.k, count:(c.n!=null)?parseInt(c.n,10):0, class_value:(c.v!=null)?Number(c.v):0 }; }); }
   // 3a-ii — moves / treatments / animals (set-sync, append-only) + health (per-row)
-  function moveToDb(m,fid){ return { farm_id:fid, local_id:String(m.id), herd_local_id:(m.herd!=null)?String(m.herd):null, reason:m.reason||null, qty:(m.qty!=null)?parseInt(m.qty,10):null, move_date:m.date||null, note:m.note||null, money:(m.money!=null)?Number(m.money):null, cls:m.cls||null, to_cls:m.toCls||null }; }
-  function moveFromDb(r){ var m={ id:r.local_id, herd:_numIf(r.herd_local_id), reason:r.reason||'', qty:Number(r.qty)||0, date:r.move_date||'', note:r.note||'', money:Number(r.money)||0 }; if(r.cls) m.cls=r.cls; if(r.to_cls) m.toCls=r.to_cls; return m; }
+  function moveToDb(m,fid){ return { farm_id:fid, local_id:String(m.id), herd_local_id:(m.herd!=null)?String(m.herd):null, reason:m.reason||null, qty:(m.qty!=null)?parseInt(m.qty,10):null, move_date:m.date||null, note:m.note||null, money:(m.money!=null)?Number(m.money):null, cls:m.cls||null, to_cls:m.toCls||null, leaving:(m.leaving!=null)?!!m.leaving:null, from_place:m.fromPlace||null, to_place:m.toPlace||null, transporter:m.transporter||null, veh_reg:m.vehReg||null, veh_make:m.vehMake||null }; }
+  function moveFromDb(r){ var m={ id:r.local_id, herd:_numIf(r.herd_local_id), reason:r.reason||'', qty:Number(r.qty)||0, date:r.move_date||'', note:r.note||'', money:Number(r.money)||0 }; if(r.cls) m.cls=r.cls; if(r.to_cls) m.toCls=r.to_cls; if(r.leaving) m.leaving=true; if(r.from_place) m.fromPlace=r.from_place; if(r.to_place) m.toPlace=r.to_place; if(r.transporter) m.transporter=r.transporter; if(r.veh_reg) m.vehReg=r.veh_reg; if(r.veh_make) m.vehMake=r.veh_make; return m; }
   function treatToDb(t,fid){ return { farm_id:fid, local_id:String(t.id), herd_local_id:(t.herd!=null)?String(t.herd):null, kind:t.kind||null, product:t.product||null, reg:t.reg||null, act:t.act||null, abx:(t.abx!=null)?!!t.abx:null, target:t.target||null, head:(t.head!=null)?parseInt(t.head,10):null, tags:t.tags||[], dose:t.dose||null, route:t.route||null, reason:t.reason||null, batch:t.batch||null, expiry:t.expiry||null, rx:t.rx||null, treat_date:t.date||null, by_who:t.by||null, cost:(t.cost!=null)?Number(t.cost):null, meat:(t.meat!=null)?parseInt(t.meat,10):null, milk:(t.milk!=null)?parseInt(t.milk,10):null }; }
   function treatFromDb(r){ var t={ id:r.local_id, herd:_numIf(r.herd_local_id), kind:r.kind||'', product:r.product||'', reg:r.reg||'', act:r.act||'', target:r.target||'', head:Number(r.head)||0, tags:r.tags||[], dose:r.dose||'', route:r.route||'', reason:r.reason||'', batch:r.batch||'', expiry:r.expiry||'', date:r.treat_date||'', by:r.by_who||'', cost:Number(r.cost)||0, meat:Number(r.meat)||0, milk:Number(r.milk)||0 }; if(r.abx) t.abx=true; if(r.rx) t.rx=r.rx; return t; }
   function animalToDb(a,fid){ return { farm_id:fid, local_id:String(a.id), herd_local_id:(a.herd!=null)?String(a.herd):null, tag:a.tag||null, name:a.name||null, sex:a.sex||null, breed:a.breed||null, cls:a.cls||null, dob:a.dob||null, dam:a.dam||null, sire:a.sire||null, repro:(a.repro&&a.repro.length)?a.repro:null, status:a.status||null, due_approx:a.dueApprox||null, parity:a.parity||null, weight:(a.weight!=null?a.weight:null) }; }
@@ -807,6 +807,43 @@
     return { camps:(cp.data||[]).map(campFromDb), herds:herds, benchmarks:benchmarks,
              moves:(mv.data||[]).map(moveFromDb), treatments:(tr.data||[]).map(treatFromDb),
              animals:(an.data||[]).map(animalFromDb), health:(he.data||[]).map(healthFromDb), breedings:breedings };
+  };
+
+  /* ---- STATUTORY DOCUMENTS -------------------------------------------------
+     Removal certificates now; spray records and payslips later, hence a domain
+     of its own rather than hanging off livestock. Append-only and immutable:
+     a correction issues a NEW number and supersedes the old, so nothing here
+     is ever updated in place except the status flip on being superseded. */
+  function docToDb(d,fid){ return { farm_id:fid, local_id:String(d.no), doc_type:d.doc_type||d.type||'RC',
+      doc_no:d.no||null, status:d.status||'issued', issued_at:d.issuedAt||null, doc_date:d.date||null,
+      move_local_id:d.moveId?String(d.moveId):null, supersedes:d.supersedes||null,
+      superseded_by:d.supersededBy||null, snapshot:d.snap||null }; }
+  function docFromDb(r){ var d={ no:r.doc_no||r.local_id, type:r.doc_type||'RC', status:r.status||'issued',
+      issuedAt:r.issued_at||'', date:r.doc_date||'', moveId:r.move_local_id||null };
+    if(r.supersedes) d.supersedes=r.supersedes;
+    if(r.superseded_by) d.supersededBy=r.superseded_by;
+    if(r.snapshot){ try{ d.snap=(typeof r.snapshot==='string')?JSON.parse(r.snapshot):r.snapshot; }catch(e){ d.snap={}; } }
+    return d; }
+  load.documents = async function(farmId){
+    farmId=farmId||farm.active();
+    const r=await selectAll(() => client().from('farm_documents').select('*').eq('farm_id',farmId).order('issued_at',{ascending:false}));
+    if(r.error) throw r.error;
+    return (r.data||[]).map(docFromDb);
+  };
+  var _docSnap=null;
+  const documents = {
+    async saveAll(docs){
+      docs=docs||[]; const fid=farm.active(); if(!fid) return;
+      const snap=JSON.stringify(docs); if(snap===_docSnap) return;
+      if(docs.length){
+        const e=(await client().from('farm_documents')
+          .upsert(docs.map(function(d){ return docToDb(d,fid); }),{onConflict:'farm_id,local_id'})).error;
+        /* A missing migration must not take the whole save down with it — the
+           certificate is already on the device and can be re-pushed later. */
+        if(e){ console.warn('Documents not saved online yet — run removal_certificate_schema.sql in Supabase. ('+(e.message||e)+')'); return false; }
+      }
+      _docSnap=snap; return true;
+    }
   };
 
   var _lsSnap=null;
@@ -1313,10 +1350,12 @@
     if(r.tax_number!=null) p.taxNumber=r.tax_number;
     if(r.vat_number!=null) p.vatNumber=r.vat_number;
     if(r.entity_type!=null) p.entityType=r.entity_type;
+    if(r.stock_mark!=null) p.stockMark=r.stock_mark;
+    if(r.stock_mark_type!=null) p.stockMarkType=r.stock_mark_type;
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select('name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type').eq('id',farmId).single();
+    const r=await client().from('farms').select('name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -1341,6 +1380,8 @@
       if(st.taxNumber) extra.tax_number=st.taxNumber;
       if(st.vatNumber) extra.vat_number=st.vatNumber;
       if(st.entityType) extra.entity_type=st.entityType;
+      if(st.stockMark!=null) extra.stock_mark=st.stockMark;
+      if(st.stockMarkType!=null) extra.stock_mark_type=st.stockMarkType;
       var snap=JSON.stringify({c:core,e:extra}); if(snap===_profSnap) return;
       if(Object.keys(core).length){ const e=(await client().from('farms').update(core).eq('id',fid)).error; if(e) throw e; }
       var extraOk=true;
@@ -1419,6 +1460,7 @@
   // ---- EXPORT --------------------------------------------------------------
   global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
                 coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave, profile: profile,
+                documents: documents,
                 storage: storage,
                 importBatch: importBatch,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
