@@ -1350,12 +1350,14 @@
     if(r.tax_number!=null) p.taxNumber=r.tax_number;
     if(r.vat_number!=null) p.vatNumber=r.vat_number;
     if(r.entity_type!=null) p.entityType=r.entity_type;
+    if(r.farm_address!=null) p.farmAddr=r.farm_address;
+    if(r.paye_ref!=null) p.payeRef=r.paye_ref;
     if(r.stock_mark!=null) p.stockMark=r.stock_mark;
     if(r.stock_mark_type!=null) p.stockMarkType=r.stock_mark_type;
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select('name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type').eq('id',farmId).single();
+    const r=await client().from('farms').select('name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -1380,6 +1382,8 @@
       if(st.taxNumber) extra.tax_number=st.taxNumber;
       if(st.vatNumber) extra.vat_number=st.vatNumber;
       if(st.entityType) extra.entity_type=st.entityType;
+      if(st.farmAddr!=null) extra.farm_address=st.farmAddr;
+      if(st.payeRef!=null) extra.paye_ref=st.payeRef;
       if(st.stockMark!=null) extra.stock_mark=st.stockMark;
       if(st.stockMarkType!=null) extra.stock_mark_type=st.stockMarkType;
       var snap=JSON.stringify({c:core,e:extra}); if(snap===_profSnap) return;
