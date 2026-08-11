@@ -809,6 +809,38 @@
              animals:(an.data||[]).map(animalFromDb), health:(he.data||[]).map(healthFromDb), breedings:breedings };
   };
 
+  /* ---- FUEL ISSUES (diesel rebate logbook) ---------------------------------
+     One row per machine per week. Append-only in practice, but re-saving a week
+     replaces that week's rows client-side, so upsert on (farm_id, local_id). */
+  function fuelToDb(f,fid){ return { farm_id:fid, local_id:String(f.id),
+      issue_date:f.date||null, asset_local_id:(f.asset!=null)?String(f.asset):null,
+      machine:f.machine||null, litres:(f.litres!=null)?Number(f.litres):null,
+      activity:f.activity||null, act_key:f.actKey||null,
+      qualifies:(f.qualifies!=null)?!!f.qualifies:null }; }
+  function fuelFromDb(r){ return { id:r.local_id, date:r.issue_date||'',
+      asset:_numIf(r.asset_local_id), machine:r.machine||'',
+      litres:Number(r.litres)||0, activity:r.activity||'', actKey:r.act_key||'',
+      qualifies:!!r.qualifies }; }
+  load.fuel = async function(farmId){
+    farmId=farmId||farm.active();
+    const r=await selectAll(() => client().from('fuel_issues').select('*').eq('farm_id',farmId).order('issue_date',{ascending:false}));
+    if(r.error) throw r.error;
+    return (r.data||[]).map(fuelFromDb);
+  };
+  var _fuelSnap=null;
+  const fuel = {
+    async saveAll(issues){
+      issues=issues||[]; const fid=farm.active(); if(!fid) return;
+      const snap=JSON.stringify(issues); if(snap===_fuelSnap) return;
+      if(issues.length){
+        const e=(await client().from('fuel_issues')
+          .upsert(issues.map(function(f){ return fuelToDb(f,fid); }),{onConflict:'farm_id,local_id'})).error;
+        if(e){ console.warn('Fuel log not saved online yet — run removal_certificate_schema.sql in Supabase. ('+(e.message||e)+')'); return false; }
+      }
+      _fuelSnap=snap; return true;
+    }
+  };
+
   /* ---- STATUTORY DOCUMENTS -------------------------------------------------
      Removal certificates now; spray records and payslips later, hence a domain
      of its own rather than hanging off livestock. Append-only and immutable:
@@ -1464,7 +1496,7 @@
   // ---- EXPORT --------------------------------------------------------------
   global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
                 coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave, profile: profile,
-                documents: documents,
+                documents: documents, fuel: fuel,
                 storage: storage,
                 importBatch: importBatch,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
