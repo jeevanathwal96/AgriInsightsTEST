@@ -90,6 +90,22 @@
       return { user: u, session: (data && data.session) || null,
                needsConfirm: !(data && data.session), already: already };
     },
+    /* Forgot password. The email lands the farmer back on APP_URL with a recovery
+       session in the URL fragment (implicit flow — so opening the mail on a phone
+       while signing up on a laptop still works, which PKCE would not allow).
+       Like signUp, this never reveals whether the address is registered. */
+    async resetPassword(email) {
+      const { error } = await client().auth.resetPasswordForEmail(email, { redirectTo: APP_URL });
+      if (error) throw error;
+      return true;
+    },
+    /* Set the new password. Only valid while the recovery session from that link is
+       live, which is why the UI must not sign the farmer into the app first. */
+    async updatePassword(newPassword) {
+      const { data, error } = await client().auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      return (data && data.user) || null;
+    },
     /* Re-send the confirmation email. Supabase rate-limits these server-side, so the
        UI also holds a cooldown — a farmer hammering the button would otherwise just
        collect errors. */

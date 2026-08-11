@@ -66,7 +66,24 @@
           '<input id="ai-email" type="email" autocomplete="username" placeholder="you@farm.co.za"/>' +
           '<label for="ai-pass">Password</label>' +
           '<input id="ai-pass" type="password" autocomplete="current-password" placeholder="Your password"/>' +
+          '<div style="text-align:right;margin-top:8px"><span id="ai-forgot" style="color:' + FOREST + ';font-weight:700;text-decoration:underline;cursor:pointer;font-size:12.5px">Forgot password?</span></div>' +
           '<button id="ai-signin">Sign in</button>' +
+        '</div>' +
+        /* ── forgot password: ask for the address, then reuse the inbox screen ── */
+        '<div id="ai-pane-reset" style="display:none">' +
+          '<label for="ai-rs-email">Email</label>' +
+          '<input id="ai-rs-email" type="email" autocomplete="username" placeholder="you@farm.co.za"/>' +
+          '<div class="hint" id="ai-rs-hint">We’ll email you a link to choose a new password.</div>' +
+          '<button id="ai-reset">Email me a reset link</button>' +
+          '<button id="ai-reset-back" class="ghost" style="margin-top:8px">← Back to sign in</button>' +
+        '</div>' +
+        /* ── the screen the reset link lands on: choose a new password ── */
+        '<div id="ai-pane-newpass" style="display:none">' +
+          '<label for="ai-np-pass">New password</label>' +
+          '<input id="ai-np-pass" type="password" autocomplete="new-password" placeholder="At least 8 characters"/>' +
+          '<label for="ai-np-pass2">Type it again</label>' +
+          '<input id="ai-np-pass2" type="password" autocomplete="new-password" placeholder="At least 8 characters"/>' +
+          '<button id="ai-savepass">Save new password</button>' +
         '</div>' +
         /* ── create-account pane. Two fields only: the 5-step wizard already collects
               the farm details, and asking twice doubles the work for the farmer. ── */
@@ -108,6 +125,12 @@
     document.getElementById('ai-tab-up').addEventListener('click', function(){ setMode('signup'); });
     document.getElementById('ai-inbox-back').addEventListener('click', function(){ setMode('signin'); });
     document.getElementById('ai-resend').addEventListener('click', doResend);
+    document.getElementById('ai-forgot').addEventListener('click', function(){ setMode('reset'); });
+    document.getElementById('ai-reset-back').addEventListener('click', function(){ setMode('signin'); });
+    document.getElementById('ai-reset').addEventListener('click', doReset);
+    document.getElementById('ai-rs-email').addEventListener('keydown', function (e) { if (e.key === 'Enter') doReset(); });
+    document.getElementById('ai-savepass').addEventListener('click', doSavePassword);
+    document.getElementById('ai-np-pass2').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSavePassword(); });
     document.getElementById('ai-lang-en').addEventListener('click', function(){ setAuthLang('en'); });
     document.getElementById('ai-lang-af').addEventListener('click', function(){ setAuthLang('af'); });
     applyAuthLang();
@@ -147,7 +170,15 @@
           needBoth:'Enter your email and password.', badEmail:'That doesn’t look like an email address — check for a missing .co.za or .com.',
           shortPass:'Too short — use at least 8 characters.', creating:'Creating your account…',
           sent:'Email sent — check your inbox.', resent:'Sent again — check your inbox.',
-          wait:'Wait ', waitSuffix:'s before asking again.', offline:'You appear to be offline. Connect to the internet to continue.' },
+          wait:'Wait ', waitSuffix:'s before asking again.', offline:'You appear to be offline. Connect to the internet to continue.',
+          subReset:'Reset your password', subNewPass:'Choose a new password',
+          forgot:'Forgot password?', lblRsEmail:'Email', rsHint:'We’ll email you a link to choose a new password.',
+          resetBtn:'Email me a reset link', resetBack:'← Back to sign in',
+          lblNew:'New password', lblNew2:'Type it again', savePass:'Save new password',
+          resetTitle:'Check your email', resetBody1:'We sent a password-reset link to ', resetBody2:'. Open it to choose a new password.',
+          resetSent:'Reset link sent — check your inbox.', mismatch:'Those two passwords are not the same.',
+          savingPass:'Saving your new password…', passSaved:'Password changed — signing you in…',
+          recoverExpired:'That reset link has expired. Ask for a new one.' },
     af: { subIn:'Teken in by jou plaas', subUp:'Begin jou plaas se rekords', subInbox:'Nog een stap',
           tabIn:'Teken in', tabUp:'Skep rekening', signin:'Teken in', signup:'Skep my rekening',
           lblEmail:'E-pos', lblPass:'Wagwoord', lblNewPass:'Kies ’n wagwoord',
@@ -159,7 +190,15 @@
           needBoth:'Voer jou e-pos en wagwoord in.', badEmail:'Dit lyk nie soos ’n e-posadres nie — kyk of .co.za of .com kort.',
           shortPass:'Te kort — gebruik ten minste 8 karakters.', creating:'Besig om jou rekening te skep…',
           sent:'E-pos gestuur — kyk in jou inpos.', resent:'Weer gestuur — kyk in jou inpos.',
-          wait:'Wag ', waitSuffix:'s voordat jy weer vra.', offline:'Dit lyk of jy vanlyn is. Koppel aan die internet om voort te gaan.' }
+          wait:'Wag ', waitSuffix:'s voordat jy weer vra.', offline:'Dit lyk of jy vanlyn is. Koppel aan die internet om voort te gaan.',
+          subReset:'Stel jou wagwoord terug', subNewPass:'Kies ’n nuwe wagwoord',
+          forgot:'Wagwoord vergeet?', lblRsEmail:'E-pos', rsHint:'Ons stuur vir jou ’n skakel om ’n nuwe wagwoord te kies.',
+          resetBtn:'Stuur vir my ’n terugstelskakel', resetBack:'← Terug na teken in',
+          lblNew:'Nuwe wagwoord', lblNew2:'Tik dit weer', savePass:'Stoor nuwe wagwoord',
+          resetTitle:'Kyk in jou e-pos', resetBody1:'Ons het ’n skakel gestuur na ', resetBody2:'. Maak dit oop om ’n nuwe wagwoord te kies.',
+          resetSent:'Terugstelskakel gestuur — kyk in jou inpos.', mismatch:'Daardie twee wagwoorde stem nie ooreen nie.',
+          savingPass:'Besig om jou nuwe wagwoord te stoor…', passSaved:'Wagwoord verander — jy word ingeteken…',
+          recoverExpired:'Daardie skakel het verval. Vra ’n nuwe een aan.' }
   };
   /* Messages are remembered by KEY, not by the text already on screen: switching
      language with a message showing ("Email sent — check your inbox.") otherwise
@@ -179,18 +218,31 @@
   function _ph(id, s){ var el = document.getElementById(id); if (el) el.placeholder = s; }
   function applyAuthLang(){
     var t = T(), pane = AUTH_MODE;
-    _txt('ai-sub', pane === 'signup' ? t.subUp : (pane === 'inbox' ? t.subInbox : t.subIn));
+    _txt('ai-sub', pane === 'signup'  ? t.subUp
+                 : pane === 'inbox'   ? (INBOX_KIND === 'reset' ? t.subReset : t.subInbox)
+                 : pane === 'reset'   ? t.subReset
+                 : pane === 'newpass' ? t.subNewPass
+                 : t.subIn);
+    _txt('ai-forgot', t.forgot); _txt('ai-rs-hint', t.rsHint);
+    _txt('ai-reset', t.resetBtn); _txt('ai-reset-back', t.resetBack); _txt('ai-savepass', t.savePass);
+    _ph('ai-rs-email', t.phEmail); _ph('ai-np-pass', t.phNewPass); _ph('ai-np-pass2', t.phNewPass);
+    var rsL = document.querySelector('#ai-pane-reset label'); if (rsL) rsL.textContent = t.lblRsEmail;
+    var npL = document.querySelectorAll('#ai-pane-newpass label');
+    if (npL.length >= 2) { npL[0].textContent = t.lblNew; npL[1].textContent = t.lblNew2; }
     _txt('ai-tab-in', t.tabIn); _txt('ai-tab-up', t.tabUp);
     _txt('ai-signin', t.signin); _txt('ai-signup', t.signup);
     _txt('ai-su-hint', t.hint); _txt('ai-demo-q', t.demoQ); _txt('ai-demo', t.demo);
-    _txt('ai-inbox-title', t.inboxTitle); _txt('ai-resend', t.resend); _txt('ai-inbox-back', t.back);
+    _txt('ai-inbox-title', INBOX_KIND === 'reset' ? t.resetTitle : t.inboxTitle);
+    _txt('ai-resend', t.resend); _txt('ai-inbox-back', t.back);
     _ph('ai-email', t.phEmail); _ph('ai-pass', t.phPass);
     _ph('ai-su-email', t.phEmail); _ph('ai-su-pass', t.phNewPass);
     var labs = document.querySelectorAll('#ai-pane-in label, #ai-pane-up label');
     if (labs.length >= 4) { labs[0].textContent = t.lblEmail; labs[1].textContent = t.lblPass;
                             labs[2].textContent = t.lblEmail; labs[3].textContent = t.lblNewPass; }
     var b = document.getElementById('ai-inbox-body');
-    if (b) b.innerHTML = t.inboxBody1 + '<b id="ai-inbox-email">' + _esc(AUTH_EMAIL) + '</b>' + t.inboxBody2;
+    if (b) b.innerHTML = (INBOX_KIND === 'reset' ? t.resetBody1 : t.inboxBody1) +
+                         '<b id="ai-inbox-email">' + _esc(AUTH_EMAIL) + '</b>' +
+                         (INBOX_KIND === 'reset' ? t.resetBody2 : t.inboxBody2);
     var en = document.getElementById('ai-lang-en'), af = document.getElementById('ai-lang-af');
     if (en) en.className = (AUTH_LANG === 'en') ? 'on' : '';
     if (af) af.className = (AUTH_LANG === 'af') ? 'on' : '';
@@ -200,14 +252,22 @@
   function _esc(s){ return String(s || '').replace(/[&<>"]/g, function(c){
     return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
 
-  var AUTH_MODE = 'signin', AUTH_EMAIL = '';
+  var AUTH_MODE = 'signin', AUTH_EMAIL = '', INBOX_KIND = 'signup';
   function setMode(m){
     AUTH_MODE = m;
     var show = function(id, on){ var el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
-    show('ai-pane-in',    m === 'signin');
-    show('ai-pane-up',    m === 'signup');
-    show('ai-pane-inbox', m === 'inbox');
-    show('ai-tabs',       m !== 'inbox');          // the tabs mean nothing mid-confirmation
+    show('ai-pane-in',      m === 'signin');
+    show('ai-pane-up',      m === 'signup');
+    show('ai-pane-inbox',   m === 'inbox');
+    show('ai-pane-reset',   m === 'reset');
+    show('ai-pane-newpass', m === 'newpass');
+    /* Tabs only make sense while choosing between signing in and signing up. Mid-
+       confirmation, mid-reset, or on the new-password screen they are a way to lose
+       your place. */
+    show('ai-tabs',       m === 'signin' || m === 'signup');
+    /* Nor should "look around the demo" sit under a half-finished password reset. */
+    var demoBox = document.getElementById('ai-demo-q');
+    if (demoBox && demoBox.parentNode) demoBox.parentNode.style.display = (m === 'newpass') ? 'none' : '';
     var ti = document.getElementById('ai-tab-in'), tu = document.getElementById('ai-tab-up');
     if (ti) ti.className = 'tab' + (m === 'signin' ? ' on' : '');
     if (tu) tu.className = 'tab' + (m === 'signup' ? ' on' : '');
@@ -241,14 +301,61 @@
     });
   }
 
+  function doReset(){
+    var t = T(), btn = document.getElementById('ai-reset');
+    var email = (document.getElementById('ai-rs-email').value || '').trim();
+    if (!_validEmail(email)) { msgK('badEmail', 'err'); return; }
+    btn.disabled = true; msg('…', 'ok');
+    AI.auth.resetPassword(email).then(function () {
+      btn.disabled = false;
+      AUTH_EMAIL = email; INBOX_KIND = 'reset';
+      /* Same screen as sign-up confirmation, different words. Shown whether or not
+         the address exists — telling someone "no such account" is exactly the
+         enumeration leak the sign-up flow already avoids. */
+      setMode('inbox'); msgK('resetSent', 'ok');
+    }).catch(function (e) {
+      btn.disabled = false;
+      var raw = (e && e.message) ? e.message : '';
+      if (_isOfflineErr(e)) { msgK('offline', 'err'); } else { msg(raw || 'Could not send the email.', 'err'); }
+    });
+  }
+
+  function doSavePassword(){
+    var t = T(), btn = document.getElementById('ai-savepass');
+    var p1 = document.getElementById('ai-np-pass').value || '';
+    var p2 = document.getElementById('ai-np-pass2').value || '';
+    if (p1.length < 8) { msgK('shortPass', 'err'); return; }
+    if (p1 !== p2)     { msgK('mismatch', 'err'); return; }
+    btn.disabled = true; msgK('savingPass', 'ok');
+    AI.auth.updatePassword(p1).then(function () {
+      msgK('passSaved', 'ok');
+      /* The recovery link already signed them in, so there is nothing left to ask
+         for. Drop the token out of the address bar first — a reset link left in
+         history is a live credential. */
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+      RECOVERY = false;
+      return enterApp();
+    }).catch(function (e) {
+      btn.disabled = false;
+      var raw = (e && e.message) ? e.message : '';
+      if (_isOfflineErr(e)) { msgK('offline', 'err'); }
+      else if (/session|expired|token/i.test(raw)) { msgK('recoverExpired', 'err'); }
+      else { msg(raw || 'Could not change your password.', 'err'); }
+    });
+  }
+
   var RESEND_AT = 0, RESEND_TIMER = null;
   function doResend(){
     var t = T(), btn = document.getElementById('ai-resend');
     var left = Math.ceil((RESEND_AT - Date.now()) / 1000);
     if (left > 0) { msg(t.wait + left + t.waitSuffix, 'err'); return; }
     btn.disabled = true;
-    AI.auth.resendConfirm(AUTH_EMAIL).then(function () {
-      msgK('resent', 'ok');
+    /* One button, two jobs — whichever email brought the farmer to this screen. */
+    var again = (INBOX_KIND === 'reset')
+      ? AI.auth.resetPassword(AUTH_EMAIL)
+      : AI.auth.resendConfirm(AUTH_EMAIL);
+    again.then(function () {
+      msgK(INBOX_KIND === 'reset' ? 'resetSent' : 'resent', 'ok');
       RESEND_AT = Date.now() + 60000;             // Supabase rate-limits these server-side too
       var tick = function () {
         var s = Math.ceil((RESEND_AT - Date.now()) / 1000);
@@ -281,6 +388,12 @@
   /* One door into the app, so the three ways a session can appear — an existing
      session at boot, a password sign-in, and the confirmation link coming back
      from the farmer's inbox — cannot double-hydrate each other. */
+  /* Did the farmer arrive on a password-reset link? Read at load, BEFORE supabase-js
+     parses and strips the fragment. A recovery link carries a real session, so without
+     this flag the ordinary "session appeared → go into the app" path would swallow it
+     and the farmer would never get to type a new password. */
+  var RECOVERY = /(^|[#&])type=recovery/.test(window.location.hash || '');
+
   var _entering = false;
   function enterApp(){
     if (_entering) return Promise.resolve();
@@ -439,10 +552,18 @@
         try { if (typeof window.saveState === 'function') window.saveState(); } catch (e) {}
       }).catch(function (e) { console.error('Relational hydrate failed:', e); });
     }).then(function () {
-      // Signed-in users skip the app's first-run onboarding wizard.
+      /* Signed-in users skip the app's first-run onboarding wizard — UNLESS they have
+         never been through it. This step used to hide the wizard unconditionally, which
+         was right when every account was provisioned by hand (the farm was already set
+         up for them). With self-serve sign-up it meant no farmer ever saw onboarding:
+         it ran a moment after aiShowOnboarding() and closed it again, so they landed on
+         the dashboard with no farm name, no farm type and — the serious part — no POPIA
+         consent ever recorded. */
       try {
-        var ov = document.getElementById('ob-overlay');
-        if (ov) ov.style.display = 'none';
+        if (!needOnboarding) {
+          var ov = document.getElementById('ob-overlay');
+          if (ov) ov.style.display = 'none';
+        }
       } catch (e) {}
       try {
         if (typeof nav === 'function') nav(opts.silent && window.CURRENT_PAGE ? window.CURRENT_PAGE : 'dashboard');
@@ -477,15 +598,19 @@
          is what actually lets a farmer through on the confirmation bounce, and
          enterApp()'s guard keeps it from racing the getSession path. */
       try {
-        AI.init().auth.onAuthStateChange(function (_evt, session) {
+        AI.init().auth.onAuthStateChange(function (evt, session) {
           if (!session) return;
           var ov = document.getElementById('ai-auth');
           if (!ov || ov.style.display === 'none') return;   // already inside the app
+          /* A recovery session means "prove you can read this inbox", not "you are
+             signed in" — send them to the new-password screen instead of the app. */
+          if (evt === 'PASSWORD_RECOVERY' || RECOVERY) { RECOVERY = true; setMode('newpass'); return; }
           enterApp().catch(function () {});
         });
       } catch (e) {}
       AI.init().auth.getSession().then(function (res) {
         var session = res && res.data ? res.data.session : null;
+        if (session && RECOVERY) { setMode('newpass'); return; }
         if (session) {
           enterApp().catch(function (e) {
             if (_isOfflineErr(e) && _hasPersistedSession()) { _offlineReveal(); }
