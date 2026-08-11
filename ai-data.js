@@ -117,7 +117,14 @@
     if(!d) return null;
     var s = String(d);
     if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
-    var dt = new Date(s); return isNaN(dt.getTime()) ? null : dt.toISOString().slice(0,10);
+    var dt = new Date(s); if (isNaN(dt.getTime())) return null;
+    /* toISOString() renders UTC: a display date like "11 Aug 2026" parses at LOCAL
+       midnight, so for any timezone ahead of UTC (all of South Africa, UTC+2) it
+       became "2026-08-10" — every quick-add landed a day early on the server,
+       crossing month ends into the wrong VAT period and financial year. Use the
+       local calendar date the farmer actually picked. */
+    var p = function(n){ return (n < 10 ? '0' : '') + n; };
+    return dt.getFullYear() + '-' + p(dt.getMonth() + 1) + '-' + p(dt.getDate());
   }
   async function loadCats(farmId) {
     // system rows (farm_id null) + this farm's custom rows; RLS handles visibility
@@ -144,7 +151,7 @@
       farm_id:        farmId,
       account_id:     t.accountId || null,
       category_id:    catToId(t.cat),
-      txn_date:       toISO(t.date) || new Date().toISOString().slice(0,10),
+      txn_date:       toISO(t.date) || toISO(new Date()),   // local "today" — the UTC form lost a day before 2am SAST
       type:           t.type,                       // 'income' | 'expense'
       amount:         Number(t.amt),
       description:    t.desc || null,
