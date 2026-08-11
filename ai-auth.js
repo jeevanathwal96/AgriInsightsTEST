@@ -31,6 +31,19 @@
       '#ai-auth button:disabled{opacity:.6;cursor:default;}' +
       '#ai-auth .msg{margin-top:14px;font-size:13px;min-height:18px;}' +
       '#ai-auth .msg.err{color:#a6432a;}#ai-auth .msg.ok{color:' + FOREST + ';}' +
+      /* ── sign-up additions (Phase 1). Same visual language as the card above. ── */
+      '#ai-auth .tabs{display:flex;gap:4px;background:#eceee6;border-radius:12px;padding:4px;margin:0 0 4px;}' +
+      '#ai-auth .tab{flex:1;text-align:center;padding:9px 6px;border-radius:9px;font-size:13.5px;font-weight:700;' +
+        'color:#6b716a;cursor:pointer;border:0;background:transparent;font-family:inherit;margin:0;width:auto;}' +
+      '#ai-auth .tab.on{background:#fff;color:' + FOREST + ';box-shadow:0 1px 3px rgba(0,0,0,.10);}' +
+      '#ai-auth .hint{font-size:11.5px;color:#6b716a;margin-top:6px;line-height:1.4;}' +
+      '#ai-auth .ghost{background:transparent;color:' + FOREST + ';border:1.5px solid #cdd2c9;font-weight:700;}' +
+      '#ai-auth .inbox{text-align:center;}' +
+      '#ai-auth .inbox .big{font-size:34px;line-height:1;margin-bottom:10px;}' +
+      '#ai-auth .langsw{display:flex;gap:4px;justify-content:flex-end;margin-bottom:2px;}' +
+      '#ai-auth .langsw button{width:auto;margin:0;padding:3px 9px;font-size:11px;font-weight:700;border-radius:7px;' +
+        'background:transparent;color:#6b716a;border:1px solid #dfe3da;}' +
+      '#ai-auth .langsw button.on{background:' + FOREST + ';color:#fff;border-color:' + FOREST + ';}' +
       '#ai-signout{position:fixed;bottom:14px;left:14px;z-index:99998;background:' + FOREST +
         ';color:#fff;border:0;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;' +
         'font-family:"Plus Jakarta Sans",sans-serif;cursor:pointer;opacity:.85;}';
@@ -40,16 +53,44 @@
     o.id = 'ai-auth';
     o.innerHTML =
       '<div class="card">' +
+        '<div class="langsw"><button id="ai-lang-en" class="on">EN</button><button id="ai-lang-af">AF</button></div>' +
         '<h1>AgriInsights</h1>' +
-        '<p class="sub">Sign in to your farm</p>' +
-        '<label for="ai-email">Email</label>' +
-        '<input id="ai-email" type="email" autocomplete="username" placeholder="you@farm.co.za"/>' +
-        '<label for="ai-pass">Password</label>' +
-        '<input id="ai-pass" type="password" autocomplete="current-password" placeholder="Your password"/>' +
-        '<button id="ai-signin">Sign in</button>' +
+        '<p class="sub" id="ai-sub">Sign in to your farm</p>' +
+        '<div class="tabs" id="ai-tabs">' +
+          '<button class="tab on" id="ai-tab-in">Sign in</button>' +
+          '<button class="tab" id="ai-tab-up">Create account</button>' +
+        '</div>' +
+        /* ── sign-in pane (unchanged fields + ids, so nothing downstream breaks) ── */
+        '<div id="ai-pane-in">' +
+          '<label for="ai-email">Email</label>' +
+          '<input id="ai-email" type="email" autocomplete="username" placeholder="you@farm.co.za"/>' +
+          '<label for="ai-pass">Password</label>' +
+          '<input id="ai-pass" type="password" autocomplete="current-password" placeholder="Your password"/>' +
+          '<button id="ai-signin">Sign in</button>' +
+        '</div>' +
+        /* ── create-account pane. Two fields only: the 5-step wizard already collects
+              the farm details, and asking twice doubles the work for the farmer. ── */
+        '<div id="ai-pane-up" style="display:none">' +
+          '<label for="ai-su-email">Email</label>' +
+          '<input id="ai-su-email" type="email" autocomplete="username" placeholder="you@farm.co.za"/>' +
+          '<label for="ai-su-pass">Choose a password</label>' +
+          '<input id="ai-su-pass" type="password" autocomplete="new-password" placeholder="At least 8 characters"/>' +
+          '<div class="hint" id="ai-su-hint">You’ll use this to sign in on any device — your phone, the farm office, anywhere.</div>' +
+          '<button id="ai-signup">Create my account</button>' +
+        '</div>' +
+        /* ── "check your email" pane: shown because email confirmation is ON ── */
+        '<div id="ai-pane-inbox" style="display:none">' +
+          '<div class="inbox">' +
+            '<div class="big">📬</div>' +
+            '<div id="ai-inbox-title" style="font-size:18px;font-weight:800;color:' + FOREST + ';margin-bottom:6px">Check your email</div>' +
+            '<div id="ai-inbox-body" style="font-size:13px;color:#6b716a;line-height:1.5">We sent a confirmation link to <b id="ai-inbox-email"></b>. Tap it and you’re in.</div>' +
+          '</div>' +
+          '<button id="ai-resend" class="ghost">Resend the email</button>' +
+          '<button id="ai-inbox-back" class="ghost" style="margin-top:8px">Already confirmed? Sign in</button>' +
+        '</div>' +
         '<div class="msg" id="ai-msg"></div>' +
         '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #dfe3da;text-align:center">' +
-          '<div style="font-size:12px;color:#6b716a;margin-bottom:9px">Just want to look around first?</div>' +
+          '<div style="font-size:12px;color:#6b716a;margin-bottom:9px" id="ai-demo-q">Just want to look around first?</div>' +
           '<button id="ai-demo" style="background:' + GOLD + ';color:#12271b;font-weight:800;margin-top:0">🌱 Explore the demo</button>' +
         '</div>' +
       '</div>';
@@ -59,6 +100,23 @@
     document.getElementById('ai-pass').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') doSignIn();
     });
+    document.getElementById('ai-signup').addEventListener('click', doSignUp);
+    document.getElementById('ai-su-pass').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') doSignUp();
+    });
+    document.getElementById('ai-tab-in').addEventListener('click', function(){ setMode('signin'); });
+    document.getElementById('ai-tab-up').addEventListener('click', function(){ setMode('signup'); });
+    document.getElementById('ai-inbox-back').addEventListener('click', function(){ setMode('signin'); });
+    document.getElementById('ai-resend').addEventListener('click', doResend);
+    document.getElementById('ai-lang-en').addEventListener('click', function(){ setAuthLang('en'); });
+    document.getElementById('ai-lang-af').addEventListener('click', function(){ setAuthLang('af'); });
+    applyAuthLang();
+    /* The demo's "Create your farm →" leaves a flag so the farmer lands where they
+       were heading — the sign-up form — instead of a sign-in card with no way on. */
+    try {
+      if (localStorage.getItem('ai_auth_mode') === 'signup') { setMode('signup'); }
+      localStorage.removeItem('ai_auth_mode');
+    } catch (e) {}
     var demoBtn = document.getElementById('ai-demo');
     if (demoBtn) demoBtn.addEventListener('click', function () {
       try { localStorage.setItem('ai_guest', '1'); } catch (e) {}
@@ -69,6 +127,139 @@
   function msg(text, kind) {
     var m = document.getElementById('ai-msg');
     if (m) { m.textContent = text || ''; m.className = 'msg ' + (kind || ''); }
+  }
+
+  /* ── Sign-up (Phase 1) ────────────────────────────────────────────────────
+     Strings live here, NOT in LANG_PAIRS: the pair engine is a substring pass
+     over the app's DOM and this overlay renders before the app's language is
+     even known (a brand-new farmer has no saved preference — the wizard asks
+     for it at step 1, which is after this card). Whole strings, chosen by an
+     explicit toggle, cannot be mangled the way paired fragments can.        */
+  var AUTH_T = {
+    en: { subIn:'Sign in to your farm', subUp:'Start your farm’s records', subInbox:'One more step',
+          tabIn:'Sign in', tabUp:'Create account', signin:'Sign in', signup:'Create my account',
+          lblEmail:'Email', lblPass:'Password', lblNewPass:'Choose a password',
+          phEmail:'you@farm.co.za', phPass:'Your password', phNewPass:'At least 8 characters',
+          hint:'You’ll use this to sign in on any device — your phone, the farm office, anywhere.',
+          demoQ:'Just want to look around first?', demo:'🌱 Explore the demo',
+          inboxTitle:'Check your email', inboxBody1:'We sent a confirmation link to ', inboxBody2:'. Tap it and you’re in.',
+          resend:'Resend the email', back:'Already confirmed? Sign in',
+          needBoth:'Enter your email and password.', badEmail:'That doesn’t look like an email address — check for a missing .co.za or .com.',
+          shortPass:'Too short — use at least 8 characters.', creating:'Creating your account…',
+          sent:'Email sent — check your inbox.', resent:'Sent again — check your inbox.',
+          wait:'Wait ', waitSuffix:'s before asking again.', offline:'You appear to be offline. Connect to the internet to continue.' },
+    af: { subIn:'Teken in by jou plaas', subUp:'Begin jou plaas se rekords', subInbox:'Nog een stap',
+          tabIn:'Teken in', tabUp:'Skep rekening', signin:'Teken in', signup:'Skep my rekening',
+          lblEmail:'E-pos', lblPass:'Wagwoord', lblNewPass:'Kies ’n wagwoord',
+          phEmail:'jy@plaas.co.za', phPass:'Jou wagwoord', phNewPass:'Ten minste 8 karakters',
+          hint:'Jy gebruik dit om op enige toestel in te teken — jou foon, die plaaskantoor, oral.',
+          demoQ:'Wil jy eers net rondkyk?', demo:'🌱 Verken die demo',
+          inboxTitle:'Kyk in jou e-pos', inboxBody1:'Ons het ’n bevestigingskakel gestuur na ', inboxBody2:'. Tik daarop en jy is in.',
+          resend:'Stuur die e-pos weer', back:'Reeds bevestig? Teken in',
+          needBoth:'Voer jou e-pos en wagwoord in.', badEmail:'Dit lyk nie soos ’n e-posadres nie — kyk of .co.za of .com kort.',
+          shortPass:'Te kort — gebruik ten minste 8 karakters.', creating:'Besig om jou rekening te skep…',
+          sent:'E-pos gestuur — kyk in jou inpos.', resent:'Weer gestuur — kyk in jou inpos.',
+          wait:'Wag ', waitSuffix:'s voordat jy weer vra.', offline:'Dit lyk of jy vanlyn is. Koppel aan die internet om voort te gaan.' }
+  };
+  /* Messages are remembered by KEY, not by the text already on screen: switching
+     language with a message showing ("Email sent — check your inbox.") otherwise
+     left an English line under an Afrikaans card — the half-translated look this
+     codebase keeps having to hunt down. */
+  var MSG_KEY = null, MSG_KIND = '';
+  function msgK(key, kind){ MSG_KIND = kind || ''; msg(T()[key], kind); MSG_KEY = key; }
+  var AUTH_LANG = 'en';
+  try { var _sl = localStorage.getItem('ai_auth_lang'); if (_sl === 'af' || _sl === 'en') AUTH_LANG = _sl; } catch (e) {}
+  function T(){ return AUTH_T[AUTH_LANG] || AUTH_T.en; }
+  function setAuthLang(l){
+    AUTH_LANG = (l === 'af') ? 'af' : 'en';
+    try { localStorage.setItem('ai_auth_lang', AUTH_LANG); } catch (e) {}
+    applyAuthLang();
+  }
+  function _txt(id, s){ var el = document.getElementById(id); if (el) el.textContent = s; }
+  function _ph(id, s){ var el = document.getElementById(id); if (el) el.placeholder = s; }
+  function applyAuthLang(){
+    var t = T(), pane = AUTH_MODE;
+    _txt('ai-sub', pane === 'signup' ? t.subUp : (pane === 'inbox' ? t.subInbox : t.subIn));
+    _txt('ai-tab-in', t.tabIn); _txt('ai-tab-up', t.tabUp);
+    _txt('ai-signin', t.signin); _txt('ai-signup', t.signup);
+    _txt('ai-su-hint', t.hint); _txt('ai-demo-q', t.demoQ); _txt('ai-demo', t.demo);
+    _txt('ai-inbox-title', t.inboxTitle); _txt('ai-resend', t.resend); _txt('ai-inbox-back', t.back);
+    _ph('ai-email', t.phEmail); _ph('ai-pass', t.phPass);
+    _ph('ai-su-email', t.phEmail); _ph('ai-su-pass', t.phNewPass);
+    var labs = document.querySelectorAll('#ai-pane-in label, #ai-pane-up label');
+    if (labs.length >= 4) { labs[0].textContent = t.lblEmail; labs[1].textContent = t.lblPass;
+                            labs[2].textContent = t.lblEmail; labs[3].textContent = t.lblNewPass; }
+    var b = document.getElementById('ai-inbox-body');
+    if (b) b.innerHTML = t.inboxBody1 + '<b id="ai-inbox-email">' + _esc(AUTH_EMAIL) + '</b>' + t.inboxBody2;
+    var en = document.getElementById('ai-lang-en'), af = document.getElementById('ai-lang-af');
+    if (en) en.className = (AUTH_LANG === 'en') ? 'on' : '';
+    if (af) af.className = (AUTH_LANG === 'af') ? 'on' : '';
+    if (MSG_KEY && t[MSG_KEY]) { var mEl = document.getElementById('ai-msg');
+      if (mEl) { mEl.textContent = t[MSG_KEY]; mEl.className = 'msg ' + MSG_KIND; } }
+  }
+  function _esc(s){ return String(s || '').replace(/[&<>"]/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+
+  var AUTH_MODE = 'signin', AUTH_EMAIL = '';
+  function setMode(m){
+    AUTH_MODE = m;
+    var show = function(id, on){ var el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
+    show('ai-pane-in',    m === 'signin');
+    show('ai-pane-up',    m === 'signup');
+    show('ai-pane-inbox', m === 'inbox');
+    show('ai-tabs',       m !== 'inbox');          // the tabs mean nothing mid-confirmation
+    var ti = document.getElementById('ai-tab-in'), tu = document.getElementById('ai-tab-up');
+    if (ti) ti.className = 'tab' + (m === 'signin' ? ' on' : '');
+    if (tu) tu.className = 'tab' + (m === 'signup' ? ' on' : '');
+    MSG_KEY = null; msg('');
+    applyAuthLang();
+  }
+
+  function _validEmail(s){ return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s); }
+
+  function doSignUp(){
+    try { localStorage.removeItem('ai_guest'); window.__AI_GUEST = false; } catch (e) {}
+    var t = T(), btn = document.getElementById('ai-signup');
+    var email = (document.getElementById('ai-su-email').value || '').trim();
+    var pass  = document.getElementById('ai-su-pass').value || '';
+    if (!_validEmail(email)) { msgK('badEmail', 'err'); return; }
+    if (pass.length < 8)     { msgK('shortPass', 'err'); return; }
+    btn.disabled = true; msgK('creating', 'ok');
+    AI.auth.signUp(email, pass).then(function (r) {
+      btn.disabled = false;
+      AUTH_EMAIL = email;
+      if (r && r.session) { return enterApp(); }   // only if confirmation is ever turned off
+      /* Deliberately NOT branching on r.already: showing a different screen for an
+         address that is already registered would leak exactly what Supabase's
+         anti-enumeration behaviour is protecting. Everyone sees the same screen,
+         and the "Already confirmed? Sign in" button is the way out. */
+      setMode('inbox'); msgK('sent', 'ok');
+    }).catch(function (e) {
+      btn.disabled = false;
+      var raw = (e && e.message) ? e.message : '';
+      if (_isOfflineErr(e)) { msgK('offline', 'err'); } else { msg(raw || 'Could not create your account.', 'err'); }
+    });
+  }
+
+  var RESEND_AT = 0, RESEND_TIMER = null;
+  function doResend(){
+    var t = T(), btn = document.getElementById('ai-resend');
+    var left = Math.ceil((RESEND_AT - Date.now()) / 1000);
+    if (left > 0) { msg(t.wait + left + t.waitSuffix, 'err'); return; }
+    btn.disabled = true;
+    AI.auth.resendConfirm(AUTH_EMAIL).then(function () {
+      msgK('resent', 'ok');
+      RESEND_AT = Date.now() + 60000;             // Supabase rate-limits these server-side too
+      var tick = function () {
+        var s = Math.ceil((RESEND_AT - Date.now()) / 1000);
+        if (s > 0) { btn.textContent = T().resend + ' (' + s + ')'; }
+        else { btn.textContent = T().resend; btn.disabled = false; clearInterval(RESEND_TIMER); RESEND_TIMER = null; }
+      };
+      tick(); if (RESEND_TIMER) clearInterval(RESEND_TIMER); RESEND_TIMER = setInterval(tick, 1000);
+    }).catch(function (e) {
+      btn.disabled = false;
+      msg((e && e.message) ? e.message : 'Could not send the email.', 'err');
+    });
   }
   function hideOverlay() {
     var o = document.getElementById('ai-auth');
@@ -87,6 +278,16 @@
     try{ if(typeof window.toast==='function') window.toast('You\u2019re offline \u2014 showing your last synced data. Changes save on this device and sync when you reconnect.','info'); }catch(e){}
   }
 
+  /* One door into the app, so the three ways a session can appear — an existing
+     session at boot, a password sign-in, and the confirmation link coming back
+     from the farmer's inbox — cannot double-hydrate each other. */
+  var _entering = false;
+  function enterApp(){
+    if (_entering) return Promise.resolve();
+    _entering = true;
+    return hydrate().then(hideOverlay).catch(function (e) { _entering = false; throw e; });
+  }
+
   // ---- sign in -------------------------------------------------------------
   function doSignIn() {
     // Signing in with a real account always leaves guest mode behind.
@@ -94,17 +295,16 @@
     var btn = document.getElementById('ai-signin');
     var email = (document.getElementById('ai-email').value || '').trim();
     var pass = document.getElementById('ai-pass').value || '';
-    if (!email || !pass) { msg('Enter your email and password.', 'err'); return; }
+    if (!email || !pass) { msgK('needBoth', 'err'); return; }
     btn.disabled = true; msg('Signing in…', 'ok');
     AI.auth.signIn(email, pass)
-      .then(function () { return hydrate(); })
-      .then(function () { hideOverlay(); })
+      .then(function () { return enterApp(); })
       .catch(function (e) {
         btn.disabled = false;
         var raw = (e && e.message) ? e.message : '';
         var offline = !navigator.onLine || /failed to fetch|networkerror|load failed|fetch/i.test(raw);
         if (offline) {
-          msg('You appear to be offline. Connect to the internet to sign in.', 'err');
+          msgK('offline', 'err');
         } else {
           msg(raw || 'Sign-in failed. Check your details.', 'err');
         }
@@ -224,10 +424,24 @@
       // Offline boot with a cached session: don't trap the user on a login they can't
       // complete offline — reveal their already-loaded local data.
       if (navigator.onLine === false && _hasPersistedSession()) { _offlineReveal(); return; }
+      /* The confirmation link returns to this page with the session in the URL
+         fragment. supabase-js is on the implicit flow with detectSessionInUrl,
+         so it parses that itself — but the parse finishes asynchronously, after
+         getSession() below may already have answered "no session". This listener
+         is what actually lets a farmer through on the confirmation bounce, and
+         enterApp()'s guard keeps it from racing the getSession path. */
+      try {
+        AI.init().auth.onAuthStateChange(function (_evt, session) {
+          if (!session) return;
+          var ov = document.getElementById('ai-auth');
+          if (!ov || ov.style.display === 'none') return;   // already inside the app
+          enterApp().catch(function () {});
+        });
+      } catch (e) {}
       AI.init().auth.getSession().then(function (res) {
         var session = res && res.data ? res.data.session : null;
         if (session) {
-          hydrate().then(hideOverlay).catch(function (e) {
+          enterApp().catch(function (e) {
             if (_isOfflineErr(e) && _hasPersistedSession()) { _offlineReveal(); }
             // else: a genuine error — overlay stays for sign-in
           });

@@ -70,6 +70,37 @@
       if (error) throw error;
       return data.user;
     },
+    /* Self-serve sign-up. Email confirmation is ON in the project, so this returns
+       NO session — the farmer must click the link in their inbox first. The caller
+       shows the "check your email" screen when needsConfirm is true.
+       Supabase deliberately will not tell you an email is already registered
+       (account enumeration). The one honest tell: for an existing account it
+       returns a user whose identities array is EMPTY. We surface that as `already`
+       so the UI can nudge toward signing in — without ever asserting the address
+       is taken, which would leak exactly what the API is protecting. */
+    async signUp(email, password) {
+      const { data, error } = await client().auth.signUp({
+        email: email,
+        password: password,
+        options: { emailRedirectTo: APP_URL }
+      });
+      if (error) throw error;
+      const u = (data && data.user) || null;
+      const already = !!(u && Array.isArray(u.identities) && u.identities.length === 0);
+      return { user: u, session: (data && data.session) || null,
+               needsConfirm: !(data && data.session), already: already };
+    },
+    /* Re-send the confirmation email. Supabase rate-limits these server-side, so the
+       UI also holds a cooldown — a farmer hammering the button would otherwise just
+       collect errors. */
+    async resendConfirm(email) {
+      const { error } = await client().auth.resend({
+        type: 'signup', email: email,
+        options: { emailRedirectTo: APP_URL }
+      });
+      if (error) throw error;
+      return true;
+    },
     async signOut() { await client().auth.signOut(); },
     async currentUser() {
       const { data } = await client().auth.getUser();
@@ -198,6 +229,7 @@
   let CAN_TXN_ASSET    = false;
   let CAN_TXN_DEDOK    = false;
   let CAN_ASSET_NOPAY  = false;
+  let CAN_FARM_CONSENT = false;
   async function probeCaps(farmId){
     if (!farmId) return;
     /* Probe with a real column name. NOT select=count — PostgREST treats count as an
@@ -211,6 +243,7 @@
     CAN_TXN_ASSET   = await has('transactions', 'asset_id');
     CAN_TXN_DEDOK   = await has('transactions', 'ded_confirmed');
     CAN_ASSET_NOPAY = await has('assets',       'no_payment');
+    CAN_FARM_CONSENT= await has('farms',        'consent_version');
   }
   function dbToApp(r) {
     return {
@@ -1425,10 +1458,21 @@
       if(st.payeRef!=null) extra.paye_ref=st.payeRef;
       if(st.stockMark!=null) extra.stock_mark=st.stockMark;
       if(st.stockMarkType!=null) extra.stock_mark_type=st.stockMarkType;
-      var snap=JSON.stringify({c:core,e:extra}); if(snap===_profSnap) return;
+      /* POPIA consent. Captured by the onboarding gate as {policyVersion, acceptedAt}
+         but, until now, only ever stored in the browser \u2014 a cleared cache erased the
+         proof that consent was ever given. Written in its OWN statement and gated on
+         the column probe, on the same rule as `extra`: a database that has not had the
+         consent migration must not lose the farm name along with it. */
+      var cons={};
+      if(CAN_FARM_CONSENT && st.consent && st.consent.policyVersion){
+        cons.consent_version    = st.consent.policyVersion;
+        cons.consent_accepted_at= st.consent.acceptedAt || new Date().toISOString();
+      }
+      var snap=JSON.stringify({c:core,e:extra,k:cons}); if(snap===_profSnap) return;
       if(Object.keys(core).length){ const e=(await client().from('farms').update(core).eq('id',fid)).error; if(e) throw e; }
       var extraOk=true;
       if(Object.keys(extra).length){ const e=(await client().from('farms').update(extra).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: optional fields (VAT/tax/business-type) not saved \u2014 run the profile-schema migrations in Supabase. (' + (e.message||e) + ')'); } }
+      if(Object.keys(cons).length){ const e=(await client().from('farms').update(cons).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: POPIA consent not recorded \u2014 run the consent migration in Supabase. (' + (e.message||e) + ')'); } }
       if(extraOk) _profSnap=snap;
       return true;
     }
