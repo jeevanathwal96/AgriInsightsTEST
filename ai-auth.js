@@ -312,18 +312,64 @@
   }
 
   // ---- ensure a farm, load its data into ST, re-render ---------------------
+  /* The signed-in user's id, read from the persisted session. Used to tell whether
+     the data already on this device belongs to the account that is signing in. */
+  function _sessionUid(){
+    try{
+      for (var i=0;i<localStorage.length;i++){
+        var k = localStorage.key(i);
+        if (k && /^sb-.*-auth-token$/.test(k)) {
+          var v = JSON.parse(localStorage.getItem(k) || '{}');
+          return (v.user && v.user.id) || (v.currentSession && v.currentSession.user && v.currentSession.user.id) || null;
+        }
+      }
+    }catch(e){}
+    return null;
+  }
+
   function hydrate(opts) {
     opts = opts || {};
-    var isNewFarm = false;
+    var isNewFarm = false, needOnboarding = false, activeRow = null;
     return AI.farm.mine().then(function (farms) {
       if (!farms || !farms.length) { isNewFarm = true; return AI.farm.create('My Farm'); }
-      if (!AI.farm.active()) AI.farm.setActive(farms[0].id);
-      return AI.farm.active();
+      /* The active-farm pointer is stored per BROWSER, so it outlives a sign-out and
+         can name a farm this account cannot see. Every read then comes back empty and
+         every write fails against RLS, with nothing on screen to explain why. The
+         server's list is the authority. */
+      var act = AI.farm.active(), ok = false;
+      for (var i = 0; i < farms.length; i++) { if (farms[i].id === act) { ok = true; break; } }
+      if (!ok) AI.farm.setActive(farms[0].id);
+      act = AI.farm.active();
+      for (var j = 0; j < farms.length; j++) { if (farms[j].id === act) { activeRow = farms[j]; break; } }
+      return act;
     }).then(function () {
-      return AI.load.financeCore(AI.farm.active());
+      /* Whose data is already sitting on this device? A mismatch means the demo seed
+         or another farmer's records are in the stores, and the server payloads below
+         will NOT clear them on their own: the per-module apply steps deliberately keep
+         local rows when the server returns none, so an empty (new) farm leaves every
+         demo herd, block, worker and plan in place. */
+      var fid = AI.farm.active(), uid = _sessionUid(), sameU = false, sameF = false;
+      try {
+        sameU = (localStorage.getItem('ai_state_uid')  === uid);
+        sameF = (localStorage.getItem('ai_state_farm') === fid);
+      } catch(e){}
+      if (isNewFarm || !sameU || !sameF) {
+        try { if (typeof window.aiAccountReset === 'function') window.aiAccountReset(); } catch(e){}
+      }
+      try { localStorage.setItem('ai_state_uid', uid || ''); localStorage.setItem('ai_state_farm', fid || ''); } catch(e){}
+      return AI.load.financeCore(fid);
     }).then(function (core) {
       // Replace the app's working data with the farm's real data.
-      if (window.ST) { ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || []) : (core.txns || [])); ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; if (core.batches) ST.importBatches = core.batches; ST.firstRun = false; }
+      if (window.ST) { ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || []) : (core.txns || [])); ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; if (core.batches) ST.importBatches = core.batches;
+        /* Has this farmer ever been through setup? A farm auto-created at first
+           sign-in has no owner_name until obFinish saves one, so "no owner AND no
+           transactions" is an un-onboarded farm on any device. Requiring the empty
+           ledger too keeps an established farm (whose owner_name predates the
+           profile push) from being handed a setup wizard it does not need. */
+        needOnboarding = isNewFarm || !!(activeRow && !activeRow.owner_name && !(core.txns || []).length);
+        if (needOnboarding) { try { if (typeof window.aiShowOnboarding === 'function') window.aiShowOnboarding(); } catch(e){} }
+        else { ST.firstRun = false; }
+      }
       // currentMonth is a local "trailing window" anchor the backend doesn't persist — financeCore returns it as null,
       // which blanked the boot-time anchor on every sign-in (money views then fell back to a computed default). Re-anchor
       // it to the real current month here. Only sets the label; never shifts transaction dates, so real data is untouched.
