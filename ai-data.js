@@ -256,6 +256,7 @@
   let CAN_ASSET_NOPAY  = false;
   let CAN_FARM_CONSENT = false;
   let CAN_TXN_RECEIPT  = false;
+  let CAN_ORCH_DOCFILE = false;
   async function probeCaps(farmId){
     if (!farmId) return;
     /* Probe with a real column name. NOT select=count — PostgREST treats count as an
@@ -271,6 +272,7 @@
     CAN_ASSET_NOPAY = await has('assets',       'no_payment');
     CAN_FARM_CONSENT= await has('farms',        'consent_version');
     CAN_TXN_RECEIPT = await has('transactions', 'receipt_path');
+    CAN_ORCH_DOCFILE= await has('orchard_block_docs','path');
   }
   function dbToApp(r) {
     return {
@@ -1169,7 +1171,7 @@
       client().from('farms').select('orchard_market').eq('id',farmId).single()
     ]);
     for(const r of [bl,dc,pr,po,sp,hv,ci,cd,cc,cr]) if(r.error) throw r.error;
-    var docsByBlock={}; (dc.data||[]).forEach(function(d){ (docsByBlock[d.block_local_id]=docsByBlock[d.block_local_id]||[]).push({name:d.name,kind:d.kind,added:d.added}); });
+    var docsByBlock={}; (dc.data||[]).forEach(function(d){ (docsByBlock[d.block_local_id]=docsByBlock[d.block_local_id]||[]).push({name:d.name,kind:d.kind,added:d.added,id:d.local_id||undefined,path:d.path||undefined}); });
     var blocks=(bl.data||[]).map(function(r){ var b=obFromDb(r); b.docs=docsByBlock[b.id]||[]; return b; });
     var othByBlock={}; (po.data||[]).forEach(function(o){ (othByBlock[o.block_local_id]=othByBlock[o.block_local_id]||[]).push({label:o.label||'',amt:Number(o.amt)||0}); });
     var pricing={}; (pr.data||[]).forEach(function(r){ pricing[r.block_local_id]=opFromDb(r,othByBlock[r.block_local_id]||[]); });
@@ -1177,7 +1179,7 @@
     var harvest=(hv.data||[]).map(ohFromDb);
     // compliance: per-key user fields + children, to overlay onto app defaults in ai-auth
     var cDocs={}, cChecks={}, cReads={};
-    (cd.data||[]).forEach(function(d){ (cDocs[d.item_key]=cDocs[d.item_key]||[]).push({name:d.name||'',kind:d.kind||'',added:d.added||''}); });
+    (cd.data||[]).forEach(function(d){ (cDocs[d.item_key]=cDocs[d.item_key]||[]).push({name:d.name||'',kind:d.kind||'',added:d.added||'',id:d.local_id||undefined,path:d.path||undefined}); });
     (cc.data||[]).forEach(function(r){ (cChecks[r.item_key]=cChecks[r.item_key]||[]).push({date:r.check_date||'',note:r.note||''}); });
     (cr.data||[]).forEach(function(r){ (cReads[r.item_key]=cReads[r.item_key]||[]).push({date:r.reading_date||'',m3:r.m3||''}); });
     var comply={};
@@ -1204,7 +1206,12 @@
       { var bq=client().from('orchard_blocks').delete().eq('farm_id',fid); if(blockIds.length) bq=bq.not('local_id','in',_inList(blockIds)); const e=(await bq).error; if(e) throw e; }
       // block docs: replace-all (small metadata child set)
       { const e=(await client().from('orchard_block_docs').delete().eq('farm_id',fid)).error; if(e) throw e; }
-      var docRows=[]; blocks.forEach(function(b){ (b.docs||[]).forEach(function(d,i){ docRows.push({farm_id:fid,block_local_id:String(b.id),name:d.name||null,kind:d.kind||null,added:d.added||null,sort_idx:i}); }); });
+      var docRows=[]; blocks.forEach(function(b){ (b.docs||[]).forEach(function(d,i){
+        var _r={farm_id:fid,block_local_id:String(b.id),name:d.name||null,kind:d.kind||null,added:d.added||null,sort_idx:i};
+        /* The FILE lives in Storage; this carries only its path, plus the ref id so the
+           Open link still resolves on a device that has never seen the local copy. */
+        if(CAN_ORCH_DOCFILE){ _r.local_id=d.id||null; _r.path=d.path||null; }
+        docRows.push(_r); }); });
       if(docRows.length){ const e=(await client().from('orchard_block_docs').insert(docRows)).error; if(e) throw e; }
       // pricing upsert + prune
       var pricing=stf.pricing||{}; var pkeys=Object.keys(pricing).filter(function(k){return blockIds.indexOf(String(k))>=0;});
@@ -1224,7 +1231,10 @@
       if(ckeys.length){ const e=(await client().from('orchard_compliance_items').upsert(ckeys.map(function(k){return ociToDb(k,comply[k],fid);}),{onConflict:'farm_id,item_key'})).error; if(e) throw e; }
       { var cq=client().from('orchard_compliance_items').delete().eq('farm_id',fid); if(ckeys.length) cq=cq.not('item_key','in',_inList(ckeys)); const e=(await cq).error; if(e) throw e; }
       { const e=(await client().from('orchard_compliance_docs').delete().eq('farm_id',fid)).error; if(e) throw e; }
-      var cdRows=[]; ckeys.forEach(function(k){ ((comply[k]&&comply[k].docs)||[]).forEach(function(d,i){ cdRows.push({farm_id:fid,item_key:k,name:d.name||null,kind:d.kind||null,added:d.added||null,sort_idx:i}); }); });
+      var cdRows=[]; ckeys.forEach(function(k){ ((comply[k]&&comply[k].docs)||[]).forEach(function(d,i){
+        var _c={farm_id:fid,item_key:k,name:d.name||null,kind:d.kind||null,added:d.added||null,sort_idx:i};
+        if(CAN_ORCH_DOCFILE){ _c.local_id=d.id||null; _c.path=d.path||null; }
+        cdRows.push(_c); }); });
       if(cdRows.length){ const e=(await client().from('orchard_compliance_docs').insert(cdRows)).error; if(e) throw e; }
       { const e=(await client().from('orchard_compliance_checks').delete().eq('farm_id',fid)).error; if(e) throw e; }
       var ccRows=[]; ckeys.forEach(function(k){ ((comply[k]&&comply[k].checks)||[]).forEach(function(c,i){ ccRows.push({farm_id:fid,item_key:k,check_date:c.date||null,note:c.note||null,sort_idx:i}); }); });
