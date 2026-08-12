@@ -226,6 +226,9 @@
     /* The receipt's STORAGE PATH only — never the image bytes. A base64 receipt that
        has not finished uploading stays on the device (t.receipt.data) and is sent on a
        later save, so a slow or offline upload never blocks the transaction itself. */
+    /* Who the money came from / went to. `reference` already had a column and a
+       display row — it was only ever the form that failed to read the box. */
+    if (CAN_TXN_PARTY) row.counterparty = t.party || null;
     if (CAN_TXN_RECEIPT) {
       var _rc = t.receipt || null;
       row.receipt_path = (_rc && _rc.url && !/^data:/.test(_rc.url)) ? _rc.url : null;
@@ -257,6 +260,7 @@
   let CAN_FARM_CONSENT = false;
   let CAN_TXN_RECEIPT  = false;
   let CAN_ORCH_DOCFILE = false;
+  let CAN_TXN_PARTY    = false;
   async function probeCaps(farmId){
     if (!farmId) return;
     /* Probe with a real column name. NOT select=count — PostgREST treats count as an
@@ -273,6 +277,7 @@
     CAN_FARM_CONSENT= await has('farms',        'consent_version');
     CAN_TXN_RECEIPT = await has('transactions', 'receipt_path');
     CAN_ORCH_DOCFILE= await has('orchard_block_docs','path');
+    CAN_TXN_PARTY   = await has('transactions','counterparty');
   }
   function dbToApp(r) {
     return {
@@ -293,6 +298,7 @@
       ent:      r.enterprise || undefined,
       source:   r.source || undefined,
       cuid:     r.client_uid || undefined,
+      party:    r.counterparty || undefined,
       /* Comes back as a path, not an image. The viewer swaps it for a short-lived
          signed URL on demand, the same way asset and worker documents work. */
       receipt:  r.receipt_path ? { url:r.receipt_path, name:r.receipt_name || 'receipt',
