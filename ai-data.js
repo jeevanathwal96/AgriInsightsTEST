@@ -223,6 +223,15 @@
        Settling where a cost is FILED is not the same as settling whether it comes off
        your tax, and conflating them is what let a bulk recategorise silence both. */
     if (CAN_TXN_DEDOK) row.ded_confirmed = !!t._dedOk;
+    /* The receipt's STORAGE PATH only — never the image bytes. A base64 receipt that
+       has not finished uploading stays on the device (t.receipt.data) and is sent on a
+       later save, so a slow or offline upload never blocks the transaction itself. */
+    if (CAN_TXN_RECEIPT) {
+      var _rc = t.receipt || null;
+      row.receipt_path = (_rc && _rc.url && !/^data:/.test(_rc.url)) ? _rc.url : null;
+      row.receipt_name = row.receipt_path ? (_rc.name || null) : null;
+      row.receipt_kind = row.receipt_path ? (_rc.kind || null) : null;
+    }
     return row;
   }
   /* The asset a transaction paid for, as the SERVER's id. The link is stored locally as
@@ -246,6 +255,7 @@
   let CAN_TXN_DEDOK    = false;
   let CAN_ASSET_NOPAY  = false;
   let CAN_FARM_CONSENT = false;
+  let CAN_TXN_RECEIPT  = false;
   async function probeCaps(farmId){
     if (!farmId) return;
     /* Probe with a real column name. NOT select=count — PostgREST treats count as an
@@ -260,6 +270,7 @@
     CAN_TXN_DEDOK   = await has('transactions', 'ded_confirmed');
     CAN_ASSET_NOPAY = await has('assets',       'no_payment');
     CAN_FARM_CONSENT= await has('farms',        'consent_version');
+    CAN_TXN_RECEIPT = await has('transactions', 'receipt_path');
   }
   function dbToApp(r) {
     return {
@@ -280,6 +291,10 @@
       ent:      r.enterprise || undefined,
       source:   r.source || undefined,
       cuid:     r.client_uid || undefined,
+      /* Comes back as a path, not an image. The viewer swaps it for a short-lived
+         signed URL on demand, the same way asset and worker documents work. */
+      receipt:  r.receipt_path ? { url:r.receipt_path, name:r.receipt_name || 'receipt',
+                                   kind:r.receipt_kind || 'image' } : undefined,
       /* When the row reached the farm account. Rows that arrived together came from the
          same import, which is how imports made before we recorded them are grouped. */
       _added:   r.created_at || undefined,
