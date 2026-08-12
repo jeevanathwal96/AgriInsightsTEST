@@ -261,6 +261,15 @@
   let CAN_TXN_RECEIPT  = false;
   let CAN_ORCH_DOCFILE = false;
   let CAN_TXN_PARTY    = false;
+  /* Orchard attachment references, the rest of a compliance check, block markets, the
+     planning "leave it out of the forecast" answer and picking pay-run detail. Each had
+     no column, so each was written locally and dropped on sync. Gated like every other
+     late-added column: a database without the migration keeps working, minus the field. */
+  let CAN_ORCH_ATT     = false;
+  let CAN_ORCH_CHKMETA = false;
+  let CAN_ORCH_MARKETS = false;
+  let CAN_PLANEVT_FC   = false;
+  let CAN_PAYRUN_META  = false;
   async function probeCaps(farmId){
     if (!farmId) return;
     /* Probe with a real column name. NOT select=count — PostgREST treats count as an
@@ -278,6 +287,11 @@
     CAN_TXN_RECEIPT = await has('transactions', 'receipt_path');
     CAN_ORCH_DOCFILE= await has('orchard_block_docs','path');
     CAN_TXN_PARTY   = await has('transactions','counterparty');
+    CAN_ORCH_ATT    = await has('orchard_harvest','att');
+    CAN_ORCH_CHKMETA= await has('orchard_compliance_checks','check_iso');
+    CAN_ORCH_MARKETS= await has('orchard_blocks','markets');
+    CAN_PLANEVT_FC  = await has('plan_events','in_forecast');
+    CAN_PAYRUN_META = await has('pay_runs','source');
   }
   function dbToApp(r) {
     return {
@@ -1148,7 +1162,11 @@
   // table for the variable others[] lines. Sprays/harvest are append logs.
   // PHI (safe-to-pick) is NOT stored — it is recomputed from sprays on load.
   function _n(v){ return (v!=null&&v!=='')?Number(v):null; }
-  function obToDb(b,fid){ return { farm_id:fid, local_id:String(b.id), cat:b.cat||null, icon:b.icon||null, name:b.name||null, cultivar:b.cultivar||null, root:b.root||null, plant:(b.plant!=null)?String(b.plant):null, age:(b.age!=null&&b.age!=='')?parseInt(b.age,10):null, ha:_n(b.ha), trees:(b.trees!=null&&b.trees!=='')?parseInt(b.trees,10):null, status:b.status||null, status_tag:b.statusTag||null, tons:_n(b.tons), exp:_n(b.exp), carton_kg:_n(b.cartonKg), margin:_n(b.margin), estab:b.estab||null, estab_yr:(b.estabYr!=null&&b.estabYr!=='')?parseInt(b.estabYr,10):null, writeoff:_n(b.writeoff), per_unit:_n(b.perUnit), unit_word:b.unitWord||null, curve:b.curve||null, cover:b.cover||null, plan:(b.plan!=null)?!!b.plan:null, grade:_n(b.grade), unit:b.unit||null, days:(b.days!=null&&b.days!=='')?parseInt(b.days,10):null, pick_from:b.pickFrom||null, cycle:b.cycle||null, removed:(b.removed!=null)?!!b.removed:null }; }
+  function obToDb(b,fid){ var row = { farm_id:fid, local_id:String(b.id), cat:b.cat||null, icon:b.icon||null, name:b.name||null, cultivar:b.cultivar||null, root:b.root||null, plant:(b.plant!=null)?String(b.plant):null, age:(b.age!=null&&b.age!=='')?parseInt(b.age,10):null, ha:_n(b.ha), trees:(b.trees!=null&&b.trees!=='')?parseInt(b.trees,10):null, status:b.status||null, status_tag:b.statusTag||null, tons:_n(b.tons), exp:_n(b.exp), carton_kg:_n(b.cartonKg), margin:_n(b.margin), estab:b.estab||null, estab_yr:(b.estabYr!=null&&b.estabYr!=='')?parseInt(b.estabYr,10):null, writeoff:_n(b.writeoff), per_unit:_n(b.perUnit), unit_word:b.unitWord||null, curve:b.curve||null, cover:b.cover||null, plan:(b.plan!=null)?!!b.plan:null, grade:_n(b.grade), unit:b.unit||null, days:(b.days!=null&&b.days!=='')?parseInt(b.days,10):null, pick_from:b.pickFrom||null, cycle:b.cycle||null, removed:(b.removed!=null)?!!b.removed:null };
+    /* Not cosmetic: orBlockMarkets() GUESSES when this is missing, and the guess picks
+       which pre-harvest interval governs safe-to-pick. */
+    if(CAN_ORCH_MARKETS) row.markets = (b.markets && b.markets.length) ? b.markets : null;
+    return row; }
   function obFromDb(r){ var b={ id:r.local_id, cat:r.cat||'', icon:r.icon||'', name:r.name||'', cultivar:r.cultivar||'', status:r.status||'', statusTag:r.status_tag||'' };
     if(r.root!=null) b.root=r.root; if(r.plant!=null) b.plant=_numIf(r.plant); if(r.age!=null) b.age=Number(r.age); if(r.ha!=null) b.ha=Number(r.ha); if(r.trees!=null) b.trees=Number(r.trees); if(r.tons!=null) b.tons=Number(r.tons); if(r.exp!=null) b.exp=Number(r.exp); if(r.carton_kg!=null) b.cartonKg=Number(r.carton_kg); if(r.margin!=null) b.margin=Number(r.margin); if(r.estab!=null) b.estab=r.estab; if(r.estab_yr!=null) b.estabYr=Number(r.estab_yr); if(r.writeoff!=null) b.writeoff=Number(r.writeoff); if(r.per_unit!=null) b.perUnit=Number(r.per_unit); if(r.unit_word!=null) b.unitWord=r.unit_word; if(r.curve!=null) b.curve=r.curve; if(r.cover!=null) b.cover=r.cover; if(r.plan!=null) b.plan=!!r.plan; if(r.grade!=null) b.grade=Number(r.grade); if(r.unit!=null) b.unit=r.unit; if(r.days!=null) b.days=Number(r.days); if(r.pick_from!=null) b.pickFrom=r.pick_from; if(r.cycle!=null) b.cycle=r.cycle; if(r.removed!=null) b.removed=!!r.removed;
     return b; }
@@ -1156,10 +1174,16 @@
   function ociToDb(key,c,fid){ c=c||{}; return { farm_id:fid, item_key:String(key), kind:c.type||null, icon:c.ic||null, title:c.title||null, what:c.what||null, status:c.status||null, status_tag:c.statusTag||null, expiry:c.expiry||null, cropcat:c.cropcat||null, log:(c.log!=null)?String(c.log):null }; }
   function opToDb(blockId,p,fid){ p=p||{}; var lo=p.local||{}; return { farm_id:fid, block_local_id:String(blockId), price:_n(p.price), comm:_n(p.comm), pack:_n(p.pack), ship:_n(p.ship), levy:_n(p.levy), levy_name:p.levyName||null, local_price:_n(lo.price), local_comm:_n(lo.comm), local_trans:_n(lo.trans), local_other:_n(lo.other) }; }
   function opFromDb(r,others){ return { price:Number(r.price)||0, comm:Number(r.comm)||0, pack:Number(r.pack)||0, ship:Number(r.ship)||0, levy:Number(r.levy)||0, levyName:r.levy_name||'', others:(others&&others.length)?others:[{label:'Other costs',amt:0}], local:{price:Number(r.local_price)||0,comm:Number(r.local_comm)||0,trans:Number(r.local_trans)||0,other:Number(r.local_other)||0} }; }
-  function osToDb(s,cat,fid){ return { farm_id:fid, local_id:String(s.id), cropcat:cat||null, block_local_id:(s.bid!=null&&s.bid!=='')?String(s.bid):null, product:s.product||null, reg:s.reg||null, target_for:s.forx||null, applied_by:s.by||null, spray_date:s.dateISO||null, phi_eu:_n(s.phi&&s.phi.eu), phi_uk:_n(s.phi&&s.phi.uk), phi_us:_n(s.phi&&s.phi.us), phi_local:_n(s.phi&&s.phi.local), title:s.t||null, sub:s.s||null, icon:s.ic||null }; }
-  function osFromDb(r){ return { id:r.local_id, ic:r.icon||'\uD83E\uDDEA', t:r.title||'', s:r.sub||'', phi:{eu:Number(r.phi_eu)||0,uk:Number(r.phi_uk)||0,us:Number(r.phi_us)||0,local:Number(r.phi_local)||0}, bid:r.block_local_id||'', product:r.product||'', reg:r.reg||'', forx:r.target_for||'', by:r.applied_by||'', dateISO:r.spray_date||'', cropcat:r.cropcat||'' }; }
-  function ohToDb(h,fid){ return { farm_id:fid, local_id:String(h.id), cropcat:h.cat||null, block_local_id:(h.bid!=null&&h.bid!=='')?String(h.bid):null, bins:_n(h.bins), tons:_n(h.tons!=null?h.tons:h.tn), cartons:_n(h.cartons), top_grade_pct:_n(h.grade), sold_to:h.to||null, amount:_n(h.money), pick_date:h.dateISO||null, title:h.t||null, sub:h.s||null, revenue:h.r||null, icon:h.ic||null }; }
-  function ohFromDb(r){ return { id:r.local_id, ic:r.icon||'\uD83C\uDF4A', t:r.title||'', s:r.sub||'', r:r.revenue||'\u2014', cat:r.cropcat||'', bid:r.block_local_id||'', tn:Number(r.tons)||0, tons:Number(r.tons)||0, cartons:Number(r.cartons)||0, to:r.sold_to||'', money:Number(r.amount)||0, dateISO:r.pick_date||'' }; }
+  function osToDb(s,cat,fid){ var row = { farm_id:fid, local_id:String(s.id), cropcat:cat||null, block_local_id:(s.bid!=null&&s.bid!=='')?String(s.bid):null, product:s.product||null, reg:s.reg||null, target_for:s.forx||null, applied_by:s.by||null, spray_date:s.dateISO||null, phi_eu:_n(s.phi&&s.phi.eu), phi_uk:_n(s.phi&&s.phi.uk), phi_us:_n(s.phi&&s.phi.us), phi_local:_n(s.phi&&s.phi.local), title:s.t||null, sub:s.s||null, icon:s.ic||null };
+    if(CAN_ORCH_ATT) row.att = s.att || null;
+    return row; }
+  function osFromDb(r){ return { id:r.local_id, ic:r.icon||'\uD83E\uDDEA', t:r.title||'', s:r.sub||'', phi:{eu:Number(r.phi_eu)||0,uk:Number(r.phi_uk)||0,us:Number(r.phi_us)||0,local:Number(r.phi_local)||0}, bid:r.block_local_id||'', product:r.product||'', reg:r.reg||'', forx:r.target_for||'', by:r.applied_by||'', dateISO:r.spray_date||'', cropcat:r.cropcat||'', att:r.att||undefined }; }
+  function ohToDb(h,fid){ var row = { farm_id:fid, local_id:String(h.id), cropcat:h.cat||null, block_local_id:(h.bid!=null&&h.bid!=='')?String(h.bid):null, bins:_n(h.bins), tons:_n(h.tons!=null?h.tons:h.tn), cartons:_n(h.cartons), top_grade_pct:_n(h.grade), sold_to:h.to||null, amount:_n(h.money), pick_date:h.dateISO||null, title:h.t||null, sub:h.s||null, revenue:h.r||null, icon:h.ic||null };
+    /* The delivery note the farmer attached to this pick. Its bytes are already in
+       Storage; without this the pointer died here and the file was orphaned. */
+    if(CAN_ORCH_ATT) row.att = h.att || null;
+    return row; }
+  function ohFromDb(r){ return { id:r.local_id, ic:r.icon||'\uD83C\uDF4A', t:r.title||'', s:r.sub||'', r:r.revenue||'\u2014', cat:r.cropcat||'', bid:r.block_local_id||'', tn:Number(r.tons)||0, tons:Number(r.tons)||0, cartons:Number(r.cartons)||0, to:r.sold_to||'', money:Number(r.amount)||0, dateISO:r.pick_date||'', att:r.att||undefined }; }
 
   load.orchard = async function(farmId){
     farmId = farmId || farm.active();
@@ -1178,7 +1202,9 @@
     ]);
     for(const r of [bl,dc,pr,po,sp,hv,ci,cd,cc,cr]) if(r.error) throw r.error;
     var docsByBlock={}; (dc.data||[]).forEach(function(d){ (docsByBlock[d.block_local_id]=docsByBlock[d.block_local_id]||[]).push({name:d.name,kind:d.kind,added:d.added,id:d.local_id||undefined,path:d.path||undefined}); });
-    var blocks=(bl.data||[]).map(function(r){ var b=obFromDb(r); b.docs=docsByBlock[b.id]||[]; return b; });
+    var blocks=(bl.data||[]).map(function(r){ var b=obFromDb(r); b.docs=docsByBlock[b.id]||[];
+      if(r.markets && r.markets.length) b.markets=r.markets;
+      return b; });
     var othByBlock={}; (po.data||[]).forEach(function(o){ (othByBlock[o.block_local_id]=othByBlock[o.block_local_id]||[]).push({label:o.label||'',amt:Number(o.amt)||0}); });
     var pricing={}; (pr.data||[]).forEach(function(r){ pricing[r.block_local_id]=opFromDb(r,othByBlock[r.block_local_id]||[]); });
     var sprayDiary={}; (sp.data||[]).forEach(function(r){ var s=osFromDb(r); (sprayDiary[s.cropcat]=sprayDiary[s.cropcat]||[]).push(s); });
@@ -1186,8 +1212,11 @@
     // compliance: per-key user fields + children, to overlay onto app defaults in ai-auth
     var cDocs={}, cChecks={}, cReads={};
     (cd.data||[]).forEach(function(d){ (cDocs[d.item_key]=cDocs[d.item_key]||[]).push({name:d.name||'',kind:d.kind||'',added:d.added||'',id:d.local_id||undefined,path:d.path||undefined}); });
-    (cc.data||[]).forEach(function(r){ (cChecks[r.item_key]=cChecks[r.item_key]||[]).push({date:r.check_date||'',note:r.note||''}); });
-    (cr.data||[]).forEach(function(r){ (cReads[r.item_key]=cReads[r.item_key]||[]).push({date:r.reading_date||'',m3:r.m3||''}); });
+    (cc.data||[]).forEach(function(r){ var _c={date:r.check_date||'',note:r.note||''};
+      if(r.check_iso) _c.iso=r.check_iso; if(r.ctype) _c.ctype=r.ctype; if(r.by_who) _c.by=r.by_who;
+      if(r.att) _c.att=r.att;
+      (cChecks[r.item_key]=cChecks[r.item_key]||[]).push(_c); });
+    (cr.data||[]).forEach(function(r){ (cReads[r.item_key]=cReads[r.item_key]||[]).push({date:r.reading_date||'',m3:r.m3||''}); });   // reading_date is a display string; orSaveReading now writes a real one
     var comply={};
     (ci.data||[]).forEach(function(r){ var o={status:r.status||'',statusTag:r.status_tag||'',expiry:r.expiry||''}; if(r.log!=null) o.log=r.log;
       if(cDocs[r.item_key]) o.docs=cDocs[r.item_key]; if(cChecks[r.item_key]) o.checks=cChecks[r.item_key]; if(cReads[r.item_key]) o.readings=cReads[r.item_key];
@@ -1243,7 +1272,18 @@
         cdRows.push(_c); }); });
       if(cdRows.length){ const e=(await client().from('orchard_compliance_docs').insert(cdRows)).error; if(e) throw e; }
       { const e=(await client().from('orchard_compliance_checks').delete().eq('farm_id',fid)).error; if(e) throw e; }
-      var ccRows=[]; ckeys.forEach(function(k){ ((comply[k]&&comply[k].checks)||[]).forEach(function(c,i){ ccRows.push({farm_id:fid,item_key:k,check_date:c.date||null,note:c.note||null,sort_idx:i}); }); });
+      var ccRows=[]; ckeys.forEach(function(k){ ((comply[k]&&comply[k].checks)||[]).forEach(function(c,i){
+        var _cc={farm_id:fid,item_key:k,check_date:c.date||null,note:c.note||null,sort_idx:i};
+        /* check_date holds a DISPLAY string ("12 Aug") with no year, so on its own it
+           cannot order or season-filter an audit trail. check_iso carries the real date.
+           att is the evidence document — the whole point of logging a check. */
+        /* check_iso is a DATE column. One malformed value would fail the insert and take
+           every other orchard row down with it, so anything that is not a clean
+           YYYY-MM-DD goes as null rather than risking the whole save. */
+        if(CAN_ORCH_CHKMETA){ _cc.check_iso=(/^\d{4}-\d{2}-\d{2}$/.test(String(c.iso||'')))?c.iso:null;
+          _cc.ctype=c.ctype||null; _cc.by_who=c.by||null; }
+        if(CAN_ORCH_ATT){ _cc.att=c.att||null; }
+        ccRows.push(_cc); }); });
       if(ccRows.length){ const e=(await client().from('orchard_compliance_checks').insert(ccRows)).error; if(e) throw e; }
       { const e=(await client().from('orchard_compliance_readings').delete().eq('farm_id',fid)).error; if(e) throw e; }
       var crRows=[]; ckeys.forEach(function(k){ ((comply[k]&&comply[k].readings)||[]).forEach(function(rd,i){ crRows.push({farm_id:fid,item_key:k,reading_date:rd.date||null,m3:rd.m3||null,sort_idx:i}); }); });
@@ -1270,8 +1310,10 @@
   // pattern as livestock_moves/treatments. UI state (view/tab/months) is transient.
   function planCropToDb(c,fid,i){ return { farm_id:fid, crop:c.crop||null, field:c.field||null, ha:(c.ha!=null&&c.ha!=='')?Number(c.ha):null, plant:c.plant||null, harvest:c.harvest||null, yield_val:(c.yield!=null&&c.yield!=='')?Number(c.yield):null, price:(c.price!=null&&c.price!=='')?Number(c.price):null, input_cost:(c.inputCost!=null&&c.inputCost!=='')?Number(c.inputCost):null, other_cost:(c.otherCost!=null&&c.otherCost!=='')?Number(c.otherCost):null, repeat:c.repeat||null, link_id:c.linkId||null, in_forecast:(c.inForecast===false)?false:true, sort_idx:i }; }
   function planCropFromDb(r){ var c={ crop:r.crop||'', field:r.field||'', ha:Number(r.ha)||0, plant:r.plant||'', harvest:r.harvest||'', yield:Number(r.yield_val)||0, price:Number(r.price)||0, inputCost:Number(r.input_cost)||0, otherCost:Number(r.other_cost)||0, repeat:r.repeat||'none' }; if(r.link_id) c.linkId=r.link_id; if(r.in_forecast===false) c.inForecast=false; return c; }
-  function planEvtToDb(e,fid,i){ return { farm_id:fid, herd_local_id:(e.herdId!=null)?String(e.herdId):null, species:e.species||null, animal:e.animal||null, icon:e.icon||null, descr:e.desc||null, type:e.type||null, month:e.month||null, qty:(e.qty!=null&&e.qty!=='')?Number(e.qty):null, unit:e.unit||null, price:(e.price!=null&&e.price!=='')?Number(e.price):null, recur:e.recur||null, notes:e.notes||null, use_market:!!e.useMarket, done:!!e.done, sort_idx:i }; }
-  function planEvtFromDb(r){ return { herdId:_numIf(r.herd_local_id), species:r.species||'', animal:r.animal||'', icon:r.icon||'', desc:r.descr||'', type:r.type||'sell', month:r.month||'', qty:Number(r.qty)||0, unit:r.unit||'head', price:Number(r.price)||0, recur:r.recur||'annual', notes:r.notes||'', useMarket:!!r.use_market, done:!!r.done }; }
+  function planEvtToDb(e,fid,i){ var row = { farm_id:fid, herd_local_id:(e.herdId!=null)?String(e.herdId):null, species:e.species||null, animal:e.animal||null, icon:e.icon||null, descr:e.desc||null, type:e.type||null, month:e.month||null, qty:(e.qty!=null&&e.qty!=='')?Number(e.qty):null, unit:e.unit||null, price:(e.price!=null&&e.price!=='')?Number(e.price):null, recur:e.recur||null, notes:e.notes||null, use_market:!!e.useMarket, done:!!e.done, sort_idx:i };
+    if(CAN_PLANEVT_FC) row.in_forecast = (e.inForecast===false) ? false : true;
+    return row; }
+  function planEvtFromDb(r){ return { herdId:_numIf(r.herd_local_id), species:r.species||'', animal:r.animal||'', icon:r.icon||'', desc:r.descr||'', type:r.type||'sell', month:r.month||'', qty:Number(r.qty)||0, unit:r.unit||'head', price:Number(r.price)||0, recur:r.recur||'annual', notes:r.notes||'', useMarket:!!r.use_market, done:!!r.done, inForecast:(r.in_forecast===false)?false:true }; }
   load.plan = async function(farmId){
     farmId = farmId || farm.active();
     const [pc,pe] = await Promise.all([
@@ -1377,8 +1419,14 @@
       if(r.sunday||r.holiday){ var e=(extra[L]=extra[L]||{})[wid]=(extra[L][wid]||{}); if(r.sunday)e.sun=Number(r.sunday); if(r.holiday)e.ph=Number(r.holiday); }
       if(r.seasonal_days){ (seasonal[L]=seasonal[L]||{})[wid]=Number(r.seasonal_days); } });
     return { paye:paye, bonus:bonus, extra:extra, seasonal:seasonal }; }
-  function payRunToDb(r, fid){ return { farm_id:fid, local_id:String(r.id), label:r.label||null, kind:r.kind||null, net:(r.net!=null)?Number(r.net):null, gross:(r.gross!=null)?Number(r.gross):null, uif:(r.uif!=null)?Number(r.uif):null, run_date:r.date||null, seasonal:!!r.seasonal }; }
-  function payRunFromDb(r){ var o={ id:r.local_id, label:r.label||'', kind:r.kind||'', net:Number(r.net)||0, date:r.run_date||'' }; if(r.gross!=null)o.gross=Number(r.gross); if(r.uif!=null)o.uif=Number(r.uif); if(r.seasonal)o.seasonal=true; return o; }
+  function payRunToDb(r, fid){ var row = { farm_id:fid, local_id:String(r.id), label:r.label||null, kind:r.kind||null, net:(r.net!=null)?Number(r.net):null, gross:(r.gross!=null)?Number(r.gross):null, uif:(r.uif!=null)?Number(r.uif):null, run_date:r.date||null, seasonal:!!r.seasonal };
+    if(CAN_PAYRUN_META){ row.source=r.source||null; row.block=r.block||null;
+      row.per_picker=(r.perPicker!=null&&r.perPicker!=='')?Number(r.perPicker):null; }
+    return row; }
+  function payRunFromDb(r){ var o={ id:r.local_id, label:r.label||'', kind:r.kind||'', net:Number(r.net)||0, date:r.run_date||'' }; if(r.gross!=null)o.gross=Number(r.gross); if(r.uif!=null)o.uif=Number(r.uif); if(r.seasonal)o.seasonal=true;
+    if(r.source)o.source=r.source; if(r.block)o.block=r.block;
+    if(r.per_picker!=null)o.perPicker=Number(r.per_picker);
+    return o; }
   function payAppliedRows(stw, fid){ var rows=[]; (stw.payRuns||[]).forEach(function(r){ (r.applied||[]).forEach(function(a){ rows.push({ farm_id:fid, run_local_id:String(r.id), worker_local_id:String(a.wid), adv_repaid:(a.advRepay!=null)?Number(a.advRepay):0, savings_in:(a.savings!=null)?Number(a.savings):0 }); }); }); return rows; }
 
   load.workers = async function(farmId){
