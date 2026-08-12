@@ -443,15 +443,43 @@
   function hydrate(opts) {
     opts = opts || {};
     var isNewFarm = false, needOnboarding = false, activeRow = null;
-    return AI.farm.mine().then(function (farms) {
-      if (!farms || !farms.length) { isNewFarm = true; return AI.farm.create('My Farm'); }
+    /* getUser() waits for supabase-js to finish initialising, which guarantees the
+       token is attached to what follows. Without it, the farm query could go out
+       before the session was applied; RLS then answers with an EMPTY LIST rather
+       than an error, which is indistinguishable from "brand-new user" — and the
+       branch below would create a farm. That is how one test account ended up with
+       three farms, two of them empty "My Farm" duplicates that hid the real one. */
+    return AI.auth.currentUser().catch(function(){ return null; }).then(function () {
+      return AI.farm.mine();
+    }).then(function (farms) {
+      /* Still empty? Ask once more before concluding this is a new user. Creating a
+         farm is not reversible from inside the app, so a transient empty answer must
+         never be enough on its own. */
+      if (!farms || !farms.length) {
+        return AI.farm.mine().catch(function(){ return []; }).then(function (retry) {
+          if (retry && retry.length) return retry;
+          isNewFarm = true;
+          return AI.farm.create('My Farm').then(function(){ return null; });
+        });
+      }
+      return farms;
+    }).then(function (farms) {
+      if (!farms || !farms.length) { return AI.farm.active(); }   // just created one
       /* The active-farm pointer is stored per BROWSER, so it outlives a sign-out and
          can name a farm this account cannot see. Every read then comes back empty and
          every write fails against RLS, with nothing on screen to explain why. The
          server's list is the authority. */
       var act = AI.farm.active(), ok = false;
       for (var i = 0; i < farms.length; i++) { if (farms[i].id === act) { ok = true; break; } }
-      if (!ok) AI.farm.setActive(farms[0].id);
+      if (!ok) {
+        /* Choosing a default on a device with no usable pointer: prefer a farm that
+           has actually been set up (owner_name is written when onboarding finishes)
+           over an auto-created empty "My Farm". A farmer signing in on a second
+           device should land on their records, not on a blank duplicate. */
+        var pick = null;
+        for (var k = 0; k < farms.length; k++) { if (farms[k].owner_name) { pick = farms[k]; break; } }
+        AI.farm.setActive((pick || farms[0]).id);
+      }
       act = AI.farm.active();
       for (var j = 0; j < farms.length; j++) { if (farms[j].id === act) { activeRow = farms[j]; break; } }
       return act;
