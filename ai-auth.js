@@ -440,29 +440,53 @@
     return null;
   }
 
+  /* Ask the server for this account's farms, but only trust an EMPTY answer when we
+     are certain the read was authenticated and had time to settle. Returns
+     {farms, sure}; sure:false means "do not draw conclusions". */
+  function _minWithConfidence(){
+    var _sleep = function(ms){ return new Promise(function(r){ setTimeout(r, ms); }); };
+    return AI.init().auth.getSession().then(function (res) {
+      var sess = res && res.data ? res.data.session : null;
+      if (!sess || !sess.user || !sess.user.id) return { farms: [], sure: false };
+      return AI.farm.mine().then(function (f1) {
+        if (f1 && f1.length) return { farms: f1, sure: true };
+        return _sleep(600).then(function(){ return AI.farm.mine(); }).then(function (f2) {
+          if (f2 && f2.length) return { farms: f2, sure: true };
+          return _sleep(1200).then(function(){ return AI.farm.mine(); }).then(function (f3) {
+            return { farms: f3 || [], sure: true };
+          });
+        });
+      });
+    }).catch(function (e) {
+      console.error('farm list check failed:', e);
+      return { farms: [], sure: false };
+    });
+  }
+
   function hydrate(opts) {
     opts = opts || {};
     var isNewFarm = false, needOnboarding = false, activeRow = null;
-    /* getUser() waits for supabase-js to finish initialising, which guarantees the
-       token is attached to what follows. Without it, the farm query could go out
-       before the session was applied; RLS then answers with an EMPTY LIST rather
-       than an error, which is indistinguishable from "brand-new user" — and the
-       branch below would create a farm. That is how one test account ended up with
-       three farms, two of them empty "My Farm" duplicates that hid the real one. */
-    return AI.auth.currentUser().catch(function(){ return null; }).then(function () {
-      return AI.farm.mine();
-    }).then(function (farms) {
-      /* Still empty? Ask once more before concluding this is a new user. Creating a
-         farm is not reversible from inside the app, so a transient empty answer must
-         never be enough on its own. */
-      if (!farms || !farms.length) {
-        return AI.farm.mine().catch(function(){ return []; }).then(function (retry) {
-          if (retry && retry.length) return retry;
-          isNewFarm = true;
-          return AI.farm.create('My Farm').then(function(){ return null; });
-        });
+    /* Deciding "this is a brand-new user" is the single most destructive call in the
+       sign-in path: get it wrong and the farmer is handed an empty farm while their
+       real one sits invisible on the server. RLS answers an unauthenticated read with
+       an EMPTY LIST, not an error, so "no farms" and "not authenticated yet" look
+       identical. An earlier attempt asked twice with no delay — both calls raced the
+       same unsettled session and still created a duplicate. So: confirm a session
+       FIRST (getSession resolves from storage and waits for supabase-js to finish
+       initialising, no network round-trip), then re-ask with real gaps, and only ever
+       create when three spaced, authenticated reads all come back empty. */
+    return _minWithConfidence().then(function (res) {
+      if (!res.sure) {
+        /* We could not establish an authenticated read. Refusing to guess: an error
+           here leaves the farmer on the sign-in card, which is recoverable. Creating
+           a farm is not. */
+        throw new Error('farm-list-unconfirmed');
       }
-      return farms;
+      if (!res.farms.length) {
+        isNewFarm = true;
+        return AI.farm.create('My Farm').then(function(){ return null; });
+      }
+      return res.farms;
     }).then(function (farms) {
       if (!farms || !farms.length) { return AI.farm.active(); }   // just created one
       /* The active-farm pointer is stored per BROWSER, so it outlives a sign-out and
