@@ -190,6 +190,25 @@
   }
   const catToId   = code => (code == null ? null : (catMaps.code2id[norm(code)] || null));
   const catToCode = id   => (id   == null ? null : (catMaps.id2code[id]   || null));
+  /* THE CATEGORY SPELLING FLIPS ON EVERY ROUND-TRIP, AND THAT IS THE BUG BEHIND A WHOLE
+     CLASS OF SILENT MISCALCULATIONS. Three spellings exist for one category: the table's
+     `code` ("Seeds&Planting"), the table's `label` (sentence case, "Seeds & planting")
+     and the app's display name ("Seeds & Planting"). catToCode returns the CODE, so a
+     transaction the farmer just typed carries the display name and matches every literal
+     in index.html — and the same row, after one page reload, matches none of them.
+     Thirty comparison sites depend on the display spelling (cost-of-sales classification,
+     the byCat report lines, the loan-repayment interest split), and they were all quietly
+     failing after a hydrate. Single-word categories like Fertiliser matched by luck and
+     hid it. Normalise HERE, at the one boundary where server rows become app rows, rather
+     than at thirty call sites — that way any comparison written in future works too.
+     Rewriting the stored rows instead is what makes the category migration re-run on
+     every load. normalizeCat lives in the app script; it is defined by the time any of
+     this runs, but guard anyway so a load-order change can never throw. */
+  function _appCat(code){
+    if (!code) return code;
+    try { if (typeof global.normalizeCat === 'function') return global.normalizeCat(code) || code; } catch (e) {}
+    return code;
+  }
   async function ensureCats() { if (!catMaps.list.length) await loadCats(farm.active()); }
 
   // ---- 5. SHAPE MAPPING (app txn <-> db row) -------------------------------
@@ -298,7 +317,7 @@
       id:       r.id,
       date:     r.txn_date,
       amt:      Number(r.amount),
-      cat:      catToCode(r.category_id),
+      cat:      _appCat(catToCode(r.category_id)),
       type:     r.type,
       desc:     r.description || '',
       method:   r.payment_method || '',
@@ -438,7 +457,7 @@
         budgets:    bObj,
         recurring:  (rec.data || []).map(r => ({
           id: r.id, name: r.name, type: r.type, amt: Number(r.amount),
-          freq: r.frequency, category: catToCode(r.category_id),
+          freq: r.frequency, category: _appCat(catToCode(r.category_id)),
           months: r.months || undefined,
           accountId: r.account_id, nextDate: r.next_date, active: r.active
         }))
