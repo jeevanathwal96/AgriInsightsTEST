@@ -599,7 +599,28 @@
         try { if (window.ST_FRUIT && orc) { var _orcHas = (orc.blocks && orc.blocks.length); var _locHas = (ST_FRUIT.blocks && ST_FRUIT.blocks.length); if (_orcHas || !_locHas) { ST_FRUIT.blocks = orc.blocks || []; ST_FRUIT.pricing = orc.pricing || {}; ST_FRUIT.sprayDiary = orc.sprayDiary || {}; ST_FRUIT.harvest = orc.harvest || []; if (orc.comply) ST_FRUIT.comply = orc.comply; try{ if(window.orComplyEnsure) orComplyEnsure(); }catch(_){} if (orc.market) ST_FRUIT.market = orc.market; if (typeof window.orRebuildPhi === 'function') { try { window.orRebuildPhi(); } catch (_) {} } } } } catch (e) { console.error('orchard apply', e); }
         try { if (window.ST_PLAN) { var _plHas = (pl && ((pl.crops&&pl.crops.length)||(pl.events&&pl.events.length))); var _plLoc = ((ST_PLAN.crops&&ST_PLAN.crops.length)||(ST_PLAN.events&&ST_PLAN.events.length)); if (pl && (_plHas || !_plLoc)) { ST_PLAN.crops = pl.crops || []; ST_PLAN.events = pl.events || []; ST_PLAN.fromBackend = true; if (typeof window.planSyncToCurrentYear === 'function') { try { window.planSyncToCurrentYear(); } catch (_) {} } } else if (!pl && typeof window.cropInitialPlanSync === 'function') { try { window.cropInitialPlanSync(true); } catch (_) {} } } } catch (e) { console.error('plan apply', e); }
         try { if (window.ST_WORK && wk) { var _wkHas = (wk.workers && wk.workers.length); var _wkLoc = (ST_WORK.workers && ST_WORK.workers.length); if (_wkHas || !_wkLoc) { ST_WORK.workers = wk.workers || []; if (wk.settingsRow && AI.workers && AI.workers.apply) { AI.workers.apply(ST_WORK, wk.settingsRow); } if (wk.payroll) { ST_WORK.paye = wk.payroll.paye || {}; ST_WORK.bonus = wk.payroll.bonus || {}; ST_WORK.extra = wk.payroll.extra || {}; ST_WORK.seasonal = wk.payroll.seasonal || {}; } ST_WORK.payRuns = wk.payRuns || []; } } } catch (e) { console.error('workers apply', e); }
-        try { if (window.ST && pf) { Object.keys(pf).forEach(function (k) { if (pf[k] != null) ST[k] = pf[k]; }); if (window.FARM && pf.farmName) FARM.name = pf.farmName; } } catch (e) { console.error('profile apply', e); }
+        /* The same farm facts live in TWO objects and only one of them round-trips.
+           ST.vatRegistered comes back from the server here; FARM.vat never did — and the
+           whole VAT engine gates on FARM.vat (IE_split, computeRPT's vatOut/vatIn, the
+           VAT 201 summary, the registration nudge). Since clearAllToFresh() sets
+           FARM.vat = false and runs on any account/farm mismatch, a farmer signing in on
+           a second device had VAT silently switched OFF however they answered, and the
+           statutory documents printed a blank VAT and tax number. Copy the profile into
+           FARM as well, so the server stays the single source of truth for both.
+           Note the != null tests: `false` is a real answer and must survive them. */
+        try {
+          if (window.ST && pf) {
+            Object.keys(pf).forEach(function (k) { if (pf[k] != null) ST[k] = pf[k]; });
+            if (window.FARM) {
+              if (pf.farmName   != null) FARM.name  = pf.farmName;
+              if (pf.ownerName  != null) FARM.owner = pf.ownerName;
+              if (pf.farmHa     != null) FARM.ha    = Number(pf.farmHa) || 0;
+              if (pf.vatRegistered != null) FARM.vat = !!pf.vatRegistered;
+              if (pf.vatNumber  != null) FARM.vatNo = pf.vatNumber;
+              if (pf.taxNumber  != null) FARM.taxNo = pf.taxNumber;
+            }
+          }
+        } catch (e) { console.error('profile apply', e); }
         try { if (window.ST && Array.isArray(coop)) ST.coopSettlements = coop; } catch (e) { console.error('coop apply', e); }
         try { if (typeof window.saveState === 'function') window.saveState(); } catch (e) {}
       }).catch(function (e) { console.error('Relational hydrate failed:', e); });
