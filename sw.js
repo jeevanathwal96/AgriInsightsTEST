@@ -11,7 +11,7 @@
  */
 'use strict';
 
-var APP_VERSION = '2026-08-16-283';
+var APP_VERSION = '2026-08-16-284';
 var CACHE = 'agriinsights-' + APP_VERSION;
 
 /* App shell precached on install. The ?v=-suffixed JS is intentionally left to
