@@ -289,6 +289,9 @@
   let CAN_ORCH_MARKETS = false;
   let CAN_PLANEVT_FC   = false;
   let CAN_PAYRUN_META  = false;
+  /* Asset disposals. Gated like every other late-added column: a database without the
+     migration keeps working, and the disposal stays on the device instead of throwing. */
+  let CAN_ASSET_DISPOSAL = false;
   async function probeCaps(farmId){
     if (!farmId) return;
     /* Probe with a real column name. NOT select=count — PostgREST treats count as an
@@ -311,6 +314,7 @@
     CAN_ORCH_MARKETS= await has('orchard_blocks','markets');
     CAN_PLANEVT_FC  = await has('plan_events','in_forecast');
     CAN_PAYRUN_META = await has('pay_runs','source');
+    CAN_ASSET_DISPOSAL = await has('assets','disposal_date');
   }
   function dbToApp(r) {
     return {
@@ -648,6 +652,14 @@
        reconcile panel re-asks on every other device — and a question that comes back
        after you answered it is how a panel earns being ignored. */
     if (CAN_ASSET_NOPAY) row.no_payment = !!a._noPayment;
+    /* Written even when the asset is NOT disposed — the nulls are what clear a disposal
+       the farmer has undone. Sending them only when set would leave a sale recorded on
+       every other device forever. */
+    if (CAN_ASSET_DISPOSAL) {
+      row.disposal_date     = a.disposalDate || null;
+      row.disposal_proceeds = (a.disposalProceeds != null && a.disposalProceeds !== '') ? Number(a.disposalProceeds) : null;
+      row.disposal_reason   = a.disposalReason || null;
+    }
     return row;
   }
   function assetToApp(r) {
@@ -663,6 +675,11 @@
     if (r.insurer) a.insurer = r.insurer;
     if (r.renewal_date) a.renewalDate = r.renewal_date;
     if (r.no_payment === true) a._noPayment = true;      // only when true, as above
+    if (r.disposal_date) {
+      a.disposalDate     = r.disposal_date;
+      a.disposalProceeds = Number(r.disposal_proceeds) || 0;
+      a.disposalReason   = r.disposal_reason || 'sold';
+    }
     return a;
   }
   const asset = {
