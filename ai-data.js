@@ -242,6 +242,7 @@
        Settling where a cost is FILED is not the same as settling whether it comes off
        your tax, and conflating them is what let a bulk recategorise silence both. */
     if (CAN_TXN_DEDOK) row.ded_confirmed = !!t._dedOk;
+    if (CAN_TXN_CAPOK) row.cap_confirmed = !!t._capOk;
     /* The receipt's STORAGE PATH only — never the image bytes. A base64 receipt that
        has not finished uploading stays on the device (t.receipt.data) and is sent on a
        later save, so a slow or offline upload never blocks the transaction itself. */
@@ -292,6 +293,10 @@
   /* Asset disposals. Gated like every other late-added column: a database without the
      migration keeps working, and the disposal stays on the device instead of throwing. */
   let CAN_ASSET_DISPOSAL = false;
+  /* "It's a running cost, stop asking." Its own column rather than reusing cat_confirmed:
+     that answer is about the CATEGORY being right, this one is about the cost not being
+     capital, and a farmer can mean one without the other. */
+  let CAN_TXN_CAPOK      = false;
   async function probeCaps(farmId){
     if (!farmId) return;
     /* Probe with a real column name. NOT select=count — PostgREST treats count as an
@@ -315,6 +320,7 @@
     CAN_PLANEVT_FC  = await has('plan_events','in_forecast');
     CAN_PAYRUN_META = await has('pay_runs','source');
     CAN_ASSET_DISPOSAL = await has('assets','disposal_date');
+    CAN_TXN_CAPOK      = await has('transactions','cap_confirmed');
   }
   function dbToApp(r) {
     return {
@@ -356,7 +362,8 @@
       _assetUuid: r.asset_id || undefined,
       /* Only when true, matching _catOk: an explicit false is indistinguishable from
          never-asked, and would permanently suppress a question nobody answered. */
-      _dedOk:     (r.ded_confirmed === true) ? true : undefined
+      _dedOk:     (r.ded_confirmed === true) ? true : undefined,
+      _capOk:     (r.cap_confirmed === true) ? true : undefined
     };
   }
 
