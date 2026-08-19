@@ -591,9 +591,17 @@
         AI.load.plan(fid).catch(function (e) { console.error('plan load', e); return null; }),
         AI.load.workers(fid).catch(function (e) { console.error('workers load', e); return null; }),
         AI.load.profile(fid).catch(function (e) { console.error('profile load', e); return null; }),
-        AI.load.coopSettlements(fid).catch(function (e) { console.error('coop load', e); return null; })
+        AI.load.coopSettlements(fid).catch(function (e) { console.error('coop load', e); return null; }),
+        /* Both of these have existed since the module sweep and neither was ever called.
+           AI.fuel.saveAll and AI.documents.saveAll push rows up on every save, so the data
+           was on the server the whole time — it just had no way back, and a farmer on a new
+           device saw an empty fuel log and no removal certificates. The certificates are the
+           worse half: those are statutory documents. */
+        AI.load.fuel(fid).catch(function (e) { console.error('fuel load', e); return null; }),
+        AI.load.documents(fid).catch(function (e) { console.error('documents load', e); return null; })
       ]).then(function (r) {
-        var ls = r[0], cr = r[1], orc = r[2], pl = r[3], wk = r[4], pf = r[5], coop = r[6];
+        var ls = r[0], cr = r[1], orc = r[2], pl = r[3], wk = r[4], pf = r[5], coop = r[6],
+            fu = r[7], dc = r[8];
         try { if (window.ST_LS && ls) { var _lsHas = ((ls.herds&&ls.herds.length)||(ls.camps&&ls.camps.length)||(ls.animals&&ls.animals.length)); var _lsLoc = ((ST_LS.herd&&ST_LS.herd.length)||(ST_LS.camps&&ST_LS.camps.length)); if (_lsHas || !_lsLoc) { ST_LS.camps = ls.camps || []; ST_LS.herd = ls.herds || []; if (ls.benchmarks) ST_LS.benchmarks = ls.benchmarks; ST_LS.moves = ls.moves || []; ST_LS.treatments = ls.treatments || []; ST_LS.animals = ls.animals || []; ST_LS.health = ls.health || []; ST_LS.breedings = ls.breedings || []; } } } catch (e) { console.error('livestock apply', e); }
         try { if (window.ST_CROP && cr) { var _crHas = ((cr.lands&&cr.lands.length)||(cr.events&&cr.events.length)||(cr.inputs&&cr.inputs.length)); var _crLoc = ((ST_CROP.lands&&ST_CROP.lands.length)||(ST_CROP.events&&ST_CROP.events.length)); if (_crHas || !_crLoc) { ST_CROP.lands = cr.lands || []; ST_CROP.events = cr.events || []; ST_CROP.inputs = cr.inputs || []; if (cr.season) ST_CROP.season = cr.season; if (cr.compliance) ST_CROP.compliance = cr.compliance; } } } catch (e) { console.error('crops apply', e); }
         try { if (window.ST_FRUIT && orc) { var _orcHas = (orc.blocks && orc.blocks.length); var _locHas = (ST_FRUIT.blocks && ST_FRUIT.blocks.length); if (_orcHas || !_locHas) { ST_FRUIT.blocks = orc.blocks || []; ST_FRUIT.pricing = orc.pricing || {}; ST_FRUIT.sprayDiary = orc.sprayDiary || {}; ST_FRUIT.harvest = orc.harvest || []; if (orc.comply) ST_FRUIT.comply = orc.comply; try{ if(window.orComplyEnsure) orComplyEnsure(); }catch(_){} if (orc.market) ST_FRUIT.market = orc.market; if (typeof window.orRebuildPhi === 'function') { try { window.orRebuildPhi(); } catch (_) {} } } } } catch (e) { console.error('orchard apply', e); }
@@ -610,7 +618,10 @@
            Note the != null tests: `false` is a real answer and must survive them. */
         try {
           if (window.ST && pf) {
-            Object.keys(pf).forEach(function (k) { if (pf[k] != null) ST[k] = pf[k]; });
+            /* Skip the underscore keys: those carry ST_CROP / ST_PLAN / ST_LOANAPP data and
+               are applied to their own objects below. Copying them here would park a second,
+               stale copy on ST and write it to localStorage on every save. */
+            Object.keys(pf).forEach(function (k) { if (k.charAt(0) !== '_' && pf[k] != null) ST[k] = pf[k]; });
             if (window.FARM) {
               if (pf.farmName   != null) FARM.name  = pf.farmName;
               if (pf.ownerName  != null) FARM.owner = pf.ownerName;
@@ -622,6 +633,22 @@
           }
         } catch (e) { console.error('profile apply', e); }
         try { if (window.ST && Array.isArray(coop)) ST.coopSettlements = coop; } catch (e) { console.error('coop apply', e); }
+        /* Same shape as every other module above: the server wins when it has rows, and
+           local is kept when it does not, so a farm that has never synced these is not
+           emptied by a load that legitimately returns nothing. */
+        try { if (window.ST_FUEL && Array.isArray(fu) && (fu.length || !(ST_FUEL.issues && ST_FUEL.issues.length))) ST_FUEL.issues = fu; } catch (e) { console.error('fuel apply', e); }
+        try { if (window.ST && Array.isArray(dc) && (dc.length || !(ST.docs && ST.docs.length))) ST.docs = dc; } catch (e) { console.error('documents apply', e); }
+        /* The settings that used to live only in localStorage. The scalars rode in on the
+           generic key-copy just above; these four belong to other objects, so they are
+           applied by hand. Underscore-prefixed on the profile object to keep them off ST. */
+        try {
+          if (pf) {
+            if (pf._loanApp    && window.ST_LOANAPP) Object.keys(pf._loanApp).forEach(function(k){ ST_LOANAPP[k]=pf._loanApp[k]; });
+            if (pf._cropPrices && window.ST_CROP)    ST_CROP.prices    = pf._cropPrices;
+            if (pf._cropTypes  && window.ST_CROP && pf._cropTypes.length) ST_CROP.cropTypes = pf._cropTypes;
+            if (pf._planHedge  && window.ST_PLAN)    ST_PLAN.hedge     = pf._planHedge;
+          }
+        } catch (e) { console.error('settings apply', e); }
         try { if (typeof window.saveState === 'function') window.saveState(); } catch (e) {}
       }).catch(function (e) { console.error('Relational hydrate failed:', e); });
     }).then(function () {

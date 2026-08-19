@@ -292,6 +292,11 @@
   let CAN_PAYRUN_META  = false;
   /* Asset disposals. Gated like every other late-added column: a database without the
      migration keeps working, and the disposal stays on the device instead of throwing. */
+  /* Farm settings that were saved to localStorage and sent nowhere: the confirmed bank
+     balance, the season start month, the budget target, and the four nested blobs
+     (lender-pack inputs, crop prices, farmer-added crop types, forward selling). Probed
+     on bank_balance; without the migration they stay on the device as before. */
+  let CAN_FARM_SETTINGS = false;
   let CAN_ASSET_DISPOSAL = false;
   /* "It's a running cost, stop asking." Its own column rather than reusing cat_confirmed:
      that answer is about the CATEGORY being right, this one is about the cost not being
@@ -321,6 +326,7 @@
     CAN_PAYRUN_META = await has('pay_runs','source');
     CAN_ASSET_DISPOSAL = await has('assets','disposal_date');
     CAN_TXN_CAPOK      = await has('transactions','cap_confirmed');
+    CAN_FARM_SETTINGS  = await has('farms','bank_balance');
   }
   function dbToApp(r) {
     return {
@@ -1564,10 +1570,20 @@
     if(r.paye_ref!=null) p.payeRef=r.paye_ref;
     if(r.stock_mark!=null) p.stockMark=r.stock_mark;
     if(r.stock_mark_type!=null) p.stockMarkType=r.stock_mark_type;
+    /* Device-sync settings. The scalars land on ST through the caller's generic
+       key-copy; the blobs are handed back under their own names because they belong to
+       ST_CROP, ST_PLAN and ST_LOANAPP rather than ST, and the caller applies those. */
+    if(r.bank_balance!=null)          p.bankBalance=Number(r.bank_balance);
+    if(r.season_start_month!=null)    p.seasonStartMonth=parseInt(r.season_start_month,10);
+    if(r.budget_expense_target!=null) p.budgetExpenseTarget=Number(r.budget_expense_target);
+    if(r.loan_app!=null)              p._loanApp=r.loan_app;
+    if(r.crop_prices!=null)           p._cropPrices=r.crop_prices;
+    if(r.crop_types!=null)            p._cropTypes=r.crop_types;
+    if(r.plan_hedge!=null)            p._planHedge=r.plan_hedge;
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select('name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
+    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -1606,10 +1622,26 @@
         cons.consent_version    = st.consent.policyVersion;
         cons.consent_accepted_at= st.consent.acceptedAt || new Date().toISOString();
       }
-      var snap=JSON.stringify({c:core,e:extra,k:cons}); if(snap===_profSnap) return;
+      /* The seven that used to live only in localStorage. Read from their own globals
+         rather than from st, because only the three scalars are on ST — crop prices,
+         crop types, forward selling and the lender-pack inputs belong to ST_CROP,
+         ST_PLAN and ST_LOANAPP. Own statement, own gate: a database without the
+         migration must not lose the farm name along with them. */
+      var sett={};
+      if(CAN_FARM_SETTINGS){
+        if(st.bankBalance!=null && st.bankBalance!=='')                 sett.bank_balance=Number(st.bankBalance);
+        if(st.seasonStartMonth!=null)                                   sett.season_start_month=parseInt(st.seasonStartMonth,10);
+        if(st.budgetExpenseTarget!=null && st.budgetExpenseTarget!=='') sett.budget_expense_target=Number(st.budgetExpenseTarget);
+        try{ var _la=global.ST_LOANAPP; if(_la && Object.keys(_la).length) sett.loan_app=_la; }catch(e){}
+        try{ var _cp=global.ST_CROP && global.ST_CROP.prices;    if(_cp && Object.keys(_cp).length) sett.crop_prices=_cp; }catch(e){}
+        try{ var _ct=global.ST_CROP && global.ST_CROP.cropTypes; if(_ct && _ct.length)              sett.crop_types=_ct; }catch(e){}
+        try{ var _ph=global.ST_PLAN && global.ST_PLAN.hedge;     if(_ph && Object.keys(_ph).length) sett.plan_hedge=_ph; }catch(e){}
+      }
+      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett}); if(snap===_profSnap) return;
       if(Object.keys(core).length){ const e=(await client().from('farms').update(core).eq('id',fid)).error; if(e) throw e; }
       var extraOk=true;
       if(Object.keys(extra).length){ const e=(await client().from('farms').update(extra).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: optional fields (VAT/tax/business-type) not saved \u2014 run the profile-schema migrations in Supabase. (' + (e.message||e) + ')'); } }
+      if(Object.keys(sett).length){ const e=(await client().from('farms').update(sett).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: device-sync settings not saved (migration missing?)', e && e.message); } }
       if(Object.keys(cons).length){ const e=(await client().from('farms').update(cons).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: POPIA consent not recorded \u2014 run the consent migration in Supabase. (' + (e.message||e) + ')'); } }
       if(extraOk) _profSnap=snap;
       return true;
