@@ -598,10 +598,11 @@
            device saw an empty fuel log and no removal certificates. The certificates are the
            worse half: those are statutory documents. */
         AI.load.fuel(fid).catch(function (e) { console.error('fuel load', e); return null; }),
-        AI.load.documents(fid).catch(function (e) { console.error('documents load', e); return null; })
+        AI.load.documents(fid).catch(function (e) { console.error('documents load', e); return null; }),
+        AI.load.rules(fid).catch(function (e) { console.error('rules load', e); return null; })
       ]).then(function (r) {
         var ls = r[0], cr = r[1], orc = r[2], pl = r[3], wk = r[4], pf = r[5], coop = r[6],
-            fu = r[7], dc = r[8];
+            fu = r[7], dc = r[8], rl = r[9];
         try { if (window.ST_LS && ls) { var _lsHas = ((ls.herds&&ls.herds.length)||(ls.camps&&ls.camps.length)||(ls.animals&&ls.animals.length)); var _lsLoc = ((ST_LS.herd&&ST_LS.herd.length)||(ST_LS.camps&&ST_LS.camps.length)); if (_lsHas || !_lsLoc) { ST_LS.camps = ls.camps || []; ST_LS.herd = ls.herds || []; if (ls.benchmarks) ST_LS.benchmarks = ls.benchmarks; ST_LS.moves = ls.moves || []; ST_LS.treatments = ls.treatments || []; ST_LS.animals = ls.animals || []; ST_LS.health = ls.health || []; ST_LS.breedings = ls.breedings || []; } } } catch (e) { console.error('livestock apply', e); }
         try { if (window.ST_CROP && cr) { var _crHas = ((cr.lands&&cr.lands.length)||(cr.events&&cr.events.length)||(cr.inputs&&cr.inputs.length)); var _crLoc = ((ST_CROP.lands&&ST_CROP.lands.length)||(ST_CROP.events&&ST_CROP.events.length)); if (_crHas || !_crLoc) { ST_CROP.lands = cr.lands || []; ST_CROP.events = cr.events || []; ST_CROP.inputs = cr.inputs || []; if (cr.season) ST_CROP.season = cr.season; if (cr.compliance) ST_CROP.compliance = cr.compliance; } } } catch (e) { console.error('crops apply', e); }
         try { if (window.ST_FRUIT && orc) { var _orcHas = (orc.blocks && orc.blocks.length); var _locHas = (ST_FRUIT.blocks && ST_FRUIT.blocks.length); if (_orcHas || !_locHas) { ST_FRUIT.blocks = orc.blocks || []; ST_FRUIT.pricing = orc.pricing || {}; ST_FRUIT.sprayDiary = orc.sprayDiary || {}; ST_FRUIT.harvest = orc.harvest || []; if (orc.comply) ST_FRUIT.comply = orc.comply; try{ if(window.orComplyEnsure) orComplyEnsure(); }catch(_){} if (orc.market) ST_FRUIT.market = orc.market; if (typeof window.orRebuildPhi === 'function') { try { window.orRebuildPhi(); } catch (_) {} } } } } catch (e) { console.error('orchard apply', e); }
@@ -649,6 +650,13 @@
             if (pf._planHedge  && window.ST_PLAN)    ST_PLAN.hedge     = pf._planHedge;
           }
         } catch (e) { console.error('settings apply', e); }
+        /* Filing rules. null means the table is not there, so the device keeps its own —
+           only an actual array replaces them. Repointed through CAT_MERGES afterwards so a
+           rule aimed at a renamed category still fires instead of silently doing nothing. */
+        try {
+          if (window.ST && Array.isArray(rl)) ST.catRules = rl;
+          if (typeof window.catRuleRepoint === 'function') window.catRuleRepoint();
+        } catch (e) { console.error('rules apply', e); }
         try { if (typeof window.saveState === 'function') window.saveState(); } catch (e) {}
       }).catch(function (e) { console.error('Relational hydrate failed:', e); });
     }).then(function () {

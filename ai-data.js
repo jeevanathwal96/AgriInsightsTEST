@@ -297,6 +297,10 @@
      (lender-pack inputs, crop prices, farmer-added crop types, forward selling). Probed
      on bank_balance; without the migration they stay on the device as before. */
   let CAN_FARM_SETTINGS = false;
+  /* Filing rules. Without the table they stay on the device, which is how the UK build
+     shipped them — defensible there because that project is not provisioned, and not
+     here, where a farmer moves between a laptop and a tablet. */
+  let CAN_CAT_RULES     = false;
   let CAN_ASSET_DISPOSAL = false;
   /* "It's a running cost, stop asking." Its own column rather than reusing cat_confirmed:
      that answer is about the CATEGORY being right, this one is about the cost not being
@@ -327,6 +331,7 @@
     CAN_ASSET_DISPOSAL = await has('assets','disposal_date');
     CAN_TXN_CAPOK      = await has('transactions','cap_confirmed');
     CAN_FARM_SETTINGS  = await has('farms','bank_balance');
+    CAN_CAT_RULES      = await has('category_rules','match_text');
   }
   function dbToApp(r) {
     return {
@@ -998,6 +1003,40 @@
     if(r.superseded_by) d.supersededBy=r.superseded_by;
     if(r.snapshot){ try{ d.snap=(typeof r.snapshot==='string')?JSON.parse(r.snapshot):r.snapshot; }catch(e){ d.snap={}; } }
     return d; }
+  /* Rules are rewritten whole on every change: there are a handful of them, order is
+     part of the data, and a diff would have to reconcile order anyway. sort_idx is
+     stamped from the array position rather than trusted from the row. */
+  function ruleToDb(r,fid,i){ return { farm_id:fid, local_id:String(r.id), match_text:String(r.match||''),
+      cat_name:String(r.cat||''), rule_type:r.type||null, sort_idx:i, created_on:r.made||null }; }
+  function ruleFromDb(r){ return { id:r.local_id, match:r.match_text||'', cat:r.cat_name||'',
+      type:r.rule_type||'', made:r.created_on||'' }; }
+  load.rules = async function(farmId){
+    farmId=farmId||farm.active();
+    if(!CAN_CAT_RULES) return null;                 // no table: caller keeps what is on the device
+    const r=await selectAll(() => client().from('category_rules').select('*').eq('farm_id',farmId).order('sort_idx'));
+    if(r.error) throw r.error;
+    return (r.data||[]).map(ruleFromDb);
+  };
+  var _ruleSnap=null;
+  const rules = {
+    async saveAll(list){
+      list=list||[]; const fid=farm.active(); if(!fid || !CAN_CAT_RULES) return;
+      const snap=JSON.stringify(list); if(snap===_ruleSnap) return;
+      if(list.length){
+        const e=(await client().from('category_rules')
+          .upsert(list.map(function(r,i){ return ruleToDb(r,fid,i); }),{onConflict:'farm_id,local_id'})).error;
+        if(e) throw e;
+      }
+      /* Deletes: a rule removed on this device has to disappear on the others, so drop
+         anything on the server whose local_id is no longer in the list. */
+      const keep=list.map(function(r){ return String(r.id); });
+      let del = client().from('category_rules').delete().eq('farm_id',fid);
+      if(keep.length) del = del.not('local_id','in','('+keep.map(function(k){ return '"'+k.replace(/"/g,'')+'"'; }).join(',')+')');
+      const e2=(await del).error; if(e2) throw e2;
+      _ruleSnap=snap;
+      return true;
+    }
+  };
   load.documents = async function(farmId){
     farmId=farmId||farm.active();
     const r=await selectAll(() => client().from('farm_documents').select('*').eq('farm_id',farmId).order('issued_at',{ascending:false}));
@@ -1720,6 +1759,7 @@
                 documents: documents, fuel: fuel,
                 storage: storage,
                 importBatch: importBatch,
+                rules,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
 })(window);
