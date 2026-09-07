@@ -6177,7 +6177,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 .rn-strip.info{background:var(--rnp);border:1px solid var(--rnb);color:var(--rnd)}
 .rn-strip.warn{background:var(--op,#FFF3E8);border:1px solid #F3D2B8;color:#8A4412}
 .rn-strip b{font-weight:800}
-.rn-strip .lnk{background:none;border:0;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;color:inherit;text-decoration:underline;white-space:nowrap;padding:0}
+.rn-strip .lnk{background:none;border:0;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;color:inherit;text-decoration:underline;white-space:nowrap;padding:0;margin-left:8px}
 
 .rn-tiles{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:14px;margin-bottom:16px}
 .rn-tile{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:15px 17px;box-shadow:var(--sh);display:flex;flex-direction:column;justify-content:space-between;min-height:132px;position:relative;overflow:hidden}
@@ -68848,6 +68848,14 @@ var RN_NORM_FROM    = 1991, RN_NORM_TO = 2020;
    Niño Index, December–February at or above +0.5. */
 var RN_ENSO_YEARS = [1991, 1994, 1997, 2002, 2004, 2006, 2009, 2014, 2015, 2018, 2019, 2023];
 
+/* The normals, the band and the El Nino summers are worked out once and kept.
+   That means a farm that already has them never sees a correction to how they
+   are derived — the missing 2019 summer would have gone on reading "Across 11
+   of them" on every established farm for up to the 120 days until the next
+   refresh. Bump this whenever the derivation changes and rnSync refetches.
+     1 -> 2 : 2019/20 added to RN_ENSO_YEARS (NOAA ONI DJF +0.71). */
+var RN_NORM_VERSION = 2;
+
 function rnFetchJson(url, ms){
   return new Promise(function(resolve, reject){
     var done = false, ctl = null;
@@ -68951,6 +68959,7 @@ function rnDeriveNormals(days, vals){
   var keepOverride = ST_RAIN.normal && ST_RAIN.normal.override;
   ST_RAIN.normal = {
     src: 'Satellite rainfall at your farm, ' + RN_NORM_FROM + '–' + RN_NORM_TO,   /* stored in English; rnNormalSrc() translates it for display */
+    v: RN_NORM_VERSION,
     monthly: monthly.map(function(v){ return Math.round(v*10)/10; }),
     band: { forYearStart: rnYearStart(), lo: lo, hi: hi },
     enso: enso,
@@ -69040,6 +69049,7 @@ function rnSync(force){
   if (RN_SYNCING || !rnHas()) return Promise.resolve(false);
   var today = rnISO(rnToday()), s = ST_RAIN.sat || {};
   var needHist = force || !ST_RAIN.normal || !ST_RAIN.normal.monthly ||
+                 ST_RAIN.normal.v !== RN_NORM_VERSION ||
                  (ST_RAIN.normal.band && ST_RAIN.normal.band.forYearStart !== rnYearStart()) ||
                  !s.histFetched || rnDaysBetween(s.histFetched, today) > 120;
   var needRecent = force || s.fetched !== today;
@@ -69234,18 +69244,37 @@ function rnEnsoLine(){
   var n = ST_RAIN.normal;
   if (!n || !n.enso || n.enso.length < 3) return null;
   var pcts = n.enso.map(function(e){ return e.pct; }).slice().sort(function(a,b){ return a-b; });
-  var med = pcts[Math.floor(pcts.length/2)], low = pcts[0];
-  var last3 = n.enso.slice(-3);
-  var shown = last3.map(function(e){ return Math.round(e.pct) + '&nbsp;%'; }).join(' &middot; ');
+  /* An even number of summers has two middle values — take both, or the figure
+     jumps when a new El Nino is added. With 12 summers the old line reported the
+     7th value (88 %) as typical when the middle pair average 86 %. */
+  var _m = pcts.length >> 1;
+  var med = (pcts.length % 2) ? pcts[_m] : (pcts[_m-1] + pcts[_m]) / 2;
+  var low = pcts[0];
+  /* In millimetres off a normal year, not percentages of one. Taken from the
+     percentage against the normal on screen, so a farmer who typed their own
+     long-term figure gets shortfalls measured against theirs. */
+  var na = rnNormalAnnual();
+  function short10(p){ return (na ? Math.round((na * (1 - p/100)) / 10) * 10 : null); }
+  var dMed = short10(med), dLow = short10(low);
   var head;
   if (med < 85)      head = '<b>' + rnT('El Ni&ntilde;o summers are usually dry here.', 'El Ni&ntilde;o-somers is gewoonlik droog hier.') + '</b>';
-  else if (med < 95) head = '<b>' + rnT('El Ni&ntilde;o summers run a little below normal here.', 'El Ni&ntilde;o-somers is hier \'n bietjie onder normaal.') + '</b>';
-  else               head = '<b>' + rnT('El Ni&ntilde;o summers have not been unusually dry here.', 'El Ni&ntilde;o-somers was nie hier ongewoon droog nie.') + '</b>';
-  return head + rnT(' Across ', ' Oor ') + n.enso.length + rnT(' of them this farm had a median of <b>', ' van hulle het hierdie plaas \'n mediaan van <b>') + Math.round(med) +
-         '&nbsp;%</b>' + rnT(' of its normal rain, and as little as ', ' van sy normale reën gehad, en so min as ') + Math.round(low) + '&nbsp;%. ' +
-         rnT('Its last three: ', 'Sy laaste drie: ') + shown + '. ' +
-         '<span style="opacity:.75">' + rnT('El Ni&ntilde;o years from NOAA; rainfall from your farm&rsquo;s own record.',
-             'El Ni&ntilde;o-jare van NOAA; reënval uit jou plaas se eie rekord.') + '</span>';
+  else if (med < 95) head = '<b>' + rnT('El Ni&ntilde;o summers are a bit drier than normal here.', 'El Ni&ntilde;o-somers is hier \'n bietjie droër as normaal.') + '</b>';
+  else               head = '<b>' + rnT('El Ni&ntilde;o summers have not been dry here.', 'El Ni&ntilde;o-somers was nie hier droog nie.') + '</b>';
+  var body;
+  if (dMed == null || dLow == null){
+    body = '';
+  } else if (dMed > 0){
+    body = ' ' + rnT('A typical one leaves you about ', '\'n Tipiese een laat jou omtrent ') + '<b>' + dMed +
+           rnT(' mm short', ' mm kort') + '</b>' + rnT(' of a normal year, and the driest left you ', ' van \'n normale jaar, en die droogste het jou ') +
+           '<b>' + dLow + rnT(' mm short', ' mm kort') + '</b>.';
+  } else {
+    body = ' ' + rnT('A typical one has been about normal, but the driest still left you ',
+                     '\'n Tipiese een was omtrent normaal, maar die droogste het jou steeds ') +
+           '<b>' + dLow + rnT(' mm short', ' mm kort') + '</b>.';
+  }
+  return head + body + ' <span style="opacity:.75">' +
+         rnT('From ', 'Uit ') + n.enso.length + rnT(' El Ni&ntilde;o summers since 1991, measured on your own farm. Years from NOAA.',
+             ' El Ni&ntilde;o-somers sedert 1991, op jou eie plaas gemeet. Jare van NOAA.') + '</span>';
 }
 
 function rnRenderTiles(){
