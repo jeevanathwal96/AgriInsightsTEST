@@ -68362,6 +68362,14 @@ function rnNormalSrc(){
 }
 function rnT(en, af){ return rnAf() ? af : en; }
 function rnMon(i){ return (rnAf() ? RN_MON_AF : RN_MON)[i]; }
+/* The town search stores "Komani, Eastern Cape" as the town AND "Eastern Cape"
+   as the province, so anything printing both repeated it. */
+function rnTownHasProv(loc){
+  try {
+    if (!loc || !loc.town || !loc.prov) return false;
+    return loc.town.toLowerCase().indexOf(loc.prov.toLowerCase()) >= 0;
+  } catch(e){ return false; }
+}
 function rnPl(n, one, many){ return n === 1 ? one : many; }
 function rnFmtDate(s){ var d = rnParse(s); return d.getDate() + ' ' + rnMon(d.getMonth()) + ' ' + d.getFullYear(); }
 function rnDow(s){ return (rnAf() ? RN_DOW_AF : RN_DOW_EN)[rnParse(s).getDay()]; }
@@ -69514,7 +69522,7 @@ function rnRenderChart(){
   var s = rnCumSeries(), mine = rnYourReadings(), hasNormal = !!rnNormalMonthly();
   if (sub) sub.textContent = mine
     ? rnT('Rain adding up through the year', 'Reën wat deur die jaar optel') +
-      (hasNormal ? rnT(' · the shaded band is where most years fall', ' · die skakeerde band is waar die meeste jare val') : '')
+      (hasNormal ? rnT(' · the shaded band is where most years fall', ' · die blou band is waar die meeste jare val') : '')
     : rnT('Satellite rainfall for your farm until your own readings take over',
           'Satellietreënval vir jou plaas totdat jou eie lesings oorneem');
 
@@ -69962,7 +69970,8 @@ function rnReportHTML(){
   return '' +
   '<div class="doc">' +
   '<div class="hd"><div><div class="k">' + rnT('Rainfall record', 'Reënvalrekord') + '</div><h1>' + esc(farm) + '</h1>' +
-    '<div class="m">' + esc(owner) + (loc.town ? ' &middot; ' + esc(loc.town) : '') + (loc.prov ? ', ' + esc(loc.prov) : '') +
+    '<div class="m">' + esc(owner) + (loc.town ? ' &middot; ' + esc(loc.town) : '') +
+    ((loc.prov && !rnTownHasProv(loc)) ? ', ' + esc(loc.prov) : '') +
     (ST && ST.farmHa ? ' &middot; ' + ST.farmHa + ' ha' : '') +
     (loc.lat != null ? ' &middot; ' + Math.abs(loc.lat).toFixed(2) + '&deg; ' + (loc.lat < 0 ? 'S' : 'N') + ' ' + Math.abs(loc.lon).toFixed(2) + '&deg; ' + (loc.lon < 0 ? 'W' : 'E') : '') +
     '</div></div>' +
