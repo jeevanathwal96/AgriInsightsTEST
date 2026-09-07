@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=31"></script>
-<script src="ai-auth.js?v=31"></script>
+<script src="ai-data.js?v=32"></script>
+<script src="ai-auth.js?v=32"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -6162,6 +6162,140 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 .or-mktchip.on{border-color:var(--gm);background:#E8F1EC;color:var(--gd)}
 .or-mktchip .bx{width:15px;height:15px;border-radius:4px;border:1.5px solid #C7CDD3;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff}
 .or-mktchip.on .bx{background:var(--gm);border-color:var(--gm)}
+/* ══ RAINFALL-T0-CSS-BEGIN ══ */
+/* ── Rainfall ─────────────────────────────────────────────────────────────
+   Rain gets one reserved colour across the whole app: a single blue that
+   means "this is a rainfall fact".  Nothing else uses it. */
+:root{ --rn:#2F6FAB; --rnl:#5B93C9; --rnp:#E8F1FA; --rnb:#CFE1F3; --rnd:#1E4E7C; }
+
+.rn-chip{display:inline-flex;gap:6px;align-items:center;margin-top:8px;font-size:10px;font-weight:700;color:var(--rnd);background:var(--rnp);border:1px solid var(--rnb);padding:3px 9px;border-radius:6px;letter-spacing:.04em}
+.rn-btn{background:var(--rn);color:#fff;border:0;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;white-space:nowrap}
+.rn-btn:hover{background:var(--rnd)}
+.rn-strip{display:flex;align-items:flex-start;gap:11px;padding:11px 15px;border-radius:11px;font-size:12.5px;line-height:1.5;margin-bottom:14px}
+.rn-strip .ic{font-size:15px;line-height:1.2;flex:0 0 auto}
+.rn-strip .gr{flex:1;min-width:0}
+.rn-strip.info{background:var(--rnp);border:1px solid var(--rnb);color:var(--rnd)}
+.rn-strip.warn{background:var(--op,#FFF3E8);border:1px solid #F3D2B8;color:#8A4412}
+.rn-strip b{font-weight:800}
+.rn-strip .lnk{background:none;border:0;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;color:inherit;text-decoration:underline;white-space:nowrap;padding:0}
+
+.rn-tiles{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:14px;margin-bottom:16px}
+.rn-tile{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:15px 17px;box-shadow:var(--sh);display:flex;flex-direction:column;justify-content:center}
+.rn-tile .l{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)}
+.rn-tile .v{font-size:23px;font-weight:800;letter-spacing:-.01em;color:var(--t1);font-variant-numeric:tabular-nums;line-height:1.15;margin-top:4px}
+.rn-tile .v small{font-size:12px;font-weight:700;color:var(--t3);margin-left:5px}
+.rn-tile .c{font-size:11px;color:var(--t3);margin-top:4px;line-height:1.45}
+.rn-tile.hero{background:linear-gradient(140deg,#1E4E7C,#102E4C);border-color:transparent}
+.rn-tile.hero .l{color:#9CC0E4}
+.rn-tile.hero .v{color:#fff;font-size:27px}
+.rn-tile.hero .v small{color:#BFD7EE}
+.rn-tile.hero .c{color:#BFD7EE}
+
+.rn-two{display:grid;grid-template-columns:1.55fr 1fr;gap:14px;margin-bottom:14px;align-items:start}
+.rn-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.rn-chartcard{display:flex;flex-direction:column}
+.rn-chartcard .rn-chartwrap{flex:1 1 auto;min-height:215px}
+.rn-card{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:17px;box-shadow:var(--sh)}
+.rn-card .hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px}
+.rn-card h3{font-size:14px;font-weight:800;margin:0;color:var(--t1)}
+.rn-card .sub{font-size:11.5px;color:var(--t3);margin-top:3px;line-height:1.45}
+.rn-foot{font-size:10.5px;color:var(--t3);margin-top:11px;line-height:1.5}
+.rn-foot b{color:var(--gd);cursor:pointer}
+
+.rn-chartwrap{position:relative;height:210px}
+.rn-legend{display:flex;gap:15px;flex-wrap:wrap;font-size:11px;color:var(--t2);margin-top:9px}
+.rn-legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.rn-legend .ln{display:inline-block;width:17px;height:0;border-top:2px solid;vertical-align:4px;margin-right:5px}
+.rn-legend .ln.dash{border-top-style:dashed}
+
+.rn-ins{display:flex;flex-direction:column;margin-top:11px;border-top:1px solid var(--br2)}
+.rn-ins .r{display:flex;gap:10px;align-items:flex-start;padding:9px 0;font-size:12px;color:var(--t2);line-height:1.5}
+.rn-ins .r + .r{border-top:1px solid var(--br2)}
+.rn-ins .dot{width:8px;height:8px;border-radius:50%;background:var(--rn);flex:0 0 auto;margin-top:5px}
+.rn-ins b{color:var(--t1)}
+
+table.rn-t{width:100%;border-collapse:collapse;font-size:12px}
+table.rn-t th{text-align:left;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3);padding:6px 7px;border-bottom:1px solid var(--br)}
+table.rn-t td{padding:6px 7px;border-bottom:1px solid var(--br2);vertical-align:middle}
+table.rn-t td.r,table.rn-t th.r{text-align:right;font-variant-numeric:tabular-nums}
+table.rn-t tr:last-child td{border-bottom:0}
+table.rn-t tr.tot td{border-top:1px solid var(--br);font-weight:800;padding-top:8px}
+table.rn-t td.dim{color:var(--t4)}
+
+.rn-book .d{display:grid;grid-template-columns:96px 1fr 66px 62px;gap:9px;align-items:center;padding:8px 4px;border-top:1px solid var(--br2);font-size:12px}
+.rn-book .d:first-child{border-top:0}
+.rn-book .bar{height:8px;border-radius:99px;background:var(--br2);overflow:hidden}
+.rn-book .bar i{display:block;height:100%;border-radius:99px;background:var(--rnl)}
+.rn-book .mm{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
+.rn-book .mm.sat{font-weight:600;color:var(--t3)}
+.rn-book .who{font-size:10.5px;color:var(--t3);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rn-book .note{font-size:10.5px;color:var(--t4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.rn-gauges{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.rn-g{border:1px solid var(--br);border-radius:12px;padding:11px 13px;background:#fff}
+.rn-g.sat{border-style:dashed}
+.rn-g .n{font-size:12px;font-weight:800;color:var(--t1)}
+.rn-g .w{font-size:10.5px;color:var(--t3);margin-top:1px}
+.rn-g .v{font-size:18px;font-weight:800;margin-top:5px;font-variant-numeric:tabular-nums}
+.rn-g .v small{font-size:10px;color:var(--t3);font-weight:700;margin-left:3px}
+.rn-g.sat .n,.rn-g.sat .v{color:var(--t3)}
+
+.rn-empty{border:1.5px dashed var(--br);border-radius:12px;padding:22px 18px;text-align:center;color:var(--t3);font-size:12px;line-height:1.6}
+.rn-empty b{display:block;color:var(--t1);font-size:13.5px;margin-bottom:5px}
+
+.rn-pill{display:inline-block;font-size:9.5px;font-weight:800;padding:1px 6px;border-radius:5px;background:var(--br2);color:var(--t3);letter-spacing:.03em;vertical-align:1px}
+.rn-pill.b{background:var(--rnp);color:var(--rnd)}
+
+/* Log rain sheet — reuses the app's modal scrim. */
+.rn-modal{position:fixed;inset:0;z-index:4200;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(15,30,22,.45)}
+.rn-modal.on{display:flex}
+.rn-sheet{background:#fff;border-radius:18px;width:100%;max-width:520px;max-height:88vh;overflow:auto;box-shadow:0 24px 64px rgba(0,0,0,.32)}
+.rn-sheet .sh{padding:17px 21px 13px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.rn-sheet .sh h3{font-size:16px;font-weight:800;margin:0}
+.rn-sheet .sh .sub{font-size:12px;color:var(--t3);margin-top:3px}
+.rn-sheet .sb{padding:17px 21px}
+.rn-sheet .sf{padding:13px 21px 17px;border-top:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;gap:11px;flex-wrap:wrap}
+.rn-x{background:none;border:0;font-size:21px;color:var(--t4);cursor:pointer;line-height:1;padding:0 3px}
+.rn-f{display:flex;flex-direction:column;gap:5px;margin-bottom:13px}
+.rn-f label{font-size:11.5px;font-weight:700;color:var(--t2)}
+.rn-f .hint{font-size:10.5px;color:var(--t3)}
+.rn-f input,.rn-f select{height:36px;border:1px solid var(--br);border-radius:8px;background:#fff;padding:0 11px;font-size:13px;font-family:inherit;color:var(--t1);width:100%}
+.rn-f input:focus,.rn-f select:focus{outline:none;border-color:var(--rn);box-shadow:0 0 0 3px var(--rnp)}
+.rn-mmrow{display:grid;grid-template-columns:1fr 128px;gap:11px;align-items:center;padding:9px 0;border-top:1px solid var(--br2)}
+.rn-mmrow:first-of-type{border-top:0}
+.rn-mmrow .gn{font-size:13px;font-weight:700;color:var(--t1)}
+.rn-mmrow .gw{font-size:10.5px;color:var(--t3)}
+.rn-mmrow .inwrap{display:flex;align-items:center;gap:7px}
+.rn-mmrow input{height:42px;font-size:17px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+.rn-mmrow .u{font-size:12px;font-weight:700;color:var(--t3)}
+.rn-big input{height:52px;font-size:23px}
+
+@media (max-width:1100px){ .rn-tiles{grid-template-columns:1fr 1fr} .rn-two{grid-template-columns:1fr} }
+@media (max-width:760px){ .rn-tiles{grid-template-columns:1fr} .rn-gauges{grid-template-columns:1fr} }
+
+/* Settings */
+.rn-opts{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.rn-opt{display:flex;gap:10px;align-items:flex-start;text-align:left;padding:11px 13px;border:1px solid var(--br);border-radius:11px;background:#fff;font-family:inherit;cursor:pointer;width:100%}
+.rn-opt.on{border-color:var(--rn);background:var(--rnp)}
+.rn-opt .dot{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--t4);flex:0 0 auto;margin-top:1px}
+.rn-opt.on .dot{border:4.5px solid var(--rn)}
+.rn-opt b{display:block;font-size:12.5px;color:var(--t1)}
+.rn-opt small{display:block;font-size:11px;color:var(--t3);margin-top:2px;line-height:1.45}
+.rn-loc{display:flex;justify-content:space-between;align-items:center;gap:11px;border:1px solid var(--br);border-radius:9px;padding:9px 12px;font-size:12.5px;background:#fff}
+.rn-hits{display:flex;flex-direction:column;gap:5px;margin-top:7px}
+.rn-hit{display:flex;justify-content:space-between;gap:11px;align-items:center;text-align:left;border:1px solid var(--br);border-radius:8px;padding:8px 11px;background:#fff;font-family:inherit;font-size:12.5px;cursor:pointer;color:var(--t1)}
+.rn-hit:hover{border-color:var(--rn);background:var(--rnp)}
+.rn-hit span{font-size:10.5px;color:var(--t3);white-space:nowrap}
+.rn-toggle{display:flex;gap:10px;align-items:flex-start;margin-top:15px;font-size:12.5px;cursor:pointer}
+.rn-toggle input{margin-top:2px;flex:0 0 auto}
+.rn-toggle b{display:block;color:var(--t1)}
+.rn-toggle small{display:block;font-size:11px;color:var(--t3);margin-top:2px;line-height:1.45}
+.rn-adv{margin-top:15px;border-top:1px solid var(--br2);padding-top:11px}
+.rn-adv summary{font-size:12px;font-weight:700;color:var(--t3);cursor:pointer}
+.rn-gi{height:30px;border:1px solid var(--br);border-radius:7px;padding:0 8px;font-family:inherit;width:100%}
+@media (max-width:700px){ .rn-opts{grid-template-columns:1fr} }
+
+/* ══ RAINFALL-T0-CSS-END ══ */
 </style>
 
 </head>
@@ -6542,6 +6676,7 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     <div class="nav-sep"></div>
     <div class="nav-group-lbl" data-t="nav.group.farm">My Farm</div>
     <div class="nav-item" id="nav-planning" onclick="nav('planning')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span data-t="nav.planning">Planning</span></div>
+    <div class="nav-item" id="nav-rainfall" onclick="nav('rainfall')"><svg viewBox="0 0 24 24"><path d="M17.5 18a4.5 4.5 0 000-9 6 6 0 00-11.6 1.6A3.7 3.7 0 006.5 18"/><line x1="8.5" y1="20.5" x2="7.5" y2="22.5"/><line x1="12.5" y1="20.5" x2="11.5" y2="22.5"/><line x1="16.5" y1="20.5" x2="15.5" y2="22.5"/></svg><span data-t="nav.rainfall">Rainfall</span></div>
     <div class="nav-item" id="nav-crop" onclick="nav('crop')"><svg viewBox="0 0 24 24"><path d="M12 2v20"/><path d="M12 8c0-3 2-5 5-5 0 3-2 5-5 5z"/><path d="M12 11c0-3-2-5-5-5 0 3 2 5 5 5z"/><path d="M12 14c0-3 2-5 5-5 0 3-2 5-5 5z"/></svg><span data-t="nav.crop">Crops</span></div>
     <div class="nav-item" id="nav-orchards" onclick="nav('orchards')"><svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="7.5"/><path d="M12 6.5V14M5 11.5h14"/><path d="M12 6.5c.4-2.2 2.2-3.5 4.2-3.5-.2 2.1-1.8 3.4-3.6 3.6"/></svg><span data-t="nav.orchards">Orchards, Fruit &amp; Veg</span></div>
     <div class="nav-item" id="nav-livestock" onclick="nav('livestock')"><svg viewBox="0 0 24 24"><ellipse cx="13" cy="9.8" rx="6.2" ry="3.5"/><ellipse cx="5.3" cy="9" rx="2.8" ry="2.4"/><ellipse cx="3.1" cy="10.7" rx="1.5" ry="1.1"/><path d="M3.9 6.7C3.6 5.7 3.9 4.9 4.7 4.8"/><path d="M6.8 6.9C7.1 5.9 7.8 5.6 8.5 5.9"/><path d="M8.6 13.1V19M10.8 13.3V19M16 13.3V19M18.2 12.8V19"/><path d="M19.1 7.7C20.7 8.2 21.2 10.5 20 12.4"/></svg><span data-t="nav.livestock">Livestock</span></div>
@@ -7584,6 +7719,17 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
         <button onclick="openStatement('tax')" style="flex:1;background:#7C3AED;border:none;border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:#fff;cursor:pointer">Print</button>
       </div>
     </div>
+<!-- ══ RAINFALL-T0-RPT-BEGIN ══ -->
+    <div class="stmt" id="rn-stmt-card" style="display:none">
+      <div class="stmt-icon" style="background:#E8F1FA;color:#1E4E7C"><svg viewBox="0 0 24 24"><path d="M17.5 18a4.5 4.5 0 000-9 6 6 0 00-11.6 1.6A3.7 3.7 0 006.5 18"/><line x1="8.5" y1="20.5" x2="7.5" y2="22.5"/><line x1="12.5" y1="20.5" x2="11.5" y2="22.5"/><line x1="16.5" y1="20.5" x2="15.5" y2="22.5"/></svg></div>
+      <div class="stmt-title">Rainfall record</div>
+      <div class="stmt-desc">Your rain year by month and by gauge, against the long-term &mdash; for an insurer, the bank or a drought-relief application.</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+        <button onclick="rnReportCsv()" style="flex:1;background:#E8F1FA;border:1px solid #CFE1F3;border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:#1E4E7C;cursor:pointer">CSV</button>
+        <button onclick="rnReportOpen()" style="flex:1;background:#2F6FAB;border:none;border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:#fff;cursor:pointer">Print</button>
+      </div>
+    </div>
+<!-- ══ RAINFALL-T0-RPT-END ══ -->
   </div>
 
   <!-- ACCOUNTANT PACK (collapsible — sits under Your Statements) -->
@@ -9523,6 +9669,91 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
     </div>
   </div>
 
+<!-- ══ RAINFALL-T0-HTML-BEGIN ══ -->
+<!-- ===== RAINFALL ===== -->
+<div class="pg" id="pg-rainfall">
+  <div class="page-hdr">
+    <div>
+      <div class="page-title" data-t="rn.title">Rainfall</div>
+      <div class="page-sub" data-t="rn.sub">Your rain book, this season against the long-term, and what it means for the plan.</div>
+      <div id="rn-yearchip"></div>
+    </div>
+    <div class="row" id="rn-hd-actions" style="display:flex;gap:9px;align-items:center;flex-wrap:wrap"></div>
+  </div>
+
+  <div id="rn-strips"></div>
+  <div class="rn-tiles" id="rn-tiles"></div>
+
+  <div class="rn-two">
+    <div class="rn-col">
+      <div class="rn-card rn-chartcard">
+        <div class="hd">
+          <div>
+            <h3 id="rn-chart-h">This rain year against the long-term</h3>
+            <div class="sub" id="rn-chart-sub">Rain adding up through the year</div>
+          </div>
+          <div class="pills" id="rn-chart-views"></div>
+        </div>
+        <div class="rn-chartwrap"><canvas id="rn-chart"></canvas></div>
+        <div class="rn-legend" id="rn-chart-legend"></div>
+        <div class="rn-ins" id="rn-insights"></div>
+      </div>
+      <div class="rn-card">
+        <div class="hd"><div><h3>Rain book</h3><div class="sub" id="rn-book-sub"></div></div><div id="rn-book-filter"></div></div>
+        <div id="rn-book"></div>
+      </div>
+    </div>
+    <div class="rn-col">
+      <div class="rn-card">
+        <div class="hd"><div><h3>By month</h3><div class="sub">This year &middot; normal &middot; rain days</div></div></div>
+        <div id="rn-month"></div>
+      </div>
+      <div class="rn-card">
+        <div class="hd"><div><h3 id="rn-gauges-h">Gauges</h3><div class="sub" id="rn-gauges-sub">This rain year</div></div><div id="rn-gauges-act"></div></div>
+        <div id="rn-gauges"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Log rain -->
+<div class="rn-modal" id="rn-log-modal" onclick="if(event.target===this)rnLogClose()">
+  <div class="rn-sheet" role="dialog" aria-modal="true" aria-labelledby="rn-log-h">
+    <div class="sh">
+      <div><h3 id="rn-log-h">Log rain</h3><div class="sub">Type what the gauge shows. That's it.</div></div>
+      <button class="rn-x" onclick="rnLogClose()" aria-label="Close">&times;</button>
+    </div>
+    <div class="sb" id="rn-log-body"></div>
+    <div class="sf">
+      <span style="font-size:10.5px;color:var(--t3)" id="rn-log-note">Works offline &middot; days you don't log fill in by themselves</span>
+      <span style="display:flex;gap:9px">
+        <button class="btn-sec" onclick="rnLogClose()">Cancel</button>
+        <button class="rn-btn" onclick="rnLogSave()">Save rain</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- Bring in an old rain book -->
+<div class="rn-modal" id="rn-imp-modal" onclick="if(event.target===this)rnImportClose()">
+  <div class="rn-sheet" role="dialog" aria-modal="true" aria-labelledby="rn-imp-h">
+    <div class="sh">
+      <div><h3 id="rn-imp-h">Bring in your old rain book</h3><div class="sub">A date and the millimetres is enough.</div></div>
+      <button class="rn-x" onclick="rnImportClose()" aria-label="Close">&times;</button>
+    </div>
+    <div class="sb" id="rn-imp-body"></div>
+    <div class="sf">
+      <span style="font-size:10.5px;color:var(--t3)">Nothing already in your book is changed.</span>
+      <span style="display:flex;gap:9px">
+        <button class="btn-sec" onclick="rnImportClose()">Cancel</button>
+        <button class="rn-btn" id="rn-imp-go" style="display:none" onclick="rnImportCommit()">Bring them in</button>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ RAINFALL-T0-HTML-END ══ -->
+
 <!-- ===== SETTINGS ===== -->
 <div class="pg" id="pg-settings">
   <div class="page-hdr">
@@ -9625,6 +9856,16 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
       </div>
       </div>
     </div>
+
+<!-- ══ RAINFALL-T0-SET-BEGIN ══ -->
+    <div class="set-sec">Rainfall</div>
+    <div class="set-row" id="set-sec-rain">
+      <div class="set-card" style="flex:1">
+        <div class="set-h"><span class="ic">&#128167;</span>Rainfall</div>
+        <div id="rn-set-body"></div>
+      </div>
+    </div>
+<!-- ══ RAINFALL-T0-SET-END ══ -->
 
     <div class="set-sec" data-t="set.sec.rules">Filing rules</div>
     <div class="set-row">
@@ -10239,6 +10480,7 @@ function saveState() {
       ST_FRUIT: (typeof ST_FRUIT !== 'undefined') ? ST_FRUIT : null,
       ST_PLAN: (typeof ST_PLAN !== 'undefined') ? ST_PLAN : null,
       ST_FUEL: (typeof ST_FUEL !== 'undefined') ? ST_FUEL : null,
+      ST_RAIN: (typeof ST_RAIN !== 'undefined') ? ST_RAIN : null,
       FARM: (typeof FARM !== 'undefined') ? FARM : null,
       RPT_STATE: (typeof RPT_STATE !== 'undefined') ? RPT_STATE : null
     };
@@ -10362,6 +10604,9 @@ function loadState() {
     if (snap.ST_CROP && typeof ST_CROP !== 'undefined') {
       for (var kc in snap.ST_CROP) { if (Object.prototype.hasOwnProperty.call(snap.ST_CROP,kc)) ST_CROP[kc] = snap.ST_CROP[kc]; }
       for (var kf in snap.ST_FUEL) { if (Object.prototype.hasOwnProperty.call(snap.ST_FUEL,kf)) ST_FUEL[kf] = snap.ST_FUEL[kf]; }
+    }
+    if (snap.ST_RAIN && typeof ST_RAIN !== 'undefined') {
+      for (var kr in snap.ST_RAIN) { if (Object.prototype.hasOwnProperty.call(snap.ST_RAIN,kr)) ST_RAIN[kr] = snap.ST_RAIN[kr]; }
     }
     if (snap.ST_FRUIT && typeof ST_FRUIT !== 'undefined') {
       for (var kf in snap.ST_FRUIT) { if (Object.prototype.hasOwnProperty.call(snap.ST_FRUIT,kf)) ST_FRUIT[kf] = snap.ST_FRUIT[kf]; }
@@ -18902,10 +19147,12 @@ function nav(id) {
     if (id === 'dashboard')   { renderRecentIncome(); updateDashboardFigures(); try { initDashChart(); } catch (e) { /* Chart.js may have failed to load; non-chart UI still renders */ } }
     if (id === 'income')      { try { lazyInitCharts('income'); } catch (e) {} renderTable('income'); renderTargetBar(); updateIncPage(); }
     if (id === 'assets')      { renderAssets(); }
+    if (id === 'rainfall')    { if (typeof renderRainfall === 'function') renderRainfall(); }
     if (id === 'workers')     { renderWorkers(); }
     if (id === 'add-worker')  { wkFormReset(); }
     if (id === 'budgets')     { renderBudgetsPage(); }
     if (id === 'reports')     { updateRptDisplay(); }
+    try{ if (typeof rnReportCardSync === 'function') rnReportCardSync(); }catch(e){}
     if (id === 'livestock')   { lsTab('camps'); renderHealthMed(); }
     if (id === 'profit')      { renderProfit(); }
     if (id === 'loans')       { renderLoans(); }
@@ -18925,6 +19172,7 @@ function nav(id) {
     if (id === 'transactions'){ if(typeof txRefreshDeletedChip==='function') txRefreshDeletedChip(); }
   if (id === 'settings')    {
     try{ renderRulesList(); }catch(e){}
+    try{ if (typeof rnSettingsRender === 'function') rnSettingsRender(); }catch(e){}
     var sf=$('set-farm');   if(sf) sf.value = ST.farmName   || '';
     var so=$('set-owner');  if(so) so.value = ST.ownerName  || '';
     var sa=$('set-addr');     if(sa) sa.value = ST.farmAddr || '';
@@ -24716,6 +24964,7 @@ function astLenderPrint(){
     '<tr><td>Total asset value</td><td class="amt">'+fmt(D.tV)+'</td></tr>'+
     '<tr><td>Less: outstanding finance</td><td class="amt">'+fmt(D.tO)+'</td></tr>'+
     '<tr class="total"><td>Net asset position (equity)</td><td class="amt pos">'+IE_R(D.net)+'</td></tr></table>'+
+    (typeof rnLenderSection === 'function' ? rnLenderSection() : '')+
     '<p style="font-size:12px;color:#666;margin-top:18px">Asset values reflect insured / replacement value where recorded, otherwise purchase price. Outstanding finance is the balance owed on financed assets. Prepared from the AgriInsights asset register \u2014 figures to be confirmed against source documents.</p>';
   printWindow('Asset Schedule \u2014 '+(FARM?FARM.name:'Farm'), html);
 }
@@ -59660,6 +59909,8 @@ function attnItems(){
     }
   }catch(e){}
 
+  try{ if (typeof rnAttnItems === 'function') out = out.concat(rnAttnItems()); }catch(e){}
+
   return out.sort(function(a, b){
     return (ATTN_TIER[a.tier] - ATTN_TIER[b.tier]) || (b.sev - a.sev) || (a.when - b.when);
   });
@@ -68007,6 +68258,1852 @@ function _lsRegCertsCard(){
     };
   });
 })();
+/* ══ RAINFALL-T0-BEGIN ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   RAINFALL — Tier 0.  The farmer's rain book, wired into the app.
+   One record, captured once, read by the dashboard, the reports and (Tier 1)
+   the plan.  Everything here is additive: with no location set and no
+   readings, every rainfall element is absent and the app is unchanged.
+
+   Naming: every symbol is prefixed rn, or ST_RAIN, so nothing can collide.  The visible
+   label is always "Rainfall", never a bare "Rain" — LANG_PAIRS is a substring
+   pass and "Rain" sits inside "Rain-fed" and "Rain forecasts".
+   ══════════════════════════════════════════════════════════════════════════ */
+
+var ST_RAIN = (typeof ST_RAIN !== 'undefined') ? ST_RAIN : {
+  mode: 'farm',            /* 'farm' = one number a day · 'gauge' = per land/camp */
+  loc: null,               /* {town, prov, lat, lon} — the app's first coordinate */
+  yearStart: null,         /* 1-12; null = work it out from the province */
+  normal: null,            /* {src, monthly:[12] Jan..Dec, band:{lo:[12],hi:[12]}, override:null, enso:[{y,pct}]} */
+  rule: { plantMm: 25, plantDays: 7 },
+  gauges: [],              /* [{id,name,link:{type,id},isDefault,where}] */
+  log: [],                 /* [{id,date:'YYYY-MM-DD',gaugeId,mm,src:'gauge'|'sat',by,note}] */
+  sat: null,               /* {fetched:'ISO', daily:{'YYYY-MM-DD':mm}, err:null} */
+  fillFromSat: true
+};
+
+function rnEl(id){ return document.getElementById(id); }
+/* A string argument for an inline handler.  JSON.stringify would emit double
+   quotes, which close the attribute they sit in and silently kill the button —
+   the kind of break that only shows up when a person actually clicks it. */
+function rnQ(v){
+  return '&#39;' + String(v == null ? '' : v)
+    .replace(/&/g,'&amp;').replace(/'/g,'&#39;').replace(/"/g,'&quot;').replace(/</g,'&lt;') + '&#39;';
+}
+function rnHas(){ return !!(ST_RAIN && ST_RAIN.loc && ST_RAIN.loc.lat != null); }
+function rnOn(){ return rnHas() || (ST_RAIN.log && ST_RAIN.log.length > 0); }
+
+/* ── dates ──────────────────────────────────────────────────────────────── */
+function rnToday(){ return (typeof APP_TODAY !== 'undefined' && APP_TODAY) ? new Date(APP_TODAY) : new Date(); }
+function rnISO(d){
+  if (typeof d === 'string') return d.slice(0,10);
+  var m = d.getMonth()+1, dd = d.getDate();
+  return d.getFullYear() + '-' + (m<10?'0':'') + m + '-' + (dd<10?'0':'') + dd;
+}
+function rnParse(s){
+  if (s instanceof Date) return new Date(s.getFullYear(), s.getMonth(), s.getDate());
+  var p = String(s).slice(0,10).split('-');
+  return new Date(+p[0], (+p[1])-1, +p[2]);
+}
+function rnAddDays(d, n){ var x = rnParse(d); x.setDate(x.getDate()+n); return x; }
+function rnDaysBetween(a, b){ return Math.round((rnParse(b) - rnParse(a)) / 86400000); }
+var RN_MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function rnFmtDate(s){ var d = rnParse(s); return d.getDate() + ' ' + RN_MON[d.getMonth()] + ' ' + d.getFullYear(); }
+function rnDow(s){ return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][rnParse(s).getDay()]; }
+
+/* mm, the farmer's own unit.  One decimal only when it is not a whole number. */
+function rnMm(n){
+  if (n == null || isNaN(n)) return '—';
+  var v = Math.round(n*10)/10;
+  return (Math.abs(v - Math.round(v)) < 0.05 ? String(Math.round(v)) : v.toFixed(1));
+}
+
+/* ── the rain year ──────────────────────────────────────────────────────────
+   Summer-rainfall farms count July to June, which is what a reënboek does.
+   Winter-rainfall farms count the calendar year.  Set once, in Settings. */
+function rnYearStart(){
+  if (ST_RAIN.yearStart) return ST_RAIN.yearStart;
+  var winter = false;
+  try { winter = (typeof lvpRainfall === 'function') && lvpRainfall() === 'winter'; } catch(e){}
+  return winter ? 1 : 7;
+}
+/* The 1st of the rain year that `d` falls inside. */
+function rnYearStartOf(d){
+  var x = rnParse(d), s = rnYearStart(), y = x.getFullYear();
+  if ((x.getMonth()+1) < s) y -= 1;
+  return new Date(y, s-1, 1);
+}
+function rnYearEndOf(d){ var st = rnYearStartOf(d); return new Date(st.getFullYear()+1, st.getMonth(), 0); }
+function rnYearLabel(d){
+  var st = rnYearStartOf(d), en = rnYearEndOf(d);
+  if (rnYearStart() === 1) return String(st.getFullYear());
+  return RN_MON[st.getMonth()] + ' ' + st.getFullYear() + ' – ' + RN_MON[en.getMonth()] + ' ' + en.getFullYear();
+}
+/* Month indices 0..11 in rain-year order. */
+function rnMonthOrder(){
+  var s = rnYearStart()-1, o = [];
+  for (var i=0;i<12;i++) o.push((s+i)%12);
+  return o;
+}
+
+/* ── the long-term normal ───────────────────────────────────────────────────
+   Computed once from 30 years of daily rainfall at the farm's own
+   coordinates.  A farmer who knows their own long-term figure can overwrite
+   the annual total; the monthly shape is then scaled to match it. */
+function rnNormalMonthly(){
+  var n = ST_RAIN.normal;
+  if (!n || !n.monthly || n.monthly.length !== 12) return null;
+  var base = n.monthly.slice();
+  if (n.override && n.override > 0){
+    var sum = base.reduce(function(a,b){ return a+b; }, 0);
+    if (sum > 0){ var k = n.override / sum; base = base.map(function(v){ return v*k; }); }
+  }
+  return base;
+}
+function rnNormalAnnual(){
+  var m = rnNormalMonthly();
+  return m ? m.reduce(function(a,b){ return a+b; }, 0) : null;
+}
+/* How much the farm normally has by this date in the rain year. */
+function rnNormalToDate(d){
+  var m = rnNormalMonthly(); if (!m) return null;
+  var x = rnParse(d || rnToday()), st = rnYearStartOf(x), tot = 0;
+  var cur = new Date(st.getFullYear(), st.getMonth(), 1);
+  while (cur <= x){
+    var last = new Date(cur.getFullYear(), cur.getMonth()+1, 0).getDate();
+    var sameMonth = (cur.getFullYear() === x.getFullYear() && cur.getMonth() === x.getMonth());
+    tot += m[cur.getMonth()] * (sameMonth ? (x.getDate()/last) : 1);
+    cur = new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+  }
+  return tot;
+}
+
+/* ── gauges ─────────────────────────────────────────────────────────────────
+   Whole-farm mode has exactly one implicit gauge so the farmer never meets
+   the word.  By-gauge mode names them after the lands and camps that exist. */
+var RN_FARM_GAUGE = 'farm';
+function rnGauges(){
+  if (ST_RAIN.mode !== 'gauge') return [{ id: RN_FARM_GAUGE, name: (ST && ST.farmName) || 'The farm', isDefault: true, link: {type:'farm'} }];
+  var g = (ST_RAIN.gauges || []).slice();
+  if (!g.length) return [{ id: RN_FARM_GAUGE, name: (ST && ST.farmName) || 'The farm', isDefault: true, link: {type:'farm'} }];
+  if (!g.some(function(x){ return x.isDefault; })) g[0].isDefault = true;
+  return g;
+}
+function rnDefaultGauge(){
+  var g = rnGauges();
+  for (var i=0;i<g.length;i++) if (g[i].isDefault) return g[i];
+  return g[0];
+}
+function rnGaugeName(id){
+  var g = rnGauges();
+  for (var i=0;i<g.length;i++) if (g[i].id === id) return g[i].name;
+  return id === RN_FARM_GAUGE ? ((ST && ST.farmName) || 'The farm') : String(id||'');
+}
+
+/* ── readings ───────────────────────────────────────────────────────────────
+   A gauge reading always beats the satellite for the same day.  Satellite
+   fills only the days nobody read, and is always labelled. */
+function rnLog(){ return (ST_RAIN.log || []); }
+function rnGaugeReading(dateISO, gaugeId){
+  var L = rnLog();
+  for (var i=0;i<L.length;i++){
+    if (L[i].date !== dateISO) continue;
+    if (gaugeId && L[i].gaugeId !== gaugeId) continue;
+    if (!gaugeId && !rnIsDefaultId(L[i].gaugeId)) continue;
+    return L[i];
+  }
+  return null;
+}
+function rnIsDefaultId(id){ var d = rnDefaultGauge(); return !d || id === d.id; }
+/* The earliest day the farmer wrote anything down.  Everything before it is
+   the app's best estimate; everything after it is their record. */
+function rnFirstGaugeDate(){
+  var first = null;
+  rnLog().forEach(function(r){ if (r.src === 'sat') return; if (!first || r.date < first) first = r.date; });
+  return first;
+}
+/* Satellite rainfall backfills the season BEFORE the farmer's first reading,
+   and nothing after it.  A farmer who logs only when it rains is telling us
+   the other days were dry; adding satellite rain on top of that would hand
+   them a season total their own book does not support — and the printed
+   record has to survive an assessor reading it. */
+function rnSatOn(dateISO){
+  var s = ST_RAIN.sat;
+  if (!s || !s.daily || !ST_RAIN.fillFromSat) return null;
+  var first = rnFirstGaugeDate();
+  if (first && dateISO >= first) return null;
+  var v = s.daily[dateISO];
+  return (v == null) ? null : v;
+}
+/* The satellite's own figure for a stretch, kept separate so it can be shown
+   beside the farmer's without ever being mixed into it. */
+function rnSatTotal(fromISO, toISO){
+  var s = ST_RAIN.sat;
+  if (!s || !s.daily) return null;
+  var tot = 0, any = false;
+  Object.keys(s.daily).forEach(function(d){ if (d >= fromISO && d <= toISO){ tot += s.daily[d]; any = true; } });
+  return any ? tot : null;
+}
+/* Best value for one day: {mm, src}.  src is 'gauge' or 'sat'; null if neither. */
+function rnDayMm(dateISO, gaugeId){
+  var r = rnGaugeReading(dateISO, gaugeId);
+  if (r) return { mm: r.mm || 0, src: 'gauge', by: r.by || '', note: r.note || '' };
+  var s = rnSatOn(dateISO);
+  if (s != null) return { mm: s, src: 'sat' };
+  return null;
+}
+function rnTotal(fromISO, toISO, gaugeId){
+  var t = 0, any = false, d = rnParse(fromISO), end = rnParse(toISO);
+  while (d <= end){
+    var v = rnDayMm(rnISO(d), gaugeId);
+    if (v){ t += v.mm; any = true; }
+    d.setDate(d.getDate()+1);
+  }
+  return any ? t : null;
+}
+function rnRainDays(fromISO, toISO, minMm, gaugeId){
+  var n = 0, d = rnParse(fromISO), end = rnParse(toISO), min = (minMm==null?1:minMm);
+  while (d <= end){
+    var v = rnDayMm(rnISO(d), gaugeId);
+    if (v && v.mm >= min) n++;
+    d.setDate(d.getDate()+1);
+  }
+  return n;
+}
+/* Rain days that the farmer actually read.  The printed record uses this one:
+   a satellite estimate drizzles more often than a gauge tips. */
+function rnGaugeRainDays(fromISO, toISO, minMm, gaugeId){
+  var n = 0, min = (minMm==null?1:minMm), L = rnLog();
+  for (var i=0;i<L.length;i++){
+    var r = L[i];
+    if (r.src === 'sat') continue;
+    if (gaugeId ? (r.gaugeId !== gaugeId) : !rnIsDefaultId(r.gaugeId)) continue;
+    if (r.date < fromISO || r.date > toISO) continue;
+    if ((r.mm||0) >= min) n++;
+  }
+  return n;
+}
+function rnYearToDate(gaugeId){
+  var t = rnToday();
+  return rnTotal(rnISO(rnYearStartOf(t)), rnISO(t), gaugeId);
+}
+function rnLast12(gaugeId){
+  var t = rnToday(), from = new Date(t.getFullYear()-1, t.getMonth(), t.getDate()+1);
+  return rnTotal(rnISO(from), rnISO(t), gaugeId);
+}
+/* The last day it actually rained, gauge first. */
+function rnLastRain(gaugeId){
+  var t = rnToday(), d = new Date(t), guard = 0;
+  while (guard++ < 400){
+    var iso = rnISO(d), v = rnDayMm(iso, gaugeId);
+    if (v && v.mm >= 0.5) return { date: iso, mm: v.mm, src: v.src, daysAgo: rnDaysBetween(iso, t) };
+    d.setDate(d.getDate()-1);
+  }
+  return null;
+}
+/* The gauges that count right now.  Switching to whole-farm parks the other
+   gauges' readings rather than deleting them, so a count that ignored this
+   would claim readings the farmer cannot see. */
+function rnActiveIds(){
+  var m = {};
+  rnGauges().forEach(function(g){ m[g.id] = true; });
+  return m;
+}
+function rnYourReadings(){
+  var act = rnActiveIds();
+  return rnLog().filter(function(r){ return r.src !== 'sat' && act[r.gaugeId]; }).length;
+}
+/* Readings inside the rain year on screen — what the book is showing. */
+function rnReadingsInYear(){
+  var t = rnToday(), st = rnISO(rnYearStartOf(t)), today = rnISO(t), act = rnActiveIds();
+  return rnLog().filter(function(r){ return r.src !== 'sat' && act[r.gaugeId] && r.date >= st && r.date <= today; }).length;
+}
+/* Rain in the last N days — the planting-rain question. */
+function rnRecent(days, gaugeId){
+  var t = rnToday(), from = rnAddDays(t, -(days-1));
+  return rnTotal(rnISO(from), rnISO(t), gaugeId);
+}
+
+/* ── month table ────────────────────────────────────────────────────────────
+   Rows in rain-year order, each with what fell, what is normal, and how many
+   days it rained.  Months still to come show a dash, not a zero. */
+function rnMonthTable(gaugeId){
+  var t = rnToday(), st = rnYearStartOf(t), norm = rnNormalMonthly(), rows = [], order = rnMonthOrder();
+  for (var i=0;i<12;i++){
+    var mi = order[i];
+    var y = st.getFullYear() + (mi < st.getMonth() ? 1 : 0);
+    if (rnYearStart() === 1) y = st.getFullYear();
+    var first = new Date(y, mi, 1), last = new Date(y, mi+1, 0);
+    var future = first > t;
+    var to = (last > t) ? t : last;
+    rows.push({
+      mi: mi, y: y, label: RN_MON[mi],
+      partial: (!future && last > t),
+      future: future,
+      mm: future ? null : rnTotal(rnISO(first), rnISO(to), gaugeId),
+      normal: norm ? norm[mi] : null,
+      days: future ? null : rnRainDays(rnISO(first), rnISO(to), 1, gaugeId)
+    });
+  }
+  return rows;
+}
+
+/* ── the chart series ───────────────────────────────────────────────────────
+   Cumulative mm through the rain year: this year, last year, the normal, and
+   the band most years fall inside.  Month ends, so twelve points plus a
+   zero at the start. */
+function rnCumSeries(gaugeId){
+  var t = rnToday(), st = rnYearStartOf(t), order = rnMonthOrder(), norm = rnNormalMonthly();
+  var band = (ST_RAIN.normal && ST_RAIN.normal.band) || null;
+  var labels = [''], me = [0], last = [0], nrm = [0], lo = [0], hi = [0], run = 0, runN = 0, runLo = 0, runHi = 0, stop = false;
+  for (var i=0;i<12;i++){
+    var mi = order[i];
+    var y = st.getFullYear() + (mi < st.getMonth() ? 1 : 0);
+    if (rnYearStart() === 1) y = st.getFullYear();
+    var first = new Date(y, mi, 1), lastD = new Date(y, mi+1, 0);
+    labels.push(RN_MON[mi]);
+    if (!stop){
+      var to = (lastD > t) ? t : lastD;
+      if (first > t){ stop = true; me.push(null); }
+      else { var v = rnTotal(rnISO(first), rnISO(to), gaugeId); run += (v||0); me.push(run); }
+    } else me.push(null);
+    var pFirst = new Date(y-1, mi, 1), pLast = new Date(y-1, mi+1, 0);
+    var pv = rnTotal(rnISO(pFirst), rnISO(pLast), gaugeId);
+    last.push(pv == null ? null : (last[last.length-1] == null ? pv : last[last.length-1] + pv));
+    if (norm){ runN += norm[mi]; nrm.push(runN); } else nrm.push(null);
+    if (band && band.lo && band.hi && band.lo[i] != null){ lo.push(band.lo[i]); hi.push(band.hi[i]); }
+    else { lo.push(null); hi.push(null); }
+  }
+  /* A series with nothing in it must come back empty, not as a flat line on
+     zero: the seed value at index 0 would otherwise draw "last year: 0 mm all
+     year" for a farm that simply has no last year yet. */
+  function real(a){ return a.slice(1).some(function(v){ return v != null; }) ? a : a.map(function(){ return null; }); }
+  return { labels: labels, me: me, last: real(last), normal: real(nrm), lo: real(lo), hi: real(hi) };
+}
+
+/* Rain years that actually hold something, newest first.  The Years view needs
+   two before it means anything, so the farmer is not offered an empty compare. */
+function rnYearsWithData(){
+  var out = [], t = rnToday(), st = rnYearStartOf(t);
+  for (var back=0; back<6; back++){
+    var from = new Date(st.getFullYear()-back, st.getMonth(), 1);
+    var to   = new Date(from.getFullYear()+1, from.getMonth(), 0);
+    if (to > t) to = t;
+    var v = rnTotal(rnISO(from), rnISO(to));
+    if (v != null) out.push({ start: from, end: to, mm: v, label: rnYearLabelFor(from) });
+  }
+  return out;
+}
+function rnYearLabelFor(startDate){
+  if (rnYearStart() === 1) return String(startDate.getFullYear());
+  return String(startDate.getFullYear()) + '/' + String((startDate.getFullYear()+1) % 100);
+}
+/* Cumulative mm through one rain year, for the Years comparison. */
+function rnCumForYear(startDate, gaugeId){
+  var t = rnToday(), order = rnMonthOrder(), run = 0, out = [0], stop = false;
+  for (var i=0;i<12;i++){
+    var mi = order[i];
+    var y = startDate.getFullYear() + ((rnYearStart() === 1) ? 0 : (mi < startDate.getMonth() ? 1 : 0));
+    var first = new Date(y, mi, 1), last = new Date(y, mi+1, 0);
+    if (stop || first > t){ out.push(null); stop = true; continue; }
+    var to = (last > t) ? t : last;
+    var v = rnTotal(rnISO(first), rnISO(to), gaugeId);
+    run += (v || 0); out.push(run);
+  }
+  return out;
+}
+/* Month-by-month mm against the normal, for the By month view. */
+function rnMonthSeries(gaugeId){
+  var rows = rnMonthTable(gaugeId);
+  return { labels: rows.map(function(r){ return r.label; }),
+           mm: rows.map(function(r){ return r.mm; }),
+           normal: rows.map(function(r){ return r.normal; }) };
+}
+
+/* ── demo farm ──────────────────────────────────────────────────────────────
+   Doringkloof is in the Komani district.  The seed gives it a believable
+   book so the demo is worth opening; a real farm starts empty and fills from
+   the satellite the moment its location is set. */
+function rnSeedDemo(){
+  if (!window.__AI_GUEST) return false;
+  if (ST_RAIN.loc || (ST_RAIN.log && ST_RAIN.log.length)) return false;
+  ST_RAIN.loc = { town: 'Komani (Queenstown)', prov: 'Eastern Cape', lat: -31.90, lon: 26.88 };
+  ST_RAIN.mode = 'gauge';
+  ST_RAIN.gauges = [
+    { id:'g1', name:'Huis',      isDefault:true,  where:'Kitchen door', link:{type:'farm'} },
+    { id:'g2', name:'Vlakte',    isDefault:false, where:'North corner post', link:{type:'land', id:1} },
+    { id:'g3', name:'Veld camp', isDefault:false, where:'Windmill', link:{type:'camp', id:'cmp2'} }
+  ];
+  /* Two winter months of real readings, read at the house and the two out-gauges. */
+  var t = rnToday(), seed = [], id = 1;
+  var days = [
+    { back: 21, mm: [9, 7, 11], note:'soft rain' },
+    { back: 38, mm: [14, 13, 16], note:'first winter rain' },
+    { back: 52, mm: [4, 3, 5], note:'' },
+    { back: 66, mm: [11, 10, 13], note:'' },
+    { back: 81, mm: [2, 2, 3], note:'' }
+  ];
+  days.forEach(function(d){
+    var iso = rnISO(rnAddDays(t, -d.back));
+    ['g1','g2','g3'].forEach(function(g, i){
+      seed.push({ id:'r'+(id++), date: iso, gaugeId: g, mm: d.mm[i], src:'gauge', by: (g==='g3'?'Sipho':'Jaco'), note: (i===0?d.note:'') });
+    });
+  });
+  ST_RAIN.log = seed;
+  return true;
+}
+
+/* ── restore ────────────────────────────────────────────────────────────────
+   ST_RAIN is declared at the foot of the file, which is after loadState() has
+   already run, so the merge there cannot see it yet.  Read the same snapshot
+   back here so a saved rain book is restored deterministically, whatever the
+   script order does.  Merging the same values twice is harmless. */
+function rnRestore(){
+  try {
+    if (typeof localStorage === 'undefined' || typeof SAVE_KEY === 'undefined') return false;
+    var raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    var snap = JSON.parse(raw);
+    if (!snap || snap.v !== APP_VERSION || !snap.ST_RAIN) return false;
+    for (var k in snap.ST_RAIN){
+      if (Object.prototype.hasOwnProperty.call(snap.ST_RAIN, k)) ST_RAIN[k] = snap.ST_RAIN[k];
+    }
+    return true;
+  } catch(e){ return false; }
+}
+
+/* A reading must always belong to a gauge that counts.  Switching how rain is
+   tracked used to be able to strand one; this puts any orphan back where the
+   farmer would look for it, on every load. */
+function rnRepairGaugeIds(){
+  var moved = 0;
+  try {
+    var gs = rnGauges(), ids = {}, def = rnDefaultGauge();
+    gs.forEach(function(g){ ids[g.id] = true; });
+    if (ST_RAIN.mode === 'gauge'){
+      rnLog().forEach(function(r){ if (r.gaugeId === RN_FARM_GAUGE){ r.gaugeId = def.id; moved++; } });
+    } else {
+      rnLog().forEach(function(r){ if (!ids[r.gaugeId] && r.gaugeId !== RN_FARM_GAUGE) return; });
+    }
+  } catch(e){}
+  return moved;
+}
+
+/* ── boot ───────────────────────────────────────────────────────────────────
+   Runs after loadState, so a saved book is already in place. */
+var RN_BOOTED = false;
+function rnBoot(){
+  try {
+    if (!ST_RAIN.rule) ST_RAIN.rule = { plantMm:25, plantDays:7 };
+    if (!ST_RAIN.log) ST_RAIN.log = [];
+    if (!ST_RAIN.gauges) ST_RAIN.gauges = [];
+    /* Restoring and seeding happen once a page load.  Renders call through
+       here, and a render must never reach back into storage and overwrite what
+       is in front of the farmer. */
+    if (RN_BOOTED) return;
+    RN_BOOTED = true;
+    rnRestore();
+    if (rnRepairGaugeIds()) { try { saveState(); } catch(e){} }   /* a migration, so write it now rather than on a debounce */
+    if (rnSeedDemo()) { try { debouncedSave(); } catch(e){} }
+  } catch(e){ try{ console.warn('Rainfall boot:', e); }catch(_){} }
+  /* Once the app has drawn itself: seed the sample farm if it is still empty
+     (the demo's own reset clears storage at a point that can race this), then
+     fetch.  Both are safe to run twice and neither blocks the first paint. */
+  try {
+    setTimeout(function(){
+      try { if (rnSeedDemo()) { saveState(); if (rnEl('pg-rainfall')) renderRainfall(); rnDashSync(); } } catch(e){}
+      try { if (typeof rnSync === 'function') rnSync(); } catch(e){}
+    }, 1200);
+  } catch(e){}
+}
+
+/* The block sits at the foot of the file, so loadState has already run and a
+   saved rain book is in place before this fires. */
+rnBoot();
+
+
+/* ══ Rainfall — where the satellite figures come from ══════════════════════
+   One source, called straight from the browser.  Two calls:
+
+     · history   once per farm location.  Thirty years of daily rainfall at the
+                 farm's own coordinates, from which we work out the long-term
+                 monthly average, the range most years fall inside, the year
+                 behind, and what the farm had in past El Niño summers.
+     · recent    once a day.  The last two weeks and the week ahead, to fill
+                 the days nobody read the gauge.
+
+   Only the derived figures are kept.  The thirty years of daily values are
+   read, used and thrown away — storing them would fill the browser up. */
+
+var RN_API_ARCHIVE  = 'https://archive-api.open-meteo.com/v1/archive';
+var RN_API_FORECAST = 'https://api.open-meteo.com/v1/forecast';
+var RN_KEEP_DAYS    = 430;      /* enough for "last 12 months" and last year's line */
+var RN_NORM_FROM    = 1991, RN_NORM_TO = 2020;
+
+/* El Niño summers, by the year the southern summer begins.  NOAA's Oceanic
+   Niño Index, December–February at or above +0.5. */
+var RN_ENSO_YEARS = [1991, 1994, 1997, 2002, 2004, 2006, 2009, 2014, 2015, 2018, 2023];
+
+function rnFetchJson(url, ms){
+  return new Promise(function(resolve, reject){
+    var done = false, ctl = null;
+    try { ctl = new AbortController(); } catch(e){}
+    var timer = setTimeout(function(){ if (!done){ done = true; try{ ctl && ctl.abort(); }catch(e){} reject(new Error('timed out')); } }, ms || 25000);
+    fetch(url, ctl ? { signal: ctl.signal } : undefined)
+      .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(j){ if (!done){ done = true; clearTimeout(timer); resolve(j); } })
+      .catch(function(e){ if (!done){ done = true; clearTimeout(timer); reject(e); } });
+  });
+}
+function rnLocQuery(){
+  var l = ST_RAIN.loc;
+  return 'latitude=' + encodeURIComponent(l.lat) + '&longitude=' + encodeURIComponent(l.lon) +
+         '&daily=precipitation_sum&timezone=Africa%2FJohannesburg';
+}
+
+/* ── history ─────────────────────────────────────────────────────────────── */
+function rnFetchHistory(){
+  if (!rnHas()) return Promise.resolve(false);
+  var t = rnToday();
+  var end = rnISO(rnAddDays(t, -6));            /* the archive runs a few days behind */
+  var url = RN_API_ARCHIVE + '?' + rnLocQuery() + '&start_date=' + RN_NORM_FROM + '-01-01&end_date=' + end;
+  return rnFetchJson(url, 40000).then(function(j){
+    var days = j && j.daily && j.daily.time, vals = j && j.daily && j.daily.precipitation_sum;
+    if (!days || !vals || !days.length) throw new Error('no rainfall returned');
+    rnDeriveNormals(days, vals);
+    rnKeepRecent(days, vals);
+    ST_RAIN.sat = ST_RAIN.sat || {};
+    ST_RAIN.sat.histFetched = rnISO(t);
+    ST_RAIN.sat.err = null;
+    return true;
+  });
+}
+
+/* The long-term average, the range most years fall inside, and the El Niño
+   summers — all worked out here, then the daily values are dropped. */
+function rnDeriveNormals(days, vals){
+  var byYM = {}, byYear = {};
+  for (var i=0;i<days.length;i++){
+    var v = vals[i]; if (v == null) continue;
+    var y = +days[i].slice(0,4), m = +days[i].slice(5,7) - 1;
+    var k = y + '-' + m;
+    byYM[k] = (byYM[k] || 0) + v;
+    byYear[y] = true;
+  }
+  /* monthly mean over the reference period */
+  var monthly = [], counts = [];
+  for (var m2=0;m2<12;m2++){ monthly.push(0); counts.push(0); }
+  for (var y2=RN_NORM_FROM; y2<=RN_NORM_TO; y2++){
+    for (var m3=0;m3<12;m3++){
+      var kk = y2 + '-' + m3;
+      if (byYM[kk] != null){ monthly[m3] += byYM[kk]; counts[m3]++; }
+    }
+  }
+  for (var m4=0;m4<12;m4++) monthly[m4] = counts[m4] ? (monthly[m4] / counts[m4]) : 0;
+
+  /* cumulative totals through the rain year, one line per year, so the band is
+     a real range of whole seasons rather than a sum of separate months */
+  var ys = rnYearStart() - 1, order = [];
+  for (var o=0;o<12;o++) order.push((ys+o)%12);
+  var curves = [];
+  for (var y3=RN_NORM_FROM; y3<=RN_NORM_TO; y3++){
+    var run = 0, row = [], ok = true;
+    for (var i2=0;i2<12;i2++){
+      var mi = order[i2];
+      var yy = y3 + ((rnYearStart() === 1) ? 0 : (mi < ys ? 1 : 0));
+      var val = byYM[yy + '-' + mi];
+      if (val == null){ ok = false; break; }
+      run += val; row.push(run);
+    }
+    if (ok) curves.push(row);
+  }
+  function pct(arr, p){
+    if (!arr.length) return null;
+    var a = arr.slice().sort(function(x,z){ return x-z; });
+    var idx = Math.min(a.length-1, Math.max(0, Math.round((p/100)*(a.length-1))));
+    return a[idx];
+  }
+  var lo = [], hi = [];
+  for (var c=0;c<12;c++){
+    var col = curves.map(function(r){ return r[c]; }).filter(function(v){ return v != null; });
+    lo.push(pct(col, 10)); hi.push(pct(col, 90));
+  }
+
+  /* what this farm had in past El Niño summers, against its own normal */
+  var annual = monthly.reduce(function(a,b){ return a+b; }, 0);
+  var enso = [];
+  RN_ENSO_YEARS.forEach(function(y4){
+    var run = 0, ok = true;
+    for (var i3=0;i3<12;i3++){
+      var mi2 = order[i3];
+      var yy2 = y4 + ((rnYearStart() === 1) ? 0 : (mi2 < ys ? 1 : 0));
+      var v2 = byYM[yy2 + '-' + mi2];
+      if (v2 == null){ ok = false; break; }
+      run += v2;
+    }
+    if (ok && annual > 0) enso.push({ y: y4, mm: Math.round(run), pct: (run/annual)*100 });
+  });
+
+  var keepOverride = ST_RAIN.normal && ST_RAIN.normal.override;
+  ST_RAIN.normal = {
+    src: 'Satellite rainfall at your farm, ' + RN_NORM_FROM + '–' + RN_NORM_TO,
+    monthly: monthly.map(function(v){ return Math.round(v*10)/10; }),
+    band: { forYearStart: rnYearStart(), lo: lo, hi: hi },
+    enso: enso,
+    years: curves.length,
+    override: keepOverride || null
+  };
+}
+
+/* Keep only the recent tail of the daily values. */
+function rnKeepRecent(days, vals){
+  ST_RAIN.sat = ST_RAIN.sat || {};
+  var keep = ST_RAIN.sat.daily || {};
+  var cut = rnISO(rnAddDays(rnToday(), -RN_KEEP_DAYS));
+  for (var i=0;i<days.length;i++){
+    if (days[i] < cut) continue;
+    if (vals[i] == null) continue;
+    keep[days[i]] = Math.round(vals[i]*10)/10;
+  }
+  Object.keys(keep).forEach(function(d){ if (d < cut) delete keep[d]; });
+  ST_RAIN.sat.daily = keep;
+}
+
+/* ── the last two weeks and the week ahead ───────────────────────────────── */
+function rnFetchRecent(){
+  if (!rnHas()) return Promise.resolve(false);
+  var url = RN_API_FORECAST + '?' + rnLocQuery() + '&past_days=16&forecast_days=7';
+  return rnFetchJson(url, 20000).then(function(j){
+    var days = j && j.daily && j.daily.time, vals = j && j.daily && j.daily.precipitation_sum;
+    if (!days || !vals) throw new Error('no rainfall returned');
+    ST_RAIN.sat = ST_RAIN.sat || {};
+    var daily = ST_RAIN.sat.daily || {}, fc = {}, today = rnISO(rnToday());
+    for (var i=0;i<days.length;i++){
+      if (vals[i] == null) continue;
+      var v = Math.round(vals[i]*10)/10;
+      if (days[i] <= today) daily[days[i]] = v; else fc[days[i]] = v;
+    }
+    ST_RAIN.sat.daily = daily;
+    ST_RAIN.sat.forecast = fc;
+    ST_RAIN.sat.fetched = today;
+    ST_RAIN.sat.err = null;
+    return true;
+  });
+}
+/* mm expected over the next N days, for the planting-rain card. */
+function rnForecastMm(days){
+  var f = (ST_RAIN.sat && ST_RAIN.sat.forecast) || null;
+  if (!f) return null;
+  var t = rnToday(), end = rnISO(rnAddDays(t, days || 7)), tot = 0, any = false;
+  Object.keys(f).forEach(function(d){ if (d > rnISO(t) && d <= end){ tot += f[d]; any = true; } });
+  return any ? tot : null;
+}
+
+/* ── orchestration ───────────────────────────────────────────────────────── */
+var RN_SYNCING = false;
+function rnSync(force){
+  if (RN_SYNCING || !rnHas()) return Promise.resolve(false);
+  var today = rnISO(rnToday()), s = ST_RAIN.sat || {};
+  var needHist = force || !ST_RAIN.normal || !ST_RAIN.normal.monthly ||
+                 (ST_RAIN.normal.band && ST_RAIN.normal.band.forYearStart !== rnYearStart()) ||
+                 !s.histFetched || rnDaysBetween(s.histFetched, today) > 120;
+  var needRecent = force || s.fetched !== today;
+  if (!needHist && !needRecent) return Promise.resolve(false);
+
+  RN_SYNCING = true;
+  var chain = Promise.resolve(false);
+  if (needHist)   chain = chain.then(function(){ return rnFetchHistory(); });
+  if (needRecent) chain = chain.then(function(){ return rnFetchRecent(); });
+  return chain.then(function(){
+    RN_SYNCING = false;
+    try { saveState(); } catch(e){}
+    try { if (rnEl('pg-rainfall') && rnEl('pg-rainfall').style.display !== 'none') renderRainfall(); } catch(e){}
+    try { rnDashSync(); } catch(e){}
+    return true;
+  }).catch(function(e){
+    RN_SYNCING = false;
+    ST_RAIN.sat = ST_RAIN.sat || {};
+    ST_RAIN.sat.err = String((e && e.message) || e);
+    try { console.warn('Rainfall data:', e); } catch(_){}
+    try { if (rnEl('pg-rainfall')) rnRenderStrips(); } catch(_){}
+    return false;
+  });
+}
+
+
+/* ══ Rainfall — the screen ═════════════════════════════════════════════════ */
+
+var RN_CHART_VIEW = 'year';  /* 'year' = adding up · 'month' = month by month · 'years' = one year against another */
+var RN_BOOK_GAUGE = null;   /* null = every gauge */
+var RN_BOOK_ALL   = false;
+
+/* ── planting window ────────────────────────────────────────────────────────
+   Taken from the farm's own dryland lands where it can be: the month they are
+   normally planted.  A farm with no lands yet falls back to the month the
+   rains normally arrive. */
+function rnPlantWindow(){
+  var months = [], names = [];
+  try {
+    (ST_CROP && ST_CROP.lands ? ST_CROP.lands : []).forEach(function(l){
+      if (!l || l.irrigated) return;
+      if (!l.planted) return;
+      var d = rnParse(l.planted);
+      if (isNaN(d)) return;
+      months.push(d.getMonth()); names.push(l.name || l.crop || 'land');
+    });
+  } catch(e){}
+  var m;
+  if (months.length){
+    var c = {}, best = months[0];
+    months.forEach(function(x){ c[x] = (c[x]||0)+1; if (c[x] > (c[best]||0)) best = x; });
+    m = best;
+  } else {
+    m = (rnYearStart() === 1) ? 4 : 9;   /* winter-rainfall farms sow in May, summer in October */
+  }
+  var t = rnToday(), y = t.getFullYear();
+  var from = new Date(y, m, 1);
+  if (from < new Date(y, t.getMonth(), 1) && (t.getMonth() - m) > 6) from = new Date(y+1, m, 1);
+  if (from > t && (m - t.getMonth()) > 6) from = new Date(y-1, m, 1);
+  var to = new Date(from.getFullYear(), from.getMonth()+2, 0);
+  return { from: from, to: to, open: (t >= from && t <= to), names: names.slice(0,3) };
+}
+function rnPlantReady(){
+  var w = rnPlantWindow(), need = (ST_RAIN.rule && ST_RAIN.rule.plantMm) || 25,
+      days = (ST_RAIN.rule && ST_RAIN.rule.plantDays) || 7;
+  var got = rnRecent(days);
+  return { win: w, need: need, days: days, got: got, ready: (got != null && got >= need) };
+}
+
+/* ── the three lines under the chart ────────────────────────────────────────
+   They change with the calendar, so the card is never a chart floating in
+   empty space.  Every one is a fact about this farm. */
+function rnInsights(){
+  var out = [], t = rnToday(), m = rnNormalMonthly();
+
+  var ytd = rnYearToDate(), nd = rnNormalToDate(t);
+  if (ytd != null && nd != null && nd > 0){
+    var diff = ytd - nd, pct = Math.round((ytd/nd)*100);
+    out.push(Math.abs(diff) < 3
+      ? '<b>Right on the long-term average</b> for the date · ' + rnMm(ytd) + ' mm against ' + rnMm(nd) + ' mm'
+      : '<b>' + rnMm(Math.abs(diff)) + ' mm ' + (diff > 0 ? 'ahead of' : 'behind') + ' the long-term average</b> for the date · ' + rnMm(ytd) + ' mm against ' + rnMm(nd) + ' mm (' + pct + '&nbsp;%)');
+  }
+
+  var lyFrom = new Date(t.getFullYear()-1, rnYearStartOf(t).getMonth(), 1);
+  var lyTo   = new Date(t.getFullYear()-1, t.getMonth(), t.getDate());
+  if (rnYearStartOf(t).getMonth() > t.getMonth()) lyFrom = new Date(t.getFullYear()-2, rnYearStartOf(t).getMonth(), 1);
+  var ly = rnTotal(rnISO(lyFrom), rnISO(lyTo));
+  if (ly != null && ytd != null){
+    var d2 = ytd - ly;
+    out.push('<b>' + (Math.abs(d2) < 1 ? 'The same as last year' : rnMm(Math.abs(d2)) + ' mm ' + (d2 > 0 ? 'ahead of' : 'behind') + ' last year') +
+             '</b> at this point (' + rnMm(ly) + ' mm by this date last year)');
+  }
+
+  if (m){
+    var nextI = (t.getMonth()+1) % 12;
+    out.push('<b>' + RN_MON[nextI] + ' normally brings ' + rnMm(m[nextI]) + ' mm</b> here · your wettest months are ' +
+             (function(){ var idx = m.map(function(v,i){return [v,i];}).sort(function(a,b){return b[0]-a[0];}).slice(0,2).map(function(p){return RN_MON[p[1]];}); return idx[0] + ' and ' + idx[1]; })());
+  }
+
+  var p = rnPlantReady();
+  if (p.win.open){
+    out.push(p.ready
+      ? '<b>Enough rain to plant</b> · ' + rnMm(p.got) + ' mm in the last ' + p.days + ' days, against the ' + p.need + ' mm you asked for'
+      : '<b>Not enough rain to plant yet</b> · ' + rnMm(p.got || 0) + ' mm in the last ' + p.days + ' days, of the ' + p.need + ' mm you asked for');
+  } else {
+    out.push('<b>Planting starts about ' + p.win.from.getDate() + ' ' + RN_MON[p.win.from.getMonth()] + '</b> · you have asked for ' + p.need + ' mm in ' + p.days + ' days before you go');
+  }
+  return out.slice(0,3);
+}
+
+/* ── render ─────────────────────────────────────────────────────────────── */
+function renderRainfall(){
+  try { rnBoot(); } catch(e){}
+  if (!rnEl('pg-rainfall')) return;
+  rnRenderHeader();
+  rnRenderStrips();
+  rnRenderTiles();
+  rnRenderMonth();
+  rnRenderBook();
+  rnRenderGauges();
+  rnRenderChart();
+  try { if (typeof langSync === 'function') langSync(); } catch(e){}
+}
+
+function rnRenderHeader(){
+  var chip = rnEl('rn-yearchip');
+  if (chip){
+    var bits = ['RAIN YEAR <b>' + rnYearLabel(rnToday()) + '</b>'];
+    if (ST_RAIN.loc && ST_RAIN.loc.town) bits.push(esc(ST_RAIN.loc.town));
+    var na = rnNormalAnnual();
+    if (na) bits.push('normal ' + rnMm(na) + ' mm');
+    chip.innerHTML = '<span class="rn-chip">' + bits.join(' &middot; ') + '</span>';
+  }
+  var act = rnEl('rn-hd-actions');
+  if (act){
+    var h = '';
+    if (typeof rnImportOpen === 'function') h += '<button class="btn-sec" onclick="rnImportOpen()">&uarr; Import my old rain book</button>';
+    if (typeof rnReportOpen === 'function' && rnYourReadings() > 0) h += '<button class="btn-sec" onclick="rnReportOpen()">Rainfall record</button>';
+    h += '<button class="rn-btn" onclick="rnLogOpen()">+ Log rain</button>';
+    act.innerHTML = h;
+  }
+}
+
+function rnRenderStrips(){
+  var host = rnEl('rn-strips'); if (!host) return;
+  var h = '', mine = rnYourReadings();
+
+  if (!rnHas()){
+    h += '<div class="rn-strip info"><span class="ic">&#128167;</span><span class="gr">' +
+         '<b>Tell us where the farm is and this page fills itself in.</b> We look up the long-term rainfall for your farm, so you can see how this season compares from the first day. ' +
+         '</span><button class="lnk" onclick="nav(\'settings\')">Set it in Settings</button></div>';
+  } else if (!mine){
+    h += '<div class="rn-strip info"><span class="ic">&#128167;</span><span class="gr">' +
+         '<b>Your record starts with your first reading.</b> Until then everything here is satellite rainfall for your farm &mdash; a good guide, not your gauge. ' +
+         'Kept an old rain book? Bring it in and this page uses your own figures from day one.' +
+         '</span><button class="lnk" onclick="rnLogOpen()">Log this morning</button></div>';
+  }
+
+  var e = rnEnsoLine();
+  if (e){
+    var med = (function(){ var p = ST_RAIN.normal.enso.map(function(x){ return x.pct; }).sort(function(a,b){ return a-b; }); return p[Math.floor(p.length/2)]; })();
+    h += '<div class="rn-strip ' + (med < 95 ? 'warn' : 'info') + '"><span class="ic">&#127777;</span><span class="gr">' + e + '</span></div>';
+  }
+
+  if (ST_RAIN.sat && ST_RAIN.sat.err){
+    h += '<div class="rn-strip info"><span class="ic">&#9888;</span><span class="gr">Could not reach the rainfall service just now, so the satellite figures may be a few days behind. Your own readings are unaffected.</span></div>';
+  }
+  host.innerHTML = h;
+}
+/* Filled in once the history has been fetched.  What this says depends on
+   what this farm's own record shows: El Niño is not equally hard everywhere,
+   and a line claiming otherwise would be the app guessing. */
+function rnEnsoLine(){
+  var n = ST_RAIN.normal;
+  if (!n || !n.enso || n.enso.length < 3) return null;
+  var pcts = n.enso.map(function(e){ return e.pct; }).slice().sort(function(a,b){ return a-b; });
+  var med = pcts[Math.floor(pcts.length/2)], low = pcts[0];
+  var last3 = n.enso.slice(-3);
+  var shown = last3.map(function(e){ return Math.round(e.pct) + '&nbsp;%'; }).join(' &middot; ');
+  var head;
+  if (med < 85)      head = '<b>El Ni&ntilde;o summers are usually dry here.</b>';
+  else if (med < 95) head = '<b>El Ni&ntilde;o summers run a little below normal here.</b>';
+  else               head = '<b>El Ni&ntilde;o summers have not been unusually dry here.</b>';
+  return head + ' Across ' + n.enso.length + ' of them this farm had a median of <b>' + Math.round(med) +
+         '&nbsp;%</b> of its normal rain, and as little as ' + Math.round(low) + '&nbsp;%. Its last three: ' + shown + '. ' +
+         '<span style="opacity:.75">El Ni&ntilde;o years from NOAA; rainfall from your farm&rsquo;s own record.</span>';
+}
+
+function rnRenderTiles(){
+  var host = rnEl('rn-tiles'); if (!host) return;
+  var t = rnToday(), mine = rnYourReadings(), sat = !mine;
+  var l12 = rnLast12(), na = rnNormalAnnual();
+  var ytd = rnYearToDate(), nd = rnNormalToDate(t);
+  var lr = rnLastRain(), p = rnPlantReady();
+  var h = '';
+
+  h += '<div class="rn-tile hero"><div class="l">Last 12 months' + (sat ? ' &middot; satellite' : '') + '</div>' +
+       '<div class="v">' + (l12 == null ? '&mdash;' : rnMm(l12) + ' mm') +
+       (l12 != null && na ? ' <small>' + Math.round((l12/na)*100) + '&nbsp;% of normal</small>' : '') + '</div>' +
+       '<div class="c">' + (na ? 'Normal ' + rnMm(na) + ' mm a year' : (rnHas() ? 'Looking up the long-term average for your farm&hellip;' : 'Set where the farm is to see the long-term average')) + '</div></div>';
+
+  h += '<div class="rn-tile"><div class="l">This rain year' + (sat ? ' &middot; satellite' : '') + '</div>' +
+       '<div class="v">' + (ytd == null ? '&mdash;' : rnMm(ytd) + ' mm') + '</div>' +
+       '<div class="c">' + (nd != null ? 'Normal to date ' + rnMm(nd) + ' mm' : 'Since ' + RN_MON[rnYearStartOf(t).getMonth()]) + '</div></div>';
+
+  if (mine){
+    h += '<div class="rn-tile"><div class="l">Last rain</div>' +
+         '<div class="v">' + (lr ? rnMm(lr.mm) + ' mm' : 'None yet') + '</div>' +
+         '<div class="c">' + (lr ? rnDow(lr.date) + ' ' + rnFmtDate(lr.date) + ' &middot; ' + (lr.daysAgo === 0 ? 'today' : lr.daysAgo + ' day' + (lr.daysAgo===1?'':'s') + ' ago') +
+              (lr.src === 'sat' ? ' &middot; satellite' : '') : 'Nothing recorded this year') + '</div></div>';
+  } else {
+    h += '<div class="rn-tile"><div class="l">Your readings</div><div class="v">0</div>' +
+         '<div class="c">Log this morning&rsquo;s rain to start your record</div></div>';
+  }
+
+  h += '<div class="rn-tile"><div class="l">Ready to plant?</div>' +
+       '<div class="v">' + (p.win.open ? (p.ready ? 'Yes' : 'Not yet') : 'Not yet') + '</div>' +
+       '<div class="c">' + (p.win.open
+          ? rnMm(p.got || 0) + ' of ' + p.need + ' mm in the last ' + p.days + ' days'
+          : 'Planting starts about ' + p.win.from.getDate() + ' ' + RN_MON[p.win.from.getMonth()] + ' &middot; needs ' + p.need + ' mm in ' + p.days + ' days') + '</div></div>';
+
+  host.innerHTML = h;
+}
+
+function rnRenderMonth(){
+  var host = rnEl('rn-month'); if (!host) return;
+  var rows = rnMonthTable(), norm = rnNormalMonthly();
+  var tot = 0, totN = 0, totD = 0, any = false;
+  var h = '<table class="rn-t"><thead><tr><th>Month</th><th class="r">mm</th><th class="r">Normal</th><th class="r">Days</th></tr></thead><tbody>';
+  rows.forEach(function(r){
+    if (r.mm != null){ tot += r.mm; any = true; }
+    if (r.normal != null) totN += r.normal;
+    if (r.days != null) totD += r.days;
+    h += '<tr' + (r.future ? ' class="dimrow"' : '') + '>' +
+         '<td' + (r.future ? ' class="dim"' : '') + '>' + r.label + (r.partial ? ' <span style="font-size:10px;color:var(--t4)">so far</span>' : '') + '</td>' +
+         '<td class="r' + (r.future ? ' dim' : '') + '">' + (r.mm == null ? '&mdash;' : '<b>' + rnMm(r.mm) + '</b>') + '</td>' +
+         '<td class="r dim">' + (r.normal == null ? '&mdash;' : rnMm(r.normal)) + '</td>' +
+         '<td class="r' + (r.future ? ' dim' : '') + '">' + (r.days == null ? '' : r.days) + '</td></tr>';
+  });
+  h += '<tr class="tot"><td>Year</td><td class="r">' + (any ? rnMm(tot) : '&mdash;') + '</td><td class="r">' + (norm ? rnMm(totN) : '&mdash;') + '</td><td class="r">' + totD + '</td></tr>';
+  h += '</tbody></table>';
+  h += '<div class="rn-foot">A rain day is 1 mm or more, counted from your own readings. ' +
+       (norm ? 'Normal is the long-term average for your farm.' : (rnHas() ? 'The long-term average is on its way.' : 'Set where the farm is to see the long-term average.')) +
+       (norm ? ' <b onclick="nav(\'settings\')">Change it</b>' : '') + '</div>';
+  host.innerHTML = h;
+}
+
+/* The book: what the farmer wrote down, with the days nobody read filled in
+   from satellite and plainly marked. */
+function rnBookRows(){
+  var t = rnToday(), st = rnISO(rnYearStartOf(t)), today = rnISO(t), out = [];
+  var act = rnActiveIds();
+  rnLog().forEach(function(r){
+    if (r.date < st || r.date > today) return;
+    if (!act[r.gaugeId]) return;
+    if (RN_BOOK_GAUGE && r.gaugeId !== RN_BOOK_GAUGE) return;
+    out.push({ date: r.date, mm: r.mm, gaugeId: r.gaugeId, src: 'gauge', by: r.by || '', note: r.note || '' });
+  });
+  var seen = {};
+  out.forEach(function(r){ seen[r.date] = true; });
+  var s = ST_RAIN.sat, firstOwn = rnFirstGaugeDate();
+  if (s && s.daily && ST_RAIN.fillFromSat && !RN_BOOK_GAUGE){
+    Object.keys(s.daily).forEach(function(d){
+      if (d < st || d > today || seen[d]) return;
+      if (firstOwn && d >= firstOwn) return;      /* after the record starts, the book is the farmer's */
+      if (!(s.daily[d] > 0.05)) return;
+      out.push({ date: d, mm: s.daily[d], gaugeId: null, src: 'sat', by: '', note: '' });
+    });
+  }
+  out.sort(function(a,b){ return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
+  return out;
+}
+function rnRenderBook(){
+  var host = rnEl('rn-book'); if (!host) return;
+  var rows = rnBookRows(), mine = rnYourReadings();
+  var sub = rnEl('rn-book-sub');
+  var inYear = rnReadingsInYear();
+  if (sub) sub.textContent = mine
+    ? (inYear + ' reading' + (inYear===1?'':'s') + ' this year, in your own hand')
+    : 'Nothing logged yet';
+
+  var filt = rnEl('rn-book-filter');
+  if (filt){
+    if (ST_RAIN.mode === 'gauge' && rnGauges().length > 1){
+      var fh = '<div class="pills" style="display:inline-flex;gap:2px;background:var(--bg);border:1px solid var(--br);border-radius:9px;padding:2px">';
+      fh += '<button class="pill' + (RN_BOOK_GAUGE ? '' : ' on') + '" onclick="rnBookFilter(null)">All</button>';
+      rnGauges().forEach(function(g){
+        fh += '<button class="pill' + (RN_BOOK_GAUGE === g.id ? ' on' : '') + '" onclick="rnBookFilter(' + rnQ(g.id) + ')">' + esc(g.name) + '</button>';
+      });
+      filt.innerHTML = fh + '</div>';
+    } else filt.innerHTML = '';
+  }
+
+  /* Before the farmer has written anything down, the prompt comes first and
+     the satellite's own rows sit underneath it — useful, clearly labelled, and
+     never mistaken for their record. */
+  var prompt = '';
+  if (!mine){
+    prompt = '<div class="rn-empty"><b>Your first reading starts your record</b>' +
+      'Read the gauge this morning and tap Log rain. From then on the book is yours.' +
+      '<div style="margin-top:13px"><button class="rn-btn" onclick="rnLogOpen()">+ Log rain</button></div>' +
+      (typeof rnImportOpen === 'function'
+        ? '<div style="margin-top:13px;font-size:10.5px">Got years in a notebook or a spreadsheet? <b style="color:var(--gd);cursor:pointer" onclick="rnImportOpen()">Bring in your old rain book</b> &mdash; a date and the millimetres is enough.</div>'
+        : '') + '</div>';
+    if (rows.length) prompt += '<div class="rn-foot" style="margin:13px 0 0"><b style="color:var(--t3);cursor:default">What the satellite recorded in the meantime</b></div>';
+  }
+
+  if (!rows.length){
+    host.innerHTML = prompt || ('<div class="rn-empty"><b>Your first reading starts your record</b>' +
+      'Read the gauge this morning and tap Log rain. The days you do not log fill in by themselves from then on.' +
+      '<div style="margin-top:13px"><button class="rn-btn" onclick="rnLogOpen()">+ Log rain</button></div>' +
+      (typeof rnImportOpen === 'function'
+        ? '<div style="margin-top:13px;font-size:10.5px">Got years in a notebook or a spreadsheet? <b style="color:var(--gd);cursor:pointer" onclick="rnImportOpen()">Bring in your old rain book</b> &mdash; a date and the millimetres is enough.</div>'
+        : '') +
+      '</div>');
+    return;
+  }
+
+  var show = RN_BOOK_ALL ? rows : rows.slice(0, 12);
+  var max = Math.max.apply(null, show.map(function(r){ return r.mm || 0; }).concat([10]));
+  var h = prompt + '<div class="rn-book">';
+  show.forEach(function(r){
+    var w = Math.max(3, Math.round(((r.mm || 0) / max) * 100));
+    var who = (r.src === 'sat') ? 'Satellite' : (ST_RAIN.mode === 'gauge' ? rnGaugeName(r.gaugeId) + (r.by ? ' &middot; ' + esc(r.by) : '') : (r.by ? esc(r.by) : ''));
+    h += '<div class="d">' +
+         '<span>' + rnDow(r.date) + ' ' + rnFmtDate(r.date).replace(/ \d{4}$/,'') + '</span>' +
+         '<span><span class="bar"><i style="width:' + w + '%' + (r.src==='sat' ? ';opacity:.45' : '') + '"></i></span>' +
+           '<span class="note" style="display:block;margin-top:3px">' + who + (r.note ? ' &middot; ' + esc(r.note) : '') + '</span></span>' +
+         '<span class="mm' + (r.src==='sat' ? ' sat' : '') + '">' + rnMm(r.mm) + ' mm</span>' +
+         '<span class="who">' + (r.src==='sat' ? '<span class="rn-pill">sat</span>' : '') + '</span>' +
+         '</div>';
+  });
+  h += '</div>';
+  if (rows.length > 12) h += '<div class="rn-foot"><b onclick="rnBookToggleAll()">' + (RN_BOOK_ALL ? 'Show fewer' : 'Show all ' + rows.length) + '</b></div>';
+  else if (ST_RAIN.fillFromSat) h += '<div class="rn-foot">Rows marked &ldquo;sat&rdquo; are satellite rainfall from before your first reading. From your first reading on, the book is yours.</div>';
+  host.innerHTML = h;
+}
+function rnBookFilter(id){ RN_BOOK_GAUGE = id; RN_BOOK_ALL = false; rnRenderBook(); }
+function rnBookToggleAll(){ RN_BOOK_ALL = !RN_BOOK_ALL; rnRenderBook(); }
+
+function rnRenderGauges(){
+  var host = rnEl('rn-gauges'); if (!host) return;
+  var hh = rnEl('rn-gauges-h'), sub = rnEl('rn-gauges-sub'), act = rnEl('rn-gauges-act');
+  var farmMode = (ST_RAIN.mode !== 'gauge');
+  if (hh)  hh.textContent = farmMode ? 'How you track rain' : 'Gauges';
+  if (sub) sub.textContent = farmMode ? 'One number a day for the whole farm' : 'This rain year';
+  if (act) act.innerHTML = '<button class="btn-sec" onclick="nav(\'settings\')">' + (farmMode ? 'Change' : 'Manage') + '</button>';
+
+  var h = '';
+  if (farmMode){
+    h += '<div class="rn-empty" style="text-align:left;padding:15px 17px">' +
+         '<b>Whole farm</b>You log one number a day and every screen uses it. ' +
+         'If you want rain per land or per camp &mdash; and rain on the Crops and Livestock screens &mdash; switch to tracking by gauge in Settings. Nothing you have logged is lost.' +
+         '</div>';
+  } else {
+    h += '<div class="rn-gauges">';
+    rnGauges().forEach(function(g){
+      var v = rnYearToDate(g.id);
+      h += '<div class="rn-g"><div class="n">' + esc(g.name) + (g.isDefault ? ' &#11088;' : '') + '</div>' +
+           '<div class="w">' + esc(rnGaugeWhere(g)) + '</div>' +
+           '<div class="v">' + (v == null ? '&mdash;' : rnMm(v)) + '<small>mm</small></div></div>';
+    });
+    if (ST_RAIN.sat && ST_RAIN.sat.daily){
+      var sv = rnSatTotal(rnISO(rnYearStartOf(rnToday())), rnISO(rnToday()));
+      h += '<div class="rn-g sat"><div class="n">Satellite</div><div class="w">For your farm, from satellite</div>' +
+           '<div class="v">' + (sv == null ? '&mdash;' : rnMm(sv)) + '<small>mm</small></div>' +
+           '<div class="w" style="margin-top:4px">A cross-check, never mixed into your own total</div></div>';
+    }
+    h += '</div><div class="rn-foot">Gauge names come from your own lands and camps, so rain per land is a real record.</div>';
+  }
+  host.innerHTML = h;
+}
+function rnGaugeWhere(g){
+  if (g.where) return g.where;
+  var l = g.link || {};
+  if (l.type === 'land') return 'Land';
+  if (l.type === 'camp') return 'Camp';
+  if (l.type === 'block') return 'Block';
+  return 'Homestead';
+}
+
+/* ── the chart ──────────────────────────────────────────────────────────── */
+function rnSetChartView(v){ RN_CHART_VIEW = v; rnRenderChart(); }
+function rnRenderChartViews(){
+  var host = rnEl('rn-chart-views'); if (!host) return;
+  var years = rnYearsWithData(), canYears = years.length >= 2;
+  var opts = [['year','This year'], ['month','By month'], ['years','Years']];
+  host.innerHTML = opts.map(function(o){
+    var off = (o[0] === 'years' && !canYears);
+    return '<button class="pill' + (RN_CHART_VIEW === o[0] ? ' on' : '') + '"' +
+           (off ? ' disabled style="opacity:.45;cursor:default" title="Two rain years are needed to compare"' :
+                  ' onclick="rnSetChartView(' + rnQ(o[0]) + ')"') +
+           '>' + o[1] + '</button>';
+  }).join('');
+  if (RN_CHART_VIEW === 'years' && !canYears) RN_CHART_VIEW = 'year';
+}
+
+function rnRenderChart(){
+  var cv = rnEl('rn-chart'); if (!cv) return;
+  var legend = rnEl('rn-chart-legend'), ins = rnEl('rn-insights'), sub = rnEl('rn-chart-sub'), hh = rnEl('rn-chart-h');
+
+  if (ins) ins.innerHTML = rnInsights().map(function(s){ return '<div class="r"><span class="dot"></span><span>' + s + '</span></div>'; }).join('');
+  rnRenderChartViews();
+
+  if (typeof Chart === 'undefined'){ if (legend) legend.innerHTML = ''; return; }
+  if (RN_CHART_VIEW === 'month') return rnRenderChartMonth(hh, sub, legend);
+  if (RN_CHART_VIEW === 'years') return rnRenderChartYears(hh, sub, legend);
+  if (hh) hh.textContent = 'This rain year against the long-term';
+  var s = rnCumSeries(), mine = rnYourReadings(), hasNormal = !!rnNormalMonthly();
+  if (sub) sub.textContent = mine
+    ? 'Rain adding up through the year' + (hasNormal ? ' · the shaded band is where most years fall' : '')
+    : 'Satellite rainfall for your farm until your own readings take over';
+
+  try { destroyChart('rn'); } catch(e){}
+  var ds = [];
+  if (s.hi.some(function(v){ return v != null; })){
+    ds.push({ label:'Most years', data:s.hi, borderColor:'transparent', backgroundColor:'rgba(232,241,250,.85)', pointRadius:0, fill:'+1', tension:.35, order:5 });
+    ds.push({ label:'lo',          data:s.lo, borderColor:'transparent', backgroundColor:'transparent', pointRadius:0, fill:false, tension:.35, order:5 });
+  }
+  if (hasNormal) ds.push({ label:'Long-term normal', data:s.normal, borderColor:'#9CC0E4', borderDash:[4,3], borderWidth:2, pointRadius:0, fill:false, tension:.35, order:3 });
+  if (s.last.some(function(v){ return v != null; })) ds.push({ label:'Last year', data:s.last, borderColor:'#B8C0CA', borderWidth:2, pointRadius:0, fill:false, tension:.35, order:2 });
+  ds.push({ label:'This rain year', data:s.me, borderColor:'#2F6FAB', borderWidth:3,
+            borderDash: mine ? [] : [2,4],
+            pointRadius:function(c){ return (c.dataIndex === rnLastIdx(s.me)) ? 4.5 : 0; },
+            pointBackgroundColor: mine ? '#2F6FAB' : '#fff', pointBorderColor:'#2F6FAB', pointBorderWidth:2,
+            fill:false, tension:.35, order:1 });
+
+  ST.charts['rn'] = new Chart(cv, {
+    type:'line',
+    data:{ labels:s.labels, datasets:ds },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          backgroundColor:'#14281f', padding:10, cornerRadius:8, displayColors:true, boxWidth:8, boxHeight:8,
+          callbacks:{
+            title:function(it){ return it && it.length ? (it[0].label || '') : ''; },
+            label:function(c){ return (c.dataset.label === 'lo') ? null : c.dataset.label + ': ' + rnMm(c.parsed.y) + ' mm'; }
+          },
+          filter:function(c){ return c.dataset.label !== 'lo' && c.dataset.label !== 'Most years'; }
+        }
+      },
+      scales:{
+        y:{ beginAtZero:true, grid:{ color:'#EEF1F4', drawBorder:false },
+            ticks:{ color:'#9CA3AF', font:{ size:10 }, callback:function(v){ return v + ' mm'; } } },
+        x:{ grid:{ display:false }, ticks:{ color:'#6B7280', font:{ size:10 } } }
+      }
+    }
+  });
+
+  if (legend){
+    var lh = '<span><span class="ln" style="border-color:#2F6FAB' + (mine ? '' : ';border-top-style:dashed') + '"></span>This rain year' + (mine ? '' : ' (satellite)') + '</span>';
+    if (s.last.some(function(v){ return v != null; })) lh += '<span><span class="ln" style="border-color:#B8C0CA"></span>Last year</span>';
+    if (hasNormal) lh += '<span><span class="ln dash" style="border-color:#9CC0E4"></span>Long-term normal</span>';
+    if (s.hi.some(function(v){ return v != null; })) lh += '<span><i style="background:#E8F1FA"></i>Most years</span>';
+    legend.innerHTML = lh;
+  }
+}
+function rnLastIdx(a){ var k = -1; for (var i=0;i<a.length;i++) if (a[i] != null) k = i; return k; }
+
+/* Month by month: what fell against what normally falls. */
+function rnRenderChartMonth(hh, sub, legend){
+  var s = rnMonthSeries(), norm = rnNormalMonthly();
+  if (hh)  hh.textContent = 'Month by month';
+  if (sub) sub.textContent = norm ? 'What fell each month against what normally falls' : 'What fell each month';
+  try { destroyChart('rn'); } catch(e){}
+  var ds = [{ label:'This year', data:s.mm, backgroundColor:'#2F6FAB', borderRadius:5, maxBarThickness:26, order:1 }];
+  if (norm) ds.push({ label:'Long-term normal', data:s.normal, backgroundColor:'#DCE9F6', borderRadius:5, maxBarThickness:26, order:2 });
+  ST.charts['rn'] = new Chart(rnEl('rn-chart'), {
+    type:'bar',
+    data:{ labels:s.labels, datasets:ds },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ display:false },
+        tooltip:{ backgroundColor:'#14281f', padding:10, cornerRadius:8, boxWidth:8, boxHeight:8,
+          callbacks:{ label:function(c){ return c.dataset.label + ': ' + (c.parsed.y == null ? 'nothing logged' : rnMm(c.parsed.y) + ' mm'); } } } },
+      scales:{ y:{ beginAtZero:true, grid:{ color:'#EEF1F4', drawBorder:false },
+                   ticks:{ color:'#9CA3AF', font:{ size:10 }, callback:function(v){ return v + ' mm'; } } },
+               x:{ grid:{ display:false }, ticks:{ color:'#6B7280', font:{ size:10 } } } }
+    }
+  });
+  if (legend) legend.innerHTML = '<span><i style="background:#2F6FAB"></i>This year</span>' +
+    (norm ? '<span><i style="background:#DCE9F6"></i>Long-term normal</span>' : '');
+}
+
+/* One rain year against another, in the farmer's own figures. */
+function rnRenderChartYears(hh, sub, legend){
+  var years = rnYearsWithData().slice(0, 4), order = rnMonthOrder();
+  if (hh)  hh.textContent = 'One year against another';
+  if (sub) sub.textContent = 'Rain adding up through each rain year';
+  try { destroyChart('rn'); } catch(e){}
+  var shades = ['#2F6FAB', '#8FB4D6', '#B8C0CA', '#D7DCE2'];
+  var ds = years.map(function(y, i){
+    return { label: y.label, data: rnCumForYear(y.start), borderColor: shades[i] || '#D7DCE2',
+             borderWidth: i === 0 ? 3 : 2, pointRadius: 0, fill: false, tension: .35, order: i + 1 };
+  });
+  ST.charts['rn'] = new Chart(rnEl('rn-chart'), {
+    type:'line',
+    data:{ labels: [''].concat(order.map(function(m){ return RN_MON[m]; })), datasets: ds },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ display:false },
+        tooltip:{ backgroundColor:'#14281f', padding:10, cornerRadius:8, boxWidth:8, boxHeight:8,
+          callbacks:{ label:function(c){ return c.dataset.label + ': ' + rnMm(c.parsed.y) + ' mm'; } } } },
+      scales:{ y:{ beginAtZero:true, grid:{ color:'#EEF1F4', drawBorder:false },
+                   ticks:{ color:'#9CA3AF', font:{ size:10 }, callback:function(v){ return v + ' mm'; } } },
+               x:{ grid:{ display:false }, ticks:{ color:'#6B7280', font:{ size:10 } } } }
+    }
+  });
+  if (legend) legend.innerHTML = years.map(function(y, i){
+    return '<span><span class="ln" style="border-color:' + (shades[i] || '#D7DCE2') + '"></span>' + y.label + ' &middot; ' + rnMm(y.mm) + ' mm</span>';
+  }).join('');
+}
+
+/* ── Log rain ───────────────────────────────────────────────────────────────
+   Three taps: open, type, save.  The 08:00 convention is applied for the
+   farmer rather than explained to them, but the day it lands on is always
+   spelled out so nothing happens behind their back. */
+var RN_LOG_DATE = null;
+function rnLogOpen(){
+  RN_LOG_DATE = rnISO(rnAddDays(rnToday(), -1));
+  rnLogBody();
+  var m = rnEl('rn-log-modal'); if (m) m.classList.add('on');
+  setTimeout(function(){ var f = document.querySelector('#rn-log-body input.rn-mm'); if (f) f.focus(); }, 60);
+}
+function rnLogClose(){ var m = rnEl('rn-log-modal'); if (m) m.classList.remove('on'); }
+function rnLogBody(){
+  var host = rnEl('rn-log-body'); if (!host) return;
+  var gs = rnGauges(), today = rnISO(rnToday()), yest = rnISO(rnAddDays(rnToday(), -1));
+  var isMorning = (RN_LOG_DATE === yest);
+  var h = '';
+
+  h += '<div class="rn-f"><label>When did you read the gauge?</label>' +
+       '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+       '<button type="button" class="btn-sec" style="' + (isMorning ? 'border-color:var(--rn);color:var(--rnd);background:var(--rnp);font-weight:800' : '') + '" onclick="rnLogSetDate(' + rnQ(yest) + ')">This morning</button>' +
+       '<input type="date" class="rn-date" max="' + today + '" value="' + RN_LOG_DATE + '" onchange="rnLogSetDate(this.value)" style="width:auto;flex:1;min-width:150px">' +
+       '</div>' +
+       '<div class="hint">Counts as rain on <b>' + rnDow(RN_LOG_DATE) + ' ' + rnFmtDate(RN_LOG_DATE) + '</b>' +
+       (isMorning ? ' — your 08:00 reading is the day before&rsquo;s rain.' : '.') + '</div></div>';
+
+  if (ST_RAIN.mode !== 'gauge'){
+    var ex = rnGaugeReading(RN_LOG_DATE, gs[0].id);
+    h += '<div class="rn-f rn-big"><label>Rain at ' + esc(gs[0].name) + '</label>' +
+         '<div class="rn-mmrow" style="border:0;padding:0"><div><div class="gw">One number for the whole farm.<br>Want rain per land or camp? Settings &rsaquo; Rainfall</div></div>' +
+         '<div class="inwrap"><input class="rn-mm" data-g="' + esc(gs[0].id) + '" type="number" inputmode="decimal" step="0.5" min="0" placeholder="0" value="' + (ex ? ex.mm : '') + '"><span class="u">mm</span></div></div></div>';
+  } else {
+    h += '<div style="margin-bottom:6px;font-size:11.5px;font-weight:700;color:var(--t2)">What each gauge shows</div>';
+    gs.forEach(function(g){
+      var ex = rnGaugeReading(RN_LOG_DATE, g.id);
+      h += '<div class="rn-mmrow"><div><div class="gn">' + esc(g.name) + (g.isDefault ? ' &#11088;' : '') + '</div><div class="gw">' + esc(rnGaugeWhere(g)) + '</div></div>' +
+           '<div class="inwrap"><input class="rn-mm" data-g="' + esc(g.id) + '" type="number" inputmode="decimal" step="0.5" min="0" placeholder="not read" value="' + (ex ? ex.mm : '') + '"><span class="u">mm</span></div></div>';
+    });
+  }
+
+  h += '<div class="rn-f" style="margin-top:14px"><label>Note <span style="font-weight:500;color:var(--t3)">optional</span></label>' +
+       '<input id="rn-log-note-in" type="text" maxlength="80" placeholder="e.g. hail on Grootvlei &middot; thunderstorm at 4"></div>';
+  h += '<div style="display:flex;justify-content:flex-start"><button type="button" class="btn-sec" onclick="rnLogNoRain()">&#9728;&#65039; It didn&rsquo;t rain</button></div>';
+  host.innerHTML = h;
+}
+function rnLogSetDate(d){ if (!d) return; RN_LOG_DATE = String(d).slice(0,10); rnLogBody(); }
+function rnLogNoRain(){
+  document.querySelectorAll('#rn-log-body input.rn-mm').forEach(function(i){ i.value = '0'; });
+  rnLogSave();
+}
+function rnLogSave(){
+  var ins = document.querySelectorAll('#rn-log-body input.rn-mm');
+  var note = (rnEl('rn-log-note-in') || {}).value || '';
+  var by = '';
+  try { by = (ST && (ST.ownerName || '')) || ''; } catch(e){}
+  var n = 0, total = 0;
+  ins.forEach(function(el){
+    var raw = String(el.value == null ? '' : el.value).trim();
+    if (raw === '') return;
+    var mm = parseFloat(raw);
+    if (isNaN(mm) || mm < 0) return;
+    var gid = el.getAttribute('data-g');
+    ST_RAIN.log = rnLog().filter(function(r){ return !(r.date === RN_LOG_DATE && r.gaugeId === gid && r.src !== 'sat'); });
+    ST_RAIN.log.push({ id: 'rn' + Date.now() + '-' + gid, date: RN_LOG_DATE, gaugeId: gid, mm: mm, src: 'gauge', by: by, note: note });
+    n++; total += mm;
+  });
+  if (!n){ try { toast('Type what the gauge shows, then Save.', 'error'); } catch(e){} return; }
+  try { saveState(); } catch(e){}
+  try { rnPush(); } catch(e){}
+  rnLogClose();
+  renderRainfall();
+  try { rnDashSync(); } catch(e){}
+  try { toast(total > 0 ? rnMm(total) + ' mm logged for ' + rnFmtDate(RN_LOG_DATE) : 'A dry day recorded for ' + rnFmtDate(RN_LOG_DATE), 'success'); } catch(e){}
+}
+
+
+/* ══ Rainfall — Settings ═══════════════════════════════════════════════════
+   Two questions the farmer answers once: how they want to track rain, and
+   where the farm is.  Everything else has a sensible answer already. */
+
+function rnSettingsRender(){
+  var host = rnEl('rn-set-body'); if (!host) return;
+  var farmMode = (ST_RAIN.mode !== 'gauge');
+  var na = rnNormalAnnual();
+  var h = '';
+
+  h += '<div style="font-size:12.5px;font-weight:700;color:var(--t2);margin-bottom:7px">How do you want to track rain?</div>';
+  h += '<div class="rn-opts">' +
+       rnOptCard('farm',  'Whole farm', 'One number a day. The simplest way to start.', farmMode) +
+       rnOptCard('gauge', 'By gauge',   'Rain per land, camp or block. Switch any time — nothing you have logged is lost.', !farmMode) +
+       '</div>';
+
+  h += '<div class="rn-f" style="margin-top:16px"><label>Where is the farm? <span style="font-weight:500;color:var(--t3)">so we can look up its long-term rainfall</span></label>';
+  if (ST_RAIN.loc){
+    h += '<div class="rn-loc"><span><b>' + esc(ST_RAIN.loc.town || 'Set') + '</b>' +
+         (ST_RAIN.loc.prov ? '<span style="color:var(--t3)"> &middot; ' + esc(ST_RAIN.loc.prov) + '</span>' : '') +
+         '<span style="color:var(--t4);font-size:11px;display:block">' + Number(ST_RAIN.loc.lat).toFixed(2) + '&deg;, ' + Number(ST_RAIN.loc.lon).toFixed(2) + '&deg;</span></span>' +
+         '<button class="btn-sec" onclick="rnLocClear()">Change</button></div>';
+  } else {
+    h += '<div style="display:flex;gap:8px"><input id="rn-loc-q" type="text" placeholder="Nearest town, e.g. Komani" onkeydown="if(event.key===\'Enter\'){event.preventDefault();rnLocSearch();}">' +
+         '<button class="rn-btn" onclick="rnLocSearch()">Find</button></div>' +
+         '<div class="hint">Never printed on a payslip or shared. It is used to look up rainfall for your farm, nothing else.</div>';
+  }
+  h += '<div id="rn-loc-results"></div></div>';
+
+  h += '<div class="fg2" style="margin-top:4px">';
+  h += '<div class="rn-f"><label>Your rain book starts in</label><select id="rn-set-ystart" onchange="rnSetYearStart(this.value)">' +
+       [[7,'July — most summer-rainfall farms'],[1,'January — the calendar year'],[4,'April'],[10,'October']].map(function(o){
+         return '<option value="' + o[0] + '"' + (rnYearStart() === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') +
+       '</select><div class="hint">A rain book usually runs July to June, so a whole wet season sits in one year.</div></div>';
+  h += '<div class="rn-f"><label>Long-term average</label>' +
+       '<div style="display:flex;gap:8px;align-items:center"><input id="rn-set-normal" type="number" min="0" step="1" placeholder="' + (na ? Math.round(na) : '—') + '" value="' + (ST_RAIN.normal && ST_RAIN.normal.override ? ST_RAIN.normal.override : '') + '" onchange="rnSetNormalOverride(this.value)"><span style="font-size:12px;color:var(--t3);white-space:nowrap">mm a year</span></div>' +
+       '<div class="hint">' + (na ? 'We worked out <b>' + rnMm(na) + ' mm</b> for your farm from ' + ((ST_RAIN.normal && ST_RAIN.normal.years) || 30) + ' years. Type your own figure if you have one you trust.' : 'Set where the farm is and we will work this out.') + '</div></div>';
+  h += '</div>';
+
+  h += '<label class="rn-toggle"><input type="checkbox" id="rn-set-fill"' + (ST_RAIN.fillFromSat ? ' checked' : '') + ' onchange="rnSetFill(this.checked)">' +
+       '<span><b>Fill in the season before my first reading</b><small>Satellite rainfall for your farm, so this page is worth opening on day one. It stops the day your own record starts, and is always marked &ldquo;sat&rdquo;.</small></span></label>';
+
+  h += '<details class="rn-adv"><summary>Advanced</summary><div class="fg2" style="margin-top:11px">' +
+       '<div class="rn-f"><label>Enough rain to plant</label><div style="display:flex;gap:8px;align-items:center">' +
+       '<input id="rn-set-pmm" type="number" min="1" step="1" value="' + ((ST_RAIN.rule && ST_RAIN.rule.plantMm) || 25) + '" onchange="rnSetRule()"><span style="font-size:12px;color:var(--t3);white-space:nowrap">mm in</span>' +
+       '<input id="rn-set-pdays" type="number" min="1" step="1" value="' + ((ST_RAIN.rule && ST_RAIN.rule.plantDays) || 7) + '" onchange="rnSetRule()"><span style="font-size:12px;color:var(--t3);white-space:nowrap">days</span></div>' +
+       '<div class="hint">The rule your lands are measured against in the planting window.</div></div>' +
+       '</div></details>';
+
+  if (!farmMode){
+    h += '<div style="margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">' +
+         '<span style="font-size:12.5px;font-weight:700;color:var(--t2)">Gauges</span>' +
+         '<button class="btn-sec" onclick="rnGaugeAdd()">+ Add gauge</button></div>';
+    h += '<table class="rn-t"><thead><tr><th>Name</th><th>Where</th><th style="width:70px">Default</th><th style="width:34px"></th></tr></thead><tbody>';
+    (ST_RAIN.gauges || []).forEach(function(g, i){
+      h += '<tr><td><input class="rn-gi" value="' + esc(g.name || '') + '" onchange="rnGaugeSet(' + i + ',\'name\',this.value)" style="height:30px;font-size:12px"></td>' +
+           '<td><input class="rn-gi" value="' + esc(g.where || '') + '" placeholder="e.g. windmill" onchange="rnGaugeSet(' + i + ',\'where\',this.value)" style="height:30px;font-size:12px"></td>' +
+           '<td style="text-align:center"><input type="radio" name="rn-def" ' + (g.isDefault ? 'checked' : '') + ' onchange="rnGaugeDefault(' + i + ')"></td>' +
+           '<td><button class="rn-x" title="Remove" onclick="rnGaugeRemove(' + i + ')">&times;</button></td></tr>';
+    });
+    if (!(ST_RAIN.gauges || []).length) h += '<tr><td colspan="4" style="color:var(--t3);font-size:12px">No gauges yet. Add one for the homestead, then one per land or camp you read.</td></tr>';
+    h += '</tbody></table></div>';
+  }
+
+  host.innerHTML = h;
+}
+function rnOptCard(mode, title, sub, on){
+  return '<button type="button" class="rn-opt' + (on ? ' on' : '') + '" onclick="rnSetMode(' + rnQ(mode) + ')">' +
+         '<span class="dot"></span><span><b>' + title + '</b><small>' + sub + '</small></span></button>';
+}
+
+function rnSetMode(m){
+  if (ST_RAIN.mode === m) return;
+  ST_RAIN.mode = m;
+  if (m === 'gauge'){
+    if (!(ST_RAIN.gauges || []).length){
+      /* Give them the one gauge they already have, named after the homestead. */
+      ST_RAIN.gauges = [{ id:'g1', name:'Homestead', isDefault:true, where:'', link:{type:'farm'} }];
+    }
+    /* Whatever was logged for the whole farm becomes the default gauge's, so
+       switching back and forth never strands a reading. */
+    var into = (ST_RAIN.gauges.filter(function(g){ return g.isDefault; })[0] || ST_RAIN.gauges[0]).id;
+    rnLog().forEach(function(r){ if (r.gaugeId === RN_FARM_GAUGE) r.gaugeId = into; });
+  }
+  if (m === 'farm'){
+    var d = (ST_RAIN.gauges || []).filter(function(g){ return g.isDefault; })[0] || (ST_RAIN.gauges || [])[0];
+    if (d) rnLog().forEach(function(r){ if (r.gaugeId === d.id) r.gaugeId = RN_FARM_GAUGE; });
+  }
+  rnPersist(); rnSettingsRender();
+  try { toast(m === 'gauge' ? 'Tracking rain by gauge. Nothing you logged was lost.' : 'Tracking rain for the whole farm.', 'success'); } catch(e){}
+}
+function rnSetYearStart(v){
+  var n = parseInt(v, 10); if (!n) return;
+  ST_RAIN.yearStart = n;
+  if (ST_RAIN.normal && ST_RAIN.normal.band) ST_RAIN.normal.band.forYearStart = null;  /* the band is per rain year */
+  rnPersist(); rnSettingsRender();
+  try { rnSync(); } catch(e){}
+}
+function rnSetNormalOverride(v){
+  var n = parseFloat(v);
+  if (!ST_RAIN.normal) ST_RAIN.normal = { monthly:null, override:null };
+  ST_RAIN.normal.override = (isNaN(n) || n <= 0) ? null : n;
+  rnPersist(); rnSettingsRender();
+}
+function rnSetFill(on){ ST_RAIN.fillFromSat = !!on; rnPersist(); }
+function rnSetRule(){
+  var mm = parseFloat((rnEl('rn-set-pmm') || {}).value), d = parseInt((rnEl('rn-set-pdays') || {}).value, 10);
+  ST_RAIN.rule = { plantMm: (isNaN(mm) || mm <= 0) ? 25 : mm, plantDays: (isNaN(d) || d <= 0) ? 7 : d };
+  rnPersist();
+}
+function rnPersist(){
+  try { saveState(); } catch(e){}
+  rnPush();
+  try { if (rnEl('pg-rainfall')) renderRainfall(); } catch(e){}
+  try { rnDashSync(); } catch(e){}
+}
+/* Push the book to the farm's account.  Silent by design: the tables may not
+   exist on an older project, and a farmer offline at the gauge must never see
+   an error for logging rain.  The data is safe on the device either way. */
+function rnPush(){
+  try { if (typeof AI !== 'undefined' && AI.rain && AI.rain.saveAll) AI.rain.saveAll(ST_RAIN); } catch(e){}
+}
+
+/* ── where is the farm ──────────────────────────────────────────────────── */
+function rnLocSearch(){
+  var q = ((rnEl('rn-loc-q') || {}).value || '').trim();
+  var box = rnEl('rn-loc-results'); if (!box) return;
+  if (q.length < 2){ box.innerHTML = '<div class="hint">Type the name of the nearest town.</div>'; return; }
+  box.innerHTML = '<div class="hint">Looking&hellip;</div>';
+  rnFetchJson('https://geocoding-api.open-meteo.com/v1/search?count=8&language=en&format=json&name=' + encodeURIComponent(q), 15000)
+    .then(function(j){
+      var all = (j && j.results) || [];
+      var za = all.filter(function(r){ return r.country_code === 'ZA'; });
+      var list = za.length ? za : all;
+      if (!list.length){ box.innerHTML = '<div class="hint">No town by that name. Try the nearest bigger town.</div>'; return; }
+      box.innerHTML = '<div class="rn-hits">' + list.slice(0,6).map(function(r){
+        var label = r.name + (r.admin1 ? ', ' + r.admin1 : '') + (r.country_code !== 'ZA' ? ' (' + (r.country || '') + ')' : '');
+        return '<button type="button" class="rn-hit" onclick="rnLocPick(' + rnQ(label) + ',' + rnQ(r.admin1 || '') + ',' + Number(r.latitude) + ',' + Number(r.longitude) + ')">' +
+               esc(label) + '<span>' + Number(r.latitude).toFixed(2) + '&deg;, ' + Number(r.longitude).toFixed(2) + '&deg;</span></button>';
+      }).join('') + '</div>';
+    })
+    .catch(function(){ box.innerHTML = '<div class="hint">Could not reach the search just now. Try again in a moment.</div>'; });
+}
+function rnLocPick(town, prov, lat, lon){
+  ST_RAIN.loc = { town: town, prov: prov, lat: lat, lon: lon };
+  ST_RAIN.normal = null;                 /* a new place means a new long-term average */
+  ST_RAIN.sat = null;
+  rnPersist(); rnSettingsRender();
+  try { toast('Looking up the long-term rainfall for ' + town + '…', 'success'); } catch(e){}
+  try { rnSync(true).then(function(){ rnSettingsRender(); }); } catch(e){}
+}
+function rnLocClear(){
+  ST_RAIN.loc = null; ST_RAIN.normal = null; ST_RAIN.sat = null;
+  rnPersist(); rnSettingsRender();
+}
+
+/* ── gauges ─────────────────────────────────────────────────────────────── */
+function rnGaugeAdd(){
+  ST_RAIN.gauges = ST_RAIN.gauges || [];
+  var n = ST_RAIN.gauges.length + 1;
+  ST_RAIN.gauges.push({ id: 'g' + Date.now(), name: 'Gauge ' + n, where: '', isDefault: !ST_RAIN.gauges.length, link: {} });
+  rnPersist(); rnSettingsRender();
+}
+function rnGaugeSet(i, k, v){ if (!ST_RAIN.gauges[i]) return; ST_RAIN.gauges[i][k] = v; rnPersist(); }
+function rnGaugeDefault(i){
+  (ST_RAIN.gauges || []).forEach(function(g, j){ g.isDefault = (j === i); });
+  rnPersist(); rnSettingsRender();
+}
+function rnGaugeRemove(i){
+  var g = (ST_RAIN.gauges || [])[i]; if (!g) return;
+  var n = rnLog().filter(function(r){ return r.gaugeId === g.id; }).length;
+  if (n && !confirm('Remove ' + g.name + '? Its ' + n + ' reading' + (n===1?'':'s') + ' will be removed with it.')) return;
+  ST_RAIN.log = rnLog().filter(function(r){ return r.gaugeId !== g.id; });
+  ST_RAIN.gauges.splice(i, 1);
+  if (ST_RAIN.gauges.length && !ST_RAIN.gauges.some(function(x){ return x.isDefault; })) ST_RAIN.gauges[0].isDefault = true;
+  rnPersist(); rnSettingsRender();
+}
+
+
+/* ══ Rainfall record ═══════════════════════════════════════════════════════
+   What an insurer, the Land Bank or a drought-relief desk actually asks for:
+   who read which gauge where, every month, the season against the long-term,
+   and a line to sign.  Gauge readings and satellite estimates are kept in
+   separate columns, because an assessor will ask which is which. */
+
+function rnReportRows(){
+  var t = rnToday(), st = rnYearStartOf(t), order = rnMonthOrder(), norm = rnNormalMonthly(), gs = rnGauges();
+  var rows = [];
+  for (var i=0;i<12;i++){
+    var mi = order[i];
+    var y = st.getFullYear() + ((rnYearStart() === 1) ? 0 : (mi < st.getMonth() ? 1 : 0));
+    var first = new Date(y, mi, 1), last = new Date(y, mi+1, 0);
+    if (first > t) continue;
+    var to = (last > t) ? t : last;
+    var f = rnISO(first), o = rnISO(to);
+    rows.push({
+      label: RN_MON[mi] + ' ' + y,
+      per: gs.map(function(g){ return rnTotal(f, o, g.id); }),
+      sat: rnSatTotal(f, o),
+      normal: norm ? norm[mi] : null,
+      d1: rnGaugeRainDays(f, o, 1),
+      d10: rnGaugeRainDays(f, o, 10)
+    });
+  }
+  return rows;
+}
+function rnReportHTML(){
+  var t = rnToday(), st = rnYearStartOf(t), gs = rnGauges(), rows = rnReportRows();
+  var farm = (ST && ST.farmName) || (typeof FARM !== 'undefined' && FARM.name) || 'Your farm';
+  var owner = (ST && ST.ownerName) || (typeof FARM !== 'undefined' && FARM.owner) || '';
+  var loc = ST_RAIN.loc || {};
+  var na = rnNormalAnnual();
+  var yTot = rnTotal(rnISO(st), rnISO(t));
+  var days1 = rnGaugeRainDays(rnISO(st), rnISO(t), 1), days10 = rnGaugeRainDays(rnISO(st), rnISO(t), 10);
+  var satFilled = 0, firstOwn = rnFirstGaugeDate();
+  try {
+    var s = (ST_RAIN.sat && ST_RAIN.sat.daily) || {};
+    Object.keys(s).forEach(function(d){ if (d >= rnISO(st) && d <= rnISO(t) && (!firstOwn || d < firstOwn)) satFilled++; });
+  } catch(e){}
+
+  function n(v){ return v == null ? '&mdash;' : rnMm(v); }
+  var head = '<tr><th>Month</th>' + gs.map(function(g){ return '<th class="r">' + esc(g.name) + '</th>'; }).join('') +
+             '<th class="r sat">Satellite</th><th class="r">Normal</th><th class="r">Days &ge;1&thinsp;mm</th><th class="r">Days &ge;10&thinsp;mm</th></tr>';
+  var body = rows.map(function(r){
+    return '<tr><td>' + r.label + '</td>' + r.per.map(function(v){ return '<td class="r">' + n(v) + '</td>'; }).join('') +
+           '<td class="r sat">' + n(r.sat) + '</td><td class="r sat">' + n(r.normal) + '</td>' +
+           '<td class="r">' + r.d1 + '</td><td class="r">' + r.d10 + '</td></tr>';
+  }).join('');
+  var totals = '<tr class="tot"><td>Total</td>' +
+    gs.map(function(g){ return '<td class="r">' + n(rnTotal(rnISO(st), rnISO(t), g.id)) + '</td>'; }).join('') +
+    '<td class="r sat">' + n(rnSatTotal(rnISO(st), rnISO(t))) + '</td>' +
+    '<td class="r sat">' + n(rnNormalToDate(t)) + '</td><td class="r">' + days1 + '</td><td class="r">' + days10 + '</td></tr>';
+
+  var gaugeNotes = gs.map(function(g){
+    return esc(g.name) + ' — ' + esc(rnGaugeWhere(g)) + (g.isDefault ? ', the gauge this record is totalled on' : '');
+  }).join(' &middot; ');
+
+  return '' +
+  '<div class="doc">' +
+  '<div class="hd"><div><div class="k">Rainfall record</div><h1>' + esc(farm) + '</h1>' +
+    '<div class="m">' + esc(owner) + (loc.town ? ' &middot; ' + esc(loc.town) : '') + (loc.prov ? ', ' + esc(loc.prov) : '') +
+    (ST && ST.farmHa ? ' &middot; ' + ST.farmHa + ' ha' : '') +
+    (loc.lat != null ? ' &middot; ' + Math.abs(loc.lat).toFixed(2) + '&deg; ' + (loc.lat < 0 ? 'S' : 'N') + ' ' + Math.abs(loc.lon).toFixed(2) + '&deg; ' + (loc.lon < 0 ? 'W' : 'E') : '') +
+    '</div></div>' +
+    '<div class="r2"><div class="k">Rain year</div><b>' + rnYearLabel(t) + '</b>' +
+    '<div class="m">To ' + rnFmtDate(rnISO(t)) + ' &middot; AgriInsights</div></div></div>' +
+
+  '<table class="sum"><tr><th>Season summary</th><th class="r">This year</th><th class="r">Long-term</th><th class="r">% of normal</th><th class="r">Rain days</th></tr>' +
+  '<tr><td>Rain year to date' + (gs.length > 1 ? ' (' + esc(rnDefaultGauge().name) + ')' : '') + '</td><td class="r"><b>' + n(yTot) + ' mm</b></td>' +
+    '<td class="r">' + (rnNormalToDate(t) != null ? rnMm(rnNormalToDate(t)) + ' mm' : '&mdash;') + '</td>' +
+    '<td class="r"><b>' + ((yTot != null && rnNormalToDate(t)) ? Math.round((yTot / rnNormalToDate(t)) * 100) + ' %' : '&mdash;') + '</b></td>' +
+    '<td class="r">' + days1 + '</td></tr>' +
+  '<tr><td>Full year, long-term average</td><td class="r">&mdash;</td><td class="r">' + (na ? rnMm(na) + ' mm' : '&mdash;') + '</td><td class="r">&mdash;</td><td class="r">&mdash;</td></tr>' +
+  '</table>' +
+
+  '<table class="mth"><thead>' + head + '</thead><tbody>' + body + totals + '</tbody></table>' +
+
+  '<div class="notes">' +
+  '<p><b>Gauges.</b> ' + gaugeNotes + '. Readings are taken in the morning and counted against the previous day, the convention the South African Weather Service uses.</p>' +
+  '<p><b>Satellite column.</b> Shown for comparison only and never added to the gauge totals. ' +
+    (satFilled ? satFilled + ' day' + (satFilled===1?'':'s') + ' in this record fall before the first gauge reading and are satellite estimates.' : 'Every day in this record is a gauge reading.') +
+    ' Rain-day counts are taken from gauge readings alone.</p>' +
+  '<p><b>Normal.</b> ' + (ST_RAIN.normal && ST_RAIN.normal.override ? 'The farm&rsquo;s own long-term figure of ' + rnMm(ST_RAIN.normal.override) + ' mm a year.' : (ST_RAIN.normal ? esc(ST_RAIN.normal.src) + '.' : 'Not set.')) + '</p>' +
+  '</div>' +
+
+  '<div class="sig"><div>Declared correct by &middot; signature</div><div>Date</div></div>' +
+  rnReportAppendix() +
+  '</div>';
+}
+
+/* Page two: every day that carries a figure, so an assessor can see exactly
+   which days were read off a gauge and which are satellite estimates.  A
+   summary alone is not a record. */
+function rnReportAppendix(){
+  var t = rnToday(), st = rnISO(rnYearStartOf(t)), today = rnISO(t), gs = rnGauges();
+  var byDate = {}, firstOwn = rnFirstGaugeDate();
+  rnLog().forEach(function(r){
+    if (r.src === 'sat' || r.date < st || r.date > today) return;
+    (byDate[r.date] = byDate[r.date] || { gauge:{}, sat:null })
+      .gauge[r.gaugeId] = { mm: r.mm, by: r.by || '', note: r.note || '' };
+  });
+  try {
+    var sd = (ST_RAIN.sat && ST_RAIN.sat.daily) || {};
+    Object.keys(sd).forEach(function(d){
+      if (d < st || d > today) return;
+      if (firstOwn && d >= firstOwn) return;
+      if (!(sd[d] > 0.05)) return;
+      (byDate[d] = byDate[d] || { gauge:{}, sat:null }).sat = sd[d];
+    });
+  } catch(e){}
+
+  var dates = Object.keys(byDate).sort();
+  if (!dates.length) return '';
+  var satN = dates.filter(function(d){ return byDate[d].sat != null && !Object.keys(byDate[d].gauge).length; }).length;
+
+  var head = '<tr><th>Date</th>' + gs.map(function(g){ return '<th class="r">' + esc(g.name) + '</th>'; }).join('') +
+             '<th class="r sat">Satellite</th><th>Read by</th><th>Note</th></tr>';
+  var body = dates.map(function(d){
+    var e = byDate[d], who = '', note = '';
+    gs.forEach(function(g){ var c = e.gauge[g.id]; if (c){ if (!who && c.by) who = c.by; if (!note && c.note) note = c.note; } });
+    return '<tr><td>' + rnFmtDate(d) + '</td>' +
+      gs.map(function(g){ var c = e.gauge[g.id]; return '<td class="r">' + (c ? rnMm(c.mm) : '&mdash;') + '</td>'; }).join('') +
+      '<td class="r sat">' + (e.sat != null ? rnMm(e.sat) + ' <i>sat</i>' : '&mdash;') + '</td>' +
+      '<td>' + esc(who) + '</td><td>' + esc(note) + '</td></tr>';
+  }).join('');
+
+  return '<div class="pb"></div>' +
+    '<div class="k" style="margin-bottom:6px">Daily readings &middot; ' + rnYearLabel(t) + '</div>' +
+    '<table class="mth"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>' +
+    '<div class="notes"><p>' + dates.length + ' day' + (dates.length===1?'':'s') + ' carry a figure. ' +
+    (satN ? 'Of these, <b>' + satN + '</b> ' + (satN===1?'is a satellite estimate':'are satellite estimates') +
+            ' from before the first gauge reading and are marked <i>sat</i>; the rest were read off a gauge.'
+          : 'Every one was read off a gauge.') +
+    ' Days not listed had no rain recorded.</p></div>';
+}
+var RN_DOC_CSS = 'body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#111827;margin:0;padding:26px}' +
+  '.doc{max-width:860px;margin:0 auto}' +
+  '.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:2px solid #1B4332;padding-bottom:10px;margin-bottom:14px}' +
+  '.hd h1{font-size:19px;margin:2px 0}.hd .r2{text-align:right}' +
+  '.k{font-size:9px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#6B7280}' +
+  '.m{font-size:11px;color:#6B7280;margin-top:3px}' +
+  'table{width:100%;border-collapse:collapse;font-size:11.5px;margin:0 0 14px}' +
+  'th{text-align:left;font-size:9px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#6B7280;padding:5px 7px;border-bottom:1px solid #111827}' +
+  'td{padding:5px 7px;border-bottom:1px solid #F3F4F6}' +
+  '.r{text-align:right;font-variant-numeric:tabular-nums}.sat{color:#6B7280}' +
+  'tr.tot td{border-top:1px solid #111827;font-weight:800}' +
+  '.notes{font-size:10.5px;color:#374151;line-height:1.55}.notes p{margin:5px 0}' +
+  '.sig{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:22px;font-size:10.5px;color:#6B7280}' +
+  '.sig div{border-top:1px solid #111827;padding-top:5px}' +
+  '.pb{page-break-before:always;margin-top:26px;border-top:1px dashed #D1D5DB;padding-top:18px}' +
+  'i{font-style:normal;font-size:8.5px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em}' +
+  '@media print{body{padding:0}.pb{border-top:0;padding-top:0}}';
+
+function rnReportOpen(){
+  try {
+    var w = window.open('', '_blank');
+    if (!w || !w.document){ try{ toast('Your browser blocked the new tab. Allow pop-ups and try again.', 'error'); }catch(e){} return; }
+    w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Rainfall record — ' +
+      esc((ST && ST.farmName) || 'Farm') + '</title><style>' + RN_DOC_CSS + '</style></head><body>' +
+      rnReportHTML() + '</body></html>');
+    w.document.close();
+  } catch(e){ try{ toast('Could not open the record.', 'error'); }catch(_){} }
+}
+function rnReportCsv(){
+  var gs = rnGauges(), rows = rnReportRows();
+  var out = [['Month'].concat(gs.map(function(g){ return g.name + ' (mm)'; })).concat(['Satellite (mm)','Normal (mm)','Rain days >=1mm','Rain days >=10mm'])];
+  rows.forEach(function(r){
+    out.push([r.label].concat(r.per.map(function(v){ return v == null ? '' : Math.round(v*10)/10; }))
+      .concat([r.sat == null ? '' : Math.round(r.sat*10)/10, r.normal == null ? '' : Math.round(r.normal*10)/10, r.d1, r.d10]));
+  });
+  var csv = out.map(function(r){ return r.map(function(c){
+    c = String(c == null ? '' : c);
+    return /[",\n]/.test(c) ? '"' + c.replace(/"/g,'""') + '"' : c;
+  }).join(','); }).join('\n');
+  rnDownload('rainfall-record-' + rnYearLabel(rnToday()).replace(/[^0-9A-Za-z]+/g,'-') + '.csv', csv, 'text/csv');
+}
+function rnDownload(name, text, mime){
+  try {
+    var b = new Blob([text], { type: (mime || 'text/plain') + ';charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(b); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ try{ URL.revokeObjectURL(a.href); a.remove(); }catch(e){} }, 400);
+  } catch(e){ try{ toast('Could not save the file.', 'error'); }catch(_){} }
+}
+
+/* ══ Bring in an old rain book ═════════════════════════════════════════════
+   A date and the millimetres is enough.  Exports from the rain apps farmers
+   already use are recognised without asking them to rearrange anything. */
+function rnImportOpen(){
+  var m = rnEl('rn-imp-modal'); if (!m) return;
+  rnEl('rn-imp-body').innerHTML =
+    '<p style="font-size:12.5px;color:var(--t2);line-height:1.6;margin:0 0 13px">' +
+    'Choose a CSV with a <b>date</b> and the <b>millimetres</b> — a spreadsheet of your own, or an export from another rain app. ' +
+    'If it has a gauge or place column we will use that too. Anything already in your book is left alone.</p>' +
+    '<input type="file" id="rn-imp-file" accept=".csv,text/csv,text/plain" onchange="rnImportPick(this)" style="font-size:12.5px">' +
+    '<div id="rn-imp-out" style="margin-top:13px"></div>';
+  rnEl('rn-imp-go').style.display = 'none';
+  m.classList.add('on');
+}
+function rnImportClose(){ var m = rnEl('rn-imp-modal'); if (m) m.classList.remove('on'); RN_IMPORT = null; }
+var RN_IMPORT = null;
+function rnImportPick(input){
+  var f = input && input.files && input.files[0]; if (!f) return;
+  var rd = new FileReader();
+  rd.onload = function(){ rnImportParse(String(rd.result || '')); };
+  rd.onerror = function(){ rnEl('rn-imp-out').innerHTML = '<div class="rn-strip warn" style="margin:0"><span class="gr">That file could not be read.</span></div>'; };
+  rd.readAsText(f);
+}
+function rnImportParse(text){
+  var out = rnEl('rn-imp-out');
+  var lines = text.split(/\r\n|\r|\n/).filter(function(l){ return l.trim() !== ''; });
+  if (lines.length < 2){ out.innerHTML = rnImpWarn('That file has no rows in it.'); return; }
+  var delim = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
+  function cells(l){
+    var o = [], cur = '', q = false;
+    for (var i=0;i<l.length;i++){
+      var c = l[i];
+      if (q){ if (c === '"'){ if (l[i+1] === '"'){ cur += '"'; i++; } else q = false; } else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === delim){ o.push(cur); cur = ''; }
+      else cur += c;
+    }
+    o.push(cur); return o.map(function(x){ return x.trim(); });
+  }
+  var head = cells(lines[0]).map(function(h){ return h.toLowerCase().replace(/[^a-z]/g,''); });
+  function findCol(names){ for (var i=0;i<head.length;i++) for (var j=0;j<names.length;j++) if (head[i].indexOf(names[j]) === 0) return i; return -1; }
+  var di = findCol(['date','datum','day','dag']);
+  var mi = findCol(['mm','rain','rainfall','amount','value','reen','neerslag','precip']);
+  var gi = findCol(['gauge','place','location','station','plek','meter','name']);
+  var start = 1;
+  if (di < 0 || mi < 0){                       /* no header we recognise — try two bare columns */
+    di = 0; mi = 1; start = 0;
+  }
+  var rows = [], bad = 0, first = null, last = null;
+  for (var r=start;r<lines.length;r++){
+    var c = cells(lines[r]);
+    var d = rnImpDate(c[di]), v = parseFloat(String(c[mi]).replace(',', '.'));
+    if (!d || isNaN(v) || v < 0){ bad++; continue; }
+    rows.push({ date: d, mm: v, gauge: (gi >= 0 ? c[gi] : '') });
+    if (!first || d < first) first = d;
+    if (!last  || d > last)  last  = d;
+  }
+  if (!rows.length){ out.innerHTML = rnImpWarn('No dates and millimetres could be read from that file. A column of dates and a column of millimetres is all it needs.'); return; }
+
+  var existing = {};
+  rnLog().forEach(function(x){ if (x.src !== 'sat') existing[x.date + '|' + x.gaugeId] = true; });
+  var def = rnDefaultGauge(), names = {};
+  rnGauges().forEach(function(g){ names[g.name.toLowerCase()] = g.id; });
+  var fresh = 0, dup = 0;
+  rows.forEach(function(x){
+    x.gaugeId = (x.gauge && names[x.gauge.toLowerCase()]) ? names[x.gauge.toLowerCase()] : def.id;
+    if (existing[x.date + '|' + x.gaugeId]) { dup++; x.skip = true; } else fresh++;
+  });
+  RN_IMPORT = rows;
+  var tot = rows.filter(function(x){ return !x.skip; }).reduce(function(a,x){ return a + x.mm; }, 0);
+  out.innerHTML =
+    '<div class="rn-strip info" style="margin:0"><span class="ic">&#128203;</span><span class="gr">' +
+    '<b>' + fresh + ' reading' + (fresh===1?'':'s') + ' ready to bring in</b>, ' + rnMm(tot) + ' mm in total, from ' +
+    rnFmtDate(first) + ' to ' + rnFmtDate(last) + '.' +
+    (dup ? ' ' + dup + ' ' + (dup===1?'is':'are') + ' already in your book and will be left alone.' : '') +
+    (bad ? ' ' + bad + ' row' + (bad===1?'':'s') + ' could not be read and will be skipped.' : '') +
+    '</span></div>';
+  rnEl('rn-imp-go').style.display = fresh ? 'inline-flex' : 'none';
+}
+function rnImpWarn(msg){ return '<div class="rn-strip warn" style="margin:0"><span class="ic">&#9888;</span><span class="gr">' + msg + '</span></div>'; }
+function rnImpDate(s){
+  s = String(s || '').trim(); if (!s) return null;
+  var m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if (m) return m[1] + '-' + pad2(m[2]) + '-' + pad2(m[3]);
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);
+  if (m){
+    var y = m[3].length === 2 ? ('20' + m[3]) : m[3];
+    return y + '-' + pad2(m[2]) + '-' + pad2(m[1]);      /* day first, as South African sheets are written */
+  }
+  var d = new Date(s);
+  return isNaN(d) ? null : rnISO(d);
+  function pad2(x){ x = String(parseInt(x,10)); return x.length < 2 ? '0' + x : x; }
+}
+function rnImportCommit(){
+  if (!RN_IMPORT || !RN_IMPORT.length) return;
+  var n = 0;
+  RN_IMPORT.forEach(function(x){
+    if (x.skip) return;
+    ST_RAIN.log.push({ id: 'imp' + Date.now() + '-' + (n++), date: x.date, gaugeId: x.gaugeId, mm: x.mm, src: 'gauge', by: '', note: 'brought in' });
+  });
+  try { saveState(); } catch(e){}
+  try { rnPush(); } catch(e){}
+  rnImportClose();
+  try { renderRainfall(); } catch(e){}
+  try { rnDashSync(); } catch(e){}
+  try { toast(n + ' reading' + (n===1?'':'s') + ' brought into your rain book.', 'success'); } catch(e){}
+}
+
+/* The card only appears once there is a record worth printing. */
+function rnReportCardSync(){
+  try {
+    var c = rnEl('rn-stmt-card');
+    if (c) c.style.display = (rnYourReadings() > 0) ? '' : 'none';
+  } catch(e){}
+}
+
+/* A short rainfall note for the lender pack: a bank looking at a production
+   loan asks what the season has done.  The full record prints separately. */
+function rnLenderSection(){
+  try {
+    if (!rnOn() || rnYourReadings() === 0) return '';
+    var t = rnToday(), ytd = rnYearToDate(), nd = rnNormalToDate(t), l12 = rnLast12(), na = rnNormalAnnual();
+    if (ytd == null && l12 == null) return '';
+    var gs = rnGauges().map(function(g){ return g.name; }).join(', ');
+    return '<h2>Rainfall</h2><table>' +
+      '<tr><td>Rain year (' + rnYearLabel(t) + ') to date</td><td class="amt">' + (ytd == null ? '&mdash;' : rnMm(ytd) + ' mm') + '</td></tr>' +
+      (nd != null ? '<tr><td>Long-term average to the same date</td><td class="amt">' + rnMm(nd) + ' mm</td></tr>' : '') +
+      '<tr><td>Last 12 months</td><td class="amt">' + (l12 == null ? '&mdash;' : rnMm(l12) + ' mm') + '</td></tr>' +
+      (na ? '<tr><td>Long-term average, full year</td><td class="amt">' + rnMm(na) + ' mm</td></tr>' : '') +
+      '</table>' +
+      '<p style="font-size:12px;color:#666;margin-top:8px">Measured on this farm at ' + esc(gs) +
+      ((ST_RAIN.loc && ST_RAIN.loc.town) ? ', ' + esc(ST_RAIN.loc.town) : '') +
+      '. Readings are taken in the morning and counted against the previous day. ' +
+      'A full dated rainfall record, by month and by gauge, prints from Reports.</p>';
+  } catch(e){ return ''; }
+}
+
+
+/* ══ Rainfall — where it shows up in the rest of the app ═══════════════════ */
+
+/* Labels go through I18N with a data-t key, never through LANG_PAIRS: that is
+   a substring pass, and a bare "Rain" would rewrite "Rain-fed" wherever it
+   appears. */
+try {
+  if (typeof I18N !== 'undefined'){
+    I18N['nav.rainfall'] = { en:'Rainfall',  af:'Reënval' };
+    I18N['rn.title']     = { en:'Rainfall',  af:'Reënval' };
+    I18N['rn.sub']       = { en:'Your rain book, this season against the long-term, and what it means for the plan.',
+                             af:'Jou reënboek, hierdie seisoen teen die langtermyn, en wat dit vir die plan beteken.' };
+  }
+} catch(e){}
+
+/* ── Dashboard ──────────────────────────────────────────────────────────────
+   One stat beside the answer, in the blue reserved for rainfall.  Built from
+   JS rather than the page markup so that a farm not tracking rain has exactly
+   the dashboard it has today — three stats, no gap, nothing to explain. */
+function rnDashSync(){
+  try {
+    var stats = document.querySelector('#pg-dashboard .combo-stats') || document.querySelector('.combo-stats');
+    if (!stats) return;
+    var el = document.getElementById('rn-dash-stat');
+    if (!rnOn()){ if (el && el.parentNode) el.parentNode.removeChild(el); return; }
+
+    var t = rnToday(), mine = rnYourReadings();
+    var mStart = new Date(t.getFullYear(), t.getMonth(), 1);
+    var month = rnTotal(rnISO(mStart), rnISO(t));
+    var norm = rnNormalMonthly();
+    var ytd = rnYearToDate();
+
+    if (!el){
+      el = document.createElement('div');
+      el.className = 'combo-ps-item';
+      el.id = 'rn-dash-stat';
+      el.style.cursor = 'pointer';
+      el.setAttribute('onclick', "nav('rainfall')");
+      el.setAttribute('title', 'Open the rain book');
+      stats.appendChild(el);
+    }
+    var sub = [];
+    if (norm) sub.push('normal ' + rnMm(norm[t.getMonth()]));
+    if (ytd != null) sub.push(rnMm(ytd) + ' since ' + RN_MON[rnYearStartOf(t).getMonth()]);
+    /* Once the farmer has a record going, a month with nothing in it is a dry
+       month, not a gap: their book says no rain, so the tile says none. */
+    var shown = (month == null && mine && rnFirstGaugeDate() && rnFirstGaugeDate() <= rnISO(mStart)) ? 0 : month;
+    el.innerHTML = '<div class="combo-ps-lbl" style="color:#9CC0E4">Rainfall</div>' +
+                   '<div class="combo-ps-val">' + (shown == null ? '&mdash;' : rnMm(shown) + ' mm') + '</div>' +
+                   '<div class="combo-ps-chg" style="color:#BFD7EE">' + (sub.length ? sub.join(' &middot; ') : (mine ? 'this month' : 'satellite')) + '</div>';
+  } catch(e){ try{ console.warn('Rainfall dashboard stat:', e); }catch(_){} }
+}
+
+/* Keep it in step with the rest of the card without touching the card's own
+   code: whenever the dashboard figures are redrawn, redraw this too. */
+(function(){
+  try {
+    if (typeof updateDashboardFigures !== 'function') return;
+    var orig = updateDashboardFigures;
+    window.updateDashboardFigures = function(){
+      var r = orig.apply(this, arguments);
+      try { rnDashSync(); } catch(e){}
+      return r;
+    };
+  } catch(e){}
+})();
+
+/* ── Needs your attention ───────────────────────────────────────────────────
+   Tier 0 contributes one item, and only when it is true: the gauge has not
+   been read for a week in a month that normally brings rain.  Housekeeping
+   tier, so it never outranks a statutory duty. */
+function rnAttnItems(){
+  var out = [];
+  try {
+    if (!rnOn() || rnYourReadings() === 0) return out;
+    var t = rnToday(), norm = rnNormalMonthly();
+    var wet = !norm || norm[t.getMonth()] >= 15;
+    if (!wet) return out;
+
+    var g = rnDefaultGauge(), lastRead = null;
+    rnLog().forEach(function(r){
+      if (r.src === 'sat') return;
+      if (r.gaugeId !== g.id) return;
+      if (!lastRead || r.date > lastRead) lastRead = r.date;
+    });
+    if (!lastRead) return out;
+    var gap = rnDaysBetween(lastRead, t);
+    if (gap < 7) return out;
+
+    out.push({
+      tier: 'house', sev: 30,
+      nm: 'Rain gauge not read',
+      lead: 'The ' + g.name + ' gauge has not been read for ' + gap + ' days',
+      sub: 'A season total is only worth what the record behind it is worth. Reading takes a moment.',
+      st: gap + ' days', cta: 'Log rain', when: 9999,
+      action: function(){ try { nav('rainfall'); setTimeout(function(){ rnLogOpen(); }, 260); } catch(e){} }
+    });
+  } catch(e){}
+  return out;
+}
+
+/* ══ RAINFALL-T0-END ══ */
 </script>
 
 <div class="simple-mode-badge" id="simple-badge">Simple View ON</div>

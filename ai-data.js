@@ -297,6 +297,7 @@
      (lender-pack inputs, crop prices, farmer-added crop types, forward selling). Probed
      on bank_balance; without the migration they stay on the device as before. */
   let CAN_FARM_SETTINGS = false;
+  let CAN_FARM_RAIN     = false;
   /* Filing rules. Without the table they stay on the device, which is how the UK build
      shipped them — defensible there because that project is not provisioned, and not
      here, where a farmer moves between a laptop and a tablet. */
@@ -331,6 +332,7 @@
     CAN_ASSET_DISPOSAL = await has('assets','disposal_date');
     CAN_TXN_CAPOK      = await has('transactions','cap_confirmed');
     CAN_FARM_SETTINGS  = await has('farms','bank_balance');
+    CAN_FARM_RAIN      = await has('farms','rain_lat');
     CAN_CAT_RULES      = await has('category_rules','match_text');
   }
   function dbToApp(r) {
@@ -988,6 +990,66 @@
     }
   };
 
+  /* ══ RAINFALL sync ══ */
+  function rainGaugeToDb(g,fid){ return { farm_id:fid, local_id:String(g.id), name:g.name||null,
+      where_at:g.where||null, is_default:!!g.isDefault, link_type:(g.link&&g.link.type)||null,
+      link_local_id:(g.link&&g.link.id!=null)?String(g.link.id):null }; }
+  function rainGaugeFromDb(r){ var g={ id:r.local_id, name:r.name||'', where:r.where_at||'', isDefault:!!r.is_default, link:{} };
+    if(r.link_type){ g.link={ type:r.link_type }; if(r.link_local_id) g.link.id=r.link_local_id; }
+    return g; }
+  function rainReadToDb(x,fid){ return { farm_id:fid, local_id:String(x.id), read_date:x.date||null,
+      gauge_local_id:x.gaugeId?String(x.gaugeId):null, mm:(x.mm!=null)?Number(x.mm):null,
+      source:x.src||'gauge', read_by:x.by||null, note:x.note||null }; }
+  function rainReadFromDb(r){ return { id:r.local_id, date:r.read_date||'', gaugeId:r.gauge_local_id||null,
+      mm:Number(r.mm)||0, src:r.source||'gauge', by:r.read_by||'', note:r.note||'' }; }
+
+  load.rainfall = async function(farmId){
+    farmId=farmId||farm.active();
+    const [g,r]=await Promise.all([
+      selectAll(() => client().from('rainfall_gauges').select('*').eq('farm_id',farmId)),
+      selectAll(() => client().from('rainfall_readings').select('*').eq('farm_id',farmId).order('read_date',{ascending:false}))
+    ]);
+    if(g.error) throw g.error;
+    if(r.error) throw r.error;
+    return { gauges:(g.data||[]).map(rainGaugeFromDb), log:(r.data||[]).map(rainReadFromDb) };
+  };
+
+  var _rainSnap=null;
+  const rain = {
+    /* Readings are append-mostly and a correction replaces one row, so this
+       upserts and never clears the server copy first — the plan's
+       delete-all-then-insert would lose a season to one failed insert. */
+    async saveAll(state){
+      state=state||(typeof window!=='undefined'&&window.ST_RAIN)||null;
+      if(!state) return;
+      const fid=farm.active(); if(!fid) return;
+      const snap=JSON.stringify({g:state.gauges||[],l:state.log||[]});
+      if(snap===_rainSnap) return true;
+      const warn='Rainfall not saved online yet — run rainfall_schema.sql in Supabase.';
+      if((state.gauges||[]).length){
+        const e=(await client().from('rainfall_gauges')
+          .upsert(state.gauges.map(function(g){ return rainGaugeToDb(g,fid); }),{onConflict:'farm_id,local_id'})).error;
+        if(e){ console.warn(warn+' ('+(e.message||e)+')'); return false; }
+      }
+      if((state.log||[]).length){
+        const own=state.log.filter(function(x){ return x && x.src!=='sat'; });
+        if(own.length){
+          const e2=(await client().from('rainfall_readings')
+            .upsert(own.map(function(x){ return rainReadToDb(x,fid); }),{onConflict:'farm_id,local_id'})).error;
+          if(e2){ console.warn(warn+' ('+(e2.message||e2)+')'); return false; }
+        }
+      }
+      _rainSnap=snap; return true;
+    },
+    async remove(localId){
+      const fid=farm.active(); if(!fid||!localId) return;
+      const e=(await client().from('rainfall_readings').delete().eq('farm_id',fid).eq('local_id',String(localId))).error;
+      if(e) throw e;
+      _rainSnap=null; return true;
+    }
+  };
+  /* ══ end RAINFALL sync ══ */
+
   /* ---- STATUTORY DOCUMENTS -------------------------------------------------
      Removal certificates now; spray records and payslips later, hence a domain
      of its own rather than hanging off livestock. Append-only and immutable:
@@ -1594,6 +1656,15 @@
   // All on the farms row (name/owner/province/ha/type/fy/lang already existed;
   // vat_registered/tax_number/vat_number added by settings_profile_schema.sql).
   function profileFromDb(r){ if(!r) return null; var p={};
+    /* Underscore-prefixed, so the hydrate's blanket copy onto ST skips it and
+       the rain book applies it to ST_RAIN itself. */
+    if(r.rain_lat!=null || r.rain_mode!=null || r.rain_year_start!=null){
+      p._rain={};
+      if(r.rain_lat!=null && r.rain_lon!=null) p._rain.loc={ lat:Number(r.rain_lat), lon:Number(r.rain_lon), town:r.rain_town||'' };
+      if(r.rain_mode!=null) p._rain.mode=r.rain_mode;
+      if(r.rain_year_start!=null) p._rain.yearStart=parseInt(r.rain_year_start,10);
+      if(r.rain_normal_override!=null) p._rain.normalOverride=Number(r.rain_normal_override);
+    }
     if(r.name!=null) p.farmName=r.name;
     if(r.owner_name!=null) p.ownerName=r.owner_name;
     if(r.province!=null) p.province=r.province;
@@ -1622,7 +1693,7 @@
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
+    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -1676,12 +1747,25 @@
         try{ var _ct=global.ST_CROP && global.ST_CROP.cropTypes; if(_ct && _ct.length)              sett.crop_types=_ct; }catch(e){}
         try{ var _ph=global.ST_PLAN && global.ST_PLAN.hedge;     if(_ph && Object.keys(_ph).length) sett.plan_hedge=_ph; }catch(e){}
       }
-      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett}); if(snap===_profSnap) return;
+      var rainc={};
+      if(CAN_FARM_RAIN){
+        try{
+          var _r=global.ST_RAIN;
+          if(_r){
+            if(_r.loc && _r.loc.lat!=null){ rainc.rain_lat=Number(_r.loc.lat); rainc.rain_lon=Number(_r.loc.lon); rainc.rain_town=_r.loc.town||null; }
+            if(_r.mode) rainc.rain_mode=_r.mode;
+            if(_r.yearStart!=null) rainc.rain_year_start=parseInt(_r.yearStart,10);
+            if(_r.normal && _r.normal.override!=null) rainc.rain_normal_override=Number(_r.normal.override);
+          }
+        }catch(e){}
+      }
+      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc}); if(snap===_profSnap) return;
       if(Object.keys(core).length){ const e=(await client().from('farms').update(core).eq('id',fid)).error; if(e) throw e; }
       var extraOk=true;
       if(Object.keys(extra).length){ const e=(await client().from('farms').update(extra).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: optional fields (VAT/tax/business-type) not saved \u2014 run the profile-schema migrations in Supabase. (' + (e.message||e) + ')'); } }
       if(Object.keys(sett).length){ const e=(await client().from('farms').update(sett).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: device-sync settings not saved (migration missing?)', e && e.message); } }
       if(Object.keys(cons).length){ const e=(await client().from('farms').update(cons).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: POPIA consent not recorded \u2014 run the consent migration in Supabase. (' + (e.message||e) + ')'); } }
+      if(Object.keys(rainc).length){ const e=(await client().from('farms').update(rainc).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: rainfall location not saved — run rainfall_schema.sql. ('+(e.message||e)+')'); } }
       if(extraOk) _profSnap=snap;
       return true;
     }
@@ -1756,7 +1840,7 @@
   // ---- EXPORT --------------------------------------------------------------
   global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
                 coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave, profile: profile,
-                documents: documents, fuel: fuel,
+                documents: documents, fuel: fuel, rain: rain,
                 storage: storage,
                 importBatch: importBatch,
                 rules,

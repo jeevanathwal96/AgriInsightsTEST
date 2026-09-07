@@ -599,14 +599,45 @@
            worse half: those are statutory documents. */
         AI.load.fuel(fid).catch(function (e) { console.error('fuel load', e); return null; }),
         AI.load.documents(fid).catch(function (e) { console.error('documents load', e); return null; }),
-        AI.load.rules(fid).catch(function (e) { console.error('rules load', e); return null; })
+        AI.load.rules(fid).catch(function (e) { console.error('rules load', e); return null; }),
+        /* The rain book, so a farmer on a new device does not open an empty one.
+           Never fatal: the tables may not exist yet on an older project. */
+        (AI.load.rainfall ? AI.load.rainfall(fid).catch(function () { return null; }) : Promise.resolve(null))
       ]).then(function (r) {
         var ls = r[0], cr = r[1], orc = r[2], pl = r[3], wk = r[4], pf = r[5], coop = r[6],
-            fu = r[7], dc = r[8], rl = r[9];
+            fu = r[7], dc = r[8], rl = r[9], rn = r[10];
         try { if (window.ST_LS && ls) { var _lsHas = ((ls.herds&&ls.herds.length)||(ls.camps&&ls.camps.length)||(ls.animals&&ls.animals.length)); var _lsLoc = ((ST_LS.herd&&ST_LS.herd.length)||(ST_LS.camps&&ST_LS.camps.length)); if (_lsHas || !_lsLoc) { ST_LS.camps = ls.camps || []; ST_LS.herd = ls.herds || []; if (ls.benchmarks) ST_LS.benchmarks = ls.benchmarks; ST_LS.moves = ls.moves || []; ST_LS.treatments = ls.treatments || []; ST_LS.animals = ls.animals || []; ST_LS.health = ls.health || []; ST_LS.breedings = ls.breedings || []; } } } catch (e) { console.error('livestock apply', e); }
         try { if (window.ST_CROP && cr) { var _crHas = ((cr.lands&&cr.lands.length)||(cr.events&&cr.events.length)||(cr.inputs&&cr.inputs.length)); var _crLoc = ((ST_CROP.lands&&ST_CROP.lands.length)||(ST_CROP.events&&ST_CROP.events.length)); if (_crHas || !_crLoc) { ST_CROP.lands = cr.lands || []; ST_CROP.events = cr.events || []; ST_CROP.inputs = cr.inputs || []; if (cr.season) ST_CROP.season = cr.season; if (cr.compliance) ST_CROP.compliance = cr.compliance; } } } catch (e) { console.error('crops apply', e); }
         try { if (window.ST_FRUIT && orc) { var _orcHas = (orc.blocks && orc.blocks.length); var _locHas = (ST_FRUIT.blocks && ST_FRUIT.blocks.length); if (_orcHas || !_locHas) { ST_FRUIT.blocks = orc.blocks || []; ST_FRUIT.pricing = orc.pricing || {}; ST_FRUIT.sprayDiary = orc.sprayDiary || {}; ST_FRUIT.harvest = orc.harvest || []; if (orc.comply) ST_FRUIT.comply = orc.comply; try{ if(window.orComplyEnsure) orComplyEnsure(); }catch(_){} if (orc.market) ST_FRUIT.market = orc.market; if (typeof window.orRebuildPhi === 'function') { try { window.orRebuildPhi(); } catch (_) {} } } } } catch (e) { console.error('orchard apply', e); }
         try { if (window.ST_PLAN) { var _plHas = (pl && ((pl.crops&&pl.crops.length)||(pl.events&&pl.events.length))); var _plLoc = ((ST_PLAN.crops&&ST_PLAN.crops.length)||(ST_PLAN.events&&ST_PLAN.events.length)); if (pl && (_plHas || !_plLoc)) { ST_PLAN.crops = pl.crops || []; ST_PLAN.events = pl.events || []; ST_PLAN.fromBackend = true; if (typeof window.planSyncToCurrentYear === 'function') { try { window.planSyncToCurrentYear(); } catch (_) {} } } else if (!pl && typeof window.cropInitialPlanSync === 'function') { try { window.cropInitialPlanSync(true); } catch (_) {} } } } catch (e) { console.error('plan apply', e); }
+        /* Where the farm is, how it tracks rain and its own long-term figure ride
+           on the farm row, so a second device knows them before any reading arrives. */
+        try {
+          if (window.ST_RAIN && pf && pf._rain) {
+            if (pf._rain.loc && !ST_RAIN.loc) ST_RAIN.loc = pf._rain.loc;
+            if (pf._rain.mode) ST_RAIN.mode = pf._rain.mode;
+            if (pf._rain.yearStart != null) ST_RAIN.yearStart = pf._rain.yearStart;
+            if (pf._rain.normalOverride != null) {
+              ST_RAIN.normal = ST_RAIN.normal || { monthly: null, override: null };
+              ST_RAIN.normal.override = pf._rain.normalOverride;
+            }
+            if (typeof rnSync === 'function') { try { rnSync(); } catch (e4) {} }
+          }
+        } catch (e) { console.error('rainfall settings hydrate', e); }
+        /* Only take the server's rain book when this device has none of its own:
+           the same rule the other modules use, so a local book is never wiped. */
+        try {
+          if (window.ST_RAIN && rn) {
+            var _rnHas = (rn.log && rn.log.length) || (rn.gauges && rn.gauges.length);
+            var _rnLoc = (ST_RAIN.log && ST_RAIN.log.length) || (ST_RAIN.gauges && ST_RAIN.gauges.length);
+            if (_rnHas && !_rnLoc) {
+              if (rn.gauges && rn.gauges.length) ST_RAIN.gauges = rn.gauges;
+              if (rn.log && rn.log.length) ST_RAIN.log = rn.log;
+              if (typeof renderRainfall === 'function' && document.getElementById('pg-rainfall')) { try { renderRainfall(); } catch (e2) {} }
+              if (typeof rnDashSync === 'function') { try { rnDashSync(); } catch (e3) {} }
+            }
+          }
+        } catch (e) { console.error('rainfall hydrate', e); }
         try { if (window.ST_WORK && wk) { var _wkHas = (wk.workers && wk.workers.length); var _wkLoc = (ST_WORK.workers && ST_WORK.workers.length); if (_wkHas || !_wkLoc) { ST_WORK.workers = wk.workers || []; if (wk.settingsRow && AI.workers && AI.workers.apply) { AI.workers.apply(ST_WORK, wk.settingsRow); } if (wk.payroll) { ST_WORK.paye = wk.payroll.paye || {}; ST_WORK.bonus = wk.payroll.bonus || {}; ST_WORK.extra = wk.payroll.extra || {}; ST_WORK.seasonal = wk.payroll.seasonal || {}; } ST_WORK.payRuns = wk.payRuns || []; } } } catch (e) { console.error('workers apply', e); }
         /* The same farm facts live in TWO objects and only one of them round-trips.
            ST.vatRegistered comes back from the server here; FARM.vat never did — and the
