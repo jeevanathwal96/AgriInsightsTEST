@@ -68583,7 +68583,12 @@ function rnMonthTable(gaugeId){
    zero at the start. */
 function rnCumSeries(gaugeId){
   var t = rnToday(), st = rnYearStartOf(t), order = rnMonthOrder(), norm = rnNormalMonthly();
+  /* The band is a set of whole-season curves, so it only means anything for the
+     rain year it was worked out for. A farm that switches to a January year —
+     any winter-rainfall farm — must not have July-year curves drawn against a
+     January axis; leave it out until the refetch lands. */
   var band = (ST_RAIN.normal && ST_RAIN.normal.band) || null;
+  if (band && band.forYearStart != null && band.forYearStart !== rnYearStart()) band = null;
   var labels = [''], me = [0], last = [0], nrm = [0], lo = [0], hi = [0], run = 0, runN = 0, runLo = 0, runHi = 0, stop = false;
   for (var i=0;i<12;i++){
     var mi = order[i];
