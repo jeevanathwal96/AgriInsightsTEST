@@ -68546,6 +68546,24 @@ function rnGaugeRainDays(fromISO, toISO, minMm, gaugeId){
   }
   return n;
 }
+/* The earliest date this farm has any information for: the oldest satellite day
+   we still hold, or the first day the farmer wrote something down.  Anything
+   before it is unknown — which is NOT the same as dry, and must not be totalled
+   or drawn as though it were zero. */
+function rnDataFrom(){
+  var first = rnFirstGaugeDate(), sat = null;
+  try {
+    var d = ST_RAIN.sat && ST_RAIN.sat.daily;
+    if (d) Object.keys(d).forEach(function(k){ if (sat == null || k < sat) sat = k; });
+  } catch(e){}
+  if (first && sat) return first < sat ? first : sat;
+  return first || sat || null;
+}
+/* Do we hold enough to speak for this whole stretch? */
+function rnCovers(fromISO){
+  var f = rnDataFrom();
+  return !!(f && f <= fromISO);
+}
 function rnYearToDate(gaugeId){
   var t = rnToday();
   return rnTotal(rnISO(rnYearStartOf(t)), rnISO(t), gaugeId);
@@ -68623,7 +68641,15 @@ function rnCumSeries(gaugeId){
      January axis; leave it out until the refetch lands. */
   var band = (ST_RAIN.normal && ST_RAIN.normal.band) || null;
   if (band && band.forYearStart != null && band.forYearStart !== rnYearStart()) band = null;
-  var labels = [''], me = [0], last = [0], nrm = [0], lo = [0], hi = [0], run = 0, runN = 0, runLo = 0, runHi = 0, stop = false;
+  /* Last year's line is only honest if we hold the whole of last year. When the
+     stored history does not reach back that far the curve used to begin partway
+     through the season and restart its running total there, drawing 462 mm
+     against a true 568 mm — a drought that never happened, on the one axis a
+     farmer uses to compare this season with the last. Leave it out instead. */
+  var prevStart = new Date(st.getFullYear()-1, st.getMonth(), 1);
+  var prevOk = rnCovers(rnISO(prevStart));
+  var labels = [''], me = [0], last = [0], nrm = [0], lo = [0], hi = [0],
+      run = 0, runLast = 0, runN = 0, runLo = 0, runHi = 0, stop = false;
   for (var i=0;i<12;i++){
     var mi = order[i];
     var y = st.getFullYear() + (mi < st.getMonth() ? 1 : 0);
@@ -68635,9 +68661,13 @@ function rnCumSeries(gaugeId){
       if (first > t){ stop = true; me.push(null); }
       else { var v = rnTotal(rnISO(first), rnISO(to), gaugeId); run += (v||0); me.push(run); }
     } else me.push(null);
-    var pFirst = new Date(y-1, mi, 1), pLast = new Date(y-1, mi+1, 0);
-    var pv = rnTotal(rnISO(pFirst), rnISO(pLast), gaugeId);
-    last.push(pv == null ? null : (last[last.length-1] == null ? pv : last[last.length-1] + pv));
+    if (prevOk){
+      var pFirst = new Date(y-1, mi, 1), pLast = new Date(y-1, mi+1, 0);
+      /* A month with nothing in it is a dry month, exactly as it is for this
+         year above — not a break that restarts the running total. */
+      runLast += (rnTotal(rnISO(pFirst), rnISO(pLast), gaugeId) || 0);
+      last.push(runLast);
+    } else last.push(null);
     if (norm){ runN += norm[mi]; nrm.push(runN); } else nrm.push(null);
     if (band && band.lo && band.hi && band.lo[i] != null){ lo.push(band.lo[i]); hi.push(band.hi[i]); }
     else { lo.push(null); hi.push(null); }
@@ -68657,6 +68687,7 @@ function rnYearsWithData(){
     var from = new Date(st.getFullYear()-back, st.getMonth(), 1);
     var to   = new Date(from.getFullYear()+1, from.getMonth(), 0);
     if (to > t) to = t;
+    if (back > 0 && !rnCovers(rnISO(from))) continue;   /* a season we only half hold is not that season's total */
     var v = rnTotal(rnISO(from), rnISO(to));
     if (v != null) out.push({ start: from, end: to, mm: v, label: rnYearLabelFor(from) });
   }
@@ -68805,12 +68836,12 @@ rnBoot();
 
 var RN_API_ARCHIVE  = 'https://archive-api.open-meteo.com/v1/archive';
 var RN_API_FORECAST = 'https://api.open-meteo.com/v1/forecast';
-var RN_KEEP_DAYS    = 430;      /* enough for "last 12 months" and last year's line */
+var RN_KEEP_DAYS    = 800;      /* two whole rain years: a season starting 24 months back needs 730 */
 var RN_NORM_FROM    = 1991, RN_NORM_TO = 2020;
 
 /* El Niño summers, by the year the southern summer begins.  NOAA's Oceanic
    Niño Index, December–February at or above +0.5. */
-var RN_ENSO_YEARS = [1991, 1994, 1997, 2002, 2004, 2006, 2009, 2014, 2015, 2018, 2023];
+var RN_ENSO_YEARS = [1991, 1994, 1997, 2002, 2004, 2006, 2009, 2014, 2015, 2018, 2019, 2023];
 
 function rnFetchJson(url, ms){
   return new Promise(function(resolve, reject){
@@ -69215,7 +69246,8 @@ function rnRenderTiles(){
        '<div class="l">' + rnT('This rain year', 'Hierdie reënjaar') + (sat ? ' &middot; ' + rnT('satellite', 'satelliet') : '') + '</div>' +
        '<div class="v">' + (ytd == null ? '&mdash;' : rnMm(ytd) + ' mm') + '</div>' +
        '<div class="c">' + (nd != null ? rnT('Normal to date ', 'Normaal tot datum ') + rnMm(nd) + ' mm'
-                                       : rnT('Since ', 'Sedert ') + rnMon(rnYearStartOf(t).getMonth())) + '</div></div>' +
+                                       : rnT('Since ', 'Sedert ') + rnMon(rnYearStartOf(t).getMonth())) +
+       (rnGauges().length > 1 ? ' &middot; ' + esc(rnDefaultGauge().name) : '') + '</div></div>' +
        (ytd != null && nd
          ? '<div class="foot">' + bar(ytd, Math.max(nd, ytd), ytd >= nd) +
            '<div class="tick"><span>' + aheadTxt + '</span><span>' + Math.round((ytd/nd)*100) + '&nbsp;%</span></div></div>'
@@ -69287,6 +69319,7 @@ function rnSpark(days){
 
 function rnRenderMonth(){
   var host = rnEl('rn-month'); if (!host) return;
+  var t = rnToday();
   var rows = rnMonthTable(), norm = rnNormalMonthly();
   var tot = 0, totN = 0, totD = 0, any = false;
   var h = '<table class="rn-t"><thead><tr><th>' + rnT('Month', 'Maand') + '</th><th class="r">mm</th><th class="r">' +
@@ -69303,8 +69336,16 @@ function rnRenderMonth(){
   });
   h += '<tr class="tot"><td>' + rnT('Year', 'Jaar') + '</td><td class="r">' + (any ? rnMm(tot) : '&mdash;') + '</td><td class="r">' + (norm ? rnMm(totN) : '&mdash;') + '</td><td class="r">' + totD + '</td></tr>';
   h += '</tbody></table>';
-  h += '<div class="rn-foot">' + rnT('A rain day is 1 mm or more, counted from your own readings.',
-                                      '\'n Reëndag is 1 mm of meer, getel uit jou eie lesings.') + ' ' +
+  /* This said the count came from the farmer's own readings. It does not when
+     satellite is still filling the season — a farm one reading old was told 14
+     rain days "from your own readings" while its printed record, which counts
+     gauge readings alone, said 1. Say which it is. */
+  var satDays = rnRainDays(rnISO(rnYearStartOf(t)), rnISO(t), 1) - rnGaugeRainDays(rnISO(rnYearStartOf(t)), rnISO(t), 1);
+  h += '<div class="rn-foot">' + (satDays > 0
+        ? rnT('A rain day is 1 mm or more. Before your first reading these are counted from the satellite; after it, from your own readings.',
+              '\'n Reëndag is 1 mm of meer. Voor jou eerste lesing word dit uit die satelliet getel; daarna uit jou eie lesings.')
+        : rnT('A rain day is 1 mm or more, counted from your own readings.',
+              '\'n Reëndag is 1 mm of meer, getel uit jou eie lesings.')) + ' ' +
        (norm ? rnT('Normal is the long-term average for your farm.', 'Normaal is die langtermyngemiddeld vir jou plaas.')
              : (rnHas() ? rnT('The long-term average is on its way.', 'Die langtermyngemiddeld is op pad.')
                         : rnT('Set where the farm is to see the long-term average.', 'Stel waar die plaas is om die langtermyngemiddeld te sien.'))) +
