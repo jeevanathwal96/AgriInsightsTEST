@@ -6180,16 +6180,33 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 .rn-strip .lnk{background:none;border:0;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;color:inherit;text-decoration:underline;white-space:nowrap;padding:0}
 
 .rn-tiles{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:14px;margin-bottom:16px}
-.rn-tile{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:15px 17px;box-shadow:var(--sh);display:flex;flex-direction:column;justify-content:center}
+.rn-tile{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:15px 17px;box-shadow:var(--sh);display:flex;flex-direction:column;justify-content:space-between;min-height:132px;position:relative;overflow:hidden}
+.rn-tile .top{display:flex;flex-direction:column}
+/* the band at the foot is what stops these reading as four empty boxes:
+   each one shows the same figure a second way — against the average, across
+   the fortnight, or against the threshold it has to clear. */
+.rn-tile .foot{margin-top:12px}
+.rn-tile .track{height:5px;border-radius:99px;background:#EDF1F5;overflow:hidden;display:flex}
+.rn-tile .track i{display:block;height:100%;border-radius:99px;background:var(--rnl)}
+.rn-tile .track i.over{background:var(--rn)}
+.rn-tile .tick{display:flex;justify-content:space-between;font-size:9.5px;color:var(--t4);margin-top:5px;font-weight:600}
+.rn-tile .spark{display:flex;align-items:flex-end;gap:2px;height:26px}
+.rn-tile .spark span{flex:1;background:#EDF1F5;border-radius:2px;min-height:2px}
+.rn-tile .spark span.w{background:var(--rnl)}
+.rn-tile .spark span.today{background:var(--rn)}
 .rn-tile .l{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)}
 .rn-tile .v{font-size:23px;font-weight:800;letter-spacing:-.01em;color:var(--t1);font-variant-numeric:tabular-nums;line-height:1.15;margin-top:4px}
 .rn-tile .v small{font-size:12px;font-weight:700;color:var(--t3);margin-left:5px}
 .rn-tile .c{font-size:11px;color:var(--t3);margin-top:4px;line-height:1.45}
-.rn-tile.hero{background:linear-gradient(140deg,#1E4E7C,#102E4C);border-color:transparent}
-.rn-tile.hero .l{color:#9CC0E4}
-.rn-tile.hero .v{color:#fff;font-size:27px}
-.rn-tile.hero .v small{color:#BFD7EE}
-.rn-tile.hero .c{color:#BFD7EE}
+.rn-tile.rn-hero{background:linear-gradient(140deg,#1E4E7C,#102E4C);border-color:transparent}
+.rn-tile.rn-hero:after{content:"";position:absolute;right:-40px;bottom:-56px;width:190px;height:190px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.11),transparent 66%);pointer-events:none}
+.rn-tile.rn-hero .track{background:rgba(255,255,255,.18)}
+.rn-tile.rn-hero .track i{background:#8FC0EA}
+.rn-tile.rn-hero .tick{color:#9CC0E4}
+.rn-tile.rn-hero .l{color:#9CC0E4}
+.rn-tile.rn-hero .v{color:#fff;font-size:27px}
+.rn-tile.rn-hero .v small{color:#BFD7EE}
+.rn-tile.rn-hero .c{color:#BFD7EE}
 
 .rn-two{display:grid;grid-template-columns:1.55fr 1fr;gap:14px;margin-bottom:14px;align-items:start}
 .rn-col{display:flex;flex-direction:column;gap:14px;min-width:0}
@@ -6261,12 +6278,19 @@ table.rn-t td.dim{color:var(--t4)}
 .rn-f .hint{font-size:10.5px;color:var(--t3)}
 .rn-f input,.rn-f select{height:36px;border:1px solid var(--br);border-radius:8px;background:#fff;padding:0 11px;font-size:13px;font-family:inherit;color:var(--t1);width:100%}
 .rn-f input:focus,.rn-f select:focus{outline:none;border-color:var(--rn);box-shadow:0 0 0 3px var(--rnp)}
-.rn-mmrow{display:grid;grid-template-columns:1fr 128px;gap:11px;align-items:center;padding:9px 0;border-top:1px solid var(--br2)}
+.rn-mmrow{display:grid;grid-template-columns:1fr 152px;gap:11px;align-items:center;padding:9px 0;border-top:1px solid var(--br2)}
 .rn-mmrow:first-of-type{border-top:0}
 .rn-mmrow .gn{font-size:13px;font-weight:700;color:var(--t1)}
 .rn-mmrow .gw{font-size:10.5px;color:var(--t3)}
 .rn-mmrow .inwrap{display:flex;align-items:center;gap:7px}
 .rn-mmrow input{height:42px;font-size:17px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+/* The spinner arrows ate a third of the box and pushed the placeholder into
+   "not rea". Gone, and the placeholder is set small enough to read whole. */
+.rn-mmrow input::-webkit-outer-spin-button,
+.rn-mmrow input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.rn-mmrow input[type=number]{-moz-appearance:textfield;appearance:textfield}
+.rn-mmrow input::placeholder{font-size:12px;font-weight:600;color:var(--t4);opacity:1}
+.rn-big input::placeholder{font-size:13px}
 .rn-mmrow .u{font-size:12px;font-weight:700;color:var(--t3)}
 .rn-big input{height:52px;font-size:23px}
 
@@ -9725,7 +9749,7 @@ table.rn-t td.dim{color:var(--t4)}
     </div>
     <div class="sb" id="rn-log-body"></div>
     <div class="sf">
-      <span style="font-size:10.5px;color:var(--t3)" id="rn-log-note">Works offline &middot; days you don't log fill in by themselves</span>
+      <span style="font-size:10.5px;color:var(--t3)" id="rn-log-note">Works offline &middot; a day you don't log counts as dry</span>
       <span style="display:flex;gap:9px">
         <button class="btn-sec" onclick="rnLogClose()">Cancel</button>
         <button class="rn-btn" onclick="rnLogSave()">Save rain</button>
@@ -69101,32 +69125,91 @@ function rnRenderTiles(){
   var lr = rnLastRain(), p = rnPlantReady();
   var h = '';
 
-  h += '<div class="rn-tile hero"><div class="l">Last 12 months' + (sat ? ' &middot; satellite' : '') + '</div>' +
-       '<div class="v">' + (l12 == null ? '&mdash;' : rnMm(l12) + ' mm') +
-       (l12 != null && na ? ' <small>' + Math.round((l12/na)*100) + '&nbsp;% of normal</small>' : '') + '</div>' +
-       '<div class="c">' + (na ? 'Normal ' + rnMm(na) + ' mm a year' : (rnHas() ? 'Looking up the long-term average for your farm&hellip;' : 'Set where the farm is to see the long-term average')) + '</div></div>';
-
-  h += '<div class="rn-tile"><div class="l">This rain year' + (sat ? ' &middot; satellite' : '') + '</div>' +
-       '<div class="v">' + (ytd == null ? '&mdash;' : rnMm(ytd) + ' mm') + '</div>' +
-       '<div class="c">' + (nd != null ? 'Normal to date ' + rnMm(nd) + ' mm' : 'Since ' + RN_MON[rnYearStartOf(t).getMonth()]) + '</div></div>';
-
-  if (mine){
-    h += '<div class="rn-tile"><div class="l">Last rain</div>' +
-         '<div class="v">' + (lr ? rnMm(lr.mm) + ' mm' : 'None yet') + '</div>' +
-         '<div class="c">' + (lr ? rnDow(lr.date) + ' ' + rnFmtDate(lr.date) + ' &middot; ' + (lr.daysAgo === 0 ? 'today' : lr.daysAgo + ' day' + (lr.daysAgo===1?'':'s') + ' ago') +
-              (lr.src === 'sat' ? ' &middot; satellite' : '') : 'Nothing recorded this year') + '</div></div>';
-  } else {
-    h += '<div class="rn-tile"><div class="l">Your readings</div><div class="v">0</div>' +
-         '<div class="c">Log this morning&rsquo;s rain to start your record</div></div>';
+  /* Each tile says its figure once in words and once in shape, so the row
+     carries something at a glance instead of four numbers floating in space. */
+  function bar(part, whole, over){
+    if (part == null || !whole) return '';
+    var pc = Math.max(2, Math.min(100, Math.round((part / whole) * 100)));
+    return '<div class="track"><i class="' + (over ? 'over' : '') + '" style="width:' + pc + '%"></i></div>';
   }
 
-  h += '<div class="rn-tile"><div class="l">Ready to plant?</div>' +
+  /* 1 — the year behind, against the farm's long-term average */
+  h += '<div class="rn-tile rn-hero"><div class="top">' +
+       '<div class="l">Last 12 months' + (sat ? ' &middot; satellite' : '') + '</div>' +
+       '<div class="v">' + (l12 == null ? '&mdash;' : rnMm(l12) + ' mm') +
+       (l12 != null && na ? ' <small>' + Math.round((l12/na)*100) + '&nbsp;% of normal</small>' : '') + '</div></div>' +
+       (l12 != null && na
+         ? '<div class="foot">' + bar(l12, na) + '<div class="tick"><span>0</span><span>' + rnMm(na) + ' mm normal</span></div></div>'
+         : '<div class="foot"><div class="c">' + (rnHas() ? 'Looking up the long-term average for your farm&hellip;' : 'Set where the farm is to see the long-term average') + '</div></div>') +
+       '</div>';
+
+  /* 2 — this rain year, against where the average would be by today */
+  var aheadTxt = '';
+  if (ytd != null && nd != null) aheadTxt = (ytd >= nd ? rnMm(ytd - nd) + ' mm ahead' : rnMm(nd - ytd) + ' mm behind');
+  h += '<div class="rn-tile"><div class="top">' +
+       '<div class="l">This rain year' + (sat ? ' &middot; satellite' : '') + '</div>' +
+       '<div class="v">' + (ytd == null ? '&mdash;' : rnMm(ytd) + ' mm') + '</div>' +
+       '<div class="c">' + (nd != null ? 'Normal to date ' + rnMm(nd) + ' mm' : 'Since ' + RN_MON[rnYearStartOf(t).getMonth()]) + '</div></div>' +
+       (ytd != null && nd
+         ? '<div class="foot">' + bar(ytd, Math.max(nd, ytd), ytd >= nd) +
+           '<div class="tick"><span>' + aheadTxt + '</span><span>' + Math.round((ytd/nd)*100) + '&nbsp;%</span></div></div>'
+         : '') +
+       '</div>';
+
+  /* 3 — the last fortnight, so "21 days ago" has a shape to it */
+  if (mine){
+    h += '<div class="rn-tile"><div class="top">' +
+         '<div class="l">Last rain</div>' +
+         '<div class="v">' + (lr ? rnMm(lr.mm) + ' mm' : 'None yet') + '</div>' +
+         '<div class="c">' + (lr ? rnDow(lr.date) + ' ' + rnFmtDate(lr.date) + ' &middot; ' + (lr.daysAgo === 0 ? 'today' : lr.daysAgo + ' day' + (lr.daysAgo===1?'':'s') + ' ago') +
+              (lr.src === 'sat' ? ' &middot; satellite' : '') : 'Nothing recorded this year') + '</div></div>' +
+         '<div class="foot">' + rnSparkFoot(14) + '</div></div>';
+  } else {
+    h += '<div class="rn-tile"><div class="top"><div class="l">Your readings</div><div class="v">0</div>' +
+         '<div class="c">Log this morning&rsquo;s rain to start your record</div></div>' +
+         '<div class="foot">' + rnSparkFoot(14) + '</div></div>';
+  }
+
+  /* 4 — how close the last week is to the rain the farmer asked for */
+  var need = p.need, got = p.got || 0;
+  h += '<div class="rn-tile"><div class="top">' +
+       '<div class="l">Ready to plant?</div>' +
        '<div class="v">' + (p.win.open ? (p.ready ? 'Yes' : 'Not yet') : 'Not yet') + '</div>' +
        '<div class="c">' + (p.win.open
-          ? rnMm(p.got || 0) + ' of ' + p.need + ' mm in the last ' + p.days + ' days'
-          : 'Planting starts about ' + p.win.from.getDate() + ' ' + RN_MON[p.win.from.getMonth()] + ' &middot; needs ' + p.need + ' mm in ' + p.days + ' days') + '</div></div>';
+          ? rnMm(got) + ' of ' + need + ' mm in the last ' + p.days + ' days'
+          : 'Planting starts about ' + p.win.from.getDate() + ' ' + RN_MON[p.win.from.getMonth()]) + '</div></div>' +
+       '<div class="foot">' + (got > 0 ? bar(Math.min(got, need), need, p.ready) : '<div class="track"></div>') +
+       '<div class="tick"><span>' + (got > 0 ? rnMm(got) + ' mm so far this week' : 'no rain in the last ' + p.days + ' days') + '</span><span>' + need + ' mm</span></div></div>' +
+       '</div>';
 
   host.innerHTML = h;
+}
+
+function rnSparkFoot(days){
+  var s = rnSpark(days);
+  if (s.dry) return '<div class="track"></div>' +
+                    '<div class="tick"><span>nothing in the last ' + days + ' days</span><span>today</span></div>';
+  return s.html + '<div class="tick"><span>' + s.wet + ' day' + (s.wet===1?'':'s') + ' of rain in ' + days + '</span><span>today</span></div>';
+}
+
+/* A fortnight of rain as fourteen little bars — the tallest is the wettest day.
+   A fortnight with nothing in it says so, rather than drawing fourteen stubs
+   that read as a broken chart. */
+function rnSpark(days){
+  var t = rnToday(), vals = [], max = 0, wet = 0;
+  for (var i = days - 1; i >= 0; i--){
+    var iso = rnISO(rnAddDays(t, -i));
+    var v = rnDayMm(iso);
+    var mm = v ? v.mm : 0;
+    vals.push({ mm: mm, today: i === 0 });
+    if (mm > max) max = mm;
+    if (mm > 0) wet++;
+  }
+  if (!wet) return { dry: true, html: '' };
+  return { dry: false, wet: wet, html: '<div class="spark">' + vals.map(function(d){
+    var pc = Math.max(8, Math.round((d.mm / max) * 100));
+    return '<span class="' + (d.mm > 0 ? (d.today ? 'today' : 'w') : '') + '" style="height:' + (d.mm > 0 ? pc : 8) + '%"></span>';
+  }).join('') + '</div>' };
 }
 
 function rnRenderMonth(){
