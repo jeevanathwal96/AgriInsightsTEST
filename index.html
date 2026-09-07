@@ -6311,7 +6311,12 @@ table.rn-t td.dim{color:var(--t4)}
 .rn-hit:hover{border-color:var(--rn);background:var(--rnp)}
 .rn-hit span{font-size:10.5px;color:var(--t3);white-space:nowrap}
 .rn-toggle{display:flex;gap:10px;align-items:flex-start;margin-top:15px;font-size:12.5px;cursor:pointer}
-.rn-toggle input{margin-top:2px;flex:0 0 auto}
+/* The app sets width:100% on every input, which stretched this checkbox to the
+   full card and pushed its own label out of the box. Size the small controls
+   explicitly wherever they are used. */
+.rn-toggle input[type=checkbox]{width:15px;height:15px;min-width:15px;margin:2px 0 0;padding:0;flex:0 0 auto}
+.rn-set-radio,#rn-set-body input[type=radio]{width:15px;height:15px;min-width:15px;margin:0;padding:0}
+.rn-toggle span{flex:1;min-width:0}
 .rn-toggle b{display:block;color:var(--t1)}
 .rn-toggle small{display:block;font-size:11px;color:var(--t3);margin-top:2px;line-height:1.45}
 .rn-adv{margin-top:15px;border-top:1px solid var(--br2);padding-top:11px}
@@ -69370,6 +69375,37 @@ function rnGaugeWhere(g){
 }
 
 /* ── the chart ──────────────────────────────────────────────────────────── */
+/* The rest of the app draws one tooltip: a dark card with the month, then a
+   row per series, label left and value right. Rainfall uses the same element
+   and the same classes so the graphs read as one family. */
+function rnChartTip(context){
+  var tt = context.tooltip;
+  var el = document.getElementById('chartTip');
+  if (!el){ el = document.createElement('div'); el.id = 'chartTip'; el.className = 'chart-tip'; document.body.appendChild(el); }
+  if (!tt || tt.opacity === 0){ el.style.opacity = '0'; return; }
+  var title = (tt.title && tt.title[0]) || '';
+  var rows = [];
+  (tt.dataPoints || []).forEach(function(dp){
+    var L = (dp.dataset && dp.dataset.label) || '';
+    if (L === 'lo' || L === 'Most years') return;
+    var v = (dp.parsed && dp.parsed.y != null) ? dp.parsed.y : dp.raw;
+    if (v == null) return;
+    rows.push({ label: L, val: v, own: /this (rain )?year/i.test(L) });
+  });
+  if (!rows.length){ el.style.opacity = '0'; return; }
+  var html = '<div class="m">' + esc(title) + '</div>';
+  rows.forEach(function(r, i){
+    if (i && r.own) html += '<div class="hr"></div>';
+    html += '<div class="r"><span class="k">' + esc(r.label) + '</span>' +
+            '<span class="v"' + (r.own ? ' style="color:#9CC0E4"' : '') + '>' + rnMm(r.val) + ' mm</span></div>';
+  });
+  el.innerHTML = html;
+  var b = context.chart.canvas.getBoundingClientRect();
+  el.style.left = Math.max(80, Math.min(window.innerWidth - 80, b.left + tt.caretX)) + 'px';
+  el.style.top  = (b.top + tt.caretY - 10) + 'px';
+  el.style.opacity = '1';
+}
+
 function rnSetChartView(v){ RN_CHART_VIEW = v; rnRenderChart(); }
 function rnRenderChartViews(){
   var host = rnEl('rn-chart-views'); if (!host) return;
@@ -69423,14 +69459,7 @@ function rnRenderChart(){
       interaction:{ mode:'index', intersect:false },
       plugins:{
         legend:{ display:false },
-        tooltip:{
-          backgroundColor:'#14281f', padding:10, cornerRadius:8, displayColors:true, boxWidth:8, boxHeight:8,
-          callbacks:{
-            title:function(it){ return it && it.length ? (it[0].label || '') : ''; },
-            label:function(c){ return (c.dataset.label === 'lo') ? null : c.dataset.label + ': ' + rnMm(c.parsed.y) + ' mm'; }
-          },
-          filter:function(c){ return c.dataset.label !== 'lo' && c.dataset.label !== 'Most years'; }
-        }
+        tooltip:{ enabled:false, external:rnChartTip }
       },
       scales:{
         y:{ beginAtZero:true, grid:{ color:'#EEF1F4', drawBorder:false },
@@ -69465,8 +69494,7 @@ function rnRenderChartMonth(hh, sub, legend){
       responsive:true, maintainAspectRatio:false,
       interaction:{ mode:'index', intersect:false },
       plugins:{ legend:{ display:false },
-        tooltip:{ backgroundColor:'#14281f', padding:10, cornerRadius:8, boxWidth:8, boxHeight:8,
-          callbacks:{ label:function(c){ return c.dataset.label + ': ' + (c.parsed.y == null ? 'nothing logged' : rnMm(c.parsed.y) + ' mm'); } } } },
+        tooltip:{ enabled:false, external:rnChartTip } },
       scales:{ y:{ beginAtZero:true, grid:{ color:'#EEF1F4', drawBorder:false },
                    ticks:{ color:'#9CA3AF', font:{ size:10 }, callback:function(v){ return v + ' mm'; } } },
                x:{ grid:{ display:false }, ticks:{ color:'#6B7280', font:{ size:10 } } } }
@@ -69494,8 +69522,7 @@ function rnRenderChartYears(hh, sub, legend){
       responsive:true, maintainAspectRatio:false,
       interaction:{ mode:'index', intersect:false },
       plugins:{ legend:{ display:false },
-        tooltip:{ backgroundColor:'#14281f', padding:10, cornerRadius:8, boxWidth:8, boxHeight:8,
-          callbacks:{ label:function(c){ return c.dataset.label + ': ' + rnMm(c.parsed.y) + ' mm'; } } } },
+        tooltip:{ enabled:false, external:rnChartTip } },
       scales:{ y:{ beginAtZero:true, grid:{ color:'#EEF1F4', drawBorder:false },
                    ticks:{ color:'#9CA3AF', font:{ size:10 }, callback:function(v){ return v + ' mm'; } } },
                x:{ grid:{ display:false }, ticks:{ color:'#6B7280', font:{ size:10 } } } }
@@ -69639,7 +69666,7 @@ function rnSettingsRender(){
     (ST_RAIN.gauges || []).forEach(function(g, i){
       h += '<tr><td><input class="rn-gi" value="' + esc(g.name || '') + '" onchange="rnGaugeSet(' + i + ',\'name\',this.value)" style="height:30px;font-size:12px"></td>' +
            '<td><input class="rn-gi" value="' + esc(g.where || '') + '" placeholder="e.g. windmill" onchange="rnGaugeSet(' + i + ',\'where\',this.value)" style="height:30px;font-size:12px"></td>' +
-           '<td style="text-align:center"><input type="radio" name="rn-def" ' + (g.isDefault ? 'checked' : '') + ' onchange="rnGaugeDefault(' + i + ')"></td>' +
+           '<td style="text-align:center"><input class="rn-set-radio" type="radio" name="rn-def" ' + (g.isDefault ? 'checked' : '') + ' onchange="rnGaugeDefault(' + i + ')"></td>' +
            '<td><button class="rn-x" title="Remove" onclick="rnGaugeRemove(' + i + ')">&times;</button></td></tr>';
     });
     if (!(ST_RAIN.gauges || []).length) h += '<tr><td colspan="4" style="color:var(--t3);font-size:12px">No gauges yet. Add one for the homestead, then one per land or camp you read.</td></tr>';
