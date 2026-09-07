@@ -68569,6 +68569,23 @@ function rnCovers(fromISO){
   var f = rnDataFrom();
   return !!(f && f <= fromISO);
 }
+/* What THIS gauge recorded, and nothing else. rnTotal() falls back to the
+   farm's satellite backfill when a gauge has no reading for a day, which is
+   right for the farm's season figure and wrong the moment a number is printed
+   under a gauge's name: it credited a gauge that had never been read with the
+   satellite's rain, and made two gauges agree perfectly for months on the
+   printed record because they were the same satellite figure. */
+function rnGaugeOwnTotal(fromISO, toISO, gaugeId){
+  var t = 0, any = false, L = rnLog();
+  for (var i=0;i<L.length;i++){
+    var r = L[i];
+    if (r.src === 'sat') continue;
+    if (gaugeId ? (r.gaugeId !== gaugeId) : !rnIsDefaultId(r.gaugeId)) continue;
+    if (r.date < fromISO || r.date > toISO) continue;
+    t += (r.mm || 0); any = true;
+  }
+  return any ? t : null;
+}
 function rnYearToDate(gaugeId){
   var t = rnToday();
   return rnTotal(rnISO(rnYearStartOf(t)), rnISO(t), gaugeId);
@@ -69486,7 +69503,9 @@ function rnRenderBook(){
   var h = prompt + '<div class="rn-book">';
   show.forEach(function(r){
     var w = Math.max(3, Math.round(((r.mm || 0) / max) * 100));
-    var who = (r.src === 'sat') ? rnT('Satellite', 'Satelliet') : (ST_RAIN.mode === 'gauge' ? rnGaugeName(r.gaugeId) + (r.by ? ' &middot; ' + esc(r.by) : '') : (r.by ? esc(r.by) : ''));
+    var who = (r.src === 'sat') ? rnT('Satellite', 'Satelliet')
+            : (ST_RAIN.mode === 'gauge' ? esc(rnGaugeName(r.gaugeId)) + (r.by ? ' &middot; ' + esc(r.by) : '')
+                                        : (r.by ? esc(r.by) : ''));
     h += '<div class="d">' +
          '<span>' + rnDow(r.date) + ' ' + rnFmtDate(r.date).replace(/ \d{4}$/,'') + '</span>' +
          '<span><span class="bar"><i style="width:' + w + '%' + (r.src==='sat' ? ';opacity:.45' : '') + '"></i></span>' +
@@ -69538,11 +69557,14 @@ function rnRenderGauges(){
          '</div>';
   } else {
     h += '<div class="rn-gauges">';
+    var yFrom = rnISO(rnYearStartOf(rnToday())), yTo = rnISO(rnToday());
     rnGauges().forEach(function(g){
-      var v = rnYearToDate(g.id);
+      var v = rnGaugeOwnTotal(yFrom, yTo, g.id);
       h += '<div class="rn-g"><div class="n">' + esc(g.name) + (g.isDefault ? ' &#11088;' : '') + '</div>' +
            '<div class="w">' + esc(rnGaugeWhere(g)) + '</div>' +
-           '<div class="v">' + (v == null ? '&mdash;' : rnMm(v)) + '<small>mm</small></div></div>';
+           '<div class="v">' + (v == null ? '&mdash;' : rnMm(v)) + '<small>mm</small></div>' +
+           (v == null ? '<div class="w" style="margin-top:4px">' + rnT('not read yet this year', 'nog nie vanjaar gelees nie') + '</div>' : '') +
+           '</div>';
     });
     if (ST_RAIN.sat && ST_RAIN.sat.daily){
       var sv = rnSatTotal(rnISO(rnYearStartOf(rnToday())), rnISO(rnToday()));
@@ -70032,7 +70054,7 @@ function rnReportRows(){
     var f = rnISO(first), o = rnISO(to);
     rows.push({
       label: rnMon(mi) + ' ' + y,
-      per: gs.map(function(g){ return rnTotal(f, o, g.id); }),
+      per: gs.map(function(g){ return rnGaugeOwnTotal(f, o, g.id); }),
       sat: rnSatTotal(f, o),
       normal: norm ? norm[mi] : null,
       d1: rnGaugeRainDays(f, o, 1),
@@ -70047,7 +70069,10 @@ function rnReportHTML(){
   var owner = (ST && ST.ownerName) || (typeof FARM !== 'undefined' && FARM.owner) || '';
   var loc = ST_RAIN.loc || {};
   var na = rnNormalAnnual();
-  var yTot = rnTotal(rnISO(st), rnISO(t));
+  /* The summary row names a gauge, so it counts that gauge's readings too. The
+     satellite column beside it carries the backfill, which is what the note
+     below the table promises. */
+  var yTot = rnGaugeOwnTotal(rnISO(st), rnISO(t));
   var days1 = rnGaugeRainDays(rnISO(st), rnISO(t), 1), days10 = rnGaugeRainDays(rnISO(st), rnISO(t), 10);
   var satFilled = 0, firstOwn = rnFirstGaugeDate();
   try {
@@ -70065,7 +70090,7 @@ function rnReportHTML(){
            '<td class="r">' + r.d1 + '</td><td class="r">' + r.d10 + '</td></tr>';
   }).join('');
   var totals = '<tr class="tot"><td>' + rnT('Total', 'Totaal') + '</td>' +
-    gs.map(function(g){ return '<td class="r">' + n(rnTotal(rnISO(st), rnISO(t), g.id)) + '</td>'; }).join('') +
+    gs.map(function(g){ return '<td class="r">' + n(rnGaugeOwnTotal(rnISO(st), rnISO(t), g.id)) + '</td>'; }).join('') +
     '<td class="r sat">' + n(rnSatTotal(rnISO(st), rnISO(t))) + '</td>' +
     '<td class="r sat">' + n(rnNormalToDate(t)) + '</td><td class="r">' + days1 + '</td><td class="r">' + days10 + '</td></tr>';
 
@@ -70243,12 +70268,14 @@ var RN_IMPORT = null;
 function rnImportPick(input){
   var f = input && input.files && input.files[0]; if (!f) return;
   var rd = new FileReader();
+  rnImportStage(null);
   rd.onload = function(){ rnImportParse(String(rd.result || '')); };
-  rd.onerror = function(){ rnEl('rn-imp-out').innerHTML = rnImpWarn(rnT('That file could not be read.', 'Daardie lêer kon nie gelees word nie.')); };
+  rd.onerror = function(){ rnImportStage(null); rnEl('rn-imp-out').innerHTML = rnImpWarn(rnT('That file could not be read.', 'Daardie lêer kon nie gelees word nie.')); };
   rd.readAsText(f);
 }
 function rnImportParse(text){
   var out = rnEl('rn-imp-out');
+  rnImportStage(null);
   var lines = text.split(/\r\n|\r|\n/).filter(function(l){ return l.trim() !== ''; });
   if (lines.length < 2){ out.innerHTML = rnImpWarn(rnT('That file has no rows in it.', 'Daardie lêer het geen reëls in nie.')); return; }
   var delim = (lines[0].split(';').length > lines[0].split(',').length) ? ';' : ',';
@@ -70293,7 +70320,7 @@ function rnImportParse(text){
     x.gaugeId = (x.gauge && names[x.gauge.toLowerCase()]) ? names[x.gauge.toLowerCase()] : def.id;
     if (existing[x.date + '|' + x.gaugeId]) { dup++; x.skip = true; } else fresh++;
   });
-  RN_IMPORT = rows;
+  /* staged only now that the file has actually read */
   var tot = rows.filter(function(x){ return !x.skip; }).reduce(function(a,x){ return a + x.mm; }, 0);
   out.innerHTML =
     '<div class="rn-strip info" style="margin:0"><span class="ic">&#128203;</span><span class="gr">' +
@@ -70304,7 +70331,14 @@ function rnImportParse(text){
     (bad ? ' ' + bad + ' ' + rnT(rnPl(bad,'row','rows'), rnPl(bad,'reël','reëls')) +
            rnT(' could not be read and will be skipped.', ' kon nie gelees word nie en word oorgeslaan.') : '') +
     '</span></div>';
-  rnEl('rn-imp-go').style.display = fresh ? 'inline-flex' : 'none';
+  rnImportStage(fresh ? rows : null);
+}
+/* One place decides what is staged and whether the button is live, so the two
+   can never disagree. */
+function rnImportStage(rows){
+  RN_IMPORT = (rows && rows.length) ? rows : null;
+  var b = rnEl('rn-imp-go');
+  if (b) b.style.display = RN_IMPORT ? 'inline-flex' : 'none';
 }
 function rnImpWarn(msg){ return '<div class="rn-strip warn" style="margin:0"><span class="ic">&#9888;</span><span class="gr">' + msg + '</span></div>'; }
 function rnImpDate(s){
@@ -70321,7 +70355,7 @@ function rnImpDate(s){
   function pad2(x){ x = String(parseInt(x,10)); return x.length < 2 ? '0' + x : x; }
 }
 function rnImportCommit(){
-  if (!RN_IMPORT || !RN_IMPORT.length) return;
+  if (!RN_IMPORT || !RN_IMPORT.length) return;   /* nothing staged: the button should not be there at all */
   var n = 0;
   RN_IMPORT.forEach(function(x){
     if (x.skip) return;
@@ -70480,6 +70514,9 @@ function rnAttnItems(){
     out.push({
       tier: 'house', sev: 30,
       nm: rnT('Rain gauge not read', 'Reënmeter nie gelees nie'),
+      /* Raw, NOT escaped: the attention card escapes `lead` at its own render
+         site, so escaping here too would show a farmer "Jan&#39;s" for a gauge
+         called Jan's. Escape once, at the point it becomes HTML. */
       lead: rnT('The ', 'Die ') + g.name + rnT(' gauge has not been read for ', '-reënmeter is al ') + gap + rnT(' days', ' dae nie gelees nie'),
       sub: rnT('A season total is only worth what the record behind it is worth. Reading takes a moment.',
                '\'n Seisoentotaal is net soveel werd as die rekord daaragter. Om te lees vat \'n oomblik.'),
