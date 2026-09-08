@@ -6933,7 +6933,7 @@ table.rn-t td.dim{color:var(--t4)}
         <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       </div>
       <div class="sh-meta">
-        <div class="sh-h1">The Season So Far</div>
+        <div class="sh-h1">The Year So Far</div>
         <div class="sh-h2">Long-term view · Year-to-date totals · Trend</div>
       </div>
       <div class="sh-pill" id="dash-season-pill"></div>
@@ -6954,7 +6954,7 @@ table.rn-t td.dim{color:var(--t4)}
       <div class="skpi kpi-tap" onclick="kpiOpen('seasonProfit')" style="position:relative"><span class="kpi-i">&#9432;</span>
         <div class="skpi-lbl">Profit Year-to-date</div>
         <div class="skpi-val" id="season-ytd-profit">R0</div>
-        <div class="skpi-sub" id="season-ytd-profit-sub">↑ vs last season</div>
+        <div class="skpi-sub" id="season-ytd-profit-sub">↑ vs last year</div>
       </div>
       <div class="skpi kpi-tap" onclick="kpiOpen('seasonMargin')" style="position:relative"><span class="kpi-i">&#9432;</span>
         <div class="skpi-lbl">Profit Margin</div>
@@ -18132,8 +18132,11 @@ var monthTxns = ST.txns.filter(function(t){
     return MONTH_NAMES[('0'+(d.m+1)).slice(-2)] + ' ' + d.y === month;
   });
   setEl('dash-combo-tx', monthTxns.length + '');
-  var todayStr = new Date().toISOString().split('T')[0];
-  var todayCount = monthTxns.filter(function(t){ return t.date === todayStr; }).length;
+  var _now = (typeof APP_TODAY !== 'undefined' && APP_TODAY) ? new Date(APP_TODAY) : new Date();
+  var todayCount = monthTxns.filter(function(t){
+    var d = parseDate(t.date);
+    return !!d && d.d === _now.getDate() && d.m === _now.getMonth() && d.y === _now.getFullYear();
+  }).length;
   setEl('dash-combo-tx-sub', todayCount > 0 ? todayCount + ' today' : 'this month');
 
 var MN3 = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
@@ -18154,8 +18157,12 @@ var MN3 = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,De
 var heroEl = $('dash-hero-date');
   if (heroEl) {
     var DOW = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    var heroToday = new Date();
-    heroEl.textContent = DOW[heroToday.getDay()] + ', ' + heroToday.getDate() + ' ' + month;
+    var heroToday = (typeof APP_TODAY !== 'undefined' && APP_TODAY) ? new Date(APP_TODAY) : new Date();
+    /* Take the weekday from the date actually being shown. Pasting today's
+       weekday onto another month prints days that never fell on that day. */
+    var heroShown = new Date(pyNum, pmNum, (nowD.getMonth() === pmNum && nowD.getFullYear() === pyNum)
+                                            ? heroToday.getDate() : 1);
+    heroEl.textContent = DOW[heroShown.getDay()] + ', ' + heroShown.getDate() + ' ' + month;
   }
 
 setEl('dash-budget-period', month);
@@ -18293,14 +18300,14 @@ var pSub = $('season-ytd-profit-sub');
       if (lastP && Math.abs(lastP) > 0) {
         var diff = profit - lastP;
         var pct  = Math.round(diff / Math.abs(lastP) * 100);
-        pSub.textContent = (diff >= 0 ? '↑ ' : '↓ ') + Math.abs(pct) + '% vs last season';
+        pSub.textContent = (diff >= 0 ? '↑ ' : '↓ ') + Math.abs(pct) + '% vs last year';
         pSub.className = 'skpi-sub' + (diff >= 0 ? '' : ' dn');
       } else {
-        pSub.textContent = profit >= 0 ? 'Profit so far this season' : 'Loss so far this season';
+        pSub.textContent = profit >= 0 ? 'Profit so far this year' : 'Loss so far this year';
         pSub.className = 'skpi-sub muted';
       }
     } else {
-      pSub.textContent = profit >= 0 ? 'Profit so far this season' : 'Loss so far this season';
+      pSub.textContent = profit >= 0 ? 'Profit so far this year' : 'Loss so far this year';
       pSub.className = 'skpi-sub muted';
     }
   }
@@ -18688,7 +18695,7 @@ function renderDashExpCats() {
       '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">' +
         '<div style="display:flex;align-items:center;gap:6px">' +
           '<div style="width:9px;height:9px;border-radius:50%;background:'+col+';flex-shrink:0"></div>' +
-          '<span style="font-size:12px;font-weight:500;color:var(--t1)">'+cat+'</span>' +
+          '<span style="font-size:12px;font-weight:500;color:var(--t1)">'+esc(cat)+'</span>' +
         '</div>' +
         '<div style="display:flex;align-items:baseline;gap:6px">' +
           '<span style="font-size:11px;color:var(--t3)">'+pct+'%</span>' +
@@ -18732,7 +18739,7 @@ function renderDashIncSources() {
       '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">' +
         '<div style="display:flex;align-items:center;gap:6px">' +
           '<div style="width:9px;height:9px;border-radius:50%;background:'+col+';flex-shrink:0"></div>' +
-          '<span style="font-size:12px;font-weight:500;color:var(--t1)">'+cat+'</span>' +
+          '<span style="font-size:12px;font-weight:500;color:var(--t1)">'+esc(cat)+'</span>' +
         '</div>' +
         '<div style="display:flex;align-items:baseline;gap:6px">' +
           '<span style="font-size:11px;color:var(--t3)">'+pct+'%</span>' +
@@ -18755,10 +18762,13 @@ function updateBpBar(id, actual, budget) {
   /* A zero or negative budget (a planned-loss profit target) cannot express progress
      as actual/budget — R2m of profit against a −R210k target read "0%". Meeting or
      beating such a target is a full bar. */
-  var pct = budget > 0 ? Math.min(Math.round(actual/budget*100), 100)
-                       : (actual >= budget ? 100 : 0);
+  /* The BAR has to stop at 100% — it cannot draw past its track. The LABEL must
+     not: clamping both meant a farmer on budget, 60% over and 300% over all read
+     "100%", so an overspend looked like hitting the target exactly. */
+  var raw  = budget > 0 ? Math.round(actual/budget*100) : (actual >= budget ? 100 : 0);
+  var pct  = Math.max(0, Math.min(raw, 100));
   var over = actual > budget;
-  var el = $(id+'-pct'); if(el){ el.textContent = pct+'%'; el.className = 'bp-pct'+(over?' over':''); }
+  var el = $(id+'-pct'); if(el){ el.textContent = raw+'%'; el.className = 'bp-pct'+(over?' over':''); }
   var el2 = $(id+'-vals'); if(el2) el2.textContent = fmt(actual)+' / '+fmt(budget);
   var fill = $(id+'-fill'); if(fill){ fill.style.width = pct+'%'; fill.className = 'bp-fill'+(over?' over':actual/budget>0.85?' red':''); }
 }
@@ -48720,6 +48730,10 @@ LANG_PAIRS.push(
   ["This Financial Year",                        "Hierdie Finansiële Jaar"],
   ["Over how many years?",                       "Oor hoeveel jaar?"],
   ["First steps guide",                          "Eerste stappe-gids"],
+  ["The Year So Far",                            "Die Jaar Tot Dusver"],
+  ["Profit so far this year",                    "Wins tot dusver vanjaar"],
+  ["Loss so far this year",                      "Verlies tot dusver vanjaar"],
+  ["vs last year",                               "teenoor verlede jaar"],
   ["The Season So Far",                          "Die Seisoen Tot Dusver"],
   ["Amount each payday",                         "Bedrag elke betaaldag"],
   ["Change the loan",                            "Verander die lening"],
@@ -56687,7 +56701,7 @@ var PAGE_TOURS = {
       text:'These cards show this month\'s income, expenses and profit, with the transaction count underneath — all live from your recorded data.',
       tip:'Tap any card to open a plain-language breakdown, with a link through to the full page.', pos:'smart' },
     { target:'dash-season-kpis', title:'Zooming out — the season so far', icon:'🗓️',
-      text:'The Season So Far zone gives you the longer view — your income, expenses and profit for the year to date, with your margin — so a quiet month doesn’t read as a crisis and a strong one doesn’t hide a thin year. Tap any card to see the split.', pos:'smart' },
+      text:'The Year So Far zone gives you the longer view — your income, expenses and profit for the year to date, with your margin — so a quiet month doesn’t read as a crisis and a strong one doesn’t hide a thin year. Tap any card to see the split.', pos:'smart' },
     { target:'dashChart', title:'6-month performance chart', icon:'📈',
       text:'The bar chart shows your money in (green), money out (red) and profit line (dark) over the selected period. Use the 1M / 3M / 6M / 12M pills to change the view.',
       pos:'smart' },
