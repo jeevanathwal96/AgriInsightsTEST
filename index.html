@@ -6179,6 +6179,32 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 .rn-strip b{font-weight:800}
 .rn-strip .lnk{background:none;border:0;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;color:inherit;text-decoration:underline;white-space:nowrap;padding:0;margin-left:7px;vertical-align:baseline;line-height:inherit}
 
+.cfl-dry{font-family:inherit;font-size:11.5px;font-weight:700;border:1px solid #E0BFA0;background:transparent;color:#8A4412;border-radius:7px;padding:4px 10px;cursor:pointer;margin-right:6px}
+.cfl-dry.on{background:#8A4412;color:#fff;border-color:#8A4412}
+.cfl-dryv{font-size:12px;line-height:1.5;color:#8A4412;background:var(--op,#FFF3E8);border:1px solid #F3D2B8;border-radius:9px;padding:9px 12px;margin:8px 0 2px}
+.cfl-dryv .q{opacity:.75;font-size:11px}
+.rn-veld{margin:12px 0 4px;padding:13px 15px;background:#fff;border:1px solid var(--br,#E5E7EB);border-radius:var(--rl,14px)}
+.rn-vrow{display:flex;justify-content:space-between;align-items:baseline;gap:16px;font-size:12px;padding:5px 0;color:var(--t2,#4B5563);border-bottom:1px solid var(--bg,#F3F4F6)}
+.rn-vrow:last-of-type{border-bottom:0}
+.rn-vrow > span:first-child{min-width:0}
+.rn-vrow .v{font-weight:700;color:var(--t1,#111827);white-space:nowrap;font-variant-numeric:tabular-nums;flex:0 0 auto;text-align:right}
+.rn-vrow .v .q{font-weight:400;color:var(--t4,#9CA3AF)}
+.rn-vrow .v .dry{color:var(--or,#B45309)}
+.rn-vfoot{font-size:11px;color:var(--t3,#6B7280);margin-top:7px;line-height:1.45}
+.rn-vfoot.q{color:var(--t4,#9CA3AF)}
+.scn-sugg{display:flex;gap:11px;align-items:flex-start;background:var(--op,#FFF3E8);border:1px solid #F3D2B8;color:#8A4412;border-radius:11px;padding:11px 14px;margin-top:10px;font-size:12.5px;line-height:1.5}
+.scn-sugg .ic{flex:0 0 auto;font-size:15px;line-height:1.2}
+.scn-sugg .gr{flex:1;min-width:0}
+.scn-sugg b{font-weight:800}
+.scn-sugg .s2{display:block;margin-top:4px}
+.scn-sugg .s3{display:block;margin-top:4px;opacity:.78;font-size:11.5px}
+.scn-sugg .acts{display:flex;gap:8px;margin-top:9px}
+.scn-sugg button{font-family:inherit;font-size:12px;font-weight:700;border-radius:8px;padding:6px 12px;cursor:pointer}
+.scn-sugg .scn-use{background:#8A4412;color:#fff;border:0}
+.scn-sugg .scn-how{background:transparent;color:#8A4412;border:1px solid #E0BFA0}
+.crop-plantchip{display:inline-block;margin-left:7px;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap;vertical-align:1px}
+.crop-plantchip.ok{background:var(--gp,#D8F3DC);color:var(--gd,#1B7A3E)}
+.crop-plantchip.wait{background:var(--op,#FFF3E8);color:var(--or,#B45309)}
 .rn-tiles{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:14px;margin-bottom:16px}
 .rn-tile{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:15px 17px;box-shadow:var(--sh);display:flex;flex-direction:column;justify-content:space-between;min-height:132px;position:relative;overflow:hidden}
 .rn-tile .top{display:flex;flex-direction:column}
@@ -9821,6 +9847,23 @@ table.rn-t td.dim{color:var(--t4)}
             </select>
           </div>
         </div>
+        <!-- T1.2 · the statutory grazing norm is per-biome, not one national number.
+             Asked once here rather than looked up, because DAFF publishes the map
+             only as per-province PDFs. -->
+        <div class="fg2" style="margin-top:12px">
+          <div><label id="set-veld-lab" data-notranslate>What is your grazing?</label>
+            <select id="set-veld" data-notranslate onchange="rnSetVeld(this.value)">
+              <option value="">Not set — using the national grassland figure</option>
+              <option value="grassland">Grassland · sweet or sourveld — about 6 ha/LSU</option>
+              <option value="bushveld">Bushveld · savanna — about 12 ha/LSU</option>
+              <option value="karoo">Karoo veld — about 25 ha/LSU</option>
+              <option value="own">I have my own figure</option>
+            </select>
+          </div>
+          <div id="set-veld-own-wrap" style="display:none"><label id="set-veld-own-lab" data-notranslate>Your figure (ha per LSU)</label>
+            <input id="set-veld-own" type="number" min="0.5" step="0.1" placeholder="e.g. 8.5" onchange="rnSetVeldOwn(this.value)"/></div>
+        </div>
+        <div class="hint" id="set-veld-hint" data-notranslate style="margin-top:-4px">From your grazing capacity map — the one kept under the Conservation of Agricultural Resources Act. It sets what your veld can carry in a normal year.</div>
         <!-- Registered stock mark. Without it a removal certificate cannot legally
              identify the animals, so it is captured once here rather than at the
              loading pen. Animal Identification Act 6 of 2002. -->
@@ -10235,7 +10278,8 @@ table.rn-t td.dim{color:var(--t4)}
 
   <!-- new: single cash-on-hand line + built-from-data strip -->
   <div class="cfl-card" id="cfl-line-card" style="display:none">
-    <div class="cfl-h"><span id="cfl-line-title">Cash on hand — next 6 months</span><span class="cfl-toggle"><button id="cfl-mode-line" class="on" onclick="cfChartMode('line')">Line</button><button id="cfl-mode-bars" onclick="cfChartMode('bars')">Bars</button></span></div>
+    <div class="cfl-h"><span id="cfl-line-title">Cash on hand — next 6 months</span><span class="cfl-toggle"><button id="cfl-dry-btn" class="cfl-dry" style="display:none" aria-pressed="false" data-notranslate onclick="cfToggleDry()">Dry season</button><button id="cfl-mode-line" class="on" onclick="cfChartMode('line')">Line</button><button id="cfl-mode-bars" onclick="cfChartMode('bars')">Bars</button></span></div>
+    <div id="cfl-dry-verdict" class="cfl-dryv" style="display:none"></div>
     <div id="cfl-line"></div>
     <div class="cfl-legend" id="cfl-legend"></div>
     <div class="cfl-feeds" id="cfl-feeds"></div>
@@ -12342,11 +12386,11 @@ function _cropLandCardBody(l){
   var phi=_cropPhiByLand()[l.id];
   var s1;
   if(planned){
-    s1=_cropLandRow('🌱','Plant from',(l.planted?cropDispDate(l.planted):'next season'))+_cropLandRow('🎯','Target yield',(l.targetYield||'—')+' t/ha')+_cropLandRow('💧','Budget input',cropFmtR(l.inputPerHa)+'/ha');
+    s1=_cropLandRow('🌱','Plant from',(l.planted?cropDispDate(l.planted):'next season'))+_cropLandRow('🎯','Target yield',(l.targetYield||'—')+' t/ha')+_cropLandRow('💧','Budget input',cropFmtR(l.inputPerHa)+'/ha')+cropPlantRows(l);
   } else if(fallow){
-    s1=_cropLandRow('💤','Status','Resting / grazing')+_cropLandRow('🔄','Last crop',esc(l.prevCrop||'—'));
+    s1=_cropLandRow('💤','Status','Resting / grazing')+_cropLandRow('🔄','Last crop',esc(l.prevCrop||'—'))+cropPlantRows(l);
   } else {
-    s1=_cropLandRow('🌱','Planted',cropDispDate(l.planted))+_cropLandRow('🌾','Est. harvest',(est==='harvest'?'now':(est==='harvested'?'done':cropDispDate(l.harvest))))+_cropLandRow((l.actualYield!=null?'✅':'🎯'),(l.actualYield!=null?'Actual yield':'Expected yield'),(cropLandYield(l)||0)+' t/ha')+_cropLandRow('💧','Input cost',cropFmtR(l.inputPerHa)+'/ha')+_cropLandRow('🔄','Previous crop',esc(l.prevCrop||'—'));
+    s1=_cropLandRow('🌱','Planted',cropDispDate(l.planted))+_cropLandRow('🌾','Est. harvest',(est==='harvest'?'now':(est==='harvested'?'done':cropDispDate(l.harvest))))+_cropLandRow((l.actualYield!=null?'✅':'🎯'),(l.actualYield!=null?'Actual yield':'Expected yield'),(cropLandYield(l)||0)+' t/ha')+_cropLandRow('💧','Input cost',cropFmtR(l.inputPerHa)+'/ha')+_cropLandRow('🔄','Previous crop',esc(l.prevCrop||'—'))+cropPlantRows(l);
   }
   var col1='<div><div class="cr-bh">This season on this land</div>'+s1+(cropForecastable(l)?'<div class="cr-xlink" onclick="event.stopPropagation();cropViewInPlanning('+l.id+')">🗓 View in Planning →</div>':'')+'</div>';
   var hbox = phi ? '<div class="ls-hbox warn"><span class="hl">Spray waiting period</span>Do not harvest before '+lsFmtDate(phi.safe)+'.</div>'
@@ -12381,7 +12425,8 @@ function _cropLandCard(l){
   var meta=(l.area||0)+' ha'+(l.crop?(' · '+esc(l.crop)+(l.cultivar?(' '+esc(l.cultivar)):'')+(l.gmo?' (Bt)':'')):'');
   var top='<div class="cr-top"><div class="cr-av">'+(l.crop?cropIcon(l.crop):'🌱')+'</div>'+
       '<div style="min-width:0"><div class="nm">'+esc(l.name)+'</div><div class="meta">'+meta+'</div></div>'+
-      '<div class="cr-right">'+money+'<div style="margin-top:3px"><span class="crop-stage '+chipCls+'">'+chip+'</span></div></div></div>';
+      '<div class="cr-right">'+money+'<div style="margin-top:3px"><span class="crop-stage '+chipCls+'">'+chip+'</span></div>'+
+      (function(){ var pc=cropPlantChip(l); return pc?('<div style="margin-top:4px">'+pc+'</div>'):''; })()+'</div></div>';
   var body='';
   if(!planned && !fallow && l.crop){
     body='<div class="crop-progress" style="margin-top:10px"><i style="width:'+cropGrowthPct(l)+'%;background:'+(phi?'var(--am,#B45309)':'var(--gl)')+'"></i></div>'+
@@ -12452,7 +12497,7 @@ function _cropLandTable(sorted){
       '<td><b>'+esc(l.name)+'</b></td>'+
       '<td class="r">'+(l.area||0)+' ha</td>'+
       '<td>'+(l.crop?esc(l.crop)+(l.cultivar?' \u00B7 '+esc(l.cultivar):'')+(l.gmo?' (Bt)':''):'\u2014')+'</td>'+
-      '<td><span class="crop-stage '+chipCls+'">'+chip+'</span></td>'+
+      '<td><span class="crop-stage '+chipCls+'">'+chip+'</span>'+cropPlantChip(l)+'</td>'+
       '<td class="r">'+yld+'</td>'+
       '<td class="r"'+(gmNeg?' style="color:var(--rd)"':'')+'>'+gm+'</td>'+
       '<td class="r">'+val+'</td></tr>';
@@ -12462,11 +12507,49 @@ function _cropLandTable(sorted){
 function cropKpi(l,v,acc,id){ return '<div class="crop-kpi'+(acc?' acc':'')+(id?' kpi-tap':'')+'"'+(id?' onclick="kpiOpen(\''+id+'\')" style="position:relative"':'')+'>'+(id?'<span class="kpi-i">\u24D8</span>':'')+'<div class="l">'+l+'</div><div class="v">'+v+'</div></div>'; }
 function cropCta(cls,ic,t,s,onclick){ return '<button class="crop-rpt-cta '+cls+'" onclick="'+onclick+'"><span class="ic">'+ic+'</span><span class="tx"><span class="t">'+t+'</span><span class="s">'+s+'</span></span><span class="ar">\u203a</span></button>'; }
 
+/* T1.4 — one chip on a dryland land while its planting window is open, saying
+   which gate is holding it up. Irrigated lands never show it, and neither does
+   a farm with no rainfall set up (D16). */
+/* The detail behind the chip: what the ARC actually gates planting on, one
+   line each, so a farmer can see which gate is shut. */
+function cropPlantRows(l){
+  try {
+    if (typeof rnLandPlanting !== 'function') return '';
+    var p = rnLandPlanting(l);
+    if (!p) return '';
+    var h = '';
+    if (p.profileMm != null)
+      h += _cropLandRow('💦', rnT('Rain since the last crop','Reën sedert die vorige gewas'), rnMm(p.profileMm)+' mm');
+    h += _cropLandRow('☔', rnT('Rain in the last ','Reën in die laaste ')+p.rainDays+rnT(' days',' dae'),
+          rnMm(p.rainMm||0)+rnT(' mm of the ',' mm van die ')+p.rainNeed+rnT(' mm it takes to plant',' mm wat dit vat om te plant'));
+    if (p.followMm != null)
+      h += _cropLandRow('🌦️', rnT('Expected to follow','Verwag om te volg'), rnMm(p.followMm)+' mm');
+    if (p.warm)
+      h += _cropLandRow('🌡️', rnT('Nights above 10 °C','Nagte bo 10 °C'),
+            p.warm.warm+rnT(' of the last ',' van die laaste ')+p.warm.of);
+    if (p.frost){
+      h += _cropLandRow('❄️', rnT('Your last frost','Jou laaste ryp'),
+            rnDoyLabel(p.frost.lastSpring.med)+rnT(' · one year in five, ',' · een jaar uit vyf, ')+rnDoyLabel(p.frost.lastSpring.late));
+      h += _cropLandRow('🧊', rnT('Your first frost after','Jou eerste ryp daarna'),
+            rnDoyLabel(p.frost.firstAutumn.med)+rnT(' · ',' · ')+p.frost.freeDays.med+rnT(' frost-free days',' rypvrye dae'));
+    }
+    return h;
+  } catch(e){ return ''; }
+}
+function cropPlantChip(l){
+  try {
+    if (typeof rnLandPlanting !== 'function') return '';
+    var p = rnLandPlanting(l);
+    if (!p || !p.windowOpen) return '';
+    var cls = p.ready ? 'ok' : 'wait';
+    return '<span class="crop-plantchip '+cls+'">'+esc(p.verdict)+'</span>';
+  } catch(e){ return ''; }
+}
 function cropRenderLands(){
   var el=$('crop-view-lands'); if(!el) return;
   var rows=ST_CROP.lands.map(function(l){
     return '<tr><td><b>'+esc(l.name)+'</b></td><td class="r">'+(l.area||0)+' ha</td><td>'+(l.crop?esc(l.crop)+(l.cultivar?' \u00b7 '+esc(l.cultivar):'')+(l.gmo?' (Bt)':''):'\u2014')+'</td>'+
-      '<td><span class="crop-stage '+cropStageClass(cropEffStage(l))+'">'+cropStageLabel(cropEffStage(l))+'</span></td><td>'+esc(l.prevCrop||'\u2014')+'</td>'+
+      '<td><span class="crop-stage '+cropStageClass(cropEffStage(l))+'">'+cropStageLabel(cropEffStage(l))+'</span>'+cropPlantChip(l)+'</td><td>'+esc(l.prevCrop||'\u2014')+'</td>'+
       '<td class="r">'+(l.actualYield!=null?(l.actualYield+' act'):(l.targetYield?(l.targetYield+(l.stage==='planned'?' tgt':' exp')):'\u2014'))+'</td></tr>';
   }).join('');
   var totArea=ST_CROP.lands.reduce(function(s,l){return s+(l.area||0);},0);
@@ -19203,7 +19286,7 @@ function nav(id) {
     if (id === 'tax')         { renderTax(); }
     if (id === 'crop')        { renderCrop(); }
     if (id === 'orchards')    { renderOrchards(); }
-    if (id === 'planning')    { recomputePlan(); setPlanTab(ST_PLAN.activeTab || 'crops'); updatePlanCombinedBanner(); updatePlanTabCounts(); }
+    if (id === 'planning')    { recomputePlan(); setPlanTab(ST_PLAN.activeTab || 'crops'); updatePlanCombinedBanner(); updatePlanTabCounts(); try{ updatePlanSummary(); }catch(e){} }
     if (id === 'expenses')    { try { lazyInitCharts('expenses'); } catch (e) {} renderTable('expense'); renderExpBar(); updateExpPage(); }
     if (id === 'cashflow')    { try { lazyInitCharts('cashflow'); } catch (e) {} updateCfPage(); }
     if (id === 'market')      { try { lazyInitCharts('market'); } catch (e) {} renderMyFarm();
@@ -19216,6 +19299,7 @@ function nav(id) {
     if (id === 'transactions'){ if(typeof txRefreshDeletedChip==='function') txRefreshDeletedChip(); }
   if (id === 'settings')    {
     try{ renderRulesList(); }catch(e){}
+    try{ rnSyncVeldSetting(); }catch(e){}
     try{ if (typeof rnSettingsRender === 'function') rnSettingsRender(); }catch(e){}
     var sf=$('set-farm');   if(sf) sf.value = ST.farmName   || '';
     var so=$('set-owner');  if(so) so.value = ST.ownerName  || '';
@@ -19348,7 +19432,7 @@ function _appDialog(o){
       document.body.appendChild(bg);
     }
     var card=document.getElementById('app-dlg-card');
-    var isPrompt=(o.kind==='prompt'), danger=!!o.danger;
+    var isPrompt=(o.kind==='prompt'), danger=!!o.danger, isInfo=(o.kind==='info');
     var okLabel=o.okLabel||(isPrompt?'Save':(danger?'Remove':'Confirm'));
     var okBg=danger?'var(--rd,#DC2626)':'var(--gd)';
     var head;
@@ -19362,11 +19446,12 @@ function _appDialog(o){
       head='<div style="display:flex;gap:12px;align-items:flex-start"><div style="width:36px;height:36px;border-radius:10px;background:#FEE2E2;color:#DC2626;display:flex;align-items:center;justify-content:center;flex:none;font-size:19px">⚠</div>'
         +'<div style="font-size:14px;color:var(--t2);line-height:1.5;white-space:pre-wrap">'+_dlgEsc(o.message)+'</div></div>';
     } else {
-      head='<div style="font-size:14px;color:var(--t2);line-height:1.5;white-space:pre-wrap">'+_dlgEsc(o.message)+'</div>';
+      head=(isInfo&&o.title?'<div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:8px">'+_dlgEsc(o.title)+'</div>':'')
+        +'<div style="font-size:14px;color:var(--t2);line-height:1.5;white-space:pre-wrap">'+_dlgEsc(o.message)+'</div>';
     }
     card.innerHTML='<div style="padding:20px 22px 4px">'+head+'</div>'
       +'<div style="padding:16px 22px 20px;display:flex;justify-content:flex-end;gap:10px">'
-      +'<button id="app-dlg-cancel" style="background:#fff;border:1px solid var(--br);color:var(--t2);border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Cancel</button>'
+      +(isInfo?'':'<button id="app-dlg-cancel" style="background:#fff;border:1px solid var(--br);color:var(--t2);border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Cancel</button>')
       +'<button id="app-dlg-ok" style="background:'+okBg+';border:none;color:#fff;border-radius:var(--rs);padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">'+_dlgEsc(okLabel)+'</button></div>';
     bg.style.display='flex';
     var input=document.getElementById('app-dlg-input');
@@ -19376,7 +19461,7 @@ function _appDialog(o){
     function cancel(){ done(isPrompt?null:false); }
     function onKey(e){ if(e.key==='Escape'){ e.preventDefault(); cancel(); } else if(e.key==='Enter'){ e.preventDefault(); ok(); } }
     document.getElementById('app-dlg-ok').onclick=ok;
-    document.getElementById('app-dlg-cancel').onclick=cancel;
+    var _c=document.getElementById('app-dlg-cancel'); if(_c) _c.onclick=cancel;
     bg.onclick=function(e){ if(e.target===bg) cancel(); };
     document.addEventListener('keydown',onKey,true);
     setTimeout(function(){ if(input){ input.focus(); input.select(); } else { var b=document.getElementById('app-dlg-ok'); if(b) b.focus(); } },30);
@@ -34715,9 +34800,13 @@ document.addEventListener('focusout', function(e){
 
 // ── Year summary (live from computed data) ────────────────────
 function updatePlanSummary() {
-  var ti=0,te=0,ai=0,ae=0;
+  /* Planned income and cost come from the enterprise rows — the same ones the
+     banner at the top of this page totals — so the two can never disagree.
+     ACTUALS still come from the months, because that is where recorded money
+     lands and it is a different question. */
+  var _pcf = (typeof planComboFigures==='function') ? planComboFigures() : {income:0,cost:0,total:0};
+  var ti=_pcf.income||0, te=_pcf.cost||0, ai=0, ae=0;
   ST_PLAN.months.forEach(function(m){
-    ti+=(m.income||0); te+=(m.expenses||0);
     ai+=(m.actIncome||0); ae+=(m.actExpenses||0);
   });
   var profit = ti-te, actualYTD = ai-ae;
@@ -39327,11 +39416,21 @@ function stDetailHTML(gkey,r){
 function stToggleDetail(g,key){ var id=g+':'+key; ST_TRACK_OPEN=(ST_TRACK_OPEN===id)?null:id; renderSeasonTracker(); }
 
 function planComboFigures(){
+  /* Returns income and cost as well as profit, because the money panel at the foot
+     of this page used to build its own totals from the MONTHLY spread while this
+     banner built them from the enterprise rows. On the demo farm the two disagreed
+     by R10.9m of income — the banner said +R5.39m planned profit and the panel
+     said -R5.53m "Not Profitable", on the same screen. One function now answers
+     both. The monthly spread still answers a different question: WHEN the money
+     lands, not how much there is. */
   // Crops total — the same rows and the same prices the Crops tab itself totals.
-  var cropProfit = 0;
-  if(typeof entOn!=='function' || entOn('crops')) cropProfit = planCropTotals().profit;
+  var cropProfit = 0, cropIncome = 0, cropCost = 0;
+  if(typeof entOn!=='function' || entOn('crops')){
+    var _ct = planCropTotals();
+    cropProfit = _ct.profit; cropIncome = _ct.income||0; cropCost = _ct.cost||0;
+  }
   // Livestock totals — sum events with proper sign and recurrence multiplier
-  var liveProfit = 0;
+  var liveProfit = 0, liveIncome = 0, liveCost = 0;
   if(typeof entOn!=='function' || entOn('livestock')) (ST_PLAN.events || []).forEach(function(e) {
     var amount = (e.qty || 0) * (e.price || 0);
     var startIdx = ST_PLAN.months.findIndex(function(m){return m.label===e.month;});
@@ -39343,13 +39442,17 @@ function planComboFigures(){
     if (e.recur === 'monthly')   hits = 12 - startIdx;
     if (e.recur === 'quarterly') hits = Math.floor((12 - startIdx + 2) / 3);
     if (hits < 1) hits = 1;
-    var signed = (e.type === 'sell' || e.type === 'income') ? amount : -amount;
-    liveProfit += signed * hits;
+    var isIn = (e.type === 'sell' || e.type === 'income');
+    if (isIn) liveIncome += amount * hits; else liveCost += amount * hits;
+    liveProfit += (isIn ? amount : -amount) * hits;
   });
-  var orchProfit = 0;
-  if(typeof orPlanRows==='function'){ orPlanRows().forEach(function(r){ orchProfit += (r.income - r.cost); }); }
+  var orchProfit = 0, orchIncome = 0, orchCost = 0;
+  if(typeof orPlanRows==='function'){ orPlanRows().forEach(function(r){
+    orchIncome += (r.income||0); orchCost += (r.cost||0); orchProfit += ((r.income||0) - (r.cost||0)); }); }
   var total = cropProfit + orchProfit + liveProfit;
-  return {cropProfit:cropProfit, orchProfit:orchProfit, liveProfit:liveProfit, total:total};
+  return {cropProfit:cropProfit, orchProfit:orchProfit, liveProfit:liveProfit, total:total,
+          income: cropIncome + orchIncome + liveIncome,
+          cost:   cropCost   + orchCost   + liveCost};
 }
 
 function updatePlanCombinedBanner() {
@@ -40521,7 +40624,10 @@ function lvpTotals(list){
     if(lvpNeedsSetup(h)) need++; });
   var ha=(ST_LS.camps||[]).reduce(function(s,c){return s+(c.ha||0);},0);
   var haLsu=lsu>0?(ha/lsu):0;
-  var bench=(typeof AGRI_BENCH!=='undefined'&&AGRI_BENCH.veldLsuHa)?(1/AGRI_BENCH.veldLsuHa.v):6;
+  /* One norm per screen: the tile and the T1.2 strip below it must not quote
+     two different veld figures. rnVeldNorm() is the single source. */
+  var bench=(typeof rnVeldNorm==='function')?rnVeldNorm().haLsu:
+            ((typeof AGRI_BENCH!=='undefined'&&AGRI_BENCH.veldLsuHa)?(1/AGRI_BENCH.veldLsuHa.v):6);
   host.innerHTML=
     '<div><div class="k">Running costs</div><div class="v" style="color:var(--or)">'+lvpMoney(cost)+'</div>'+
       '<div class="n">feed &amp; health, weighted to the lean season</div></div>'+
@@ -40531,7 +40637,17 @@ function lvpTotals(list){
       '<div class="n">before farm overheads</div></div>'+
     '<div><div class="k">Stocking rate</div><div class="v"'+(haLsu&&haLsu<bench?' style="color:var(--or)"':'')+'>'+
       (haLsu?haLsu.toFixed(1)+' ha/LSU':'—')+'</div>'+
-      '<div class="n">'+lsu.toFixed(1)+' LSU on '+ha+' ha · veld norm about '+bench.toFixed(0)+' ha/LSU</div></div>';
+      '<div class="n">'+lsu.toFixed(1)+' LSU on '+ha+' ha · veld norm about '+(bench%1?bench.toFixed(1):bench.toFixed(0))+' ha/LSU</div></div>';
+  /* T1.2 sits UNDER the four stat tiles, not inside one of them — it is four
+     rows and a note, and a small KPI box is not the place for that. */
+  try {
+    var slot = document.getElementById('lvp-veld');
+    if (!slot && host.parentNode){
+      slot = document.createElement('div'); slot.id = 'lvp-veld';
+      host.parentNode.insertBefore(slot, host.nextSibling);
+    }
+    if (slot) slot.innerHTML = (typeof rnVeldStripHtml==='function') ? rnVeldStripHtml() : '';
+  } catch(e){}
 }
 
 /* The scenario strip. Shows the delta against a normal season rather than just
@@ -40604,6 +40720,313 @@ function scenCropFirstFail(rows){
   return best;
 }
 
+/* ══ T1.2 · the veld norm, and what the rain does to it ════════════════════
+   South Africa's grazing capacity map is a statutory instrument — CARA 43 of
+   1983, Regulation 10(1) — and it is NOT one number. Its biome means are
+   grassland 6, savanna 12 and Nama-Karoo 25 ha/LSU. The app shipped a single
+   0.18 LSU/ha (5.6 ha/LSU) for every farm: near enough on grassland, twice out
+   in bushveld and four times out in the Karoo. The map is published only as
+   per-province PDFs, so there is no lookup to call — the farmer is asked once.
+
+   Then the rain moves it. Rain-use efficiency makes forage production roughly
+   proportional to rainfall (Coe et al. 1976; Le Houerou 1984), so hectares per
+   LSU scale with 1/rain. But production varies MORE than rain does
+   (Le Houerou, Bingham & Skerbek 1988), so the linear figure is a FLOOR, not
+   an estimate — every number here is prefixed "at least".
+
+   What this must never do is rebuild the norm from rainfall. Working forward
+   from forage figures gives about 2 ha/LSU where DAFF says 6: the published
+   norm carries seasonality, unreachable forage and a safety margin that a
+   rainfall sum strips straight out (D20). */
+var RN_VELD = [
+  { k:'grassland', haLsu:6,  label:'Grassland',  sub:'sweet or sourveld' },
+  { k:'bushveld',  haLsu:12, label:'Bushveld',   sub:'savanna' },
+  { k:'karoo',     haLsu:25, label:'Karoo veld', sub:'Nama-Karoo' }
+];
+/* Settings is markup, so the select has to be told what the farm already says.
+   The copy is written here too: every line carries a number or a unit, and the
+   pair table chews that word by word ("What is jou grazing?"). rnT owns it and
+   data-notranslate keeps the table out. */
+function rnSyncVeldCopy(){
+  try {
+    var lab = $('set-veld-lab');
+    if (lab) lab.textContent = rnT('What is your grazing?','Wat is jou weiding?');
+    var ol = $('set-veld-own-lab');
+    if (ol) ol.textContent = rnT('Your figure (ha per LSU)','Jou syfer (ha per GVE)');
+    var hn = $('set-veld-hint');
+    if (hn) hn.textContent = rnT(
+      'From your grazing capacity map \u2014 the one kept under the Conservation of Agricultural Resources Act. It sets what your veld can carry in a normal year.',
+      'Uit jou weidingskapasiteitskaart \u2014 die een wat onder die Wet op Bewaring van Landbouhulpbronne gehou word. Dit s\u00ea wat jou veld in \'n normale jaar kan dra.');
+    var sel = $('set-veld'); if (!sel) return;
+    var txt = [
+      rnT('Not set \u2014 using the national grassland figure','Nie gestel nie \u2014 gebruik die nasionale grasveld-syfer'),
+      rnT('Grassland \u00b7 sweet or sourveld \u2014 about 6 ha/LSU','Grasveld \u00b7 soet- of suurveld \u2014 omtrent 6 ha/GVE'),
+      rnT('Bushveld \u00b7 savanna \u2014 about 12 ha/LSU','Bosveld \u00b7 savanne \u2014 omtrent 12 ha/GVE'),
+      rnT('Karoo veld \u2014 about 25 ha/LSU','Karooveld \u2014 omtrent 25 ha/GVE'),
+      rnT('I have my own figure','Ek het my eie syfer')
+    ];
+    for (var i=0;i<sel.options.length && i<txt.length;i++) sel.options[i].text = txt[i];
+  } catch(e){}
+}
+function rnSyncVeldSetting(){
+  rnSyncVeldCopy();
+  try {
+    var sel = $('set-veld'); if (!sel) return;
+    var own = parseFloat(ST && ST.veldNormHaLsu);
+    sel.value = (own > 0) ? 'own' : ((ST && ST.veldType) || '');
+    var w = $('set-veld-own-wrap'); if (w) w.style.display = (own > 0) ? '' : 'none';
+    var f = $('set-veld-own'); if (f && own > 0) f.value = own;
+  } catch(e){}
+}
+function rnSetVeld(v){
+  try {
+    ST.veldType = (v === 'own') ? (ST.veldType || '') : v;
+    if (v !== 'own') ST.veldNormHaLsu = null;
+    var w = $('set-veld-own-wrap'); if (w) w.style.display = (v === 'own') ? '' : 'none';
+    saveState();
+    if (typeof renderPlanning === 'function') { try { renderPlanning(); } catch(e){} }
+    if (typeof setPlanTab === 'function' && ST_PLAN) { try { setPlanTab(ST_PLAN.activeTab||'crops'); } catch(e){} }
+  } catch(e){}
+}
+function rnSetVeldOwn(v){
+  try {
+    var n = parseFloat(v);
+    ST.veldNormHaLsu = (n > 0) ? n : null;
+    saveState();
+    if (typeof setPlanTab === 'function' && ST_PLAN) { try { setPlanTab(ST_PLAN.activeTab||'crops'); } catch(e){} }
+  } catch(e){}
+}
+function rnVeldNorm(){
+  try {
+    var own = parseFloat(ST && ST.veldNormHaLsu);
+    if (own > 0) return { haLsu: own, src: 'own' };
+    var t = (ST && ST.veldType) || '';
+    for (var i=0;i<RN_VELD.length;i++) if (RN_VELD[i].k === t) return { haLsu: RN_VELD[i].haLsu, src: t };
+  } catch(e){}
+  /* Nothing set: the grassland norm, which is what the copy on both screens
+     says we are using (CARA Reg 10(1)). If the farmer has already typed their
+     own LSU/ha into the Livestock targets, that is their figure and it wins. */
+  var b = 6;
+  try {
+    if (typeof lsBenchIsCustom === 'function' && lsBenchIsCustom('veldLsuHa') &&
+        typeof lsBench === 'function' && lsBench('veldLsuHa') > 0) {
+      b = 1 / lsBench('veldLsuHa');
+      return { haLsu: b, src: 'bench' };
+    }
+  } catch(e){}
+  return { haLsu: b, src: 'default' };
+}
+/* A dry year needs MORE hectares per LSU. Clamped so one freak season cannot
+   swing the figure absurdly in either direction. */
+function rnVeldAdjust(ratio){
+  var n = rnVeldNorm().haLsu;
+  var r = Math.max(0.5, Math.min(1.2, ratio || 1));
+  return n / r;
+}
+function rnVeldLines(){
+  try {
+    if (!rnOn()) return null;                                  /* D16 */
+    var na = rnNormalAnnual(); if (!na) return null;
+    var l12 = rnLast12(); if (l12 == null) return null;
+    var norm = rnVeldNorm();
+    var out = { norm: norm, last12: l12, normal: na, pct: Math.round(l12/na*100),
+                now: rnVeldAdjust(l12/na), enso: null, driest: null, feed: null };
+    var n = ST_RAIN.normal;
+    if (n && n.enso && n.enso.length >= 3){
+      var p = n.enso.map(function(e){ return e.pct/100; }).sort(function(a,b){ return a-b; });
+      var k = p.length >> 1;
+      out.enso   = rnVeldAdjust((p.length % 2) ? p[k] : (p[k-1]+p[k])/2);
+      out.driest = rnVeldAdjust(p[0]);
+    }
+    /* The feed the farmer has already budgeted for the stock that lives off the
+       veld. Their own figures, unmultiplied — LVP_LEAN_MULT reshapes a year's
+       cost, it is not an uplift (D15). */
+    try {
+      var feed = 0, any = false;
+      (ST_LS.herd || []).forEach(function(h){
+        if (/dairy/i.test((h.type||'') + ' ' + (h.name||''))) return;   /* fed, not grazed */
+        var f = (+h.feed||0) * (+h.qty||0) * (+h.months||0);
+        if (f > 0){ feed += f; any = true; }
+      });
+      if (any) out.feed = feed;
+    } catch(e){}
+    return out;
+  } catch(e){ return null; }
+}
+function rnVeldStripHtml(){
+  var v = rnVeldLines(); if (!v) return '';
+  function row(k, val){ return '<div class="rn-vrow"><span>'+k+'</span><span class="v">'+val+'</span></div>'; }
+  var atLeast = rnT('at least ', 'ten minste ');
+  var h = '<div class="rn-veld">';
+  h += row(rnT('Your grazing, last 12 months','Jou weiding, laaste 12 maande'),
+           rnMm(v.last12) + ' mm &middot; ' + v.pct + rnT('% of normal','% van normaal'));
+  h += row(rnT('Your norm, adjusted for that','Jou norm, daarvoor aangepas'),
+           atLeast + v.now.toFixed(1) + ' ha/LSU <span class="q">(' + rnT('from ','van ') + v.norm.haLsu.toFixed(1) + ')</span>');
+  if (v.enso != null)
+    h += row(rnT('In a summer like your last El Ni&ntilde;o years','In \'n somer soos jou laaste El Ni&ntilde;o-jare'),
+             '<span class="dry">' + atLeast + v.enso.toFixed(1) + ' ha/LSU</span>');
+  if (v.driest != null)
+    h += row(rnT('In the driest of them','In die droogste van hulle'),
+             '<span class="dry">' + atLeast + v.driest.toFixed(1) + ' ha/LSU</span>');
+  if (v.feed != null)
+    h += '<div class="rn-vfoot">' + rnT('You have already budgeted ','Jy het reeds ') +
+         '<b>' + lvpMoney(v.feed) + '</b>' +
+         rnT(' of feed for your grazing herds this year. A dry summer is where that number gets tested.',
+             ' se voer vir jou weidende troppe vanjaar begroot. \'n Droë somer is waar daardie syfer getoets word.') + '</div>';
+  if (v.norm.src === 'default')
+    h += '<div class="rn-vfoot q">' + rnT('This uses the national grassland norm. Tell us what your veld is in Settings and it becomes yours.',
+             'Dit gebruik die nasionale grasveld-norm. Sê vir ons in Instellings wat jou veld is en dit word joune.') + '</div>';
+  return h + '</div>';
+}
+
+/* ══ T1.1 · what a summer like this farm's own El Niño years would cost ═════
+   The stress test asks the farmer to invent a severity, and the app's own
+   source comment says why it never offered one: "no SA source publishes a
+   drought weaning-drop or feed-uplift, so any number we shipped would look
+   authoritative and be invented." Tier 0 changed that — the farm now has a
+   measured record of what its OWN El Nino summers delivered.
+
+   Millimetres lead, because they are measured. The rand figure follows from
+   the farmer's own expected yield through FAO Irrigation & Drainage Paper 33:
+
+       1 - Ya/Ym = Ky (1 - ETa/ETm),  maize Ky = 1.25 for the season
+
+   Rain deficit stands in for ET deficit, which understates the loss slightly
+   because soil storage buffers it — the conservative direction. FAO 33 is
+   linear only to about a 50% deficit, so past that the strip stops quoting a
+   number and says "more than half". */
+var RN_KY_MAIZE = 1.25;
+var RN_FAO_LIMIT = 0.5;
+
+function rnEnsoShortfall(){
+  try {
+    var n = ST_RAIN.normal;
+    if (!n || !n.enso || n.enso.length < 3) return null;      /* D12 */
+    var pcts = n.enso.map(function(e){ return e.pct/100; }).sort(function(a,b){ return a-b; });
+    var k = pcts.length >> 1;
+    var med = (pcts.length % 2) ? pcts[k] : (pcts[k-1] + pcts[k]) / 2;
+    var na = rnNormalAnnual(); if (!na) return null;
+    var m = rnNormalMonthly(); if (!m) return null;
+    /* The rain the CROP uses, which is not the first half of the rain year.
+       A July rain year starts Jul-Dec; maize here grows Nov-Apr. Take six
+       months from the farm's own planting window instead. */
+    var startM = 10;                                   /* Nov, if there is no window to read */
+    try { var w = rnPlantWindow(); if (w && w.from) startM = w.from.getMonth(); } catch(e){}
+    var grow = 0;
+    for (var i=0;i<6;i++) grow += (m[(startM + i) % 12] || 0);
+    var growNormal = grow > 0 ? grow : na;
+    return {
+      summers: n.enso.length,
+      ratio: med,
+      shortMm: growNormal * (1 - med),
+      growNormal: growNormal,
+      deficit: 1 - med
+    };
+  } catch(e){ return null; }
+}
+/* Yield lost on this farm's own dryland maize, in its own money. */
+function rnEnsoMoney(sh){
+  try {
+    if (!sh) return null;
+    var lands = (ST_CROP && ST_CROP.lands ? ST_CROP.lands : []).filter(function(l){
+      return l && !l.irrigated && l.crop && /maize|mielie/i.test(l.crop); });
+    if (!lands.length) return null;
+    var ha = 0, wy = 0;
+    lands.forEach(function(l){ var a=+l.area||0; ha += a; wy += a * (+l.targetYield||0); });
+    if (!ha || !wy) return null;
+    var yield_ = wy / ha;
+    var price = (typeof cropLandPrice === 'function') ? cropLandPrice(lands[0]) : 0;
+    if (!price) return null;
+    var loss = Math.min(RN_KY_MAIZE * sh.deficit, 1);
+    return { ha: ha, yield_: yield_, price: price,
+             lossPct: loss, rand: yield_ * loss * ha * price,
+             beyondModel: sh.deficit > RN_FAO_LIMIT };
+  } catch(e){ return null; }
+}
+function rnRoundRand(v){
+  var a = Math.abs(v);
+  var step = a >= 1000000 ? 100000 : (a >= 100000 ? 10000 : 1000);   /* D13 */
+  return Math.round(v/step)*step;
+}
+function rnScenSuggestStrip(){
+  try {
+    if (!rnOn()) return '';                                   /* D16 */
+    var sh = rnEnsoShortfall(); if (!sh) return '';
+    var mny = rnEnsoMoney(sh);
+    var pctShort = Math.round(sh.deficit * 100);
+    var h = '<div class="scn-sugg"><span class="ic">&#127777;</span><span class="gr">' +
+      '<b>' + rnT('A summer like your last El Ni&ntilde;o years would be about ',
+                  '\'n Somer soos jou laaste El Ni&ntilde;o-jare sou omtrent ') +
+      Math.round(sh.shortMm) + rnT(' mm short of normal.', ' mm minder as normaal wees.') + '</b> ' +
+      rnT('That is about ', 'Dit is omtrent ') + pctShort + rnT('% of your growing-season rain.',
+          '% van jou groeiseisoen se reën.');
+    if (mny){
+      h += '<span class="s2">';
+      if (mny.beyondModel){
+        h += rnT('On the yield you are expecting, that is more than half your maize income.',
+                 'Op die opbrengs wat jy verwag, is dit meer as die helfte van jou mielie-inkomste.');
+      } else {
+        h += rnT('On the yield you are expecting, that is about ', 'Op die opbrengs wat jy verwag, is dit omtrent ') +
+             '<b>' + Math.round(mny.lossPct*100) + rnT('% less maize', '% minder mielies') + '</b>' +
+             rnT(' — around ', ' — sowat ') + '<b>' + planFmtR(rnRoundRand(mny.rand)) + '</b>. ' +
+             rnT('Change the yield and this changes with it.', 'Verander die opbrengs en dit verander saam.');
+      }
+      h += '</span>';
+    }
+    h += '<span class="s3">' + rnT('Worked out from ', 'Uitgewerk uit ') + sh.summers +
+         rnT(' El Ni&ntilde;o summers measured on your own farm.',
+             ' El Ni&ntilde;o-somers op jou eie plaas gemeet.') + '</span>' +
+      '<span class="acts"><button type="button" class="scn-use" onclick="rnScenUse()">' +
+      rnT('Use it', 'Gebruik dit') + '</button>' +
+      '<button type="button" class="scn-how" onclick="rnScenHow()">' +
+      rnT('How we got this', 'Hoe ons dit kry') + '</button></span>';
+    return h + '</span></div>';
+  } catch(e){ return ''; }
+}
+/* D11 — a suggestion, never a prefill. This only runs when the farmer taps. */
+function rnScenUse(){
+  try {
+    var sh = rnEnsoShortfall(); if (!sh) return;
+    var loss = Math.round(Math.min(RN_KY_MAIZE * sh.deficit, 1) * 100);
+    if (FARM_SCEN.mode === 'normal') scenSetMode('dry');
+    var sc = scenNow(); if (!sc) return;
+    /* Through the app's own setter, so the scenario re-renders exactly as it does
+       when the farmer types the number in themselves. */
+    if (typeof scenSetVal === 'function') scenSetVal('yieldDn', loss);
+    else { sc.yieldDn = loss; if (typeof scenRerender === 'function') scenRerender(); }
+    toast(rnT('Dry year set to ', 'Droë jaar gestel op ') + loss + rnT('% less yield — nothing is saved.',
+              '% minder opbrengs — niks word gestoor nie.'), 'success');
+  } catch(e){}
+}
+function rnScenHow(){
+  var sh = rnEnsoShortfall(); if (!sh) return;
+  var mny = rnEnsoMoney(sh);
+  var lines = [
+    rnT('Your farm has ', 'Jou plaas het ') + sh.summers + rnT(' El Ni\u00f1o summers on record.',
+        ' El Ni\u00f1o-somers op rekord.'),
+    rnT('The middle one delivered ', 'Die middelste een het ') + Math.round(sh.ratio*100) +
+        rnT('% of a normal year.', '% van \'n normale jaar gelewer.'),
+    rnT('Against your growing-season normal of ', 'Teen jou groeiseisoen se normaal van ') +
+        rnMm(sh.growNormal) + rnT(' mm, that is ', ' mm, is dit ') + rnMm(sh.shortMm) + rnT(' mm short.', ' mm kort.')
+  ];
+  if (mny && !mny.beyondModel) lines.push(
+    rnT('Maize loses yield faster than it loses water (FAO 33, Ky 1.25), so ',
+        'Mielies verloor opbrengs vinniger as water (FAO 33, Ky 1.25), so ') +
+    Math.round(sh.deficit*100) + rnT('% less rain is about ', '% minder reën is omtrent ') +
+    Math.round(mny.lossPct*100) + rnT('% less grain across your ', '% minder graan oor jou ') +
+    rnMm(mny.ha) + rnT(' ha.', ' ha.'));
+  if (mny && mny.beyondModel) lines.push(
+    rnT('Beyond about half a season\'s rain the sums stop being reliable, so we do not put a figure on it.',
+        'Bo omtrent die helfte van \'n seisoen se reën is die somme nie meer betroubaar nie, so ons sit nie \'n syfer daarop nie.'));
+  lines.push(rnT('El Ni\u00f1o years from NOAA; the rain is your own record.',
+                 'El Ni\u00f1o-jare van NOAA; die reën is jou eie rekord.'));
+  var text = lines.join('\n\n');
+  if (typeof _appDialog === 'function')
+    _appDialog({kind:'info', title: rnT('How we got this','Hoe ons dit kry'),
+                message: text, okLabel: rnT('Close','Maak toe')});
+  else alert(text);
+}
+
 function scenStrip(which, ctx){
   /* "Dry" alone would rewrite "Dryland" and "Season" appears 173 times in this
      file — both are the bare-word trap. "Weather" appears nowhere else. */
@@ -40616,7 +41039,8 @@ function scenStrip(which, ctx){
   /* No standing commentary. The three buttons say what they do, and the
      "nothing is saved" reassurance now lives on the ribbon, where it is only
      shown at the moment it actually matters — while a scenario is running. */
-  if(!scenOn()) return '<div class="scn"><span class="scn-lbl">Weather</span>'+seg+'</div>';
+  if(!scenOn()) return '<div class="scn"><span class="scn-lbl">Weather</span>'+seg+'</div>'+
+    ((which==='crops') ? rnScenSuggestStrip() : '');
 
   var sc=scenNow();
   var money=(which==='crops')
@@ -44262,6 +44686,78 @@ function _cfScenMonths(){
       bal+=inc-e; return {label:m.label,name:m.name,year:m.year,income:inc,cropIncome:comm,expenses:e,lines:m.lines,lsRun:m.lsRun,cropCost:m.cropCost,G:G,lc:lc,cc:cc,rateExtra:rateExtra,balance:Math.round(bal),source:m.source}; });
 }
 
+/* ══ T1.3 · a dry season laid over the cash line ════════════════════════════
+   The forecast already recomputes every month through CF_SCEN, so this is a
+   second pass through machinery that exists rather than a new forecast. The
+   knock is the same one T1.1 suggests: this farm's own El Nino summers through
+   FAO 33. Commodity income only — a dry summer does not change a rental cheque.
+
+   An overlay the farmer switches on, never the default line. The forecast a
+   bank is shown stays the plan. */
+var CF_DRY_ON = false;
+function cfDryAvailable(){
+  try { return typeof rnEnsoShortfall === 'function' && !!rnEnsoShortfall() && !!(CF_BASE && CF_BASE.length); }
+  catch(e){ return false; }
+}
+function cfDryKnock(){
+  try {
+    var sh = rnEnsoShortfall(); if (!sh) return null;
+    return Math.min(RN_KY_MAIZE * sh.deficit, 1);
+  } catch(e){ return null; }
+}
+/* The same months, with commodity income cut by the knock. */
+function cfDryMonths(){
+  var k = cfDryKnock(); if (k == null) return null;
+  var base = (typeof _cfScenMonths === 'function') ? _cfScenMonths() : [];
+  if (!base.length) return null;
+  var start = base[0].balance - (base[0].income - base[0].expenses), bal = start;
+  return base.map(function(m){
+    var comm = m.cropIncome || 0, other = (m.income || 0) - comm;
+    var inc = Math.round(comm * (1 - k)) + other;
+    bal += inc - (m.expenses || 0);
+    return { label:m.label, name:m.name, year:m.year, income:inc, expenses:m.expenses,
+             balance: Math.round(bal) };
+  });
+}
+function cfToggleDry(){
+  CF_DRY_ON = !CF_DRY_ON;
+  var b = $('cfl-dry-btn'); if (b) { b.classList.toggle('on', CF_DRY_ON); b.setAttribute('aria-pressed', CF_DRY_ON ? 'true' : 'false'); }
+  if (typeof cfLineRedraw === 'function') cfLineRedraw();
+  try { cfDryVerdict(); } catch(e){}
+}
+/* What the overlay actually tells the farmer: which month it bites, and how
+   much deeper it goes against the overdraft they really have. Every figure is
+   computed here from this farm's own plan — none is written into the copy. */
+function cfDryVerdict(){
+  var el = $('cfl-dry-verdict'); if (!el) return;
+  if (!CF_DRY_ON || !cfDryAvailable()){ el.style.display='none'; el.innerHTML=''; return; }
+  var dry = cfDryMonths(), norm = (typeof _cfScenMonths==='function') ? _cfScenMonths() : [];
+  if (!dry || !norm.length){ el.style.display='none'; return; }
+  function lowest(ms){ var i=0; for (var j=1;j<ms.length;j++) if (ms[j].balance < ms[i].balance) i=j; return i; }
+  var dLow = lowest(dry), nLow = lowest(norm);
+  var odLimit = 0;
+  try { (ST_LOANS.overdrafts||[]).forEach(function(o){ odLimit += (o.limit||0); }); } catch(e){}
+  var k = cfDryKnock();
+  var mName = function(m){ return (m.name || m.label || '').split(' ')[0]; };
+  var bits = [];
+  bits.push(rnT('In a summer like your last El Ni&ntilde;o years, your lowest point is ',
+                'In \'n somer soos jou laaste El Ni&ntilde;o-jare is jou laagste punt ') +
+            '<b>' + mName(dry[dLow]) + '</b>' +
+            rnT(' at ', ' op ') + '<b>' + fmtK(dry[dLow].balance) + '</b>');
+  if (dLow !== nLow)
+    bits.push(rnT(', instead of ', ', in plaas van ') + mName(norm[nLow]));
+  var gap = norm[nLow].balance - dry[dLow].balance;
+  if (gap > 0) bits.push(rnT(' — about ', ' — sowat ') + fmtK(gap) + rnT(' deeper.', ' dieper.'));
+  else bits.push('.');
+  if (odLimit > 0 && dry[dLow].balance < -odLimit)
+    bits.push(' <b>' + rnT('That is past your overdraft limit of ', 'Dit is verby jou oortrokke limiet van ') +
+              fmtK(odLimit) + '.</b>');
+  bits.push(' <span class="q">' + rnT('Yield down ', 'Opbrengs af ') + Math.round(k*100) +
+            rnT('%, on commodity income only. Nothing is saved.', '%, slegs op kommoditeitsinkomste. Niks word gestoor nie.') + '</span>');
+  el.innerHTML = bits.join('');
+  el.style.display = '';
+}
+
 function renderCfLineView(n){
   CF_FWD_N=n;
   var lineCard=$('cfl-line-card'), bdEl=$('cfl-bd'), wiCard=$('cfl-wi-card');
@@ -44283,7 +44779,15 @@ function renderCfLineView(n){
 var CF_CHART_MODE='line';
 function cfChartMode(m){ CF_CHART_MODE=(m==='bars')?'bars':'line'; var bl=$('cfl-mode-line'), bb=$('cfl-mode-bars'); if(bl) bl.classList.toggle('on',CF_CHART_MODE==='line'); if(bb) bb.classList.toggle('on',CF_CHART_MODE==='bars'); cfLineRedraw(); }
 function _cfSetLegend(mode){ var el=$('cfl-legend'); if(!el) return; el.innerHTML=(mode==='bars')?'<span style="color:#2d6a4f;font-weight:800">Green bars up</span> are months you made money, <span style="color:#c0392b;font-weight:800">red bars down</span> are months you lost it — height is how much. Tap a month for the breakdown.':'One line: your <b>estimated cash</b> as income and costs land through the year. <span style="color:#c9791f;font-weight:800">Amber</span> is below your safety buffer; <span style="color:#c0392b;font-weight:800">red</span> is short. Tap a month for the breakdown.'; }
-function cfLineRedraw(){ var months=_cfScenMonths(); if(!months.length) return; if(CF_CHART_MODE==='bars') drawCfBars(months, CF_FWD_N); else drawCfLine(months, CF_FWD_N); }
+function cfLineRedraw(){
+  var months=_cfScenMonths(); if(!months.length) return;
+  var b=$('cfl-dry-btn');
+  if(b){ var can=(typeof cfDryAvailable==='function')&&cfDryAvailable(); b.style.display=can?'':'none'; if(!can) CF_DRY_ON=false; b.classList.toggle('on',!!CF_DRY_ON);
+         b.setAttribute('aria-pressed', CF_DRY_ON?'true':'false');
+         try{ b.textContent = rnT('Dry season','Dro\u00eb seisoen'); }catch(e){} }
+  if(CF_CHART_MODE==='bars') drawCfBars(months, CF_FWD_N); else drawCfLine(months, CF_FWD_N);
+  try{ cfDryVerdict(); }catch(e){}
+}
 
 function drawCfBars(months, n){
   var W=960,H=270,padL=82,padR=22,padT=28,padB=46;
@@ -44342,9 +44846,14 @@ function drawCfLine(months, n){
   var W=960,H=270,padL=82,padR=22,padT=22,padB=42;
   var bals=months.map(function(m){return m.balance;});
   var exps=months.map(function(m){return m.expenses||0;});
+  /* T1.3 — the same months under this farm's own dry year, drawn dimmer and
+     behind the real line so the plan stays the thing you read first. */
+  var dryBals=null;
+  try { if (CF_DRY_ON && typeof cfDryMonths==='function'){ var dm=cfDryMonths(); if(dm&&dm.length===bals.length) dryBals=dm.map(function(m){return m.balance;}); } } catch(e){}
   // Safety buffer = one month of running costs (avg monthly expense). Amber below it, red below R0.
   var buffer=0,se=0,ne=0; exps.forEach(function(e){ if(e>0){se+=e;ne++;} }); buffer=ne?se/ne:0;
-  var lo=Math.min.apply(null,bals), hi=Math.max.apply(null,bals);
+  var _sc=bals.slice(); if(dryBals) _sc=_sc.concat(dryBals);
+  var lo=Math.min.apply(null,_sc), hi=Math.max.apply(null,_sc);
   var rng=Math.max(hi-lo,1), yMax=hi+rng*0.20, yMin=lo-rng*0.22;
   if(lo>=0 && yMin<0) yMin=Math.min(yMin,0);
   if(buffer>0 && buffer<yMax && yMin>0) yMin=0;          // show the R0 baseline when the buffer band matters
@@ -44377,6 +44886,10 @@ function drawCfLine(months, n){
   // gradient area + gradient line (line draws in once per session)
   out+='<path d="'+lineD+'L'+X(months.length-1)+' '+plotBot+'L'+X(0)+' '+plotBot+'Z" fill="url(#cflAG)" style="pointer-events:none"/>';
   var animCls=CF_ANIMATED?'':' class="cfl-draw"'; CF_ANIMATED=true;
+  if(dryBals){
+    var dryD=''; for(var _di=0;_di<dryBals.length;_di++){ dryD+=(_di?'L':'M')+X(_di)+' '+Y(dryBals[_di]); }
+    out+='<path d="'+dryD+'" fill="none" stroke="#B45309" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round" stroke-linecap="round" opacity=".72" style="pointer-events:none"/>';
+  }
   out+='<path d="'+lineD+'"'+animCls+' fill="none" stroke="url(#cflLG)" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round" style="pointer-events:none"/>';
   // markers
   CF_PTS=[];
@@ -50031,6 +50544,11 @@ function applyLangNodes(root, fromIdx, toIdx) {
      so every value=... lookup keeps working in both languages. */
   if (root.querySelectorAll) {
     root.querySelectorAll('select option').forEach(function(op){
+      /* data-notranslate is the boundary everywhere else, and it has to hold
+         here too: this pass snapshots the English and forces it back, so a
+         select whose option text is written by rnT was reset to English on
+         every nav. */
+      try { if (op.closest && op.closest('[data-notranslate]')) return; } catch(e){}
       if (op.getAttribute('data-en') === null) {
         if (!op.hasAttribute('value')) op.setAttribute('value', op.textContent);
         op.setAttribute('data-en', op.textContent);
@@ -50128,6 +50646,10 @@ var heroH = $('hero-h-el') || document.querySelector('[data-t="hero.h"]');
      title/aria-label, and the language passes only touch text nodes and data-t
      elements — so an attribute set at render time would stay in the old language. */
   try { if (typeof impRenderDoorway === 'function') impRenderDoorway(); } catch(e) {}
+
+  /* Same reason: the veld question, its options and its note are written by rnT
+     and fenced with data-notranslate, so the passes above skip them. Rewrite. */
+  try { if (typeof rnSyncVeldCopy === 'function') rnSyncVeldCopy(); } catch(e) {}
 
   /* The connection line is LIVE STATE that happens to be words. It used to carry
      data-t="offline.sub", so the key pass above overwrote it from the dictionary — and
@@ -68901,7 +69423,7 @@ function rnFetchJson(url, ms){
 function rnLocQuery(){
   var l = ST_RAIN.loc;
   return 'latitude=' + encodeURIComponent(l.lat) + '&longitude=' + encodeURIComponent(l.lon) +
-         '&daily=precipitation_sum&timezone=Africa%2FJohannesburg';
+         '&daily=precipitation_sum,temperature_2m_min&timezone=Africa%2FJohannesburg';
 }
 
 /* ── history ─────────────────────────────────────────────────────────────── */
@@ -68915,6 +69437,8 @@ function rnFetchHistory(){
     if (!days || !vals || !days.length) throw new Error('no rainfall returned');
     rnDeriveNormals(days, vals);
     rnKeepRecent(days, vals);
+    try { rnDeriveFrost(days, (j.daily && j.daily.temperature_2m_min) || null); } catch(e){}
+    try { rnKeepTemps(days, (j.daily && j.daily.temperature_2m_min) || null); } catch(e){}
     ST_RAIN.sat = ST_RAIN.sat || {};
     ST_RAIN.sat.histFetched = rnISO(t);
     ST_RAIN.sat.err = null;
@@ -68999,6 +69523,84 @@ function rnDeriveNormals(days, vals){
   };
 }
 
+/* ══ T1.4 · frost, from this farm's own history ═══════════════════════════
+   The ARC gates planting on three things, not one: water in the profile,
+   seven successive nights warm enough to germinate, and a frost-free run of
+   120-140 days. Two of those need temperature, which costs one extra field on
+   a call already being made.
+
+   THE CORRECTION MATTERS MORE THAN THE CALCULATION. Reanalysis runs warm on
+   still, cold nights — the grid is a 25 km average and frost is a local,
+   near-surface thing. Read raw at 0 C, the grid put this farm's last spring
+   frost on 21 August. Station records for the same district (Moeletsi 2016,
+   ARC + SAWS, 1960-2015) say 30 September. Fitting a uniform cooling to
+   reproduce the station medians gives 2.5 C, and the same 2.5 C at all three
+   of their thresholds, so one number fixes all of them.
+
+   Uncorrected, this feature would have told a Free State farmer their frost
+   risk had passed a month before it had. That is the wrong direction to be
+   wrong in, so the frost line only appears where the correction has been
+   checked against stations — the Free State today (D22). */
+var RN_FROST_ADJ   = 2.5;    /* C the grid runs warm on frost nights, fitted to Moeletsi 2016 */
+var RN_FROST_LIGHT = 2;      /* screen minimum at or below this is light frost — what kills emerging maize */
+var RN_FROST_PROV  = ['Free State'];   /* provinces whose calibration has been checked */
+
+/* Keyed on the PIN's province, not the farm's admin province. The correction is
+   calibrated against the station records of the region the temperature data is
+   drawn from, and the two can differ — the demo farm is registered in the
+   Eastern Cape with its rain pin at Bethlehem in the Free State. */
+function rnFrostCalibrated(){
+  try {
+    var p = (ST_RAIN && ST_RAIN.loc && ST_RAIN.loc.prov) || (ST && ST.province) || '';
+    return RN_FROST_PROV.indexOf(p) >= 0;
+  } catch(e){ return false; }
+}
+function rnDoy(iso){
+  var d = rnParse(iso), s = new Date(d.getFullYear(), 0, 1);
+  return Math.round((d - s) / 86400000) + 1;
+}
+function rnDoyLabel(n){
+  var d = new Date(2026, 0, 1); d.setDate(d.getDate() + Math.round(n) - 1);
+  return d.getDate() + ' ' + rnMon(d.getMonth());
+}
+function rnPctl(arr, q){
+  if (!arr.length) return null;
+  var a = arr.slice().sort(function(x,y){ return x-y; });
+  var k = (a.length - 1) * q, f = Math.floor(k), c = Math.min(f+1, a.length-1);
+  return a[f] + (a[c] - a[f]) * (k - f);
+}
+/* Southern hemisphere: the spring frost season ends Jul-Oct, the autumn one
+   opens Mar-Jun. Splitting the year at 1 January instead returns two dates
+   three weeks apart, which is nonsense — it was the first thing this got wrong. */
+function rnDeriveFrost(days, mins){
+  if (!days || !mins) return;
+  var lastSpring = {}, firstAutumn = {};
+  for (var i=0;i<days.length;i++){
+    var v = mins[i];
+    if (v == null) continue;
+    if ((v - RN_FROST_ADJ) > RN_FROST_LIGHT) continue;
+    var iso = days[i], y = +iso.slice(0,4), m = +iso.slice(5,7);
+    if (m >= 7 && m <= 10) lastSpring[y] = rnDoy(iso);
+    else if (m >= 3 && m <= 6 && firstAutumn[y] == null) firstAutumn[y] = rnDoy(iso);
+  }
+  var ls = [], fa = [], free = [];
+  Object.keys(lastSpring).forEach(function(y){ ls.push(lastSpring[y]); });
+  Object.keys(firstAutumn).forEach(function(y){ fa.push(firstAutumn[y]); });
+  Object.keys(lastSpring).forEach(function(y){
+    var nxt = firstAutumn[+y + 1];
+    if (nxt != null) free.push(nxt + 365 - lastSpring[y]);
+  });
+  if (ls.length < 10 || fa.length < 10) return;      /* too little history to speak */
+  ST_RAIN.frost = {
+    years: ls.length,
+    lastSpring:  { med: Math.round(rnPctl(ls, .5)), late:  Math.round(rnPctl(ls, .8)) },
+    firstAutumn: { med: Math.round(rnPctl(fa, .5)), early: Math.round(rnPctl(fa, .2)) },
+    freeDays:    { med: Math.round(rnPctl(free, .5)), min: free.length ? Math.min.apply(null, free) : null },
+    adj: RN_FROST_ADJ,
+    src: 'Grid minima at your farm, corrected against Free State station records'
+  };
+}
+
 /* Keep only the recent tail of the daily values. */
 function rnKeepRecent(days, vals){
   ST_RAIN.sat = ST_RAIN.sat || {};
@@ -69011,6 +69613,103 @@ function rnKeepRecent(days, vals){
   }
   Object.keys(keep).forEach(function(d){ if (d < cut) delete keep[d]; });
   ST_RAIN.sat.daily = keep;
+}
+
+/* Recent nightly minima — enough for the ARC seven-night germination gate. */
+var RN_TEMP_KEEP = 40;
+function rnKeepTemps(days, mins){
+  if (!days || !mins) return;
+  ST_RAIN.temp = ST_RAIN.temp || {};
+  var keep = ST_RAIN.temp.min || {};
+  var cut = rnISO(rnAddDays(rnToday(), -RN_TEMP_KEEP));
+  for (var i=0;i<days.length;i++){
+    if (days[i] < cut || mins[i] == null) continue;
+    keep[days[i]] = Math.round(mins[i]*10)/10;
+  }
+  Object.keys(keep).forEach(function(d){ if (d < cut) delete keep[d]; });
+  ST_RAIN.temp.min = keep;
+}
+
+/* ══ T1.4 · is this land ready to plant? ═══════════════════════════════════
+   Three gates, all from the ARC's maize guidance, and each answered separately
+   so the farmer is told WHICH one is holding them up rather than a bare no.
+
+     water  — 25 mm over the previous 10 days, and 20 mm expected to follow
+              (Moeletsi & Walker's onset rule for Free State rain-fed maize).
+              The app's old default was 25 mm over 7 days, which had no source.
+     warmth — "if a minimum air temperature of 10 to 15 C is maintained for
+              seven successive days, germination should proceed normally.
+              Virtually no germination or growth takes place below 10 C."
+     frost  — the last spring frost, from this farm's own record. */
+var RN_GERM_MIN_C = 10;      /* ARC: virtually nothing germinates below this */
+var RN_GERM_NIGHTS = 7;      /* ARC: sustained for seven successive days */
+var RN_ONSET_MM = 25, RN_ONSET_DAYS = 10, RN_FOLLOW_MM = 20;
+
+function rnWarmNights(n){
+  var t = (ST_RAIN.temp && ST_RAIN.temp.min) || null;
+  if (!t) return null;
+  var need = n || RN_GERM_NIGHTS, warm = 0, seen = 0;
+  for (var i=1;i<=need;i++){
+    var v = t[rnISO(rnAddDays(rnToday(), -i))];
+    if (v == null) continue;
+    seen++; if (v >= RN_GERM_MIN_C) warm++;
+  }
+  return seen ? { warm: warm, of: seen, ok: (warm === seen && seen >= need) } : null;
+}
+/* Rain banked since the last crop came off this land — the profile the ARC says
+   the season is mainly drawn from, not the week just gone. */
+function rnProfileMm(land){
+  try {
+    if (!land) return null;
+    var from = land.harvest || land.planted;
+    if (!from) return null;
+    var f = rnISO(rnParse(from)), t = rnISO(rnToday());
+    if (f >= t) return null;
+    return rnTotal(f, t);
+  } catch(e){ return null; }
+}
+/* The verdict for one land. Irrigated lands never ask. */
+function rnLandPlanting(land){
+  if (!land || land.irrigated) return null;
+  if (!rnOn()) return null;
+  /* Only a land with nothing in the ground is waiting to be planted. A crop that
+     is growing OR standing ripe is still in the ground, and "Ready to plant"
+     beside "Ready to harvest" reads as a contradiction. That leaves planned,
+     fallow and already-harvested lands. */
+  try {
+    var est = (typeof cropEffStage === 'function') ? cropEffStage(land) : 'planned';
+    if (est === 'growing' || est === 'harvest') return null;
+  } catch(e){}
+  var win = rnPlantWindow(), today = rnToday();
+  var got = rnRecent(RN_ONSET_DAYS);
+  var fc  = (typeof rnForecastMm === 'function') ? rnForecastMm(20) : null;
+  var warm = rnWarmNights();
+  var out = {
+    windowOpen: !!(win && win.open),
+    windowFrom: win ? win.from : null,
+    rainMm: got, rainNeed: RN_ONSET_MM, rainDays: RN_ONSET_DAYS,
+    rainOk: (got != null && got >= RN_ONSET_MM),
+    followMm: fc, followNeed: RN_FOLLOW_MM,
+    followOk: (fc == null) ? null : (fc >= RN_FOLLOW_MM),
+    warm: warm,
+    warmOk: warm ? warm.ok : null,
+    profileMm: null,
+    frost: (rnFrostCalibrated() && ST_RAIN.frost) ? ST_RAIN.frost : null
+  };
+  out.profileMm = rnProfileMm(land);
+  /* Only MEASURED things decide readiness. The week ahead is a forecast: it is
+     shown, and it qualifies the answer, but it never turns a ready land into an
+     unready one (D21). Letting it gate produced a land that was ready on every
+     measured count while its chip said the opposite. */
+  out.ready = out.windowOpen && out.rainOk && (out.warmOk !== false);
+  /* Say the FIRST thing standing in the way, in the farmer's words. */
+  if (!out.windowOpen)      out.verdict = rnT('Window opens ', 'Venster open ') + (win && win.from ? (win.from.getDate() + ' ' + rnMon(win.from.getMonth())) : '');
+  else if (out.warmOk === false) out.verdict = rnT('Not ready · nights still cold', 'Nog nie reg · nagte nog koud');
+  else if (!out.rainOk)     out.verdict = rnT('Not ready · ', 'Nog nie reg · ') + rnMm(got || 0) + rnT(' of ', ' van ') + RN_ONSET_MM + ' mm';
+  else if (out.followOk === false) out.verdict = rnT('Ready to plant · little rain forecast after',
+                                                     'Reg om te plant · min reën voorspel daarna');
+  else                      out.verdict = rnT('Ready to plant', 'Reg om te plant');
+  return out;
 }
 
 /* ── the last three weeks, and the week ahead ─────────────────────────────────
@@ -69040,6 +69739,9 @@ function rnFetchRecent(){
     if (d && v) for (var i=0;i<d.length;i++) if (v[i] != null) out.push([d[i], Math.round(v[i]*10)/10]);
     return out;
   }
+  function temps(j){
+    try { rnKeepTemps(j && j.daily && j.daily.time, j && j.daily && j.daily.temperature_2m_min); } catch(e){}
+  }
   /* One endpoint being down must not cost the farmer the other. */
   function soft(p){ return p.then(function(j){ return j; }).catch(function(){ return null; }); }
 
@@ -69047,6 +69749,7 @@ function rnFetchRecent(){
     .then(function(res){
       var arc = res[0], fcj = res[1];
       if (!arc && !fcj) throw new Error('no rainfall returned');
+      temps(arc); temps(fcj);
       ST_RAIN.sat = ST_RAIN.sat || {};
       var daily = ST_RAIN.sat.daily || {}, fc = {}, fromArchive = {};
 
@@ -70509,11 +71212,15 @@ function rnDashSync(){
    tier, so it never outranks a statutory duty. */
 function rnAttnItems(){
   var out = [];
+  /* Rule 1 lives in its own function because its guards are early RETURNS. Left
+     inline they exited rnAttnItems entirely, so on any farm whose gauge had been
+     read this week — the normal case — rules 2 to 5 never ran at all. */
+  (function rule1(){
   try {
-    if (!rnOn() || rnYourReadings() === 0) return out;
+    if (!rnOn() || rnYourReadings() === 0) return;
     var t = rnToday(), norm = rnNormalMonthly();
     var wet = !norm || norm[t.getMonth()] >= 15;
-    if (!wet) return out;
+    if (!wet) return;
 
     var g = rnDefaultGauge(), lastRead = null;
     rnLog().forEach(function(r){
@@ -70521,9 +71228,9 @@ function rnAttnItems(){
       if (r.gaugeId !== g.id) return;
       if (!lastRead || r.date > lastRead) lastRead = r.date;
     });
-    if (!lastRead) return out;
+    if (!lastRead) return;
     var gap = rnDaysBetween(lastRead, t);
-    if (gap < 7) return out;
+    if (gap < 7) return;
 
     out.push({
       tier: 'house', sev: 30,
@@ -70538,6 +71245,95 @@ function rnAttnItems(){
       action: function(){ try { nav('rainfall'); setTimeout(function(){ rnLogOpen(); }, 260); } catch(e){} }
     });
   } catch(e){}
+  })();
+
+  /* ── T1 · rules 2-5 ──────────────────────────────────────────────────────
+     Thresholds are the South African Weather Service's, not ours: under 75%
+     of normal is a severe meteorological drought, and a 20% shortfall already
+     causes crop and water shortfalls. Housekeeping tier throughout, so none
+     of these ever outranks a statutory duty. */
+  try {
+    if (!rnOn()) return out;
+    var t = rnToday();
+
+    /* 2 · the planting rain has come */
+    try {
+      var lands = (ST_CROP && ST_CROP.lands ? ST_CROP.lands : []).filter(function(l){
+        var p = rnLandPlanting(l); return p && p.windowOpen && p.ready; });
+      if (lands.length) out.push({
+        tier:'house', sev:62,
+        nm: rnT('Enough rain to plant', 'Genoeg reën om te plant'),
+        lead: lands.length + rnT(' land', ' land') + (lands.length===1?'':rnT('s','e')) +
+              rnT(' has had the rain you asked for', ' het die reën gekry wat jy gevra het'),
+        sub: rnT('The nights are warm enough too. This is the window you set.',
+                 'Die nagte is ook warm genoeg. Dit is die venster wat jy gestel het.'),
+        st: lands.map(function(l){ return l.name; }).slice(0,3).join(', '),
+        cta: rnT('Open Crops','Maak Gewasse oop'), when: 9999,
+        action: function(){ try { nav('crop'); } catch(e){} }
+      });
+    } catch(e){}
+
+    /* 3 · the season is running dry — SAWS's severe line, once December is reached */
+    try {
+      var ytd = rnYearToDate(), nd = rnNormalToDate(t);
+      var monthsIn = rnDaysBetween(rnISO(rnYearStartOf(t)), rnISO(t)) / 30.4;
+      if (ytd != null && nd > 0 && monthsIn >= 5 && (ytd/nd) < 0.75) out.push({
+        tier:'house', sev:58,
+        nm: rnT('Season running dry', 'Seisoen loop droog'),
+        lead: rnT('You are on ', 'Jy is op ') + Math.round(ytd/nd*100) +
+              rnT('% of your normal rain for the date', '% van jou normale reën vir die datum'),
+        sub: rnT('Under 75% is what the Weather Service calls a severe drought. Your plan has a dry-year setting.',
+                 'Onder 75% is wat die Weerdiens \'n ernstige droogte noem. Jou plan het \'n droëjaar-instelling.'),
+        st: rnMm(nd - ytd) + rnT(' mm behind', ' mm agter'),
+        cta: rnT('Open Planning','Maak Beplanning oop'), when: 9999,
+        action: function(){ try { nav('planning'); } catch(e){} }
+      });
+    } catch(e){}
+
+    /* 4 · grazing pressure — the 20% shortfall SAWS says already bites */
+    try {
+      var l12 = rnLast12(), na = rnNormalAnnual();
+      var hasStock = !!(typeof ST_LS !== 'undefined' && ST_LS.herd && ST_LS.herd.length);
+      if (hasStock && l12 != null && na > 0 && (l12/na) < 0.80) out.push({
+        tier:'house', sev:56,
+        nm: rnT('Grazing under pressure', 'Weiding onder druk'),
+        lead: rnT('Your last 12 months came to ', 'Jou laaste 12 maande was ') + Math.round(l12/na*100) +
+              rnT('% of normal', '% van normaal'),
+        sub: rnT('Your veld carries fewer animals in a year like this. The stocking figures show by how much.',
+                 'Jou veld dra minder diere in so \'n jaar. Die veelading-syfers wys hoeveel minder.'),
+        st: rnMm(na - l12) + rnT(' mm short', ' mm kort'),
+        cta: rnT('Open Planning','Maak Beplanning oop'), when: 9999,
+        action: function(){ try { nav('planning'); if (typeof setPlanTab==='function') setTimeout(function(){ setPlanTab('livestock'); }, 260); } catch(e){} }
+      });
+    } catch(e){}
+
+    /* 5 · gaps in the book, while there is a season to account for */
+    try {
+      var st5 = rnISO(rnYearStartOf(t)), tod = rnISO(t);
+      var first = rnFirstGaugeDate();
+      if (first && rnYourReadings() > 0){
+        var from = (first > st5) ? first : st5;
+        var span = rnDaysBetween(from, tod);
+        if (span > 30){
+          var read = rnGaugeRainDays(from, tod, 0) + 0;
+          var readAny = rnLog().filter(function(r){ return r.src !== 'sat' && r.date >= from && r.date <= tod; }).length;
+          var cover = span > 0 ? (readAny / span) : 1;
+          if (cover < 0.5) out.push({
+            tier:'house', sev:34,
+            nm: rnT('Gaps in your rain book', 'Gapings in jou reënboek'),
+            lead: readAny + rnT(' readings across ', ' lesings oor ') + span + rnT(' days since your record started',
+                   ' dae sedert jou rekord begin het'),
+            sub: rnT('An insurer or a relief desk reads the gaps as well as the totals. The record prints from Reports.',
+                     '\'n Versekeraar of hulplessenaar lees die gapings sowel as die totale. Die rekord druk uit Verslae.'),
+            st: Math.round(cover*100) + rnT('% of days', '% van dae'),
+            cta: rnT('Open Rainfall','Maak Reënval oop'), when: 9999,
+            action: function(){ try { nav('rainfall'); } catch(e){} }
+          });
+        }
+      }
+    } catch(e){}
+  } catch(e){}
+
   return out;
 }
 
