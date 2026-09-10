@@ -52,6 +52,24 @@
       throw new Error('supabase-js not loaded — add the CDN <script> before ai-data.js');
     }
     sb = global.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    /* Every upsert in this file passes through here, so the edit time cannot be
+       forgotten at a call site - the way three separate whitelists once let
+       Supplier and Reference sync as NULL. Only .upsert is wrapped: .insert has
+       no stored row to be stale against, and a .update patch that omits
+       updated_at already leaves the trigger to stamp server now(). */
+    try{
+      var _rawFrom = sb.from.bind(sb);
+      sb.from = function(table){
+        var qb = _rawFrom(table);
+        try{
+          var _ups = qb.upsert;
+          if(typeof _ups === 'function'){
+            qb.upsert = function(vals, opts){ return _ups.call(qb, _srvPrep(table, vals), opts); };
+          }
+        }catch(e){}
+        return qb;
+      };
+    }catch(e){}
     return sb;
   }
 
@@ -117,7 +135,7 @@
       if (error) throw error;
       return true;
     },
-    async signOut() { await client().auth.signOut(); },
+    async signOut() { _srvForget(); await client().auth.signOut(); },
     async currentUser() {
       const { data } = await client().auth.getUser();
       return data ? data.user : null;
@@ -144,7 +162,7 @@
       farm.setActive(data);
       return data; // new farm uuid
     },
-    setActive(id) { try { localStorage.setItem(ACTIVE_FARM_KEY, id); } catch (e) {} },
+    setActive(id) { _srvForget(); try { localStorage.setItem(ACTIVE_FARM_KEY, id); } catch (e) {} },
     active() { try { return localStorage.getItem(ACTIVE_FARM_KEY); } catch (e) { return null; } },
     async clearData(farmId) {
       // SECURITY DEFINER RPC: deletes every farm-scoped row for this farm
@@ -302,6 +320,7 @@
      shipped them — defensible there because that project is not provisioned, and not
      here, where a farmer moves between a laptop and a tablet. */
   let CAN_CAT_RULES     = false;
+  let CAN_FUEL_METER    = false;
   let CAN_ASSET_DISPOSAL = false;
   /* "It's a running cost, stop asking." Its own column rather than reusing cat_confirmed:
      that answer is about the CATEGORY being right, this one is about the cost not being
@@ -334,7 +353,245 @@
     CAN_FARM_SETTINGS  = await has('farms','bank_balance');
     CAN_FARM_RAIN      = await has('farms','rain_lat');
     CAN_CAT_RULES      = await has('category_rules','match_text');
+    /* The whole row-memory scheme rides on this one column. A project that has
+       not run agriinsights-13-relational-sync.sql keeps today's behaviour rather
+       than having every write rejected for an unknown column. */
+    CAN_UPDATED_AT     = await has('transactions','updated_at');
+    /* The SARS diesel logbook fields the phone captures at the pump. Gated the same
+       way: an un-migrated project must keep saving fuel, not lose every issue. */
+    CAN_FUEL_METER     = await has('fuel_issues','hour_meter');
   }
+  /* ================== ROW MEMORY - two-device safety (Phase 0) ==================
+     What this device actually LOADED from the server, per table.
+
+     The desktop saves a module by upserting its whole in-memory state and then
+     deleting "everything for this farm that I am not currently holding". That is
+     safe on one device and destructive on two: a row the phone wrote after this
+     tab loaded was never in this tab's hands, so the prune removes it and the
+     farmer never learns it existed.
+
+     This registry is the memory that makes the difference. Three jobs:
+
+       1. updated_at. A row we have NOT changed is written back carrying the edit
+          time we hold, so guard_updated_at (02-database/agriinsights-13-relational-
+          sync.sql) keeps the newer stored row instead of letting our stale copy
+          overwrite it. A row we HAVE changed carries no updated_at at all, so the
+          trigger stamps server now() and the farmer's own edit always lands.
+          This device's clock is never written into the database - only a timestamp
+          the server itself produced - so a wrong clock can neither reject a real
+          edit nor park a row in the future.
+
+       2. Prune. A delete may only name rows THIS device loaded. Anything that
+          arrived afterwards was never ours to remove.
+
+       3. Reconciliation. Herd head counts can be told apart from what the moves
+          ledger actually says - see load.livestock.
+     =========================================================================== */
+  let CAN_UPDATED_AT = false;
+  var _SRV = Object.create(null);
+
+  /* What identifies a row inside its own table. Anything not listed is keyed on
+     local_id - the app's own id, and the conflict target for most upserts. */
+  var _SRV_KEY = {
+    transactions:             ['client_uid'],
+    herd_classes:             ['herd_local_id','class_key'],
+    livestock_benchmarks:     ['bench_key'],
+    orchard_pricing:          ['block_local_id'],
+    orchard_compliance_items: ['item_key'],
+    crop_compliance_areas:    ['area_key'],
+    payroll_entries:          ['period_label','worker_local_id'],
+    budget_months:            ['period_year','period_month','side']
+  };
+  function _srvKey(table,row){
+    if(!row || typeof row!=='object') return null;
+    var f=_SRV_KEY[table]||['local_id'], out=[], i, v;
+    for(i=0;i<f.length;i++){
+      v=row[f[i]];
+      if(v===undefined||v===null||v==='') return null;   // no identity - cannot be tracked
+      out.push(String(v));
+    }
+    return out.join('\u0001');
+  }
+
+  /* Called from load.* with rows exactly as the server returned them. Replaces the
+     table's memory outright: a fresh load is fresh truth. */
+  function _srvNote(table,rows){
+    var t={ rows:Object.create(null), ids:[], maxUa:null };
+    (rows||[]).forEach(function(r){
+      if(!r || typeof r!=='object') return;
+      var k=_srvKey(table,r); if(k!=null) t.rows[k]=r;
+      /* Newest edit time the server gave us, used as the prune boundary. One row
+         without it and the boundary is abandoned: a NULL would slip past an
+         lte() filter and survive every replace, quietly doubling up. */
+      if(t.maxUa !== false){
+        if(!r.updated_at) t.maxUa = false;
+        else if(!t.maxUa || r.updated_at > t.maxUa) t.maxUa = r.updated_at;
+      }
+      /* The server primary key, kept even for rows with no identity of their own:
+         the replace-all children (compliance logs, docs, checks, readings) are
+         positional, and their id is the only handle a scoped delete has. */
+      if(r.id!=null) t.ids.push(r.id);
+    });
+    _SRV[table]=t;
+    return rows;
+  }
+  /* Sign-out, or a switch to another farm. Another farm's rows are not ours. */
+  function _srvForget(){ _SRV=Object.create(null); }
+
+  /* Server bookkeeping, not content - never part of the changed/unchanged test. */
+  var _SRV_SKIP={ updated_at:1, created_at:1, id:1 };
+  function _srvSame(prev,row){
+    if(!prev) return false;
+    for(var k in row){
+      if(!Object.prototype.hasOwnProperty.call(row,k) || _SRV_SKIP[k]) continue;
+      var a=row[k], b=prev[k];
+      if(a===b) continue;
+      /* Empty is empty. Every *ToDb in this file writes `x || null`, so a column the
+         server is holding as '' and a row rebuilding it as null are the same fact,
+         and calling that a change would mean no row was ever seen as unchanged.
+         Deliberately NOT extended to false or 0: `leaving` on a livestock move is
+         three-state, where absent and false mean different things. */
+      var aE=(a===null||a===undefined||a===''), bE=(b===null||b===undefined||b==='');
+      if(aE && bE) continue;
+      if(aE !== bE) return false;
+      if(typeof a==='object' || typeof b==='object'){
+        try{ if(JSON.stringify(a)===JSON.stringify(b)) continue; }catch(e){}
+        return false;
+      }
+      /* Postgres hands numerics back as numbers or as strings depending on the
+         column type, so compare loosely rather than calling every numeric row
+         changed. Being wrong in this direction is safe: a row wrongly called
+         changed is simply written the way it is written today. */
+      if(String(a)===String(b)) continue;
+      var na=Number(a), nb=Number(b);
+      if(typeof a!=='boolean' && typeof b!=='boolean' &&
+         a!=='' && b!=='' && !isNaN(na) && !isNaN(nb) && na===nb) continue;
+      return false;
+    }
+    return true;
+  }
+
+  /* Carry the held edit time on a row we have not touched; say nothing about a row
+     we have. Upserts only - a plain .insert() has no stored row to be stale
+     against, and a .update() patch that omits updated_at already leaves the
+     trigger to stamp server now(). */
+  function _srvStamp(table,row){
+    if(!CAN_UPDATED_AT || !row || typeof row!=='object') return row;
+    if(Object.prototype.hasOwnProperty.call(row,'updated_at')) return row;   // caller decided
+    var t=_SRV[table], k=_srvKey(table,row);
+    var prev=(t && k!=null) ? t.rows[k] : null;
+    if(prev && prev.updated_at && _srvSame(prev,row)) row.updated_at=prev.updated_at;
+    return row;
+  }
+  function _srvPrep(table,vals){
+    if(!CAN_UPDATED_AT) return vals;
+    try{
+      if(Array.isArray(vals)){ for(var i=0;i<vals.length;i++) _srvStamp(table,vals[i]); }
+      else _srvStamp(table,vals);
+    }catch(e){}
+    return vals;
+  }
+
+  /* The identities of rows this device loaded from `table` that the farmer has
+     since removed - the only rows a prune is entitled to delete.
+       keep   : {identity: 1} the caller still holds
+       field  : the column carrying the identity
+       filter : optional, to scope to one parent (a herd's classes, say)
+     Returns null when the table was never loaded: the caller must then prune
+     nothing rather than guess. */
+  function _srvGone(table,keep,field,filter){
+    var t=_SRV[table];
+    if(!t) return null;
+    var out=[];
+    Object.keys(t.rows).forEach(function(k){
+      var r=t.rows[k];
+      if(filter && !filter(r)) return;
+      var v=r[field];
+      if(v===undefined||v===null||v==='') return;
+      v=String(v);
+      if(!keep[v] && out.indexOf(v)<0) out.push(v);
+    });
+    return out;
+  }
+  /* Server primary keys this device loaded - the scope for a replace-all child
+     table, whose rows are positional and have no identity of their own. */
+  function _srvIds(table){ var t=_SRV[table]; return t ? t.ids.slice() : null; }
+
+  /* The scoped form of "delete everything for this farm, then insert my copy".
+     A replace-all child table (compliance logs and docs, plan rows, the worker
+     ledger) holds positional rows with no identity of their own, so the only
+     honest scope is time: delete what was already there when this device loaded,
+     and leave anything written since - by the phone, or by another desktop -
+     alone. The boundary is the newest edit time the SERVER gave us, never this
+     device's clock.
+
+     Two deliberate fallbacks, both of which prefer a visible duplicate to a
+     silent deletion:
+       - table never loaded here: prune nothing, warn once.
+       - no updated_at column (agriinsights-13-relational-sync.sql not run):
+         keep today's whole-table replace, because there is no way to tell new
+         rows from old ones. */
+  /* ---- stock reconciliation: what the moves ledger says the count should be ----
+     A herd's qty is NOT the sum of its moves. A herd is created with an opening
+     number the farmer types and moves accrue from there, so "recount from the
+     ledger" has no starting point. The answerable question is narrower: which
+     moves is the stored count not counting yet?
+
+     A move created AFTER its herd row was last written is one of them - the phone
+     records a birth, and the herds row still carries the number this desktop wrote
+     before that. The test only became truthful once an unchanged herd row stopped
+     bumping its own updated_at on every save (see ROW MEMORY above); before that,
+     every herd looked freshly written whether or not anything had changed.
+
+     Sign rule, kept identical to _lsAdjustHead in index.html - the two must never
+     drift: born and bought add, promote shifts heads between classes and nets to
+     zero, and sold / died / slaughter / stolen / missing / traded take away.
+     A move already carries its resolved class (lsRecordMove fills in the young
+     class for a birth before it writes the record), so the classes move with it. */
+  var _LS_ADDS  = { born:1, bought:1 };
+  var _LS_NEUTRAL = { promote:1 };
+  function _lsPendingMoves(herdRows, moveRows){
+    var writtenAt = {};
+    (herdRows||[]).forEach(function(r){
+      if(r && r.local_id!=null) writtenAt[String(r.local_id)] = r.updated_at || null;
+    });
+    var out = {};
+    (moveRows||[]).forEach(function(m){
+      if(!m || m.herd_local_id==null) return;
+      var reason = String(m.reason||'');
+      if(_LS_NEUTRAL[reason]) return;
+      var hid = String(m.herd_local_id), saved = writtenAt[hid];
+      /* No timestamp either side and there is no way to tell - say nothing rather
+         than double-count a move the stored figure already includes. */
+      if(!saved || !m.created_at) return;
+      if(!(m.created_at > saved)) return;            // already in the stored count
+      var q = parseInt(m.qty,10)||0; if(q<=0) return;
+      var signed = _LS_ADDS[reason] ? q : -q;
+      var o = out[hid] || (out[hid] = { delta:0, n:0, cls:{} });
+      o.delta += signed; o.n++;
+      if(m.cls) o.cls[String(m.cls)] = (o.cls[String(m.cls)]||0) + signed;
+    });
+    return out;
+  }
+
+  var _pruneWarned = Object.create(null);
+  async function _pruneAll(table, fid){
+    var t = _SRV[table];
+    if(!t){
+      if(!_pruneWarned[table]){
+        _pruneWarned[table] = 1;
+        console.warn('AgriInsights: ' + table + ' was never loaded on this device - '
+          + 'leaving its rows alone rather than replacing what it cannot see.');
+      }
+      return null;
+    }
+    if(!t.ids.length) return null;                       // nothing was there to replace
+    if(CAN_UPDATED_AT && t.maxUa){
+      return (await client().from(table).delete().eq('farm_id', fid).lte('updated_at', t.maxUa)).error || null;
+    }
+    return (await client().from(table).delete().eq('farm_id', fid)).error || null;
+  }
+
   function dbToApp(r) {
     return {
       id:       r.id,
@@ -462,6 +719,8 @@
         client().from('farms').select('budget_income_pattern,budget_expense_pattern,budget_current_month').eq('id', farmId).single()
       ]);
       for (const r of [acc, txn, bud, rec]) if (r.error) throw r.error;
+      _srvNote('accounts', acc.data);      _srvNote('transactions', txn.data);
+      _srvNote('budget_months', bud.data); _srvNote('recurring', rec.data);
 
       var bObj = { monthlyIncome: {}, monthlyExpenses: {},
         incomePattern: (fst.data && fst.data.budget_income_pattern) || 'harvest',
@@ -926,7 +1185,10 @@
   function animalToDb(a,fid){ return { farm_id:fid, local_id:String(a.id), herd_local_id:(a.herd!=null)?String(a.herd):null, tag:a.tag||null, name:a.name||null, sex:a.sex||null, breed:a.breed||null, cls:a.cls||null, dob:a.dob||null, dam:a.dam||null, sire:a.sire||null, repro:(a.repro&&a.repro.length)?a.repro:null, status:a.status||null, due_approx:a.dueApprox||null, parity:a.parity||null, weight:(a.weight!=null?a.weight:null) }; }
   function animalFromDb(r){ var a={ id:r.local_id, herd:_numIf(r.herd_local_id), tag:r.tag||'', sex:r.sex||'' }; if(r.name) a.name=r.name; if(r.breed) a.breed=r.breed; if(r.cls) a.cls=r.cls; if(r.dob) a.dob=r.dob; if(r.dam) a.dam=r.dam; if(r.sire) a.sire=r.sire; if(r.repro){ try{ a.repro=(typeof r.repro==='string'?JSON.parse(r.repro):r.repro); }catch(e){} } if(r.status) a.status=r.status; if(r.due_approx) a.dueApprox=r.due_approx; if(r.parity) a.parity=r.parity; if(r.weight!=null) a.weight=r.weight; return a; }
   function healthToDb(h,fid){ return { farm_id:fid, local_id:h.id?String(h.id):null, health_date:h.date||null, type:h.type||null, event:h.event||null, count:(h.count!=null)?parseInt(h.count,10):null, descr:h.desc||null, cost:(h.cost!=null)?Number(h.cost):null, supplier:h.supplier||null }; }
-  function healthFromDb(r){ return { date:r.health_date||'', type:r.type||'', event:r.event||'', count:Number(r.count)||0, desc:r.descr||'', cost:Number(r.cost)||0, supplier:r.supplier||'' }; }
+  /* local_id rides back out again: without it a health record has no identity, and a
+     background merge cannot tell one this device already holds from one the phone
+     just wrote. healthToDb has always sent it. */
+  function healthFromDb(r){ var h={ date:r.health_date||'', type:r.type||'', event:r.event||'', count:Number(r.count)||0, desc:r.descr||'', cost:Number(r.cost)||0, supplier:r.supplier||'' }; if(r.local_id!=null) h.id=r.local_id; return h; }
   // Breeding & calving (reproduction). Table livestock_breedings — see livestock_breeding_schema.sql.
   function breedingToDb(b,fid){ return { farm_id:fid, local_id:String(b.id), herd_local_id:(b.herd!=null)?String(b.herd):null, season:b.season||null, sire:b.sire||null, females:(b.females!=null)?parseInt(b.females,10):null, start_date:b.start||null, end_date:b.end||null, gestation:(b.gestation!=null)?parseInt(b.gestation,10):null, pd_date:b.pdDate||null, in_calf:(b.inCalf!=null)?parseInt(b.inCalf,10):null, empty:(b.empty!=null)?parseInt(b.empty,10):null, born:(b.born!=null)?parseInt(b.born,10):null, stillborn:(b.stillborn!=null)?parseInt(b.stillborn,10):null, weaned:(b.weaned!=null)?parseInt(b.weaned,10):null, wean_weight:(b.weanWeight!=null)?Number(b.weanWeight):null, wean_date:b.weanDate||null, status:b.status||null }; }
   function breedingFromDb(r){ var b={ id:r.local_id, herd:_numIf(r.herd_local_id), season:r.season||'', sire:r.sire||'', females:(r.females!=null)?Number(r.females):null, start:r.start_date||'', end:r.end_date||'', gestation:Number(r.gestation)||283, pdDate:r.pd_date||'', inCalf:(r.in_calf!=null)?Number(r.in_calf):null, empty:(r.empty!=null)?Number(r.empty):null, born:Number(r.born)||0, stillborn:Number(r.stillborn)||0, weaned:(r.weaned!=null)?Number(r.weaned):0, status:r.status||'breeding' }; if(r.wean_weight!=null) b.weanWeight=Number(r.wean_weight); if(r.wean_date) b.weanDate=r.wean_date; return b; }
@@ -944,10 +1206,37 @@
       selectAll(() => client().from('livestock_health').select('*').eq('farm_id',farmId).order('created_at',{ascending:false}))
     ]);
     for(const r of [cp,hd,hc,bm,mv,tr,an,he]) if(r.error) throw r.error;
+    _srvNote('livestock_camps', cp.data);      _srvNote('herds', hd.data);
+    _srvNote('herd_classes', hc.data);         _srvNote('livestock_benchmarks', bm.data);
+    _srvNote('livestock_moves', mv.data);      _srvNote('livestock_treatments', tr.data);
+    _srvNote('animals', an.data);              _srvNote('livestock_health', he.data);
     var byHerd={};
     (hc.data||[]).forEach(function(r){ (byHerd[r.herd_local_id]=byHerd[r.herd_local_id]||[]).push({k:r.class_key,n:Number(r.count)||0,v:Number(r.class_value)||0}); });
     var herds=(hd.data||[]).map(function(r){ var h=herdFromDb(r); var cs=byHerd[r.local_id]; if(cs&&cs.length) h.classes=cs; return h; });
     var benchmarks={}; (bm.data||[]).forEach(function(r){ benchmarks[r.bench_key]=Number(r.bench_value); });
+    /* Moves recorded since this herd's counts were last written - from the phone at
+       a gate, or from another desktop. Fold them in so the number on screen is the
+       number the ledger supports, and hand back what changed so the farmer is told
+       rather than quietly shown a different figure. */
+    var _lsPend=_lsPendingMoves(hd.data, mv.data), _lsRecon=[];
+    herds.forEach(function(h){
+      var p=_lsPend[String(h.id)];
+      if(!p || !p.delta) return;
+      var stored=Number(h.qty)||0, derived=Math.max(0, stored+p.delta);
+      if(derived===stored) return;
+      _lsRecon.push({ herd:h.id, name:h.name||'', type:h.type||'',
+                      stored:stored, derived:derived, moves:p.n });
+      h.qty=derived;
+      if(h.classes){
+        Object.keys(p.cls).forEach(function(k){
+          var d=p.cls[k]; if(!d) return;
+          var c=null;
+          for(var i=0;i<h.classes.length;i++){ if(String(h.classes[i].k)===k){ c=h.classes[i]; break; } }
+          if(!c){ if(d<=0) return; c={k:k,n:0,v:Number(h.sell)||0}; h.classes.push(c); }
+          c.n=Math.max(0,(Number(c.n)||0)+d);
+        });
+      }
+    });
     // Breeding — queried separately & resiliently: a farm whose Supabase hasn't run the
     // livestock_breeding migration must still load all its other livestock data.
     var breedings=[];
@@ -955,25 +1244,42 @@
     catch(e){ /* table not migrated yet — ignore */ }
     return { camps:(cp.data||[]).map(campFromDb), herds:herds, benchmarks:benchmarks,
              moves:(mv.data||[]).map(moveFromDb), treatments:(tr.data||[]).map(treatFromDb),
-             animals:(an.data||[]).map(animalFromDb), health:(he.data||[]).map(healthFromDb), breedings:breedings };
+             animals:(an.data||[]).map(animalFromDb), health:(he.data||[]).map(healthFromDb), breedings:breedings,
+             stockRecon:_lsRecon };
   };
 
   /* ---- FUEL ISSUES (diesel rebate logbook) ---------------------------------
      One row per machine per week. Append-only in practice, but re-saving a week
      replaces that week's rows client-side, so upsert on (farm_id, local_id). */
-  function fuelToDb(f,fid){ return { farm_id:fid, local_id:String(f.id),
+  function fuelToDb(f,fid){ var row={ farm_id:fid, local_id:String(f.id),
       issue_date:f.date||null, asset_local_id:(f.asset!=null)?String(f.asset):null,
       machine:f.machine||null, litres:(f.litres!=null)?Number(f.litres):null,
       activity:f.activity||null, act_key:f.actKey||null,
-      qualifies:(f.qualifies!=null)?!!f.qualifies:null }; }
-  function fuelFromDb(r){ return { id:r.local_id, date:r.issue_date||'',
+      qualifies:(f.qualifies!=null)?!!f.qualifies:null };
+    /* Meter reading and place: what turns a list of litres into a logbook SARS will
+       accept. Captured on the phone at the pump; nullable, and only sent once the
+       column probe has seen them, on the same rule as receipt_path. */
+    if(CAN_FUEL_METER){
+      row.hour_meter=(f.hourMeter!=null&&f.hourMeter!=='')?Number(f.hourMeter):null;
+      row.lat=(f.lat!=null&&f.lat!=='')?Number(f.lat):null;
+      row.lon=(f.lon!=null&&f.lon!=='')?Number(f.lon):null;
+      row.place=f.place||null;
+    }
+    return row; }
+  function fuelFromDb(r){ var f={ id:r.local_id, date:r.issue_date||'',
       asset:_numIf(r.asset_local_id), machine:r.machine||'',
       litres:Number(r.litres)||0, activity:r.activity||'', actKey:r.act_key||'',
-      qualifies:!!r.qualifies }; }
+      qualifies:!!r.qualifies };
+    if(r.hour_meter!=null) f.hourMeter=Number(r.hour_meter);
+    if(r.lat!=null) f.lat=Number(r.lat);
+    if(r.lon!=null) f.lon=Number(r.lon);
+    if(r.place) f.place=r.place;
+    return f; }
   load.fuel = async function(farmId){
     farmId=farmId||farm.active();
     const r=await selectAll(() => client().from('fuel_issues').select('*').eq('farm_id',farmId).order('issue_date',{ascending:false}));
     if(r.error) throw r.error;
+    _srvNote('fuel_issues', r.data);
     return (r.data||[]).map(fuelFromDb);
   };
   var _fuelSnap=null;
@@ -1077,6 +1383,7 @@
     if(!CAN_CAT_RULES) return null;                 // no table: caller keeps what is on the device
     const r=await selectAll(() => client().from('category_rules').select('*').eq('farm_id',farmId).order('sort_idx'));
     if(r.error) throw r.error;
+    _srvNote('category_rules', r.data);
     return (r.data||[]).map(ruleFromDb);
   };
   var _ruleSnap=null;
@@ -1091,10 +1398,12 @@
       }
       /* Deletes: a rule removed on this device has to disappear on the others, so drop
          anything on the server whose local_id is no longer in the list. */
-      const keep=list.map(function(r){ return String(r.id); });
-      let del = client().from('category_rules').delete().eq('farm_id',fid);
-      if(keep.length) del = del.not('local_id','in','('+keep.map(function(k){ return '"'+k.replace(/"/g,'')+'"'; }).join(',')+')');
-      const e2=(await del).error; if(e2) throw e2;
+      var keepRu={}; list.forEach(function(r){ keepRu[String(r.id)]=1; });
+      var goneRu=_srvGone('category_rules',keepRu,'local_id');
+      if(goneRu && goneRu.length){
+        const e2=(await client().from('category_rules').delete().eq('farm_id',fid).in('local_id',goneRu)).error;
+        if(e2) throw e2;
+      }
       _ruleSnap=snap;
       return true;
     }
@@ -1103,6 +1412,7 @@
     farmId=farmId||farm.active();
     const r=await selectAll(() => client().from('farm_documents').select('*').eq('farm_id',farmId).order('issued_at',{ascending:false}));
     if(r.error) throw r.error;
+    _srvNote('farm_documents', r.data);
     return (r.data||[]).map(docFromDb);
   };
   var _docSnap=null;
@@ -1144,15 +1454,22 @@
       }
       var allClasses=[]; herds.forEach(function(h){ allClasses=allClasses.concat(classRows(h,fid)); });
       if(allClasses.length){ const e=(await client().from('herd_classes').upsert(allClasses,{onConflict:'farm_id,herd_local_id,class_key'})).error; if(e) throw e; }
-      for(const h of herds){ var keys=(h.classes||[]).map(function(c){return c.k;});
-        var q=client().from('herd_classes').delete().eq('farm_id',fid).eq('herd_local_id',String(h.id));
-        if(keys.length) q=q.not('class_key','in',_inList(keys));
-        const e=(await q).error; if(e) throw e; }
+      /* Classes the farmer removed - named one by one, never "everything except
+         what I happen to hold", which would take a class this tab never loaded. */
+      for(const h of herds){
+        var keepHc={}; (h.classes||[]).forEach(function(c){ keepHc[String(c.k)]=1; });
+        var hidHc=String(h.id);
+        var goneHc=_srvGone('herd_classes',keepHc,'class_key',function(r){ return String(r.herd_local_id)===hidHc; });
+        if(goneHc && goneHc.length){
+          const e=(await client().from('herd_classes').delete().eq('farm_id',fid)
+                    .eq('herd_local_id',hidHc).in('class_key',goneHc)).error; if(e) throw e; }
+      }
       var bkeys=Object.keys(bench);
       if(bkeys.length){ const e=(await client().from('livestock_benchmarks').upsert(bkeys.map(function(k){return {farm_id:fid,bench_key:k,bench_value:Number(bench[k])};}),{onConflict:'farm_id,bench_key'})).error; if(e) throw e; }
-      var bq=client().from('livestock_benchmarks').delete().eq('farm_id',fid);
-      if(bkeys.length) bq=bq.not('bench_key','in',_inList(bkeys));
-      { const e=(await bq).error; if(e) throw e; }
+      { var keepBm={}; bkeys.forEach(function(k){ keepBm[String(k)]=1; });
+        var goneBm=_srvGone('livestock_benchmarks',keepBm,'bench_key');
+        if(goneBm && goneBm.length){ const e=(await client().from('livestock_benchmarks').delete()
+              .eq('farm_id',fid).in('bench_key',goneBm)).error; if(e) throw e; } }
       // append-only logs: upsert by local_id, no prune (no delete UI except animals→removeAnimal)
       if(moves.length){ const e=(await client().from('livestock_moves').upsert(moves.map(function(m){return moveToDb(m,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       if(treats.length){ const e=(await client().from('livestock_treatments').upsert(treats.map(function(t){return treatToDb(t,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
@@ -1227,6 +1544,12 @@
     ]);
     for(const r of [ld,ev,ip]) if(r.error) throw r.error;
     for(const r of [cs,ca,cl,cd,cr,cp]) if(r&&r.error) throw r.error;
+    _srvNote('crop_lands', ld.data);   _srvNote('crop_events', ev.data);   _srvNote('crop_inputs', ip.data);
+    _srvNote('crop_compliance_areas',      ca && ca.data);
+    _srvNote('crop_compliance_logs',       cl && cl.data);
+    _srvNote('crop_compliance_docs',       cd && cd.data);
+    _srvNote('crop_compliance_readings',   cr && cr.data);
+    _srvNote('crop_compliance_log_photos', cp && cp.data);
     // compliance: reconstruct the farm-level record from its tables. Authoritative
     // only when the farm has saved before (settings row / any area rows); else null so
     // ai-auth keeps the app's default structure (tracked/cadence keys the UI needs).
@@ -1286,19 +1609,19 @@
       var areaRows=CC_AREAS.map(function(k){ return { farm_id:fid, area_key:k, tracked:(trk[k]!==false), cadence_months:(cad[k]!=null?parseInt(cad[k],10):null) }; });
       { const e=(await client().from('crop_compliance_areas').upsert(areaRows,{onConflict:'farm_id,area_key'})).error; if(e) throw e; }
       // logs: replace-all (per area)
-      { const e=(await client().from('crop_compliance_logs').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('crop_compliance_logs',fid); if(e) throw e; }
       var logRows=[]; var L=c.logs||{}; Object.keys(L).forEach(function(area){ (L[area]||[]).forEach(function(g,i){ logRows.push({farm_id:fid,area_key:area,log_date:g.date||null,what:g.what||null,note:g.note||null,sort_idx:i}); }); });
       if(logRows.length){ const e=(await client().from('crop_compliance_logs').insert(logRows)).error; if(e) throw e; }
       // docs: replace-all (per area) — metadata only; file blobs deferred to Storage
-      { const e=(await client().from('crop_compliance_docs').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('crop_compliance_docs',fid); if(e) throw e; }
       var docRows=[]; var D=c.docs||{}; Object.keys(D).forEach(function(area){ (D[area]||[]).forEach(function(d,i){ docRows.push({farm_id:fid,area_key:area,name:d.name||null,kind:d.kind||null,expiry:d.expiry||null,added:d.added||null,url:d.url||null,sort_idx:i}); }); });
       if(docRows.length){ const e=(await client().from('crop_compliance_docs').insert(docRows)).error; if(e) throw e; }
       // log photos: replace-all, one row per photo, keyed to its log by (area_key, log_idx)
-      { const e=(await client().from('crop_compliance_log_photos').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('crop_compliance_log_photos',fid); if(e) throw e; }
       var photoRows=[]; Object.keys(L).forEach(function(area){ (L[area]||[]).forEach(function(g,li){ (g.photos||[]).forEach(function(p,pi){ photoRows.push({farm_id:fid,area_key:area,log_idx:li,name:p.name||null,kind:p.kind||null,url:p.url||null,sort_idx:pi}); }); }); });
       if(photoRows.length){ const e=(await client().from('crop_compliance_log_photos').insert(photoRows)).error; if(e) throw e; }
       // water meter readings: replace-all
-      { const e=(await client().from('crop_compliance_readings').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('crop_compliance_readings',fid); if(e) throw e; }
       var rdRows=[]; (c.waterReadings||[]).forEach(function(rd,i){ rdRows.push({farm_id:fid,area_key:'water',reading_date:rd.date||null,m3:(rd.m3!=null?Number(rd.m3):null),sort_idx:i}); });
       if(rdRows.length){ const e=(await client().from('crop_compliance_readings').insert(rdRows)).error; if(e) throw e; }
       _cropCfgSnap=snap;
@@ -1351,6 +1674,11 @@
       client().from('farms').select('orchard_market').eq('id',farmId).single()
     ]);
     for(const r of [bl,dc,pr,po,sp,hv,ci,cd,cc,cr]) if(r.error) throw r.error;
+    _srvNote('orchard_blocks', bl.data);              _srvNote('orchard_block_docs', dc.data);
+    _srvNote('orchard_pricing', pr.data);             _srvNote('orchard_pricing_others', po.data);
+    _srvNote('orchard_sprays', sp.data);              _srvNote('orchard_harvest', hv.data);
+    _srvNote('orchard_compliance_items', ci.data);    _srvNote('orchard_compliance_docs', cd.data);
+    _srvNote('orchard_compliance_checks', cc.data);   _srvNote('orchard_compliance_readings', cr.data);
     var docsByBlock={}; (dc.data||[]).forEach(function(d){ (docsByBlock[d.block_local_id]=docsByBlock[d.block_local_id]||[]).push({name:d.name,kind:d.kind,added:d.added,id:d.local_id||undefined,path:d.path||undefined}); });
     var blocks=(bl.data||[]).map(function(r){ var b=obFromDb(r); b.docs=docsByBlock[b.id]||[];
       if(r.markets && r.markets.length) b.markets=r.markets;
@@ -1388,9 +1716,14 @@
       if(snap===_orSnap) return true;
       const blocks=(stf.blocks||[]); const blockIds=blocks.map(function(b){return String(b.id);});
       if(blocks.length){ const e=(await client().from('orchard_blocks').upsert(blocks.map(function(b){return obToDb(b,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
-      { var bq=client().from('orchard_blocks').delete().eq('farm_id',fid); if(blockIds.length) bq=bq.not('local_id','in',_inList(blockIds)); const e=(await bq).error; if(e) throw e; }
+      /* Blocks the farmer deleted. Scoped to blocks this device loaded, so a block
+         added on the phone since is not destroyed by a tab that never saw it. */
+      { var keepBl={}; blockIds.forEach(function(k){ keepBl[String(k)]=1; });
+        var goneBl=_srvGone('orchard_blocks',keepBl,'local_id');
+        if(goneBl && goneBl.length){ const e=(await client().from('orchard_blocks').delete()
+              .eq('farm_id',fid).in('local_id',goneBl)).error; if(e) throw e; } }
       // block docs: replace-all (small metadata child set)
-      { const e=(await client().from('orchard_block_docs').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('orchard_block_docs',fid); if(e) throw e; }
       var docRows=[]; blocks.forEach(function(b){ (b.docs||[]).forEach(function(d,i){
         var _r={farm_id:fid,block_local_id:String(b.id),name:d.name||null,kind:d.kind||null,added:d.added||null,sort_idx:i};
         /* The FILE lives in Storage; this carries only its path, plus the ref id so the
@@ -1401,9 +1734,12 @@
       // pricing upsert + prune
       var pricing=stf.pricing||{}; var pkeys=Object.keys(pricing).filter(function(k){return blockIds.indexOf(String(k))>=0;});
       if(pkeys.length){ const e=(await client().from('orchard_pricing').upsert(pkeys.map(function(k){return opToDb(k,pricing[k],fid);}),{onConflict:'farm_id,block_local_id'})).error; if(e) throw e; }
-      { var pq=client().from('orchard_pricing').delete().eq('farm_id',fid); if(pkeys.length) pq=pq.not('block_local_id','in',_inList(pkeys)); const e=(await pq).error; if(e) throw e; }
+      { var keepPr={}; pkeys.forEach(function(k){ keepPr[String(k)]=1; });
+        var gonePr=_srvGone('orchard_pricing',keepPr,'block_local_id');
+        if(gonePr && gonePr.length){ const e=(await client().from('orchard_pricing').delete()
+              .eq('farm_id',fid).in('block_local_id',gonePr)).error; if(e) throw e; } }
       // pricing others: replace-all
-      { const e=(await client().from('orchard_pricing_others').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('orchard_pricing_others',fid); if(e) throw e; }
       var othRows=[]; pkeys.forEach(function(k){ ((pricing[k]&&pricing[k].others)||[]).forEach(function(o,i){ othRows.push({farm_id:fid,block_local_id:String(k),label:o.label||null,amt:_n(o.amt),sort_idx:i}); }); });
       if(othRows.length){ const e=(await client().from('orchard_pricing_others').insert(othRows)).error; if(e) throw e; }
       // sprays append-only (assign ids if missing so upsert is stable)
@@ -1414,14 +1750,17 @@
       // compliance: items upsert + prune; docs/checks/readings replace-all per farm
       var comply=stf.comply||{}; var ckeys=Object.keys(comply);
       if(ckeys.length){ const e=(await client().from('orchard_compliance_items').upsert(ckeys.map(function(k){return ociToDb(k,comply[k],fid);}),{onConflict:'farm_id,item_key'})).error; if(e) throw e; }
-      { var cq=client().from('orchard_compliance_items').delete().eq('farm_id',fid); if(ckeys.length) cq=cq.not('item_key','in',_inList(ckeys)); const e=(await cq).error; if(e) throw e; }
-      { const e=(await client().from('orchard_compliance_docs').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { var keepCi={}; ckeys.forEach(function(k){ keepCi[String(k)]=1; });
+        var goneCi=_srvGone('orchard_compliance_items',keepCi,'item_key');
+        if(goneCi && goneCi.length){ const e=(await client().from('orchard_compliance_items').delete()
+              .eq('farm_id',fid).in('item_key',goneCi)).error; if(e) throw e; } }
+      { const e=await _pruneAll('orchard_compliance_docs',fid); if(e) throw e; }
       var cdRows=[]; ckeys.forEach(function(k){ ((comply[k]&&comply[k].docs)||[]).forEach(function(d,i){
         var _c={farm_id:fid,item_key:k,name:d.name||null,kind:d.kind||null,added:d.added||null,sort_idx:i};
         if(CAN_ORCH_DOCFILE){ _c.local_id=d.id||null; _c.path=d.path||null; }
         cdRows.push(_c); }); });
       if(cdRows.length){ const e=(await client().from('orchard_compliance_docs').insert(cdRows)).error; if(e) throw e; }
-      { const e=(await client().from('orchard_compliance_checks').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('orchard_compliance_checks',fid); if(e) throw e; }
       var ccRows=[]; ckeys.forEach(function(k){ ((comply[k]&&comply[k].checks)||[]).forEach(function(c,i){
         var _cc={farm_id:fid,item_key:k,check_date:c.date||null,note:c.note||null,sort_idx:i};
         /* check_date holds a DISPLAY string ("12 Aug") with no year, so on its own it
@@ -1435,7 +1774,7 @@
         if(CAN_ORCH_ATT){ _cc.att=c.att||null; }
         ccRows.push(_cc); }); });
       if(ccRows.length){ const e=(await client().from('orchard_compliance_checks').insert(ccRows)).error; if(e) throw e; }
-      { const e=(await client().from('orchard_compliance_readings').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('orchard_compliance_readings',fid); if(e) throw e; }
       var crRows=[]; ckeys.forEach(function(k){ ((comply[k]&&comply[k].readings)||[]).forEach(function(rd,i){ crRows.push({farm_id:fid,item_key:k,reading_date:rd.date||null,m3:rd.m3||null,sort_idx:i}); }); });
       if(crRows.length){ const e=(await client().from('orchard_compliance_readings').insert(crRows)).error; if(e) throw e; }
       _orSnap=snap;
@@ -1471,6 +1810,10 @@
       selectAll(() => client().from('plan_events').select('*').eq('farm_id',farmId).order('sort_idx'))
     ]);
     for(const r of [pc,pe]) if(r&&r.error) throw r.error;
+    /* Noted BEFORE the empty-plan early return below: "loaded, and there was nothing"
+       is a different fact from "never looked", and only the first one entitles a save
+       to replace what is on the server. */
+    _srvNote('plan_crops', (pc&&pc.data)); _srvNote('plan_events', (pe&&pe.data));
     var cropRows=(pc&&pc.data)||[], evtRows=(pe&&pe.data)||[];
     // null when the farm has never saved a plan — caller drops the demo + seeds from lands.
     if(!cropRows.length && !evtRows.length) return null;
@@ -1489,9 +1832,9 @@
       const crops=(stp.crops||[]), events=(stp.events||[]);
       const snap=JSON.stringify({c:crops,e:events});
       if(snap===_planSnap) return true;
-      { const e=(await client().from('plan_crops').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('plan_crops',fid); if(e) throw e; }
       if(crops.length){ const e=(await client().from('plan_crops').insert(crops.map(function(c,i){return planCropToDb(c,fid,i);}))).error; if(e) throw e; }
-      { const e=(await client().from('plan_events').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('plan_events',fid); if(e) throw e; }
       if(events.length){ const e=(await client().from('plan_events').insert(events.map(function(ev,i){return planEvtToDb(ev,fid,i);}))).error; if(e) throw e; }
       _planSnap=snap;
       return true;
@@ -1599,6 +1942,10 @@
       selectAll(() => client().from('pay_run_applied').select('*').eq('farm_id',farmId))
     ]);
     for(const r of [wk,st,lg,lv,dc,pe,pr,pa]) if(r&&r.error) throw r.error;
+    _srvNote('workers', wk.data);            _srvNote('worker_ledger', lg.data);
+    _srvNote('worker_leave_log', lv.data);   _srvNote('worker_docs', dc.data);
+    _srvNote('payroll_entries', pe.data);    _srvNote('pay_runs', pr.data);
+    _srvNote('pay_run_applied', pa.data);
     var workers=(wk.data||[]).map(wkrFromDb);
     var byW={}; workers.forEach(function(w){ byW[String(w.id)]=w; });
     (lg.data||[]).forEach(function(r){ var w=byW[r.worker_local_id]; if(w){ (w.ledger=w.ledger||[]).push({date:r.entry_date||'',kind:r.kind||'',amt:Number(r.amt)||0,note:r.note||''}); } });
@@ -1621,15 +1968,15 @@
       { const e=(await client().from('worker_settings').upsert(wkSettToDb(stw,fid),{onConflict:'farm_id'})).error; if(e) throw e; }
       var ws=(stw.workers||[]);
       if(ws.length){ const e=(await client().from('workers').upsert(ws.map(function(w){return wkrToDb(w,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
-      { const e=(await client().from('worker_ledger').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('worker_ledger',fid); if(e) throw e; }
       var lgR=wkLedgerRows(stw,fid); if(lgR.length){ const e=(await client().from('worker_ledger').insert(lgR)).error; if(e) throw e; }
-      { const e=(await client().from('worker_leave_log').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('worker_leave_log',fid); if(e) throw e; }
       var lvR=wkLeaveRows(stw,fid); if(lvR.length){ const e=(await client().from('worker_leave_log').insert(lvR)).error; if(e) throw e; }
-      { const e=(await client().from('worker_docs').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('worker_docs',fid); if(e) throw e; }
       var dcR=wkDocRows(stw,fid); if(dcR.length){ const e=(await client().from('worker_docs').insert(dcR)).error; if(e) throw e; }
       var peR=wkPayrollRows(stw,fid); if(peR.length){ const e=(await client().from('payroll_entries').upsert(peR,{onConflict:'farm_id,period_label,worker_local_id'})).error; if(e) throw e; }
       var prR=(stw.payRuns||[]).map(function(r){return payRunToDb(r,fid);}); if(prR.length){ const e=(await client().from('pay_runs').upsert(prR,{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
-      { const e=(await client().from('pay_run_applied').delete().eq('farm_id',fid)).error; if(e) throw e; }
+      { const e=await _pruneAll('pay_run_applied',fid); if(e) throw e; }
       var paR=payAppliedRows(stw,fid); if(paR.length){ const e=(await client().from('pay_run_applied').insert(paR)).error; if(e) throw e; }
       _wkSnap=snap;
       return true;
@@ -1838,12 +2185,65 @@
   };
 
   // ---- EXPORT --------------------------------------------------------------
+  /* ---- PAIRING A PHONE ------------------------------------------------------
+     Settings shows a QR code and eight characters; the phone reads either one and
+     hands it back, and an edge function (mobile Phase 1) exchanges it for a
+     session. The farmer never types a password into a phone in a shed, and the
+     phone never holds credentials of its own.
+
+     Only a HASH of the secret is stored. A leaked row is then not enough to pair
+     with - the secret exists on the desktop's screen and nowhere else. The code
+     is what the farmer can read aloud when a scratched lens in the sun defeats
+     the camera, which is the failure WhatsApp's own linked-devices flow plans for.
+     ------------------------------------------------------------------------- */
+  const PAIR_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // no I, O, 0 or 1 - this gets read aloud
+  function _hex(bytes){
+    var out=''; for(var i=0;i<bytes.length;i++) out += ('0'+bytes[i].toString(16)).slice(-2);
+    return out;
+  }
+  const pairing = {
+    available(){ return !!(global.crypto && global.crypto.subtle && global.crypto.getRandomValues); },
+    async create(){
+      const fid = farm.active();
+      if(!fid) throw new Error('No active farm');
+      if(!pairing.available()){
+        throw new Error('This browser cannot make a secure code. Open the app over https and try again.');
+      }
+      const rnd = new Uint8Array(24); global.crypto.getRandomValues(rnd);
+      let code = ''; for(let i=0;i<8;i++) code += PAIR_ALPHABET[rnd[i] % PAIR_ALPHABET.length];
+      const secret = _hex(rnd.subarray(8));
+      const digest = await global.crypto.subtle.digest('SHA-256', new TextEncoder().encode(secret));
+      const hash = _hex(new Uint8Array(digest));
+      let uid = null;
+      try{ const u = await auth.currentUser(); uid = u && u.id; }catch(e){}
+      if(!uid) throw new Error('Sign in again before adding a phone.');
+      const r = await client().from('device_pair_tokens')
+        .insert({ farm_id: fid, created_by: uid, code: code, token_hash: hash })
+        .select().single();
+      if(r.error) throw r.error;
+      return { code: code, secret: secret, farmId: fid,
+               expiresAt: (r.data && r.data.expires_at) || null,
+               id: (r.data && r.data.id) || null };
+    },
+    /* Cancelling a code the farmer decided not to use. Spending it is what makes
+       it dead, so it is marked used rather than deleted - the row is the only
+       record that a pairing was ever offered. */
+    async revoke(id){
+      if(!id) return;
+      const r = await client().from('device_pair_tokens')
+        .update({ used_at: new Date().toISOString(), device_label: 'cancelled' }).eq('id', id);
+      if(r.error) throw r.error;
+      return true;
+    }
+  };
+
   global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
                 coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave, profile: profile,
                 documents: documents, fuel: fuel, rain: rain,
                 storage: storage,
                 importBatch: importBatch,
                 rules,
+                pairing: pairing,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
 })(window);

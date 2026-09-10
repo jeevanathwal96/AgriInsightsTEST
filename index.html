@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=32"></script>
-<script src="ai-auth.js?v=32"></script>
+<script src="ai-data.js?v=33"></script>
+<script src="ai-auth.js?v=33"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -9901,6 +9901,31 @@ table.rn-t td.dim{color:var(--t4)}
           <div><label>How it is applied</label><input id="set-mark-type" value="" placeholder="e.g. Tattoo, left ear"/></div>
         </div>
       </div>
+      <!-- Your phone. The desktop half of pairing: it mints a short-lived code and
+           shows it; the phone reads it and trades it for a session (mobile Phase 1).
+           Nothing on this screen is a password, and the secret behind the QR is
+           stored only as a hash - see 02-database/device_pair_tokens_migration.sql. -->
+      <div class="set-card">
+        <div class="set-h"><span class="ic">&#128241;</span>Your phone</div>
+        <div class="hint" style="margin-top:-4px;font-size:12px">The phone app is where the other 340 days happen &mdash; a birth at the gate, diesel at the pump, a rain reading before breakfast. Pair it once and it works from the same books as this screen. The code below is not a password: it dies ten minutes after you ask for it, used or not.</div>
+        <div id="set-pair-idle" style="margin-top:12px">
+          <button type="button" class="btn-pri" id="set-pair-btn" onclick="aiPairOpen()">Add your phone</button>
+        </div>
+        <div id="set-pair-live" style="display:none;margin-top:14px">
+          <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+            <div id="set-pair-qr" style="background:#fff;padding:10px;border-radius:12px;border:1px solid var(--br);line-height:0"></div>
+            <div style="min-width:210px;display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)" data-notranslate>Scan it, or type this in</div>
+              <div id="set-pair-code" data-notranslate style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:26px;font-weight:800;letter-spacing:.14em;color:var(--gd)"></div>
+              <div id="set-pair-exp" class="hint" data-notranslate style="font-size:12px"></div>
+              <div style="display:flex;gap:8px;margin-top:4px">
+                <button type="button" class="btn-sec" onclick="aiPairDone()">Done</button>
+                <button type="button" class="btn-sec" onclick="aiPairOpen()">New code</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       <!-- Tax & VAT -->
       <div class="set-card">
         <div class="set-h"><span class="ic">📋</span>Tax &amp; VAT</div>
@@ -10588,7 +10613,11 @@ function saveState() {
     // must never be serialized (doing so throws and silently fails every save).
     // loadState merges key-by-key in place, so omitting 'charts' here preserves
     // the live ST.charts object on the next load.
-    localStorage.setItem(SAVE_KEY, JSON.stringify(snap, function(k, v){ return k === 'charts' ? undefined : v; }));
+    /* `_stockRecon` is an observation made at load time - which herds the moves ledger
+       had moved on since this device last wrote them - not farm data. Persisting it
+       would replay "your herd numbers caught up" on every reload for days after the
+       counts were already right, which is how a true message turns into noise. */
+    localStorage.setItem(SAVE_KEY, JSON.stringify(snap, function(k, v){ return (k === 'charts' || k === '_stockRecon') ? undefined : v; }));
     LAST_SAVED_AT = snap.savedAt;
     _syncFarmSettings();
     var syncEl = document.querySelector('.sync span') || document.querySelector('[data-t="sync.last"]');
@@ -10910,7 +10939,12 @@ function attachAutosave() {
   document.addEventListener('click',  trigger, true);
   // Save when the tab hides / closes
   document.addEventListener('visibilitychange', function(){
-    if (document.visibilityState === 'hidden') saveState();
+    if (document.visibilityState === 'hidden') { saveState(); return; }
+    /* Back in front. Push anything this device owes, then ask what the phone
+       has written since - a farmer who logged a birth at the gate should not
+       have to reload to see it here. */
+    try{ if (typeof flushTxnOutbox === 'function') flushTxnOutbox(); }catch(e){}
+    try{ if (typeof aiRepullShared === 'function') aiRepullShared(); }catch(e){}
   });
   window.addEventListener('beforeunload', function(){ saveState(); });
   window.addEventListener('pagehide',     function(){ saveState(); });
@@ -50984,6 +51018,120 @@ function updateOnlineStatus() {
   if(IS_ONLINE && _was===false && typeof flushRelationalToBackend==='function'){ try{ flushRelationalToBackend(); }catch(e){} }
 }
 // Push the current in-memory relational state to the backend (used on reconnect).
+/* ══════════ Bring back what another device wrote while this tab sat idle ══════════
+   The phone records a birth at a gate, a diesel issue at the pump, a rain reading
+   at the gauge. Those arrive as rows on the server; this tab knows nothing about
+   them until it is reloaded, and until Phase 0 it would happily save its own older
+   picture back over them.
+
+   So when the tab comes back to the front, ask for the four modules the phone
+   writes and MERGE what is new. Merge, never replace: a row this device already
+   holds may carry an edit that has not been saved yet, and no background refresh
+   is allowed to throw a farmer's typing away. Everything merged here is an
+   append-only record - a movement, a treatment, a reading, an issue, a
+   certificate - so adding what is missing is the whole job.
+
+   Head counts move with the movements, through the same _lsAdjustHead the manual
+   path uses, so there is one rule for what a birth does to a herd and not two. */
+var _AI_REPULL_AT = 0, _AI_REPULL_BUSY = false;
+var AI_REPULL_MIN_MS = 60000;          /* at most once a minute; coming back to a tab is not a data event */
+
+function _aiMergeById(local, incoming, key, onNew){
+  if(!Array.isArray(local) || !Array.isArray(incoming)) return 0;
+  key = key || 'id';
+  var have = {}, added = 0;
+  local.forEach(function(x){ if(x && x[key]!=null) have[String(x[key])] = 1; });
+  incoming.forEach(function(x){
+    if(!x || x[key]==null || have[String(x[key])]) return;
+    have[String(x[key])] = 1; local.push(x); added++;
+    if(onNew){ try{ onNew(x); }catch(e){} }
+  });
+  return added;
+}
+
+/* One newly-seen movement, applied to the herd it belongs to. Mirrors lsRecordMove's
+   own branch: a promote shuffles heads between classes and changes no total, and
+   everything else goes through _lsAdjustHead. */
+function _aiApplyMergedMove(m){
+  if(!m || typeof ST_LS==='undefined') return;
+  var h = (ST_LS.herd||[]).filter(function(x){ return String(x.id)===String(m.herd); })[0];
+  if(!h) return;
+  if(m.reason==='promote'){
+    if(h.classes && m.cls && m.toCls && typeof _lsClassObj==='function' && typeof _lsEnsureClass==='function'){
+      var cf=_lsClassObj(h,m.cls), ct=_lsEnsureClass(h,m.toCls);
+      if(cf && ct){ var mv=Math.min(parseInt(m.qty,10)||0, cf.n||0); cf.n-=mv; ct.n+=mv; }
+    }
+    return;
+  }
+  if(typeof _lsAdjustHead==='function') _lsAdjustHead(h, m.reason, m.qty, m.cls||'');
+}
+
+function aiRepullShared(force){
+  if(_AI_REPULL_BUSY) return Promise.resolve(0);
+  if(!IS_ONLINE || window.__AI_GUEST) return Promise.resolve(0);
+  if(!(window.AI && AI.farm && AI.farm.active() && AI.load)) return Promise.resolve(0);
+  var now = Date.now();
+  if(!force && (now - _AI_REPULL_AT) < AI_REPULL_MIN_MS) return Promise.resolve(0);
+  _AI_REPULL_AT = now; _AI_REPULL_BUSY = true;
+  var fid = AI.farm.active();
+  var nul = function(){ return null; };
+  return Promise.all([
+    AI.load.livestock ? AI.load.livestock(fid).catch(nul) : null,
+    AI.load.rainfall  ? AI.load.rainfall(fid).catch(nul)  : null,
+    AI.load.fuel      ? AI.load.fuel(fid).catch(nul)      : null,
+    AI.load.documents ? AI.load.documents(fid).catch(nul) : null
+  ]).then(function(r){
+    var ls=r[0], rn=r[1], fu=r[2], dc=r[3], n=0, what=[];
+
+    try{
+      if(ls && typeof ST_LS!=='undefined'){
+        var mvN = _aiMergeById(ST_LS.moves      = ST_LS.moves||[],      ls.moves||[],      'id', _aiApplyMergedMove);
+        var trN = _aiMergeById(ST_LS.treatments = ST_LS.treatments||[], ls.treatments||[], 'id');
+        var heN = _aiMergeById(ST_LS.health     = ST_LS.health||[],     ls.health||[],     'id');
+        if(mvN){ try{ ST_LS.moves.sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); }); }catch(e){} }
+        n += mvN+trN+heN;
+        if(mvN) what.push(mvN+' movement'+(mvN===1?'':'s'));
+        if(trN) what.push(trN+' treatment'+(trN===1?'':'s'));
+      }
+    }catch(e){ console.error('repull livestock', e); }
+
+    try{
+      if(rn && typeof ST_RAIN!=='undefined'){
+        _aiMergeById(ST_RAIN.gauges = ST_RAIN.gauges||[], rn.gauges||[], 'id');
+        var rnN = _aiMergeById(ST_RAIN.log = ST_RAIN.log||[], rn.log||[], 'id');
+        n += rnN; if(rnN) what.push(rnN+' rain reading'+(rnN===1?'':'s'));
+      }
+    }catch(e){ console.error('repull rainfall', e); }
+
+    try{
+      if(fu && typeof ST_FUEL!=='undefined'){
+        var fuN = _aiMergeById(ST_FUEL.issues = ST_FUEL.issues||[], fu||[], 'id');
+        n += fuN; if(fuN) what.push(fuN+' diesel entr'+(fuN===1?'y':'ies'));
+      }
+    }catch(e){ console.error('repull fuel', e); }
+
+    try{
+      if(dc && typeof ST!=='undefined'){
+        /* Certificates are keyed by their number, not a row id - the number IS the
+           document's identity and the thing an inspector reads off the page. */
+        var dcN = _aiMergeById(ST.docs = ST.docs||[], dc||[], 'no');
+        n += dcN; if(dcN) what.push(dcN+' document'+(dcN===1?'':'s'));
+      }
+    }catch(e){ console.error('repull documents', e); }
+
+    if(n){
+      try{ saveState && saveState(); }catch(e){}
+      try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
+      try{ if(typeof renderRainfall==='function' && document.getElementById('pg-rainfall')) renderRainfall(); }catch(e){}
+      try{ if(typeof fuelRender==='function') fuelRender(); }catch(e){}
+      /* Said out loud, because a number that changes on its own is how trust goes. */
+      try{ if(typeof toast==='function') toast('Brought in '+what.join(', ')+' from your other device','info'); }catch(e){}
+    }
+    return n;
+  }).catch(function(e){ console.error('repull', e); return 0; })
+    .then(function(n){ _AI_REPULL_BUSY = false; return n; });
+}
+
 function flushRelationalToBackend(){
   if(!(window.AI && AI.farm && AI.farm.active())) return;
   try{ if(window.ST_CROP && AI.crop){ AI.crop.saveAll(ST_CROP).catch(function(){}); AI.crop.saveConfig(ST_CROP).catch(function(){}); } }catch(e){}
@@ -60446,6 +60594,39 @@ function attnItems(){
     });
   }catch(e){}
 
+  /* 1b · Head counts that moved while this device was not looking. A birth recorded
+        on the phone at a gate, or a sale entered on another desktop, reaches the herds
+        table as a MOVE - the count on the herd row is whatever this device last wrote.
+        load.livestock folds those moves in on load, so the number already on screen is
+        the one the ledger supports. Saying so is the point: a figure that changes with
+        no explanation is how a farmer stops trusting the herd page. Ranked in the house
+        tier - nothing is wrong, the books simply caught up. */
+  try{
+    var _srList=(typeof ST_LS!=='undefined' && ST_LS._stockRecon) ? ST_LS._stockRecon : null;
+    if(_srList && _srList.length){
+      var _srUp=0, _srDown=0, _srNames=[];
+      _srList.forEach(function(r){
+        if(!r) return;
+        if(r.derived>r.stored) _srUp++; else _srDown++;
+        if(_srNames.length<2 && r.name) _srNames.push(r.name);
+      });
+      var _srWho = _srNames.length ? _srNames.join(' and ') +
+                   (_srList.length>_srNames.length ? ' and ' + (_srList.length-_srNames.length) + ' more' : '')
+                   : (_srList.length + ' herd' + (_srList.length===1?'':'s'));
+      var _srWhat = (_srUp && _srDown) ? 'went up and down'
+                  : (_srUp ? ('went up' + (_srUp===1?'':''))
+                           : 'came down');
+      out.push({
+        tier:'house', sev:46,
+        nm:'Herd numbers caught up',
+        lead:_srWho + ' ' + _srWhat + ' to match your movements',
+        sub:'Recorded somewhere else — a phone at the gate, or another computer — after this one last saved. The count you are looking at is the one your movement records support.',
+        st:_srList.length + (_srList.length===1?' herd':' herds'), cta:'Check the herd', when:9999,
+        action: function(){ try{ nav('livestock'); if(typeof lsTab==='function') lsTab('herd'); }catch(e){} }
+      });
+    }
+  }catch(e){}
+
   /* 2 · Insurance that has run out, or is about to. The renewal date sits in the
         asset record and nothing has ever read it. */
   try{
@@ -66470,6 +66651,130 @@ function orExportPackout(){
    who never issues a document should never pay for it. Injected on first use;
    the promise is memoised so concurrent callers share one load. */
 var AI_PDF_LOAD = null;
+/* ═══════════════════════ Pairing a phone with this farm ═══════════════════════
+   The desktop mints a code, shows it, and forgets it. The secret behind the QR
+   never leaves this screen - the server holds only its hash - so the picture on
+   the monitor IS the credential, which is why it expires in ten minutes and why
+   there is a Done button that spends it early.
+
+   Two ways in on purpose: the QR for a phone that can see, and eight characters
+   for a scratched lens in the sun. WhatsApp's linked-devices flow plans for the
+   same failure, and a farmer standing in a doorway at midday will meet it. */
+var AI_QR_LOAD = null, AI_PAIR = null, AI_PAIR_TICK = null;
+
+function aiQrReady(){
+  if (window.qrcode) return Promise.resolve(window.qrcode);
+  if (AI_QR_LOAD) return AI_QR_LOAD;
+  AI_QR_LOAD = new Promise(function(resolve, reject){
+    var s = document.createElement('script');
+    s.src = 'vendor/qrcode.js?v=373';
+    s.onload = function(){
+      if (window.qrcode) resolve(window.qrcode);
+      else { AI_QR_LOAD = null; reject(new Error('QR library loaded but did not register')); }
+    };
+    /* Null the memo so a later attempt retries instead of inheriting a rejection. */
+    s.onerror = function(){ AI_QR_LOAD = null; reject(new Error('QR library failed to load')); };
+    document.head.appendChild(s);
+  });
+  return AI_QR_LOAD;
+}
+
+/* Drawn as a table of 4px cells rather than an image: no canvas tainting, no data
+   URI, and it prints. Quiet zone is four modules, which is what the spec asks for
+   and what a phone camera needs to find the thing at all. */
+function aiQrDraw(el, text){
+  var q = window.qrcode(0, 'M');
+  q.addData(text);
+  q.make();
+  var n = q.getModuleCount(), cell = 4, quiet = 4, px = (n + quiet * 2) * cell;
+  var out = '<svg width="' + px + '" height="' + px + '" viewBox="0 0 ' + px + ' ' + px +
+            '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pairing code">' +
+            '<rect width="' + px + '" height="' + px + '" fill="#fff"/><path fill="#0F2C22" d="';
+  for (var r = 0; r < n; r++) {
+    for (var c = 0; c < n; c++) {
+      if (!q.isDark(r, c)) continue;
+      out += 'M' + ((c + quiet) * cell) + ' ' + ((r + quiet) * cell) + 'h' + cell + 'v' + cell + 'h-' + cell + 'z';
+    }
+  }
+  el.innerHTML = out + '"/></svg>';
+}
+
+function _aiPairShow(on){
+  var idle = $('set-pair-idle'), live = $('set-pair-live');
+  if (idle) idle.style.display = on ? 'none' : '';
+  if (live) live.style.display = on ? '' : 'none';
+}
+
+function _aiPairCountdown(){
+  if (AI_PAIR_TICK) { clearInterval(AI_PAIR_TICK); AI_PAIR_TICK = null; }
+  if (!AI_PAIR || !AI_PAIR.expiresAt) return;
+  var end = Date.parse(AI_PAIR.expiresAt);
+  var tick = function(){
+    var el = $('set-pair-exp'); if (!el) return;
+    var left = Math.round((end - Date.now()) / 1000);
+    if (isNaN(end)) { el.textContent = 'Good for the next ten minutes.'; return; }
+    if (left <= 0) {
+      el.textContent = 'This code has expired. Ask for a new one.';
+      if (AI_PAIR_TICK) { clearInterval(AI_PAIR_TICK); AI_PAIR_TICK = null; }
+      AI_PAIR = null;
+      return;
+    }
+    var m = Math.floor(left / 60), sec = left % 60;
+    el.textContent = 'Good for another ' + m + ':' + (sec < 10 ? '0' : '') + sec + '.';
+  };
+  tick();
+  AI_PAIR_TICK = setInterval(tick, 1000);
+}
+
+function aiPairOpen(){
+  var btn = $('set-pair-btn');
+  if (window.__AI_GUEST) { toast('The demo has no farm to pair with. Sign in first.', 'info'); return; }
+  if (!(window.AI && AI.farm && AI.farm.active() && AI.pairing)) {
+    toast('Sign in first — a phone pairs with a farm, not with this browser.', 'info');
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Making a code…'; }
+  Promise.all([aiQrReady(), AI.pairing.create()]).then(function(r){
+    AI_PAIR = r[1];
+    /* Everything the phone needs and nothing it does not: which farm, the code the
+       farmer can read, and the secret it must prove it saw. */
+    var url = 'agriinsights://pair?f=' + encodeURIComponent(AI_PAIR.farmId) +
+              '&c=' + encodeURIComponent(AI_PAIR.code) +
+              '&s=' + encodeURIComponent(AI_PAIR.secret);
+    var qrEl = $('set-pair-qr'); if (qrEl) aiQrDraw(qrEl, url);
+    var codeEl = $('set-pair-code');
+    if (codeEl) codeEl.textContent = AI_PAIR.code.slice(0, 4) + ' ' + AI_PAIR.code.slice(4);
+    _aiPairShow(true);
+    _aiPairCountdown();
+  }).catch(function(e){
+    var msg = String((e && e.message) || e || '');
+    /* The commonest failure by far is the migration not having been run, and
+       "relation does not exist" is not something to hand a farmer. */
+    if (/device_pair_tokens|relation|does not exist|schema cache/i.test(msg)) {
+      toast('Phone pairing is not switched on for this farm yet — the database still needs device_pair_tokens_migration.sql.', 'error');
+    } else if (/https|secure/i.test(msg)) {
+      toast(msg, 'error');
+    } else {
+      toast('Could not make a pairing code. ' + (msg || 'Try again in a moment.'), 'error');
+    }
+    console.error('pairing', e);
+  }).then(function(){
+    if (btn) { btn.disabled = false; btn.textContent = 'Add your phone'; }
+  });
+}
+
+/* Done means spent. A code left live on a screen someone walks past is the one
+   risk this flow actually carries, so closing the panel closes the window too. */
+function aiPairDone(){
+  var id = AI_PAIR && AI_PAIR.id;
+  AI_PAIR = null;
+  if (AI_PAIR_TICK) { clearInterval(AI_PAIR_TICK); AI_PAIR_TICK = null; }
+  _aiPairShow(false);
+  var qrEl = $('set-pair-qr'); if (qrEl) qrEl.innerHTML = '';
+  var codeEl = $('set-pair-code'); if (codeEl) codeEl.textContent = '';
+  if (id && window.AI && AI.pairing) AI.pairing.revoke(id).catch(function(){});
+}
+
 function aiPdfReady(){
   if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
   if (AI_PDF_LOAD) return AI_PDF_LOAD;
@@ -67108,7 +67413,8 @@ function aiRegRows(kind, from, to){
         var reg=(String(a.notes||'').match(/Reg:\s*([^\u00b7,]+)/i)||[])[1];
         return { date:aiRcDate(i.date), machine:i.machine||a.name||'',
                  reg:reg?reg.trim():'', litres:(Number(i.litres)||0).toLocaleString('en-ZA')+' \u2113',
-                 activity:i.activity||'', where:i.where||'',
+                 meter:(i.hourMeter!=null&&i.hourMeter!=='')?String(Number(i.hourMeter).toLocaleString('en-ZA')):'',
+                 activity:i.activity||'', where:i.place||i.where||'',
                  qual: i.qualifies ? 'Yes' : 'No \u2014 road/private' };
       });
   }
@@ -67147,6 +67453,23 @@ function aiRegBuild(kind, opts){
     var g=aiDocGeo(true);
     var doc=aiDocNew(jsPDF,{unit:'mm',format:'a4',orientation:'landscape',compress:(opts.compress!==false)});
     var rows=aiRegRows(kind, opts.from, opts.to);
+    /* The meter reading and the place are only captured at the pump, so print those
+       columns only when some row actually has one. The alternative is a column of
+       em-dashes on a document an inspector reads as missing records - which is why
+       the logbook has never carried a "where" column at all. */
+    var _cols=cfg.cols;
+    if(kind==='diesel'){
+      var _hasMeter=rows.some(function(r){ return r.meter; });
+      var _hasWhere=rows.some(function(r){ return r.where; });
+      if(_hasMeter || _hasWhere){
+        _cols=[];
+        cfg.cols.forEach(function(c){
+          _cols.push(c);
+          if(c.k==='litres' && _hasMeter) _cols.push({k:'meter',label:'Meter',w:18,opt:true});
+          if(c.k==='activity' && _hasWhere) _cols.push({k:'where',label:'Where',w:30,opt:true});
+        });
+      }
+    }
     var period=(opts.from?aiRcDate(opts.from):'start')+' – '+(opts.to?aiRcDate(opts.to):'today');
 
     /* Repeated on every page: a register page must stand alone in a file. */
@@ -67171,7 +67494,7 @@ function aiRegBuild(kind, opts){
       return 43;
     };
 
-    var res=aiDocTable(doc, {geo:g, cols:cfg.cols, rows:rows, header:header, landscape:true});
+    var res=aiDocTable(doc, {geo:g, cols:_cols, rows:rows, header:header, landscape:true});
     var _y=res.y+4;
     /* Totals: an inspector reads the summary before the rows. */
     /* A total that silently excludes rows with the figure missing understates the
@@ -67354,9 +67677,19 @@ function fuelRender(){
   var t=$('fuel-title'); if(t) t.textContent='Fuel used \u00b7 '+w.label;
 
   ST_FUEL.last = ST_FUEL.last || {};
-  var existing={};
+  var existing={}, fieldBy={};
   (ST_FUEL.issues||[]).forEach(function(i){
-    if(i && i.date>=w.from && i.date<=w.to) existing[i.asset]=i;
+    if(!(i && i.date>=w.from && i.date<=w.to)) return;
+    /* Per-dispensing entries are shown, not edited: this grid has one box per
+       machine per week and could not hold three issues on three days without
+       throwing two of them away. The logbook prints all of them. */
+    if(_fuIsField(i)){
+      var f=fieldBy[i.asset]||(fieldBy[i.asset]={l:0,n:0,meter:null});
+      f.l+=Number(i.litres)||0; f.n++;
+      if(i.hourMeter!=null && (f.meter==null || Number(i.hourMeter)>f.meter)) f.meter=Number(i.hourMeter);
+      return;
+    }
+    existing[i.asset]=i;
   });
 
   var pct = tank.inL ? Math.min(100, Math.round(tank.outL/tank.inL*100)) : 0;
@@ -67369,8 +67702,11 @@ function fuelRender(){
     var opts=AI_FUEL_ACTS.map(function(x){
       return '<option value="'+x.k+'"'+(x.k===act?' selected':'')+'>'+esc(x.nm)+(x.q?'':' \u2014 no rebate')+'</option>';
     }).join('');
+    var fld=fieldBy[a.id];
+    var fldNote = fld ? (' \u00b7 '+fld.l.toLocaleString('en-ZA')+' \u2113 logged at the pump'+
+                         (fld.meter!=null?(' \u00b7 meter '+fld.meter.toLocaleString('en-ZA')):'')) : '';
     return '<div class="fu-row">'+
-      '<div class="fu-m"><b>'+esc(a.name)+'</b><s>'+esc(a.cat||'')+(reg?(' \u00b7 '+esc(reg.trim())):'')+'</s></div>'+
+      '<div class="fu-m"><b>'+esc(a.name)+'</b><s>'+esc(a.cat||'')+(reg?(' \u00b7 '+esc(reg.trim())):'')+esc(fldNote)+'</s></div>'+
       '<select class="fu-act" id="fu-a-'+a.id+'" onchange="fuelPreview()">'+opts+'</select>'+
       '<input class="fu-l" id="fu-l-'+a.id+'" type="number" min="0" inputmode="numeric" placeholder="0" value="'+(ex.litres||'')+'" oninput="fuelPreview()">'+
       '</div>';
@@ -67412,10 +67748,23 @@ function fuelPreview(){
       : 'Enter what each machine used. Fuel still in the tank is fine \u2014 leave it blank.';
   }
 }
+/* A diesel entry made AT THE PUMP - phone, meter reading, place - against one made
+   on this weekly grid. The grid holds one figure per machine per week and replaces
+   it wholesale when the week is re-saved; a per-dispensing record is a different
+   kind of thing and must survive that, or the farmer's own logbook entries vanish
+   the next time somebody tidies up the week on the computer.
+   Rows written before this existed carry no marker and no meter, so they read as
+   grid rows - which is what they are. */
+function _fuIsField(i){
+  return !!(i && (i.src==='phone' || i.hourMeter!=null || i.place || i.lat!=null));
+}
 function fuelSave(){
   var w=aiFuelWeek(FUEL_W), M=aiFuelMachines(), n=0;
   ST_FUEL.issues = (ST_FUEL.issues||[]).filter(function(i){
-    return !(i && i.date>=w.from && i.date<=w.to);      /* re-saving a week replaces it */
+    /* Re-saving a week replaces the week - but only the rows this grid put there.
+       Anything captured at the pump stays. */
+    if(_fuIsField(i)) return true;
+    return !(i && i.date>=w.from && i.date<=w.to);
   });
   ST_FUEL.last = ST_FUEL.last || {};
   M.forEach(function(a){
@@ -67423,7 +67772,7 @@ function fuelSave(){
     var k=(($('fu-a-'+a.id)||{}).value)||'';
     ST_FUEL.last[a.id]=k;
     ST_FUEL.issues.push({ id:'fi'+Date.now().toString(36)+Math.floor(Math.random()*1e3),
-      date:w.to, asset:a.id, machine:a.name, litres:l,
+      date:w.to, asset:a.id, machine:a.name, litres:l, src:'week',
       activity:aiFuelActNm(k), actKey:k, qualifies:aiFuelActQ(k) });
     n++;
   });
