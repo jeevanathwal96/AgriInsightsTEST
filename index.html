@@ -6205,6 +6205,13 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 .rn-per100{font-variant-numeric:tabular-nums;white-space:nowrap}
 .rn-per100.dry{color:var(--rd,#DC2626)}
 .rn-p100note{font-size:11px;color:var(--t3,#6B7280);margin:8px 2px 0;line-height:1.45}
+.rn-seas{display:flex;gap:11px;align-items:flex-start;border-radius:11px;padding:11px 14px;font-size:12.5px;line-height:1.5;border:1px solid}
+.rn-seas.dry{background:var(--op,#FFF3E8);border-color:#F3D2B8;color:#8A4412}
+.rn-seas.wet{background:#EAF4FB;border-color:#BFDCEF;color:#12496F}
+.rn-seas.even{background:var(--bg,#F3F4F6);border-color:var(--br,#E5E7EB);color:var(--t2,#4B5563)}
+.rn-seas .ic{flex:0 0 auto;font-size:14px;line-height:1.35}
+.rn-seas .gr{flex:1;min-width:0}
+.rn-seas .lnk{color:inherit;text-decoration:underline;font-weight:700;cursor:pointer;white-space:nowrap}
 .scn-sugg{display:flex;gap:11px;align-items:flex-start;background:var(--op,#FFF3E8);border:1px solid #F3D2B8;color:#8A4412;border-radius:11px;padding:11px 14px;margin-top:10px;font-size:12.5px;line-height:1.5}
 .scn-sugg .ic{flex:0 0 auto;font-size:15px;line-height:1.2}
 .scn-sugg .gr{flex:1;min-width:0}
@@ -9276,6 +9283,9 @@ table.rn-t td.dim{color:var(--t4)}
       <div style="margin-top:2px">SAFEX · fresh produce markets · AMT · Cape Wools · MPO</div>
     </div>
   </div>
+
+  <!-- T2.4 · the season ahead, as odds. Written by rnSeasChipHtml(). -->
+  <div id="mkt-seas-chip" data-notranslate style="margin-bottom:14px"></div>
 
   <!-- MY FARM SECTION -->
   <div id="mkt-myfarm-section" style="margin-bottom:18px"></div>
@@ -19400,6 +19410,9 @@ function nav(id) {
          once, but these change whenever a remittance lands or an enterprise is
          switched on. */
       try { mkaRender(); mkaRenderFuel(); } catch (e) {}
+      /* T2.4 — draw whatever is cached now, then refresh in the background. */
+      try { if (typeof rnSeasRender === 'function') rnSeasRender(); } catch (e) {}
+      try { if (typeof rnSeasFetch === 'function') rnSeasFetch().then(function(){ rnSeasRender(); }); } catch (e) {}
       renderMktInsight(); if (typeof renderLsInsight==='function') renderLsInsight();
       if (typeof mktRefreshDateLabels==='function') mktRefreshDateLabels(); }
     if (id === 'transactions'){ if(typeof txRefreshDeletedChip==='function') txRefreshDeletedChip(); }
@@ -71712,6 +71725,203 @@ function rnShareRain(){
   try { window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); } catch(e){}
   try { toast(rnT('Opening WhatsApp…','Maak WhatsApp oop…'), 'success'); } catch(e){}
 }
+/* ── T2.4 · the season ahead, as odds ─────────────────────────────────────────
+   ECMWF's SEAS5 through Open-Meteo — the same supplier behind every other
+   rainfall figure here, so one licence covers the lot. 51 separate runs, and
+   the chip counts how many of them come in under this farm's own normal.
+
+   It never prints a millimetre figure. SEAS5 is genuinely strong at El Niño —
+   it still tracks it eleven months out — and much weaker at putting a rainfall
+   total on one farm. A number seven months ahead would be the kind of false
+   precision somebody sells a crop on (D28).
+
+   Two things keep it honest:
+   · Only WHOLE calendar months inside the forecast are counted, against this
+     farm's own normal for those same months. The chip names them.
+   · If the ensemble's own middle run sits far from that normal we are reading
+     the model's bias rather than any signal, and the chip says nothing.        */
+var RN_SEAS_PATH  = '/v1/seasonal';
+var RN_SEAS_FREE  = 'https://seasonal-api.open-meteo.com';
+var RN_SEAS_PAID  = 'https://customer-seasonal-api.open-meteo.com';
+var RN_SEAS_KEY   = '';        /* set on the commercial plan — it also switches the host */
+var RN_SEAS_MODEL = 'ecmwf_seas5';
+var RN_SEAS_N     = 51;
+var RN_SEAS_BIAS  = 0.25;      /* silent past this: bias, not signal */
+var RN_SEAS_LEAN  = 0.60;      /* below this it is a coin toss, not a lean */
+var RN_SEAS_TTL   = 1;         /* days — SEAS5 is issued monthly, so daily is generous */
+var RN_SEAS_MAXAGE= 45;        /* stop showing one this old: a farm offline for two
+                                  months must not be handed a stale outlook as current */
+
+function rnSeasUrl(){
+  var host = RN_SEAS_KEY ? RN_SEAS_PAID : RN_SEAS_FREE;
+  return host + RN_SEAS_PATH + '?' + rnLocQuery() +
+         '&daily=precipitation_sum&forecast_length=7&models=' + RN_SEAS_MODEL +
+         '&ensemble_members=' + RN_SEAS_N +
+         (RN_SEAS_KEY ? ('&apikey=' + encodeURIComponent(RN_SEAS_KEY)) : '');
+}
+/* Whole calendar months only. A part month would be compared against a whole
+   month's average, which reads as a drought on a farm that is doing fine. */
+function rnSeasWholeMonths(days){
+  var n = {}, first = {}, last = {};
+  for (var i=0;i<days.length;i++){
+    var k = days[i].slice(0,7);
+    n[k] = (n[k]||0) + 1;
+    if (first[k] == null) first[k] = days[i];
+    last[k] = days[i];
+  }
+  var out = [];
+  Object.keys(n).sort().forEach(function(k){
+    var y = +k.slice(0,4), m = +k.slice(5,7);
+    var dim = new Date(y, m, 0).getDate();
+    if (n[k] === dim) out.push(k);
+  });
+  return out;
+}
+function rnSeasFetch(){
+  if (!rnHas()) return Promise.resolve(false);
+  try {
+    var c = ST_RAIN.seas;
+    if (c && c.fetched && rnDaysBetween(c.fetched, rnISO(rnToday())) < RN_SEAS_TTL)
+      return Promise.resolve(true);
+  } catch(e){}
+  return rnFetchJson(rnSeasUrl(), 25000).then(function(j){
+    var d = j && j.daily, days = d && d.time;
+    if (!days || !days.length) throw new Error('no seasonal data');
+    var months = rnSeasWholeMonths(days);
+    if (!months.length) throw new Error('no whole month covered');
+    var inWin = {}; months.forEach(function(m){ inWin[m] = 1; });
+    var keys = ['precipitation_sum'];
+    for (var i=1;i<RN_SEAS_N;i++) keys.push('precipitation_sum_member' + (i<10?'0':'') + i);
+    var totals = [];
+    keys.forEach(function(k){
+      var v = d[k]; if (!v) return;
+      var t = 0, any = false;
+      for (var x=0;x<days.length;x++){
+        if (inWin[days[x].slice(0,7)] && v[x] != null){ t += v[x]; any = true; }
+      }
+      if (any) totals.push(t);
+    });
+    if (totals.length < 10) throw new Error('too few members');
+    totals.sort(function(a,b){ return a-b; });
+    ST_RAIN.seas = { fetched: rnISO(rnToday()), months: months, totals: totals, err: null };
+    try { saveState(); } catch(e){}
+    return true;
+  }).catch(function(e){
+    try { ST_RAIN.seas = ST_RAIN.seas || {}; ST_RAIN.seas.err = String(e && e.message || e); } catch(x){}
+    return false;
+  });
+}
+/* This farm's own normal for exactly the months the forecast covers. */
+function rnSeasNormalFor(months){
+  try {
+    var mon = ST_RAIN.normal && ST_RAIN.normal.monthly;   /* calendar order, 0 = January */
+    if (!mon) return null;
+    var t = 0;
+    for (var i=0;i<months.length;i++){
+      var m = +months[i].slice(5,7) - 1;
+      var v = mon[m];
+      if (v == null) return null;
+      t += v;
+    }
+    return t;
+  } catch(e){ return null; }
+}
+function rnSeasOutlook(){
+  try {
+    if (!rnOn()) return null;                                        /* D16 */
+    var c = ST_RAIN.seas;
+    if (!c || !c.totals || !c.totals.length || !c.months) return null;
+    if (!c.fetched || rnDaysBetween(c.fetched, rnISO(rnToday())) > RN_SEAS_MAXAGE) return null;
+    /* The months it was built for have to still be ahead of us. */
+    if (c.months[c.months.length-1] < rnISO(rnToday()).slice(0,7)) return null;
+    var norm = rnSeasNormalFor(c.months);
+    if (!(norm > 0)) return null;
+    var T = c.totals, n = T.length;
+    var med = (n % 2) ? T[(n-1)>>1] : (T[(n>>1)-1] + T[n>>1]) / 2;
+    /* The bias check: if the middle run is nowhere near this farm's normal, a
+       count of runs "below normal" is measuring the model, not the season. */
+    if (Math.abs(med / norm - 1) > RN_SEAS_BIAS) return null;
+    var below = 0;
+    for (var i=0;i<n;i++) if (T[i] < norm) below++;
+    var fDry = below / n, fWet = 1 - fDry;
+    var lean = (fDry >= RN_SEAS_LEAN) ? 'dry' : (fWet >= RN_SEAS_LEAN ? 'wet' : 'even');
+    return { months: c.months, n: n, below: below, normal: norm, median: med,
+             dryOf10: Math.round(fDry*10), wetOf10: Math.round(fWet*10),
+             lean: lean, lo: T[0], hi: T[n-1] };
+  } catch(e){ return null; }
+}
+/* "October to February" — the months, in words, never a date range. */
+function rnSeasMonthWords(months){
+  try {
+    var F = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var A = ['Januarie','Februarie','Maart','April','Mei','Junie','Julie','Augustus','September','Oktober','November','Desember'];
+    function nm(k){ var i = +k.slice(5,7) - 1; return rnT(F[i], A[i]); }
+    if (months.length === 1) return nm(months[0]);
+    return nm(months[0]) + rnT(' to ', ' tot ') + nm(months[months.length-1]);
+  } catch(e){ return ''; }
+}
+function rnSeasChipHtml(){
+  var o = rnSeasOutlook(); if (!o) return '';
+  var when = rnSeasMonthWords(o.months);
+  var cls, ic, head;
+  if (o.lean === 'dry'){
+    cls = 'dry'; ic = '&#127782;';
+    head = '<b>' + o.dryOf10 + rnT(' out of 10 forecasts point to a drier ',
+                                   ' uit 10 voorspellings dui op \'n droër ') + when +
+           rnT(' than usual.', ' as gewoonlik.') + '</b> ';
+  } else if (o.lean === 'wet'){
+    cls = 'wet'; ic = '&#127783;';
+    head = '<b>' + o.wetOf10 + rnT(' out of 10 forecasts point to a wetter ',
+                                   ' uit 10 voorspellings dui op \'n natter ') + when +
+           rnT(' than usual.', ' as gewoonlik.') + '</b> ';
+  } else {
+    cls = 'even'; ic = '&#128336;';
+    head = '<b>' + rnT('Forecasts are split about even on ', 'Voorspellings is omtrent gelyk verdeel oor ') +
+           when + rnT('.', '.') + '</b> ' +
+           rnT('Nothing here says plan for a dry year, and nothing says plan for a wet one. ',
+               'Niks hier sê beplan vir \'n droë jaar nie, en niks sê beplan vir \'n nat een nie. ');
+  }
+  /* The tail talks about the AMOUNT, never the direction. When every run lands
+     on the same side, "they do not agree" would be plainly untrue — but they
+     are still far apart on how much, which is the reason for showing odds. */
+  var tail = rnT('That is a lean, not a promise — ', 'Dit is \'n neiging, nie \'n belofte nie — ') +
+             o.n + rnT(' separate forecast runs, and they are far apart on how much.',
+                       ' aparte voorspellingslopies, en hulle verskil ver oor hoeveel.');
+  var act = (typeof rnSeasHow === 'function')
+    ? ' <a class="lnk" onclick="rnSeasHow()">' + rnT('How we got this','Hoe ons dit kry') + '</a>' : '';
+  return '<div class="rn-seas ' + cls + '"><span class="ic">' + ic + '</span><span class="gr">' +
+         head + tail + act + '</span></div>';
+}
+function rnSeasHow(){
+  var o = rnSeasOutlook(); if (!o) return;
+  var lines = [
+    rnT('The forecast is run ','Die voorspelling word ') + o.n +
+      rnT(' times over, each from a slightly different starting point. Counting how many come in under normal says how sure the runs are — not how much rain to expect.',
+          ' keer oorgedoen, elkeen van \'n effens ander beginpunt af. Om te tel hoeveel onder normaal uitkom sê hoe seker die lopies is — nie hoeveel reën om te verwag nie.'),
+    rnT('Months counted: ','Maande getel: ') + rnSeasMonthWords(o.months) +
+      rnT('. Only whole months are used.','. Slegs volle maande word gebruik.'),
+    rnT('Your own normal for those months is ','Jou eie normaal vir daardie maande is ') +
+      rnMm(o.normal) + rnT(' mm. ',' mm. ') + o.below + rnT(' of the ',' van die ') + o.n +
+      rnT(' runs came in under it.',' lopies het daaronder uitgekom.'),
+    rnT('The runs spread from ','Die lopies strek van ') + rnMm(o.lo) + rnT(' to ',' tot ') +
+      rnMm(o.hi) + rnT(' mm, which is why we do not put a figure on it.',
+                       ' mm, en daarom sit ons nie \'n syfer daarop nie.'),
+    rnT('ECMWF SEAS5, through the same rainfall service as the rest of this page. It is strong on El Niño and weak on any one farm\'s rainfall total.',
+        'ECMWF SEAS5, deur dieselfde reëndiens as die res van hierdie bladsy. Dit is sterk op El Niño en swak op enige een plaas se reënvaltotaal.')
+  ];
+  var text = lines.join('\n\n');
+  if (typeof _appDialog === 'function')
+    _appDialog({kind:'info', title: rnT('The season ahead','Die seisoen vorentoe'),
+                message: text, okLabel: rnT('Close','Maak toe')});
+  else alert(text);
+}
+function rnSeasRender(){
+  try {
+    var el = document.getElementById('mkt-seas-chip'); if (!el) return;
+    el.innerHTML = rnSeasChipHtml();
+  } catch(e){}
+}
+
 /* ══ RAINFALL-T2-END ══ */
 
 /* ══ RAINFALL-T0-END ══ */
