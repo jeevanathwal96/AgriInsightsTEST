@@ -6192,6 +6192,19 @@ body.no-livestock .tours-menu-item.ent-livestock{display:none}
 .rn-vrow .v .dry{color:var(--or,#B45309)}
 .rn-vfoot{font-size:11px;color:var(--t3,#6B7280);margin-top:7px;line-height:1.45}
 .rn-vfoot.q{color:var(--t4,#9CA3AF)}
+/* ── Tier 2 ─────────────────────────────────────────────────────────────── */
+.rn-watersplit,.rn-bgtline{display:flex;gap:11px;align-items:flex-start;border-radius:11px;padding:11px 14px;font-size:12.5px;line-height:1.5}
+.rn-watersplit{background:#EAF4FB;border:1px solid #BFDCEF;color:#12496F;margin:10px 0 2px}
+.rn-bgtline{background:#EAF4FB;border:1px solid #BFDCEF;color:#12496F;margin:0 0 12px}
+.rn-watersplit .ic,.rn-bgtline .ic{flex:0 0 auto;font-size:14px;line-height:1.35}
+.rn-watersplit .gr,.rn-bgtline .gr{flex:1;min-width:0}
+.rn-watersplit .q{display:block;margin-top:6px;font-size:11px;opacity:.8}
+.rn-bgtline .lnk{color:inherit;text-decoration:underline;font-weight:700;cursor:pointer;white-space:nowrap}
+.rn-spraywet{font-size:11.5px;color:var(--or,#B45309);line-height:1.45;margin-top:3px}
+.rn-spraywet .q{color:var(--t4,#9CA3AF);font-weight:400}
+.rn-per100{font-variant-numeric:tabular-nums;white-space:nowrap}
+.rn-per100.dry{color:var(--rd,#DC2626)}
+.rn-p100note{font-size:11px;color:var(--t3,#6B7280);margin:8px 2px 0;line-height:1.45}
 .scn-sugg{display:flex;gap:11px;align-items:flex-start;background:var(--op,#FFF3E8);border:1px solid #F3D2B8;color:#8A4412;border-radius:11px;padding:11px 14px;margin-top:10px;font-size:12.5px;line-height:1.5}
 .scn-sugg .ic{flex:0 0 auto;font-size:15px;line-height:1.2}
 .scn-sugg .gr{flex:1;min-width:0}
@@ -7915,6 +7928,10 @@ table.rn-t td.dim{color:var(--t4)}
       <div class="bgt-hero-sub" id="bgt-hero-sub"></div>
       <div class="bgt-hero-deltas" id="bgt-hero-deltas"></div>
     </div>
+
+    <!-- T2.3 · why the year is where it is. Written by rnBudgetRainLine() from
+         the SAME computation the hero above uses, never re-divided here. -->
+    <div id="bgt-rainline" data-notranslate></div>
 
     <div class="bgt-kpi-strip" id="bgt-kpis">
       <div class="bgt-kpi kpi-tap" id="bgt-kpi-card-in" style="--stripe:var(--gl);--selc:var(--gd)" onclick="setBudgetTab('in')"><span class="kpi-i" onclick="event.stopPropagation();kpiOpen('bgtIn')">&#9432;</span>
@@ -11630,6 +11647,29 @@ function demoRepairCrops(){
    bar would sit at 100%. Fires ONLY on the exact untouched seed fingerprint (Vlakte planted
    2024-11-18, harvest 2025-05-15) — a real farm's data never matches — and once shifted the
    dates no longer match, so it is idempotent and safe to run on every boot. */
+/* The water meter readings were left out of the land-date shift, so a demo
+   install that has already been repaired once carries readings a year or more
+   behind its own season — and every screen built on the meter comes up empty.
+   Same idea as demoRepairCropLands: fires only on the seeded pair, works out
+   the shift from the lands themselves, and no-ops once they are in step. */
+function demoRepairWaterReadings(){
+  try{
+    if(typeof ST_CROP==='undefined' || !ST_CROP.compliance) return;
+    var R=ST_CROP.compliance.waterReadings;
+    if(!R || R.length!==2) return;
+    var m3=[R[0].m3,R[1].m3].sort(function(a,b){return a-b;});
+    if(!(m3[0]===286100 && m3[1]===312400)) return;      /* the seeded pair, untouched */
+    var v=(ST_CROP.lands||[]).filter(function(x){return x && x.name==='Vlakte' && x.planted;})[0];
+    if(!v) return;
+    /* The seed reads the meter in the January after a November planting. */
+    var want=parseInt(String(v.planted).slice(0,4),10)+1;
+    var have=parseInt(String(R[0].date).slice(0,4),10);
+    var shift=want-have; if(!shift) return;
+    var sh=function(d){ return (d && /^\d{4}-/.test(d)) ? (parseInt(d.slice(0,4),10)+shift)+d.slice(4) : d; };
+    R.forEach(function(r){ if(r) r.date=sh(r.date); });
+    try { ((ST_CROP.compliance.logs||{}).water||[]).forEach(function(e){ if(e) e.date=sh(e.date); }); } catch(e){}
+  }catch(e){}
+}
 function demoRepairCropLands(){
   try{
     if(typeof ST_CROP==='undefined' || !ST_CROP.lands) return;
@@ -11647,6 +11687,11 @@ function demoRepairCropLands(){
     L.forEach(function(x){ if(x){ x.planted=shiftY(x.planted); x.harvest=shiftY(x.harvest); } });
     (ST_CROP.events||[]).forEach(function(e){ if(e) e.date=shiftY(e.date); });
     (ST_CROP.inputs||[]).forEach(function(i){ if(i) i.date=shiftY(i.date); });
+    /* The water meter readings move with everything else. They were left behind,
+       so a demo farm had no reading inside the current season and every screen
+       built on the meter came up empty. */
+    try { (ST_CROP.compliance.waterReadings||[]).forEach(function(r){ if(r) r.date=shiftY(r.date); }); } catch(e){}
+    try { ((ST_CROP.compliance.logs||{}).water||[]).forEach(function(e){ if(e) e.date=shiftY(e.date); }); } catch(e){}
   }catch(e){}
 }
 // Jump from a land to its line in Planning (and flash it)
@@ -12390,7 +12435,7 @@ function _cropLandCardBody(l){
   } else if(fallow){
     s1=_cropLandRow('💤','Status','Resting / grazing')+_cropLandRow('🔄','Last crop',esc(l.prevCrop||'—'))+cropPlantRows(l);
   } else {
-    s1=_cropLandRow('🌱','Planted',cropDispDate(l.planted))+_cropLandRow('🌾','Est. harvest',(est==='harvest'?'now':(est==='harvested'?'done':cropDispDate(l.harvest))))+_cropLandRow((l.actualYield!=null?'✅':'🎯'),(l.actualYield!=null?'Actual yield':'Expected yield'),(cropLandYield(l)||0)+' t/ha')+_cropLandRow('💧','Input cost',cropFmtR(l.inputPerHa)+'/ha')+_cropLandRow('🔄','Previous crop',esc(l.prevCrop||'—'))+cropPlantRows(l);
+    s1=_cropLandRow('🌱','Planted',cropDispDate(l.planted))+_cropLandRow('🌾','Est. harvest',(est==='harvest'?'now':(est==='harvested'?'done':cropDispDate(l.harvest))))+_cropLandRow((l.actualYield!=null?'✅':'🎯'),(l.actualYield!=null?'Actual yield':'Expected yield'),(cropLandYield(l)||0)+' t/ha')+_cropLandRow('💧','Input cost',cropFmtR(l.inputPerHa)+'/ha')+_cropLandRow('🔄','Previous crop',esc(l.prevCrop||'—'))+cropWaterRows(l)+cropPlantRows(l);
   }
   var col1='<div><div class="cr-bh">This season on this land</div>'+s1+(cropForecastable(l)?'<div class="cr-xlink" onclick="event.stopPropagation();cropViewInPlanning('+l.id+')">🗓 View in Planning →</div>':'')+'</div>';
   var hbox = phi ? '<div class="ls-hbox warn"><span class="hl">Spray waiting period</span>Do not harvest before '+lsFmtDate(phi.safe)+'.</div>'
@@ -12493,6 +12538,7 @@ function _cropLandTable(sorted){
     var gmNeg = l.crop && !fallow && !planned && cropLandGMperHa(l)<0;
     var gm = (l.crop && !fallow) ? (cropFmtR(cropLandGMperHa(l))+'/ha') : '\u2014';
     var val = (planned||fallow||!l.crop) ? '\u2014' : cropFmtR(cropLandIncomePerHa(l)*(l.area||0));
+    var p100 = (typeof rnLandPer100==='function') ? rnLandPer100(l) : null;
     return '<tr onclick="cropOpenLand('+l.id+')" style="cursor:pointer">'+
       '<td><b>'+esc(l.name)+'</b></td>'+
       '<td class="r">'+(l.area||0)+' ha</td>'+
@@ -12500,9 +12546,19 @@ function _cropLandTable(sorted){
       '<td><span class="crop-stage '+chipCls+'">'+chip+'</span>'+cropPlantChip(l)+'</td>'+
       '<td class="r">'+yld+'</td>'+
       '<td class="r"'+(gmNeg?' style="color:var(--rd)"':'')+'>'+gm+'</td>'+
+      /* T2.2 — the same gross margin, against the rain that actually fell on
+         this land's own season. */
+      '<td class="r rn-per100'+(p100&&p100.per100<0?' dry':'')+'">'+
+        (p100 ? (cropFmtR(Math.round(p100.per100))) : '\u2014')+'</td>'+
       '<td class="r">'+val+'</td></tr>';
   }).join('');
-  return '<div style="overflow-x:auto;border:1px solid var(--br);border-radius:13px;background:#fff"><table class="crop-tbl" style="min-width:660px"><thead><tr><th>Land</th><th class="r">Area</th><th>Crop / cultivar</th><th>Status</th><th class="r">Yield</th><th class="r">Margin/ha</th><th class="r">Expected value</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  var anyP100 = false;
+  try { anyP100 = sorted.some(function(l){ return (typeof rnLandPer100==='function') && !!rnLandPer100(l); }); } catch(e){}
+  var note = anyP100 ? ('<div class="rn-p100note">' +
+    rnT('Per 100 mm is the same gross margin \u2014 income less direct inputs \u2014 against the rain that fell between planting and harvest on each land. Every land uses the farm\u2019s rain figure; the app cannot yet tie a land to its own gauge.',
+        'Per 100 mm is dieselfde bruto marge \u2014 inkomste min direkte insette \u2014 teen die re\u00ebn wat tussen plant en oes op elke land geval het. Elke land gebruik die plaas se re\u00ebnsyfer; die program kan nog nie \u2019n land aan sy eie re\u00ebnmeter koppel nie.') +
+    '</div>') : '';
+  return '<div style="overflow-x:auto;border:1px solid var(--br);border-radius:13px;background:#fff"><table class="crop-tbl" style="min-width:730px"><thead><tr><th>Land</th><th class="r">Area</th><th>Crop / cultivar</th><th>Status</th><th class="r">Yield</th><th class="r">Margin/ha</th><th class="r">Per 100 mm</th><th class="r">Expected value</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+note;
 }
 function cropKpi(l,v,acc,id){ return '<div class="crop-kpi'+(acc?' acc':'')+(id?' kpi-tap':'')+'"'+(id?' onclick="kpiOpen(\''+id+'\')" style="position:relative"':'')+'>'+(id?'<span class="kpi-i">\u24D8</span>':'')+'<div class="l">'+l+'</div><div class="v">'+v+'</div></div>'; }
 function cropCta(cls,ic,t,s,onclick){ return '<button class="crop-rpt-cta '+cls+'" onclick="'+onclick+'"><span class="ic">'+ic+'</span><span class="tx"><span class="t">'+t+'</span><span class="s">'+s+'</span></span><span class="ar">\u203a</span></button>'; }
@@ -12533,6 +12589,28 @@ function cropPlantRows(l){
       h += _cropLandRow('🧊', rnT('Your first frost after','Jou eerste ryp daarna'),
             rnDoyLabel(p.frost.firstAutumn.med)+rnT(' · ',' · ')+p.frost.freeDays.med+rnT(' frost-free days',' rypvrye dae'));
     }
+    return h;
+  } catch(e){ return ''; }
+}
+/* T2.2 — what this land did with the rain it got. Gross margin, against the
+   rain measured over its own planting-to-harvest window. Kilograms per
+   millimetre sits beside its OWN crop's benchmark and never beside another
+   crop's: sunflower earns the most rand per millimetre on this farm and grows
+   the least grain per millimetre. */
+function cropWaterRows(l){
+  try {
+    if (typeof rnLandPer100 !== 'function') return '';
+    var p = rnLandPer100(l); if (!p) return '';
+    var h = _cropLandRow('\uD83C\uDF27\uFE0F',
+      rnT('Rain this land got','Reën wat hierdie land gekry het'), rnMm(p.mm) + ' mm');
+    h += _cropLandRow('\uD83D\uDCB5',
+      rnT('Gross margin per 100 mm','Bruto marge per 100 mm'),
+      cropFmtR(Math.round(p.per100)));
+    var k = (typeof rnLandKgMm === 'function') ? rnLandKgMm(l) : null;
+    if (k && k.bench)
+      h += _cropLandRow('\u2696\uFE0F', rnT('Grain per mm','Graan per mm'),
+        (Math.round(k.kg*10)/10) + rnT(' kg/ha \u00b7 ', ' kg/ha \u00b7 ') +
+        rnT('typical ','tipies ') + k.bench + ' ' + rnT('for ','vir ') + k.crop);
     return h;
   } catch(e){ return ''; }
 }
@@ -12599,7 +12677,9 @@ function cropRenderInputs(){
     var safeCls = cropInputActive(i)?'st-wd':'st-ok';
     var batch = (i.kind==='fertiliser'||i.kind==='seed') ? (i.batch||'\u2014') : (i.batch?esc(i.batch):'<span class="miss">missing</span>');
     return '<tr><td>'+cropDispDate(i.date)+'</td><td>'+esc(l?l.name:'?')+'</td>'+
-      '<td>'+esc(i.product)+'<br><span style="color:var(--t4);font-size:10px">Act 36/1947 \u00b7 '+esc(i.reg||'\u2014')+(i.targetFor?' \u00b7 for '+esc(i.targetFor):'')+'</span></td>'+
+      '<td>'+esc(i.product)+'<br><span style="color:var(--t4);font-size:10px">Act 36/1947 \u00b7 '+esc(i.reg||'\u2014')+(i.targetFor?' \u00b7 for '+esc(i.targetFor):'')+'</span>'+
+        /* T2.5 — what fell around the spray. Only for things that can wash off. */
+        ((/^(herbicide|fungicide|insecticide)$/.test(i.kind||'') && typeof rnSprayRainHtml==='function') ? rnSprayRainHtml(i.date) : '')+'</td>'+
       '<td><span class="crop-tagp '+meta[1]+'">'+meta[0]+'</span></td><td>'+esc(i.rate||'')+'</td><td>'+batch+'</td>'+
       '<td>'+esc(i.by||'')+(i.operatorCert?'<br><span style="color:var(--t4);font-size:10px">'+esc(i.operatorCert)+' cert</span>':'')+'</td>'+
       '<td>'+(i.phi?i.phi+' d':'None')+'</td><td class="'+safeCls+'">'+safe+'</td></tr>';
@@ -12775,6 +12855,8 @@ function cropRenderComplianceModal(){
       '<div class="crop-sec-h" style="margin:18px 0 8px">Meter readings</div>'+
       (auth?'<div style="font-size:11.5px;color:var(--t3);margin-bottom:6px">Latest '+used.toLocaleString("en-ZA")+' m\u00b3 of '+auth.toLocaleString("en-ZA")+' m\u00b3 authorised ('+Math.round(used/auth*100)+'%)</div>':'')+
       rows+trend+
+      /* T2.1 — the meter against the rain gauge, both measured. */
+      ((typeof rnWaterSplitHtml==='function') ? rnWaterSplitHtml() : '')+
       '<div style="display:flex;gap:8px;margin-top:10px"><input id="cwr-date" type="date" value="'+LS_TODAY.toISOString().slice(0,10)+'" style="flex:1;padding:8px 10px;border:1px solid var(--br);border-radius:8px;font-family:inherit;font-size:12.5px"><input id="cwr-m3" type="number" placeholder="m\u00b3 reading" style="flex:1;padding:8px 10px;border:1px solid var(--br);border-radius:8px;font-family:inherit;font-size:12.5px"><button onclick="cropAddWaterReading()" style="flex:none;padding:8px 12px;border:none;border-radius:8px;background:var(--gd);color:#fff;font-weight:700;font-size:12.5px;cursor:pointer">Add</button></div>';
   }
 
@@ -13355,10 +13437,33 @@ function openCropWaterReport(){
       '<tr class="total"><td>Used vs authorised</td><td class="amt">'+pct+'%</td></tr>'+
     '</tbody></table>'+
     '<h2>2 \u00b7 Irrigated lands</h2><table><thead><tr><th>Land</th><th>Crop</th><th class="amt">Area</th><th>Use</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    /* T2.1 — how much of the watering the rain did over the last metered
+       interval. Both figures measured: the meter and the rain record. */
+    (function(){
+      var w = (typeof rnWaterSplit==='function') ? rnWaterSplit() : null;
+      if (!w) return '';
+      return '<h2>3 \u00b7 Rain over the same land</h2><table><tbody>'+
+        '<tr><td>Period between meter readings</td><td class="amt">'+cropDispDate(w.from)+' \u2013 '+cropDispDate(w.to)+' ('+w.days+' days)</td></tr>'+
+        '<tr><td>Rain measured over the irrigated land</td><td class="amt">'+rnMm(w.rainMm)+' mm</td></tr>'+
+        '<tr><td>Water pumped over the same land</td><td class="amt">'+Math.round(w.pumpedM3).toLocaleString('en-ZA')+' m\u00b3 ('+rnMm(w.pumpedMm)+' mm)</td></tr>'+
+        '<tr class="total"><td>Share of the watering done by rain</td><td class="amt">'+Math.round(w.rainShare*100)+'%</td></tr>'+
+        '</tbody></table>'+
+        '<div class="lsr-note">Rain is converted at 10 m\u00b3 per millimetre per hectare over the '+Math.round(w.ha)+' ha of irrigated land. It is what fell, not what the crop could use \u2014 run-off and drainage take a share of it.</div>';
+    })()+
     '<div class="lsr-note">Keep monthly meter readings and stay within the authorised volume. Use above the authorisation, or unregistered use beyond Schedule-1, is an offence under the Act.</div>'+
     '<div class="lsr-disc"><b>Not legal advice.</b> Confirm your authorisation conditions and reporting deadlines with the Department of Water and Sanitation / your Water User Association.</div>';
   var csv=lsCsvRow(['Water Use Return',FARM.name||'Farm','Season',ST_CROP.season])+lsCsvRow([])+lsCsvRow(['WUL',c.waterWUL||''])+lsCsvRow(['Authorised m3/yr',c.waterAuthorised||0])+lsCsvRow(['Used m3',c.waterUsed||0])+lsCsvRow(['% used',pct])+lsCsvRow([])+lsCsvRow(['Irrigated land','Crop','Ha']);
   irr.forEach(function(l){csv+=lsCsvRow([l.name,l.crop||'',l.area]);});
+  try {
+    var _w = (typeof rnWaterSplit==='function') ? rnWaterSplit() : null;
+    if (_w){
+      csv += lsCsvRow([]) + lsCsvRow(['Rain over the same land']) +
+             lsCsvRow(['From',_w.from,'To',_w.to,'Days',_w.days]) +
+             lsCsvRow(['Rain mm',rnMm(_w.rainMm)]) +
+             lsCsvRow(['Pumped m3',Math.round(_w.pumpedM3),'Pumped mm',rnMm(_w.pumpedMm)]) +
+             lsCsvRow(['Rain share %',Math.round(_w.rainShare*100)]);
+    }
+  } catch(e){}
   lsShowReport('Water use return','linear-gradient(135deg,#0891B2,#0E7490)',html,csv,'crop-water-use.csv');
 }
 
@@ -15271,6 +15376,7 @@ function bootAgriInsights() {
   try { cropInitialPlanSync(!loaded); } catch(e){}
   try { demoRepairCrops(); } catch(e){}
   try { demoRepairCropLands(); } catch(e){}
+  try { demoRepairWaterReadings(); } catch(e){}
   try { if(typeof planSyncToCurrentYear==='function') planSyncToCurrentYear(); } catch(e){}
   try { demoSeedPlanning(!loaded); } catch(e){}
   try { demoSeedFuel(!loaded); } catch(e){}
@@ -36451,6 +36557,12 @@ function bgtRenderHero(c) {
   }
 
   card.className = 'bgt-hero ' + status;
+  /* T2.3 — the rain line takes its income figure from this same `c`. */
+  try {
+    var rl = $('bgt-rainline');
+    if (rl) rl.innerHTML = (status === 'info' || typeof rnBudgetRainLine !== 'function')
+                             ? '' : rnBudgetRainLine(c);
+  } catch(e){}
   setEl('bgt-hero-eyebrow-text', eyebrow);
   var h = $('bgt-hero-headline'); if (h) h.innerHTML = headline;
   setEl('bgt-hero-sub', sub);
@@ -69932,6 +70044,9 @@ function rnRenderHeader(){
     var h = '';
     if (typeof rnImportOpen === 'function') h += '<button class="btn-sec" onclick="rnImportOpen()">&uarr; ' + rnT('Import my old rain book', 'Bring my ou reënboek in') + '</button>';
     if (typeof rnReportOpen === 'function' && rnYourReadings() > 0) h += '<button class="btn-sec" onclick="rnReportOpen()">' + rnT('Rainfall record', 'Reënvalrekord') + '</button>';
+    /* T2.6 — rain is the one figure a farmer forwards. Only offered once there
+       is a month to send. */
+    if (typeof rnShareText === 'function' && rnShareText()) h += '<button class="btn-sec" onclick="rnShareRain()">' + rnT('Send on WhatsApp', 'Stuur op WhatsApp') + '</button>';
     h += '<button class="rn-btn" onclick="rnLogOpen()">+ ' + rnT('Log rain', 'Teken reën aan') + '</button>';
     act.innerHTML = h;
   }
@@ -71377,6 +71492,227 @@ function rnAttnItems(){
     if (!has(RAIN_PAIRS[i][0])) LANG_PAIRS.unshift(RAIN_PAIRS[i]);
   }
 })();
+
+/* ══ RAINFALL-T2-BEGIN ═══════════════════════════════════════════════════════
+   Tier 2 measures; it does not model (D23). Every figure below is division on
+   numbers this farm already holds — its own rain record, its own water meter,
+   its own margins. Nothing here needs a national average or a coefficient.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Fractions, in the words a farmer would use. A percentage is precision this
+   comparison has not earned, and "about two-thirds" is read faster anyway. */
+function rnShareWords(f){
+  if (f >= .88) return rnT('nearly all of',        'byna al');
+  if (f >= .70) return rnT('about three-quarters of','omtrent driekwart van');
+  if (f >= .58) return rnT('about two-thirds of',  'omtrent twee derdes van');
+  if (f >= .42) return rnT('about half of',        'omtrent die helfte van');
+  if (f >= .28) return rnT('about a third of',     'omtrent \'n derde van');
+  if (f >= .15) return rnT('about a quarter of',   'omtrent \'n kwart van');
+  return          rnT('a small part of',           '\'n klein deel van');
+}
+
+/* ── T2.5 · what fell around a spray ──────────────────────────────────────────
+   Daily totals are all we hold, so the honest window is the day of the spray
+   and the day after — not "within 24 hours", which we cannot actually see.
+   How long a product needs to dry is on its label, and the app holds no
+   labels, so this reports and stops (D27). */
+var RN_SPRAY_FLAG_MM = 5;
+function rnSprayRain(dateISO){
+  try {
+    if (!dateISO || !rnOn()) return null;
+    var d0 = rnDayMm(dateISO);
+    var d1 = rnDayMm(rnISO(rnAddDays(rnParse(dateISO), 1)));
+    if (!d0 && !d1) return null;
+    var mm  = (d0 ? (d0.mm||0) : 0) + (d1 ? (d1.mm||0) : 0);
+    var gauge = (d0 && d0.src === 'gauge') || (d1 && d1.src === 'gauge');
+    return { mm: Math.round(mm*10)/10, src: gauge ? 'gauge' : 'sat',
+             flag: mm >= RN_SPRAY_FLAG_MM };
+  } catch(e){ return null; }
+}
+function rnSprayRainHtml(dateISO){
+  var r = rnSprayRain(dateISO);
+  if (!r || !r.flag) return '';
+  return '<div class="rn-spraywet">&#9748; ' + rnMm(r.mm) +
+    rnT(' mm fell on the day of this spray and the day after.', ' mm het geval op die dag van hierdie spuit en die dag daarna.') +
+    ' <b>' + rnT('Check the label.','Kyk op die etiket.') + '</b>' +
+    '<span class="q">' + (r.src === 'gauge' ? rnT(' Your gauge.',' Jou reënmeter.')
+                                            : rnT(' Satellite estimate.',' Satelliet-skatting.')) +
+    rnT(' Farm figure, not this land alone.',' Plaassyfer, nie hierdie land alleen nie.') + '</span></div>';
+}
+
+/* ── T2.1 · the meter against the rain gauge ──────────────────────────────────
+   The farmer already writes a meter reading down for their water-use licence.
+   Between two of them, what went through the meter and what fell out of the sky
+   are both measured — so the split needs no crop-water model and no tariff.
+   We do not price the rain as "money saved": that needs a guess about what
+   they would otherwise have pumped, and this screen does not need one (D29). */
+function rnIrrigatedHa(){
+  try {
+    return (ST_CROP.lands||[]).filter(function(l){ return l && l.irrigated; })
+                              .reduce(function(s,l){ return s + (+l.area||0); }, 0);
+  } catch(e){ return 0; }
+}
+function rnWaterSplit(){
+  try {
+    if (!rnOn()) return null;                                        /* D16 */
+    if (typeof cropWaterReadings !== 'function') return null;
+    var R = cropWaterReadings();                                     /* newest first */
+    if (!R || R.length < 2) return null;    /* one reading is a number, not a change */
+    var newest = R[0], prev = R[1];
+    var ha = rnIrrigatedHa(); if (!(ha > 0)) return null;
+    var pumped = (+newest.m3||0) - (+prev.m3||0);
+    if (!(pumped > 0)) return null;         /* a meter that ran backwards is a typo, not a story */
+    var from = rnISO(rnAddDays(rnParse(prev.date), 1)), to = newest.date;
+    if (from > to) return null;
+    if (!rnCovers(from)) return null;       /* no rain record reaching that far back */
+    var rainMm = rnTotal(from, to); if (rainMm == null) return null;
+    var pumpedMm = pumped / ha / 10;        /* 1 mm over 1 ha is 10 m³, exactly */
+    var tot = rainMm + pumpedMm;
+    return { from: prev.date, to: to,
+             days: Math.round((rnParse(to) - rnParse(prev.date)) / 86400000),
+             ha: ha, pumpedM3: pumped, pumpedMm: pumpedMm, rainMm: rainMm,
+             rainShare: tot > 0 ? (rainMm / tot) : 0 };
+  } catch(e){ return null; }
+}
+function rnWaterSplitHtml(){
+  var w = rnWaterSplit(); if (!w) return '';
+  var d = function(iso){ return (typeof cropDispDate==='function') ? cropDispDate(iso) : iso; };
+  return '<div class="rn-watersplit"><span class="ic">&#128167;</span><span class="gr">' +
+    '<b>' + rnT('The rain did ','Die reën het ') + rnShareWords(w.rainShare) +
+    rnT(' your watering.',' jou natmaak gedoen.') + '</b> ' +
+    rnMm(w.rainMm) + rnT(' mm fell on your ',' mm het op jou ') + Math.round(w.ha) +
+    rnT(' ha of irrigated land. You pumped ',' ha besproeide land geval. Jy het ') +
+    Math.round(w.pumpedM3).toLocaleString('en-ZA') +
+    rnT(' m³, which is ',' m³ gepomp, wat ') + rnMm(w.pumpedMm) +
+    rnT(' mm over the same land.',' mm oor dieselfde land is.') +
+    '<span class="q">' + d(w.from) + ' – ' + d(w.to) + ' · ' + w.days +
+    rnT(' days · from your own meter readings',' dae · uit jou eie metertellings') +
+    '</span></span></div>';
+}
+
+/* ── T2.2 · what each 100 mm earned ───────────────────────────────────────────
+   Against the rain that actually fell on THIS land's own season, never against
+   the thirty-year average — divide every land by the same number and the figure
+   says nothing that margin per hectare did not already say (D24).
+   The app's margin is income less direct inputs, so the screen says gross
+   margin and never "profit" (D26). */
+function rnLandSeasonMm(land){
+  try {
+    if (!land || !rnOn()) return null;
+    if (land.irrigated) return null;        /* its water is metered, not measured by the gauge */
+    var from = land.planted, to = land.harvest;
+    if (!from || !to) return null;
+    if (to > rnISO(rnToday())) return null; /* still growing — wait for the rain still to come */
+    if (from >= to) return null;
+    if (!rnCovers(from)) return null;
+    return rnTotal(from, to);
+  } catch(e){ return null; }
+}
+function rnLandPer100(land){
+  try {
+    var mm = rnLandSeasonMm(land); if (!(mm > 0)) return null;
+    if (typeof cropLandGMperHa !== 'function') return null;
+    var gm = cropLandGMperHa(land);
+    if (gm == null || !isFinite(gm)) return null;
+    return { mm: mm, gmHa: gm, per100: gm / mm * 100 };
+  } catch(e){ return null; }
+}
+/* Kilograms per millimetre compares a land with its OWN crop's benchmark and
+   nothing else: sunflower earns the most rand per millimetre on this farm and
+   grows the least grain per millimetre, because it sells for far more a tonne.
+   Dryland benchmarks measured at Glen, in the Free State. */
+var RN_WUE_BENCH = [
+  { m: /maize|mielie/i,       kg: 7.4, label: function(){ return rnT('maize','mielies'); } },
+  { m: /sunflower|sonneblom/i, kg: 4.8, label: function(){ return rnT('sunflower','sonneblom'); } }
+];
+function rnLandKgMm(land){
+  try {
+    var p = rnLandPer100(land); if (!p) return null;
+    if (typeof cropLandYield !== 'function') return null;
+    var t = cropLandYield(land); if (!(t > 0)) return null;
+    var kg = t * 1000 / p.mm, b = null;
+    for (var i=0;i<RN_WUE_BENCH.length;i++){
+      if (RN_WUE_BENCH[i].m.test(land.crop || '')) { b = RN_WUE_BENCH[i]; break; }
+    }
+    return { kg: kg, bench: b ? b.kg : null, crop: b ? b.label() : null, mm: p.mm };
+  } catch(e){ return null; }
+}
+
+/* ── T2.3 · why the season tracker is where it is ─────────────────────────────
+   The income figure is taken from the SAME computation the hero card above it
+   uses. Tier 1 shipped a screen where a tile and the strip beneath it worked
+   out two different grazing norms; one page, one number, one source. */
+function rnBudgetRainLine(c){
+  try {
+    if (!rnOn()) return '';                                          /* D16 */
+    var l12 = rnLast12(), na = rnNormalAnnual();
+    if (l12 == null || !(na > 0)) return '';
+    var rainDown = Math.round((1 - l12/na) * 100);
+    if (Math.abs(rainDown) < 5) return '';   /* a normal year is not news */
+    var incDown = null;
+    try { if (c && c.expIn > 0) incDown = Math.round(Math.max(0, -c.aheadIn / c.expIn) * 100); } catch(e){}
+    var h = '<div class="rn-bgtline"><span class="ic">&#127783;</span><span class="gr"><b>';
+    h += rnT('Your rain is ','Jou reën is ') + Math.abs(rainDown) +
+         (rainDown > 0 ? rnT('% down on a normal year.','% minder as \'n normale jaar.')
+                       : rnT('% up on a normal year.','% meer as \'n normale jaar.'));
+    if (incDown != null && incDown > 0)
+      h += rnT(' Your income is ',' Jou inkomste is ') + incDown + rnT('% down.','% minder.');
+    h += '</b> ' + rnMm(l12) + rnT(' mm in the last 12 months, against the ',' mm in die laaste 12 maande, teen die ') +
+         rnMm(na) + rnT(' mm you would usually have.',' mm wat jy gewoonlik sou hê.') +
+         ' <a class="lnk" onclick="nav(\'rainfall\')">' + rnT('See the rain year','Sien die reënjaar') + '</a>' +
+         '</span></div>';
+    return h;
+  } catch(e){ return ''; }
+}
+
+/* ── T2.6 · the one figure a farmer forwards ──────────────────────────────────
+   No gauge names beyond the farm's own, and no rand in a message that leaves
+   the phone. */
+function rnShareText(){
+  try {
+    var s = rnMonthSeries(); if (!s || !s.mm) return null;
+    var last = -1;
+    for (var i=0;i<s.mm.length;i++) if (s.mm[i] != null) last = i;
+    if (last < 0) return null;
+    /* The month in progress is not a whole month. Comparing ten days of rain
+       against a full month's average makes a normal season read as a drought,
+       so the current month's share of its own average is pro-rated by the day. */
+    var t0 = rnToday();
+    var curLbl = rnMon(t0.getMonth());
+    var part = (s.labels[last] === curLbl);
+    var frac = 1;
+    if (part){
+      var dim = new Date(t0.getFullYear(), t0.getMonth()+1, 0).getDate();
+      frac = Math.min(1, Math.max(0, t0.getDate() / dim));
+    }
+    var ytd = 0, ytdNorm = 0;
+    for (var j=0;j<=last;j++){
+      if (s.mm[j] == null) continue;
+      ytd += s.mm[j];
+      ytdNorm += (s.normal[j]||0) * ((j === last && part) ? frac : 1);
+    }
+    var nl = '\n';
+    var t = '🌧 *' + (ST.farmName || rnT('My farm','My plaas')) + ' · ' + s.labels[last] + '*' + nl +
+      (part ? rnT('So far this month: ','Tot dusver hierdie maand: ')
+            : rnT('That month: ','Daardie maand: ')) + '*' + rnMm(s.mm[last]) + ' mm*' +
+      rnT(' · usually ',' · gewoonlik ') + rnMm((s.normal[last]||0) * frac) +
+      (part ? rnT(' mm by now',' mm teen nou') : ' mm') + nl +
+      rnT('This rain year so far: ','Hierdie reënjaar tot dusver: ') + '*' + rnMm(ytd) + ' mm*' +
+      rnT(' · usually ',' · gewoonlik ') + rnMm(ytdNorm) + rnT(' mm by now',' mm teen nou') + nl;
+    var l12 = rnLast12(), na = rnNormalAnnual();
+    if (l12 != null && na > 0)
+      t += rnT('Last 12 months: ','Laaste 12 maande: ') + '*' + rnMm(l12) + ' mm*' + ' · ' +
+           Math.round(l12/na*100) + rnT('% of normal','% van normaal') + nl;
+    return t + nl + '_' + rnT('Sent from AgriInsights','Gestuur vanaf AgriInsights') + '_';
+  } catch(e){ return null; }
+}
+function rnShareRain(){
+  var t = rnShareText();
+  if (!t){ try{ toast(rnT('No rain figures to send yet','Nog geen reënsyfers om te stuur nie'),'info'); }catch(e){} return; }
+  try { window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank'); } catch(e){}
+  try { toast(rnT('Opening WhatsApp…','Maak WhatsApp oop…'), 'success'); } catch(e){}
+}
+/* ══ RAINFALL-T2-END ══ */
 
 /* ══ RAINFALL-T0-END ══ */
 </script>
