@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=34"></script>
-<script src="ai-auth.js?v=34"></script>
+<script src="ai-data.js?v=35"></script>
+<script src="ai-auth.js?v=35"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -69565,13 +69565,42 @@ function rnSatOn(dateISO){
    book is filled from satellite instead. Stored as [{from, to}]; to:null
    means "until the next reading", which the next reading closes. */
 var RN_GAP_DAYS = 45;
+/* The stretches as they stand today. One left open ("until your next
+   reading") ends the day before the next reading in the book — whichever
+   device logged it. A reading made on the phone reaches this book through the
+   shared repull, and closes the stretch here without anything written back.
+   Cached on the arrays themselves: rnSatOn asks once per day of every total. */
+var RN_NK_CACHE = { log: null, len: -1, nk: null, nlen: -1, ranges: [] };
+function rnNotKeptRanges(){
+  var L = (ST_RAIN && ST_RAIN.notKept) || [];
+  if (!L.length) return [];
+  var log = (ST_RAIN && ST_RAIN.log) || [], c = RN_NK_CACHE;
+  if (c.log === log && c.len === log.length && c.nk === L && c.nlen === L.length) return c.ranges;
+  var own = [];
+  for (var j = 0; j < log.length; j++){ var x = log[j]; if (x && x.src !== 'sat' && x.date) own.push(x.date); }
+  own.sort();
+  var out = [];
+  L.forEach(function(r, i){
+    if (!r || !r.from) return;
+    var to = r.to;
+    if (to == null){
+      for (var k = 0; k < own.length; k++){ if (own[k] >= r.from){ to = rnISO(rnAddDays(rnParse(own[k]), -1)); break; } }
+    }
+    if (to == null || to >= r.from) out.push({ i: i, from: r.from, to: to, open: r.to == null });
+  });
+  RN_NK_CACHE = { log: log, len: log.length, nk: L, nlen: L.length, ranges: out };
+  return out;
+}
 function rnNotKept(dateISO){
-  var L = ST_RAIN && ST_RAIN.notKept; if (!L || !L.length) return false;
-  for (var i = 0; i < L.length; i++){
-    var r = L[i];
-    if (r && dateISO >= r.from && (r.to == null || dateISO <= r.to)) return true;
-  }
+  var R = rnNotKeptRanges();
+  for (var i = 0; i < R.length; i++){ var r = R[i]; if (dateISO >= r.from && (r.to == null || dateISO <= r.to)) return true; }
   return false;
+}
+function rnNotKeptEndTxt(r, i){
+  if (r.to != null) return rnFmtDate(r.to);
+  var e = null; rnNotKeptRanges().forEach(function(x){ if (x.i === i) e = x; });
+  if (e && e.to) return rnFmtDate(e.to) + ' <span style="color:var(--t3)">' + rnT('(the day before your next reading)', '(die dag voor jou volgende lesing)') + '</span>';
+  return rnT('until your next reading', 'tot jou volgende lesing');
 }
 function rnNotKeptAdd(gaps){
   var L = Array.isArray(ST_RAIN.notKept) ? ST_RAIN.notKept.slice() : [];
@@ -69597,7 +69626,7 @@ function rnNotKeptSettingsHtml(){
   return '<div class="rn-f" style="margin-top:12px"><label>' + rnT('Times you were not keeping the book', 'Tye wat jy nie die boek gehou het nie') + '</label>' +
     L.map(function(r, i){
       return '<div style="display:flex;align-items:center;gap:8px;font-size:12.5px;padding:3px 0">' +
-        rnFmtDate(r.from) + ' &ndash; ' + (r.to ? rnFmtDate(r.to) : rnT('until your next reading', 'tot jou volgende lesing')) +
+        rnFmtDate(r.from) + ' &ndash; ' + rnNotKeptEndTxt(r, i) +
         ' <button type="button" class="rn-x" aria-label="' + rnT('Remove', 'Verwyder') + '" onclick="rnNotKeptRemove(' + i + ')">&times;</button></div>';
     }).join('') +
     '<div class="hint">' + rnT('Satellite rain fills these days. Remove one and those days count as dry.',
@@ -71299,7 +71328,7 @@ function rnSetNormalOverride(v){
   ST_RAIN.normal.override = (isNaN(n) || n <= 0) ? null : n;
   rnPersist(); rnSettingsRender();
 }
-function rnSetFill(on){ ST_RAIN.fillFromSat = !!on; rnPersist(); }
+function rnSetFill(on){ ST_RAIN.fillFromSat = !!on; ST_RAIN.fillSet = true; rnPersist(); }   /* a choice, so it follows the farm to other devices */
 function rnSetRule(){
   var mm = parseFloat((rnEl('rn-set-pmm') || {}).value), d = parseInt((rnEl('rn-set-pdays') || {}).value, 10);
   ST_RAIN.rule = { plantMm: (isNaN(mm) || mm <= 0) ? 25 : mm, plantDays: (isNaN(d) || d <= 0) ? 10 : d, set: true };
@@ -71796,7 +71825,7 @@ function rnImportGapsFor(rows){
     out.push({ from: rnISO(rnAddDays(rnParse(lastD), 1)), to: today, open: true });
   /* a stretch already answered is not asked about again */
   return out.filter(function(g){
-    return !(ST_RAIN.notKept || []).some(function(k){ return k.from <= g.from && (k.to == null || k.to >= g.to); });
+    return !rnNotKeptRanges().some(function(k){ return k.from <= g.from && (k.to == null || k.to >= g.to); });
   });
 }
 function rnImpGapText(gaps){

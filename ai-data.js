@@ -317,6 +317,7 @@
   let CAN_FARM_SETTINGS = false;
   let CAN_FARM_RAIN     = false;
   let CAN_FARM_RAIN_NK  = false;   // farms.rain_not_kept (rainfall_not_kept.sql)
+  let CAN_FARM_RAIN_RULE= false;   // farms.rain_plant_mm/_days + rain_fill_sat (rainfall_farm_settings.sql)
   /* Filing rules. Without the table they stay on the device, which is how the UK build
      shipped them — defensible there because that project is not provisioned, and not
      here, where a farmer moves between a laptop and a tablet. */
@@ -354,6 +355,7 @@
     CAN_FARM_SETTINGS  = await has('farms','bank_balance');
     CAN_FARM_RAIN      = await has('farms','rain_lat');
     CAN_FARM_RAIN_NK   = await has('farms','rain_not_kept');
+    CAN_FARM_RAIN_RULE = (await has('farms','rain_plant_days')) && (await has('farms','rain_fill_sat'));
     CAN_CAT_RULES      = await has('category_rules','match_text');
     /* The whole row-memory scheme rides on this one column. A project that has
        not run agriinsights-13-relational-sync.sql keeps today's behaviour rather
@@ -2015,6 +2017,8 @@
       if(r.rain_normal_override!=null) p._rain.normalOverride=Number(r.rain_normal_override);
     }
     if(r.rain_not_kept!=null){ p._rain=p._rain||{}; p._rain.notKept=Array.isArray(r.rain_not_kept)?r.rain_not_kept:[]; }
+    if(r.rain_plant_mm!=null || r.rain_plant_days!=null){ p._rain=p._rain||{}; p._rain.rule={ plantMm:(r.rain_plant_mm!=null?Number(r.rain_plant_mm):null), plantDays:(r.rain_plant_days!=null?parseInt(r.rain_plant_days,10):null) }; }
+    if(r.rain_fill_sat!=null){ p._rain=p._rain||{}; p._rain.fillFromSat=!!r.rain_fill_sat; }
     if(r.name!=null) p.farmName=r.name;
     if(r.owner_name!=null) p.ownerName=r.owner_name;
     if(r.province!=null) p.province=r.province;
@@ -2043,7 +2047,7 @@
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
+    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -2118,12 +2122,24 @@
       if(CAN_FARM_RAIN_NK){
         try{ var _rk=global.ST_RAIN; if(_rk && Array.isArray(_rk.notKept)) raink.rain_not_kept=_rk.notKept; }catch(e){}
       }
-      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink}); if(snap===_profSnap) return;
+      /* The planting rule and the satellite-fill switch, in their own update for
+         the same reason. Written only once the farmer has chosen them — a device
+         still on the defaults must never overwrite a choice made on another. */
+      var rainr={};
+      if(CAN_FARM_RAIN_RULE){
+        try{
+          var _rr=global.ST_RAIN;
+          if(_rr && _rr.rule && _rr.rule.set){ rainr.rain_plant_mm=Number(_rr.rule.plantMm)||null; rainr.rain_plant_days=parseInt(_rr.rule.plantDays,10)||null; }
+          if(_rr && _rr.fillSet) rainr.rain_fill_sat=!!_rr.fillFromSat;
+        }catch(e){}
+      }
+      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink,p:rainr}); if(snap===_profSnap) return;
       if(Object.keys(core).length){ const e=(await client().from('farms').update(core).eq('id',fid)).error; if(e) throw e; }
       var extraOk=true;
       if(Object.keys(extra).length){ const e=(await client().from('farms').update(extra).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: optional fields (VAT/tax/business-type) not saved \u2014 run the profile-schema migrations in Supabase. (' + (e.message||e) + ')'); } }
       if(Object.keys(sett).length){ const e=(await client().from('farms').update(sett).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: device-sync settings not saved (migration missing?)', e && e.message); } }
       if(Object.keys(cons).length){ const e=(await client().from('farms').update(cons).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: POPIA consent not recorded \u2014 run the consent migration in Supabase. (' + (e.message||e) + ')'); } }
+      if(Object.keys(rainr).length){ const e=(await client().from('farms').update(rainr).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: planting rule / satellite fill not saved \u2014 run rainfall_farm_settings.sql. ('+(e.message||e)+')'); } }
       if(Object.keys(raink).length){ const e=(await client().from('farms').update(raink).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: rain-book gaps not saved \u2014 run rainfall_not_kept.sql. ('+(e.message||e)+')'); } }
       if(Object.keys(rainc).length){ const e=(await client().from('farms').update(rainc).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: rainfall location not saved — run rainfall_schema.sql. ('+(e.message||e)+')'); } }
       if(extraOk) _profSnap=snap;

@@ -624,6 +624,12 @@
             /* The stretches the farmer said they were not keeping the book, so a
                second device fills them from satellite exactly as this one does. */
             if (Array.isArray(pf._rain.notKept)) ST_RAIN.notKept = pf._rain.notKept;
+            /* The planting rule and the satellite-fill switch, once the farmer has
+               chosen them on any device. Marked as chosen here too, so this device
+               sends them back unchanged rather than its own defaults. */
+            if (pf._rain.rule && (pf._rain.rule.plantMm || pf._rain.rule.plantDays))
+              ST_RAIN.rule = { plantMm: pf._rain.rule.plantMm || 25, plantDays: pf._rain.rule.plantDays || 10, set: true };
+            if (typeof pf._rain.fillFromSat === 'boolean') { ST_RAIN.fillFromSat = pf._rain.fillFromSat; ST_RAIN.fillSet = true; }
             if (typeof rnSync === 'function') { try { rnSync(); } catch (e4) {} }
           }
         } catch (e) { console.error('rainfall settings hydrate', e); }
