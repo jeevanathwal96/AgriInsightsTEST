@@ -69785,13 +69785,19 @@ function rnSeedDemo(){
 }
 
 /* ── restore ────────────────────────────────────────────────────────────────
-   ST_RAIN is declared at the foot of the file, which is after loadState() has
-   already run, so the merge there cannot see it yet.  Read the same snapshot
-   back here so a saved rain book is restored deterministically, whatever the
-   script order does.  Merging the same values twice is harmless. */
+   rnBoot() runs while the file is being read — BEFORE the load event, and so
+   before loadState(). It reads the saved rain book itself rather than waiting
+   for loadState's merge. Merging the same values twice is harmless. */
 function rnRestore(){
   try {
     if (typeof localStorage === 'undefined' || typeof SAVE_KEY === 'undefined') return false;
+    /* A demo reset is pending: loadState() will delete this very snapshot once
+       the page has loaded. This runs earlier — while the file is still being
+       read — so restoring here carried the old rain book into the fresh demo,
+       and the next save wrote it straight back: Restart demo reset the farm
+       but kept the old rain location and gauges. Stand aside, and let the
+       sample farm's rain be seeded as it is for a first visit. */
+    try { if (sessionStorage.getItem('ai_demo_reset') === '1') return false; } catch(e){}
     var raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return false;
     var snap = JSON.parse(raw);
@@ -69848,8 +69854,8 @@ function rnBoot(){
   } catch(e){}
 }
 
-/* The block sits at the foot of the file, so loadState has already run and a
-   saved rain book is in place before this fires. */
+/* This fires as the file is read, BEFORE loadState() runs on the load event —
+   not after it. See rnRestore() for what that means on a demo reset. */
 rnBoot();
 
 
