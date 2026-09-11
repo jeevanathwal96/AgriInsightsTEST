@@ -69866,8 +69866,22 @@ rnBoot();
    Only the derived figures are kept.  The thirty years of daily values are
    read, used and thrown away — storing them would fill the browser up. */
 
-var RN_API_ARCHIVE  = 'https://archive-api.open-meteo.com/v1/archive';
-var RN_API_FORECAST = 'https://api.open-meteo.com/v1/forecast';
+/* ── Open-Meteo: one switch for every call ─────────────────────────────────
+   Every rainfall figure comes from four Open-Meteo services: the archive
+   (thirty years of rain, and what fell each day), the forecast (the week
+   ahead), geocoding (the town search) and seasonal (the season ahead).
+   Blank, RN_OM_KEY uses the free service, which is non-commercial only. Set
+   it on the commercial plan and all four move to the customer addresses
+   together, with the key attached. There is no other place to change.
+   The key rides in the page's own requests, so it is readable by anyone who
+   opens the site — that is how Open-Meteo's browser access works. */
+var RN_OM_KEY = '';
+function rnOmUrl(service, path){
+  return 'https://' + (RN_OM_KEY ? 'customer-' : '') + service + '.open-meteo.com' + path;
+}
+function rnOmKey(){ return RN_OM_KEY ? ('&apikey=' + encodeURIComponent(RN_OM_KEY)) : ''; }
+function rnOmArchive(){  return rnOmUrl('archive-api', '/v1/archive'); }
+function rnOmForecast(){ return rnOmUrl('api',         '/v1/forecast'); }
 var RN_KEEP_DAYS    = 800;      /* two whole rain years: a season starting 24 months back needs 730 */
 var RN_NORM_FROM    = 1991, RN_NORM_TO = 2020;
 
@@ -69905,7 +69919,7 @@ function rnFetchHistory(){
   if (!rnHas()) return Promise.resolve(false);
   var t = rnToday();
   var end = rnISO(t);                           /* the archive reaches today: ERA5 to ~5 days back, ECMWF IFS for the tail */
-  var url = RN_API_ARCHIVE + '?' + rnLocQuery() + '&start_date=' + RN_NORM_FROM + '-01-01&end_date=' + end;
+  var url = rnOmArchive() + '?' + rnLocQuery() + '&start_date=' + RN_NORM_FROM + '-01-01&end_date=' + end + rnOmKey();
   return rnFetchJson(url, 40000).then(function(j){
     var days = j && j.daily && j.daily.time, vals = j && j.daily && j.daily.precipitation_sum;
     if (!days || !vals || !days.length) throw new Error('no rainfall returned');
@@ -70204,9 +70218,9 @@ function rnLandPlanting(land){
 function rnFetchRecent(){
   if (!rnHas()) return Promise.resolve(false);
   var t = rnToday(), today = rnISO(t);
-  var aUrl = RN_API_ARCHIVE  + '?' + rnLocQuery() +
-             '&start_date=' + rnISO(rnAddDays(t, -21)) + '&end_date=' + today;
-  var fUrl = RN_API_FORECAST + '?' + rnLocQuery() + '&past_days=1&forecast_days=7';
+  var aUrl = rnOmArchive()  + '?' + rnLocQuery() +
+             '&start_date=' + rnISO(rnAddDays(t, -21)) + '&end_date=' + today + rnOmKey();
+  var fUrl = rnOmForecast() + '?' + rnLocQuery() + '&past_days=1&forecast_days=7' + rnOmKey();
 
   function rows(j){
     var out = [], d = j && j.daily && j.daily.time, v = j && j.daily && j.daily.precipitation_sum;
@@ -71178,7 +71192,7 @@ function rnLocSearch(){
   var box = rnEl('rn-loc-results'); if (!box) return;
   if (q.length < 2){ box.innerHTML = '<div class="hint">' + rnT('Type the name of the nearest town.', 'Tik die naam van die naaste dorp.') + '</div>'; return; }
   box.innerHTML = '<div class="hint">' + rnT('Looking&hellip;', 'Soek&hellip;') + '</div>';
-  rnFetchJson('https://geocoding-api.open-meteo.com/v1/search?count=8&language=en&format=json&name=' + encodeURIComponent(q), 15000)
+  rnFetchJson(rnOmUrl('geocoding-api', '/v1/search') + '?count=8&language=en&format=json&name=' + encodeURIComponent(q) + rnOmKey(), 15000)
     .then(function(j){
       var all = (j && j.results) || [];
       var za = all.filter(function(r){ return r.country_code === 'ZA'; });
@@ -72089,10 +72103,7 @@ function rnShareRain(){
      farm's own normal for those same months. The chip names them.
    · If the ensemble's own middle run sits far from that normal we are reading
      the model's bias rather than any signal, and the chip says nothing.        */
-var RN_SEAS_PATH  = '/v1/seasonal';
-var RN_SEAS_FREE  = 'https://seasonal-api.open-meteo.com';
-var RN_SEAS_PAID  = 'https://customer-seasonal-api.open-meteo.com';
-var RN_SEAS_KEY   = '';        /* set on the commercial plan — it also switches the host */
+var RN_SEAS_PATH  = '/v1/seasonal';   /* host and key come from RN_OM_KEY, like every other call */
 var RN_SEAS_MODEL = 'ecmwf_seas5';
 var RN_SEAS_N     = 51;
 var RN_SEAS_BIAS  = 0.25;      /* silent past this: bias, not signal */
@@ -72102,11 +72113,9 @@ var RN_SEAS_MAXAGE= 45;        /* stop showing one this old: a farm offline for 
                                   months must not be handed a stale outlook as current */
 
 function rnSeasUrl(){
-  var host = RN_SEAS_KEY ? RN_SEAS_PAID : RN_SEAS_FREE;
-  return host + RN_SEAS_PATH + '?' + rnLocQuery() +
+  return rnOmUrl('seasonal-api', RN_SEAS_PATH) + '?' + rnLocQuery() +
          '&daily=precipitation_sum&forecast_length=7&models=' + RN_SEAS_MODEL +
-         '&ensemble_members=' + RN_SEAS_N +
-         (RN_SEAS_KEY ? ('&apikey=' + encodeURIComponent(RN_SEAS_KEY)) : '');
+         '&ensemble_members=' + RN_SEAS_N + rnOmKey();
 }
 /* Whole calendar months only. A part month would be compared against a whole
    month's average, which reads as a drought on a farm that is doing fine. */
