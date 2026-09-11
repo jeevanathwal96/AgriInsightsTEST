@@ -621,6 +621,9 @@
               ST_RAIN.normal = ST_RAIN.normal || { monthly: null, override: null };
               ST_RAIN.normal.override = pf._rain.normalOverride;
             }
+            /* The stretches the farmer said they were not keeping the book, so a
+               second device fills them from satellite exactly as this one does. */
+            if (Array.isArray(pf._rain.notKept)) ST_RAIN.notKept = pf._rain.notKept;
             if (typeof rnSync === 'function') { try { rnSync(); } catch (e4) {} }
           }
         } catch (e) { console.error('rainfall settings hydrate', e); }
@@ -669,7 +672,7 @@
            local is kept when it does not, so a farm that has never synced these is not
            emptied by a load that legitimately returns nothing. */
         try { if (window.ST_FUEL && Array.isArray(fu) && (fu.length || !(ST_FUEL.issues && ST_FUEL.issues.length))) ST_FUEL.issues = fu; } catch (e) { console.error('fuel apply', e); }
-        try { if (window.ST && Array.isArray(dc) && (dc.length || !(ST.docs && ST.docs.length))) ST.docs = dc; } catch (e) { console.error('documents apply', e); }
+        try { if (window.ST && Array.isArray(dc) && (dc.length || !(ST.docs && ST.docs.length))) ST.docs = dc; if (typeof aiDocsSettle === 'function') aiDocsSettle(); } catch (e) { console.error('documents apply', e); }
         /* The settings that used to live only in localStorage. The scalars rode in on the
            generic key-copy just above; these four belong to other objects, so they are
            applied by hand. Underscore-prefixed on the profile object to keep them off ST. */
