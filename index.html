@@ -6367,6 +6367,8 @@ table.rn-t td.dim{color:var(--t4)}
 .rn-toggle small{display:block;font-size:11px;color:var(--t3);margin-top:2px;line-height:1.45}
 .rn-adv{margin-top:15px;border-top:1px solid var(--br2);padding-top:11px}
 .rn-adv summary{font-size:12px;font-weight:700;color:var(--t3);cursor:pointer}
+.rn-2col{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:26px;align-items:start}
+@media(max-width:900px){.rn-2col{grid-template-columns:1fr;gap:18px}}
 .rn-gi{height:30px;border:1px solid var(--br);border-radius:7px;padding:0 8px;font-family:inherit;width:100%}
 @media (max-width:700px){ .rn-opts{grid-template-columns:1fr} }
 
@@ -9901,31 +9903,6 @@ table.rn-t td.dim{color:var(--t4)}
           <div><label>How it is applied</label><input id="set-mark-type" value="" placeholder="e.g. Tattoo, left ear"/></div>
         </div>
       </div>
-      <!-- Your phone. The desktop half of pairing: it mints a short-lived code and
-           shows it; the phone reads it and trades it for a session (mobile Phase 1).
-           Nothing on this screen is a password, and the secret behind the QR is
-           stored only as a hash - see 02-database/device_pair_tokens_migration.sql. -->
-      <div class="set-card">
-        <div class="set-h"><span class="ic">&#128241;</span>Your phone</div>
-        <div class="hint" style="margin-top:-4px;font-size:12px">The phone app is where the other 340 days happen &mdash; a birth at the gate, diesel at the pump, a rain reading before breakfast. Pair it once and it works from the same books as this screen. The code below is not a password: it dies ten minutes after you ask for it, used or not.</div>
-        <div id="set-pair-idle" style="margin-top:12px">
-          <button type="button" class="btn-pri" id="set-pair-btn" onclick="aiPairOpen()">Add your phone</button>
-        </div>
-        <div id="set-pair-live" style="display:none;margin-top:14px">
-          <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
-            <div id="set-pair-qr" style="background:#fff;padding:10px;border-radius:12px;border:1px solid var(--br);line-height:0"></div>
-            <div style="min-width:210px;display:flex;flex-direction:column;gap:8px">
-              <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)" data-notranslate>Scan it, or type this in</div>
-              <div id="set-pair-code" data-notranslate style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:26px;font-weight:800;letter-spacing:.14em;color:var(--gd)"></div>
-              <div id="set-pair-exp" class="hint" data-notranslate style="font-size:12px"></div>
-              <div style="display:flex;gap:8px;margin-top:4px">
-                <button type="button" class="btn-sec" onclick="aiPairDone()">Done</button>
-                <button type="button" class="btn-sec" onclick="aiPairOpen()">New code</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
       <!-- Tax & VAT -->
       <div class="set-card">
         <div class="set-h"><span class="ic">📋</span>Tax &amp; VAT</div>
@@ -9984,22 +9961,48 @@ table.rn-t td.dim{color:var(--t4)}
 <!-- ══ RAINFALL-T0-SET-BEGIN ══ -->
     <div class="set-sec" data-t="rn.title">Rainfall</div>
     <div class="set-row" id="set-sec-rain">
-      <div class="set-card" style="flex:1">
+      <div class="set-card set-span">
         <div class="set-h"><span class="ic">&#128167;</span><span data-t="rn.title">Rainfall</span></div>
         <div id="rn-set-body" data-notranslate></div>
       </div>
     </div>
 <!-- ══ RAINFALL-T0-SET-END ══ -->
 
-    <div class="set-sec" data-t="set.sec.rules">Filing rules</div>
-    <div class="set-row">
-      <div class="set-card" style="flex:1">
+    <div class="set-sec">How the app works</div>
+    <!-- Your phone sits beside the filing rules: both are short cards about how the
+         app is used, not about the farm itself, and they stand at the same height. -->
+    <div class="set-row" id="set-sec-phone">
+      <!-- Your phone. The desktop half of pairing: it mints a short-lived code and
+           shows it; the phone reads it and trades it for a session (mobile Phase 1).
+           Nothing on this screen is a password, and the secret behind the QR is
+           stored only as a hash - see 02-database/device_pair_tokens_migration.sql. -->
+      <div class="set-card">
+        <div class="set-h"><span class="ic">&#128241;</span>Your phone</div>
+        <div class="hint" style="margin-top:-4px;font-size:12px">The phone app is where the other 340 days happen &mdash; a birth at the gate, diesel at the pump, a rain reading before breakfast. Pair it once and it works from the same books as this screen. The code below is not a password: it dies ten minutes after you ask for it, used or not.</div>
+        <div id="set-pair-idle" style="margin-top:12px">
+          <button type="button" class="btn-pri" id="set-pair-btn" onclick="aiPairOpen()">Add your phone</button>
+        </div>
+        <div id="set-pair-live" style="display:none;margin-top:14px">
+          <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
+            <div id="set-pair-qr" style="background:#fff;padding:10px;border-radius:12px;border:1px solid var(--br);line-height:0"></div>
+            <div style="min-width:210px;display:flex;flex-direction:column;gap:8px">
+              <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)" data-notranslate>Scan it, or type this in</div>
+              <div id="set-pair-code" data-notranslate style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:26px;font-weight:800;letter-spacing:.14em;color:var(--gd)"></div>
+              <div id="set-pair-exp" class="hint" data-notranslate style="font-size:12px"></div>
+              <div style="display:flex;gap:8px;margin-top:4px">
+                <button type="button" class="btn-sec" onclick="aiPairDone()">Done</button>
+                <button type="button" class="btn-sec" onclick="aiPairOpen()">New code</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="set-card">
         <div class="set-h"><span class="ic">🗂️</span><span data-t="set.rules.h">What gets filed where</span></div>
         <div style="font-size:12.5px;color:var(--t3);margin-bottom:11px" data-t="set.rules.sub">When you file a line by hand, AgriInsights offers to remember it and file the next one for you.</div>
         <div id="set-rules-list"></div>
       </div>
     </div>
-    <div class="set-sec">How the app works</div>
     <div class="set-row" id="set-sec-app">
       <!-- App preferences -->
       <div class="set-card set-span">
@@ -71269,25 +71272,28 @@ function rnSettingsRender(){
            'Die reël waarteen jou lande in die plantvenster gemeet word.') + '</div></div>' +
        '</div></details>';
 
+  /* The gauge list is a small table of its own. On the full-width card it stands
+     beside the settings instead of under them; below 900px the two stack. */
+  var gh = '';
   if (!farmMode){
-    h += '<div style="margin-top:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">' +
+    gh += '<div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">' +
          '<span style="font-size:12.5px;font-weight:700;color:var(--t2)">' + rnT('Gauges', 'Reënmeters') + '</span>' +
          '<button class="btn-sec" onclick="rnGaugeAdd()">+ ' + rnT('Add gauge', 'Voeg reënmeter by') + '</button></div>';
-    h += '<table class="rn-t"><thead><tr><th>' + rnT('Name', 'Naam') + '</th><th>' + rnT('Where', 'Waar') +
+    gh += '<table class="rn-t"><thead><tr><th>' + rnT('Name', 'Naam') + '</th><th>' + rnT('Where', 'Waar') +
          '</th><th style="width:70px">' + rnT('Default', 'Verstek') + '</th><th style="width:34px"></th></tr></thead><tbody>';
     (ST_RAIN.gauges || []).forEach(function(g, i){
-      h += '<tr><td><input class="rn-gi" value="' + esc(g.name || '') + '" onchange="rnGaugeSet(' + i + ',\'name\',this.value)" style="height:30px;font-size:12px"></td>' +
+      gh += '<tr><td><input class="rn-gi" value="' + esc(g.name || '') + '" onchange="rnGaugeSet(' + i + ',\'name\',this.value)" style="height:30px;font-size:12px"></td>' +
            '<td><input class="rn-gi" value="' + esc(g.where || '') + '" placeholder="' + rnT('e.g. windmill', 'bv. windpomp') + '" onchange="rnGaugeSet(' + i + ',\'where\',this.value)" style="height:30px;font-size:12px"></td>' +
            '<td style="text-align:center"><input class="rn-set-radio" type="radio" name="rn-def" ' + (g.isDefault ? 'checked' : '') + ' onchange="rnGaugeDefault(' + i + ')"></td>' +
            '<td><button class="rn-x" title="' + rnT('Remove', 'Verwyder') + '" onclick="rnGaugeRemove(' + i + ')">&times;</button></td></tr>';
     });
-    if (!(ST_RAIN.gauges || []).length) h += '<tr><td colspan="4" style="color:var(--t3);font-size:12px">' +
+    if (!(ST_RAIN.gauges || []).length) gh += '<tr><td colspan="4" style="color:var(--t3);font-size:12px">' +
       rnT('No gauges yet. Add one for the homestead, then one per land or camp you read.',
           'Nog geen reënmeters nie. Voeg een vir die opstal by, dan een per land of kamp wat jy lees.') + '</td></tr>';
-    h += '</tbody></table></div>';
+    gh += '</tbody></table></div>';
   }
 
-  host.innerHTML = h;
+  host.innerHTML = gh ? '<div class="rn-2col"><div>' + h + '</div><div>' + gh + '</div></div>' : h;
 }
 function rnOptCard(mode, title, sub, on){
   return '<button type="button" class="rn-opt' + (on ? ' on' : '') + '" onclick="rnSetMode(' + rnQ(mode) + ')">' +
