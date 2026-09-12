@@ -9977,21 +9977,21 @@ table.rn-t td.dim{color:var(--t4)}
            Nothing on this screen is a password, and the secret behind the QR is
            stored only as a hash - see 02-database/device_pair_tokens_migration.sql. -->
       <div class="set-card">
-        <div class="set-h"><span class="ic">&#128241;</span>Your phone</div>
-        <div class="hint" style="margin-top:-4px;font-size:12px">The phone app is where the other 340 days happen &mdash; a birth at the gate, diesel at the pump, a rain reading before breakfast. Pair it once and it works from the same books as this screen. The code below is not a password: it dies ten minutes after you ask for it, used or not.</div>
+        <div class="set-h"><span class="ic">&#128241;</span><span data-t="set.phone.h">Your phone</span></div>
+        <div class="hint" data-t="set.phone.sub" style="margin-top:-4px;font-size:12px">The phone app is where the other 340 days happen &mdash; a birth at the gate, diesel at the pump, a rain reading before breakfast. Pair it once and it works from the same books as this screen. The code below is not a password: it dies ten minutes after you ask for it, used or not.</div>
         <div id="set-pair-idle" style="margin-top:12px">
-          <button type="button" class="btn-pri" id="set-pair-btn" onclick="aiPairOpen()">Add your phone</button>
+          <button type="button" class="btn-pri" id="set-pair-btn" data-t="set.phone.add" onclick="aiPairOpen()">Add your phone</button>
         </div>
         <div id="set-pair-live" style="display:none;margin-top:14px">
           <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
             <div id="set-pair-qr" style="background:#fff;padding:10px;border-radius:12px;border:1px solid var(--br);line-height:0"></div>
             <div style="min-width:210px;display:flex;flex-direction:column;gap:8px">
-              <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)" data-notranslate>Scan it, or type this in</div>
+              <div style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--t3)" data-t="set.phone.scan">Scan it, or type this in</div>
               <div id="set-pair-code" data-notranslate style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:26px;font-weight:800;letter-spacing:.14em;color:var(--gd)"></div>
               <div id="set-pair-exp" class="hint" data-notranslate style="font-size:12px"></div>
               <div style="display:flex;gap:8px;margin-top:4px">
-                <button type="button" class="btn-sec" onclick="aiPairDone()">Done</button>
-                <button type="button" class="btn-sec" onclick="aiPairOpen()">New code</button>
+                <button type="button" class="btn-sec" data-t="set.phone.done" onclick="aiPairDone()">Done</button>
+                <button type="button" class="btn-sec" data-t="set.phone.new" onclick="aiPairOpen()">New code</button>
               </div>
             </div>
           </div>
@@ -47299,7 +47299,6 @@ var LANG_PAIRS = [
   ['Other Assets',                               'Ander Bates'],
 
   // ── Settings ─────────────────────────────────────────────────
-  ['Farm Details',                               'Plaasbesonderhede'],
   ['Farm name',                                  'Plaasnaam'],
   ['Owner name',                                 'Eienaarnaam'],
   ['Province',                                   'Provinsie'],
@@ -50549,6 +50548,15 @@ I18N['crule.make']={en:"Make the rule",af:"Maak die reël"};
 I18N['crule.no']={en:"Not this one",af:"Nie hierdie een nie"};
 I18N['set.sec.rules']={en:"Filing rules",af:"Liasseerreëls"};
 I18N['set.rules.h']={en:"What gets filed where",af:"Wat waar geliasseer word"};
+/* The phone card. It was half-translating to "Jou phone" because nothing named the
+   whole phrase; the pairing panel was marked notranslate, which spared the code but
+   also froze its labels in English. */
+I18N['set.phone.h']={en:"Your phone",af:"Jou foon"};
+I18N['set.phone.sub']={en:"The phone app is where the other 340 days happen — a birth at the gate, diesel at the pump, a rain reading before breakfast. Pair it once and it works from the same books as this screen. The code below is not a password: it dies ten minutes after you ask for it, used or not.",af:"Die foon-app is waar die ander 340 dae gebeur — 'n geboorte by die hek, diesel by die pomp, 'n reënlesing voor ontbyt. Koppel dit een keer en dit werk uit dieselfde boeke as hierdie skerm. Die kode hieronder is nie 'n wagwoord nie: dit verval tien minute nadat jy dit gevra het, gebruik of nie."};
+I18N['set.phone.add']={en:"Add your phone",af:"Voeg jou foon by"};
+I18N['set.phone.scan']={en:"Scan it, or type this in",af:"Skandeer dit, of tik dit in"};
+I18N['set.phone.done']={en:"Done",af:"Klaar"};
+I18N['set.phone.new']={en:"New code",af:"Nuwe kode"};
 I18N['set.rules.sub']={en:"When you file a line by hand, AgriInsights offers to remember it and file the next one for you.",af:"Wanneer jy ’n reël met die hand liasseer, bied AgriInsights aan om dit te onthou en die volgende een vir jou te liasseer."};
 I18N['demo.ribbon']={en:"You’re exploring a sample farm — nothing here is saved to an account.",af:"Jy verken ’n voorbeeldplaas — niks hier word by ’n rekening gestoor nie."};
 I18N['demo.watch']={en:"▶ Watch demo",af:"▶ Kyk demo"};
@@ -66734,15 +66742,15 @@ function _aiPairCountdown(){
   var tick = function(){
     var el = $('set-pair-exp'); if (!el) return;
     var left = Math.round((end - Date.now()) / 1000);
-    if (isNaN(end)) { el.textContent = 'Good for the next ten minutes.'; return; }
+    if (isNaN(end)) { el.textContent = rnT('Good for the next ten minutes.', 'Goed vir die volgende tien minute.'); return; }
     if (left <= 0) {
-      el.textContent = 'This code has expired. Ask for a new one.';
+      el.textContent = rnT('This code has expired. Ask for a new one.', "Hierdie kode het verval. Vra vir 'n nuwe een.");
       if (AI_PAIR_TICK) { clearInterval(AI_PAIR_TICK); AI_PAIR_TICK = null; }
       AI_PAIR = null;
       return;
     }
     var m = Math.floor(left / 60), sec = left % 60;
-    el.textContent = 'Good for another ' + m + ':' + (sec < 10 ? '0' : '') + sec + '.';
+    el.textContent = rnT('Good for another ', 'Nog goed vir ') + m + ':' + (sec < 10 ? '0' : '') + sec + '.';
   };
   tick();
   AI_PAIR_TICK = setInterval(tick, 1000);
@@ -66750,12 +66758,12 @@ function _aiPairCountdown(){
 
 function aiPairOpen(){
   var btn = $('set-pair-btn');
-  if (window.__AI_GUEST) { toast('The demo has no farm to pair with. Sign in first.', 'info'); return; }
+  if (window.__AI_GUEST) { toast(rnT('The demo has no farm to pair with. Sign in first.', 'Die demo het geen plaas om mee te koppel nie. Teken eers in.'), 'info'); return; }
   if (!(window.AI && AI.farm && AI.farm.active() && AI.pairing)) {
-    toast('Sign in first — a phone pairs with a farm, not with this browser.', 'info');
+    toast(rnT('Sign in first — a phone pairs with a farm, not with this browser.', "Teken eers in — 'n foon koppel aan 'n plaas, nie aan hierdie blaaier nie."), 'info');
     return;
   }
-  if (btn) { btn.disabled = true; btn.textContent = 'Making a code…'; }
+  if (btn) { btn.disabled = true; btn.textContent = rnT('Making a code…', "Maak 'n kode…"); }
   Promise.all([aiQrReady(), AI.pairing.create()]).then(function(r){
     AI_PAIR = r[1];
     /* Everything the phone needs and nothing it does not: which farm, the code the
@@ -66773,15 +66781,15 @@ function aiPairOpen(){
     /* The commonest failure by far is the migration not having been run, and
        "relation does not exist" is not something to hand a farmer. */
     if (/device_pair_tokens|relation|does not exist|schema cache/i.test(msg)) {
-      toast('Phone pairing is not switched on for this farm yet — the database still needs device_pair_tokens_migration.sql.', 'error');
+      toast(rnT('Phone pairing is not switched on for this farm yet — the database still needs device_pair_tokens_migration.sql.', 'Foonkoppeling is nog nie vir hierdie plaas aangeskakel nie — die databasis kort nog device_pair_tokens_migration.sql.'), 'error');
     } else if (/https|secure/i.test(msg)) {
       toast(msg, 'error');
     } else {
-      toast('Could not make a pairing code. ' + (msg || 'Try again in a moment.'), 'error');
+      toast(rnT('Could not make a pairing code. ', "Kon nie 'n koppelkode maak nie. ") + (msg || rnT('Try again in a moment.', "Probeer oor 'n oomblik weer.")), 'error');
     }
     console.error('pairing', e);
   }).then(function(){
-    if (btn) { btn.disabled = false; btn.textContent = 'Add your phone'; }
+    if (btn) { btn.disabled = false; btn.textContent = rnT('Add your phone', 'Voeg jou foon by'); }
   });
 }
 
