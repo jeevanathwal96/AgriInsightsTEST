@@ -323,6 +323,7 @@
      here, where a farmer moves between a laptop and a tablet. */
   let CAN_CAT_RULES     = false;
   let CAN_FUEL_METER    = false;
+  let CAN_FUEL_SRC      = false;
   let CAN_ASSET_DISPOSAL = false;
   /* "It's a running cost, stop asking." Its own column rather than reusing cat_confirmed:
      that answer is about the CATEGORY being right, this one is about the cost not being
@@ -364,6 +365,7 @@
     /* The SARS diesel logbook fields the phone captures at the pump. Gated the same
        way: an un-migrated project must keep saving fuel, not lose every issue. */
     CAN_FUEL_METER     = await has('fuel_issues','hour_meter');
+    CAN_FUEL_SRC       = await has('fuel_issues','src');
   }
   /* ================== ROW MEMORY - two-device safety (Phase 0) ==================
      What this device actually LOADED from the server, per table.
@@ -1183,7 +1185,13 @@
   function classRows(h,fid){ return (h.classes||[]).map(function(c){ return { farm_id:fid, herd_local_id:String(h.id), class_key:c.k, count:(c.n!=null)?parseInt(c.n,10):0, class_value:(c.v!=null)?Number(c.v):0 }; }); }
   // 3a-ii — moves / treatments / animals (set-sync, append-only) + health (per-row)
   function moveToDb(m,fid){ return { farm_id:fid, local_id:String(m.id), herd_local_id:(m.herd!=null)?String(m.herd):null, reason:m.reason||null, qty:(m.qty!=null)?parseInt(m.qty,10):null, move_date:m.date||null, note:m.note||null, money:(m.money!=null)?Number(m.money):null, cls:m.cls||null, to_cls:m.toCls||null, leaving:(m.leaving!=null)?!!m.leaving:null, from_place:m.fromPlace||null, to_place:m.toPlace||null, transporter:m.transporter||null, veh_reg:m.vehReg||null, veh_make:m.vehMake||null }; }
-  function moveFromDb(r){ var m={ id:r.local_id, herd:_numIf(r.herd_local_id), reason:r.reason||'', qty:Number(r.qty)||0, date:r.move_date||'', note:r.note||'', money:Number(r.money)||0 }; if(r.cls) m.cls=r.cls; if(r.to_cls) m.toCls=r.to_cls; if(r.leaving) m.leaving=true; if(r.from_place) m.fromPlace=r.from_place; if(r.to_place) m.toPlace=r.to_place; if(r.transporter) m.transporter=r.transporter; if(r.veh_reg) m.vehReg=r.veh_reg; if(r.veh_make) m.vehMake=r.veh_make; return m; }
+  /* `leaving` is THREE-STATE and both directions must keep it that way: absent means
+     nobody was ever asked, false means the farmer said the stock stays, true means it
+     left. This read dropped false until 12 Sep 2026 — the desktop never writes false,
+     only the phone's "No, it stays" does, so a phone answer came back as undefined and
+     the next desktop save wrote null over it, destroying the answer in the database
+     rather than only on screen. moveToDb has always preserved all three. */
+  function moveFromDb(r){ var m={ id:r.local_id, herd:_numIf(r.herd_local_id), reason:r.reason||'', qty:Number(r.qty)||0, date:r.move_date||'', note:r.note||'', money:Number(r.money)||0 }; if(r.cls) m.cls=r.cls; if(r.to_cls) m.toCls=r.to_cls; if(r.leaving!=null) m.leaving=!!r.leaving; if(r.from_place) m.fromPlace=r.from_place; if(r.to_place) m.toPlace=r.to_place; if(r.transporter) m.transporter=r.transporter; if(r.veh_reg) m.vehReg=r.veh_reg; if(r.veh_make) m.vehMake=r.veh_make; return m; }
   function treatToDb(t,fid){ return { farm_id:fid, local_id:String(t.id), herd_local_id:(t.herd!=null)?String(t.herd):null, kind:t.kind||null, product:t.product||null, reg:t.reg||null, act:t.act||null, abx:(t.abx!=null)?!!t.abx:null, target:t.target||null, head:(t.head!=null)?parseInt(t.head,10):null, tags:t.tags||[], dose:t.dose||null, route:t.route||null, reason:t.reason||null, batch:t.batch||null, expiry:t.expiry||null, rx:t.rx||null, treat_date:t.date||null, by_who:t.by||null, cost:(t.cost!=null)?Number(t.cost):null, meat:(t.meat!=null)?parseInt(t.meat,10):null, milk:(t.milk!=null)?parseInt(t.milk,10):null }; }
   function treatFromDb(r){ var t={ id:r.local_id, herd:_numIf(r.herd_local_id), kind:r.kind||'', product:r.product||'', reg:r.reg||'', act:r.act||'', target:r.target||'', head:Number(r.head)||0, tags:r.tags||[], dose:r.dose||'', route:r.route||'', reason:r.reason||'', batch:r.batch||'', expiry:r.expiry||'', date:r.treat_date||'', by:r.by_who||'', cost:Number(r.cost)||0, meat:Number(r.meat)||0, milk:Number(r.milk)||0 }; if(r.abx) t.abx=true; if(r.rx) t.rx=r.rx; return t; }
   function animalToDb(a,fid){ return { farm_id:fid, local_id:String(a.id), herd_local_id:(a.herd!=null)?String(a.herd):null, tag:a.tag||null, name:a.name||null, sex:a.sex||null, breed:a.breed||null, cls:a.cls||null, dob:a.dob||null, dam:a.dam||null, sire:a.sire||null, repro:(a.repro&&a.repro.length)?a.repro:null, status:a.status||null, due_approx:a.dueApprox||null, parity:a.parity||null, weight:(a.weight!=null?a.weight:null) }; }
@@ -1263,6 +1271,11 @@
     /* Meter reading and place: what turns a list of litres into a logbook SARS will
        accept. Captured on the phone at the pump; nullable, and only sent once the
        column probe has seen them, on the same rule as receipt_path. */
+    /* Where the row came from. The phone stamps 'phone' on a row captured at the
+       pump; _fuIsField() uses it as the fourth signal, after a meter reading, a place
+       and a fix, to keep the weekly grid from replacing a real dispensing. Without
+       this the phone wrote it and the desktop never read it back. */
+    if(CAN_FUEL_SRC) row.src=f.src||null;
     if(CAN_FUEL_METER){
       row.hour_meter=(f.hourMeter!=null&&f.hourMeter!=='')?Number(f.hourMeter):null;
       row.lat=(f.lat!=null&&f.lat!=='')?Number(f.lat):null;
@@ -1274,6 +1287,7 @@
       asset:_numIf(r.asset_local_id), machine:r.machine||'',
       litres:Number(r.litres)||0, activity:r.activity||'', actKey:r.act_key||'',
       qualifies:!!r.qualifies };
+    if(r.src) f.src=r.src;
     if(r.hour_meter!=null) f.hourMeter=Number(r.hour_meter);
     if(r.lat!=null) f.lat=Number(r.lat);
     if(r.lon!=null) f.lon=Number(r.lon);
