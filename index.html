@@ -41493,6 +41493,116 @@ function rnEnsoMoney(sh){
              beyondModel: sh.deficit > RN_FAO_LIMIT };
   } catch(e){ return null; }
 }
+/* ══ What a dry season actually costs THIS farm ════════════════════════════
+   Three enterprises, three different mechanisms, and only two of them can
+   honestly be given a rand figure.
+
+   CROPS - dryland only. FAO 33 (Doorenbos & Kassam): yield falls faster than
+   water, by a crop-specific factor Ky. Every crop the farmer actually grows is
+   counted at its own Ky, not just maize; a crop we have no published Ky for is
+   left out rather than guessed at, so the total can understate but never invent.
+   Irrigated lands are excluded - a rainfall deficit reaches them through a water
+   allocation, which this app does not model.
+
+   LIVESTOCK - no rand figure, deliberately. This file's own note says why: "no SA
+   source publishes a drought weaning-drop or feed-uplift, so any number we
+   shipped would look authoritative and be invented." What IS real is the feed the
+   farmer has already budgeted for stock living off the veld, so that is what gets
+   named - their figure, not ours. Dairy is excluded: it is fed, not grazed.
+
+   ORCHARDS - excluded. Blocks carry no irrigation field, and SA orchards are
+   overwhelmingly irrigated; costing them off rainfall would be wrong far more
+   often than right. If an irrigation flag is ever added to blocks, a dryland
+   block belongs in the crop side of this with its own Ky. */
+var RN_KY = {
+  maize:1.25, mielie:1.25, sunflower:0.95, sonneblom:0.95, soybean:0.85, soja:0.85,
+  wheat:1.05, koring:1.05, sorghum:0.90, sorghum_:0.90, groundnut:0.70, grondboon:0.70,
+  barley:1.00, gars:1.00, drybean:1.15, cotton:0.85, katoen:0.85, potato:1.10, aartappel:1.10
+};
+/* Match on the words in the farmer's own crop name - "White maize", "Yellow
+   Maize", "Mielies" all land on maize. Returns null when nothing matches, and the
+   caller then leaves that land out. */
+function rnCropKy(name){
+  var n = String(name||'').toLowerCase();
+  if (!n) return null;
+  if (/maize|mielie/.test(n))            return RN_KY.maize;
+  if (/sunflower|sonneblom/.test(n))     return RN_KY.sunflower;
+  if (/soy|soja/.test(n))                return RN_KY.soybean;
+  if (/wheat|koring/.test(n))            return RN_KY.wheat;
+  if (/sorghum|graansorghum/.test(n))    return RN_KY.sorghum;
+  if (/groundnut|peanut|grondbo/.test(n))return RN_KY.groundnut;
+  if (/barley|gars/.test(n))             return RN_KY.barley;
+  if (/dry bean|drybean|droëboon|droeboon/.test(n)) return RN_KY.drybean;
+  if (/cotton|katoen/.test(n))           return RN_KY.cotton;
+  if (/potato|aartappel/.test(n))        return RN_KY.potato;
+  return null;
+}
+/* The farm's exposure to a shortfall of `deficit` (0-1) of its growing rain. */
+function rnDryExposure(deficit){
+  var out = { rand:0, ha:0, crops:[], feed:null, beyondModel:(deficit > RN_FAO_LIMIT), any:false };
+  try {
+    /* ---- dryland crops, each at its own Ky ---- */
+    var byCrop = {};
+    ((typeof ST_CROP!=='undefined' && ST_CROP.lands) ? ST_CROP.lands : []).forEach(function(l){
+      if (!l || l.irrigated || !l.crop) return;
+      var ky = rnCropKy(l.crop); if (ky == null) return;          /* no Ky, no guess */
+      var ha = +l.area||0, ty = +l.targetYield||0;
+      if (!(ha>0) || !(ty>0)) return;
+      var price = (typeof cropLandPrice==='function') ? cropLandPrice(l) : 0;
+      if (!(price>0)) return;
+      var loss = Math.min(ky * deficit, 1);
+      var k = String(l.crop);
+      if (!byCrop[k]) byCrop[k] = { name:k, ha:0, rand:0 };
+      byCrop[k].ha   += ha;
+      byCrop[k].rand += ty * loss * ha * price;
+    });
+    Object.keys(byCrop).forEach(function(k){
+      out.crops.push(byCrop[k]); out.rand += byCrop[k].rand; out.ha += byCrop[k].ha;
+    });
+    /* Biggest exposure first - that is the one worth naming. */
+    out.crops.sort(function(a,b){ return b.rand - a.rand; });
+
+    /* ---- grazing stock: the feed already budgeted, never an invented loss ---- */
+    var feed = 0, anyFeed = false;
+    ((typeof ST_LS!=='undefined' && ST_LS.herd) ? ST_LS.herd : []).forEach(function(h){
+      if (/dairy/i.test((h.type||'') + ' ' + (h.name||''))) return;   /* fed, not grazed */
+      var f = (+h.feed||0) * (+h.qty||0) * (+h.months||0);
+      if (f > 0){ feed += f; anyFeed = true; }
+    });
+    if (anyFeed) out.feed = feed;
+
+    out.any = (out.rand > 0) || (out.feed != null);
+  } catch(e){}
+  return out;
+}
+/* "maize and sunflower", "maize, sunflower and wheat" - the farmer's own names. */
+function rnCropNames(list){
+  try {
+    var n = list.map(function(c){ return c.name; });
+    if (!n.length) return '';
+    if (n.length === 1) return n[0];
+    if (n.length === 2) return n[0] + rnT(' and ', ' en ') + n[1];
+    return n.slice(0,-1).join(', ') + rnT(' and ', ' en ') + n[n.length-1];
+  } catch(e){ return ''; }
+}
+/* Not a forecast: the season UNDERWAY, measured. Same rule the attention list
+   uses - five months in and under 75% of normal for the date, which the Weather
+   Service calls a severe drought. A farm living through one does not need a
+   forecast to know this advice applies. */
+function rnSeasonRunningDry(){
+  try {
+    if (!rnOn()) return null;
+    var t = rnToday();
+    var ytd = rnYearToDate(), nd = rnNormalToDate(t);
+    if (ytd == null || !(nd > 0)) return null;
+    var monthsIn = rnDaysBetween(rnISO(rnYearStartOf(t)), rnISO(t)) / 30.4;
+    if (monthsIn < 5) return null;
+    var pct = ytd / nd;
+    if (pct >= 0.75) return null;
+    return { pct: Math.round(pct*100), shortMm: nd - ytd, deficit: Math.max(0, 1 - pct),
+             yearStart: rnISO(rnYearStartOf(t)).slice(0,7) };
+  } catch(e){ return null; }
+}
 function rnRoundRand(v){
   var a = Math.abs(v);
   var step = a >= 1000000 ? 100000 : (a >= 100000 ? 10000 : 1000);   /* D13 */
@@ -41505,10 +41615,18 @@ function rnScenSig(o){
   try { return (o && o.months && o.months.length) ? (o.months[0] + '..' + o.months[o.months.length-1]) : ''; }
   catch(e){ return ''; }
 }
+/* Must derive the SAME signature the strip used, or dismissing a running-dry
+   season would store a forecast id and the box would come straight back. */
+function rnScenSig2(){
+  var now = rnSeasonRunningDry();
+  if (now) return 'dry:' + now.yearStart;
+  var o = rnSeasOutlook();
+  return o ? rnScenSig(o) : '';
+}
 function rnScenDismiss(){
   try {
-    var o = rnSeasOutlook(); if (!o) return;
-    ST_RAIN.scenHide = rnScenSig(o);
+    var sig = rnScenSig2(); if (!sig) return;
+    ST_RAIN.scenHide = sig;
     saveState();
     /* The same repaint the weather buttons use, so the strip goes without the
        page jumping or the scenario state being touched. */
@@ -41518,39 +41636,54 @@ function rnScenDismiss(){
 function rnScenSuggestStrip(){
   try {
     if (!rnOn()) return '';                                   /* D16 */
-    /* Only when the season AHEAD is leaning dry. What this box costs out is an El
-       Nino summer, and the farm's own El Nino record is history - it says nothing
-       about the summer coming. Shown on every visit it was advice with no occasion:
-       true, and pointless in a year the models are not worried about.
-       rnSeasOutlook() is the honest signal and already refuses to answer on a
-       stale fetch, on months that have passed, or where the model's middle run is
-       nowhere near this farm's normal. 'dry' means at least 6 runs in 10 below it.
+    /* TWO occasions, not one. Either the season AHEAD is leaning dry, or the
+       season UNDERWAY already is - a farm five months in on under 75% of its
+       normal does not need a forecast to know this applies. Outside both, the
+       box is advice with no occasion and stays away.
        There is NO live El Nino indicator in this app - nothing here knows whether
-       one has been declared - so the gate is the rainfall outlook, and the opening
-       line now says so rather than leaving the farmer to wonder why it appeared. */
+       one has been declared - so the opening line names whichever signal actually
+       fired rather than leaving a farmer to wonder why it appeared today. */
+    var now = rnSeasonRunningDry();
     var out = rnSeasOutlook();
-    if (!out || out.lean !== 'dry') return '';
-    if (ST_RAIN.scenHide && ST_RAIN.scenHide === rnScenSig(out)) return '';
+    var fcDry = !!(out && out.lean === 'dry');
+    if (!now && !fcDry) return '';
+    /* What is happening beats what is forecast. */
+    var sig = now ? ('dry:' + now.yearStart) : rnScenSig(out);
+    if (ST_RAIN.scenHide && ST_RAIN.scenHide === sig) return '';
+
     var sh = rnEnsoShortfall(); if (!sh) return '';
-    var mny = rnEnsoMoney(sh);
-    /* TWO lines, and they are the only two that earn the space: WHY this is on
-       screen (the season ahead) and WHAT it costs. Everything that used to sit
-       here - the millimetres short, the share of growing-season rain, the count of
-       El Nino summers it was built from, the note that the figure follows the
-       yield - is already in "How we got this", word for word, so none of it is
-       lost. Advice read at a glance has to be readable at a glance. */
-    var h = '<div class="scn-sugg"><span class="ic">&#127777;</span><span class="gr">' +
-      '<b>' + rnSeasMonthWords(out.months) + rnT(' is leaning dry.', ' leun droog.') + '</b> ' +
-      out.dryOf10 + rnT(' runs in 10 below normal.', ' lopies uit 10 onder normaal.');
-    if (mny){
+    /* Measured shortfall while it is happening; the El Nino analogue otherwise. */
+    var deficit = now ? now.deficit : sh.deficit;
+    var ex = rnDryExposure(deficit);
+
+    var h = '<div class="scn-sugg"><span class="ic">&#127777;</span><span class="gr">';
+    if (now){
+      h += '<b>' + rnT('Your season is running dry.', 'Jou seisoen loop droog.') + '</b> ' +
+           rnT('You are on ', 'Jy is op ') + now.pct +
+           rnT('% of normal rain for the date.', '% van normale reën vir die datum.');
+    } else {
+      h += '<b>' + rnSeasMonthWords(out.months) + rnT(' is leaning dry.', ' leun droog.') + '</b> ' +
+           out.dryOf10 + rnT(' runs in 10 below normal.', ' lopies uit 10 onder normaal.');
+    }
+    /* The cost, built from what this farm actually runs. */
+    if (ex.any){
       h += '<span class="s2">';
-      if (mny.beyondModel){
-        h += rnT('That is more than half your maize income.',
-                 'Dit is meer as die helfte van jou mielie-inkomste.');
-      } else {
-        h += rnT('On your expected yield, about ', 'Op jou verwagte opbrengs, omtrent ') +
-             '<b>' + Math.round(mny.lossPct*100) + rnT('% less maize', '% minder mielies') + '</b>' +
-             rnT(' — around ', ' — sowat ') + '<b>' + planFmtR(rnRoundRand(mny.rand)) + '</b>.';
+      if (ex.rand > 0){
+        if (ex.beyondModel){
+          h += rnT('That is beyond what the yield sums can answer for',
+                   'Dit is verby wat die opbrengs-somme kan antwoord vir') + ' ' +
+               rnCropNames(ex.crops) + '.';
+        } else {
+          h += rnT('On your expected yield, about ', 'Op jou verwagte opbrengs, omtrent ') +
+               '<b>' + planFmtR(rnRoundRand(ex.rand)) + '</b>' +
+               rnT(' across ', ' oor ') + rnCropNames(ex.crops) + '.';
+        }
+      }
+      if (ex.feed != null){
+        h += (ex.rand > 0 ? ' ' : '') +
+             rnT('Your grazing herds have ', 'Jou weidende troppe het ') +
+             '<b>' + planFmtR(rnRoundRand(ex.feed)) + '</b>' +
+             rnT(' of feed budgeted this year.', ' se voer vanjaar begroot.');
       }
       h += '</span>';
     }
