@@ -320,6 +320,7 @@
   let CAN_FARM_RAIN_RULE= false;   // farms.rain_plant_mm/_days + rain_fill_sat (rainfall_farm_settings.sql)
   let CAN_FARM_RAIN_DRV = false;   // farms.rain_derived (rain_derived_migration.sql)
   let CAN_FARM_BANK_AT  = false;   // farms.bank_balance_at (bank_balance_at_migration.sql)
+  let CAN_FARM_VAT_CAT  = false;   // farms.vat_category (vat_category_migration.sql)
   let _bankSeen = null;            // the balance the server last gave us
   /* Filing rules. Without the table they stay on the device, which is how the UK build
      shipped them — defensible there because that project is not provisioned, and not
@@ -362,6 +363,7 @@
     CAN_FARM_RAIN_RULE = (await has('farms','rain_plant_days')) && (await has('farms','rain_fill_sat'));
     CAN_FARM_RAIN_DRV  = await has('farms','rain_derived');
     CAN_FARM_BANK_AT   = await has('farms','bank_balance_at');
+    CAN_FARM_VAT_CAT   = await has('farms','vat_category');
     CAN_CAT_RULES      = await has('category_rules','match_text');
     /* The whole row-memory scheme rides on this one column. A project that has
        not run agriinsights-13-relational-sync.sql keeps today's behaviour rather
@@ -2050,6 +2052,9 @@
     if(r.fy_start_month!=null) p.fyStartMonth=parseInt(r.fy_start_month,10);
     if(r.lang!=null) p.lang=r.lang;
     if(r.vat_registered!=null) p.vatRegistered=!!r.vat_registered;
+    /* The category decides the VAT201 due date. It lived only on this device until
+       vat_category_migration.sql, so a phone quietly assumed A. */
+    if(r.vat_category!=null)   p.vatCategory=String(r.vat_category);
     if(r.tax_number!=null) p.taxNumber=r.tax_number;
     if(r.vat_number!=null) p.vatNumber=r.vat_number;
     if(r.entity_type!=null) p.entityType=r.entity_type;
@@ -2074,7 +2079,7 @@
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
+    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -2096,6 +2101,7 @@
       if(st.fyStartMonth!=null) core.fy_start_month=parseInt(st.fyStartMonth,10);
       if(st.lang) core.lang=st.lang;
       if(st.vatRegistered!=null) extra.vat_registered=!!st.vatRegistered;
+      if(CAN_FARM_VAT_CAT && st.vatCategory) extra.vat_category=String(st.vatCategory);
       if(st.taxNumber) extra.tax_number=st.taxNumber;
       if(st.vatNumber) extra.vat_number=st.vatNumber;
       if(st.entityType) extra.entity_type=st.entityType;

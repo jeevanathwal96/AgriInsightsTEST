@@ -544,6 +544,45 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .skpi-lbl{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:6px}
 .skpi-val{font-size:24px;font-weight:800;letter-spacing:-.5px;color:var(--gd);font-variant-numeric:tabular-nums}
 .skpi-sub{font-size:11px;color:var(--gl);font-weight:600;margin-top:3px}
+
+/* ---- Period tags -----------------------------------------------------------
+   The farm has eight profit figures and they are all correct; the tag says WHICH
+   one you are looking at. Small, square and uppercase on purpose: it has to read
+   as a note ABOUT the figure, never as a button beside it.
+
+   The formatting rule these obey, learned on the UK build: a tagged label must
+   occupy EXACTLY the same height as an untagged one, or the value beneath it
+   drops below the values in the cards either side and the whole row goes
+   crooked. So every height here is pinned, nothing wraps, and the layout fix is
+   scoped with :has() to labels that actually carry a tag - an untagged label is
+   not touched at all. */
+.ptags{display:inline-flex;gap:4px;flex-wrap:nowrap;vertical-align:middle;margin-left:7px}
+.ptag{display:inline-flex;align-items:center;height:14px;box-sizing:border-box;
+  font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;
+  padding:0 5px;border-radius:4px;border:1px solid transparent;white-space:nowrap;line-height:1}
+.pt-act{background:#edf6f0;border-color:#d4e6da;color:#356f4b}
+.pt-tax{background:#ecf1f8;border-color:#d3deee;color:#33578c}
+.pt-proj{background:#fbf4e8;border-color:#eee0c4;color:#8a6018}
+.pt-plan{background:#f3eefb;border-color:#e0d6f3;color:#5f4599}
+/* On the dark cards the light chips shout. Sit them in the surface instead. */
+.mc.mc-hero .ptag, #tax-hero-card .ptag, .combo-stripe .ptag{
+  background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.30);color:#eaf6ee}
+/* Only a label that HAS a tag gets the flex treatment, so the other labels on the
+   screen keep the exact box they already had. */
+.mc-lbl:has(.ptags){display:flex;align-items:center;line-height:15px;min-height:15px}
+.skpi-lbl:has(.ptags){display:flex;align-items:center;line-height:14px;min-height:14px}
+.pf-kpi .l:has(.ptags){display:flex;align-items:center;line-height:13px;min-height:13px}
+.skpi-lbl .ptag, .pf-kpi .l .ptag, .mc-lbl .ptag{height:13px}
+/* The tax hero's label is 11px uppercase; a 14px tag grew its line box and took
+   the figure under it down 1.6px. Match the tag to the line it sits on. */
+#tax-hero-card .ptag{height:13px}
+#tax-hero-card div:has(>.ptags){display:flex;align-items:center;line-height:13px;min-height:13px}
+/* Inside a label span the tag would otherwise touch the word before it. */
+.cf-lbl>.ptags{margin-left:0}
+/* A span that exists only to HOLD a tag (because setEl writes textContent and
+   would wipe a tag inside the label itself) must not contribute a line box of
+   its own - it was adding 0.8px and taking the figure under it along. */
+.mc-lbl>span:has(>.ptags), .cf-lbl>span:has(>.ptags){display:contents}
 .skpi-sub.dn{color:var(--rd)}
 .skpi-sub.muted{color:var(--t4);font-weight:500}
 
@@ -6969,7 +7008,7 @@ table.rn-t td.dim{color:var(--t4)}
       </div>
       <div class="cf-op">=</div>
       <div class="cf-item kpi-tap" onclick="kpiOpen('dashNet')" style="position:relative"><span class="kpi-i">&#9432;</span>
-        <div class="cf-lbl"><div class="cf-dot p"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>Total Profit</div>
+        <div class="cf-lbl"><div class="cf-dot p"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>Total Profit<span id="dash-cf-profit-tags"></span></div>
         <div class="cf-val g" id="dash-cf-net">—</div>
         <div class="cf-chg" id="dash-cf-net-chg"></div>
         <div class="cf-detail" id="cf-margin-detail" style="color:var(--gm);font-weight:600"></div>
@@ -7175,7 +7214,7 @@ table.rn-t td.dim{color:var(--t4)}
 
   <div class="metrics m4" style="margin-bottom:20px">
     <div class="mc"><div class="mc-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div><div class="mc-lbl" id="inc-lbl-in">Money In (This Month)</div><div class="mc-val g" id="inc-metric-in">R1 328 750</div><div class="mc-chg up" id="inc-chg-in">↑ 16% vs last month</div></div>
-    <div class="mc"><div class="mc-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div><div class="mc-lbl" id="inc-lbl-profit">Profit (This Month)</div><div class="mc-val g" id="inc-metric-profit">R285 430</div><div class="mc-chg up" id="inc-chg-profit">↑ 18% vs last month</div></div>
+    <div class="mc"><div class="mc-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div><div class="mc-lbl"><span id="inc-lbl-profit">Profit (This Month)</span><span id="inc-tag-profit"></span></div><div class="mc-val g" id="inc-metric-profit">R285 430</div><div class="mc-chg up" id="inc-chg-profit">↑ 18% vs last month</div></div>
     <div class="mc"><div class="mc-icon b"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg></div><div class="mc-lbl">Year-to-Date Income</div><div class="mc-val b" id="inc-metric-ytd">—</div><div class="mc-chg" id="inc-chg-ytd">↑ 22% vs last year</div></div>
     <div class="mc"><div class="mc-icon p"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><div class="mc-lbl">Best Month This Year</div><div class="mc-val p" id="inc-metric-best">—</div><div class="mc-chg" id="inc-chg-best" style="color:var(--t3)">—</div></div>
   </div>
@@ -13722,6 +13761,51 @@ function applyFarmTypeVisibility(){
 }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+/* ---- Period tags -----------------------------------------------------------
+   One farm, eight profits - and every one of them is right:
+
+     money in - money out                 = profit, cash        (what happened)
+     + loan capital and disallowed cost   = taxable profit      (SARS rules)
+     the same sum run to 28 February      = projected           (where it is heading)
+     the same sum on planned figures      = planned margin      (before overheads)
+
+   The tags below are the only place those words are written, so two screens
+   cannot describe the same rung differently. Ported from the UK build, where
+   this was phase 1's answer to the same question. */
+var PROFIT_TAG_CLS = {actual:'pt-act', tax:'pt-tax', proj:'pt-proj', plan:'pt-plan'};
+function profitTag(kind, text){
+  return '<span class="ptag '+(PROFIT_TAG_CLS[kind]||'pt-act')+'">'+esc(String(text||''))+'</span>';
+}
+/* profitTags('actual','Year so far','tax','Tax rules') */
+function profitTags(){
+  var h='', i;
+  for(i=0;i+1<arguments.length;i+=2){ if(arguments[i+1]) h+=profitTag(arguments[i], arguments[i+1]); }
+  return h ? '<span class="ptags">'+h+'</span>' : '';
+}
+function setTags(id){
+  var el=document.getElementById(id); if(!el) return;
+  el.innerHTML=profitTags.apply(null, Array.prototype.slice.call(arguments,1));
+  /* Rendered after a language switch, so it has to translate itself. */
+  try{ if(typeof ST!=='undefined' && ST.lang==='af' && typeof applyLangNodes==='function') applyLangNodes(el,0,1); }catch(e){}
+}
+/* The tax year this app counts in ends on the last day of February. */
+function profitProjLabel(){ return 'Projected to 28 Feb'; }
+(function(){
+  /* Unshifted, for the reason the two blocks near the audit pairs give: a short
+     pair added at the END cannot protect a longer phrase an earlier one has
+     already chewed. Each of these is the entire text of its own tag span, so the
+     whole-node pass matches them outright. */
+  if (typeof LANG_PAIRS === 'undefined') return;
+  var PT_PAIRS = [
+    ['Projected to 28 Feb','Geprojekteer tot 28 Feb'],
+    ['Tax rules','Belastingreëls']
+  ];
+  for (var i = PT_PAIRS.length - 1; i >= 0; i--) {
+    var p = PT_PAIRS[i];
+    if (!LANG_PAIRS.some(function(q){ return q[0] === p[0]; })) LANG_PAIRS.unshift(p);
+  }
+})();
+
 /* ===== Profit by Crop & Herd ===== */
 function profitLabelFor(ft){ if(ft==='crops') return 'Profit by Crop'; if(ft==='livestock') return 'Profit by Herd'; return 'Profit by Crop & Herd'; }
 function applyProfitLabel(){ var s=$('nav-profit-label'); if(s) s.textContent='Profit'; var t=$('profit-title'); if(t) t.textContent='Your Profit Margins'; }
@@ -15268,7 +15352,10 @@ function renderProfit(){
     }
   }
   html+='<div class="pf-kpis" id="pf-kpis">'+
-    '<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfFarmProfit\')"><span class="kpi-i">\u24D8</span><div class="l">Farm profit this season</div><div class="v">'+_pfK(profit)+'</div><div class="s">after '+_pfK(overheads)+' shared costs</div></div>'+
+    /* No tag on this one: "Farm profit this season" plus a tag does not fit the KPI
+       card, so the label wrapped and dropped the value 13px below the two beside it.
+       The whole page is about profit, so the tag earned least here anyway. */
+      '<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfFarmProfit\')"><span class="kpi-i">\u24D8</span><div class="l">Farm profit this season</div><div class="v">'+_pfK(profit)+'</div><div class="s">after '+_pfK(overheads)+' shared costs</div></div>'+
     '<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfBestEarner\')"><span class="kpi-i">\u24D8</span><div class="l">Best earner</div><div class="v">'+esc(best.crop||best.name)+'</div><div class="s">'+bestTxt+'</div></div>'+
     (watch?'<div class="pf-kpi warn kpi-tap" onclick="kpiOpen(\'pfThird\')"><span class="kpi-i">\u24D8</span><div class="l">Watch</div><div class="v">'+esc(watch)+'</div><div class="s">'+watchSub+'</div></div>':'<div class="pf-kpi kpi-tap" onclick="kpiOpen(\'pfThird\')"><span class="kpi-i">\u24D8</span><div class="l">Crops &amp; herds</div><div class="v">'+(scReal.length+sl.length)+'</div><div class="s">tracked this season</div></div>')+
   '</div>';
@@ -17569,6 +17656,7 @@ setEl('inc-banner-val',    fmt(R.income));
 
 setEl('inc-lbl-in',     'Money In (' + lbl + ')');
   setEl('inc-lbl-profit', 'Profit (' + lbl + ')');
+  if(typeof setTags==='function') setTags('inc-tag-profit','actual','Cash');
 
 var prevInc  = Rp.income  - R.income;
   var prevProf = Rp.profit  - R.profit;
@@ -18516,6 +18604,9 @@ setEl('dash-budget-period', month);
   setEl('dash-cf-in',  fmt(cur.income));
   setEl('dash-cf-out', fmt(cur.expenses));
   setEl('dash-cf-net', fmt(Math.abs(profit)));
+  /* Which of the farm's profits this one is. The card header already says the
+     month, so the tag carries the BASIS - the part no label on the screen states. */
+  if(typeof setTags==='function') setTags('dash-cf-profit-tags','actual','Cash');
 
 var prev       = txSummary(prevMonthLabel(month));
   var prevProfit = prev.income - prev.expenses;
@@ -51964,6 +52055,8 @@ function updateRptDisplay() {
   setEl('rpt-expenses', fmt(R.totalCOS+R.totalOpex));
   setEl('rpt-gross',    IE_R(R.grossProfit));
   setEl('rpt-net',      IE_R(R.netProfitBT));
+  /* No tag on the Reports hero: that card is narrow and the Afrikaans label fills
+     the line by itself, so a tag wrapped it and dropped the figure 7.5px. */
   setEl('rpt-margin',   R.netMargin+'%');
   setEl('rpt-income-lbl', lbl);
   setEl('rpt-expenses-lbl', lbl);
@@ -53898,7 +53991,7 @@ function taxGlanceHTML(){
   // total tax hero
   if(prov.ok){
     h+='<div id="tax-hero-card" style="background:linear-gradient(135deg,#1B4332,#2D6A4F);color:#fff;border-radius:16px;padding:18px 22px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">'+
-      '<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.75">'+(prov.tooNew?'Your estimated tax on what you have recorded':'Your estimated tax to SARS this year')+'</div>'+
+      '<div><div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.75">'+(prov.tooNew?'Your estimated tax on what you have recorded':'Your estimated tax to SARS this year')+(prov.tooNew?profitTags('tax','Tax rules'):profitTags('proj',profitProjLabel(),'tax','Tax rules'))+'</div>'+
       '<div style="font-size:32px;font-weight:800">'+fmt(total)+'</div>'+
       (bank!=null?'<div style="font-size:12px;opacity:.85">after the next set-aside, <b>'+fmt(Math.max(0,Math.round(bank-prov.provPayment)))+'</b> of your balance is yours</div>':'<div style="font-size:12px;opacity:.85">income tax, VAT and payroll combined</div>')+'</div>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
