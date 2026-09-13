@@ -29723,6 +29723,11 @@ function lsMoveRender(){
         '<input type="checkbox" id="ls-mv-leave"'+(_lv?' checked':'')+' onchange="lsMvLeaveTog(this.checked)" style="width:auto;margin:0;accent-color:var(--gm)">'+
         '<span>Leaving the farm — needs a removal certificate</span></label></div>'+
       '<div id="ls-mv-transport" style="display:'+(_lv?'block':'none')+'">'+
+        /* The mark is a farm-level thing a farmer sets once, so it is easy to reach the
+           certificate without ever having been asked for it. Say so here, where the
+           certificate is first agreed to, rather than at the end when it blocks. */
+        (ST.stockMark?'':'<div class="rc-note" style="margin:0 0 12px">Your <b>registered stock mark</b> goes on every certificate and is not set yet. '+
+          '<b onclick="lsMoveClose();nav(\'settings\');setTimeout(function(){var e=document.getElementById(\'set-mark\'); if(e){e.scrollIntoView({block:\'center\'});e.focus();}},500)" style="cursor:pointer;text-decoration:underline">Add it in Settings</b> \u2014 once, for good.</div>')+
         '<div class="ls-mvf"><label>Place from</label><input oninput="lsMvStash()" id="ls-mv-fromplace" value="'+esc(LS_MV_STATE.fromPlace||ST.farmName||'')+'" placeholder="farm name and address"></div>'+
         '<div class="ls-mvf"><label>Place to</label><input oninput="lsMvStash()" id="ls-mv-toplace" value="'+esc(LS_MV_STATE.toPlace||'')+'" placeholder="e.g. Swartland Vleismark, Malmesbury"></div>'+
         '<div class="ls-mvf"><label>Transporter</label><input oninput="lsMvStash()" id="ls-mv-transporter" value="'+esc(LS_MV_STATE.transporter||'')+'" placeholder="who is driving"></div>'+
@@ -29866,7 +29871,7 @@ function lsMoveSave(){
     _lsMvFinish(opts); return;
   }
   if(r==='sold'){
-    var _m=_lsFindSaleMatches(h.id, opts.money||0, opts.date);
+    var _m=_lsFindSaleMatches(h.id, opts.money||0, opts.date, q);
     if((_m.money.length||_m.plan.length) && typeof lsMatchOpen==='function'){
       lsMatchOpen({herdName:lsHerdName(h), qty:q, money:opts.money||0, matches:_m}, function(linkTxn){
         if(linkTxn) opts.linkTxn=linkTxn;
@@ -30399,7 +30404,7 @@ function _lsMoveSummary(mv){
 }
 function _lsSaleMatchWindowDays(){ return 7; }
 function _lsSaleMatchTolerance(){ return 0.02; }
-function _lsFindSaleMatches(herdId, amount, dateISO){
+function _lsFindSaleMatches(herdId, amount, dateISO, qty){
   var out={money:[], plan:[]};
   var h=(ST_LS.herd||[]).filter(function(x){return x.id===herdId;})[0];
   if(!h) return out;
@@ -30414,10 +30419,23 @@ function _lsFindSaleMatches(herdId, amount, dateISO){
     if(amount>0 && t.amt>0 && Math.abs(t.amt-amount)/Math.max(t.amt,amount)>tol) return;
     out.money.push(t);
   });
+  /* A planned sale is only the same sale if it is about the same size. The money
+     side has always been filtered to a week and 2%; the plan side was not filtered
+     at all, so a sale of 3 head was offered a plan for 20 and the farmer was invited
+     to tick it. Same ballpark means the sale covers at least half the plan and no
+     more than double it; the closest is offered first, and never more than three. */
   try{
-    ((typeof ST_PLAN!=='undefined'&&ST_PLAN.events)?ST_PLAN.events:[]).forEach(function(ev){
-      if(ev && !ev.done && ev.type==='sell' && ev.herdId===herdId) out.plan.push(ev);
+    var q=Math.max(0, parseInt(qty,10)||0);
+    var cands=((typeof ST_PLAN!=='undefined'&&ST_PLAN.events)?ST_PLAN.events:[]).filter(function(ev){
+      if(!(ev && !ev.done && ev.type==='sell' && ev.herdId===herdId)) return false;
+      var p=Math.max(0, parseInt(ev.qty,10)||0);
+      if(!q || !p) return true;                      /* nothing to compare on: leave it to the farmer */
+      return q >= p/2 && q <= p*2;
     });
+    cands.sort(function(a,b){
+      return Math.abs((parseInt(a.qty,10)||0)-q) - Math.abs((parseInt(b.qty,10)||0)-q);
+    });
+    out.plan = cands.slice(0,3);
   }catch(e){}
   return out;
 }
@@ -68964,8 +68982,8 @@ function diRender(){
       '<div class="rc-no">'+esc(c.no)+(c.status==='superseded'?' <span class="rc-pill rc-sup">Superseded</span>':' <span class="rc-pill rc-ok">Issued</span>')+'</div>'+
       '<div class="rc-sub">'+esc(s.stock||'')+' → '+esc(s.buyerName||'')+'</div>'+
       '<div class="rc-acts">'+
-        '<button class="ls-mv-save" style="margin:0" onclick="aiDiShare(\''+esc(c.no)+'\')">Preview &amp; send</button>'+
-        '<button class="rc-btn" onclick="aiDiPrint(\''+esc(c.no)+'\')">Print</button>'+
+        '<button class="ls-mv-save" style="margin:0" onclick="diClose();aiDiShare(\''+esc(c.no)+'\')">Preview &amp; send</button>'+
+        '<button class="rc-btn" onclick="diClose();aiDiPrint(\''+esc(c.no)+'\')">Print</button>'+
       '</div>'+
       '<div class="rc-note">Hand it over with the animals. The buyer keeps it for at least a year and must produce it on demand.</div>';
     return;
@@ -69021,7 +69039,9 @@ function diRender(){
       '<button class="ls-mv-save" style="margin:0" onclick="diIssueNow()">'+(DI_STATE.supersedes?'Reissue':'Issue document')+'</button>'+
       '<button class="rc-btn" onclick="diClose()">Not now</button>'+
     '</div>'+
-    (chk.ok?'':'<div class="rc-note">'+chk.missing.length+' thing'+(chk.missing.length===1?'':'s')+' still needed — the button will tell you which.</div>');
+    (chk.ok?'':'<div class="rc-warn" style="margin-top:12px"><b>'+chk.missing.length+' thing'+(chk.missing.length===1?'':'s')+' still needed.</b><ul>'+
+      chk.missing.map(function(f){ return '<li>'+esc(f.label)+' <button class="rc-fix" onclick="diFix(\''+f.where+'\')">Add it</button></li>'; }).join('')+
+      '</ul></div>');
 }
 function diBuyerPick(i, el){
   var b=(typeof aiDiBuyers==='function'?aiDiBuyers():[])[i]; if(!b) return;
@@ -69090,8 +69110,8 @@ function rcRender(){
       '<div class="rc-no">'+esc(c.no)+(c.status==='superseded'?' <span class="rc-pill rc-sup">Superseded</span>':' <span class="rc-pill rc-ok">Issued</span>')+'</div>'+
       '<div class="rc-sub">'+esc(s.qty+' head · '+(s.herdName||''))+' → '+esc(s.toPlace||'')+'</div>'+
       '<div class="rc-acts">'+
-        '<button class="ls-mv-save" style="margin:0" onclick="aiRcShare(\''+esc(c.no)+'\')">Preview &amp; send</button>'+
-        '<button class="rc-btn" onclick="aiRcPrint(\''+esc(c.no)+'\')">Print</button>'+
+        '<button class="ls-mv-save" style="margin:0" onclick="rcClose();aiRcShare(\''+esc(c.no)+'\')">Preview &amp; send</button>'+
+        '<button class="rc-btn" onclick="rcClose();aiRcPrint(\''+esc(c.no)+'\')">Print</button>'+
       '</div>'+
       '<div class="rc-note">Keep for at least one year and produce on demand. This certificate does not replace a state veterinary movement permit where the Animal Diseases Act 35 of 1984 requires one.</div>';
     return;
@@ -69129,7 +69149,9 @@ function rcRender(){
       '<button class="ls-mv-save" style="margin:0'+(chk.ok?'':';opacity:.45;cursor:not-allowed')+'" onclick="rcIssueNow()">'+(RC_STATE.supersedes?'Reissue':'Issue certificate')+'</button>'+
       '<button class="rc-btn" onclick="rcClose()">Not now</button>'+
     '</div>'+
-    (chk.ok?'':'<div class="rc-note">'+chk.missing.length+' prescribed particular'+(chk.missing.length===1?'':'s')+' still missing — the button will tell you which.</div>');
+    (chk.ok?'':'<div class="rc-warn" style="margin-top:12px"><b>'+chk.missing.length+' prescribed particular'+(chk.missing.length===1?'':'s')+' still missing.</b><ul>'+
+      chk.missing.map(function(f){ return '<li>'+esc(f.label)+' <button class="rc-fix" onclick="rcFix(\''+f.where+'\')">Add it</button></li>'; }).join('')+
+      '</ul></div>');
 }
 
 /* ---------- register card (inside the existing Register view) ---------- */
