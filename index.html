@@ -6292,8 +6292,17 @@ small{font-size:11px}
 .scn-sugg .gr{flex:1;min-width:0}
 .scn-sugg b{font-weight:800}
 .scn-sugg .s2{display:block;margin-top:7px}
+/* .s3 no longer used here - the provenance line it styled moved into "How we got
+   this". Kept because the class is cheap and the next line added to this box will
+   want it. */
 .scn-sugg .s3{display:block;margin-top:7px;opacity:.78;font-size:11.5px}
 .scn-sugg .acts{display:flex;gap:8px;margin-top:9px}
+/* Sits in the corner and takes no part in the flow of the text: fixed box, no
+   grow, no shrink, so dismissing is available without the advice reflowing. */
+.scn-sugg .scn-x{flex:0 0 auto;align-self:flex-start;margin-left:10px;width:22px;height:22px;
+  display:flex;align-items:center;justify-content:center;padding:0;border:0;border-radius:6px;
+  background:transparent;color:#B07A4A;font-size:12px;line-height:1;cursor:pointer;font-family:inherit}
+.scn-sugg .scn-x:hover{background:rgba(138,68,18,.10);color:#8A4412}
 .scn-sugg button{font-family:inherit;font-size:12px;font-weight:700;border-radius:8px;padding:6px 12px;cursor:pointer}
 .scn-sugg .scn-use{background:#8A4412;color:#fff;border:0}
 .scn-sugg .scn-how{background:transparent;color:#8A4412;border:1px solid #E0BFA0}
@@ -19436,7 +19445,7 @@ var FRESH_SHAPE = {
   ST_FUEL:    { issues:[] },
   /* The rain book is the farmer's own record. A new farm keeps the satellite
      switch and the planting rule (settings) and loses every gauge and reading. */
-  ST_RAIN:    { gauges:[], log:[], sat:{daily:{},histFetched:false,err:null,forecast:null,fetched:null},
+  ST_RAIN:    { scenHide:'', gauges:[], log:[], sat:{daily:{},histFetched:false,err:null,forecast:null,fetched:null},
                 normal:{src:null,v:null,monthly:null,band:null,enso:null,years:null,override:null},
                 frost:{years:null,lastSpring:null,firstAutumn:null,freeDays:null,adj:null,src:null},
                 seas:null, temp:{min:null}, loc:{town:'',prov:'',lat:null,lon:null}, yearStart:null }
@@ -41489,39 +41498,70 @@ function rnRoundRand(v){
   var step = a >= 1000000 ? 100000 : (a >= 100000 ? 10000 : 1000);   /* D13 */
   return Math.round(v/step)*step;
 }
+/* The identity of the outlook a farmer dismissed. Months rather than a date, so
+   the box comes back when the forecast moves to a new window rather than staying
+   gone for good - a dismissal answers THIS season, not the feature. */
+function rnScenSig(o){
+  try { return (o && o.months && o.months.length) ? (o.months[0] + '..' + o.months[o.months.length-1]) : ''; }
+  catch(e){ return ''; }
+}
+function rnScenDismiss(){
+  try {
+    var o = rnSeasOutlook(); if (!o) return;
+    ST_RAIN.scenHide = rnScenSig(o);
+    saveState();
+    /* The same repaint the weather buttons use, so the strip goes without the
+       page jumping or the scenario state being touched. */
+    if (typeof scenRerender === 'function') scenRerender();
+  } catch(e){}
+}
 function rnScenSuggestStrip(){
   try {
     if (!rnOn()) return '';                                   /* D16 */
+    /* Only when the season AHEAD is leaning dry. What this box costs out is an El
+       Nino summer, and the farm's own El Nino record is history - it says nothing
+       about the summer coming. Shown on every visit it was advice with no occasion:
+       true, and pointless in a year the models are not worried about.
+       rnSeasOutlook() is the honest signal and already refuses to answer on a
+       stale fetch, on months that have passed, or where the model's middle run is
+       nowhere near this farm's normal. 'dry' means at least 6 runs in 10 below it.
+       There is NO live El Nino indicator in this app - nothing here knows whether
+       one has been declared - so the gate is the rainfall outlook, and the opening
+       line now says so rather than leaving the farmer to wonder why it appeared. */
+    var out = rnSeasOutlook();
+    if (!out || out.lean !== 'dry') return '';
+    if (ST_RAIN.scenHide && ST_RAIN.scenHide === rnScenSig(out)) return '';
     var sh = rnEnsoShortfall(); if (!sh) return '';
     var mny = rnEnsoMoney(sh);
-    var pctShort = Math.round(sh.deficit * 100);
+    /* TWO lines, and they are the only two that earn the space: WHY this is on
+       screen (the season ahead) and WHAT it costs. Everything that used to sit
+       here - the millimetres short, the share of growing-season rain, the count of
+       El Nino summers it was built from, the note that the figure follows the
+       yield - is already in "How we got this", word for word, so none of it is
+       lost. Advice read at a glance has to be readable at a glance. */
     var h = '<div class="scn-sugg"><span class="ic">&#127777;</span><span class="gr">' +
-      '<b>' + rnT('A summer like your last El Ni&ntilde;o years would be about ',
-                  '\'n Somer soos jou laaste El Ni&ntilde;o-jare sou omtrent ') +
-      Math.round(sh.shortMm) + rnT(' mm short of normal.', ' mm minder as normaal wees.') + '</b> ' +
-      rnT('That is about ', 'Dit is omtrent ') + pctShort + rnT('% of your growing-season rain.',
-          '% van jou groeiseisoen se reën.');
+      '<b>' + rnSeasMonthWords(out.months) + rnT(' is leaning dry.', ' leun droog.') + '</b> ' +
+      out.dryOf10 + rnT(' runs in 10 below normal.', ' lopies uit 10 onder normaal.');
     if (mny){
       h += '<span class="s2">';
       if (mny.beyondModel){
-        h += rnT('On the yield you are expecting, that is more than half your maize income.',
-                 'Op die opbrengs wat jy verwag, is dit meer as die helfte van jou mielie-inkomste.');
+        h += rnT('That is more than half your maize income.',
+                 'Dit is meer as die helfte van jou mielie-inkomste.');
       } else {
-        h += rnT('On the yield you are expecting, that is about ', 'Op die opbrengs wat jy verwag, is dit omtrent ') +
+        h += rnT('On your expected yield, about ', 'Op jou verwagte opbrengs, omtrent ') +
              '<b>' + Math.round(mny.lossPct*100) + rnT('% less maize', '% minder mielies') + '</b>' +
-             rnT(' — around ', ' — sowat ') + '<b>' + planFmtR(rnRoundRand(mny.rand)) + '</b>. ' +
-             rnT('Change the yield and this changes with it.', 'Verander die opbrengs en dit verander saam.');
+             rnT(' — around ', ' — sowat ') + '<b>' + planFmtR(rnRoundRand(mny.rand)) + '</b>.';
       }
       h += '</span>';
     }
-    h += '<span class="s3">' + rnT('Worked out from ', 'Uitgewerk uit ') + sh.summers +
-         rnT(' El Ni&ntilde;o summers measured on your own farm.',
-             ' El Ni&ntilde;o-somers op jou eie plaas gemeet.') + '</span>' +
+    h +=
       '<span class="acts"><button type="button" class="scn-use" onclick="rnScenUse()">' +
       rnT('Use it', 'Gebruik dit') + '</button>' +
       '<button type="button" class="scn-how" onclick="rnScenHow()">' +
       rnT('How we got this', 'Hoe ons dit kry') + '</button></span>';
-    return h + '</span></div>';
+    /* Dismissible: it is advice, not a warning the farmer has to clear. */
+    return h + '</span><button type="button" class="scn-x" onclick="rnScenDismiss()" aria-label="' +
+      rnT('Dismiss', 'Maak toe') + '" title="' + rnT('Dismiss', 'Maak toe') + '">&#10005;</button></div>';
   } catch(e){ return ''; }
 }
 /* D11 — a suggestion, never a prefill. This only runs when the farmer taps. */
