@@ -68921,6 +68921,10 @@ function diIssueNow(){
   if(r && r.error==='incomplete'){ DI_STATE.view='blocked'; DI_STATE.missing=r.missing; diRender(); return; }
   if(r && r.error){ toast('That sale is no longer available.','error'); diClose(); return; }
   DI_STATE.doc=r; DI_STATE.view='issued'; diRender();
+  /* The register is its own render, not part of renderLivestock: without this the
+     document is issued and filed but the card behind the sheet still shows the old
+     list — found in production, not in the harness. */
+  try{ if(typeof renderStockRegister==='function' && document.getElementById('ls-reg-root')) renderStockRegister(); }catch(e){}
   try{ if(typeof renderLivestock==='function') renderLivestock(); }catch(e){}
 }
 /* The sale is already saved by the time the document is asked for, so the buyer
@@ -68937,6 +68941,7 @@ function diBuyerSave(){
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
   DI_STATE.view='offer'; diRender();
+  try{ if(typeof renderStockRegister==='function' && document.getElementById('ls-reg-root')) renderStockRegister(); }catch(e){}
 }
 function diFix(where){
   /* Two lawful answers to the same requirement: the farm's registered mark, or
