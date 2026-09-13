@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=37"></script>
+<script src="ai-data.js?v=38"></script>
 <script src="ai-auth.js?v=35"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -448,6 +448,26 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .combo-sub .tl-dot.green{background:#86EFAC}
 .combo-sub .tl-dot.amber{background:#FCD34D}
 .combo-sub .tl-dot.red{background:#FCA5A5}
+/* The verdict line is a SENTENCE, not a chip. .combo-sub was display:flex with
+   flex-wrap:wrap, so the whole text span jumped to line 2 the moment it did not
+   fit and left the status dot stranded alone on line 1 - at every width, not
+   just narrow ones. Keep the row unwrapped and let the text wrap INSIDE its own
+   box: the dot then sits on the first line where it belongs. */
+.combo-answer .combo-sub{flex-wrap:nowrap;align-items:flex-start;gap:8px}
+.combo-sub .tl-dot{flex:0 0 auto;margin-top:5px}
+.combo-answer .combo-sub>span:last-child{flex:1 1 auto;min-width:0;max-width:62ch;text-wrap:balance}
+/* Long verdicts ("Costs not recorded yet") wrap; balance them rather than
+   leaving one word on the second line. */
+.combo-answer .combo-val{text-wrap:balance}
+/* The stats block is grid `auto`, so it never gives width back: at 1024 it took
+   441px of a 674px row and crushed the answer into a 125px column - the
+   headline came out on four lines and the sentence on five. Below this width
+   the stats take their own row and the answer gets the full width. */
+@media (max-width:1240px){
+  .combo-inner{grid-template-columns:auto minmax(0,1fr)}
+  .combo-stats{grid-column:1/-1;padding-top:14px;border-top:1px solid rgba(255,255,255,.16)}
+  .combo-ps-item:first-child{padding-left:0}
+}
 .combo-stats{display:flex;flex-shrink:0}
 .combo-ps-item{padding:0 18px}
 .combo-ps-item + .combo-ps-item{border-left:1px solid rgba(255,255,255,.18)}

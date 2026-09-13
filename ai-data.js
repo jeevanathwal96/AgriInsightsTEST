@@ -319,6 +319,8 @@
   let CAN_FARM_RAIN_NK  = false;   // farms.rain_not_kept (rainfall_not_kept.sql)
   let CAN_FARM_RAIN_RULE= false;   // farms.rain_plant_mm/_days + rain_fill_sat (rainfall_farm_settings.sql)
   let CAN_FARM_RAIN_DRV = false;   // farms.rain_derived (rain_derived_migration.sql)
+  let CAN_FARM_BANK_AT  = false;   // farms.bank_balance_at (bank_balance_at_migration.sql)
+  let _bankSeen = null;            // the balance the server last gave us
   /* Filing rules. Without the table they stay on the device, which is how the UK build
      shipped them — defensible there because that project is not provisioned, and not
      here, where a farmer moves between a laptop and a tablet. */
@@ -359,6 +361,7 @@
     CAN_FARM_RAIN_NK   = await has('farms','rain_not_kept');
     CAN_FARM_RAIN_RULE = (await has('farms','rain_plant_days')) && (await has('farms','rain_fill_sat'));
     CAN_FARM_RAIN_DRV  = await has('farms','rain_derived');
+    CAN_FARM_BANK_AT   = await has('farms','bank_balance_at');
     CAN_CAT_RULES      = await has('category_rules','match_text');
     /* The whole row-memory scheme rides on this one column. A project that has
        not run agriinsights-13-relational-sync.sql keeps today's behaviour rather
@@ -2058,6 +2061,10 @@
        key-copy; the blobs are handed back under their own names because they belong to
        ST_CROP, ST_PLAN and ST_LOANAPP rather than ST, and the caller applies those. */
     if(r.bank_balance!=null)          p.bankBalance=Number(r.bank_balance);
+    if(r.bank_balance_at!=null)       p.bankBalanceAt=r.bank_balance_at;
+    /* What the server holds right now, so profileSave can tell whether the farmer
+       actually changed the balance or merely re-saved the profile around it. */
+    _bankSeen = (r.bank_balance!=null) ? Number(r.bank_balance) : null;
     if(r.season_start_month!=null)    p.seasonStartMonth=parseInt(r.season_start_month,10);
     if(r.budget_expense_target!=null) p.budgetExpenseTarget=Number(r.budget_expense_target);
     if(r.loan_app!=null)              p._loanApp=r.loan_app;
@@ -2067,7 +2074,7 @@
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
+    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -2113,7 +2120,17 @@
          migration must not lose the farm name along with them. */
       var sett={};
       if(CAN_FARM_SETTINGS){
-        if(st.bankBalance!=null && st.bankBalance!=='')                 sett.bank_balance=Number(st.bankBalance);
+        if(st.bankBalance!=null && st.bankBalance!==''){
+          sett.bank_balance=Number(st.bankBalance);
+          /* Date it only when the FIGURE moved. Stamping on every profile save would
+             make a month-old balance look like this morning's the next time someone
+             edited a VAT number, which is the exact dishonesty this column exists to
+             remove. */
+          if(CAN_FARM_BANK_AT && Number(st.bankBalance)!==_bankSeen){
+            sett.bank_balance_at=new Date().toISOString().slice(0,10);
+            _bankSeen=Number(st.bankBalance);
+          }
+        }
         if(st.seasonStartMonth!=null)                                   sett.season_start_month=parseInt(st.seasonStartMonth,10);
         if(st.budgetExpenseTarget!=null && st.budgetExpenseTarget!=='') sett.budget_expense_target=Number(st.budgetExpenseTarget);
         try{ var _la=global.ST_LOANAPP; if(_la && Object.keys(_la).length) sett.loan_app=_la; }catch(e){}
