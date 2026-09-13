@@ -10071,6 +10071,10 @@ table.rn-t td.dim{color:var(--t4)}
             <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-demo-btn" checked onchange="ST.showDemoBtn=this.checked;updateDemoBtnVisibility()"/><div class="toggle-track"></div></label>
           </div>
           <div class="set-trow">
+            <div><div class="tl">Offer a document of identification</div><div class="ts">When you sell animals, ask who bought them and offer the document the buyer is entitled to &mdash; Stock Theft Act s6. Off means off: nothing is asked and nothing is flagged.</div></div>
+            <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-di" onchange="setDiOffer(this.checked)"/><div class="toggle-track"></div></label>
+          </div>
+          <div class="set-trow">
             <div><div class="tl">Share diagnostics</div><div class="ts">Keep the last few errors on this device so you can send them to support if something breaks. <span id="set-diag-count">0</span> saved · <span onclick="diagCopy()" style="color:var(--gm);font-weight:700;cursor:pointer">Copy</span> · <span onclick="diagClear()" style="color:var(--t3);cursor:pointer">Clear</span></div></div>
             <label class="toggle-wrap" style="flex-shrink:0"><input type="checkbox" id="set-diag" onchange="setDiagnostics(this.checked)"/><div class="toggle-track"></div></label>
           </div>
@@ -19646,6 +19650,7 @@ function nav(id) {
     try{ renderRulesList(); }catch(e){}
     try{ rnSyncVeldSetting(); }catch(e){}
     try{ if (typeof rnSettingsRender === 'function') rnSettingsRender(); }catch(e){}
+    var sdi=$('set-di');    if(sdi) sdi.checked = (ST.diOffer==='yes');
     var sf=$('set-farm');   if(sf) sf.value = ST.farmName   || '';
     var so=$('set-owner');  if(so) so.value = ST.ownerName  || '';
     var sa=$('set-addr');     if(sa) sa.value = ST.farmAddr || '';
@@ -29725,6 +29730,35 @@ function lsMoveRender(){
         '<div class="ls-mvf"><label>Make &amp; model</label><input oninput="lsMvStash()" id="ls-mv-vehmake" value="'+esc(LS_MV_STATE.vehMake||'')+'" placeholder="e.g. Isuzu FTR 850"></div>'+
       '</div>';
   }
+  /* Who bought them. Optional, and only on a sale. A farm that has said it does
+     not hand over a document of identification is never shown this again. */
+  var buyerRow='';
+  if(LS_MV_STATE.reason==='sold' && ST.diOffer!=='never'){
+    if(!ST.diOffer){
+      buyerRow='<div class="ls-mvf" id="ls-mv-dioffer"><div class="rc-note" style="margin:0">'+
+        '<b>Some buyers ask for a document of identification.</b> Shall I offer it when you sell?'+
+        '<div style="display:flex;gap:8px;margin-top:9px">'+
+          '<button type="button" class="rc-fix" onclick="lsDiOffer(\'yes\')">Yes, offer it</button>'+
+          '<button type="button" class="rc-fix" onclick="lsDiOffer(\'later\')">Not now</button>'+
+          '<button type="button" class="rc-fix" onclick="lsDiOffer(\'never\')">Never</button>'+
+        '</div></div></div>';
+    } else {
+      var _bys=(typeof aiDiBuyers==='function'?aiDiBuyers():[]).slice(0,4);
+      var _chips=_bys.length?('<div class="mv-grid" style="margin-bottom:8px">'+_bys.map(function(b,i){
+          return '<button type="button" class="mvc" onclick="lsMvBuyerPick('+i+',this)">'+esc(b.name)+'</button>'; }).join('')+'</div>'):'';
+      buyerRow='<div class="ls-mvf"><label>Who bought them? <span style="font-weight:600;color:var(--t4)">(optional \u2014 for the document of identification)</span></label>'+
+        _chips+
+        '<input id="ls-mv-buyer" oninput="lsMvStash()" value="'+esc(LS_MV_STATE.buyerName||'')+'" placeholder="e.g. H. Nel, or the auction house">'+
+        '<input id="ls-mv-buyeraddr" oninput="lsMvStash()" style="margin-top:8px" value="'+esc(LS_MV_STATE.buyerAddr||'')+'" placeholder="their address \u2014 asked once per buyer">'+
+        '</div>'+
+        '<details class="rn-adv" style="margin:0 0 13px"><summary>Sold on behalf of someone else'+(ST.stockMark?'':', or stock with no mark')+'</summary>'+
+          '<div class="ls-mvf" style="margin-top:11px"><label>Sold on behalf of</label>'+
+          '<input id="ls-mv-onbehalf" oninput="lsMvStash()" value="'+esc(LS_MV_STATE.onBehalf||'')+'" placeholder="name and address of the owner"></div>'+
+          (ST.stockMark?'':'<div class="ls-mvf"><label>Sex and colour <span style="font-weight:600;color:var(--t4)">(your farm has no registered mark yet)</span></label>'+
+          '<input id="ls-mv-unmarked" oninput="lsMvStash()" value="'+esc(LS_MV_STATE.unmarked||'')+'" placeholder="e.g. 4 heifers and 2 steers, red"></div>')+
+        '</details>';
+    }
+  }
   var qtyRow='<div class="ls-mvf"><label>How many?</label><input type="number" id="ls-mv-qty" value="1" min="1" oninput="lsMovePrev()"></div>';
   var dateRow='<div class="ls-mvf"><label>Date</label><input type="date" id="ls-mv-date" value="'+new Date().toISOString().slice(0,10)+'"></div>';
   var noteRow='';
@@ -29733,7 +29767,7 @@ function lsMoveRender(){
   } else if(LS_MV_STATE.reason==='missing'||LS_MV_STATE.reason==='died'){
     noteRow='<div class="ls-mvf"><label>Note <span style="font-weight:600;color:var(--t4)">(optional)</span></label><input id="ls-mv-ref" placeholder="'+(LS_MV_STATE.reason==='died'?'cause, if known':'where / when last seen')+'"></div>';
   }
-  body.innerHTML=grpSel+reasonRow+classRow+'<div id="ls-mv-tags"></div>'+qtyRow+moneyRow+leaveRow+noteRow+dateRow+
+  body.innerHTML=grpSel+reasonRow+classRow+'<div id="ls-mv-tags"></div>'+qtyRow+moneyRow+buyerRow+leaveRow+noteRow+dateRow+
     '<div class="ls-mv-prev" id="ls-mv-prev"></div>'+
     '<button class="ls-mv-save" onclick="lsMoveSave()">'+((typeof LS_MV_TITLES!=='undefined'&&LS_MV_TITLES[LS_MV_STATE.reason])?LS_MV_TITLES[LS_MV_STATE.reason].replace('Record a ','Save ').replace('Record ','Save ').replace('Promote between classes','Save promotion'):'Save movement')+'</button>';
   lsMvTagsRender();
@@ -29772,6 +29806,26 @@ function lsMvStash(){
   LS_MV_STATE.transporter=_v('ls-mv-transporter');
   LS_MV_STATE.vehReg=_v('ls-mv-vehreg');
   LS_MV_STATE.vehMake=_v('ls-mv-vehmake');
+  LS_MV_STATE.buyerName=_v('ls-mv-buyer');
+  LS_MV_STATE.buyerAddr=_v('ls-mv-buyeraddr');
+  LS_MV_STATE.onBehalf=_v('ls-mv-onbehalf');
+  LS_MV_STATE.unmarked=_v('ls-mv-unmarked');
+}
+/* Picking a buyer already sold to fills both fields; the farmer can still type over it. */
+function lsMvBuyerPick(i, el){
+  var b=(typeof aiDiBuyers==='function'?aiDiBuyers():[])[i]; if(!b) return;
+  var n=document.getElementById('ls-mv-buyer'), a=document.getElementById('ls-mv-buyeraddr');
+  if(n) n.value=b.name; if(a) a.value=b.addr||'';
+  try{ [].forEach.call(el.parentNode.querySelectorAll('.mvc'), function(x){ x.classList.remove('sel'); }); el.classList.add('sel'); }catch(e){}
+  lsMvStash();
+}
+/* Asked once. "Not now" asks again on the next sale and then stops asking. */
+function lsDiOffer(choice){
+  if(choice==='yes') ST.diOffer='yes';
+  else if(choice==='never') ST.diOffer='never';
+  else { ST.diAsked=(ST.diAsked||0)+1; if(ST.diAsked>=2) ST.diOffer='never'; }
+  try{ saveState&&saveState(); }catch(e){}
+  if(typeof lsMoveRender==='function') lsMoveRender();
 }
 function lsMoveSave(){
   var h=(ST_LS.herd||[]).filter(function(x){return x.id===LS_MV_STATE.herdId;})[0]; if(!h){ return; }
@@ -29795,6 +29849,14 @@ function lsMoveSave(){
     opts.vehReg=_v('ls-mv-vehreg');
     opts.vehMake=_v('ls-mv-vehmake');
   }
+  var _bn=(document.getElementById('ls-mv-buyer')||{}).value, _ba=(document.getElementById('ls-mv-buyeraddr')||{}).value;
+  if(_bn && String(_bn).trim()){
+    opts.buyer={name:String(_bn).trim(), addr:String(_ba||'').trim()};
+    try{ aiDiBuyerSave(opts.buyer.name, opts.buyer.addr); }catch(e){}
+  }
+  var _ob=(document.getElementById('ls-mv-onbehalf')||{}).value; if(_ob && _ob.trim()) opts.onBehalf=_ob.trim();
+  var _um=(document.getElementById('ls-mv-unmarked')||{}).value; if(_um && _um.trim()) opts.unmarked=_um.trim();
+
   /* One match step instead of two prompts. The plan-dedup confirm used to live here on its
      own; a farmer who had also banked the money through the income form would then get a
      second dialog immediately after. Both records answer the same question, so they are
@@ -30150,6 +30212,12 @@ function lsRecordMove(opts){
     if(opts.vehReg)      _mvRec.vehReg=opts.vehReg;
     if(opts.vehMake)     _mvRec.vehMake=opts.vehMake;
   }
+  /* The buyer, and who the seller acted for: needed only by the document of
+     identification (Stock Theft Act s6). Optional everywhere — a sale saves
+     without them, and nothing else in the app reads them. */
+  if(opts.buyer && opts.buyer.name) _mvRec.buyer={name:opts.buyer.name, addr:opts.buyer.addr||''};
+  if(opts.onBehalf) _mvRec.onBehalf=opts.onBehalf;
+  if(opts.unmarked) _mvRec.unmarked=opts.unmarked;
   ST_LS.moves.unshift(_mvRec);
   /* lsRecordMove returns the HERD (callers rely on that), so the move it just
      created is exposed separately for anything that needs the record itself. */
@@ -32171,7 +32239,7 @@ function renderStockRegister(){
   var root=$('ls-reg-root'); if(!root) return;
   /* Certificates live inside the Register rather than a ninth Livestock tab —
      the sub-views were deliberately kept few, and this is register material. */
-  root.innerHTML = _lsRegBanner() + _lsUnmatchedCard() + _lsRegCertsCard() + _lsRegReconCard() + _lsRegCapitalCard() + _lsRegTimelineCard() + _lsRegHerdsCard();
+  root.innerHTML = _lsRegBanner() + _lsUnmatchedCard() + _lsRegCertsCard() + _lsRegDiCard() + _lsRegReconCard() + _lsRegCapitalCard() + _lsRegTimelineCard() + _lsRegHerdsCard();
 }
 
 /* ---------- 1 · heads-up banner ---------- */
@@ -67665,6 +67733,225 @@ function aiRcPrint(no){
 }
 
 /* ====================================================================
+   DOCUMENT OF IDENTIFICATION  —  Stock Theft Act 57 of 1959, s6
+   The seller must hand this to the buyer AT THE TIME OF DELIVERY: his own
+   name and address, whoever he acts for, the buyer's name and address, the
+   date, the prescribed particulars of the stock, and a certification that
+   the stock is his or that he may sell it (s6(1)(a)-(b)). The buyer may not
+   take delivery without it, keeps it a year and must produce it on demand
+   (s6(2)-(4)). The Animal Identification Act 6 of 2002 s7(2) asks for the
+   same document, and after 14 days of ownership also for the seller's own
+   mark on the animal.
+
+   OPTIONAL BY DESIGN. Nothing here blocks a sale: the buyer is asked for,
+   never demanded, a sale saves without one, and a farm that says it does not
+   hand these over is asked once and then left alone (ST.diOffer).
+   ==================================================================== */
+var AI_DI_TPL = 1;
+var AI_DI_REQ = [
+  {k:'owner',      label:'Your name',            where:'settings'},
+  {k:'sellerAddr', label:'Your address',         where:'settings'},
+  {k:'buyerName',  label:'Buyer’s name',    where:'sale'},
+  {k:'buyerAddr',  label:'Buyer’s address', where:'sale'},
+  {k:'ident',      label:'Your registered mark, or the sex and colour of unmarked stock', where:'ident'}
+];
+/* The particulars of the stock. Where the animals carry the farm's registered
+   mark that mark identifies them; where they do not, the sex, the number of
+   each sex and the colour take its place. */
+function aiDiStock(mv, h){
+  return [mv.qty+' head', (h&&h.breed)||'', (h&&(typeof lsHerdName==='function'?lsHerdName(h):h.name))||''].filter(Boolean).join(' · ');
+}
+function aiDiSnap(mv){
+  var h=(ST_LS.herd||[]).filter(function(x){ return x.id===mv.herd; })[0]||{};
+  var b=mv.buyer||{};
+  return {
+    farm:ST.farmName||'', owner:ST.ownerName||'', sellerAddr:ST.farmAddr||'',
+    buyerName:b.name||'', buyerAddr:b.addr||'', onBehalf:mv.onBehalf||'',
+    saleDate:mv.date||'', qty:mv.qty||0, kind:h.type||'', breed:h.breed||'',
+    herdName:(typeof lsHerdName==='function'?lsHerdName(h):(h.name||'')),
+    stock:aiDiStock(mv,h),
+    mark:ST.stockMark||'', markType:ST.stockMarkType||'',
+    unmarked:mv.unmarked||'',
+    ident:(ST.stockMark||mv.unmarked||''),
+    tpl:AI_DI_TPL
+  };
+}
+function aiDiCheck(mv){
+  var s=mv?aiDiSnap(mv):{}, missing=[];
+  AI_DI_REQ.forEach(function(f){ if(!String(s[f.k]||'').trim()) missing.push(f); });
+  return { ok:missing.length===0, missing:missing };
+}
+function aiDiIssue(moveId, supersedesNo){
+  var mv=(ST_LS.moves||[]).filter(function(m){ return m.id===moveId; })[0];
+  if(!mv) return {error:'no-move'};
+  var chk=aiDiCheck(mv);
+  if(!chk.ok) return {error:'incomplete', missing:chk.missing};
+  var doc={ no:aiDocNextNo('DI'), type:'DI', status:'issued',
+            issuedAt:new Date().toISOString(),
+            date:new Date().toISOString().slice(0,10),
+            moveId:moveId, snap:aiDiSnap(mv) };
+  if(supersedesNo){
+    doc.supersedes=supersedesNo;
+    (ST.docs||[]).forEach(function(d){
+      if(d.no===supersedesNo){ d.status='superseded'; d.supersededBy=doc.no; }
+    });
+  }
+  ST.docs=ST.docs||[]; ST.docs.unshift(doc);
+  try{ saveState&&saveState(); }catch(e){}
+  try{ if(window.AI && AI.farm && AI.farm.active() && AI.documents){
+         AI.documents.saveAll(ST.docs).catch(function(e){ console.error('Backend document save failed:', e); }); } }catch(e){}
+  try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
+  return doc;
+}
+function aiDiGet(no){ return (ST.docs||[]).filter(function(d){ return d.no===no && d.type==='DI'; })[0]||null; }
+
+var AI_DI_L={
+  en:{t:'Document of Identification', law:'Stock Theft Act 57 of 1959, s6 · Animal Identification Act 6 of 2002, s7(2)',
+      noLbl:'DOCUMENT No.',
+      seller:'Seller — full name and address', buyer:'Buyer — full name and address',
+      onBehalf:'Sold on behalf of', date:'Date of disposal',
+      stock:'Stock', mark:'Identification mark',
+      unmarked:'Sex and colour — where the stock carries no mark',
+      ownName:'— sold in my own name', notNeeded:'Not needed: the stock carries the mark above',
+      declTitle:'Certification',
+      decl:'I certify that the stock described above is my property, or that I am duly authorised by the owner to deal with it or dispose of it.',
+      sigOwner:'Signature of seller or authorised agent', sigRecv:'Received by',
+      dateLbl:'Date', idLbl:'Name and ID number of receiver',
+      keep:'The person who receives this document must keep it for at least one year and produce it for inspection on demand — Stock Theft Act s6(3) and s6(4).'},
+  af:{t:'Dokument van Identifikasie', law:'Wet op Veediefstal 57 van 1959, a6 · Wet op Diere-identifikasie 6 van 2002, a7(2)',
+      noLbl:'DOKUMENT Nr.',
+      seller:'Verkoper — volle naam en adres', buyer:'Koper — volle naam en adres',
+      onBehalf:'Verkoop namens', date:'Datum van vervreemding',
+      stock:'Vee', mark:'Identifikasiemerk',
+      unmarked:'Geslag en kleur — waar die vee geen merk dra nie',
+      ownName:'— in my eie naam verkoop', notNeeded:'Nie nodig nie: die vee dra die merk hierbo',
+      declTitle:'Sertifisering',
+      decl:'Ek verklaar dat die vee hierbo beskryf my eiendom is, of dat ek behoorlik deur die eienaar gemagtig is om daarmee te handel of daaroor te beskik.',
+      sigOwner:'Handtekening van verkoper of gemagtigde agent', sigRecv:'Ontvang deur',
+      dateLbl:'Datum', idLbl:'Naam en ID-nommer van ontvanger',
+      keep:'Die persoon wat hierdie dokument ontvang moet dit minstens een jaar hou en op aanvraag vir inspeksie voorlê — Wet op Veediefstal a6(3) en a6(4).'}
+};
+
+function _aiDiDrawV1(doc, cert, L, logo){
+    var s=cert.snap||{}, M=AI_DOC.M, W=AI_DOC.W, RW=W-M;
+    doc.setFillColor(AI_DOC.INK[0],AI_DOC.INK[1],AI_DOC.INK[2]);
+    doc.rect(0,0,W,28,'F');
+    var tx=aiDocMark(doc, logo, M, 6.5, 15);
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(14);
+    doc.text(aiAnsi(s.farm||''), tx, 13);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+    var idl=[s.owner, s.mark?('Mark '+s.mark):''].filter(Boolean).join('  ·  ');
+    if(idl) doc.text(aiAnsi(idl), tx, 20);
+    doc.setFontSize(6.5); doc.setTextColor(190,215,198);
+    doc.text('Generated by AgriInsights', W-M, 20, {align:'right'});
+
+    doc.setTextColor(AI_DOC.INK[0],AI_DOC.INK[1],AI_DOC.INK[2]);
+    doc.setFont('helvetica','bold'); doc.setFontSize(18);
+    doc.text(L.t, M, 44);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.setTextColor(AI_DOC.GREY[0],AI_DOC.GREY[1],AI_DOC.GREY[2]);
+    var other=(L===AI_DI_L.en)?AI_DI_L.af.t:AI_DI_L.en.t;
+    doc.text(other+'  ·  '+L.law, M, 50, {maxWidth:RW-M-62});
+
+    doc.setDrawColor(AI_DOC.INK[0],AI_DOC.INK[1],AI_DOC.INK[2]); doc.setLineWidth(0.5);
+    doc.rect(RW-58, 34, 58, 14);
+    doc.setFont('helvetica','normal'); doc.setFontSize(6.5);
+    doc.setTextColor(AI_DOC.GREY[0],AI_DOC.GREY[1],AI_DOC.GREY[2]);
+    doc.text(L.noLbl, RW-55, 39);
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.setTextColor(AI_DOC.INK[0],AI_DOC.INK[1],AI_DOC.INK[2]);
+    doc.text(cert.no, RW-55, 45.5);
+
+    if(cert.status==='superseded'){
+      doc.setDrawColor(140,47,42); doc.setFillColor(250,235,233); doc.setLineWidth(0.5);
+      doc.rect(M, 57, RW-M, 9, 'FD');
+      doc.setTextColor(140,47,42); doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.text('SUPERSEDED BY '+(cert.supersededBy||''), M+3, 63.3);
+    }
+    var y0=(cert.status==='superseded')?72:62;
+
+    /* An address runs to three lines where a place name does not, so the cells are
+       a little deeper than the certificate's and the value wraps inside them. */
+    var cellH=24, colW=(RW-M)/2;
+    var cell=function(col,row,label,val,wide){
+      var x=M+(col*colW), y=y0+(row*cellH), w=wide?(RW-M):colW;
+      doc.setDrawColor(AI_DOC.RULE[0],AI_DOC.RULE[1],AI_DOC.RULE[2]); doc.setLineWidth(0.25);
+      doc.rect(x, y, w, cellH);
+      doc.setFont('helvetica','normal'); doc.setFontSize(6.8);
+      doc.setTextColor(AI_DOC.GREY[0],AI_DOC.GREY[1],AI_DOC.GREY[2]);
+      doc.text(String(label).toUpperCase(), x+3.5, y+6);
+      doc.setFont('helvetica','bold'); doc.setFontSize(10.5);
+      doc.setTextColor(AI_DOC.BODY[0],AI_DOC.BODY[1],AI_DOC.BODY[2]);
+      doc.text(aiAnsi(val||'—'), x+3.5, y+13, {maxWidth:w-7, lineHeightFactor:1.25});
+    };
+    var sellerTxt=[s.owner, s.farm, s.sellerAddr].filter(Boolean).join(', ');
+    var buyerTxt=[s.buyerName, s.buyerAddr].filter(Boolean).join(', ');
+    var markTxt=[s.mark, s.markType].filter(Boolean).join(' · ');
+    cell(0,0,L.seller,sellerTxt);              cell(1,0,L.buyer,buyerTxt);
+    cell(0,1,L.onBehalf,s.onBehalf||L.ownName); cell(1,1,L.date,aiRcDate(s.saleDate));
+    cell(0,2,L.stock,s.stock);                  cell(1,2,L.mark,markTxt||'—');
+    cell(0,3,L.unmarked,s.unmarked||(s.mark?L.notNeeded:'—'),true);
+
+    var dy=y0+(4*cellH)+12;
+    doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.setTextColor(AI_DOC.INK[0],AI_DOC.INK[1],AI_DOC.INK[2]);
+    doc.text(L.declTitle, M, dy);
+    doc.setFont('helvetica','normal'); doc.setFontSize(8.5);
+    doc.setTextColor(AI_DOC.BODY[0],AI_DOC.BODY[1],AI_DOC.BODY[2]);
+    doc.text(L.decl, M, dy+6, {maxWidth:RW-M, lineHeightFactor:1.45});
+
+    var sy=dy+34;
+    doc.setDrawColor(30,50,40); doc.setLineWidth(0.4);
+    doc.line(M, sy, M+72, sy); doc.line(M+colW, sy, M+colW+72, sy);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    doc.setTextColor(AI_DOC.GREY[0],AI_DOC.GREY[1],AI_DOC.GREY[2]);
+    doc.text(L.sigOwner, M, sy+4.5); doc.text(L.sigRecv, M+colW, sy+4.5);
+    doc.line(M, sy+22, M+72, sy+22); doc.line(M+colW, sy+22, M+colW+72, sy+22);
+    doc.text(L.dateLbl, M, sy+26.5); doc.text(L.idLbl, M+colW, sy+26.5);
+
+    aiDocFoot(doc, L.keep);
+}
+var AI_DI_DRAW={ 1:_aiDiDrawV1 };
+function aiDiBuild(cert, opts){
+  opts=opts||{};
+  return Promise.all([aiPdfReady(), aiDocLogo()]).then(function(both){
+    var jsPDF=both[0], logo=both[1];
+    var L=AI_DI_L[(opts.lang||ST.lang)==='af'?'af':'en'];
+    var doc=aiDocNew(jsPDF,{unit:'mm',format:'a4',orientation:'portrait',compress:(opts.compress!==false)});
+    var v=(cert.snap&&cert.snap.tpl)||1;
+    var draw=AI_DI_DRAW[v] || AI_DI_DRAW[Object.keys(AI_DI_DRAW).map(Number).sort(function(a,b){return b-a;})[0]];
+    draw(doc, cert, L, logo);
+    return doc;
+  });
+}
+function aiDiFile(cert){ return 'document-of-identification-'+cert.no+'.pdf'; }
+function aiDiShare(no){
+  var cert=aiDiGet(no); if(!cert) return;
+  aiDiBuild(cert).then(function(doc){ aiDocPreview(doc, aiDiFile(cert), 'Document of identification '+cert.no); })
+                 .catch(function(e){ toast('Could not build the document: '+e.message,'error'); });
+}
+function aiDiPrint(no){
+  var cert=aiDiGet(no); if(!cert) return;
+  aiDiBuild(cert).then(function(doc){ doc.autoPrint(); window.open(doc.output('bloburl'),'_blank'); })
+                 .catch(function(e){ toast('Could not build the document: '+e.message,'error'); });
+}
+
+/* The buyers a farm actually sells to: a short list, so the second sale to the
+   same buyer is one tap. Matched on name, case- and space-insensitively. */
+function aiDiBuyerKey(n){ return String(n||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function aiDiBuyers(){ return (ST.buyers||[]).slice().sort(function(a,b){ return (b.at||'')<(a.at||'')?-1:1; }); }
+function aiDiBuyerSave(name, addr){
+  name=String(name||'').trim(); if(!name) return null;
+  addr=String(addr||'').trim();
+  ST.buyers=ST.buyers||[];
+  var k=aiDiBuyerKey(name), hit=ST.buyers.filter(function(b){ return aiDiBuyerKey(b.name)===k; })[0];
+  if(hit){ if(addr) hit.addr=addr; hit.at=new Date().toISOString(); }
+  else { hit={id:'b'+Date.now().toString(36), name:name, addr:addr, at:new Date().toISOString()}; ST.buyers.push(hit); }
+  try{ saveState&&saveState(); }catch(e){}
+  return hit;
+}
+
+/* ====================================================================
    COMPLIANCE REGISTERS — Phase 4
    Act 36 of 1947 spray record; Animal Diseases Act treatment/dip register.
    Unlike a certificate these are NOT issued documents — they are generated
@@ -68611,6 +68898,176 @@ function rcReissue(no){
   var old=aiRcGet(no); if(!old) return;
   rcOpen(old.moveId, {supersedes:no});
 }
+/* ---------- document of identification: the sheet ---------- */
+var DI_STATE={moveId:null, view:'offer', doc:null, supersedes:null, missing:null};
+function diOpen(moveId, opts){
+  opts=opts||{};
+  DI_STATE={moveId:moveId, view:'offer', doc:null, supersedes:opts.supersedes||null, missing:null};
+  var bg=$('di-bg'); if(!bg) return;
+  bg.classList.add('on'); diRender();
+}
+function diClose(){ var bg=$('di-bg'); if(bg) bg.classList.remove('on'); }
+function diShowDoc(no){
+  var d=aiDiGet(no); if(!d) return;
+  DI_STATE={moveId:d.moveId, view:'issued', doc:d, supersedes:null, missing:null};
+  var bg=$('di-bg'); if(bg) bg.classList.add('on'); diRender();
+}
+function diReissue(no){
+  var d=aiDiGet(no); if(!d) return;
+  diOpen(d.moveId, {supersedes:no});
+}
+function diIssueNow(){
+  var r=aiDiIssue(DI_STATE.moveId, DI_STATE.supersedes);
+  if(r && r.error==='incomplete'){ DI_STATE.view='blocked'; DI_STATE.missing=r.missing; diRender(); return; }
+  if(r && r.error){ toast('That sale is no longer available.','error'); diClose(); return; }
+  DI_STATE.doc=r; DI_STATE.view='issued'; diRender();
+  try{ if(typeof renderLivestock==='function') renderLivestock(); }catch(e){}
+}
+/* The sale is already saved by the time the document is asked for, so the buyer
+   is added to it here rather than sending the farmer back to re-record it. */
+function diBuyerSave(){
+  var mv=(ST_LS.moves||[]).filter(function(m){ return m.id===DI_STATE.moveId; })[0];
+  if(!mv){ diClose(); return; }
+  var n=($('di-buyer')||{}).value, a=($('di-buyeraddr')||{}).value, ob=($('di-onbehalf')||{}).value, um=($('di-unmarked')||{}).value;
+  if(!n || !String(n).trim()){ toast('Who bought them?','error'); return; }
+  mv.buyer={name:String(n).trim(), addr:String(a||'').trim()};
+  if(ob && ob.trim()) mv.onBehalf=ob.trim();
+  if(um && um.trim()) mv.unmarked=um.trim();
+  try{ aiDiBuyerSave(mv.buyer.name, mv.buyer.addr); }catch(e){}
+  try{ saveState&&saveState(); }catch(e){}
+  try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
+  DI_STATE.view='offer'; diRender();
+}
+function diFix(where){
+  /* Two lawful answers to the same requirement: the farm's registered mark, or
+     the sex and colour of stock that carries none. Offer the one that can be
+     answered here, and keep the road to Settings open for the other. */
+  if(where==='sale' || where==='ident'){ DI_STATE.view='buyer'; diRender(); return; }
+  diClose();
+  nav('settings');
+  setTimeout(function(){ var e=$(where==='settings'?'set-addr':'set-mark'); if(e) e.focus(); }, 400);
+}
+function diRender(){
+  var b=$('di-body'); if(!b) return;
+  var t=$('di-title');
+  var mv=(ST_LS.moves||[]).filter(function(m){ return m.id===DI_STATE.moveId; })[0];
+
+  if(DI_STATE.view==='issued' && DI_STATE.doc){
+    var c=DI_STATE.doc, s=c.snap||{};
+    if(t) t.textContent='Document issued';
+    b.innerHTML=
+      '<div class="rc-no">'+esc(c.no)+(c.status==='superseded'?' <span class="rc-pill rc-sup">Superseded</span>':' <span class="rc-pill rc-ok">Issued</span>')+'</div>'+
+      '<div class="rc-sub">'+esc(s.stock||'')+' → '+esc(s.buyerName||'')+'</div>'+
+      '<div class="rc-acts">'+
+        '<button class="ls-mv-save" style="margin:0" onclick="aiDiShare(\''+esc(c.no)+'\')">Preview &amp; send</button>'+
+        '<button class="rc-btn" onclick="aiDiPrint(\''+esc(c.no)+'\')">Print</button>'+
+      '</div>'+
+      '<div class="rc-note">Hand it over with the animals. The buyer keeps it for at least a year and must produce it on demand.</div>';
+    return;
+  }
+
+  if(DI_STATE.view==='buyer'){
+    if(t) t.textContent=ST.stockMark?'Who bought them?':'What the document still needs';
+    var _bys=(typeof aiDiBuyers==='function'?aiDiBuyers():[]).slice(0,4);
+    var chips=_bys.length?('<div class="mv-grid" style="margin-bottom:10px">'+_bys.map(function(x,i){
+        return '<button type="button" class="mvc" onclick="diBuyerPick('+i+',this)">'+esc(x.name)+'</button>'; }).join('')+'</div>'):'';
+    b.innerHTML=
+      chips+
+      '<div class="ls-mvf"><label>Name</label><input id="di-buyer" value="'+esc((mv&&mv.buyer&&mv.buyer.name)||'')+'" placeholder="e.g. H. Nel, or the auction house"></div>'+
+      '<div class="ls-mvf"><label>Address</label><input id="di-buyeraddr" value="'+esc((mv&&mv.buyer&&mv.buyer.addr)||'')+'" placeholder="asked once per buyer"></div>'+
+      (ST.stockMark?'':'<div class="ls-mvf"><label>Sex and colour <span style="font-weight:600;color:var(--t4)">(your stock carries no registered mark)</span></label>'+
+        '<input id="di-unmarked" value="'+esc((mv&&mv.unmarked)||'')+'" placeholder="e.g. 4 heifers and 2 steers, red">'+
+        '<div class="rc-note" style="margin:8px 0 0">Or register your mark once in <b onclick="diClose();nav(\'settings\')" style="cursor:pointer;text-decoration:underline">Settings</b> and this is never asked again.</div></div>')+
+      '<details class="rn-adv" style="margin:0 0 13px"><summary>Sold on behalf of someone else</summary>'+
+        '<div class="ls-mvf" style="margin-top:11px"><label>Sold on behalf of</label><input id="di-onbehalf" value="'+esc((mv&&mv.onBehalf)||'')+'" placeholder="name and address of the owner"></div>'+
+      '</details>'+
+      '<div class="rc-acts"><button class="ls-mv-save" style="margin:0" onclick="diBuyerSave()">Save</button>'+
+      '<button class="rc-btn" onclick="diClose()">Not now</button></div>';
+    return;
+  }
+
+  if(DI_STATE.view==='blocked'){
+    if(t) t.textContent='Not ready yet';
+    var items=(DI_STATE.missing||[]).map(function(f){
+      return '<li>'+esc(f.label)+' <button class="rc-fix" onclick="diFix(\''+f.where+'\')">Add it</button></li>';
+    }).join('');
+    b.innerHTML=
+      '<div class="rc-warn"><b>'+(DI_STATE.missing||[]).length+' thing'+((DI_STATE.missing||[]).length===1?'':'s')+' still needed.</b><ul>'+items+'</ul></div>'+
+      '<div class="rc-note">The Stock Theft Act s6 asks for each of these. Nothing is lost by leaving it — the sale is already recorded.</div>';
+    return;
+  }
+
+  if(t) t.textContent=DI_STATE.supersedes?'Correct the document':'Document of identification';
+  if(!mv){ b.innerHTML='<div class="rc-note">That sale is no longer available.</div>'; return; }
+  var s2=aiDiSnap(mv), chk=aiDiCheck(mv);
+  var kv=function(k,v){ return '<div><div class="rc-k">'+esc(k)+'</div><div class="rc-v">'+esc(v||'—')+'</div></div>'; };
+  b.innerHTML=
+    (DI_STATE.supersedes?'<div class="rc-note" style="margin-top:0">Replaces '+esc(DI_STATE.supersedes)+'. The old document is kept and marked superseded.</div>':'')+
+    '<div class="rc-sub" style="margin-top:0">'+esc(s2.stock||'')+' sold on '+esc(aiRcDate(s2.saleDate))+'</div>'+
+    '<div class="rc-grid">'+
+      kv('Buyer', [s2.buyerName, s2.buyerAddr].filter(Boolean).join(' · '))+
+      kv('Seller', [s2.owner, s2.sellerAddr].filter(Boolean).join(' · '))+
+      kv('Stock', s2.stock)+
+      kv('Mark', [s2.mark,s2.markType].filter(Boolean).join(' · ') || s2.unmarked)+
+      kv('Sold on behalf of', s2.onBehalf || 'Sold in my own name')+
+      kv('Date', aiRcDate(s2.saleDate))+
+    '</div>'+
+    '<div class="rc-acts">'+
+      '<button class="ls-mv-save" style="margin:0" onclick="diIssueNow()">'+(DI_STATE.supersedes?'Reissue':'Issue document')+'</button>'+
+      '<button class="rc-btn" onclick="diClose()">Not now</button>'+
+    '</div>'+
+    (chk.ok?'':'<div class="rc-note">'+chk.missing.length+' thing'+(chk.missing.length===1?'':'s')+' still needed — the button will tell you which.</div>');
+}
+function diBuyerPick(i, el){
+  var b=(typeof aiDiBuyers==='function'?aiDiBuyers():[])[i]; if(!b) return;
+  var n=$('di-buyer'), a=$('di-buyeraddr');
+  if(n) n.value=b.name; if(a) a.value=b.addr||'';
+  try{ [].forEach.call(el.parentNode.querySelectorAll('.mvc'), function(x){ x.classList.remove('sel'); }); el.classList.add('sel'); }catch(e){}
+}
+
+/* ---------- register card ---------- */
+function _lsRegDiCard(){
+  var docs=(ST.docs||[]).filter(function(d){ return d.type==='DI'; });
+  if(ST.diOffer!=='yes' && !docs.length) return '';
+  /* Sales still waiting for a document are only offered to a farm that asked to be
+     offered them. Opted out, the card is a register of what was issued and nothing more. */
+  var pend=(ST.diOffer==='yes') ? (ST_LS.moves||[]).filter(function(m){
+    return m.reason==='sold' && !docs.some(function(d){ return d.moveId===m.id && d.status==='issued'; });
+  }).slice(0,5) : [];
+  if(!docs.length && !pend.length) return '';
+  var rows=docs.slice(0,25).map(function(d){
+    var s=d.snap||{}, sup=(d.status==='superseded');
+    return '<tr>'+
+      '<td class="rc-t-no'+(sup?' rc-t-sup':'')+'">'+esc(d.no)+'</td>'+
+      '<td>'+esc(aiRcDate(d.date))+'</td>'+
+      '<td>'+esc(s.stock||'')+'</td>'+
+      '<td>'+esc(s.buyerName||'')+'</td>'+
+      '<td>'+(sup?'<span class="rc-pill rc-sup">Superseded by '+esc(d.supersededBy||'')+'</span>':'<span class="rc-pill rc-ok">Issued</span>')+'</td>'+
+      '<td class="rc-t-act">'+
+        '<button class="rc-fix" onclick="diShowDoc(\''+esc(d.no)+'\')">Reprint</button>'+
+        (sup?'':' <button class="rc-fix" onclick="diReissue(\''+esc(d.no)+'\')">Correct</button>')+
+      '</td></tr>';
+  }).join('');
+  var pendHtml=pend.map(function(m){
+    var s=aiDiSnap(m);
+    return '<div class="rc-pend"><div><b>'+esc(s.stock||(m.qty+' head'))+'</b>'+(s.buyerName?' to '+esc(s.buyerName):'')+' · '+esc(aiRcDate(m.date))+'</div>'+
+           '<button class="rc-fix" onclick="diOpen(\''+esc(m.id)+'\')">Hand over a document</button></div>';
+  }).join('');
+  return '<div class="card" style="margin-bottom:16px">'+
+    '<div class="rc-hd">Documents of identification</div>'+
+    (pendHtml?'<div class="rc-pends">'+pendHtml+'</div>':'')+
+    (rows?'<table class="rc-t"><thead><tr><th>Number</th><th>Issued</th><th>Stock</th><th>Buyer</th><th>Status</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>':'')+
+    '<div class="rc-note" style="margin-bottom:0">Hand one to the buyer with the animals — Stock Theft Act s6. Leaving it is your call; the sale is recorded either way.</div>'+
+  '</div>';
+}
+
+/* The farmer's answer to "shall I offer it", changeable for ever after. */
+function setDiOffer(on){
+  ST.diOffer = on ? 'yes' : 'never';
+  try{ saveState&&saveState(); }catch(e){}
+  try{ if(typeof renderLivestock==='function' && document.getElementById('pg-livestock')) renderLivestock(); }catch(e){}
+}
+
 function rcFix(where){
   rcClose();
   if(where==='settings'){ nav('settings'); setTimeout(function(){ var e=$('set-mark'); if(e) e.focus(); }, 400); }
@@ -69051,6 +69508,15 @@ function _lsRegCertsCard(){
     <div class="ls-mv-shell">
       <div class="ls-mv-hdr"><div class="ls-mv-h" id="rc-title">Removal certificate</div><button class="ls-mv-x" onclick="rcClose()">&times;</button></div>
       <div class="ls-mv-body" id="rc-body"></div>
+    </div>
+  </div>
+
+  <!-- Document of identification (Stock Theft Act s6). Same shell as the
+       certificate: one sheet, one job, and "Not now" always available. -->
+  <div class="ls-mv-bg" id="di-bg">
+    <div class="ls-mv-shell">
+      <div class="ls-mv-hdr"><div class="ls-mv-h" id="di-title">Document of identification</div><button class="ls-mv-x" onclick="diClose()">&times;</button></div>
+      <div class="ls-mv-body" id="di-body"></div>
     </div>
   </div>
 
