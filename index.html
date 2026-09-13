@@ -13790,21 +13790,10 @@ function setTags(id){
 }
 /* The tax year this app counts in ends on the last day of February. */
 function profitProjLabel(){ return 'Projected to 28 Feb'; }
-(function(){
-  /* Unshifted, for the reason the two blocks near the audit pairs give: a short
-     pair added at the END cannot protect a longer phrase an earlier one has
-     already chewed. Each of these is the entire text of its own tag span, so the
-     whole-node pass matches them outright. */
-  if (typeof LANG_PAIRS === 'undefined') return;
-  var PT_PAIRS = [
-    ['Projected to 28 Feb','Geprojekteer tot 28 Feb'],
-    ['Tax rules','Belastingreëls']
-  ];
-  for (var i = PT_PAIRS.length - 1; i >= 0; i--) {
-    var p = PT_PAIRS[i];
-    if (!LANG_PAIRS.some(function(q){ return q[0] === p[0]; })) LANG_PAIRS.unshift(p);
-  }
-})();
+/* The tag's Afrikaans lives with the other LANG_PAIRS blocks, far below: this
+   file declares LANG_PAIRS about 32,000 lines after this point, so a block here
+   hit `typeof LANG_PAIRS === 'undefined'` and returned having added nothing.
+   The tags shipped reading English in Afrikaans because of it. */
 
 /* ===== Profit by Crop & Herd ===== */
 function profitLabelFor(ft){ if(ft==='crops') return 'Profit by Crop'; if(ft==='livestock') return 'Profit by Herd'; return 'Profit by Crop & Herd'; }
@@ -59422,6 +59411,23 @@ if (typeof LANG_PAIRS !== 'undefined') {
   ];
   for (var i = AUDIT_PAIRS.length - 1; i >= 0; i--) {
     var p = AUDIT_PAIRS[i];
+    if (!LANG_PAIRS.some(function(q){ return q[0] === p[0]; })) LANG_PAIRS.unshift(p);
+  }
+})();
+
+/* -- Period-tag pairs ('CASH' already had one) ------------------------- */
+(function(){
+  /* Unshifted, for the reason the two blocks near the audit pairs give: a short
+     pair added at the END cannot protect a longer phrase an earlier one has
+     already chewed. Each of these is the entire text of its own tag span, so the
+     whole-node pass matches them outright. */
+  if (typeof LANG_PAIRS === 'undefined') return;
+  var PT_PAIRS = [
+    ['Projected to 28 Feb','Geprojekteer tot 28 Feb'],
+    ['Tax rules','Belastingreëls']
+  ];
+  for (var i = PT_PAIRS.length - 1; i >= 0; i--) {
+    var p = PT_PAIRS[i];
     if (!LANG_PAIRS.some(function(q){ return q[0] === p[0]; })) LANG_PAIRS.unshift(p);
   }
 })();
