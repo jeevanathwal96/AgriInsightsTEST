@@ -7214,7 +7214,7 @@ table.rn-t td.dim{color:var(--t4)}
 
   <div class="metrics m4" style="margin-bottom:20px">
     <div class="mc"><div class="mc-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div><div class="mc-lbl" id="inc-lbl-in">Money In (This Month)</div><div class="mc-val g" id="inc-metric-in">R1 328 750</div><div class="mc-chg up" id="inc-chg-in">↑ 16% vs last month</div></div>
-    <div class="mc"><div class="mc-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div><div class="mc-lbl"><span id="inc-lbl-profit">Profit (This Month)</span><span id="inc-tag-profit"></span></div><div class="mc-val g" id="inc-metric-profit">R285 430</div><div class="mc-chg up" id="inc-chg-profit">↑ 18% vs last month</div></div>
+    <div class="mc"><div class="mc-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div><div class="mc-lbl" id="inc-lbl-profit">Profit (This Month)</div><div class="mc-val g" id="inc-metric-profit">R285 430</div><div class="mc-chg up" id="inc-chg-profit">↑ 18% vs last month</div></div>
     <div class="mc"><div class="mc-icon b"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg></div><div class="mc-lbl">Year-to-Date Income</div><div class="mc-val b" id="inc-metric-ytd">—</div><div class="mc-chg" id="inc-chg-ytd">↑ 22% vs last year</div></div>
     <div class="mc"><div class="mc-icon p"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><div class="mc-lbl">Best Month This Year</div><div class="mc-val p" id="inc-metric-best">—</div><div class="mc-chg" id="inc-chg-best" style="color:var(--t3)">—</div></div>
   </div>
@@ -17645,7 +17645,9 @@ setEl('inc-banner-val',    fmt(R.income));
 
 setEl('inc-lbl-in',     'Money In (' + lbl + ')');
   setEl('inc-lbl-profit', 'Profit (' + lbl + ')');
-  if(typeof setTags==='function') setTags('inc-tag-profit','actual','Cash');
+  /* No tag here: this card is 172px wide at 1024 and the Afrikaans label wraps to
+     three lines unaided - a tag took it to six and dropped the figure 30px. The
+     label already names the period; the Dashboard and Tax tags carry the basis. */
 
 var prevInc  = Rp.income  - R.income;
   var prevProf = Rp.profit  - R.profit;
