@@ -1223,7 +1223,9 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .add-btn-dash{border:1.5px dashed var(--br);border-radius:var(--rs);padding:10px;font-size:13px;font-weight:600;color:var(--t3);display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;width:100%;margin-top:7px;background:#fff;transition:all .15s}
 .add-btn-dash:hover{border-color:var(--gl);color:var(--gd);background:var(--gb)}
 
-#toast{position:fixed;bottom:22px;right:22px;z-index:9999;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:600;color:#fff;box-shadow:var(--shl);display:none;max-width:300px;transition:opacity .3s}
+/* One layer above the setup wizard (#ob-overlay, 9999). At the same layer the wizard, later in
+   the page, drew over every message it raised - "Please enter your farm name" included. */
+#toast{position:fixed;bottom:22px;right:22px;z-index:10000;padding:11px 18px;border-radius:10px;font-size:14px;font-weight:600;color:#fff;box-shadow:var(--shl);display:none;max-width:300px;transition:opacity .3s}
 
 .notif-panel{display:none;position:absolute;top:calc(100% + 8px);right:0;background:#fff;border:1px solid var(--br);border-radius:var(--rl);box-shadow:var(--shl);width:310px;z-index:200;overflow:hidden}
 .notif-panel.on{display:block}
@@ -3393,6 +3395,11 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .ob-consent-row input{margin-top:2px;flex:none;width:17px;height:17px;cursor:pointer;accent-color:#1B4332}
 .ob-consent-row b{color:#1B4332;text-decoration:underline;cursor:pointer;font-weight:700}
 .ob-consent-warn{display:none;margin-top:8px;font-size:12px;font-weight:700;color:#A32D2D}
+/* A required box left empty says so beneath itself, in the consent step's red. */
+.ob-input.ob-bad{border-color:#A32D2D;box-shadow:0 0 0 3px rgba(163,45,45,.12)}
+.ob-err{display:none;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;font-weight:700;color:#A32D2D}
+.mc-val.mute{color:var(--t4)}
+.mc-link{color:var(--gm);font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
 .ob-consent.warn{border-color:#E24B4A;background:#FCEBEB}
 .ob-consent.warn .ob-consent-warn{display:block}
 .aipol-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;display:none;align-items:center;justify-content:center;padding:20px}
@@ -6588,11 +6595,13 @@ table.rn-t td.dim{color:var(--t4)}
         <div class="ob-field">
           <label class="ob-label">Farm name</label>
           <input id="ob-farm" class="ob-input" type="text" placeholder="e.g. Doringkloof Boerdery" autocomplete="off"/>
+          <div class="ob-err" id="ob-farm-err" role="alert"></div>
         </div>
         <div class="ob-row">
           <div class="ob-field">
             <label class="ob-label">Your full name</label>
             <input id="ob-owner" class="ob-input" type="text" placeholder="e.g. Jaco van der Merwe" autocomplete="off"/>
+            <div class="ob-err" id="ob-owner-err" role="alert"></div>
           </div>
           <div class="ob-field">
             <label class="ob-label">Farm size <span>(optional)</span></label>
@@ -7032,7 +7041,7 @@ table.rn-t td.dim{color:var(--t4)}
       </div>
       <!-- Footer row: transactions count + period chip -->
       <div class="cf-foot" style="grid-column:1/-1">
-        <div><strong id="dash-txcount">—</strong> transactions this month</div>
+        <div><strong id="dash-txcount">—</strong> <span id="dash-txcount-lbl">transactions this month</span></div>
         <div class="cf-foot-chip" id="dash-month-chip"></div>
       </div>
     </div>
@@ -17699,6 +17708,11 @@ filterIncomeTx && filterIncomeTx();
   _ieRenderWorth && _ieRenderWorth('income');
   ieCompanion && ieCompanion('income');
 }
+/* "Add your farm size" on the Expenses per Hectare card goes straight to the box. */
+function expAddFarmSize() {
+  nav('settings');
+  setTimeout(function(){ var e = $('set-ha'); if (e) { try { e.scrollIntoView({block:'center'}); } catch(_){} e.focus(); } }, 400);
+}
 function updateExpPage() {
   var p  = ST.expPeriod || '6';
   var n  = parseInt(p);
@@ -17763,8 +17777,18 @@ var expCats = {};
   Object.keys(expCats).forEach(function(k){ if(expCats[k]>topCat.amt) topCat={cat:k,amt:expCats[k]}; });
   setEl('exp-metric-top',    topCat.cat);
   setEl('exp-metric-topamt', topCat.amt > 0 ? (fmt(topCat.amt) + (R.expenses>0?' · '+(topCat.amt/R.expenses*100).toFixed(0)+'%':'')) : '\u2014');
-  setEl('exp-metric-ha',     'R'+_grpInt(Math.round(R.expenses/ha))+'/ha');
-  setEl('exp-metric-halbl',  lbl + ' · ' + ha.toLocaleString('en-ZA') + ' ha');
+  /* No farm size saved: say so. The '|| 1' above divided by one hectare, so a blank
+     'optional' box printed '0/ha · 1 ha' - and the first costs as that much a hectare. */
+  var _haV = $('exp-metric-ha'), _haL = $('exp-metric-halbl');
+  if (ST.farmHa > 0) {
+    setEl('exp-metric-ha',     'R'+_grpInt(Math.round(R.expenses/ha))+'/ha');
+    setEl('exp-metric-halbl',  lbl + ' · ' + ha.toLocaleString('en-ZA') + ' ha');
+    if (_haV) _haV.classList.remove('mute');
+  } else {
+    setEl('exp-metric-ha', '\u2014');
+    if (_haV) _haV.classList.add('mute');
+    if (_haL) _haL.innerHTML = '<a class="mc-link" href="#" onclick="expAddFarmSize();return false">' + (ST.lang==='af' ? 'Voeg jou plaasgrootte by' : 'Add your farm size') + '</a> ' + (ST.lang==='af' ? 'om dit te sien' : 'to see this');
+  }
 
   filterExpTx && filterExpTx();
   _ieSetupToggle && _ieSetupToggle('expense');
@@ -18668,6 +18692,7 @@ var txCount = ST.txns.filter(function(t){
     return MONTH_NAMES[('0'+(d.m+1)).slice(-2)] + ' ' + d.y === month;
   }).length;
   setEl('dash-txcount',   txCount + '');
+  setEl('dash-txcount-lbl', txCount === 1 ? (ST.lang==='af' ? 'transaksie hierdie maand' : 'transaction this month') : (ST.lang==='af' ? 'transaksies hierdie maand' : 'transactions this month'));
   setEl('dash-month-chip', month);
 
   // Income/Expense page banners & metrics are owned by updateIncPage()/updateExpPage()
@@ -18727,7 +18752,12 @@ function renderSeasonKpis() {
 setEl('season-ytd-income',   fmt(ytd.income));
   setEl('season-ytd-expenses', fmt(ytd.expenses));
   setEl('season-ytd-profit',   fmt(Math.abs(profit)));
-  setEl('season-margin',       margin + '%');
+  /* No income, no margin. The dashboard's main card already said so; this tile said 0.0%. */
+  setEl('season-margin', ytd.income > 0 ? margin + '%' : '\u2014');
+  (function(){ var v = $('season-margin'); if (!v) return;
+    v.style.color = ytd.income > 0 ? '' : 'var(--t4)';
+    var sub = v.nextElementSibling; if (!sub) return;
+    sub.textContent = ytd.income > 0 ? (ST.lang==='af' ? 'Marge = wins \u00F7 inkomste' : 'Margin = profit \u00F7 income') : (ST.lang==='af' ? 'Wys sodra inkomste aangeteken is' : 'Shows once income is recorded'); })();
 
 var pEl = $('season-ytd-profit');
   if (pEl) pEl.style.color = profit >= 0 ? 'var(--gd)' : 'var(--rd)';
@@ -19260,11 +19290,20 @@ function updateUserAvatar(){ var el=document.getElementById('user-avatar'); if(!
   var da=document.getElementById('user-drop-av'); if(da) da.textContent=ini;
   var dn=document.getElementById('user-drop-name'); if(dn) dn.textContent=ST.ownerName||'Your farm';
   var df=document.getElementById('user-drop-farm'); if(df) df.textContent=(window.FARM&&FARM.name)||ST.farmName||''; }
+/* 'Welcome back' only once the farm has recorded something. It greeted a farmer as
+   returning seconds after setup, and as 'Farmer' when no name was saved. lastActivity is
+   set by saving a sale, expense or quick add and survives Start fresh; the ledger count
+   covers a farm whose first records arrived by import. */
+function greetBack() { return !!(ST.lastActivity || (ST.txns && ST.txns.length)); }
+function greetLine(bang) {
+  var nm = String(ST.ownerName || '').trim().split(/\s+/)[0] || '';
+  var w = greetBack() ? (ST.lang==='af' ? 'Welkom terug' : 'Welcome back') : (ST.lang==='af' ? 'Welkom' : 'Welcome');
+  return w + (nm ? ', ' + nm : '') + (bang ? '!' : '') + ' \uD83D\uDC4B';
+}
 function updateTopbarGreeting() {
   var el = document.getElementById('topbar-greeting');
   if (!el) return;
-  var first = (ST.ownerName || 'Farmer').split(' ')[0];
-  el.textContent = (ST.lang==='af'?'Welkom terug, ':'Welcome back, ') + first + ' 👋';
+  el.textContent = greetLine(false);
 }
 
 function syncSettingsHeader(){
@@ -19385,8 +19424,7 @@ if (name)  { ST.farmName = name;  FARM.name  = name; }
 
 var greetEl = document.getElementById('topbar-greeting');
   if (greetEl) {
-    var first = (ST.ownerName || 'Farmer').split(' ')[0];
-    greetEl.textContent = (ST.lang==='af'?'Welkom terug, ':'Welcome back, ') + first + ' \uD83D\uDC4B';
+    greetEl.textContent = greetLine(false);
   }
 
 var farmNameEl = document.getElementById('farm-name');
@@ -19500,7 +19538,9 @@ function freshResidue(){
 // Empty every data-bearing module in memory (the records the farmer sees), leaving
 // settings intact. Used by the onboarding "fresh" path and the Settings "Start fresh"
 // button.
-function clearAllToFresh() {
+function clearAllToFresh(opts) {
+  /* keepIdentity: a farmer clearing their OWN records keeps the farm's name and settings. */
+  var keepIdentity = !!(opts && opts.keepIdentity);
   try {
     Object.keys(FRESH_SHAPE).forEach(function(mod){
       var o = window[mod]; if (!o || typeof o !== 'object') return;
@@ -19523,7 +19563,7 @@ function clearAllToFresh() {
        to go with the sample records - otherwise a new user keeps seeing "Doringkloof
        Boerdery / Jaco van der Merwe", and the sample entityType would silently drive
        the tax calc. UI preferences (lang) and the SAFEX reference prices stay. */
-    if (typeof ST !== 'undefined') {
+    if (typeof ST !== 'undefined' && !keepIdentity) {
       ST.farmName = ''; ST.ownerName = ''; ST.province = '';
       ST.farmHa = 0; ST.vatRegistered = false; ST.entityType = '';
       if ('taxNumber' in ST) ST.taxNumber = '';
@@ -19531,7 +19571,7 @@ function clearAllToFresh() {
       if ('farmType' in ST) ST.farmType = '';
       if ('farmEnterprise' in ST) ST.farmEnterprise = null;
     }
-    if (typeof FARM !== 'undefined') {
+    if (typeof FARM !== 'undefined' && !keepIdentity) {
       FARM.name = ''; FARM.owner = ''; FARM.ha = 0;
       FARM.vat = false; FARM.vatNo = ''; FARM.taxNo = '';
     }
@@ -19541,9 +19581,35 @@ function clearAllToFresh() {
 // Settings → "Start fresh": clears the demo/explore data everywhere (this device's
 // saved state AND the farm's backend rows) so the user starts with a clean slate.
 async function startFresh() {
-  if (!(await appConfirm('Clear the demo data and start fresh?\n\nThis removes all the example transactions, livestock, orchards, crops and planning so you can begin entering your own farm\u2019s records. This cannot be undone.'))) return;
-  clearAllToFresh();
+  var af = (ST.lang === 'af');
+  /* The no-login ?demo=1 sandbox. Clearing it gave a guest an empty farm that sign-up
+     then threw away: an account runs setup again from scratch and never reads the
+     sandbox. So a guest who wants their own farm is sent to make one - once, where it is
+     kept - and the sample farm stays for anyone still looking. Signed off 14 Sep 2026. */
+  if (window.__AI_GUEST) {
+    var go = await appConfirm(
+      (af ? 'Jou eie rekords hoort in \u2019n gratis rekening, waar hulle gestoor word en jy net een keer opstel. Die voorbeeldplaas bly hier as jy verder wil kyk.' : 'Your own records belong in a free account, where they\u2019re saved and set up once. The sample farm stays here if you want to keep looking.'),
+      { title: (af ? 'Gereed vir jou eie plaas?' : 'Ready for your own farm?'), icon: '\uD83C\uDF31', danger: false,
+        okLabel: (af ? 'Skep my plaas \u2192' : 'Create my farm \u2192'), cancelLabel: (af ? 'Kyk verder rond' : 'Keep exploring') });
+    if (go) { try { aiDemoExit(); } catch(e){} }
+    return;
+  }
+  /* Whose records are these? A farmer who chose the sample data in setup loses the sample
+     farm's name with its records and goes back through setup; a farmer clearing their own
+     records keeps their name. This used to wipe the name either way and leave setup
+     switched off, stranding the farmer on a nameless farm. Same rule as the UK build. */
+  var wasDemo = false;
+  try { wasDemo = !!(window.ST && ST.demoData); } catch(e){}
+  var msg = wasDemo
+    ? (af ? 'Vee die demodata uit en begin vars?\n\nDit verwyder al die voorbeeldtransaksies, vee, boorde, gewasse en beplanning, en neem jou terug na opstelling sodat jy jou eie plaas se besonderhede kan invoer. Dit kan nie ongedaan gemaak word nie.'
+          : 'Clear the demo data and start fresh?\n\nThis removes all the example transactions, livestock, orchards, crops and planning, and takes you back to setup so you can enter your own farm\u2019s details. This cannot be undone.')
+    : (af ? 'Vee al jou rekords uit?\n\nDit verwyder elke transaksie, dier, blok, gewas en plan op hierdie plaas. Jou plaasnaam en instellings bly behoue. Dit kan nie ongedaan gemaak word nie.'
+          : 'Clear all your records?\n\nThis removes every transaction, animal, block, crop and plan on this farm. Your farm name and settings are kept. This cannot be undone.');
+  if (!(await appConfirm(msg, { danger: true, okLabel: af ? 'Vee uit' : 'Clear' }))) return;
+  clearAllToFresh({ keepIdentity: !wasDemo });
   try { ST.demoData = false; ST.demoNudgeHidden = false; } catch(e){}
+  /* The sample identity has just gone, so send them back through setup to enter their own. */
+  if (wasDemo) { try { ST.firstRun = true; } catch(e){} }
   var finish = function(){ try { saveState(); } catch(e){} try { location.reload(); } catch(e){} };
   try {
     var fid = (window.AI && AI.farm && AI.farm.active) ? AI.farm.active() : null;
@@ -19894,13 +19960,17 @@ function _appDialog(o){
     } else if(danger){
       head='<div style="display:flex;gap:12px;align-items:flex-start"><div style="width:36px;height:36px;border-radius:10px;background:#FEE2E2;color:#DC2626;display:flex;align-items:center;justify-content:center;flex:none;font-size:19px">⚠</div>'
         +'<div style="font-size:14px;color:var(--t2);line-height:1.5;white-space:pre-wrap">'+_dlgEsc(o.message)+'</div></div>';
+    } else if(o.icon){
+      head='<div style="display:flex;gap:12px;align-items:flex-start"><div style="width:36px;height:36px;border-radius:10px;background:var(--gp);color:var(--gd);display:flex;align-items:center;justify-content:center;flex:none;font-size:19px">'+_dlgEsc(o.icon)+'</div>'
+        +'<div>'+(o.title?'<div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:6px">'+_dlgEsc(o.title)+'</div>':'')
+        +'<div style="font-size:14px;color:var(--t2);line-height:1.5;white-space:pre-wrap">'+_dlgEsc(o.message)+'</div></div></div>';
     } else {
       head=(isInfo&&o.title?'<div style="font-size:15px;font-weight:700;color:var(--t1);margin-bottom:8px">'+_dlgEsc(o.title)+'</div>':'')
         +'<div style="font-size:14px;color:var(--t2);line-height:1.5;white-space:pre-wrap">'+_dlgEsc(o.message)+'</div>';
     }
     card.innerHTML='<div style="padding:20px 22px 4px">'+head+'</div>'
       +'<div style="padding:16px 22px 20px;display:flex;justify-content:flex-end;gap:10px">'
-      +(isInfo?'':'<button id="app-dlg-cancel" style="background:#fff;border:1px solid var(--br);color:var(--t2);border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Cancel</button>')
+      +(isInfo?'':'<button id="app-dlg-cancel" style="background:#fff;border:1px solid var(--br);color:var(--t2);border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">'+_dlgEsc(o.cancelLabel||'Cancel')+'</button>')
       +'<button id="app-dlg-ok" style="background:'+okBg+';border:none;color:#fff;border-radius:var(--rs);padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">'+_dlgEsc(okLabel)+'</button></div>';
     bg.style.display='flex';
     var input=document.getElementById('app-dlg-input');
@@ -19916,7 +19986,7 @@ function _appDialog(o){
     setTimeout(function(){ if(input){ input.focus(); input.select(); } else { var b=document.getElementById('app-dlg-ok'); if(b) b.focus(); } },30);
   });
 }
-function appConfirm(message,opts){ opts=opts||{}; var m=String(message||''); var danger=(opts.danger!=null)?opts.danger:/delete|remove|undo|clear|reset|erase|for good|grubbed/i.test(m); var label=opts.okLabel; if(!label){ if(/delete/i.test(m))label='Delete'; else if(/\bundo\b/i.test(m))label='Undo'; else if(/\breset\b/i.test(m))label='Reset'; else if(/\bclear\b/i.test(m))label='Clear'; else if(/remove|grubbed/i.test(m))label='Remove'; else label='Confirm'; } return _appDialog({kind:'confirm',message:m,danger:danger,okLabel:label}); }
+function appConfirm(message,opts){ opts=opts||{}; var m=String(message||''); var danger=(opts.danger!=null)?opts.danger:/delete|remove|undo|clear|reset|erase|for good|grubbed/i.test(m); var label=opts.okLabel; if(!label){ if(/delete/i.test(m))label='Delete'; else if(/\bundo\b/i.test(m))label='Undo'; else if(/\breset\b/i.test(m))label='Reset'; else if(/\bclear\b/i.test(m))label='Clear'; else if(/remove|grubbed/i.test(m))label='Remove'; else label='Confirm'; } return _appDialog({kind:'confirm',message:m,danger:danger,okLabel:label,title:opts.title,icon:opts.icon,cancelLabel:opts.cancelLabel}); }
 function appPrompt(label,defaultValue,opts){ opts=opts||{}; return _appDialog({kind:'prompt',message:label,sub:opts.sub,value:(defaultValue!=null?defaultValue:''),prefix:opts.prefix,okLabel:opts.okLabel}); }
 
 /* ===== Custom dropdown — themed replacement for the native <select> popup (desktop web).
@@ -35339,6 +35409,8 @@ document.addEventListener('focusout', function(e){
 });
 
 // ── Year summary (live from computed data) ────────────────────
+/* An empty plan is not a profitable one: nothing planned in and nothing planned out. */
+function _psEmptyTxt(){ return (ST.lang==='af' ? 'Voeg plansyfers by om te sien of dit betaal' : 'Add plan figures to see whether it pays'); }
 function updatePlanSummary() {
   /* Planned income and cost come from the enterprise rows — the same ones the
      banner at the top of this page totals — so the two can never disagree.
@@ -35379,7 +35451,8 @@ function updatePlanSummary() {
     } else { sEl.style.display='none'; sEl.innerHTML=''; }
   }
   el=$('ps-badge');
-  if(el){
+  if(el && !ti && !te){ el.style.background='var(--br2)'; el.style.color='var(--t3)'; el.textContent=_psEmptyTxt(); }
+  else if(el){
     var on=profit>=0;
     el.style.background=on?'var(--gp)':'var(--op)';
     el.style.color=on?'var(--gd)':'var(--or)';
@@ -35530,7 +35603,8 @@ function calcWhatIf() {
   e=$('ps-costs');  if(e) e.textContent=R(sCosts);
   e=$('ps-profit'); if(e){ e.textContent=R(sProfit); e.style.color=sProfit>=0?'var(--gd)':'var(--rd)'; }
   e=$('ps-badge');
-  if(e){ var on=sProfit>=0; e.style.background=on?'var(--gp)':'var(--op)'; e.style.color=on?'var(--gd)':'var(--or)';
+  if(e && !sIncome && !sCosts){ e.style.background='var(--br2)'; e.style.color='var(--t3)'; e.textContent=_psEmptyTxt(); }
+  else if(e){ var on=sProfit>=0; e.style.background=on?'var(--gp)':'var(--op)'; e.style.color=on?'var(--gd)':'var(--or)';
     e.innerHTML=on?'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Overall: Profitable':'Overall: Not Profitable'; }
   e=$('wi-note');
   if(e) e.textContent = bits.length ? ('With '+bits.join(', ')+': profit '+R(base.profit)+' \u2192 '+R(sProfit)+'.') : '';
@@ -45281,7 +45355,7 @@ var ti = dataIn.reduce(function(a,b){return a+b;},0);
       '<div class="ct-lbl">Total Profit</div>' +
       '<div class="ct-val g">R'+(tp/1000000).toFixed(1)+'M</div>' +
       '<div class="ct-lbl">Avg. Profit Margin</div>' +
-      '<div class="ct-val">'+marginPct+'%</div>';
+      '<div class="ct-val"'+(ti>0?'':' style="color:var(--t4)"')+'>'+(ti>0?marginPct+'%':'\u2014')+'</div>';
   }
 }
 
@@ -52229,7 +52303,7 @@ function updateRptDisplay() {
   setEl('rpt-net',      IE_R(R.netProfitBT));
   /* No tag on the Reports hero: that card is narrow and the Afrikaans label fills
      the line by itself, so a tag wrapped it and dropped the figure 7.5px. */
-  setEl('rpt-margin',   R.netMargin+'%');
+  setEl('rpt-margin',   R.totalIncome > 0 ? R.netMargin+'%' : '\u2014');
   setEl('rpt-income-lbl', lbl);
   setEl('rpt-expenses-lbl', lbl);
   var _ss=$('rpt-stmt-sub'); if(_ss) _ss.innerHTML='Showing figures for <strong>'+lbl+'</strong> — preview inline or open to print.';
@@ -55001,8 +55075,8 @@ initDashChart();
   setTimeout(checkNudge, 2000);
   applySimpleView();
 
-  var _fn = ST.ownerName ? ST.ownerName.split(' ')[0] : 'Farmer';
-  toast((ST.lang==='af'?'Welkom terug, ':'Welcome back, ') + _fn + '! \uD83D\uDC4B', 'success');
+  /* Only a farm that has recorded something is coming back to it. */
+  if (greetBack()) toast(greetLine(true), 'success');
 
 _loadOutbox();
 try{ if(_restorePendingTxnsFromOutbox() && typeof dataChanged==='function'){ dataChanged('transaction'); } }catch(e){}
@@ -55537,12 +55611,26 @@ function obNav(n) {
   OB_STEP = n;
 }
 
+/* A required box that is empty says so beneath itself and stays red until it has text.
+   The toast alone was the only signal, and it drew behind the wizard. */
+function obFieldErr(id, msg) {
+  var inp = $(id), box = $(id + '-err'); if (!inp) return;
+  inp.classList.add('ob-bad');
+  if (box) { box.textContent = '\u26A0\uFE0E ' + msg; box.style.display = 'flex'; }
+  try { inp.focus(); } catch(e){}
+  if (!inp._obErrWired) { inp._obErrWired = true; inp.addEventListener('input', function(){ obFieldOk(id); }); }
+}
+function obFieldOk(id) {
+  var inp = $(id), box = $(id + '-err');
+  if (inp && inp.value.trim()) { inp.classList.remove('ob-bad'); if (box) box.style.display = 'none'; }
+}
 function obNext() {
   if (OB_STEP === 1) {
     var farm  = $('ob-farm')  && $('ob-farm').value.trim();
     var owner = $('ob-owner') && $('ob-owner').value.trim();
-    if (!farm)  { obShake('ob-farm');  toast('Please enter your farm name', 'error'); return; }
-    if (!owner) { obShake('ob-owner'); toast('Please enter your name', 'error'); return; }
+    obFieldOk('ob-farm'); obFieldOk('ob-owner');
+    if (!farm)  { obFieldErr('ob-farm',  (ST.lang==='af' ? 'Voer jou plaas se naam in om voort te gaan.' : 'Enter your farm name to carry on.')); toast((ST.lang==='af' ? 'Voer asseblief jou plaas se naam in' : 'Please enter your farm name'), 'error'); return; }
+    if (!owner) { obFieldErr('ob-owner', (ST.lang==='af' ? 'Voer jou naam in om voort te gaan.' : 'Enter your name to carry on.')); toast((ST.lang==='af' ? 'Voer asseblief jou naam in' : 'Please enter your name'), 'error'); return; }
   }
   if (OB_STEP === 3) {
     obBuildTour();
@@ -57772,7 +57860,10 @@ function aiDemoStart(){
   // "Demo this page" pill (it overlaps the header controls) — tab demos stay reachable via the 🗺️ tours menu.
   try{
     document.body.classList.add('ai-guest');
-    if(!document.getElementById('ai-demo-style')){ var _st=document.createElement('style'); _st.id='ai-demo-style'; _st.textContent='body.ai-guest #qc-fab,body.ai-guest #tours-fab{bottom:82px !important}'; document.head.appendChild(_st); }
+    /* The DEMO bar (z 99990) covers the bottom 47px, so every toast in the demo sat under it.
+       146px clears the bar and both round buttons; 64px landed on the + button and a centred
+       toast hit the Undo toast. Accounts have no bar and keep the toast where it was. */
+    if(!document.getElementById('ai-demo-style')){ var _st=document.createElement('style'); _st.id='ai-demo-style'; _st.textContent='body.ai-guest #qc-fab,body.ai-guest #tours-fab{bottom:82px !important}body.ai-guest #toast{bottom:146px}'; document.head.appendChild(_st); }
     if(window.ST) ST.showTourBtn=false;
     var _ptf=document.getElementById('page-tour-fixed'); if(_ptf){ _ptf.classList.add('hidden'); _ptf.style.display='none'; }
   }catch(e){}
@@ -57798,7 +57889,16 @@ function aiDemoStart(){
   try{
     localStorage.setItem('ai_guest_toured','1');   // kept: real accounts still read it
     setTimeout(function(){
-      try{ if(typeof tourStart==='function') tourStart(); }catch(e){}
+      /* Not over an empty farm: a sample-farm tour pointing at zeros and "nothing here yet"
+         shows nothing. The sandbox restores its ledger on its own schedule, so give it a
+         moment before deciding there is nothing to show. */
+      var _tt = 0;
+      (function _tourWhenFarm(){
+        try{
+          if (!(window.ST && ST.txns && ST.txns.length)) { if (_tt++ < 3) setTimeout(_tourWhenFarm, 700); return; }
+          if(typeof tourStart==='function') tourStart();
+        }catch(e){}
+      })();
     },900);
   }catch(e){}
 }
