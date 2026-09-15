@@ -321,6 +321,7 @@
   let CAN_FARM_RAIN_DRV = false;   // farms.rain_derived (rain_derived_migration.sql)
   let CAN_FARM_BANK_AT  = false;   // farms.bank_balance_at (bank_balance_at_migration.sql)
   let CAN_FARM_VAT_CAT  = false;   // farms.vat_category (vat_category_migration.sql)
+  let CAN_FARM_PARTNERS = false;   // farms.partners (farms_partners_migration.sql)
   let _bankSeen = null;            // the balance the server last gave us
   /* Filing rules. Without the table they stay on the device, which is how the UK build
      shipped them — defensible there because that project is not provisioned, and not
@@ -364,6 +365,7 @@
     CAN_FARM_RAIN_DRV  = await has('farms','rain_derived');
     CAN_FARM_BANK_AT   = await has('farms','bank_balance_at');
     CAN_FARM_VAT_CAT   = await has('farms','vat_category');
+    CAN_FARM_PARTNERS  = await has('farms','partners');
     CAN_CAT_RULES      = await has('category_rules','match_text');
     /* The whole row-memory scheme rides on this one column. A project that has
        not run agriinsights-13-relational-sync.sql keeps today's behaviour rather
@@ -2098,6 +2100,7 @@
     if(r.tax_number!=null) p.taxNumber=r.tax_number;
     if(r.vat_number!=null) p.vatNumber=r.vat_number;
     if(r.entity_type!=null) p.entityType=r.entity_type;
+    if(r.partners!=null){ try{ p.partners=(typeof r.partners==='string')?JSON.parse(r.partners):r.partners; }catch(e){ p.partners=[]; } }
     if(r.farm_address!=null) p.farmAddr=r.farm_address;
     if(r.paye_ref!=null) p.payeRef=r.paye_ref;
     if(r.stock_mark!=null) p.stockMark=r.stock_mark;
@@ -2119,7 +2122,7 @@
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
+    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+(CAN_FARM_PARTNERS?'partners,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -2145,6 +2148,8 @@
       if(st.taxNumber) extra.tax_number=st.taxNumber;
       if(st.vatNumber) extra.vat_number=st.vatNumber;
       if(st.entityType) extra.entity_type=st.entityType;
+      /* Gated on the column: an unknown column would sink the whole `extra` statement. */
+      if(CAN_FARM_PARTNERS && Array.isArray(st.partners)) extra.partners=st.partners;
       if(st.farmAddr!=null) extra.farm_address=st.farmAddr;
       if(st.payeRef!=null) extra.paye_ref=st.payeRef;
       if(st.stockMark!=null) extra.stock_mark=st.stockMark;
@@ -2172,7 +2177,12 @@
              make a month-old balance look like this morning's the next time someone
              edited a VAT number, which is the exact dishonesty this column exists to
              remove. */
-          if(CAN_FARM_BANK_AT && Number(st.bankBalance)!==_bankSeen){
+          /* The date ON THE STATEMENT when the farmer gave one (Money Flow asks for it, so
+             the books can be checked against the bank); otherwise the day it changed. */
+          if(CAN_FARM_BANK_AT && st.bankBalanceAt){
+            sett.bank_balance_at=String(st.bankBalanceAt).slice(0,10);
+            _bankSeen=Number(st.bankBalance);
+          } else if(CAN_FARM_BANK_AT && Number(st.bankBalance)!==_bankSeen){
             sett.bank_balance_at=new Date().toISOString().slice(0,10);
             _bankSeen=Number(st.bankBalance);
           }

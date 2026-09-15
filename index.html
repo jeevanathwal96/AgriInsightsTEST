@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=41"></script>
+<script src="ai-data.js?v=42"></script>
 <script src="ai-auth.js?v=35"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -6638,6 +6638,7 @@ table.rn-t td.dim{color:var(--t4)}
             <option value="company">Company / (Pty) Ltd</option>
             <option value="sbc">Small Business Corporation (SARS-approved)</option>
             <option value="trust">Trust</option>
+            <option value="partnership">Partnership (each partner taxed on their share)</option>
           </select>
           <div style="font-size:11px;color:#6B7280;line-height:1.45;margin-top:6px">Sets how we estimate your provisional tax. Not sure? Leave as Sole proprietor — change it anytime in Settings.</div>
         </div>
@@ -7848,7 +7849,7 @@ table.rn-t td.dim{color:var(--t4)}
 
   <!-- Dynamic metrics -->
   <div class="metrics mrow-hero" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
-    <div class="mc mc-hero"><div class="mc-lbl">Net Profit · this period</div><div class="mc-val" id="rpt-net">R223 090</div><div class="mc-chg"><b id="rpt-margin" style="color:#eaf6ee">34.9%</b> margin · after tax</div></div>
+    <div class="mc mc-hero kpi-tap" onclick="kpiOpen('rptProfitBT')" style="position:relative"><span class="kpi-i" style="border-color:rgba(255,255,255,.35);color:#9fcbb0">&#9432;</span><div class="mc-lbl">Profit before tax</div><div class="mc-val" id="rpt-net">R223 090</div><div class="mc-chg"><b id="rpt-margin" style="color:#eaf6ee">34.9%</b> margin · before tax</div></div>
     <div class="mc"><div class="mc-tic up">↑</div><div class="mc-lbl">Total Income</div><div class="mc-val g" id="rpt-income">R1 328 750</div><div class="mc-chg" id="rpt-income-lbl" style="color:var(--t3)">May 2024</div></div>
     <div class="mc"><div class="mc-tic dn">↓</div><div class="mc-lbl">Total Expenses</div><div class="mc-val" style="color:var(--rd)" id="rpt-expenses">R1 043 320</div><div class="mc-chg" id="rpt-expenses-lbl" style="color:var(--t3)">May 2024</div></div>
     <div class="mc"><div class="mc-lbl">Gross Profit</div><div class="mc-val b" id="rpt-gross">R285 430</div><div class="mc-chg" style="color:var(--t3)">Before allowances</div></div>  </div>
@@ -10037,7 +10038,13 @@ table.rn-t td.dim{color:var(--t4)}
               <option value="company">Company / (Pty) Ltd</option>
               <option value="sbc">Small Business Corporation (SARS-approved)</option>
               <option value="trust">Trust</option>
+              <option value="partnership">Partnership (each partner taxed on their share)</option>
             </select>
+            <div id="set-partners-wrap" style="margin-top:12px;display:none">
+              <div id="set-partners-list"></div>
+              <button type="button" id="set-partners-add" onclick="setPartnerAdd()" style="margin-top:4px;background:var(--gb);border:1px dashed var(--gp);border-radius:9px;padding:8px 12px;font-size:12px;font-weight:700;color:var(--gd);cursor:pointer;font-family:inherit">+ Add a partner</button>
+              <div id="set-partners-warn" style="font-size:11.5px;line-height:1.5;margin-top:8px"></div>
+            </div>
         </div>
         <div class="fg2">
           <div><label>Income tax number (SARS) <span class="set-ihint"><button type="button" class="set-i" onclick="setPop(this,event)" aria-label="What is this">i</button><span class="set-pop"><b>Your 10-digit SARS reference.</b> It's on any letter from SARS or on eFiling under 'My Profile'. We use it only to label the tax reports you export.</span></span></label><input id="set-taxno" placeholder="e.g. 1234567890"/></div>
@@ -10417,9 +10424,11 @@ table.rn-t td.dim{color:var(--t4)}
     <div class="cf-bb-sub" id="cf-bb-sub">The forecast below starts from this. Update it whenever you like.</div>
     <div class="cf-bb-input">
       <span class="cf-bb-cur">R</span><input id="cf-bb-val" type="text" inputmode="numeric" placeholder="e.g. 642 000">
+      <input id="cf-bb-at" type="date" title="Date on your statement" aria-label="Date on your statement" style="flex:0 0 152px;min-width:0;font-weight:600;font-size:13px">
       <button onclick="cfConfirmBankBalance()" id="cf-bb-confirm" style="display:none">That’s right ✓</button>
       <button onclick="cfSaveBankBalance()" id="cf-bb-save">Save</button>
     </div>
+    <div id="cf-bb-check" style="display:none;margin-top:10px;border-radius:9px;padding:9px 12px;font-size:12.5px;line-height:1.5"></div>
   </div>
 
   <!-- Forward answer card -->
@@ -15669,6 +15678,7 @@ var ST = {
   vatNumber: '',
   taxNumber: '',
   entityType: 'sole',
+  partners: [],   // a partnership's partners and shares (Settings -> Tax & VAT)
   fyStartMonth: 3,        // TAX year — SARS: 1 March to end February for a natural person
   seasonStartMonth: 5,    // SEASON — May, SA summer-grain default. Not the same year.
   saleType: 'Crops',
@@ -15680,6 +15690,8 @@ var ST = {
   expPeriod: '6',
   cfPeriod: '1',
   bankBalance: null,  // user's actual current bank balance; anchors the forecast when set
+  bankBalanceAt: null,  // the date on the statement that balance came from
+  bankLastCheck: null,  // the last books-vs-statement check
   showExpBar: true,
   budgetExpenseTarget: 1080000,
 
@@ -19306,6 +19318,79 @@ function updateTopbarGreeting() {
   el.textContent = greetLine(false);
 }
 
+/* Settings -> Tax & VAT: the partner list, shown only for a partnership. */
+function setPartnersRender(){
+  var wrap=$('set-partners-wrap'), sel=$('set-entity'); if(!wrap) return;
+  var on=(sel && sel.value==='partnership'); wrap.style.display=on?'':'none'; if(!on) return;
+  if(!Array.isArray(ST.partners)) ST.partners=[];
+  var af=(ST.lang==='af'), list=$('set-partners-list'), add=$('set-partners-add');
+  if(add) add.textContent=af?'+ Voeg ’n vennoot by':'+ Add a partner';
+  var LB='display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t4);margin-bottom:3px';
+  var IN='width:100%;box-sizing:border-box;min-width:0;padding:7px 9px;border:1px solid var(--gp);border-radius:8px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--t1)';
+  var num=function(i,k,v,step,lbl){ return '<label style="min-width:0"><span style="'+LB+'">'+lbl+'</span><input type="number" step="'+step+'" style="'+IN+';text-align:right" value="'+v+'" oninput="setPartnerSet('+i+',\''+k+'\',this.value)"></label>'; };
+  if(list){
+    list.innerHTML = ST.partners.length
+      ? ST.partners.map(function(p,i){
+          return '<div style="border:1px solid var(--gp);border-radius:10px;padding:9px 10px;margin-bottom:8px">'+
+            '<div style="display:grid;grid-template-columns:minmax(0,1fr) 26px;gap:7px;align-items:center;margin-bottom:7px">'+
+              '<input type="text" style="'+IN+'" placeholder="'+(af?'Vennoot se naam':'Partner name')+'" value="'+esc(p.name||'')+'" oninput="setPartnerSet('+i+',\'name\',this.value)">'+
+              '<button type="button" onclick="setPartnerDel('+i+')" aria-label="'+(af?'Verwyder vennoot':'Remove partner')+'" style="background:none;border:none;color:#B91C1C;font-size:17px;cursor:pointer;line-height:1">&times;</button></div>'+
+            '<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px">'+
+              num(i,'share',(p.share!=null?p.share:''),'0.01',(af?'Deel %':'Share %'))+
+              num(i,'salary',(p.salary||''),'1',(af?'Salaris':'Salary'))+
+              num(i,'capital',(p.capital||''),'1',(af?'Kapitaal':'Capital'))+
+            '</div></div>';
+        }).join('')
+      : '<div style="font-size:12px;color:var(--t4);padding:4px 0">'+(af?'Nog geen vennote nie.':'No partners yet.')+'</div>';
+  }
+  setPartnersWarn();
+}
+function setPartnersWarn(){
+  var warn=$('set-partners-warn'); if(!warn) return; var af=(ST.lang==='af'), tot=saPartnerShareTotal();
+  if(!saPartners().length) warn.innerHTML='<span style="color:var(--t4)">'+(af?'Voeg elke vennoot by en die deel van die wins wat hulle neem. Die dele moet 100% wees.':'Add each partner and the share of profit they take. Shares should total 100%.')+'</span>';
+  else if(Math.abs(tot-100)>0.01) warn.innerHTML='<span style="color:#B45309;font-weight:700">'+(af?'Dele is altesaam '+tot+'%, nie 100% nie.':'Shares total '+tot+'%, not 100%.')+'</span> <span style="color:var(--t4)">'+(af?'Ons skaal die dele tot dit reggestel is.':'We scale the shares to fit until this is fixed.')+'</span>';
+  else warn.innerHTML='<span style="color:#15803D;font-weight:700">&#10003; '+(af?'Dele is altesaam 100%.':'Shares total 100%.')+'</span> <span style="color:var(--t4)">'+(af?'Salaris en kapitaal is opsioneel — dit word eerste uitbetaal, dan word die res volgens deel verdeel.':'Salary and capital are optional — they are paid out first, then the rest is split by share.')+'</span>';
+}
+function setPartnerSet(i,k,v){
+  if(!Array.isArray(ST.partners) || !ST.partners[i]) return;
+  ST.partners[i][k]=(k==='name')?v:(v===''?'':Number(v));
+  if(typeof saveState==='function') saveState();
+  setPartnersWarn();
+}
+function setPartnerAdd(){
+  if(!Array.isArray(ST.partners)) ST.partners=[];
+  ST.partners.push({name:'',share:'',salary:'',capital:'',interestRate:0});
+  if(typeof saveState==='function') saveState();
+  setPartnersRender();
+}
+function setPartnerDel(i){
+  if(!Array.isArray(ST.partners)) return;
+  ST.partners.splice(i,1);
+  if(typeof saveState==='function') saveState();
+  setPartnersRender();
+}
+/* Tax page: the estimate, partner by partner. */
+function taxPartnersHTML(prov){
+  var af=(ST.lang==='af'), a=saPartnerAllocation(Math.max(0, prov.taxableProfit||0));
+  var END='</div>';   /* closes the card - one close for both branches below */
+  var h='<div class="tx-card" style="margin-bottom:12px"><div class="tx-h">'+(af?'Jou belasting, vennoot vir vennoot':'Your tax, partner by partner')+'</div>';
+  if(!a.partners.length){
+    return h+'<div style="font-size:12.5px;color:var(--t3);line-height:1.5">'+(af?'Voeg jou vennote by in Instellings → Belasting &amp; BTW. Tot dan word die hele wins belas asof een persoon dit verdien het.':'Add your partners in Settings → Tax &amp; VAT. Until then the whole profit is taxed as if one person earned it.')+'</div>'+
+      '<button onclick="nav(\'settings\')" style="margin-top:10px;background:var(--gd);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit">'+(af?'Voeg vennote by':'Add partners')+' →</button>'+END;
+  }
+  var th='text-align:right;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t4);padding:0 0 6px;border-bottom:1px solid var(--br)';
+  var td='text-align:right;padding:8px 0;border-bottom:1px solid var(--br2);font-variant-numeric:tabular-nums;color:var(--t2)';
+  var sumTax=0;
+  var rows=a.partners.map(function(p){ var t=calcAnnualIncomeTax(Math.max(0,p.total),'sole'); sumTax+=t;
+    return '<tr><td style="padding:8px 0;border-bottom:1px solid var(--br2);color:var(--t2)">'+esc(p.name)+' &middot; '+p.share+'%</td><td style="'+td+'">'+fmt(p.salary+p.interest)+'</td><td style="'+td+'">'+fmt(p.residue)+'</td><td style="'+td+'">'+fmt(p.total)+'</td><td style="'+td+'">'+fmt(t)+'</td></tr>'; }).join('');
+  var asOne=calcAnnualIncomeTax(Math.max(0,prov.taxableProfit||0),'sole');
+  h+='<div style="font-size:12.5px;color:var(--t3)">'+(af?'Hierdie jaar se belasbare wins '+fmt(a.profit)+', verdeel: salarisse eerste, die res volgens deel.':'This year’s taxable profit '+fmt(a.profit)+', divided: salaries first, the rest by share.')+'</div>'+
+    (a.shareWarning?'<div style="font-size:12px;color:#B45309;font-weight:700;margin-top:6px">'+(af?'Dele is altesaam '+a.shareTotal+'%, nie 100% nie — geskaal om te pas.':'Shares total '+a.shareTotal+'%, not 100% — scaled to fit.')+'</div>':'')+
+    '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;min-width:460px"><thead><tr><th style="'+th+';text-align:left">'+(af?'Vennoot':'Partner')+'</th><th style="'+th+'">'+(af?'Salaris':'Salary')+'</th><th style="'+th+'">'+(af?'Deel van die res':'Share of the rest')+'</th><th style="'+th+'">'+(af?'Hulle wins':'Their profit')+'</th><th style="'+th+'">'+(af?'Geskatte belasting':'Est. tax')+'</th></tr></thead><tbody>'+rows+
+    '<tr><td style="padding:8px 0;border-top:2px solid var(--br);font-weight:800;color:var(--t1)">'+(af?'Vennootskap':'Partnership')+'</td><td style="'+td+';border-top:2px solid var(--br);border-bottom:0;font-weight:800;color:var(--t1)">'+fmt(a.priorTotal)+'</td><td style="'+td+';border-top:2px solid var(--br);border-bottom:0;font-weight:800;color:var(--t1)">'+fmt(a.residue)+'</td><td style="'+td+';border-top:2px solid var(--br);border-bottom:0;font-weight:800;color:var(--t1)">'+fmt(a.profit)+'</td><td style="'+td+';border-top:2px solid var(--br);border-bottom:0;font-weight:800;color:var(--t1)">'+fmt(sumTax)+'</td></tr></tbody></table></div>'+
+    '<div style="font-size:12px;color:var(--t3);margin-top:10px;line-height:1.5">'+(af?'Elke vennoot se belasting word slegs op hulle plaasdeel bereken — hulle eie opgawe tel enige ander inkomste by. As een persoon belas, sou dieselfde wins <b style="color:var(--gd)">'+fmt(asOne)+'</b> wees.':'Each partner’s tax is worked out on their farm share alone — their own return adds any other income. Taxed as one person, the same profit would be <b style="color:var(--gd)">'+fmt(asOne)+'</b>.')+'</div>'+END;
+  return h;
+}
 function syncSettingsHeader(){
   // Show what was accepted, so there's a visible record of consent.
   try{
@@ -19466,7 +19551,7 @@ var farmNameEl = document.getElementById('farm-name');
    surfaces as a fault instead of surviving a fresh start in silence. */
 var FRESH_SHAPE = {
   ST:         { txns:[], deletedTxns:[], importBatches:[], coopSettlements:[], recurring:[],
-                catRules:[], stSnap:[], capIgnore:{}, bankBalance:null, budgetExpenseTarget:0 },
+                catRules:[], stSnap:[], capIgnore:{}, bankBalance:null, bankBalanceAt:null, bankLastCheck:null, budgetExpenseTarget:0 },
   ST_ASSETS:  { assets:[], nextId:1 },
   ST_LOANS:   { loans:[], overdrafts:[], coopAccounts:[], archived:[],
                 confirmed:{month:null,paid:{}}, nextId:1, nextOdId:1, nextCoId:1 },
@@ -19492,7 +19577,7 @@ var FRESH_CONFIG = {
   /* ST.budgets and ST_PLAN.months keep their frame and lose their figures, in code
      below, because a farm keeps its spread pattern and its twelve month rows. */
   ST:         ['budgets','farmName','ownerName','province','farmHa','farmType','farmEnterprise',
-               'vatRegistered','vatCategory','vatNumber','taxNumber','entityType',
+               'vatRegistered','vatCategory','vatNumber','taxNumber','entityType','partners',
                'fyStartMonth','seasonStartMonth','planYear','lang','firstRun','diagnostics',
                'simpleView','nudgeSeen','lastActivity','lastSaved','charts','period','cfPeriod',
                'incPeriod','incPeriodSel','expPeriod','expPeriodSel','txPeriodSel','saleType',
@@ -19566,6 +19651,7 @@ function clearAllToFresh(opts) {
     if (typeof ST !== 'undefined' && !keepIdentity) {
       ST.farmName = ''; ST.ownerName = ''; ST.province = '';
       ST.farmHa = 0; ST.vatRegistered = false; ST.entityType = '';
+      if ('partners' in ST) ST.partners = [];
       if ('taxNumber' in ST) ST.taxNumber = '';
       if ('vatNumber' in ST) ST.vatNumber = '';
       if ('farmType' in ST) ST.farmType = '';
@@ -19828,6 +19914,8 @@ function nav(id) {
     var svc=$('set-vatcat'); if(svc) svc.value = ST.vatCategory || 'A';
     if(typeof _setVatCatVis==='function') _setVatCatVis();
     var sen=$('set-entity'); if(sen) sen.value = ST.entityType || 'sole';
+    if(sen && !sen._pwired){ sen._pwired=1; sen.addEventListener('change', function(){ setPartnersRender(); }); }
+    if(typeof setPartnersRender==='function') setPartnersRender();
     /* Both year selects were never populated from state — they always opened on
        their first option, so a farmer who had chosen July saw "March" staring
        back at him and re-saving silently reset it. */
@@ -21299,7 +21387,7 @@ function laCFVal(id){ var e=document.getElementById(id); return e?(parseFloat(St
 function laCFGrp(el){ var v=(parseFloat(String(el.value).replace(/[^0-9.]/g,''))||0); el.value=v?_grpInt(v):''; }
 function laCFLWCheck(){ var ids=['la-cf-ownedha','la-cf-leasedha','la-cf-tenure','la-cf-water']; var any=ids.some(function(id){ var e=document.getElementById(id); return e && String(e.value||'').trim()!==''; }); var w=document.getElementById('la-cf-lw-warn'); if(w) w.style.display=any?'none':'flex'; }
 function laCFPersist(){
-  var cash=laCFVal('la-cf-cash'); if(document.getElementById('la-cf-cash') && document.getElementById('la-cf-cash').value!=='') ST.bankBalance=cash;
+  var cash=laCFVal('la-cf-cash'); if(document.getElementById('la-cf-cash') && document.getElementById('la-cf-cash').value!=='' && cash!==ST.bankBalance){ ST.bankBalance=cash; ST.bankBalanceAt=(typeof _cfIsoToday==='function')?_cfIsoToday():null; }
   ST_LOANAPP.estimates=ST_LOANAPP.estimates||{};
   ST_LOANAPP.estimates.crops=laCFVal('la-cf-crops');
   ST_LOANAPP.estimates.debtors=laCFVal('la-cf-debtors');
@@ -46204,19 +46292,74 @@ function renderCfOnBudget() {
 }
 
 // One-tap confirm of the estimated balance (shown only while it's an estimate).
+/* ── Bank statement check (ported from UK, 15 Sep 2026) ─────────────────────────
+   The balance the farmer last gave us, plus every income and expense recorded after the
+   date on that statement, is what the books expect the next statement to say. Agree:
+   say so. Disagree: say by how much and between which dates, and stop - the books are
+   never adjusted to match. */
+function _cfIsoToday(){ var d=_txNow(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _cfTxnIso(s){ var p=parseDate(s); return p ? (p.y+'-'+String(p.m+1).padStart(2,'0')+'-'+String(p.d||1).padStart(2,'0')) : ''; }
+function _cfFmtIso(iso){ var p=String(iso||'').split('-'); if(p.length<3) return iso||''; return (+p[2])+' '+MONTH_LABELS[(+p[1])-1]+' '+p[0]; }
+function cfBankMovement(fromIso, toIso){
+  var net=0, n=0;
+  (ST.txns||[]).forEach(function(t){ if(!t) return; var d=_cfTxnIso(t.date); if(!d || d<=fromIso || d>toIso) return;
+    var a=Math.abs(Number(t.amt)||0); net+=(t.type==='income')?a:-a; n++; });
+  return {net:Math.round(net), count:n};
+}
+function cfBankCheck(newBalance, newIso){
+  var prev=ST.bankBalance, prevAt=ST.bankBalanceAt||'';
+  if(typeof prev!=='number' || !isFinite(prev) || !prevAt || !newIso || newIso<=prevAt) return null;
+  var m=cfBankMovement(prevAt, newIso), expected=Math.round(prev+m.net);
+  return {from:prevAt, to:newIso, from_balance:Math.round(prev), moved:m.net, entries:m.count, expected:expected, actual:Math.round(newBalance), diff:Math.round(newBalance-expected)};
+}
+function cfBankCheckShow(chk, iso){
+  var el=$('cf-bb-check'); if(!el) return;
+  var af=(ST.lang==='af');
+  if(!iso){ el.style.display='none'; return; }
+  el.style.display='block';
+  if(!chk){
+    el.style.background='var(--gb)'; el.style.border='1px solid var(--gp)'; el.style.color='var(--t2)';
+    el.innerHTML=af ? '<b>Aangeteken.</b> Jou rekords is volledig tot '+_cfFmtIso(iso)+'. Gee volgende keer ’n staatdatum, dan kontroleer ons die tydperk tussenin.'
+                    : '<b>Noted.</b> Your records are complete to '+_cfFmtIso(iso)+'. Next time you give a statement date we can check the period in between.';
+    return;
+  }
+  if(chk.diff===0){
+    el.style.background='var(--gb)'; el.style.border='1px solid var(--gp)'; el.style.color='var(--t2)';
+    el.innerHTML=af ? '<b>Ons maak dit ook '+fmt(chk.expected)+'.</b> Jou rekords is volledig tot '+_cfFmtIso(iso)+'.'
+                    : '<b>We make it '+fmt(chk.expected)+' too.</b> Your records are complete to '+_cfFmtIso(iso)+'.';
+  } else {
+    var more=(chk.diff<0);
+    el.style.background='#FFF3E0'; el.style.border='1px solid #F5D9A8'; el.style.color='#7a4a10';
+    el.innerHTML=af ? '<b>Ons maak dit '+fmt(chk.expected)+' — '+fmt(Math.abs(chk.diff))+' '+(more?'meer':'minder')+' as jou staat.</b> Iets tussen '+_cfFmtIso(chk.from)+' en '+_cfFmtIso(iso)+' is nie aangeteken nie. Ons hou dit vir jou rekenmeester eerder as om te raai.'
+                    : '<b>We make it '+fmt(chk.expected)+' — '+fmt(Math.abs(chk.diff))+' '+(more?'more':'less')+' than your statement.</b> Something between '+_cfFmtIso(chk.from)+' and '+_cfFmtIso(iso)+' is not recorded. We note it for your accountant rather than guess at it.';
+  }
+}
+/* One path for both buttons: check against the last statement BEFORE replacing it. */
+function cfSetBankBalance(val, iso){
+  iso = iso || _cfIsoToday();
+  var chk=cfBankCheck(val, iso);
+  ST.bankBalance=val; ST.bankBalanceAt=iso;
+  if(chk) ST.bankLastCheck=chk;
+  if(typeof saveState==='function') saveState();
+  try{ if(window.AI && AI.farm && AI.farm.active()) AI.profile.save(ST).catch(function(){}); }catch(e){}
+  renderCfForecast();
+  cfBankCheckShow(chk, iso);
+  return chk;
+}
 function cfConfirmBankBalance() {
   var inp = $('cf-bb-val');
   var val = inp ? parseFloat((inp.value || '').replace(/[^0-9.\-]/g, '')) : NaN;
   if (isNaN(val)) val = (typeof cfCurrentCashEstimate === 'function') ? cfCurrentCashEstimate() : 0;
-  ST.bankBalance = val;
-  if (typeof saveState === 'function') saveState();
-  renderCfForecast();
-  toast('Bank balance confirmed — forecast updated', 'success');
+  var at = ($('cf-bb-at') && $('cf-bb-at').value) || '';
+  cfSetBankBalance(val, at);
+  toast(ST.lang==='af' ? 'Bankbalans bevestig — vooruitskatting bygewerk' : 'Bank balance confirmed — forecast updated', 'success');
 }
 
 function renderCfBankBalance(){
   var inp=$('cf-bb-val'); if(!inp) return;
   var sub=$('cf-bb-sub');
+  var atEl=$('cf-bb-at'); if(atEl && document.activeElement!==atEl) atEl.value = ST.bankBalanceAt || _cfIsoToday();
+  try{ var _lc=ST.bankLastCheck; if(_lc && _lc.to===ST.bankBalanceAt) cfBankCheckShow(_lc, ST.bankBalanceAt); else { var _ck=$('cf-bb-check'); if(_ck) _ck.style.display='none'; } }catch(e){}
   var confirmBtn=$('cf-bb-confirm');
   if (typeof ST.bankBalance==='number' && !isNaN(ST.bankBalance)){
     inp.value = Math.round(ST.bankBalance).toLocaleString('en-ZA').replace(/,/g,' ');
@@ -46241,11 +46384,10 @@ function cfSaveBankBalance(){
   var inp=$('cf-bb-val'); if(!inp) return;
   var raw=(inp.value||'').replace(/[^0-9.\-]/g,'');
   var val=parseFloat(raw);
-  if(isNaN(val)){ toast('Enter your bank balance','error'); return; }
-  ST.bankBalance=val;
-  if(typeof saveState==='function') saveState();
-  renderCfForecast();
-  toast('Bank balance saved \u2014 forecast updated','success');
+  if(isNaN(val)){ toast(ST.lang==='af'?'Voer jou bankbalans in':'Enter your bank balance','error'); return; }
+  var at=($('cf-bb-at') && $('cf-bb-at').value) || '';
+  cfSetBankBalance(val, at);
+  toast(ST.lang==='af' ? 'Bankbalans gestoor — vooruitskatting bygewerk' : 'Bank balance saved — forecast updated','success');
 }
 function cfToggleFwdRow(idx){
   var d=$('cf-drill-'+idx); if(!d) return;
@@ -53043,11 +53185,43 @@ function _taxFromBands(income, bands) {
 }
 // Annual income tax for a taxable income + entity type, using current SARS tables.
 // entityType: 'sole' (default) | 'company' | 'sbc' | 'trust'. Rands, rounded. Estimate only.
+/* ── Partnerships (15 Sep 2026) ─────────────────────────────────────────────────
+   A partnership is not a taxpayer in South Africa: each partner is taxed on their own
+   share. Salaries and interest on capital are PRIOR shares, taken first in full; only what
+   is left is divided by share. Rounded to whole rand with the last partner taking the
+   difference, so the split always adds back to the profit exactly. Ported from UK
+   ukProfitAllocation. */
+function saPartners(){ var l=(ST.partners||[]); return Array.isArray(l) ? l.filter(function(p){ return p && String(p.name||'').trim(); }) : []; }
+function saPartnerShareTotal(){ var t=0; saPartners().forEach(function(p){ t+=Number(p.share)||0; }); return Math.round(t*100)/100; }
+function saPartnerAllocation(profit){
+  profit=Math.round(Number(profit)||0);
+  var partners=saPartners(), shareTotal=saPartnerShareTotal(), priorTotal=0;
+  var rows=partners.map(function(p){
+    var salary=Math.round(Number(p.salary)||0), interest=Math.round((Number(p.capital)||0)*((Number(p.interestRate)||0)/100));
+    priorTotal+=salary+interest;
+    return {name:p.name, share:Number(p.share)||0, salary:salary, interest:interest, residue:0, total:0};
+  });
+  var residue=profit-priorTotal, allocated=0;
+  rows.forEach(function(r,i){
+    var pct=(shareTotal>0)?(r.share/shareTotal):(rows.length?1/rows.length:0);
+    var slice=(i===rows.length-1)?(residue-allocated):Math.round(residue*pct);
+    allocated+=slice; r.residue=slice; r.total=r.salary+r.interest+slice;
+  });
+  return {partners:rows, profit:profit, priorTotal:priorTotal, residue:residue, shareTotal:shareTotal,
+          shareWarning:(partners.length>0 && Math.abs(shareTotal-100)>0.01)};
+}
 function calcAnnualIncomeTax(taxableIncome, entityType) {
   var T = (window.STATUTORY && STATUTORY.tax) || null;
   var ti = taxableIncome > 0 ? taxableIncome : 0;
   if (!T || ti <= 0) return 0;
   var et = entityType || 'sole', tax;
+  /* A partnership: each partner's share taxed at individual rates, then added up. With no
+     partners recorded yet it is taxed as one person, which is what it was before. */
+  if (et === 'partnership') {
+    var _pa = saPartnerAllocation(ti);
+    if (_pa.partners.length) return _pa.partners.reduce(function(s, r){ return s + calcAnnualIncomeTax(Math.max(0, r.total), 'sole'); }, 0);
+    et = 'sole';
+  }
   if (et === 'company')    tax = ti * T.company.rate;
   else if (et === 'trust') tax = ti * T.trust.rate;
   else if (et === 'sbc')   tax = _taxFromBands(ti, T.sbc.bands);
@@ -53056,7 +53230,7 @@ function calcAnnualIncomeTax(taxableIncome, entityType) {
   return Math.max(0, Math.round(tax));
 }
 function _entityTaxLabel(et) {
-  return ({ sole:'sole proprietor', company:'company (Pty) Ltd', sbc:'small business corporation', trust:'trust' })[et||'sole'] || 'sole proprietor';
+  return ({ sole:'sole proprietor', partnership:'partnership', company:'company (Pty) Ltd', sbc:'small business corporation', trust:'trust' })[et||'sole'] || 'sole proprietor';
 }
 window.calcAnnualIncomeTax = calcAnnualIncomeTax; window._taxFromBands = _taxFromBands;
 
@@ -54254,6 +54428,8 @@ function taxGlanceHTML(){
     if(prov.nudge && prov.nudge.show) h+='<div class="tx-nudge" style="background:#FEF6E7;border-color:#F1DBA6"><b>A sharper number is waiting.</b> You haven\u2019t added your '+esc(prov.nudge.enterprise)+' to the season plan yet, so we spread your income evenly across the year. <span onclick="nav(\'planning\')" style="text-decoration:underline;cursor:pointer">Finish your plan \u2192</span></div>';
   }
 
+  try{ if(prov.ok && ST.entityType==='partnership') h+=taxPartnersHTML(prov); }catch(e){}
+
   /* Anything undecided goes above the figures, not below: the numbers underneath
      depend on the answer, so asking after showing them would be back to front. */
   try{ h+=taxReconcileHTML(); }catch(e){}
@@ -54848,9 +55024,9 @@ function taxWhatIfHTML(){
      capex taken out would deduct it twice. This is also the figure with income tax and
      SARS penalties already stripped, so What-if agrees with the Glance tab. */
   var prov=taxProvEstimate(); var p0=prov.ok?Math.max(0,(prov.ringFence?prov.ringFence.base:prov.annualProfit)):500000; if(p0>2000000)p0=2000000;
-  var curEnt=(['sole','company','sbc','trust'].indexOf(ST.entityType)>=0)?ST.entityType:'sole'; TAX_WI_ENT=curEnt;
+  var curEnt=(['sole','partnership','company','sbc','trust'].indexOf(ST.entityType)>=0)?ST.entityType:'sole'; TAX_WI_ENT=curEnt;
   TAX_WI_VAT=(typeof FARM!=='undefined'&&FARM.vat)?'yes':'no';
-  var ents=[['sole','Sole prop'],['company','Company'],['sbc','SBC'],['trust','Trust']];
+  var ents=[['sole','Sole prop'],['partnership',(ST.lang==='af'?'Vennote':'Partners')],['company','Company'],['sbc','SBC'],['trust','Trust']];
   var eb='style="flex:1;border:0;border-radius:9px;padding:9px 4px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--fn)"';
   // ── ONE income-tax calculator: profit − deductions = taxable income → tax ──
   var h='<div class="tx-card" style="margin-bottom:12px"><div class="tx-h">Work out this year’s income tax</div>'+
@@ -59696,6 +59872,20 @@ if (typeof LANG_PAIRS !== 'undefined') {
   ];
   for (var i = AUDIT_PAIRS.length - 1; i >= 0; i--) {
     var p = AUDIT_PAIRS[i];
+    if (!LANG_PAIRS.some(function(q){ return q[0] === p[0]; })) LANG_PAIRS.unshift(p);
+  }
+})();
+/* Quick ports (15 Sep 2026): static labels the whole-node engine translates. Whole phrases,
+   unshifted in reverse so they win over any shorter pair. */
+(function(){
+  if (typeof LANG_PAIRS === 'undefined') return;
+  var QP_PAIRS = [
+    ['Profit before tax', 'Wins voor belasting'],
+    ['margin · before tax', 'marge · voor belasting'],
+    ['Partnership (each partner taxed on their share)', 'Vennootskap (elke vennoot belas op sy deel)']
+  ];
+  for (var i = QP_PAIRS.length - 1; i >= 0; i--) {
+    var p = QP_PAIRS[i];
     if (!LANG_PAIRS.some(function(q){ return q[0] === p[0]; })) LANG_PAIRS.unshift(p);
   }
 })();
@@ -70264,6 +70454,53 @@ function _lsRegCertsCard(){
       breakdown:{title:'From margins down to profit', rows:rows, tot:{nm:'Farm profit', amt:_pfK(profit)}, note:'Shared running costs take about '+oc+'c of every margin rand. Loan repayments count as interest only \u2014 paying off a loan isn\u2019t a running cost.'},
       jump:{label:'See the full breakdown', tone:'', go:function(){ if(typeof pfTab==='function') pfTab('details'); }, back:function(){ if(typeof pfTab==='function') pfTab('glance'); kpiOpen('pfFarmProfit'); }, trail:'\u2039 Back to profit overview', show:'Showing the details tab'}
     };
+  };
+  /* Reports card. It said "Net Profit · margin · after tax" over a figure worked out BEFORE
+     tax (92.3% where the after-tax margin was 59.5%). Relabelled, and a tap explains why
+     Money Flow shows less: the capital half of a loan repayment leaves the bank but is not
+     a cost. Signed off 15 Sep 2026 in its simplest form - one profit on the card, the
+     difference only on tap, in the farmer's words. */
+  REG.rptProfitBT=function(){
+    var R=null; try{ R=computeRPT(); }catch(e){}
+    if(!R) return null;
+    var af=(ST.lang==='af');
+    var lbl=''; try{ lbl=getPeriodLabel(); }catch(e){}
+    var L=R.loanSplit||{}, cap=Math.round(L.capital||0), kept=R.netProfitBT-cap;
+    /* Money Flow's "Now" view is always this month, so only then can the sheet say what
+       Money Flow shows; any other period talks about the money kept instead. */
+    var isNow=false; try{ isNow=(RPT_STATE.type==='monthly' && (MONTH_LABELS[RPT_STATE.monthIdx]+' '+RPT_STATE.year)===currentPeriodLabel()); }catch(e){}
+    var pc=function(n,of){ return of>0?Math.max(2,Math.min(100,Math.round(Math.abs(n)/of*100))):0; };
+    var base={ label:(af?'Wins voor belasting':'Profit before tax'), value:fmt(R.netProfitBT), chip:lbl };
+    if(L.unresolved>0){
+      var n=L.unresolved, one=(n===1);
+      base.verdict={tone:'watch',
+        head: af ? (n+' leningterugbetaling'+(one?' is':'s is')+' nie aan ’n lening gekoppel nie')
+                 : (n+' loan repayment'+(one?' is':'s are')+' not linked to a loan'),
+        text: af ? (' '+fmt(L.unresolvedAmount)+' het uitgegaan. Tot jy '+(one?'dit':'hulle')+' koppel, kan ons nie sê hoeveel rente was nie, so niks daarvan kom van jou wins af nie — en jou belastingskatting lees hoër as wat dit moet.')
+                 : (' '+fmt(L.unresolvedAmount)+' went out. Until you link '+(one?'it':'them')+' we cannot tell how much was interest, so none of it comes off your profit — and your tax estimate reads higher than it should.')};
+      base.jump={label:(af?'Koppel '+(one?'dit':'hulle')+' aan ’n lening':'Link '+(one?'it':'them')+' to a loan'), tone:'gold',
+        go:function(){ nav('loans'); }, back:function(){ nav('reports'); kpiOpen('rptProfitBT'); },
+        trail:(af?'‹ Terug na verslae':'‹ Back to reports'), show:(af?'Wys lenings':'Showing loans')};
+      return base;
+    }
+    if(cap>0){
+      base.verdict={tone:'info',
+        head: isNow ? (af?'Hoekom Geldvloei '+fmt(cap)+' minder wys':'Why Money Flow shows '+fmt(cap)+' less')
+                    : (af?'Hoekom jy '+fmt(cap)+' minder gehou het':'Why you kept '+fmt(cap)+' less than this'),
+        text: af ? (' Jy het '+fmt(cap)+' van jou lening hierdie tydperk terugbetaal. Daardie geld het die bank verlaat, maar SARS tel die terugbetaling van ’n lening nie as ’n koste nie — so dit word nie van hierdie wins afgetrek nie.')
+                 : (' You paid back '+fmt(cap)+' of your loan this period. That money left the bank, but SARS does not count paying back a loan as a cost — so it is not taken off this profit.')};
+      base.breakdown={title:(af?'Hierdie wins en wat jy gehou het':'This profit and what you kept'),
+        rows:[{nm:(af?'Hierdie wins':'This profit'), amt:fmt(R.netProfitBT), pct:100},
+              {nm:(af?'− Lening terugbetaal':'− Loan paid back'), amt:'−'+fmt(cap), pct:pc(cap,R.netProfitBT), neg:true, cls:'gold'}],
+        tot:{nm:(isNow?(af?'Wat Geldvloei wys':'What Money Flow shows'):(af?'Geld wat jy gehou het':'Money you kept')), amt:fmt(kept)}};
+    } else {
+      base.verdict={tone:'info', head:(af?'Wat SARS belas':'What SARS taxes'),
+        text:(af?' Jou inkomste vir '+(lbl||'die tydperk')+' min die koste wat SARS jou laat aftrek. Geen lening is hierdie tydperk terugbetaal nie, so dit is ook die geld wat jy gehou het.'
+                :' Your income for '+(lbl||'the period')+' less the costs SARS lets you take off. No loan capital was paid back this period, so this is also the money you kept.')};
+    }
+    base.jump={label:(af?'Maak Geldvloei oop':'Open Money Flow'), tone:'', go:function(){ nav('cashflow'); },
+      back:function(){ nav('reports'); kpiOpen('rptProfitBT'); }, trail:(af?'‹ Terug na verslae':'‹ Back to reports'), show:(af?'Wys Geldvloei':'Showing Money Flow')};
+    return base;
   };
   REG.pfBestEarner=function(){
     var e=_pfE();
