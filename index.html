@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=43"></script>
-<script src="ai-auth.js?v=35"></script>
+<script src="ai-data.js?v=44"></script>
+<script src="ai-auth.js?v=36"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -124,6 +124,20 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .topbar-right{display:flex;align-items:center;gap:10px;position:absolute;right:28px;top:50%;transform:translateY(-50%)}
 .sync{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t3);display:flex;align-items:center;gap:4px}
 .sync svg{width:13px;height:13px;stroke:var(--gl)}
+#sync-indicator.si-bad{background:#FDF1EF!important;border-color:#F1C6BF!important;cursor:pointer!important}
+#sync-indicator.si-bad #sync-text{color:#8A2A1E!important;font-weight:700}
+#sync-dot.si-pulse{animation:siPulse 1.2s ease-in-out infinite}
+@keyframes siPulse{0%,100%{opacity:1}50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){#sync-dot.si-pulse{animation:none}}
+.sync-pop{position:fixed;z-index:9000;width:340px;max-width:calc(100vw - 24px);background:#fff;border:1px solid var(--br);border-radius:14px;box-shadow:0 12px 28px rgba(0,0,0,.16);padding:13px 15px;font-family:var(--fn);color:var(--t1)}
+.sync-pop .sp-h{font-size:13.5px;font-weight:800}
+.sync-pop .sp-sub{font-size:12px;color:var(--t3);margin-top:2px}
+.sync-pop .sp-r{display:flex;gap:10px;padding:10px 0 9px;border-top:1px solid var(--br2);margin-top:10px}
+.sync-pop .sp-r + .sp-r{margin-top:0}
+.sync-pop .sp-d{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.sync-pop .sp-r b{display:block;font-size:12.5px}
+.sync-pop .sp-r span{font-size:12px;color:var(--t3);line-height:1.45}
+.sync-pop .sp-go{margin-top:6px;width:100%;background:var(--gd);color:#fff;border:0;border-radius:9px;padding:9px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit}
 .lang-wrap{display:inline-flex;background:#fff;border:1px solid var(--br);border-radius:var(--rs);overflow:hidden;vertical-align:middle;flex-shrink:0}
 .lang-btn{display:inline-block;width:38px;height:28px;line-height:28px;text-align:center;font-size:12px;font-weight:700;color:var(--t3);cursor:pointer;user-select:none;transition:background .15s,color .15s}
 .lang-btn.on{background:var(--gd);color:#fff}
@@ -6893,7 +6907,7 @@ table.rn-t td.dim{color:var(--t4)}
     </div>
     <div class="topbar-right" data-notranslate>
       <button id="demo-temp-btn" onclick="toggleToursMenu()" style="background:var(--am);color:#fff;border:none;border-radius:8px;padding:7px 13px;font-size:12px;font-weight:800;font-family:inherit;cursor:pointer;flex-shrink:0;display:none" title="Temporary — demo any tab">▶ Demo a tab</button>
-      <div id="sync-indicator" style="display:flex;align-items:center;gap:5px;cursor:default;background:var(--bg);border:1px solid var(--br);border-radius:var(--rs);padding:5px 10px;flex-shrink:0">
+      <div id="sync-indicator" onclick="syncPopToggle(event)" aria-live="polite" style="display:flex;align-items:center;gap:5px;cursor:default;background:var(--bg);border:1px solid var(--br);border-radius:var(--rs);padding:5px 10px;flex-shrink:0">
           <span id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:#40916C;display:inline-block;flex-shrink:0;transition:background .3s"></span>
           <span id="sync-text" style="font-size:11px;color:var(--t3);white-space:nowrap">Ready</span>
         </div>
@@ -10700,6 +10714,7 @@ var MONTH_INDEX_BY_NAME = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8
 function _syncFarmSettings(){
   try{
     if(!(window.AI && AI.farm && AI.farm.active() && AI.profile && AI.profile.save)) return;
+    if(AI.sync && !AI.sync.isOpen()) return;   // pull before push: never send old settings before the first load
     AI.profile.save(ST).catch(function(){});
   }catch(e){}
 }
@@ -10788,8 +10803,11 @@ function _saveOk(){
 // saved locally and will retry automatically. Surface them calmly (one quiet
 // toast), never with the red "this device" bar reserved for real storage loss.
 var SYNC_FAIL_SHOWN = false;
-function _syncFailed(e){
+function _syncFailed(e, area){
   try { console.warn('Cloud sync deferred (saved locally, will retry):', e && (e.message || e)); } catch(_){}
+  /* Into the status at the top, which says what failed. The toast below is only for offline. */
+  try { if (window.AI && AI.sync) AI.sync.report(area || 'transactions', e); } catch(_){}
+  if (navigator.onLine !== false) return;
   if (SYNC_FAIL_SHOWN) return;
   SYNC_FAIL_SHOWN = true;
   var af = (typeof ST !== 'undefined' && ST.lang === 'af');
@@ -25151,11 +25169,11 @@ function wkUploadDoc(w, doc, wid){
   var farmId=AI.farm.active();
   var path=AI.storage.path(farmId,'workers',w.id,doc.name);
   AI.storage.upload(path, doc.data, doc.mime).then(function(stored){
-    doc.url=stored; doc.pending=false; try{ delete doc.data; }catch(e){ doc.data=undefined; }
+    doc.url=stored; doc.pending=false; try{ if(window.AI && AI.sync) AI.sync.report('attachments', null); }catch(_){} try{ delete doc.data; }catch(e){ doc.data=undefined; }
     wkDocSync(wid);   // persists url to backend via wkSync -> AI.workers.saveAll, and re-renders
   }).catch(function(e){
     console.error('Doc upload failed:', e); doc.pending=true;
-    if(typeof _syncFailed==='function') _syncFailed(e);   // saved locally as pending; flushDocUploads retries
+    if(typeof _syncFailed==='function') _syncFailed(e, 'attachments');   // saved locally as pending; flushDocUploads retries
   });
 }
 // Upload any docs captured while offline, once a connection returns.
@@ -25170,7 +25188,7 @@ function flushDocUploads(){
         kicked=true;
         var path=AI.storage.path(farmId,'workers',w.id,doc.name);
         AI.storage.upload(path, doc.data, doc.mime).then(function(stored){
-          doc.url=stored; doc.pending=false; try{ delete doc.data; }catch(e){ doc.data=undefined; }
+          doc.url=stored; doc.pending=false; try{ if(window.AI && AI.sync) AI.sync.report('attachments', null); }catch(_){} try{ delete doc.data; }catch(e){ doc.data=undefined; }
           if(typeof saveState==='function') saveState();
           if(typeof wkSync==='function') wkSync();
         }).catch(function(e){ console.error('Pending doc upload failed:', e); });
@@ -52084,6 +52102,7 @@ function flushTxnOutbox(){
   }
 
   doInserts().then(doUpdates).then(doDeletes).then(function(){
+    try{ if(window.AI && AI.sync) AI.sync.report('transactions', null); }catch(_){}
     if(typeof _saveOk === 'function') _saveOk();
     _txnFlushing = false;
     if(needRefetch && AI.load && AI.load.financeCore){
@@ -59183,45 +59202,112 @@ function syncTimeAgo(ts){
   var h=Math.floor(m/60); if(h<24) return h+' hour'+(h>1?'s':'')+' ago';
   var d=Math.floor(h/24); return d+' day'+(d>1?'s':'')+' ago';
 }
-function syncStatusText(){
-  if(navigator.onLine===false) return 'Offline — saved locally';
-  if(!ST.lastSaved) return 'Synced · up to date';
-  return (Date.now()-ST.lastSaved < 60000) ? 'Synced · up to date' : ('Saved ' + syncTimeAgo(ST.lastSaved));
+/* The status at the top follows the SERVER's answers (AI.sync), not the farmer's clicks:
+   "Saved to your account" only once every area is confirmed, "Not saved online" as soon
+   as something is refused or keeps failing, with a short list on tap. It used to say
+   "Synced · up to date" whenever the farmer did anything - including while three saves of
+   the business type were being refused (15 Sep 2026). */
+var SYNC_AREAS = { settings:['Settings','Instellings'], loans:['Loans','Lenings'], livestock:['Herds and animals','Kuddes en diere'], crops:['Crops','Gewasse'], orchard:['Orchards','Boorde'], plan:['Plan','Beplanning'], workers:['Workers','Werkers'], fuel:['Fuel log','Brandstofregister'], rain:['Rainfall','Reënval'], documents:['Documents','Dokumente'], rules:['Filing rules','Liasseerreëls'], transactions:['Transactions','Transaksies'], attachments:['Attachments','Aanhegsels'] };
+var SYNC_FIELDS = { entity_type:['Business type','Besigheidstipe'], partners:['Partners','Vennote'], vat_category:['VAT category','BTW-kategorie'], vat_number:['VAT number','BTW-nommer'], vat_registered:['VAT registration','BTW-registrasie'], tax_number:['Tax number','Belastingnommer'], utr:['UTR','UTR'] };
+var _syncBusySince = 0, _syncBusyT = null, _syncToastShown = false, _syncRenderQueued = false, _syncSubscribed = false;
+function _syncAf(){ return typeof ST !== 'undefined' && ST.lang === 'af'; }
+function _syncPick(pair){ return _syncAf() ? pair[1] : pair[0]; }
+function syncState(){
+  var af = _syncAf();
+  if (window.__AI_GUEST) return { cls:'demo', text: af ? 'Voorbeeldplaas · nie aanlyn gestoor nie' : 'Sample farm · not saved online' };
+  var s = (window.AI && AI.sync && AI.farm && AI.farm.active()) ? AI.sync.status() : null;
+  if (!s) return { cls:'', text: af ? 'Gereed' : 'Ready' };
+  if (navigator.onLine === false) return { cls:'off', text: af ? 'Aflyn — op hierdie toestel gestoor' : 'Offline — saved on this device' };
+  if (s.failing.length) return { cls:'bad', text: (af ? 'Nie aanlyn gestoor nie · ' : 'Not saved online · ') + s.failing.length };
+  if (s.catchingUp) return { cls:'saving', text: af ? 'Stuur vroeër veranderinge…' : 'Sending earlier changes…' };
+  var busy = s.saving || (typeof TXN_OUTBOX !== 'undefined' && TXN_OUTBOX.length > 0);
+  if (busy) {
+    if (!_syncBusySince) _syncBusySince = Date.now();
+    /* Most saves finish in a blink (nothing changed, so nothing is sent): never flash "Saving". */
+    if (Date.now() - _syncBusySince >= 500) return { cls:'saving', text: af ? 'Stoor…' : 'Saving…' };
+    if (!_syncBusyT) _syncBusyT = setTimeout(function(){ _syncBusyT = null; renderSyncIndicator(); }, 520);
+  } else _syncBusySince = 0;
+  if (s.lastConfirmed) {
+    var t = new Date(s.lastConfirmed).toLocaleTimeString('en-ZA', { hour:'2-digit', minute:'2-digit' });
+    return { cls:'', text: (af ? 'Op jou rekening gestoor · ' : 'Saved to your account · ') + t };
+  }
+  return { cls:'', text: af ? 'Gereed' : 'Ready' };
 }
-function updateSyncIndicator() {
-  ST.lastSaved = Date.now();
-  var dot  = $('sync-dot');
-  var text = $('sync-text');
-  if (!dot || !text) return;
-
-  var online = navigator.onLine !== false;
-  dot.style.background = online ? '#40916C' : '#F59E0B';
-  text.textContent = syncStatusText();
-
-if (SYNC_INTERVAL) clearInterval(SYNC_INTERVAL);
-  SYNC_INTERVAL = setInterval(function() {
-    if (!ST.lastSaved) return;
-    var t = $('sync-text');
-    if (!t) return;
-    t.textContent = syncStatusText();
-  }, 30000);
+function syncStatusText(){ return syncState().text; }
+function renderSyncIndicator(){
+  var box = $('sync-indicator'), dot = $('sync-dot'), text = $('sync-text'), st = syncState();
+  if (box && dot && text) {
+    text.textContent = st.text;
+    dot.style.background = ({ '':'#40916C', saving:'#9CA3AF', off:'#F59E0B', demo:'#9CA3AF', bad:'#B91C1C' })[st.cls] || '#40916C';
+    dot.classList.toggle('si-pulse', st.cls === 'saving');
+    box.classList.toggle('si-bad', st.cls === 'bad');
+    box.title = st.cls === 'bad' ? (_syncAf() ? 'Tik om te sien wat nie gestoor is nie' : 'Tap to see what isn’t saved') : '';
+  }
+  if (st.cls === 'bad' && !_syncToastShown && typeof toast === 'function') {
+    _syncToastShown = true;
+    toast(_syncAf() ? 'Sommige veranderinge is nog nie aanlyn gestoor nie — tik op die status bo om te sien watter.'
+                    : 'Some changes aren’t saved online yet — tap the status at the top to see which.', 'info');
+  }
+  if ($('sync-pop')) renderSyncPop();
 }
-
-function initSyncIndicator() {
-  var dot  = $('sync-dot');
-  var text = $('sync-text');
-  if (!dot || !text) return;
-  var online = navigator.onLine !== false;
-  dot.style.background = online ? '#40916C' : '#F59E0B';
-  text.textContent = syncStatusText();
+function _syncRenderSoon(){ if (_syncRenderQueued) return; _syncRenderQueued = true; setTimeout(function(){ _syncRenderQueued = false; renderSyncIndicator(); }, 60); }
+function updateSyncIndicator(){ renderSyncIndicator(); }
+function initSyncIndicator(){
+  if (!_syncSubscribed && window.AI && AI.sync) { AI.sync.onChange(_syncRenderSoon); _syncSubscribed = true; }
+  renderSyncIndicator();
+  if (SYNC_INTERVAL) clearInterval(SYNC_INTERVAL);
+  SYNC_INTERVAL = setInterval(renderSyncIndicator, 15000);   // the retry countdown and the offline state
 }
+function syncPopToggle(ev){
+  if (ev) ev.stopPropagation();
+  var pop = $('sync-pop');
+  if (pop) { pop.remove(); return; }
+  var s = (window.AI && AI.sync) ? AI.sync.status() : null;
+  if (!s || !s.failing.length || window.__AI_GUEST) return;
+  pop = document.createElement('div'); pop.id = 'sync-pop'; pop.className = 'sync-pop';
+  pop.setAttribute('data-notranslate', ''); pop.setAttribute('role', 'dialog');
+  pop.addEventListener('click', function(e){ e.stopPropagation(); });
+  document.body.appendChild(pop);
+  renderSyncPop();
+  var r = $('sync-indicator').getBoundingClientRect();
+  pop.style.top = Math.round(r.bottom + 8) + 'px';
+  pop.style.right = Math.max(12, Math.round(window.innerWidth - r.right)) + 'px';
+}
+function renderSyncPop(){
+  var pop = $('sync-pop'); if (!pop) return;
+  var s = (window.AI && AI.sync) ? AI.sync.status() : null;
+  if (!s || !s.failing.length) { pop.remove(); return; }
+  var af = _syncAf(), n = s.failing.length, h = '';
+  h += '<div class="sp-h">' + (af ? (n + ' verandering' + (n > 1 ? 'e' : '') + ' is nie aanlyn gestoor nie') : (n + (n > 1 ? ' changes aren’t' : ' change isn’t') + ' saved online')) + '</div>';
+  h += '<div class="sp-sub">' + (af ? (n > 1 ? 'Hulle word op hierdie toestel gehou.' : 'Dit word op hierdie toestel gehou.') : (n > 1 ? 'They’re kept on this device.' : 'It’s kept on this device.')) + '</div>';
+  s.failing.forEach(function(f){
+    var name = _syncPick(SYNC_AREAS[f.area] || [f.area, f.area]);
+    if (f.column && SYNC_FIELDS[f.column]) name += ' · ' + _syncPick(SYNC_FIELDS[f.column]);
+    var why;
+    if (f.kind === 'retry') {
+      var secs = f.retryAt ? Math.max(1, Math.round((f.retryAt - Date.now()) / 1000)) : 0;
+      why = af ? ('Die verbinding het weggeval. ' + (secs ? 'Probeer weer oor ' + secs + ' sekondes.' : 'Ons probeer weer.'))
+               : ('The connection dropped. ' + (secs ? 'Trying again in ' + secs + ' seconds.' : 'We’ll try again.'));
+    } else {
+      why = af ? 'Die bediener aanvaar dit nog nie. Dit het ’n regstelling van ons kant nodig — ons stuur dit sodra dit gedoen is.'
+               : 'The server won’t accept this yet. It needs a fix on our side — we’ll send it when that’s done.';
+    }
+    h += '<div class="sp-r"><i class="sp-d" style="background:' + (f.kind === 'retry' ? '#C8962C' : '#B91C1C') + '"></i><div><b>' + esc(name) + '</b><span>' + why + '</span></div></div>';
+  });
+  h += '<button class="sp-go" onclick="syncRetryNow()">' + (af ? 'Probeer nou weer' : 'Try again now') + '</button>';
+  pop.innerHTML = h;
+}
+function syncRetryNow(){
+  try { if (window.AI && AI.sync) AI.sync.retryAll(); } catch (e) {}
+  try { if (typeof flushTxnOutbox === 'function' && typeof TXN_OUTBOX !== 'undefined' && TXN_OUTBOX.length) flushTxnOutbox(); } catch (e) {}
+  try { if (typeof flushDocUploads === 'function') flushDocUploads(); } catch (e) {}
+  renderSyncIndicator();
+}
+document.addEventListener('click', function(){ var p = $('sync-pop'); if (p) p.remove(); });
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape') { var p = $('sync-pop'); if (p) p.remove(); } });
+window.addEventListener('online',  function(){ renderSyncIndicator(); });
+window.addEventListener('offline', function(){ renderSyncIndicator(); });
 
-window.addEventListener('online',  function() { updateSyncIndicator(); });
-window.addEventListener('offline', function() {
-  var dot = $('sync-dot'); var text = $('sync-text');
-  if (dot) dot.style.background = '#F59E0B';
-  if (text) text.textContent = 'Offline — saved locally';
-});
 
 // ============================================================
 

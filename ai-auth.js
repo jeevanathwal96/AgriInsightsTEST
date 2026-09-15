@@ -519,6 +519,8 @@
         sameF = (localStorage.getItem('ai_state_farm') === fid);
       } catch(e){}
       if (isNewFarm || !sameU || !sameF) {
+        /* Unsent changes on this device belong to another account or farm: never send them. */
+        try { if (window.AI && AI.sync) AI.sync.discardUnsent(); } catch(e){}
         try { if (typeof window.aiAccountReset === 'function') window.aiAccountReset(); } catch(e){}
       }
       try { localStorage.setItem('ai_state_uid', uid || ''); localStorage.setItem('ai_state_farm', fid || ''); } catch(e){}
@@ -584,7 +586,9 @@
       // break the others. Skipped for brand-new farms (nothing saved yet).
       if (isNewFarm) return;
       var fid = AI.farm.active();
-      return Promise.all([
+      /* Send what this device never got to send BEFORE loading over it. After financeCore,
+         so the column probes have run and a settings catch-up sends every column. */
+      return (AI.sync ? AI.sync.catchUp() : Promise.resolve()).then(function () { return Promise.all([
         AI.load.livestock(fid).catch(function (e) { console.error('livestock load', e); return null; }),
         AI.load.crops(fid).catch(function (e) { console.error('crops load', e); return null; }),
         AI.load.orchard(fid).catch(function (e) { console.error('orchard load', e); return null; }),
@@ -603,17 +607,19 @@
         /* The rain book, so a farmer on a new device does not open an empty one.
            Never fatal: the tables may not exist yet on an older project. */
         (AI.load.rainfall ? AI.load.rainfall(fid).catch(function () { return null; }) : Promise.resolve(null))
-      ]).then(function (r) {
+      ]); }).then(function (r) {
         var ls = r[0], cr = r[1], orc = r[2], pl = r[3], wk = r[4], pf = r[5], coop = r[6],
             fu = r[7], dc = r[8], rl = r[9], rn = r[10];
-        try { if (window.ST_LS && ls) { var _lsHas = ((ls.herds&&ls.herds.length)||(ls.camps&&ls.camps.length)||(ls.animals&&ls.animals.length)); var _lsLoc = ((ST_LS.herd&&ST_LS.herd.length)||(ST_LS.camps&&ST_LS.camps.length)); if (_lsHas || !_lsLoc) { ST_LS.camps = ls.camps || []; ST_LS.herd = ls.herds || []; if (ls.benchmarks) ST_LS.benchmarks = ls.benchmarks; ST_LS.moves = ls.moves || []; ST_LS.treatments = ls.treatments || []; ST_LS.animals = ls.animals || []; ST_LS.health = ls.health || []; ST_LS.breedings = ls.breedings || []; /* Herds whose stored count did not yet include a move recorded elsewhere - the phone at a gate, or another desktop. load.livestock has already folded those moves in, so the figure on screen is the one the ledger supports; this is what the farmer gets told about it, on the Dashboard. */ ST_LS._stockRecon = (ls.stockRecon && ls.stockRecon.length) ? ls.stockRecon : null; } } } catch (e) { console.error('livestock apply', e); }
-        try { if (window.ST_CROP && cr) { var _crHas = ((cr.lands&&cr.lands.length)||(cr.events&&cr.events.length)||(cr.inputs&&cr.inputs.length)); var _crLoc = ((ST_CROP.lands&&ST_CROP.lands.length)||(ST_CROP.events&&ST_CROP.events.length)); if (_crHas || !_crLoc) { ST_CROP.lands = cr.lands || []; ST_CROP.events = cr.events || []; ST_CROP.inputs = cr.inputs || []; if (cr.season) ST_CROP.season = cr.season; if (cr.compliance) ST_CROP.compliance = cr.compliance; } } } catch (e) { console.error('crops apply', e); }
-        try { if (window.ST_FRUIT && orc) { var _orcHas = (orc.blocks && orc.blocks.length); var _locHas = (ST_FRUIT.blocks && ST_FRUIT.blocks.length); if (_orcHas || !_locHas) { ST_FRUIT.blocks = orc.blocks || []; ST_FRUIT.pricing = orc.pricing || {}; ST_FRUIT.sprayDiary = orc.sprayDiary || {}; ST_FRUIT.harvest = orc.harvest || []; if (orc.comply) ST_FRUIT.comply = orc.comply; try{ if(window.orComplyEnsure) orComplyEnsure(); }catch(_){} if (orc.market) ST_FRUIT.market = orc.market; if (typeof window.orRebuildPhi === 'function') { try { window.orRebuildPhi(); } catch (_) {} } } } } catch (e) { console.error('orchard apply', e); }
-        try { if (window.ST_PLAN) { var _plHas = (pl && ((pl.crops&&pl.crops.length)||(pl.events&&pl.events.length))); var _plLoc = ((ST_PLAN.crops&&ST_PLAN.crops.length)||(ST_PLAN.events&&ST_PLAN.events.length)); if (pl && (_plHas || !_plLoc)) { ST_PLAN.crops = pl.crops || []; ST_PLAN.events = pl.events || []; ST_PLAN.fromBackend = true; if (typeof window.planSyncToCurrentYear === 'function') { try { window.planSyncToCurrentYear(); } catch (_) {} } } else if (!pl && typeof window.cropInitialPlanSync === 'function') { try { window.cropInitialPlanSync(true); } catch (_) {} } } } catch (e) { console.error('plan apply', e); }
+        /* Never load over an area that still has something unsent on this device. */
+        var _unsent = function (a) { try { return !!(AI.sync && AI.sync.isUnsent(a)); } catch (e) { return false; } };
+        try { if (window.ST_LS && ls && !_unsent('livestock')) { var _lsHas = ((ls.herds&&ls.herds.length)||(ls.camps&&ls.camps.length)||(ls.animals&&ls.animals.length)); var _lsLoc = ((ST_LS.herd&&ST_LS.herd.length)||(ST_LS.camps&&ST_LS.camps.length)); if (_lsHas || !_lsLoc) { ST_LS.camps = ls.camps || []; ST_LS.herd = ls.herds || []; if (ls.benchmarks) ST_LS.benchmarks = ls.benchmarks; ST_LS.moves = ls.moves || []; ST_LS.treatments = ls.treatments || []; ST_LS.animals = ls.animals || []; ST_LS.health = ls.health || []; ST_LS.breedings = ls.breedings || []; /* Herds whose stored count did not yet include a move recorded elsewhere - the phone at a gate, or another desktop. load.livestock has already folded those moves in, so the figure on screen is the one the ledger supports; this is what the farmer gets told about it, on the Dashboard. */ ST_LS._stockRecon = (ls.stockRecon && ls.stockRecon.length) ? ls.stockRecon : null; } } } catch (e) { console.error('livestock apply', e); }
+        try { if (window.ST_CROP && cr && !_unsent('crops')) { var _crHas = ((cr.lands&&cr.lands.length)||(cr.events&&cr.events.length)||(cr.inputs&&cr.inputs.length)); var _crLoc = ((ST_CROP.lands&&ST_CROP.lands.length)||(ST_CROP.events&&ST_CROP.events.length)); if (_crHas || !_crLoc) { ST_CROP.lands = cr.lands || []; ST_CROP.events = cr.events || []; ST_CROP.inputs = cr.inputs || []; if (cr.season) ST_CROP.season = cr.season; if (cr.compliance) ST_CROP.compliance = cr.compliance; } } } catch (e) { console.error('crops apply', e); }
+        try { if (window.ST_FRUIT && orc && !_unsent('orchard')) { var _orcHas = (orc.blocks && orc.blocks.length); var _locHas = (ST_FRUIT.blocks && ST_FRUIT.blocks.length); if (_orcHas || !_locHas) { ST_FRUIT.blocks = orc.blocks || []; ST_FRUIT.pricing = orc.pricing || {}; ST_FRUIT.sprayDiary = orc.sprayDiary || {}; ST_FRUIT.harvest = orc.harvest || []; if (orc.comply) ST_FRUIT.comply = orc.comply; try{ if(window.orComplyEnsure) orComplyEnsure(); }catch(_){} if (orc.market) ST_FRUIT.market = orc.market; if (typeof window.orRebuildPhi === 'function') { try { window.orRebuildPhi(); } catch (_) {} } } } } catch (e) { console.error('orchard apply', e); }
+        try { if (window.ST_PLAN && !_unsent('plan')) { var _plHas = (pl && ((pl.crops&&pl.crops.length)||(pl.events&&pl.events.length))); var _plLoc = ((ST_PLAN.crops&&ST_PLAN.crops.length)||(ST_PLAN.events&&ST_PLAN.events.length)); if (pl && (_plHas || !_plLoc)) { ST_PLAN.crops = pl.crops || []; ST_PLAN.events = pl.events || []; ST_PLAN.fromBackend = true; if (typeof window.planSyncToCurrentYear === 'function') { try { window.planSyncToCurrentYear(); } catch (_) {} } } else if (!pl && typeof window.cropInitialPlanSync === 'function') { try { window.cropInitialPlanSync(true); } catch (_) {} } } } catch (e) { console.error('plan apply', e); }
         /* Where the farm is, how it tracks rain and its own long-term figure ride
            on the farm row, so a second device knows them before any reading arrives. */
         try {
-          if (window.ST_RAIN && pf && pf._rain) {
+          if (window.ST_RAIN && pf && pf._rain && !_unsent('settings')) {
             if (pf._rain.loc && !ST_RAIN.loc) ST_RAIN.loc = pf._rain.loc;
             if (pf._rain.mode) ST_RAIN.mode = pf._rain.mode;
             if (pf._rain.yearStart != null) ST_RAIN.yearStart = pf._rain.yearStart;
@@ -636,7 +642,7 @@
         /* Only take the server's rain book when this device has none of its own:
            the same rule the other modules use, so a local book is never wiped. */
         try {
-          if (window.ST_RAIN && rn) {
+          if (window.ST_RAIN && rn && !_unsent('rain')) {
             var _rnHas = (rn.log && rn.log.length) || (rn.gauges && rn.gauges.length);
             var _rnLoc = (ST_RAIN.log && ST_RAIN.log.length) || (ST_RAIN.gauges && ST_RAIN.gauges.length);
             if (_rnHas && !_rnLoc) {
@@ -647,7 +653,7 @@
             }
           }
         } catch (e) { console.error('rainfall hydrate', e); }
-        try { if (window.ST_WORK && wk) { var _wkHas = (wk.workers && wk.workers.length); var _wkLoc = (ST_WORK.workers && ST_WORK.workers.length); if (_wkHas || !_wkLoc) { ST_WORK.workers = wk.workers || []; if (wk.settingsRow && AI.workers && AI.workers.apply) { AI.workers.apply(ST_WORK, wk.settingsRow); } if (wk.payroll) { ST_WORK.paye = wk.payroll.paye || {}; ST_WORK.bonus = wk.payroll.bonus || {}; ST_WORK.extra = wk.payroll.extra || {}; ST_WORK.seasonal = wk.payroll.seasonal || {}; } ST_WORK.payRuns = wk.payRuns || []; } } } catch (e) { console.error('workers apply', e); }
+        try { if (window.ST_WORK && wk && !_unsent('workers')) { var _wkHas = (wk.workers && wk.workers.length); var _wkLoc = (ST_WORK.workers && ST_WORK.workers.length); if (_wkHas || !_wkLoc) { ST_WORK.workers = wk.workers || []; if (wk.settingsRow && AI.workers && AI.workers.apply) { AI.workers.apply(ST_WORK, wk.settingsRow); } if (wk.payroll) { ST_WORK.paye = wk.payroll.paye || {}; ST_WORK.bonus = wk.payroll.bonus || {}; ST_WORK.extra = wk.payroll.extra || {}; ST_WORK.seasonal = wk.payroll.seasonal || {}; } ST_WORK.payRuns = wk.payRuns || []; } } } catch (e) { console.error('workers apply', e); }
         /* The same farm facts live in TWO objects and only one of them round-trips.
            ST.vatRegistered comes back from the server here; FARM.vat never did — and the
            whole VAT engine gates on FARM.vat (IE_split, computeRPT's vatOut/vatIn, the
@@ -658,7 +664,7 @@
            FARM as well, so the server stays the single source of truth for both.
            Note the != null tests: `false` is a real answer and must survive them. */
         try {
-          if (window.ST && pf) {
+          if (window.ST && pf && !_unsent('settings')) {
             /* Skip the underscore keys: those carry ST_CROP / ST_PLAN / ST_LOANAPP data and
                are applied to their own objects below. Copying them here would park a second,
                stale copy on ST and write it to localStorage on every save. */
@@ -677,13 +683,13 @@
         /* Same shape as every other module above: the server wins when it has rows, and
            local is kept when it does not, so a farm that has never synced these is not
            emptied by a load that legitimately returns nothing. */
-        try { if (window.ST_FUEL && Array.isArray(fu) && (fu.length || !(ST_FUEL.issues && ST_FUEL.issues.length))) ST_FUEL.issues = fu; } catch (e) { console.error('fuel apply', e); }
-        try { if (window.ST && Array.isArray(dc) && (dc.length || !(ST.docs && ST.docs.length))) ST.docs = dc; if (typeof aiDocsSettle === 'function') aiDocsSettle(); } catch (e) { console.error('documents apply', e); }
+        try { if (window.ST_FUEL && Array.isArray(fu) && !_unsent('fuel') && (fu.length || !(ST_FUEL.issues && ST_FUEL.issues.length))) ST_FUEL.issues = fu; } catch (e) { console.error('fuel apply', e); }
+        try { if (window.ST && Array.isArray(dc) && !_unsent('documents') && (dc.length || !(ST.docs && ST.docs.length))) ST.docs = dc; if (typeof aiDocsSettle === 'function') aiDocsSettle(); } catch (e) { console.error('documents apply', e); }
         /* The settings that used to live only in localStorage. The scalars rode in on the
            generic key-copy just above; these four belong to other objects, so they are
            applied by hand. Underscore-prefixed on the profile object to keep them off ST. */
         try {
-          if (pf) {
+          if (pf && !_unsent('settings')) {
             if (pf._loanApp    && window.ST_LOANAPP) Object.keys(pf._loanApp).forEach(function(k){ ST_LOANAPP[k]=pf._loanApp[k]; });
             if (pf._cropPrices && window.ST_CROP)    ST_CROP.prices    = pf._cropPrices;
             if (pf._cropTypes  && window.ST_CROP && pf._cropTypes.length) ST_CROP.cropTypes = pf._cropTypes;
@@ -694,7 +700,7 @@
            only an actual array replaces them. Repointed through CAT_MERGES afterwards so a
            rule aimed at a renamed category still fires instead of silently doing nothing. */
         try {
-          if (window.ST && Array.isArray(rl)) ST.catRules = rl;
+          if (window.ST && Array.isArray(rl) && !_unsent('rules')) ST.catRules = rl;
           if (typeof window.catRuleRepoint === 'function') window.catRuleRepoint();
         } catch (e) { console.error('rules apply', e); }
         try { if (typeof window.saveState === 'function') window.saveState(); } catch (e) {}
@@ -718,6 +724,8 @@
         else if (typeof updateDashboardFigures === 'function') updateDashboardFigures();
       } catch (e) {}
       try {
+        /* The first load has finished: saves that were waiting for it go now. */
+        if (window.AI && AI.sync) AI.sync.open();
         if (typeof window.updateSyncIndicator === 'function') window.updateSyncIndicator();
       } catch (e) {}
     });
@@ -789,15 +797,28 @@
     if (Date.now() - _lastRefresh < 20000) return;                           // debounce ~20s
     _refreshing = true; _lastRefresh = Date.now();
     try { if (window.flushTxnOutbox) window.flushTxnOutbox(); } catch(e){}    // push local writes first
-    try {                                                                    // push pending relational edits too (snapshot-debounced -> no-op if unchanged), so a refocus never races a local edit
-      if (AI.loans && window.ST_LOANS) AI.loans.saveAll(ST_LOANS).catch(function(){});
-      if (AI.livestock && window.ST_LS) AI.livestock.saveAll(ST_LS).catch(function(){});
-      if (AI.crop && window.ST_CROP) AI.crop.saveAll(ST_CROP).catch(function(){});
-      if (AI.orchard && window.ST_FRUIT) AI.orchard.saveAll(ST_FRUIT).catch(function(){});
-      if (AI.plan && window.ST_PLAN) AI.plan.saveAll(ST_PLAN).catch(function(){});
-      if (AI.workers && window.ST_WORK) AI.workers.saveAll(ST_WORK).catch(function(){});
+    /* Push what is waiting, WAIT for it to land, and only then load. Loading while saves
+       were still on their way copied the server's older copy over the farmer's change.
+       hydrate() also sends anything an earlier session never sent, and never loads over an
+       area that still has something unsent. Before the first load has finished nothing is
+       pushed here: those saves wait for that load, and waiting on them would never end. */
+    var pushes = [];
+    try {
+      if (!(AI.sync && !AI.sync.isOpen())) {
+        if (AI.profile && window.ST) pushes.push(AI.profile.save(ST).catch(function(){}));
+        if (AI.loans && window.ST_LOANS) pushes.push(AI.loans.saveAll(ST_LOANS).catch(function(){}));
+        if (AI.livestock && window.ST_LS) pushes.push(AI.livestock.saveAll(ST_LS).catch(function(){}));
+        if (AI.crop && window.ST_CROP) pushes.push(AI.crop.saveAll(ST_CROP).catch(function(){}));
+        if (AI.orchard && window.ST_FRUIT) pushes.push(AI.orchard.saveAll(ST_FRUIT).catch(function(){}));
+        if (AI.plan && window.ST_PLAN) pushes.push(AI.plan.saveAll(ST_PLAN).catch(function(){}));
+        if (AI.workers && window.ST_WORK) pushes.push(AI.workers.saveAll(ST_WORK).catch(function(){}));
+      }
     } catch(e){}
-    hydrate({silent:true}).catch(function(){}).then(function(){ _refreshing = false; });
+    Promise.all(pushes)
+      .then(function(){ return (AI.sync && AI.sync.idle) ? AI.sync.idle(15000) : null; })
+      .then(function(){ return hydrate({silent:true}); })
+      .catch(function(){})
+      .then(function(){ _refreshing = false; });
   }
   window.refreshFromCloud = refreshFromCloud;
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) refreshFromCloud(); });

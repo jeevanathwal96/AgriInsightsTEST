@@ -1581,9 +1581,11 @@
         }
       }
       // Breeding — resilient: if the migration hasn't been run, keep the rest of the save working.
-      var breedings=(stls.breedings||[]);
+      var breedings=(stls.breedings||[]), _breedErr=null;
       if(breedings.length){ try{ const e=(await client().from('livestock_breedings').upsert(breedings.map(function(b){return breedingToDb(b,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
-        catch(be){ console.warn('Breeding records not saved online yet — run livestock_breeding_schema.sql in Supabase. ('+(be&&be.message||be)+')'); } }
+        catch(be){ _breedErr=be; console.warn('Breeding records not saved online yet — run livestock_breeding_schema.sql in Supabase. ('+(be&&be.message||be)+')'); } }
+      /* Not marked saved: the rest went, the breeding records are sent again next time. */
+      if(_breedErr) throw _breedErr;
       _lsSnap=snap;
       return true;
     },
@@ -2273,15 +2275,17 @@
       }
       var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink,p:rainr,d:raind}); if(snap===_profSnap) return;
       if(Object.keys(core).length){ const e=(await client().from('farms').update(core).eq('id',fid)).error; if(e) throw e; }
-      var extraOk=true;
-      if(Object.keys(extra).length){ const e=(await client().from('farms').update(extra).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: optional fields (VAT/tax/business-type) not saved \u2014 run the profile-schema migrations in Supabase. (' + (e.message||e) + ')'); } }
-      if(Object.keys(sett).length){ const e=(await client().from('farms').update(sett).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: device-sync settings not saved (migration missing?)', e && e.message); } }
-      if(Object.keys(cons).length){ const e=(await client().from('farms').update(cons).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: POPIA consent not recorded \u2014 run the consent migration in Supabase. (' + (e.message||e) + ')'); } }
-      if(Object.keys(rainr).length){ const e=(await client().from('farms').update(rainr).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: planting rule / satellite fill not saved \u2014 run rainfall_farm_settings.sql. ('+(e.message||e)+')'); } }
-      if(Object.keys(raind).length){ const e=(await client().from('farms').update(raind).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: derived rain values (frost / season / veld) not saved \u2014 run rain_derived_migration.sql. ('+(e.message||e)+')'); } }
-      if(Object.keys(raink).length){ const e=(await client().from('farms').update(raink).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: rain-book gaps not saved \u2014 run rainfall_not_kept.sql. ('+(e.message||e)+')'); } }
-      if(Object.keys(rainc).length){ const e=(await client().from('farms').update(rainc).eq('id',fid)).error; if(e){ extraOk=false; console.warn('Profile: rainfall location not saved — run rainfall_schema.sql. ('+(e.message||e)+')'); } }
+      var extraOk=true, firstErr=null;
+      if(Object.keys(extra).length){ const e=(await client().from('farms').update(extra).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: optional fields (VAT/tax/business-type) not saved \u2014 run the profile-schema migrations in Supabase. (' + (e.message||e) + ')'); } }
+      if(Object.keys(sett).length){ const e=(await client().from('farms').update(sett).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: device-sync settings not saved (migration missing?)', e && e.message); } }
+      if(Object.keys(cons).length){ const e=(await client().from('farms').update(cons).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: POPIA consent not recorded \u2014 run the consent migration in Supabase. (' + (e.message||e) + ')'); } }
+      if(Object.keys(rainr).length){ const e=(await client().from('farms').update(rainr).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: planting rule / satellite fill not saved \u2014 run rainfall_farm_settings.sql. ('+(e.message||e)+')'); } }
+      if(Object.keys(raind).length){ const e=(await client().from('farms').update(raind).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: derived rain values (frost / season / veld) not saved \u2014 run rain_derived_migration.sql. ('+(e.message||e)+')'); } }
+      if(Object.keys(raink).length){ const e=(await client().from('farms').update(raink).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: rain-book gaps not saved \u2014 run rainfall_not_kept.sql. ('+(e.message||e)+')'); } }
+      if(Object.keys(rainc).length){ const e=(await client().from('farms').update(rainc).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: rainfall location not saved — run rainfall_schema.sql. ('+(e.message||e)+')'); } }
       if(extraOk) _profSnap=snap;
+      /* A refused statement is a failed save: the queue reports it and nothing is marked saved. */
+      else if(firstErr) throw firstErr;
       return true;
     }
   };
@@ -2405,7 +2409,247 @@
     }
   };
 
-  global.AI = { init: client, auth, farm, load, txn, account, budget, recurring, asset, loans,
+  // ---- SAVE QUEUES -----------------------------------------------------------
+  /* One save at a time per area, in the order the farmer made the changes.
+
+     Saves used to run side by side. Each built its payload, sent several writes and only
+     then recorded a snapshot of what it sent, so two saves in flight could land in the
+     wrong order: the older one arrived last, the snapshot held the newer one, and every
+     later save matched the snapshot and sent nothing. Seen live on 15 Sep 2026 (a business
+     type switched back to sole stayed "partnership" on the server) and reproduced with
+     delayed, reordered replies, together with a deleted loan written back by a save that
+     was already on its way: removes ran outside any order. (06-tools/save-lane-harness.html)
+
+     So each area has a queue. A save starts when the one before it has finished and reads
+     the live state then. Removes join their area's queue. A save that fails is never
+     marked saved: a dropped connection retries by itself, a refusal waits for the next app
+     open or "Try again now".
+
+     What has not reached the server is remembered on this device, per farm, so the next
+     open sends it before loading the server's copy, and hydrate never loads over an area
+     that still has something unsent. Until the first load of a session has finished,
+     ordinary saves wait: a device pulls before it pushes. */
+  var SYNC_KEY = 'ai_sync_unsent_';
+  var SYNC_RETRY_MS = 20000;
+  var _lanes = {}, _syncSubs = [], _syncIsOpen = false, _syncGateWaiters = [];
+  var _syncLastOk = null, _syncCatching = false, _syncRaw = {}, _syncMods = {};
+  function _syncNoop(){}
+  function _syncEmit(){ _syncSubs.slice().forEach(function(f){ try{ f(); }catch(e){} }); }
+  function _laneOf(area){
+    return _lanes[area] || (_lanes[area] = { tail: Promise.resolve(), running: 0, waiting: 0, err: null, retryAt: 0, timer: null, lastSave: null, external: false });
+  }
+  function _unsentKey(){ var fid = farm.active(); return fid ? SYNC_KEY + fid : null; }
+  function _unsentRead(){
+    try{
+      var k = _unsentKey(), o = k ? JSON.parse(localStorage.getItem(k) || 'null') : null;
+      return { areas: (o && o.areas && typeof o.areas === 'object') ? o.areas : {}, ops: (o && Array.isArray(o.ops)) ? o.ops : [] };
+    }catch(e){ return { areas: {}, ops: [] }; }
+  }
+  function _unsentWrite(u){
+    try{
+      var k = _unsentKey(); if(!k) return;
+      if(!Object.keys(u.areas).length && !u.ops.length) localStorage.removeItem(k);
+      else localStorage.setItem(k, JSON.stringify(u));
+    }catch(e){}
+  }
+  /* A dropped connection is worth retrying on a timer; anything the database answered is
+     not, until something changes. */
+  function _syncKind(e){
+    var code = (e && e.code != null) ? String(e.code) : '', msg = String((e && (e.message || e)) || '');
+    if(global.navigator && global.navigator.onLine === false) return 'retry';
+    if(/failed to fetch|networkerror|load failed|network request failed|timed? ?out|aborted/i.test(msg)) return 'retry';
+    if(/^(57014|08\d\d\d|40001|40P01|53\d\d\d|PGRST00[0-3]|unavailable)$/.test(code)) return 'retry';
+    if(e && (e.status === 0 || e.status === 429 || e.status >= 500)) return 'retry';
+    return 'refused';
+  }
+  /* The column a refusal was about, so the farmer reads "Business type", not "Settings". */
+  function _syncColumn(e){
+    var msg = String((e && (e.message || e)) || ''), m;
+    if((m = msg.match(/check constraint "[a-z0-9]+_([a-z0-9_]+)_chk"/))) return m[1];
+    if((m = msg.match(/'([a-z0-9_]+)' column/))) return m[1];
+    if((m = msg.match(/column [a-z0-9_]+\.([a-z0-9_]+) does not exist/))) return m[1];
+    if((m = msg.match(/column "([a-z0-9_]+)"/))) return m[1];
+    return null;
+  }
+  function _syncGate(){ return _syncIsOpen ? Promise.resolve() : new Promise(function(r){ _syncGateWaiters.push(r); }); }
+  function _syncClear(L){ if(L.timer) clearTimeout(L.timer); L.timer = null; L.retryAt = 0; L.err = null; }
+  function _queue(area, run, o){
+    o = o || {};
+    var L = _laneOf(area), hasFarm = !!farm.active();
+    var gated = o.gate !== false && !_syncIsOpen && hasFarm;
+    var opId = o.opId || null;
+    if(hasFarm){
+      var u = _unsentRead();
+      if(o.op && !opId){
+        opId = 'op' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        u.ops.push({ id: opId, area: area, mod: o.op.mod, method: o.op.method, args: o.op.args, tries: 0 });
+        _unsentWrite(u);
+      } else if(!o.op && !u.areas[area]){ u.areas[area] = true; _unsentWrite(u); }
+    }
+    if(!o.op) L.lastSave = run;
+    if(gated) L.waiting++; else L.running++;
+    _syncEmit();
+    var job = (gated ? _syncGate() : Promise.resolve()).then(function(){
+      if(gated){ L.waiting--; L.running++; }
+      var r = L.tail.then(function(){ return run(); });
+      L.tail = r.then(_syncNoop, _syncNoop);
+      return r;
+    });
+    return job.then(function(v){
+      L.running--;
+      if(v === false) _syncFailed(area, L, { message: 'not saved' }, opId, 'refused');
+      else _syncDone(area, L, opId);
+      return v;
+    }, function(e){
+      L.running--;
+      _syncFailed(area, L, e, opId);
+      throw e;
+    });
+  }
+  function _syncDone(area, L, opId){
+    _syncLastOk = Date.now();
+    if(farm.active()){
+      var u = _unsentRead();
+      if(opId) u.ops = u.ops.filter(function(x){ return x.id !== opId; });
+      else if(L.running === 0 && L.waiting === 0) delete u.areas[area];
+      _unsentWrite(u);
+      var opsLeft = u.ops.some(function(x){ return x.area === area; });
+      if(L.err && !L.external && (opId ? (L.err.op === 'remove' && !opsLeft) : L.err.op === 'save')) _syncClear(L);
+    }
+    _syncEmit();
+  }
+  function _syncFailed(area, L, e, opId, kind){
+    kind = kind || _syncKind(e);
+    _syncClear(L);
+    L.err = { kind: kind, code: (e && e.code) || null, column: _syncColumn(e), op: opId ? 'remove' : 'save' };
+    if(kind === 'retry'){ L.retryAt = Date.now() + SYNC_RETRY_MS; L.timer = setTimeout(function(){ _syncRetry(area); }, SYNC_RETRY_MS); }
+    try{ console.warn('Not saved online (' + area + ', ' + kind + '):', (e && (e.message || e)) || e); }catch(_){}
+    _syncEmit();
+  }
+  function _syncRawCall(key, mod, args){ var fn = _syncRaw[key]; return fn ? fn.apply(mod, args) : true; }
+  /* How to send an area from the live state - used by the next open and by retries, so a
+     retry never replays an old argument (the filing rules are passed as a fresh list). */
+  function _syncBoth(a, b){ return Promise.resolve(a()).then(function(x){ return Promise.resolve(b()).then(function(y){ return (x === false || y === false) ? false : true; }); }); }
+  var _CATCHUP = {
+    settings:  function(){ return global.ST ? _syncRawCall('profile.save', profile, [global.ST]) : true; },
+    loans:     function(){ return global.ST_LOANS ? _syncRawCall('loans.saveAll', loans, [global.ST_LOANS]) : true; },
+    livestock: function(){ return global.ST_LS ? _syncRawCall('livestock.saveAll', livestock, [global.ST_LS]) : true; },
+    crops:     function(){ return global.ST_CROP ? _syncBoth(function(){ return _syncRawCall('crop.saveAll', crop, [global.ST_CROP]); }, function(){ return _syncRawCall('crop.saveConfig', crop, [global.ST_CROP]); }) : true; },
+    orchard:   function(){ return global.ST_FRUIT ? _syncBoth(function(){ return _syncRawCall('orchard.saveAll', orchard, [global.ST_FRUIT]); }, function(){ return _syncRawCall('orchard.saveConfig', orchard, [global.ST_FRUIT]); }) : true; },
+    plan:      function(){ return global.ST_PLAN ? _syncRawCall('plan.saveAll', plan, [global.ST_PLAN]) : true; },
+    workers:   function(){ return global.ST_WORK ? _syncRawCall('workers.saveAll', workersSave, [global.ST_WORK]) : true; },
+    fuel:      function(){ return (global.ST_FUEL && global.ST_FUEL.issues) ? _syncRawCall('fuel.saveAll', fuel, [global.ST_FUEL.issues]) : true; },
+    rain:      function(){ return global.ST_RAIN ? _syncRawCall('rain.saveAll', rain, [global.ST_RAIN]) : true; },
+    documents: function(){ return (global.ST && global.ST.docs) ? _syncRawCall('documents.saveAll', documents, [global.ST.docs]) : true; },
+    rules:     function(){ var list = (typeof global.catRules === 'function') ? global.catRules() : (global.ST && global.ST.catRules); return list ? _syncRawCall('rules.saveAll', rules, [list]) : true; }
+  };
+  function _replayOp(x){
+    var fn = _syncRaw[x.mod + '.' + x.method], mod = _syncMods[x.mod];
+    if(!fn || !mod) return Promise.resolve();
+    return _queue(x.area, function(){ return fn.apply(mod, x.args || []); }, { gate: false, op: true, opId: x.id });
+  }
+  function _syncRetry(area){
+    var L = _laneOf(area); if(L.external) return Promise.resolve();
+    _syncClear(L);
+    var u = _unsentRead(), jobs = [];
+    u.ops.filter(function(x){ return x.area === area; }).forEach(function(x){ jobs.push(_replayOp(x).catch(_syncNoop)); });
+    var run = _CATCHUP[area] || L.lastSave;
+    if(u.areas[area] && run) jobs.push(_queue(area, run, { gate: false }).catch(_syncNoop));
+    _syncEmit();
+    return Promise.all(jobs);
+  }
+  function _syncWrap(area, modName, mod, method, isOp){
+    var orig = mod && mod[method]; if(typeof orig !== 'function') return;
+    _syncRaw[modName + '.' + method] = orig; _syncMods[modName] = mod;
+    mod[method] = function(){
+      var args = Array.prototype.slice.call(arguments);
+      return _queue(area, function(){ return orig.apply(mod, args); }, isOp ? { op: { mod: modName, method: method, args: args } } : null);
+    };
+  }
+  _syncWrap('settings',  'profile',   profile,     'save');
+  _syncWrap('loans',     'loans',     loans,       'saveAll');
+  _syncWrap('loans',     'loans',     loans,       'remove', true);
+  _syncWrap('livestock', 'livestock', livestock,   'saveAll');
+  _syncWrap('livestock', 'livestock', livestock,   'removeAnimal', true);
+  _syncWrap('livestock', 'livestock', livestock,   'removeHerd', true);
+  _syncWrap('livestock', 'livestock', livestock,   'removeCamp', true);
+  _syncWrap('crops',     'crop',      crop,        'saveAll');
+  _syncWrap('crops',     'crop',      crop,        'saveConfig');
+  _syncWrap('orchard',   'orchard',   orchard,     'saveAll');
+  _syncWrap('orchard',   'orchard',   orchard,     'saveConfig');
+  _syncWrap('plan',      'plan',      plan,        'saveAll');
+  _syncWrap('workers',   'workers',   workersSave, 'saveAll');
+  _syncWrap('workers',   'workers',   workersSave, 'removeWorker', true);
+  _syncWrap('workers',   'workers',   workersSave, 'removePayRun', true);
+  _syncWrap('fuel',      'fuel',      fuel,        'saveAll');
+  _syncWrap('rain',      'rain',      rain,        'saveAll');
+  _syncWrap('rain',      'rain',      rain,        'remove', true);
+  _syncWrap('documents', 'documents', documents,   'saveAll');
+  _syncWrap('rules',     'rules',     rules,       'saveAll');
+
+  const sync = {
+    status(){
+      var saving = false, failing = [];
+      Object.keys(_lanes).forEach(function(a){
+        var L = _lanes[a];
+        if(L.running > 0) saving = true;
+        if(L.err) failing.push({ area: a, kind: L.err.kind, column: L.err.column, retryAt: L.retryAt || 0 });
+      });
+      return { open: _syncIsOpen, saving: saving, catchingUp: _syncCatching, failing: failing, lastConfirmed: _syncLastOk };
+    },
+    onChange(fn){ if(typeof fn === 'function') _syncSubs.push(fn); },
+    isOpen(){ return _syncIsOpen; },
+    /* The first load of the session has finished: saves that were waiting go now. */
+    open(){
+      if(!_syncIsOpen){ _syncIsOpen = true; if(!_syncLastOk) _syncLastOk = Date.now(); _syncGateWaiters.splice(0).forEach(function(r){ r(); }); }
+      _syncEmit();
+    },
+    /* Resolves when nothing is on its way (saves still waiting for the first load are not
+       counted - they cannot start until that load, so waiting for them would never end). */
+    idle(maxMs){
+      return new Promise(function(res){
+        var until = Date.now() + (maxMs || 15000);
+        (function check(){
+          var busy = Object.keys(_lanes).some(function(a){ return _lanes[a].running > 0; });
+          if(!busy || Date.now() > until) res(); else setTimeout(check, 40);
+        })();
+      });
+    },
+    isUnsent(area){ var u = _unsentRead(); return !!u.areas[area] || u.ops.some(function(x){ return x.area === area; }); },
+    /* Send what an earlier session never got to send. Runs before hydrate loads anything. */
+    catchUp(){
+      if(!farm.active()) return Promise.resolve();
+      var u = _unsentRead();
+      if(!u.ops.length && !Object.keys(u.areas).length) return Promise.resolve();
+      _syncCatching = true; _syncEmit();
+      u.ops.forEach(function(x){ x.tries = (x.tries || 0) + 1; });
+      u.ops = u.ops.filter(function(x){
+        if(x.tries > 5){ try{ console.warn('Gave up on an unsent change after 5 app opens:', x.mod + '.' + x.method, x.args); }catch(_){} return false; }
+        return true;
+      });
+      _unsentWrite(u);
+      var jobs = u.ops.map(function(x){ return _replayOp(x).catch(_syncNoop); });
+      Object.keys(u.areas).forEach(function(a){ if(_CATCHUP[a]) jobs.push(_queue(a, _CATCHUP[a], { gate: false }).catch(_syncNoop)); });
+      return Promise.all(jobs).then(function(){ _syncCatching = false; _syncEmit(); });
+    },
+    /* The device holds another account's or another farm's records: never send them. */
+    discardUnsent(){ try{ var k = _unsentKey(); if(k) localStorage.removeItem(k); }catch(e){} },
+    retryAll(){
+      var jobs = [];
+      Object.keys(_lanes).forEach(function(a){ if(_lanes[a].err && !_lanes[a].external) jobs.push(_syncRetry(a)); });
+      return Promise.all(jobs);
+    },
+    /* For writes the app sends itself (the transaction outbox, attachments). */
+    report(area, e){
+      var L = _laneOf(area); L.external = true;
+      if(e) L.err = { kind: _syncKind(e), code: (e && e.code) || null, column: null, op: 'save' };
+      else { L.err = null; _syncLastOk = Date.now(); }
+      _syncEmit();
+    }
+  };
+  try{ global.addEventListener('online', function(){ sync.retryAll(); }); }catch(e){}
+
+  global.AI = { init: client, auth, farm, sync: sync, load, txn, account, budget, recurring, asset, loans,
                 coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave, profile: profile,
                 documents: documents, fuel: fuel, rain: rain,
                 storage: storage,
