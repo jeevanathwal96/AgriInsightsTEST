@@ -1253,7 +1253,7 @@
      rather than only on screen. moveToDb has always preserved all three. */
   function moveFromDb(r){ var m={ id:r.local_id, herd:_numIf(r.herd_local_id), reason:r.reason||'', qty:Number(r.qty)||0, date:r.move_date||'', note:r.note||'', money:Number(r.money)||0 }; if(r.cls) m.cls=r.cls; if(r.to_cls) m.toCls=r.to_cls; if(r.leaving!=null) m.leaving=!!r.leaving; if(r.from_place) m.fromPlace=r.from_place; if(r.to_place) m.toPlace=r.to_place; if(r.transporter) m.transporter=r.transporter; if(r.veh_reg) m.vehReg=r.veh_reg; if(r.veh_make) m.vehMake=r.veh_make; return m; }
   function treatToDb(t,fid){ return { farm_id:fid, local_id:String(t.id), herd_local_id:(t.herd!=null)?String(t.herd):null, kind:t.kind||null, product:t.product||null, reg:t.reg||null, act:t.act||null, abx:(t.abx!=null)?!!t.abx:null, target:t.target||null, head:(t.head!=null)?parseInt(t.head,10):null, tags:t.tags||[], dose:t.dose||null, route:t.route||null, reason:t.reason||null, batch:t.batch||null, expiry:t.expiry||null, rx:t.rx||null, treat_date:t.date||null, by_who:t.by||null, cost:(t.cost!=null)?Number(t.cost):null, meat:(t.meat!=null)?parseInt(t.meat,10):null, milk:(t.milk!=null)?parseInt(t.milk,10):null }; }
-  function treatFromDb(r){ var t={ id:r.local_id, herd:_numIf(r.herd_local_id), kind:r.kind||'', product:r.product||'', reg:r.reg||'', act:r.act||'', target:r.target||'', head:Number(r.head)||0, tags:r.tags||[], dose:r.dose||'', route:r.route||'', reason:r.reason||'', batch:r.batch||'', expiry:r.expiry||'', date:r.treat_date||'', by:r.by_who||'', cost:Number(r.cost)||0, meat:Number(r.meat)||0, milk:Number(r.milk)||0 }; if(r.abx) t.abx=true; if(r.rx) t.rx=r.rx; return t; }
+  function treatFromDb(r){ var t={ id:r.local_id, herd:_numIf(r.herd_local_id), kind:r.kind||'', product:r.product||'', reg:r.reg||'', act:r.act||'', target:r.target||'', head:Number(r.head)||0, tags:r.tags||[], dose:r.dose||'', route:r.route||'', reason:r.reason||'', batch:r.batch||'', expiry:r.expiry||'', date:r.treat_date||'', by:r.by_who||'', cost:Number(r.cost)||0, meat:Number(r.meat)||0, milk:Number(r.milk)||0 }; /* abx is three-state like leaving: the phone's "No" is false, and reading only true turned it into unknown on the next livestock save. */ if(r.abx!=null) t.abx=!!r.abx; if(r.rx) t.rx=r.rx; return t; }
   function animalToDb(a,fid){ return { farm_id:fid, local_id:String(a.id), herd_local_id:(a.herd!=null)?String(a.herd):null, tag:a.tag||null, name:a.name||null, sex:a.sex||null, breed:a.breed||null, cls:a.cls||null, dob:a.dob||null, dam:a.dam||null, sire:a.sire||null, repro:(a.repro&&a.repro.length)?a.repro:null, status:a.status||null, due_approx:a.dueApprox||null, parity:a.parity||null, weight:(a.weight!=null?a.weight:null) }; }
   function animalFromDb(r){ var a={ id:r.local_id, herd:_numIf(r.herd_local_id), tag:r.tag||'', sex:r.sex||'' }; if(r.name) a.name=r.name; if(r.breed) a.breed=r.breed; if(r.cls) a.cls=r.cls; if(r.dob) a.dob=r.dob; if(r.dam) a.dam=r.dam; if(r.sire) a.sire=r.sire; if(r.repro){ try{ a.repro=(typeof r.repro==='string'?JSON.parse(r.repro):r.repro); }catch(e){} } if(r.status) a.status=r.status; if(r.due_approx) a.dueApprox=r.due_approx; if(r.parity) a.parity=r.parity; if(r.weight!=null) a.weight=r.weight; return a; }
   function healthToDb(h,fid){ return { farm_id:fid, local_id:h.id?String(h.id):null, health_date:h.date||null, type:h.type||null, event:h.event||null, count:(h.count!=null)?parseInt(h.count,10):null, descr:h.desc||null, cost:(h.cost!=null)?Number(h.cost):null, supplier:h.supplier||null }; }
@@ -1500,9 +1500,16 @@
     async saveAll(docs){
       docs=docs||[]; const fid=farm.active(); if(!fid) return;
       const snap=JSON.stringify(docs); if(snap===_docSnap) return;
-      if(docs.length){
+      /* Only the certificates this app issues go back up. ST.docs also holds what the
+         repull brought in from the phone — movement permits (doc_type PERMIT) and
+         returns marked filed (FILING) — and docToDb keys a row by its number. A permit's
+         number is not its row id, so every save wrote a SECOND copy of each phone permit;
+         and a filing the farmer took back on the phone was written back by the next
+         save from any tab that had loaded it. Those rows are the phone's to write. */
+      var own=docs.filter(function(d){ return d && String(d.doc_type||d.type||'RC')==='RC'; });
+      if(own.length){
         const e=(await client().from('farm_documents')
-          .upsert(docs.map(function(d){ return docToDb(d,fid); }),{onConflict:'farm_id,local_id'})).error;
+          .upsert(own.map(function(d){ return docToDb(d,fid); }),{onConflict:'farm_id,local_id'})).error;
         /* A missing migration must not take the whole save down with it — the
            certificate is already on the device and can be re-pushed later. */
         if(e){ console.warn('Documents not saved online yet — run removal_certificate_schema.sql in Supabase. ('+(e.message||e)+')'); return false; }
