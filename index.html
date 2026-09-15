@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=39"></script>
+<script src="ai-data.js?v=41"></script>
 <script src="ai-auth.js?v=35"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -45349,11 +45349,13 @@ var ti = dataIn.reduce(function(a,b){return a+b;},0);
   if (row) {
     row.innerHTML =
       '<div class="ct-lbl">Money In</div>' +
-      '<div class="ct-val g">R'+(ti/1000000).toFixed(1)+'M</div>' +
+      '<div class="ct-val g">'+fmtK(ti)+'</div>' +
       '<div class="ct-lbl">Money Out</div>' +
-      '<div class="ct-val" style="color:var(--rd)">R'+(to/1000000).toFixed(1)+'M</div>' +
+      '<div class="ct-val" style="color:var(--rd)">'+fmtK(to)+'</div>' +
       '<div class="ct-lbl">Total Profit</div>' +
-      '<div class="ct-val g">R'+(tp/1000000).toFixed(1)+'M</div>' +
+      /* The app's compact money, like the totals row above: millions to one decimal printed a
+         R18 400 month as "R0.0M" and a small loss as "R-0.0M". A loss reads red, not green. */
+      '<div class="ct-val'+(tp<0?'" style="color:var(--rd)':' g')+'">'+fmtK(tp)+'</div>' +
       '<div class="ct-lbl">Avg. Profit Margin</div>' +
       '<div class="ct-val"'+(ti>0?'':' style="color:var(--t4)"')+'>'+(ti>0?marginPct+'%':'\u2014')+'</div>';
   }
