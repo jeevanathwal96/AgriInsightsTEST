@@ -2078,7 +2078,81 @@
   // ---- SETTINGS / FARM PROFILE ---------------------------------------------
   // All on the farms row (name/owner/province/ha/type/fy/lang already existed;
   // vat_registered/tax_number/vat_number added by settings_profile_schema.sql).
+  /* ---- SETTINGS: send only what changed, never write over a newer row ----------------
+     Every save used to send all of the farm's settings, every time, so a device that had
+     not refreshed wrote its own older copy over whatever another device had changed. Now
+     each field is compared with what the SERVER last confirmed (seeded whenever the farm
+     row is read), only the differences are sent, and each write carries the row version
+     this device last saw. If this device is behind, the server keeps its own row and says
+     nothing (guard_updated_at) - so every write reads back what was kept: when the server
+     kept its own, this device re-reads the row, keeps only the fields the FARMER changed
+     here, and sends those once more. The other device's fields are left alone. */
+  var _profAck = null;
+  function _stableJson(v){
+    if(v === null || typeof v !== 'object') return JSON.stringify(v);
+    if(Array.isArray(v)) return '[' + v.map(_stableJson).join(',') + ']';
+    return '{' + Object.keys(v).sort().map(function(k){ return JSON.stringify(k) + ':' + _stableJson(v[k]); }).join(',') + '}';
+  }
+  function _profSameValue(a, b){
+    if(a === b) return true;
+    if(a == null || b == null) return (a == null && b == null);
+    if(typeof a === 'object' || typeof b === 'object') return _stableJson(a) === _stableJson(b);
+    if(typeof a === 'number' || typeof b === 'number'){ var na = Number(a), nb = Number(b); if(!isNaN(na) && !isNaN(nb)) return na === nb; }
+    return String(a) === String(b);
+  }
+  function _profNoteAck(row){
+    if(!row || typeof row !== 'object') return;
+    _profAck = _profAck || {};
+    Object.keys(row).forEach(function(k){ _profAck[k] = row[k]; });
+  }
+  /* db column -> the name the app keeps it under, for the fields the settings save writes.
+     Used after the server keeps its own row: this device adopts the server's values for
+     everything the farmer did NOT change here, so the next save cannot push them back. */
+  var _PROF_COL_TO_KEY = {
+    name: 'farmName', owner_name: 'ownerName', province: 'province', region: 'region',
+    farm_ha: 'farmHa', farm_type: 'farmType', fy_start_month: 'fyStartMonth', lang: 'lang',
+    vat_registered: 'vatRegistered', vat_category: 'vatCategory', tax_number: 'taxNumber',
+    utr: 'taxNumber', vat_number: 'vatNumber', entity_type: 'entityType', partners: 'partners',
+    farm_address: 'farmAddr', paye_ref: 'payeRef', stock_mark: 'stockMark',
+    stock_mark_type: 'stockMarkType', herd_mark: 'stockMark',
+    bank_balance: 'bankBalance', bank_balance_at: 'bankBalanceAt',
+    season_start_month: 'seasonStartMonth', budget_expense_target: 'budgetExpenseTarget'
+  };
+  function _profAdopt(st, mine){
+    if(!st || !_profAck) return;
+    Object.keys(_profAck).forEach(function(col){
+      if(mine && (col in mine)) return;                 // the farmer changed this here: keep it
+      var key = _PROF_COL_TO_KEY[col];
+      if(!key) return;                                  // rain, crop prices and the like live elsewhere
+      var v = _profAck[col];
+      if(v === undefined) return;
+      if(col === 'partners'){ try{ v = (typeof v === 'string') ? JSON.parse(v) : v; }catch(e){ return; } }
+      st[key] = v;
+    });
+  }
+  function _profChanged(payload){
+    var out = {};
+    Object.keys(payload).forEach(function(k){
+      if(!_profAck || !(k in _profAck) || !_profSameValue(_profAck[k], payload[k])) out[k] = payload[k];
+    });
+    return out;
+  }
+  /* One statement: send the changed fields, read back what the server kept. */
+  async function _profWrite(fid, payload){
+    var keys = Object.keys(payload);
+    if(!keys.length) return { skipped: true };
+    var body = Object.assign({}, payload);
+    if(_profAck && _profAck.updated_at) body.updated_at = _profAck.updated_at;
+    var r = await client().from('farms').update(body).eq('id', fid).select(keys.concat(['updated_at']).join(','));
+    if(r.error) return { error: r.error };
+    var row = (r.data && r.data[0]) || null;
+    if(!row) return { ok: true };
+    var kept = keys.every(function(k){ return _profSameValue(row[k], payload[k]); });
+    if(kept){ _profNoteAck(row); return { ok: true, row: row }; }
+    return { stale: true, row: row };
+  }
   function profileFromDb(r){ if(!r) return null; var p={};
+    _profNoteAck(r);   /* what the server has, field by field */
     /* Underscore-prefixed, so the hydrate's blanket copy onto ST skips it and
        the rain book applies it to ST_RAIN itself. */
     if(r.rain_lat!=null || r.rain_mode!=null || r.rain_year_start!=null){
@@ -2274,15 +2348,50 @@
         }catch(e){}
       }
       var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink,p:rainr,d:raind}); if(snap===_profSnap) return;
-      if(Object.keys(core).length){ const e=(await client().from('farms').update(core).eq('id',fid)).error; if(e) throw e; }
-      var extraOk=true, firstErr=null;
-      if(Object.keys(extra).length){ const e=(await client().from('farms').update(extra).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: optional fields (VAT/tax/business-type) not saved \u2014 run the profile-schema migrations in Supabase. (' + (e.message||e) + ')'); } }
-      if(Object.keys(sett).length){ const e=(await client().from('farms').update(sett).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: device-sync settings not saved (migration missing?)', e && e.message); } }
-      if(Object.keys(cons).length){ const e=(await client().from('farms').update(cons).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: POPIA consent not recorded \u2014 run the consent migration in Supabase. (' + (e.message||e) + ')'); } }
-      if(Object.keys(rainr).length){ const e=(await client().from('farms').update(rainr).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: planting rule / satellite fill not saved \u2014 run rainfall_farm_settings.sql. ('+(e.message||e)+')'); } }
-      if(Object.keys(raind).length){ const e=(await client().from('farms').update(raind).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: derived rain values (frost / season / veld) not saved \u2014 run rain_derived_migration.sql. ('+(e.message||e)+')'); } }
-      if(Object.keys(raink).length){ const e=(await client().from('farms').update(raink).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: rain-book gaps not saved \u2014 run rainfall_not_kept.sql. ('+(e.message||e)+')'); } }
-      if(Object.keys(rainc).length){ const e=(await client().from('farms').update(rainc).eq('id',fid)).error; if(e){ extraOk=false; firstErr=firstErr||e; console.warn('Profile: rainfall location not saved — run rainfall_schema.sql. ('+(e.message||e)+')'); } }
+      /* Only what differs from the row the server last confirmed. */
+      var groups = [
+        { all: core,  fatal: true },
+        { all: extra, warn: 'Profile: optional fields (VAT/tax/business-type) not saved \u2014 run the profile-schema migrations in Supabase.' },
+        { all: sett,  warn: 'Profile: device-sync settings not saved (migration missing?)' },
+        { all: cons,  warn: 'Profile: POPIA consent not recorded \u2014 run the consent migration in Supabase.' },
+        { all: rainr, warn: 'Profile: planting rule / satellite fill not saved \u2014 run rainfall_farm_settings.sql.' },
+        { all: raind, warn: 'Profile: derived rain values (frost / season / veld) not saved \u2014 run rain_derived_migration.sql.' },
+        { all: raink, warn: 'Profile: rain-book gaps not saved \u2014 run rainfall_not_kept.sql.' },
+        { all: rainc, warn: 'Profile: rainfall location not saved \u2014 run rainfall_schema.sql.' }
+      ];
+      var extraOk = true, firstErr = null, stale = [];
+      for(var gi = 0; gi < groups.length; gi++){
+        var g = groups[gi];
+        g.body = _profChanged(g.all);
+        if(!Object.keys(g.body).length) continue;
+        var res = await _profWrite(fid, g.body);
+        if(res.error){
+          if(g.fatal) throw res.error;
+          extraOk = false; firstErr = firstErr || res.error;
+          try{ console.warn(g.warn + ' (' + (res.error.message || res.error) + ')'); }catch(e){}
+        } else if(res.stale){ stale.push(g); }
+        else if(g.done) g.done();
+      }
+      if(stale.length){
+        /* The server kept a newer row: re-read it, adopt everything the farmer did NOT change on
+           this device (otherwise this device's older copy of those fields would be sent as if it
+           were an edit), then send only what the farmer did change here. */
+        try{ await load.profile(fid); }catch(e){}
+        var mine = {}; stale.forEach(function(g){ Object.keys(g.body).forEach(function(k){ mine[k] = true; }); });
+        try{ _profAdopt(st, mine); }catch(e){}
+        for(var si = 0; si < stale.length; si++){
+          var s2 = stale[si], body2 = _profChanged(s2.body);
+          if(!Object.keys(body2).length){ if(s2.done) s2.done(); continue; }
+          var r2 = await _profWrite(fid, body2);
+          if(r2.error){
+            if(s2.fatal) throw r2.error;
+            extraOk = false; firstErr = firstErr || r2.error;
+          } else if(r2.stale){
+            extraOk = false;
+            firstErr = firstErr || Object.assign(new Error('These settings were changed on another device'), { code: 'stale' });
+          } else if(s2.done) s2.done();
+        }
+      }
       if(extraOk) _profSnap=snap;
       /* A refused statement is a failed save: the queue reports it and nothing is marked saved. */
       else if(firstErr) throw firstErr;
