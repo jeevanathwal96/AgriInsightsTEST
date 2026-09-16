@@ -428,6 +428,23 @@
   /* The signed-in user's id, read from the persisted session. Used to tell whether
      the data already on this device belongs to the account that is signing in. */
   function _sessionUid(){
+    /* This app's own session first. Both apps live on one host, so localStorage holds a
+       token for each Supabase project, and taking the first sb-*-auth-token found
+       returned the OTHER app's account id about as often as this one's. Hydrate read
+       that as "a different farmer is signed in", threw away everything this device had
+       not managed to send, and reset the local stores - silently. Caught live on the SA
+       test account on 16 Sep 2026: an asset saved while the connection was down was
+       gone on the next load, with the status green (-412). */
+    try{
+      var ref = (window.AI && window.AI.projectRef) || null;
+      if (ref) {
+        var mine = localStorage.getItem('sb-' + ref + '-auth-token');
+        if (!mine) return null;                 /* signed out of THIS app */
+        var mv = JSON.parse(mine || '{}');
+        return (mv.user && mv.user.id) || (mv.currentSession && mv.currentSession.user && mv.currentSession.user.id) || null;
+      }
+    }catch(e){}
+    /* Older builds had no project ref to ask for; keep the scan as the fallback. */
     try{
       for (var i=0;i<localStorage.length;i++){
         var k = localStorage.key(i);

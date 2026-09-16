@@ -35,6 +35,10 @@
 
   // ---- 1. CONFIG (fill these in) -------------------------------------------
   const SUPABASE_URL      = 'https://wiyfuxbftbitnbuzencv.supabase.co';
+  /* Both apps are served from one host, so they share one localStorage - and each keeps
+     its own Supabase session under sb-<project>-auth-token. Anything hunting for "the"
+     token has to say WHICH project, or it reads the other app's account (-412). */
+  const PROJECT_REF       = 'wiyfuxbftbitnbuzencv';
   const SUPABASE_ANON_KEY = 'sb_publishable_-nl0FU9CplFIPpJ_UBXEJg_awromv5n'; // publishable (public) key
   // Magic-link return: derived from wherever the app is served (live OR test),
   // so the same file works on both without editing.
@@ -2934,7 +2938,7 @@
   };
   try{ global.addEventListener('online', function(){ sync.retryAll(); }); }catch(e){}
 
-  global.AI = { init: client, auth, farm, sync: sync, load, txn, account, budget, recurring, asset, loans,
+  global.AI = { init: client, projectRef: PROJECT_REF, auth, farm, sync: sync, load, txn, account, budget, recurring, asset, loans,
                 coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave, profile: profile,
                 documents: documents, fuel: fuel, rain: rain,
                 storage: storage,
