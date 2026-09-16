@@ -556,7 +556,9 @@
           if (window.ST_ASSETS && assets) {
             assets.forEach(function (a, i) { a.id = i + 1; });
             ST_ASSETS.assets = assets;
-            ST_ASSETS.nextId = assets.length + 1;
+            /* past the highest id in use, not the count: a sparse list minted a duplicate. */
+            if (typeof window.astRepairIds === 'function') window.astRepairIds(ST_ASSETS);
+            else ST_ASSETS.nextId = assets.length + 1;
           }
         } catch (e) { console.error('Asset hydrate failed:', e); }
         try {
@@ -567,6 +569,9 @@
             ST_LOANS.archived = loanData.archived || [];
             // Monthly paid-marks (Item 3): restore so a confirmed month survives reload + new device.
             if (loanData.confirmed) ST_LOANS.confirmed = loanData.confirmed;
+            /* The counters live on this device only, while the facilities come back from the
+               server: number past what is in use, and renumber anything that arrived twice. */
+            try { if (typeof window.lnRepairFacilityIds === 'function') window.lnRepairFacilityIds(ST_LOANS); } catch (e) {}
             // Loan->asset link (Item 2): resolve the stored asset UUID back to the
             // asset's current local id (assets were applied just above).
             if (window.ST_ASSETS && ST_ASSETS.assets) {

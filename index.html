@@ -32,7 +32,7 @@
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
 <script src="ai-data.js?v=44"></script>
-<script src="ai-auth.js?v=36"></script>
+<script src="ai-auth.js?v=37"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -15597,6 +15597,9 @@ function bootAgriInsights() {
     var el=document.getElementById(id); if(el && el.parentNode!==document.body) document.body.appendChild(el);
   }); }catch(e){}
   var loaded = loadState();
+  /* Before anything is saved: number past the ids this device already holds, and renumber any
+     that arrived twice (see "facility ids"). */
+  try{ if(typeof ST_LOANS!=='undefined') lnRepairFacilityIds(ST_LOANS); if(typeof ST_ASSETS!=='undefined') astRepairIds(ST_ASSETS); }catch(e){}
   /* Take the capital-question baseline the moment state is loaded. Left to seed itself on
      the first dataChanged, the first cost the farmer typed would be swallowed establishing
      it — the one case the dialog exists for. */
@@ -22443,9 +22446,8 @@ function lnSaveOverdraft(){
     toast('Overdraft updated','success');
   } else {
     ST_LOANS.overdrafts=ST_LOANS.overdrafts||[];
-    var nid=(typeof ST_LOANS.nextOdId==='number')?ST_LOANS.nextOdId:(ST_LOANS.overdrafts.length+1);
-    ST_LOANS.nextOdId=nid+1;
-    ST_LOANS.overdrafts.push({id:'od'+nid, icon:'\uD83C\uDFE6', name:name, lender:lender, limit:limit, used:used, rateMode:mode, prime:prime, margin:margin, flatRate:flatRate, fundsFor:(LN_FORM_FF&&LN_FORM_FF.items&&LN_FORM_FF.items.length)?LN_FORM_FF:null});
+    var odNewId=lnNextFacilityId(ST_LOANS,'od','nextOdId');
+    ST_LOANS.overdrafts.push({id:odNewId, icon:'\uD83C\uDFE6', name:name, lender:lender, limit:limit, used:used, rateMode:mode, prime:prime, margin:margin, flatRate:flatRate, fundsFor:(LN_FORM_FF&&LN_FORM_FF.items&&LN_FORM_FF.items.length)?LN_FORM_FF:null});
     toast('Overdraft added','success');
   }
   LN_OD_EDIT_ID=null; LN_FORM_FF=null; saveState(); ST_LOANS.activeTab='myloans'; renderLoans();
@@ -22575,9 +22577,8 @@ function lnSaveCoopAcct(){
   if(o){ o.name=name; o.coop=coop; o.lender=coop; o.limit=limit; o.used=used; if(o.rateMode!=='flat'){ o.prime=prime; o.margin=margin; } o.flatRate=(o.rateMode==='flat')?(o.flatRate||prime+margin):(prime+margin); toast('Co-op account updated','success'); }
   else {
     ST_LOANS.coopAccounts=ST_LOANS.coopAccounts||[];
-    var nid=(typeof ST_LOANS.nextCoId==='number')?ST_LOANS.nextCoId:(ST_LOANS.coopAccounts.length+1);
-    ST_LOANS.nextCoId=nid+1;
-    ST_LOANS.coopAccounts.push({id:'oc'+nid, icon:'\uD83C\uDF3E', name:name, coop:coop, lender:coop, limit:limit, used:used, rateMode:'prime', prime:prime, margin:margin, flatRate:prime+margin, fundsFor:(LN_FORM_FF&&LN_FORM_FF.items&&LN_FORM_FF.items.length)?LN_FORM_FF:null});
+    var ocNewId=lnNextFacilityId(ST_LOANS,'oc','nextCoId');
+    ST_LOANS.coopAccounts.push({id:ocNewId, icon:'\uD83C\uDF3E', name:name, coop:coop, lender:coop, limit:limit, used:used, rateMode:'prime', prime:prime, margin:margin, flatRate:prime+margin, fundsFor:(LN_FORM_FF&&LN_FORM_FF.items&&LN_FORM_FF.items.length)?LN_FORM_FF:null});
     toast('Co-op account added','success');
   }
   LN_CO_EDIT_ID=null; LN_ADD_KIND='loan'; LN_FORM_FF=null; saveState(); ST_LOANS.activeTab='myloans'; renderLoans();
@@ -22652,11 +22653,80 @@ function _lnAssetOptions(sel){
 function lnNum(id){ var e=$(id); if(!e) return 0; return parseFloat((e.value||'').replace(/[^0-9.]/g,''))||0; }
 var LN_LOAN_EDIT_ID=null;
 function lnEditLoan(id){ LN_LOAN_EDIT_ID=id; LN_ADD_KIND='loan'; LN_OD_EDIT_ID=null; LN_CO_EDIT_ID=null; LN_FORM_FF=null; ST_LOANS.activeTab='add'; renderLoans(); }
+/* ===== facility ids ===== (the harness reads this block from the shipped file)
+   Loans, overdrafts and co-op accounts are numbered per farm, but the counter lived only on
+   this device while the facilities themselves come back from the server - so a second device,
+   or a fresh start, began again at 1 and minted an id another facility already had. The server
+   keeps one row per (farm, local id) and refuses a save that names one twice (Postgres 21000),
+   so ONE duplicate stopped every loans save - silently, until the save status shipped in -401
+   showed it on a live account (16 Sep 2026). Number past the highest id in use instead, and
+   repair a farm that already holds a duplicate: the LATER copy moves, so the copy the server
+   already knows keeps its row. */
+function lnAllFacilities(S){
+  if(!S) return [];
+  return (S.loans||[]).concat(S.overdrafts||[], S.coopAccounts||[], S.archived||[]);
+}
+function lnPrefixOf(id){ var m=/^([a-z]+)\d+$/.exec(String(id||'')); return m?m[1]:null; }
+function lnCounterFor(prefix){ return prefix==='od'?'nextOdId':(prefix==='oc'?'nextCoId':'nextId'); }
+function lnHighestId(S, prefix){
+  var re=new RegExp('^'+prefix+'(\\d+)$'), max=0;
+  lnAllFacilities(S).forEach(function(x){ var m=x?re.exec(String(x.id)):null; if(m) max=Math.max(max, parseInt(m[1],10)); });
+  return max;
+}
+function lnNextFacilityId(S, prefix, counterKey){
+  var n=Math.max(Number(S[counterKey])||1, lnHighestId(S,prefix)+1);
+  S[counterKey]=n+1;
+  return prefix+n;
+}
+/* Runs when this device loads its own data and again once the server's facilities are applied,
+   before anything is sent. Quiet on a healthy farm, and safe to run twice. */
+function lnRepairFacilityIds(S){
+  if(!S) return 0;
+  var seen={}, moved=0;
+  ['loans','overdrafts','coopAccounts','archived'].forEach(function(key){
+    (S[key]||[]).forEach(function(item){
+      if(!item || item.id==null) return;
+      var id=String(item.id);
+      if(!seen[id]){ seen[id]=1; return; }
+      var prefix=lnPrefixOf(id)||'ln';
+      var fresh=lnNextFacilityId(S, prefix, lnCounterFor(prefix));
+      /* the paid-off mark is kept per loan id, so it moves with the loan */
+      if(key==='loans' && S.confirmed && S.confirmed.paid && S.confirmed.paid[id]!=null){
+        S.confirmed.paid[fresh]=S.confirmed.paid[id]; delete S.confirmed.paid[id];
+      }
+      item.id=fresh; seen[fresh]=1; moved++;
+    });
+  });
+  ['ln','od','oc'].forEach(function(p){
+    var k=lnCounterFor(p), want=lnHighestId(S,p)+1;
+    if(!(Number(S[k])>want)) S[k]=want;
+  });
+  if(moved) { try{ console.info('Renumbered '+moved+' facility id(s) that were used twice on this device.'); }catch(e){} }
+  return moved;
+}
+/* Assets are numbered the same way. Their ids are referenced by the loan that financed them and
+   by the capital-allowance records, so an id already in use is never moved - only the counter is
+   lifted past the highest id, which is what stops a duplicate being minted. */
+function astNextId(A){
+  if(!A) return 1;
+  var max=0; (A.assets||[]).forEach(function(a){ var n=Number(a&&a.id); if(n>max) max=n; });
+  var n=Math.max(Number(A.nextId)||1, max+1);
+  A.nextId=n+1;
+  return n;
+}
+function astRepairIds(A){
+  if(!A) return;
+  var max=0, seen={}, dup=0;
+  (A.assets||[]).forEach(function(a){ var n=Number(a&&a.id); if(n>max) max=n; if(seen[n]) dup++; seen[n]=1; });
+  if(!(Number(A.nextId)>max)) A.nextId=max+1;
+  if(dup) { try{ console.warn(dup+' asset id(s) are used twice on this device; their links may be wrong.'); }catch(e){} }
+}
+/* ===== end facility ids ===== */
 function lnSaveLoan(){
   var name=($('ln-f-name')&&$('ln-f-name').value||'').trim()||'New loan';
   var editing = (typeof LN_LOAN_EDIT_ID!=='undefined' && LN_LOAN_EDIT_ID) ? lnLoan(LN_LOAN_EDIT_ID) : null;
   var assetIdRaw=($('ln-f-asset')&&$('ln-f-asset').value)||'';
-  var loan={ id: editing?editing.id:('ln'+(ST_LOANS.nextId++)), icon: editing?editing.icon:'\uD83C\uDFE6', name:name,
+  var loan={ id: editing?editing.id:lnNextFacilityId(ST_LOANS,'ln','nextId'), icon: editing?editing.icon:'\uD83C\uDFE6', name:name,
     lender:($('ln-f-lender')&&$('ln-f-lender').value)||'Other',
     type:($('ln-f-type')&&$('ln-f-type').value)||'Loan', assetId: assetIdRaw?parseInt(assetIdRaw,10):null,
     borrowed:lnNum('ln-f-borrowed'), balance:lnNum('ln-f-balance'), rate:lnNum('ln-f-rate'), payment:lnNum('ln-f-pay'),
@@ -23867,7 +23937,7 @@ function saveAsset() {
   if(!price) { toast('Please enter the purchase price','error'); return; }
 
   var subtype = ($('ast-subtype')&&$('ast-subtype').value)||'';
-  var entry = {id:ST_ASSETS.nextId++, name:name, cat:cat, date:date, price:price, deprType:dtype, life:life, notes:notes, subtype:subtype};
+  var entry = {id:astNextId(ST_ASSETS), name:name, cat:cat, date:date, price:price, deprType:dtype, life:life, notes:notes, subtype:subtype};
   var financed = $('ast-financed') && $('ast-financed').checked;
   entry.financed = !!financed;
   if(financed){
