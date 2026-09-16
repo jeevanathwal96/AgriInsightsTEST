@@ -527,7 +527,7 @@
       return AI.load.financeCore(fid);
     }).then(function (core) {
       // Replace the app's working data with the farm's real data.
-      if (window.ST) { ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || []) : (core.txns || [])); ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; if (core.batches) ST.importBatches = core.batches;
+      if (window.ST) { ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || []) : (core.txns || [])); if (!(window.AI && AI.sync && AI.sync.isUnsent('recurring'))) ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; if (core.batches && !(window.AI && AI.sync && AI.sync.isUnsent('imports'))) ST.importBatches = core.batches;
         /* Has this farmer ever been through setup? A farm auto-created at first
            sign-in has no owner_name until obFinish saves one, so "no owner AND no
            transactions" is an un-onboarded farm on any device. Requiring the empty
@@ -558,8 +558,22 @@
       ]); }).then(function (res) {
         var assets = res[0], loanData = res[1];
         try {
-          if (window.ST_ASSETS && assets) {
-            assets.forEach(function (a, i) { a.id = i + 1; });
+          /* Never load over assets this device has not managed to send yet (-411):
+             until -411 an asset whose write failed was wiped here, silently. */
+          if (window.ST_ASSETS && assets && !(window.AI && AI.sync && AI.sync.isUnsent('assets'))) {
+            /* Keep the number each asset was given when it was registered. Dealing them
+               out fresh on every load (a.id = i + 1) moved every asset below a deleted
+               one, and a payment linked to "asset 3" then named a different machine -
+               reproduced against the shipped lookup on 16 Sep 2026. Only rows written
+               before the local_id column arrive without a number; those get the lowest
+               free ones. */
+            var _astUsed = {}, _astNext = 1;
+            assets.forEach(function (a) { if (a && a.id != null) _astUsed[a.id] = 1; });
+            assets.forEach(function (a) {
+              if (!a || a.id != null) return;
+              while (_astUsed[_astNext]) _astNext++;
+              a.id = _astNext; _astUsed[_astNext] = 1;
+            });
             ST_ASSETS.assets = assets;
             /* past the highest id in use, not the count: a sparse list minted a duplicate. */
             if (typeof window.astRepairIds === 'function') window.astRepairIds(ST_ASSETS);
@@ -690,7 +704,9 @@
             }
           }
         } catch (e) { console.error('profile apply', e); }
-        try { if (window.ST && Array.isArray(coop)) ST.coopSettlements = coop; } catch (e) { console.error('coop apply', e); }
+        /* Guarded like the rest (-411): a settlement import this device has not sent
+           must not be replaced by the server's copy without it. */
+        try { if (window.ST && Array.isArray(coop) && !_unsent('coop')) ST.coopSettlements = coop; } catch (e) { console.error('coop apply', e); }
         /* Same shape as every other module above: the server wins when it has rows, and
            local is kept when it does not, so a farm that has never synced these is not
            emptied by a load that legitimately returns nothing. */

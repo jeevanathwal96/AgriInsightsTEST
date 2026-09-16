@@ -723,9 +723,11 @@
         note:  (b.meta && b.meta.note)  || ''
       }));
     },
+    /* The id is minted on this device and is the row's key, so an upsert makes a
+       retry write the same batch rather than fail on the key (-411). */
     async create(batch, farmId) {
       const fid = farmId || farm.active(); if (!fid || !batch) return null;
-      const { data, error } = await client().from('import_batches').insert({
+      const { data, error } = await client().from('import_batches').upsert({
         id:          batch.id,
         farm_id:     fid,
         source:      batch.source || 'Import',
@@ -733,7 +735,7 @@
         status:      'active',
         imported_at: batch.when || new Date().toISOString(),
         meta:        { kind: batch.kind || 'file', span: batch.span || '', note: batch.note || '' }
-      }).select().single();
+      }, { onConflict: 'id' }).select().single();
       if (error) throw error;
       return data;
     },
@@ -805,7 +807,8 @@
         txns:       (txn.data || []).map(dbToApp),
         budgets:    bObj,
         recurring:  (rec.data || []).map(r => ({
-          id: r.id, name: r.name, type: r.type, amt: Number(r.amount),
+          id: (r.local_id != null && r.local_id !== '') ? r.local_id : r.id,
+          name: r.name, type: r.type, amt: Number(r.amount),
           freq: r.frequency, category: _appCat(catToCode(r.category_id)),
           months: r.months || undefined,
           accountId: r.account_id, nextDate: r.next_date, active: r.active
@@ -937,39 +940,70 @@
         var r1 = await client().from('budget_months').upsert(rows, { onConflict: 'farm_id,period_year,period_month,side' });
         if (r1.error) throw r1.error;
       }
+      /* This write moves the farm row's version, which is what every Settings save
+         carries to prove it is not stale (-406). Live-tested 16 Sep 2026: writing the
+         same three values back still moved it, in both apps. So read the new version
+         back and hand it to Settings, or every budget edit sends the next Settings save
+         down the refetch-merge-retry path for nothing (-411). */
       var r2 = await client().from('farms').update({
         budget_income_pattern: b.incomePattern || null,
         budget_expense_pattern: b.expensePattern || null,
         budget_current_month: b.currentMonth || null
-      }).eq('id', fid);
+      }).eq('id', fid).select('budget_income_pattern,budget_expense_pattern,budget_current_month,updated_at');
       if (r2.error) throw r2.error;
+      try { if ((r2.data || []).length) _profNoteAck(r2.data[0]); } catch (e) {}
       return true;
     }
   };
   const recurring = {
+    /* The bill keeps the name this device gave it (it was minted and then thrown away),
+       so sending it again after a failure updates that row instead of adding a second
+       bill (-411). */
     async add(r) {
       await ensureCats();
-      const { data, error } = await client().from('recurring').insert({
-        farm_id: farm.active(), name: r.name, type: r.type, amount: Number(r.amt),
+      const row = {
+        farm_id: farm.active(), local_id: (r.id != null && r.id !== '') ? String(r.id) : null,
+        name: r.name, type: r.type, amount: Number(r.amt),
         frequency: r.freq, category_id: catToId(r.category || r.cat),
         account_id: r.accountId || null, next_date: r.nextDate || null,
         months: r.months || null
-      }).select().single();
+      };
+      const q = (row.local_id == null)
+        ? client().from('recurring').insert(row)
+        : client().from('recurring').upsert(row, { onConflict: 'farm_id,local_id' });
+      const { data, error } = await q.select().single();
       if (error) throw error;
       return data;
     },
     async update(id, r) {
       await ensureCats();
-      const { data, error } = await client().from('recurring').update({
+      const payload = {
         name: r.name, type: r.type, amount: Number(r.amt),
         frequency: r.freq, category_id: catToId(r.category || r.cat),
         account_id: r.accountId || null, next_date: r.nextDate || null,
         months: r.months || null
-      }).eq('id', id).select().single();
+      };
+      /* By the device's own name where there is one, so an edit works on a bill whose
+         first write never reached the server. */
+      if (r && r.id != null && r.id !== '' && farm.active()) {
+        const u = await client().from('recurring').update(payload)
+          .eq('farm_id', farm.active()).eq('local_id', String(r.id)).select();
+        if (u.error) throw u.error;
+        if ((u.data || []).length) return u.data[0];
+      }
+      if (!id) return;
+      const { data, error } = await client().from('recurring').update(payload).eq('id', id).select().single();
       if (error) throw error;
       return data;
     },
-    async remove(id) {
+    async remove(id, localId) {
+      if (localId != null && localId !== '' && farm.active()) {
+        const d = await client().from('recurring').delete()
+          .eq('farm_id', farm.active()).eq('local_id', String(localId));
+        if (d.error) throw d.error;
+        if (!id) return true;
+      }
+      if (!id) return true;
       const { error } = await client().from('recurring').delete().eq('id', id);
       if (error) throw error;
       return true;
@@ -979,6 +1013,12 @@
   // ---- ASSETS --------------------------------------------------------------
   function assetToDb(a) {
     const row = {
+      /* The device's own number for this asset, written down so it survives the round
+         trip. Without it an asset had no name of its own until the server answered: a
+         write that failed could never be sent again, and the numbers were dealt out
+         fresh on every load - which is how a payment came to point at the wrong machine
+         (proved 16 Sep 2026, fixed in -411). */
+      local_id: (a.id != null && a.id !== '') ? String(a.id) : null,
       name: a.name, category: a.cat || null, subtype: a.subtype || null,
       purchase_date: a.date || null, price: Number(a.price) || 0,
       depr_type: a.deprType || null,
@@ -1025,24 +1065,44 @@
       a.disposalProceeds = Number(r.disposal_proceeds) || 0;
       a.disposalReason   = r.disposal_reason || 'sold';
     }
+    /* Keep the number the device that registered it gave it. Rows written before the
+       column existed have none; hydrate numbers those, and only those. */
+    if (r.local_id != null && r.local_id !== '') { var _ln = Number(r.local_id); if (_ln === _ln) a.id = _ln; }
     return a;
   }
+  /* Every write is keyed on the farm's own number for the asset, so the save queue can
+     send the same one twice without registering a second tractor. The server's id is
+     still honoured when it is all the caller has (rows from before the column). */
   const asset = {
     async add(a) {
-      const { data, error } = await client().from('assets')
-        .insert(Object.assign({ farm_id: farm.active() }, assetToDb(a))).select().single();
+      const row = Object.assign({ farm_id: farm.active() }, assetToDb(a));
+      const q = (row.local_id == null)
+        ? client().from('assets').insert(row)
+        : client().from('assets').upsert(row, { onConflict: 'farm_id,local_id' });
+      const { data, error } = await q.select().single();
       if (error) throw error;
       return data;
     },
     async update(id, a) {
+      const row = assetToDb(a);
+      if (row.local_id != null) {
+        const { data, error } = await client().from('assets')
+          .upsert(Object.assign({ farm_id: farm.active() }, row), { onConflict: 'farm_id,local_id' })
+          .select().single();
+        if (error) throw error;
+        return data || true;
+      }
       if (!id) return;
-      const { error } = await client().from('assets').update(assetToDb(a)).eq('id', id);
+      const { error } = await client().from('assets').update(row).eq('id', id);
       if (error) throw error;
       return true;
     },
-    async remove(id) {
-      if (!id) return;
-      const { error } = await client().from('assets').delete().eq('id', id);
+    async remove(id, localId) {
+      var q = client().from('assets').delete();
+      if (id) q = q.eq('id', id);
+      else if (localId != null && localId !== '' && farm.active()) q = q.eq('farm_id', farm.active()).eq('local_id', String(localId));
+      else return;
+      const { error } = await q;
       if (error) throw error;
       return true;
     }
@@ -1195,10 +1255,20 @@
     return (data || []).map(csFromDb);
   };
   const coopSettlement = {
+    /* An import's rows all carry the same batch, so a replay clears that batch and
+       writes it again: the same import sent twice can never double a delivery (-411).
+       Rows with no batch are inserted as before. */
     async addMany(list){
       if(!list || !list.length) return [];
       const farmId = farm.active();
       const rows = list.map(function(s){ return csToDb(s, farmId); });
+      const seen = {}, batches = [];
+      rows.forEach(function(r){ if(r.batch && !seen[r.batch]){ seen[r.batch] = 1; batches.push(r.batch); } });
+      for (var bi = 0; bi < batches.length; bi++) {
+        const d = await client().from('coop_settlements').delete()
+          .eq('farm_id', farmId).eq('batch', batches[bi]);
+        if (d.error) throw d.error;
+      }
       const { data, error } = await client()
         .from('coop_settlements').insert(rows).select();
       if (error) throw error;
@@ -1589,7 +1659,7 @@
       _lsSnap=snap;
       return true;
     },
-    async addHealth(h){ const fid=farm.active(); if(!fid||!h) return; const e=(await client().from('livestock_health').insert(healthToDb(h,fid))).error; if(e) throw e; return true; },
+    async addHealth(h){ const fid=farm.active(); if(!fid||!h) return; const row=healthToDb(h,fid); /* local_id has always been sent; using it on the way in too means a retry writes the dosing once (-411). */ const q=(row.local_id!=null&&row.local_id!=='')?client().from('livestock_health').upsert(row,{onConflict:'farm_id,local_id'}):client().from('livestock_health').insert(row); const e=(await q).error; if(e) throw e; return true; },
     async removeAnimal(localId){ const fid=farm.active(); if(!fid||localId==null) return; const e=(await client().from('animals').delete().eq('farm_id',fid).eq('local_id',String(localId))).error; if(e) throw e; _lsSnap=null; return true; },
     async removeHerd(localId){ const fid=farm.active(); if(!fid||localId==null) return; const e=(await client().from('herds').delete().eq('farm_id',fid).eq('local_id',String(localId))).error; if(e) throw e; _lsSnap=null; return true; },
     async removeCamp(localId){ const fid=farm.active(); if(!fid||localId==null) return; const e=(await client().from('livestock_camps').delete().eq('farm_id',fid).eq('local_id',String(localId))).error; if(e) throw e; _lsSnap=null; return true; }
@@ -2690,6 +2760,7 @@
     fuel:      function(){ return (global.ST_FUEL && global.ST_FUEL.issues) ? _syncRawCall('fuel.saveAll', fuel, [global.ST_FUEL.issues]) : true; },
     rain:      function(){ return global.ST_RAIN ? _syncRawCall('rain.saveAll', rain, [global.ST_RAIN]) : true; },
     documents: function(){ return (global.ST && global.ST.docs) ? _syncRawCall('documents.saveAll', documents, [global.ST.docs]) : true; },
+    budget:    function(){ return (global.ST && global.ST.budgets) ? _syncRawCall('budget.save', budget, [global.ST.budgets]) : true; },
     rules:     function(){ var list = (typeof global.catRules === 'function') ? global.catRules() : (global.ST && global.ST.catRules); return list ? _syncRawCall('rules.saveAll', rules, [list]) : true; }
   };
   /* Is this area's data actually on the device right now? */
@@ -2704,6 +2775,7 @@
     fuel:      function(){ return !!(global.ST_FUEL && global.ST_FUEL.issues); },
     rain:      function(){ return !!global.ST_RAIN; },
     documents: function(){ return !!(global.ST && global.ST.docs); },
+    budget:    function(){ return !!(global.ST && global.ST.budgets); },
     rules:     function(){ return !!(typeof global.catRules === 'function' || (global.ST && global.ST.catRules)); }
   };
   /* The app loads its own copy from this device (loadState) on the window 'load' event, while
@@ -2767,6 +2839,24 @@
   _syncWrap('rain',      'rain',      rain,        'remove', true);
   _syncWrap('documents', 'documents', documents,   'saveAll');
   _syncWrap('rules',     'rules',     rules,       'saveAll');
+  /* -411: the six writers that saved outside the queues. A failure used to print one
+     console line under a green status and the next load wiped the row. Assets, recurring
+     bills, co-op settlements and import batches go in as operations - replayed with the
+     arguments they were called with, and every one of them is now keyed so a replay can
+     only ever leave one row. Budgets save the whole object, like the other saveAll lanes.
+     Health records join the livestock lane, whose load is already guarded. */
+  _syncWrap('budget',    'budget',    budget,      'save');
+  _syncWrap('assets',    'asset',     asset,       'add',    true);
+  _syncWrap('assets',    'asset',     asset,       'update', true);
+  _syncWrap('assets',    'asset',     asset,       'remove', true);
+  _syncWrap('recurring', 'recurring', recurring,   'add',    true);
+  _syncWrap('recurring', 'recurring', recurring,   'update', true);
+  _syncWrap('recurring', 'recurring', recurring,   'remove', true);
+  _syncWrap('coop',      'coopSettlement', coopSettlement, 'addMany',       true);
+  _syncWrap('coop',      'coopSettlement', coopSettlement, 'removeByBatch', true);
+  _syncWrap('imports',   'importBatch', importBatch, 'create', true);
+  _syncWrap('imports',   'importBatch', importBatch, 'remove', true);
+  _syncWrap('livestock', 'livestock',  livestock,   'addHealth', true);
 
   const sync = {
     status(){
