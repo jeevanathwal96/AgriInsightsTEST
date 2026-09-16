@@ -2141,12 +2141,19 @@
   async function _profWrite(fid, payload){
     var keys = Object.keys(payload);
     if(!keys.length) return { skipped: true };
-    var body = Object.assign({}, payload);
-    if(_profAck && _profAck.updated_at) body.updated_at = _profAck.updated_at;
-    var r = await client().from('farms').update(body).eq('id', fid).select(keys.concat(['updated_at']).join(','));
+    var q = client().from('farms').update(payload).eq('id', fid);
+    /* The write only applies while the row is still the version this device last read: a row
+       that has moved on matches nothing, so 0 rows come back and the caller knows it was kept.
+       This does not depend on a database trigger - SA's farms table already carries an older
+       trigger that stamps updated_at BEFORE any guard would run, so a guard could never see the
+       version the client sent (probed live, 16 Sep 2026). Proved on the live row: a stale
+       version updates 0 rows, the current version updates 1 and stamps a new one. */
+    if(_profAck && _profAck.updated_at) q = q.eq('updated_at', _profAck.updated_at);
+    var r = await q.select(keys.concat(['updated_at']).join(','));
     if(r.error) return { error: r.error };
-    var row = (r.data && r.data[0]) || null;
-    if(!row) return { ok: true };
+    var rows = r.data || [];
+    if(!rows.length) return { stale: true };
+    var row = rows[0];
     var kept = keys.every(function(k){ return _profSameValue(row[k], payload[k]); });
     if(kept){ _profNoteAck(row); return { ok: true, row: row }; }
     return { stale: true, row: row };
