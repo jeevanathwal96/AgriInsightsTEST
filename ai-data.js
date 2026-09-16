@@ -2111,6 +2111,17 @@
     if(a === b) return true;
     if(a == null || b == null) return (a == null && b == null);
     if(typeof a === 'object' || typeof b === 'object') return _stableJson(a) === _stableJson(b);
+    /* The server hands a timestamp back in its own format ('...T18:20:54.05+00:00' for the
+       '...T18:20:54.050Z' that went out) - the same instant, different text. Comparing the text
+       called a SUCCESSFUL write "kept by the server", so the save retried for ever and the farmer
+       saw "Not saved online" (seen live on the UK account, 16 Sep 2026). */
+    if(typeof a === 'string' && typeof b === 'string'){
+      var ISO = /^\d{4}-\d\d-\d\dT[\d:.]+(Z|[+-]\d\d:?\d\d)$/;
+      if(ISO.test(a) && ISO.test(b)){
+        var ta = Date.parse(a), tb = Date.parse(b);
+        if(!isNaN(ta) && !isNaN(tb)) return ta === tb;
+      }
+    }
     if(typeof a === 'number' || typeof b === 'number'){ var na = Number(a), nb = Number(b); if(!isNaN(na) && !isNaN(nb)) return na === nb; }
     return String(a) === String(b);
   }
