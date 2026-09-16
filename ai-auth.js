@@ -547,10 +547,15 @@
         try { window.clearAllToFresh(); if (typeof window.saveState === 'function') window.saveState(); } catch (e) {}
       }
       // Load the asset register + loans before first render (net-worth uses them).
-      return Promise.all([
+      /* Send what this device never got to send BEFORE any server copy is applied. The loans are
+         the FIRST thing hydrate overwrites, so a catch-up placed after them ran with the server's
+         copy already in memory: it pushed that back, cleared the marks, and the change left unsent
+         when the app closed was gone. Traced live on 16 Sep 2026 - loans fetched at 1.9s, catch-up
+         at 2.0s holding only the server's row. */
+      return (AI.sync ? AI.sync.catchUp() : Promise.resolve()).then(function () { return Promise.all([
         AI.load.assets(AI.farm.active()),
         AI.load.loans(AI.farm.active())
-      ]).then(function (res) {
+      ]); }).then(function (res) {
         var assets = res[0], loanData = res[1];
         try {
           if (window.ST_ASSETS && assets) {
@@ -562,7 +567,8 @@
           }
         } catch (e) { console.error('Asset hydrate failed:', e); }
         try {
-          if (window.ST_LOANS && loanData) {
+          /* Never load over facilities this device has not managed to send yet. */
+          if (window.ST_LOANS && loanData && !(window.AI && AI.sync && AI.sync.isUnsent('loans'))) {
             ST_LOANS.loans = loanData.loans || [];
             ST_LOANS.overdrafts = loanData.overdrafts || [];
             ST_LOANS.coopAccounts = loanData.coopAccounts || [];
@@ -593,7 +599,7 @@
       var fid = AI.farm.active();
       /* Send what this device never got to send BEFORE loading over it. After financeCore,
          so the column probes have run and a settings catch-up sends every column. */
-      return (AI.sync ? AI.sync.catchUp() : Promise.resolve()).then(function () { return Promise.all([
+      return Promise.all([
         AI.load.livestock(fid).catch(function (e) { console.error('livestock load', e); return null; }),
         AI.load.crops(fid).catch(function (e) { console.error('crops load', e); return null; }),
         AI.load.orchard(fid).catch(function (e) { console.error('orchard load', e); return null; }),
@@ -612,7 +618,7 @@
         /* The rain book, so a farmer on a new device does not open an empty one.
            Never fatal: the tables may not exist yet on an older project. */
         (AI.load.rainfall ? AI.load.rainfall(fid).catch(function () { return null; }) : Promise.resolve(null))
-      ]); }).then(function (r) {
+      ]).then(function (r) {
         var ls = r[0], cr = r[1], orc = r[2], pl = r[3], wk = r[4], pf = r[5], coop = r[6],
             fu = r[7], dc = r[8], rl = r[9], rn = r[10];
         /* Never load over an area that still has something unsent on this device. */
