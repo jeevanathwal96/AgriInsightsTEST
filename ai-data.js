@@ -2543,6 +2543,38 @@
     documents: function(){ return (global.ST && global.ST.docs) ? _syncRawCall('documents.saveAll', documents, [global.ST.docs]) : true; },
     rules:     function(){ var list = (typeof global.catRules === 'function') ? global.catRules() : (global.ST && global.ST.catRules); return list ? _syncRawCall('rules.saveAll', rules, [list]) : true; }
   };
+  /* Is this area's data actually on the device right now? */
+  var _CATCHUP_HAS = {
+    settings:  function(){ return !!global.ST; },
+    loans:     function(){ return !!global.ST_LOANS; },
+    livestock: function(){ return !!global.ST_LS; },
+    crops:     function(){ return !!global.ST_CROP; },
+    orchard:   function(){ return !!global.ST_FRUIT; },
+    plan:      function(){ return !!global.ST_PLAN; },
+    workers:   function(){ return !!global.ST_WORK; },
+    fuel:      function(){ return !!(global.ST_FUEL && global.ST_FUEL.issues); },
+    rain:      function(){ return !!global.ST_RAIN; },
+    documents: function(){ return !!(global.ST && global.ST.docs); },
+    rules:     function(){ return !!(typeof global.catRules === 'function' || (global.ST && global.ST.catRules)); }
+  };
+  /* The app loads its own copy from this device (loadState) on the window 'load' event, while
+     sign-in starts on DOMContentLoaded - so the catch-up below could run FIRST, with the state
+     objects still empty. It then had nothing to send, cleared the unsent marks anyway, and the
+     load that followed replaced the device's copy with the server's: a change left unsent when
+     the app was closed was lost. Seen on the live account 16 Sep 2026 (an overdraft written to
+     this device, marked unsent by hand, never reached the server and vanished on reload; the
+     only requests at start-up were reads).
+
+     So the app says when its own data is in place, and nothing is pushed or cleared before that. */
+  var _localReady = false, _localWaiters = [];
+  function _whenLocalReady(ms){
+    if(_localReady) return Promise.resolve(true);
+    return new Promise(function(res){
+      var done = false;
+      var t = setTimeout(function(){ if(!done){ done = true; res(false); } }, ms || 8000);
+      _localWaiters.push(function(){ if(!done){ done = true; clearTimeout(t); res(true); } });
+    });
+  }
   function _replayOp(x){
     var fn = _syncRaw[x.mod + '.' + x.method], mod = _syncMods[x.mod];
     if(!fn || !mod) return Promise.resolve();
@@ -2617,10 +2649,20 @@
     },
     isUnsent(area){ var u = _unsentRead(); return !!u.areas[area] || u.ops.some(function(x){ return x.area === area; }); },
     /* Send what an earlier session never got to send. Runs before hydrate loads anything. */
-    catchUp(){
-      if(!farm.active()) return Promise.resolve();
+    /* The app has loaded its own copy from this device: saves may go now. */
+    localReady(){ _localReady = true; _localWaiters.splice(0).forEach(function(f){ try{ f(); }catch(e){} }); _syncEmit(); },
+    isLocalReady(){ return _localReady; },
+    whenLocalReady(ms){ return _whenLocalReady(ms); },
+    async catchUp(){
+      if(!farm.active()) return;
+      /* Never before this device's own data is in place: sending nothing and clearing the marks
+         would drop the very changes this is here to protect. */
+      if(!(await _whenLocalReady(8000))){
+        try{ console.warn('Unsent changes are still waiting: the app had not loaded its own data yet.'); }catch(e){}
+        return;
+      }
       var u = _unsentRead();
-      if(!u.ops.length && !Object.keys(u.areas).length) return Promise.resolve();
+      if(!u.ops.length && !Object.keys(u.areas).length) return;
       _syncCatching = true; _syncEmit();
       u.ops.forEach(function(x){ x.tries = (x.tries || 0) + 1; });
       u.ops = u.ops.filter(function(x){
@@ -2629,7 +2671,11 @@
       });
       _unsentWrite(u);
       var jobs = u.ops.map(function(x){ return _replayOp(x).catch(_syncNoop); });
-      Object.keys(u.areas).forEach(function(a){ if(_CATCHUP[a]) jobs.push(_queue(a, _CATCHUP[a], { gate: false }).catch(_syncNoop)); });
+      Object.keys(u.areas).forEach(function(a){
+        /* An area whose data is not on this device cannot be sent - and must not be marked as
+           sent either, or the next load would write over it. */
+        if(_CATCHUP[a] && _CATCHUP_HAS[a] && _CATCHUP_HAS[a]()) jobs.push(_queue(a, _CATCHUP[a], { gate: false }).catch(_syncNoop));
+      });
       return Promise.all(jobs).then(function(){ _syncCatching = false; _syncEmit(); });
     },
     /* The device holds another account's or another farm's records: never send them. */

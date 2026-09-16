@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=44"></script>
+<script src="ai-data.js?v=45"></script>
 <script src="ai-auth.js?v=37"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -15600,6 +15600,8 @@ function bootAgriInsights() {
   /* Before anything is saved: number past the ids this device already holds, and renumber any
      that arrived twice (see "facility ids"). */
   try{ if(typeof ST_LOANS!=='undefined') lnRepairFacilityIds(ST_LOANS); if(typeof ST_ASSETS!=='undefined') astRepairIds(ST_ASSETS); }catch(e){}
+  /* This device's own copy is in place: the queues may now send what an earlier session never sent. */
+  try{ if(window.AI && AI.sync && AI.sync.localReady) AI.sync.localReady(); }catch(e){}
   /* Take the capital-question baseline the moment state is loaded. Left to seed itself on
      the first dataChanged, the first cost the farmer typed would be swallowed establishing
      it — the one case the dialog exists for. */
