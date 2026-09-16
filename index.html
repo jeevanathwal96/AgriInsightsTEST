@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=49"></script>
+<script src="ai-data.js?v=50"></script>
 <script src="ai-auth.js?v=38"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -19414,6 +19414,12 @@ function taxPartnersHTML(prov){
     '<div style="font-size:12px;color:var(--t3);margin-top:10px;line-height:1.5">'+(af?'Elke vennoot se belasting word slegs op hulle plaasdeel bereken — hulle eie opgawe tel enige ander inkomste by. As een persoon belas, sou dieselfde wins <b style="color:var(--gd)">'+fmt(asOne)+'</b> wees.':'Each partner’s tax is worked out on their farm share alone — their own return adds any other income. Taxed as one person, the same profit would be <b style="color:var(--gd)">'+fmt(asOne)+'</b>.')+'</div>'+END;
   return h;
 }
+/* Another device changed a setting this device did not touch, and the app has just taken their
+   value. If Settings is open its inputs still hold the old one - and Save settings reads the inputs,
+   so the old value would be written straight back. Re-fill the page. */
+window.aiProfileAdopted = function(){
+  try{ if (typeof CURRENT_PAGE !== 'undefined' && CURRENT_PAGE === 'settings' && typeof nav === 'function') nav('settings'); }catch(e){}
+};
 function syncSettingsHeader(){
   // Show what was accepted, so there's a visible record of consent.
   try{
