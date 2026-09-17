@@ -283,15 +283,31 @@
      a numeric ST_ASSETS id (matching how loans do it), so it has to be translated on the
      way out — and _assetUuid is honoured too, so a row that came from the server and was
      never re-linked on this device keeps its link instead of quietly losing it. */
+  /* Which farm's asset register has actually been fetched this session. Set by
+     load.assets; until it matches the active farm, nothing below may treat a missing
+     machine as a sold one. */
+  let _assetsSeenFor = null;
   function _txAssetUuid(t){
     if (!t) return null;
-    if (t.assetId == null) return t._assetUuid || null;
-    try{
-      const arr = (global.ST_ASSETS && global.ST_ASSETS.assets) || [];
-      for (let i = 0; i < arr.length; i++){
-        if (String(arr[i].id) === String(t.assetId)) return arr[i]._aiId || null;
-      }
-    }catch(e){}
+    const arr = (global.ST_ASSETS && global.ST_ASSETS.assets) || [];
+    const seen = !!(_assetsSeenFor && _assetsSeenFor === farm.active());
+    /* The register for this farm has arrived and this machine is not in it: it was sold
+       or scrapped, and the server has already cleared its own copy of the tie (asset_id
+       is ON DELETE SET NULL). Sending the id anyway was refused with 23503 on every later
+       edit of the payment - permanently. Nor may the stale local number stand in for it:
+       a new machine that took that number would inherit the payment on the server.
+       Reproduced on the live UK account 16 Sep 2026 (-413). */
+    if (t._assetUuid && seen){
+      for (let j = 0; j < arr.length; j++){ if (arr[j] && arr[j]._aiId === t._assetUuid) return t._assetUuid; }
+      return null;
+    }
+    if (t.assetId != null){
+      try{
+        for (let i = 0; i < arr.length; i++){
+          if (String(arr[i].id) === String(t.assetId)) return arr[i]._aiId || null;
+        }
+      }catch(e){}
+    }
     return t._assetUuid || null;      // assets not loaded yet — never downgrade to null
   }
   /* Set by probeCaps() on the first load; false until proven otherwise. */
@@ -823,6 +839,7 @@
       farmId = farmId || farm.active();
       const { data, error } = await selectAll(() => client().from('assets').select('*').eq('farm_id', farmId).order('created_at'));
       if (error) throw error;
+      _assetsSeenFor = farmId;          // this farm's register is now known (-413)
       return (data || []).map(assetToApp);
     },
     async loans(farmId) {

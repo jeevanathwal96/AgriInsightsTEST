@@ -595,6 +595,10 @@
             /* past the highest id in use, not the count: a sparse list minted a duplicate. */
             if (typeof window.astRepairIds === 'function') window.astRepairIds(ST_ASSETS);
             else ST_ASSETS.nextId = assets.length + 1;
+            /* The register is in: ties on payments to machines that are no longer in it are
+               cleared quietly, on this device only - the server let go of them when the
+               machine went (-413). */
+            try { if (typeof window.astSweepDeadPaymentLinks === 'function') window.astSweepDeadPaymentLinks(); } catch (e) {}
           }
         } catch (e) { console.error('Asset hydrate failed:', e); }
         try {

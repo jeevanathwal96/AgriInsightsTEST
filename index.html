@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=53"></script>
-<script src="ai-auth.js?v=40"></script>
+<script src="ai-data.js?v=54"></script>
+<script src="ai-auth.js?v=41"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -24043,13 +24043,19 @@ function deleteAsset(idx) {
   if(idx<0||idx>=ST_ASSETS.assets.length) return;
   var name = ST_ASSETS.assets[idx].name;
   var _aid = ST_ASSETS.assets[idx]._aiId, _alid = ST_ASSETS.assets[idx].id;
+  /* Untie its payments while it is still in the register to be matched against (-413). */
+  var _tied = 0; try { _tied = astUnlinkPayments(ST_ASSETS.assets[idx]); } catch(e){}
   try { var _adocs=ST_ASSETS.assets[idx].docs||[]; var _paths=_adocs.map(function(d){return d.url;}).filter(Boolean); if(_paths.length && window.AI && AI.storage) AI.storage.remove(_paths).catch(function(e){ console.error('Asset doc storage remove failed:', e); }); } catch(e){}
   ST_ASSETS.assets.splice(idx,1);
   /* The farm's own number goes with it, so an asset whose registration is still
      waiting to be sent is deleted on the server too when that registration lands (-411). */
   try { if (window.AI && AI.farm && AI.farm.active() && (_aid || _alid != null)) { AI.asset.remove(_aid || null, _alid).catch(function(e){ console.error('Backend asset delete failed:', e); }); } } catch(e){}
   renderAssets();
-  toast(name+' removed','info');
+  if (_tied) {
+    var _af = (typeof ST!=='undefined' && ST.lang==='af');
+    toast(_af ? (name+' verwyder \u00b7 '+_tied+' betaling'+(_tied===1?' is':'s is')+' nie meer daaraan gekoppel nie')
+              : (name+' removed \u00b7 '+_tied+' payment'+(_tied===1?' is':'s are')+' no longer tied to it'), 'info');
+  } else toast(name+' removed','info');
 }
 
 // ── Full render ───────────────────────────────────────────────
@@ -53890,6 +53896,45 @@ function txOpenLinkedAsset(i){
    against it. The singular helper below is kept for callers that only need to know
    "is this linked at all", but anything that MUTATES links must use this one: clearing
    only the first of several is how a farmer ends up with links they never chose. */
+/* ── A machine's ties on the payments (-413) ─────────────────────────────────────
+   When a machine leaves the register the server clears its own copy of every tie
+   (asset_id is ON DELETE SET NULL), but this device kept them. Every later edit of such
+   a payment was then refused with 23503 - permanently - and a new machine that took the
+   old number inherited the payment. Reproduced on the live UK account 16 Sep 2026. */
+/* Take this machine's ties off the payments on this device, before it leaves the
+   register, and send those payments up. A payment tied to a DIFFERENT machine by its
+   permanent id, and only sharing an old number with this one, is left alone.
+   Returns how many payments were untied. */
+function astUnlinkPayments(asset, except){
+  if(!asset) return 0;
+  var tied = (typeof assetLinkedTxns==='function') ? assetLinkedTxns(asset) : [], n = 0;
+  tied.forEach(function(t){
+    if(!t || t===except) return;
+    if(asset._aiId && t._assetUuid && t._assetUuid!==asset._aiId) return;
+    t.assetId = null; t._assetUuid = undefined; n++;
+    try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(t); }catch(e){}
+  });
+  return n;
+}
+/* Ties already left behind by a machine removed before this fix: cleared quietly once
+   the register has loaded. Local only - the server cleared its copy when the machine
+   went. A tie by permanent id to a machine not in the register is dead; so is a
+   number-only tie to a number nobody holds. Returns how many payments were cleared. */
+function astSweepDeadPaymentLinks(){
+  if(typeof ST==='undefined' || !ST.txns || typeof ST_ASSETS==='undefined' || !ST_ASSETS.assets) return 0;
+  var byUuid = {}, byNum = {}, n = 0;
+  ST_ASSETS.assets.forEach(function(a){ if(!a) return; byNum[String(a.id)] = a; if(a._aiId) byUuid[a._aiId] = a; });
+  ST.txns.forEach(function(t){
+    if(!t) return;
+    if(t._assetUuid){
+      if(!byUuid[t._assetUuid]){ t.assetId = null; t._assetUuid = undefined; n++; }
+      return;
+    }
+    if(t.assetId != null && !byNum[String(t.assetId)]){ t.assetId = null; n++; }
+  });
+  if(n){ try{ if(typeof saveState==='function') saveState(); }catch(e){} }
+  return n;
+}
 function assetLinkedTxns(asset){
   var out = [];
   if (!asset) return out;
