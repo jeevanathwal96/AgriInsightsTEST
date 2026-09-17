@@ -439,6 +439,30 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 #pg-cashflow .cf-recur-row .amt.in{color:var(--gd)}
 #pg-cashflow .cf-recur-row .amt.out{color:var(--rd)}
 #pg-cashflow .cf-recur-foot{font-size:11.5px;color:var(--t3);padding-top:10px;font-style:italic}
+/* Correcting, stopping and adding a repeating item (-414). The row keeps its four
+   facts; the buttons take a column of their own so nothing is squeezed. */
+#pg-cashflow .cf-recur-row.has-acts{grid-template-columns:20px 1fr auto auto auto}
+#pg-cashflow .cf-recur-row .racts{display:flex;gap:6px;justify-self:end}
+#pg-cashflow .cf-recur-row .rbtn{border:1px solid var(--br);background:#fff;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--t2);cursor:pointer}
+#pg-cashflow .cf-recur-row .rbtn:hover{border-color:var(--gm);color:var(--gd)}
+#pg-cashflow .cf-recur-row .rbtn.del{color:#B42318;border-color:#FECACA;background:#FEF2F2}
+#pg-cashflow .cf-recur-row .wkTag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;padding:2px 6px;border-radius:99px;background:var(--gp);color:var(--gd);margin-left:7px;vertical-align:1px}
+#pg-cashflow .cf-recur-add{display:block;width:100%;text-align:left;margin-top:10px;padding:9px 2px;border:0;border-top:1px dashed var(--br);background:none;font:inherit;font-size:12.5px;font-weight:800;color:var(--gd);cursor:pointer}
+#pg-cashflow .cf-recur-undo{display:flex;align-items:center;gap:10px;background:#F3F4F6;border:1px solid var(--br);border-radius:8px;padding:7px 10px;margin:4px 0 8px;font-size:12px;color:var(--t2)}
+#pg-cashflow .cf-recur-undo button{margin-left:auto;border:1px solid var(--br);background:#fff;border-radius:6px;padding:3px 10px;font:inherit;font-size:11.5px;font-weight:800;color:var(--gd);cursor:pointer}
+#pg-cashflow .cfe{background:#F7FAF8;border:1px solid var(--br);border-radius:10px;padding:12px;margin:8px 0}
+#pg-cashflow .cfe .r1{display:grid;grid-template-columns:minmax(0,1.6fr) 120px 150px;gap:10px}
+#pg-cashflow .cfe .r2{display:grid;grid-template-columns:minmax(0,1.6fr) 150px;gap:10px;margin-top:9px}
+@media (max-width:780px){#pg-cashflow .cfe .r1,#pg-cashflow .cfe .r2{grid-template-columns:1fr}}
+#pg-cashflow .cfe label{display:block;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin-bottom:3px}
+#pg-cashflow .cfe input,#pg-cashflow .cfe select{width:100%;font:inherit;font-size:13px;border:1px solid var(--br);border-radius:7px;padding:6px 8px;background:#fff;color:var(--t1)}
+#pg-cashflow .cfe .mons{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+#pg-cashflow .cfe .mons button{border:1px solid var(--br);background:#fff;border-radius:99px;padding:3px 9px;font:inherit;font-size:11px;font-weight:700;color:var(--t2);cursor:pointer}
+#pg-cashflow .cfe .mons button.on{background:var(--gd);border-color:var(--gd);color:#fff}
+#pg-cashflow .cfe .acts{display:flex;gap:8px;align-items:center;margin-top:11px}
+#pg-cashflow .cfe .save{background:var(--gd);color:#fff;border:0;border-radius:7px;padding:7px 15px;font:inherit;font-size:12.5px;font-weight:800;cursor:pointer}
+#pg-cashflow .cfe .can{background:#fff;border:1px solid var(--br);border-radius:7px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:700;color:var(--t2);cursor:pointer}
+#pg-cashflow .cfe .rm{margin-left:auto;background:#FEF2F2;border:1px solid #FECACA;border-radius:7px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:700;color:#B42318;cursor:pointer}
 
 @media (max-width:780px){
   #pg-cashflow .cf3{grid-template-columns:1fr}
@@ -10534,7 +10558,7 @@ table.rn-t td.dim{color:var(--t4)}
     <div class="cf-recur-body" id="cf-recur-body" style="display:none">
       <div class="cf-recur-list" id="cf-recur-list"></div>
       <div class="cf-recur-foot">
-        These items are added on top of your crop plan in the forecast. To edit, head to <a onclick="nav('settings')" style="color:var(--gd);font-weight:700;cursor:pointer;text-decoration:underline">settings &rsaquo; recurring</a>.
+        These items are added on top of your crop plan in the forecast. To change one, open <a onclick="nav('cashflow')" style="color:var(--gd);font-weight:700;cursor:pointer;text-decoration:underline">settings &rsaquo; recurring</a>.
       </div>
     </div>
   </div>
@@ -18515,9 +18539,12 @@ function dataChanged(event) {
       break;
 
     case 'recurring':
-      // ST.recurring was modified (currently only Money Flow uses this)
+      // ST.recurring was modified
       if (pageId === 'cashflow')  { safeCall(window.updateCfPage); safeCall(window.renderCfForecast); }
       if (pageId === 'budgets')   { safeCall(window.renderBudgetsPage); }
+      /* Profit adds these up too (_pfOverheads). Without this line a corrected bill
+         showed in Money Flow and not in Profit until the next reload (-414). */
+      if (pageId === 'profit')    { safeCall(window.renderProfit); }
       break;
     case 'livestock':
       // ST_LS records changed (move / treatment / tag add or delete) — flush to backend
@@ -46254,6 +46281,170 @@ renderCfRecurringPanel();
   renderCfLineView(n);
 }
 
+/* == Repeating bills: correcting, stopping, adding (-414) ================
+   Until now one could only be created - by ticking monthly or yearly while saving a
+   sale or a cost - and never changed, stopped, or added on purpose, while two screens
+   told the farmer to edit them in Settings, which has no such section. The forecast
+   leaned on whatever was captured, for as long as the farm existed.
+
+   Saving goes to the data layer explicitly: dataChanged('recurring') only re-renders,
+   it has never written anything. A correction is sent with add(), which upserts on the
+   farm's own name for the bill - update() matches nothing for a bill whose first send
+   is still in the queue, and the correction would be lost without a word. */
+function _rT(en, af){ try{ return (typeof ST !== 'undefined' && ST.lang === 'af' && af) ? af : en; }catch(e){ return en; } }
+var CF_RECUR_EDIT = -1;          /* index into ST.recurring, or -2 for a new one */
+var CF_RECUR_UNDO = null;        /* the last one removed, so the toast can put it back */
+
+/* The next date this bill is due: written down at last, because the phone app reads it
+   and the desktop has never set it. Monthly is the first of next month; chosen months
+   is the next of those months. */
+function cfRecurNextDate(r){
+  try{
+    /* Built from the parts, never through toISOString: a local midnight turned into UTC
+       lands on the day before wherever the clock is ahead of it, which is every month
+       of the year in South Africa. Caught by the harness, which expected 1 October and
+       was handed 30 September. */
+    var iso = function(yy, mm){ return yy + '-' + ('0' + (mm + 1)).slice(-2) + '-01'; };
+    var now = (typeof APP_TODAY !== 'undefined' && APP_TODAY) ? new Date(APP_TODAY) : new Date();
+    var y = now.getFullYear(), m = now.getMonth();
+    if(!r || r.freq === 'monthly') return (m === 11) ? iso(y + 1, 0) : iso(y, m + 1);
+    var ms = (r.months || []).slice().sort(function(a, b){ return a - b; });
+    if(!ms.length) return null;
+    for(var i = 0; i < ms.length; i++){ if(ms[i] > m) return iso(y, ms[i]); }
+    return iso(y + 1, ms[0]);
+  }catch(e){ return null; }
+}
+/* One way to the server for every change, so a failure lands in the status at the top
+   like every other area since the save queues. */
+function cfRecurPersist(r){
+  try{
+    if(!(window.AI && AI.farm && AI.farm.active() && AI.recurring)) return;
+    r.nextDate = cfRecurNextDate(r);
+    AI.recurring.add(r).catch(function(e){ console.error('Backend recurring save failed:', e); });
+  }catch(e){}
+}
+function cfRecurAfterChange(){
+  try{ saveState && saveState(); }catch(e){}
+  try{ dataChanged('recurring'); }catch(e){}
+  try{ renderCfRecurringPanel(); }catch(e){}
+}
+function cfRecurEdit(i){ CF_RECUR_EDIT = i; renderCfRecurringPanel(); }
+function cfRecurAdd(){ CF_RECUR_EDIT = -2; renderCfRecurringPanel(); }
+function cfRecurCancel(){ CF_RECUR_EDIT = -1; renderCfRecurringPanel(); }
+function cfRecurMonth(m){
+  var host = document.getElementById('cfe-mons'); if(!host) return;
+  var freq = (document.getElementById('cfe-freq') || {}).value;
+  var btns = host.querySelectorAll('button');
+  if(freq === 'year'){ for(var i = 0; i < btns.length; i++) btns[i].classList.toggle('on', i === m); }
+  else btns[m].classList.toggle('on');
+}
+function cfRecurFreqChanged(){
+  var freq = (document.getElementById('cfe-freq') || {}).value;
+  var wrap = document.getElementById('cfe-mons-wrap');
+  if(wrap) wrap.style.display = (freq === 'monthly') ? 'none' : '';
+  if(freq !== 'year') return;
+  var host = document.getElementById('cfe-mons'); if(!host) return;
+  var on = host.querySelectorAll('button.on');
+  for(var i = 1; i < on.length; i++) on[i].classList.remove('on');
+  if(!on.length) host.querySelectorAll('button')[(new Date()).getMonth()].classList.add('on');
+}
+function cfRecurSave(){
+  var g = function(id){ var e = document.getElementById(id); return e ? e.value : ''; };
+  var name = String(g('cfe-name') || '').trim();
+  var amt  = Math.abs(Number(String(g('cfe-amt') || '').replace(/[^0-9.\-]/g, '')) || 0);
+  var freq = g('cfe-freq') || 'monthly';
+  var cat  = g('cfe-cat') || '';
+  var type = g('cfe-type') || 'expense';
+  var months = [], host = document.getElementById('cfe-mons');
+  if(host) Array.prototype.forEach.call(host.querySelectorAll('button'), function(b, i){ if(b.classList.contains('on')) months.push(i); });
+  if(!name){ try{ toast(_rT('Give it a name', 'Gee dit ’n naam'), 'error'); }catch(e){} return; }
+  if(!(amt > 0)){ try{ toast(_rT('Put in an amount', 'Vul ’n bedrag in'), 'error'); }catch(e){} return; }
+  if(freq !== 'monthly' && !months.length){ try{ toast(_rT('Choose at least one month', 'Kies ten minste een maand'), 'error'); }catch(e){} return; }
+  ST.recurring = ST.recurring || [];
+  var r = (CF_RECUR_EDIT >= 0) ? ST.recurring[CF_RECUR_EDIT] : null;
+  if(!r){ r = { id: 'frm' + Date.now() }; ST.recurring.push(r); }
+  r.name = name; r.amt = amt; r.type = type; r.category = cat;
+  r.freq = (freq === 'monthly') ? 'monthly' : 'specific';
+  if(r.freq === 'specific') r.months = months; else delete r.months;
+  CF_RECUR_EDIT = -1; CF_RECUR_UNDO = null;
+  cfRecurPersist(r);
+  cfRecurAfterChange();
+  try{ toast(_rT('Saved', 'Gestoor'), 'success'); }catch(e){}
+}
+function cfRecurRemove(i){
+  var r = (ST.recurring || [])[i]; if(!r) return;
+  CF_RECUR_UNDO = { item: r, at: i };
+  ST.recurring.splice(i, 1);
+  CF_RECUR_EDIT = -1;
+  try{
+    if(window.AI && AI.farm && AI.farm.active() && AI.recurring && r.id != null)
+      AI.recurring.remove(null, r.id).catch(function(e){ console.error('Backend recurring delete failed:', e); });
+  }catch(e){}
+  cfRecurAfterChange();
+  /* toast() takes a message and nothing else - it writes textContent, which is what
+     keeps a bank-derived name safe - so the way back lives in the panel instead, where
+     it also outlasts the three seconds a toast is given. */
+  try{ toast((r.name || _rT('That item', 'Daardie item')) +
+             _rT(' removed from the forecast', ' uit die vooruitskatting verwyder'), 'info'); }catch(e){}
+}
+function cfRecurUndo(){
+  if(!CF_RECUR_UNDO) return;
+  var u = CF_RECUR_UNDO; CF_RECUR_UNDO = null;
+  ST.recurring = ST.recurring || [];
+  ST.recurring.splice(Math.min(u.at, ST.recurring.length), 0, u.item);
+  cfRecurPersist(u.item);
+  cfRecurAfterChange();
+}
+/* The way back after a removal: it stays until the farmer uses it or changes something
+   else, rather than disappearing with a toast. */
+function cfRecurUndoStripHTML(){
+  if(!CF_RECUR_UNDO || !CF_RECUR_UNDO.item) return '';
+  return '<div class="cf-recur-undo">' +
+    '<span>' + esc(CF_RECUR_UNDO.item.name || _rT('That item', 'Daardie item')) +
+    _rT(' removed', ' verwyder') + '</span>' +
+    '<button onclick="cfRecurUndo()">' + _rT('Undo', 'Ontdoen') + '</button></div>';
+}
+/* The editor, drawn in place of the row being changed. Five things, which is exactly
+   what the app already stores for a repeating item. */
+function cfRecurEditorHTML(r){
+  var isNew = !r;
+  var type = (r && r.type) || 'expense';
+  var list = (type === 'income') ? BGT_INCOME_CATS : BGT_EXPENSE_CATS;
+  var cur  = (r && r.category) || '';
+  var cats = (cur && list.indexOf(cur) < 0) ? '<option selected>' + esc(cur) + '</option>' : '';
+  list.forEach(function(c){ cats += '<option' + (c === cur ? ' selected' : '') + '>' + esc(c) + '</option>'; });
+  var freq = (r && r.freq === 'specific') ? (((r.months || []).length === 1) ? 'year' : 'months') : 'monthly';
+  var MOS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var mons = MOS.map(function(m, i){
+    return '<button type="button" class="' + ((r && (r.months || []).indexOf(i) >= 0) ? 'on' : '') +
+           '" onclick="cfRecurMonth(' + i + ')">' + m + '</button>';
+  }).join('');
+  return '<div class="cfe">' +
+    '<div class="r1">' +
+      '<div><label>' + _rT('What it is', 'Wat dit is') + '</label>' +
+        '<input id="cfe-name" value="' + esc((r && r.name) || '') + '" placeholder="' + _rT('e.g. Diesel — bulk order', 'bv. Diesel — grootmaat') + '"></div>' +
+      '<div><label>' + _rT('Amount', 'Bedrag') + '</label><input id="cfe-amt" inputmode="decimal" value="' + ((r && r.amt) || '') + '"></div>' +
+      '<div><label>' + _rT('How often', 'Hoe gereeld') + '</label><select id="cfe-freq" onchange="cfRecurFreqChanged()">' +
+        '<option value="monthly"' + (freq === 'monthly' ? ' selected' : '') + '>' + _rT('Every month', 'Elke maand') + '</option>' +
+        '<option value="year"' + (freq === 'year' ? ' selected' : '') + '>' + _rT('Once a year', 'Een keer per jaar') + '</option>' +
+        '<option value="months"' + (freq === 'months' ? ' selected' : '') + '>' + _rT('Chosen months', 'Gekose maande') + '</option>' +
+      '</select></div>' +
+    '</div>' +
+    '<div class="r2">' +
+      '<div><label>' + _rT('Category', 'Kategorie') + '</label><select id="cfe-cat">' + cats + '</select></div>' +
+      '<div><label>' + _rT('Money in or out', 'Geld in of uit') + '</label><select id="cfe-type">' +
+        '<option value="expense"' + (type !== 'income' ? ' selected' : '') + '>' + _rT('Money out', 'Geld uit') + '</option>' +
+        '<option value="income"' + (type === 'income' ? ' selected' : '') + '>' + _rT('Money in', 'Geld in') + '</option>' +
+      '</select></div>' +
+    '</div>' +
+    '<div id="cfe-mons-wrap"' + (freq === 'monthly' ? ' style="display:none"' : '') + '><div class="mons" id="cfe-mons">' + mons + '</div></div>' +
+    '<div class="acts">' +
+      '<button class="save" onclick="cfRecurSave()">' + _rT('Save', 'Stoor') + '</button>' +
+      '<button class="can" onclick="cfRecurCancel()">' + _rT('Cancel', 'Kanselleer') + '</button>' +
+      (isNew ? '' : '<button class="rm" onclick="cfRecurRemove(' + CF_RECUR_EDIT + ')">' + _rT('Remove this bill', 'Verwyder hierdie rekening') + '</button>') +
+    '</div></div>';
+}
+
 function renderCfRecurringPanel() {
   var list = $('cf-recur-list');
   if (!list) return;
@@ -46262,9 +46453,11 @@ function renderCfRecurringPanel() {
     list.innerHTML =
       '<div style="padding:14px 4px;text-align:center">' +
         '<div style="font-size:13px;color:var(--t2);font-weight:600;margin-bottom:4px">No recurring items yet</div>' +
-        '<div style="font-size:12px;color:var(--t3);line-height:1.5;max-width:380px;margin:0 auto">Adding things like loan repayments, salaries, insurance, or rental income makes your forecast much more accurate. ' +
-        '<a onclick="nav(\u0027settings\u0027)" style="color:var(--gd);font-weight:700;cursor:pointer;text-decoration:underline">Add some in settings</a>.</div>' +
-      '</div>';
+        '<div style="font-size:12px;color:var(--t3);line-height:1.5;max-width:380px;margin:0 auto">' + _rT('Loan repayments, salaries, insurance, a lease \u2014 anything that comes round every month or every season. The forecast uses them from the day you add them.', 'Lenings, salarisse, versekering, huur \u2014 enigiets wat elke maand of elke seisoen terugkom. Die vooruitskatting gebruik dit van die dag af wat jy dit byvoeg.') + '</div>' +
+      '</div>' +
+      cfRecurUndoStripHTML() +
+      (CF_RECUR_EDIT === -2 ? cfRecurEditorHTML(null) : '') +
+      '<button class="cf-recur-add" onclick="cfRecurAdd()">' + _rT('+ Add a repeating bill or income', '+ Voeg \u2019n herhalende rekening of inkomste by') + '</button>';
     setEl('cf-recur-inc-total', '+R0/mo');
     setEl('cf-recur-exp-total', '\u2212R0/mo');
     var hdr = document.querySelector('#cf-recur-panel .cf-recur-totals');
@@ -46302,20 +46495,34 @@ var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec
                       .sort(function(a,b){return b.amt-a.amt;});
   var ordered  = expenses.concat(incomes);
 
-  list.innerHTML = ordered.map(function(r) {
+  list.innerHTML = cfRecurUndoStripHTML() + ordered.map(function(r) {
+    var i = ST.recurring.indexOf(r);
+    if (i === CF_RECUR_EDIT) return cfRecurEditorHTML(r);
     var sign = r.type === 'income' ? '+' : '\u2212';
-    return '<div class="cf-recur-row">' +
+    /* Kept in step with the staff list on every render, so an edit here would be undone
+       by the app itself: shown, marked, and pointed at where it really lives. */
+    var wk = !!r._wk;
+    /* The name goes in as text. It comes from a transaction description, and those come
+       from imported bank statements as well as from the keyboard. */
+    return '<div class="cf-recur-row has-acts">' +
       '<div class="marker ' + (r.type === 'income' ? 'in' : 'out') + '"></div>' +
       '<div>' +
-        '<div class="nm">' + r.name + '</div>' +
-        '<div class="meta">' + (r.category || '') + '</div>' +
+        '<div class="nm">' + esc(r.name || '') + (wk ? '<span class="wkTag">' + _rT('From Workers', 'Van Werkers') + '</span>' : '') + '</div>' +
+        '<div class="meta">' + esc(r.category || '') + (wk ? ' \u00b7 ' + _rT('change this in Workers', 'verander dit in Werkers') : '') + '</div>' +
       '</div>' +
       '<div class="freq">' + freqLabel(r) + '</div>' +
       '<div class="amt ' + (r.type === 'income' ? 'in' : 'out') + '">' +
         sign + 'R' + _grpInt(r.amt) +
       '</div>' +
+      '<div class="racts">' +
+        (wk ? '<button class="rbtn" onclick="nav(\u0027workers\u0027)">' + _rT('Open Workers', 'Open Werkers') + '</button>'
+            : '<button class="rbtn" onclick="cfRecurEdit(' + i + ')">' + _rT('Edit', 'Wysig') + '</button>' +
+              '<button class="rbtn del" onclick="cfRecurRemove(' + i + ')">' + _rT('Remove', 'Verwyder') + '</button>') +
+      '</div>' +
     '</div>';
-  }).join('');
+  }).join('') +
+  (CF_RECUR_EDIT === -2 ? cfRecurEditorHTML(null) : '') +
+  '<button class="cf-recur-add" onclick="cfRecurAdd()">' + _rT('+ Add a repeating bill or income', '+ Voeg \u2019n herhalende rekening of inkomste by') + '</button>';
 }
 
 function toggleCfRecur() {
