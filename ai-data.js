@@ -56,20 +56,34 @@
       throw new Error('supabase-js not loaded — add the CDN <script> before ai-data.js');
     }
     sb = global.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    /* Every upsert in this file passes through here, so the edit time cannot be
+    /* Every write in this file passes through here, so the edit time cannot be
        forgotten at a call site - the way three separate whitelists once let
-       Supplier and Reference sync as NULL. Only .upsert is wrapped: .insert has
-       no stored row to be stale against, and a .update patch that omits
-       updated_at already leaves the trigger to stamp server now(). */
+       Supplier and Reference sync as NULL. Only .upsert carries an edit time up:
+       an .insert has no stored row to be stale against, and a .update patch that
+       omits updated_at leaves the trigger to stamp server now().
+
+       All three come back through here as well (-415). The row memory is what decides
+       whether a row has been changed since this device last saw it, and a write moves
+       the server's copy on: an accepted one is stamped now(), a refused one keeps a
+       version this device has never seen. Filled only at load, the memory started
+       lying the moment the app wrote anything - and a later save that matched those
+       stale values was read as "unchanged", sent with an edit time the server left
+       behind long ago, and thrown away with a 200. Proved on the live SA account on
+       17 Sep 2026: amount 500 sent, 200 returned, the row still 650. So every write
+       asks for the rows it wrote and the memory takes the answer. */
     try{
       var _rawFrom = sb.from.bind(sb);
       sb.from = function(table){
         var qb = _rawFrom(table);
         try{
-          var _ups = qb.upsert;
-          if(typeof _ups === 'function'){
-            qb.upsert = function(vals, opts){ return _ups.call(qb, _srvPrep(table, vals), opts); };
-          }
+          ['upsert','update','insert'].forEach(function(verb){
+            var raw = qb[verb];
+            if(typeof raw !== 'function') return;
+            qb[verb] = function(vals, opts){
+              var sent = (verb === 'upsert') ? _srvPrep(table, vals) : vals;
+              return _srvWatch(table, verb, sent, raw.call(qb, sent, opts));
+            };
+          });
         }catch(e){}
         return qb;
       };
@@ -525,6 +539,67 @@
       else _srvStamp(table,vals);
     }catch(e){}
     return vals;
+  }
+
+  /* ---- what the server actually kept (-415) --------------------------------------
+     _srvStamp above can only be as honest as the memory it reads. These three keep
+     that memory equal to the server's own copy instead of to a snapshot taken when
+     the table loaded. */
+  var _srvKept = [];
+
+  /* Ask for the rows back, then hand them to the memory. In this library a later
+     .select() from the caller REPLACES this one, so a caller that wants its own
+     columns still gets them, and one that only reads .error is unaffected. Every
+     table either app writes was read as the signed-in farmer before this shipped
+     (38 on SA, 35 on UK), so asking cannot turn a working save into a refusal. */
+  function _srvWatch(table, verb, sent, b){
+    if(!CAN_UPDATED_AT || !b || typeof b.then !== 'function') return b;
+    try{
+      if(typeof b.select === 'function') b.select();
+      var _then = b.then;
+      b.then = function(ok, no){
+        return _then.call(b, function(r){
+          try{ _srvSettled(table, verb, sent, r); }catch(e){}
+          return ok ? ok(r) : r;
+        }, no);
+      };
+    }catch(e){}
+    return b;
+  }
+
+  /* A row the server hands back IS the server's copy, so it replaces whatever the
+     memory held - never merged into it: a half-answer that kept old values for the
+     columns it did not carry would be a memory that lies in the one direction that
+     costs an edit. Replacing at worst forgets, and a forgotten row is simply written
+     without an edit time, which always lands. */
+  function _srvSettled(table, verb, sent, res){
+    if(!res || res.error) return;
+    var rows = res.data; if(!rows) return;
+    if(!Array.isArray(rows)) rows = [rows];
+    if(!rows.length) return;
+    var t = _SRV[table];
+    if(!t){ t = _SRV[table] = { rows:Object.create(null), ids:[], maxUa:false }; }
+    var byKey = Object.create(null);
+    rows.forEach(function(r){
+      var k = _srvKey(table, r);
+      if(k == null) return;
+      byKey[k] = r; t.rows[k] = r;
+    });
+    if(verb !== 'upsert') return;
+    /* What went up against what came back. They differ only when guard_updated_at
+       kept the stored row - which now means one thing: this device sent values it
+       had not changed and another device has edited that row since. Keeping theirs
+       is right; saying nothing about it is how this went unseen for a month. */
+    (Array.isArray(sent) ? sent : [sent]).forEach(function(row){
+      if(!row || typeof row !== 'object') return;
+      if(!Object.prototype.hasOwnProperty.call(row, 'updated_at')) return;
+      var k = _srvKey(table, row); if(k == null) return;
+      var got = byKey[k]; if(!got || _srvSame(got, row)) return;
+      _srvKept.push({ table:table, key:k, at:Date.now() });
+      if(_srvKept.length > 50) _srvKept.shift();
+      try{ console.warn('AgriInsights: ' + table + ' - the server kept its own copy of a row this '
+        + 'device sent unchanged. Another device has edited it since; taking the server version.'); }catch(e){}
+    });
   }
 
   /* The identities of rows this device loaded from `table` that the farmer has
@@ -2945,6 +3020,8 @@
       Object.keys(_lanes).forEach(function(a){ if(_lanes[a].err && !_lanes[a].external) jobs.push(_syncRetry(a)); });
       return Promise.all(jobs);
     },
+    /* Rows the server kept instead of the copy this device sent, newest last (-415). */
+    kept(){ return _srvKept.slice(); },
     /* For writes the app sends itself (the transaction outbox, attachments). */
     report(area, e){
       var L = _laneOf(area); L.external = true;
