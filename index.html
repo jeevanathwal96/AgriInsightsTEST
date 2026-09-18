@@ -1188,7 +1188,7 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 .stmt-icon.g{background:var(--gb)}.stmt-icon.g svg{stroke:var(--gd)}
 .stmt-icon.b{background:var(--bp)}.stmt-icon.b svg{stroke:var(--bl)}
 .stmt-icon.p{background:var(--pp)}.stmt-icon.p svg{stroke:var(--pu)}
-.stmt-icon svg{width:18px;height:18px;fill:none;stroke-width:1.8}
+.stmt-icon svg{width:18px;height:18px;fill:none;stroke-width:1.8;stroke:currentColor}
 .stmt-title{font-size:13px;font-weight:700;color:var(--gd);margin-bottom:3px}
 .stmt-desc{font-size:12px;color:var(--t3);line-height:1.5}
 
@@ -7939,8 +7939,9 @@ table.rn-t td.dim{color:var(--t4)}
       <div class="stmt-title" data-t="rn.rec.title">Rainfall record</div>
       <div class="stmt-desc" data-t="rn.rec.desc">Your rain year by month and by gauge, against the long-term &mdash; for an insurer, the bank or a drought-relief application.</div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
-        <button onclick="rnReportCsv()" style="flex:1;background:#E8F1FA;border:1px solid #CFE1F3;border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:#1E4E7C;cursor:pointer">CSV</button>
+        <button onclick="rnReportPreview()" style="flex:1;background:#E8F1FA;border:1px solid #CFE1F3;border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:#1E4E7C;cursor:pointer" data-t="rn.rec.preview">Preview</button>
         <button onclick="rnReportOpen()" style="flex:1;background:#2F6FAB;border:none;border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:#fff;cursor:pointer" data-t="rn.rec.print">Print</button>
+        <button onclick="rnReportCsv()" style="flex:1;background:#fff;border:1px solid var(--br);border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer">CSV</button>
       </div>
     </div>
 <!-- ══ RAINFALL-T0-RPT-END ══ -->
@@ -53001,10 +53002,10 @@ var titles = {ie:'Income & Expenses', pl:'Profit & Loss Statement', cf:'Cash Flo
   el = $('stmt-preview-title'); if(el) el.textContent = titles[type] || 'Statement';
   el = $('stmt-preview-sub');   if(el) el.textContent = FARM.name + ' · ' + lbl;
   var icon = $('stmt-preview-icon');
-  if(icon) icon.style.background = colours[type] || 'var(--gd)';
+  if(icon){ icon.style.background = colours[type] || 'var(--gd)'; if(icon._rnSaved){ icon.innerHTML = icon._rnSaved; icon._rnSaved = null; } }
 
 var printBtn = $('stmt-preview-print-btn');
-  if(printBtn) printBtn.onclick = function(){ openStatement(type); };
+  if(printBtn){ printBtn.onclick = function(){ openStatement(type); }; printBtn.style.background = 'var(--gd)'; }
   var waBtn = $('stmt-preview-wa-btn');
   if(waBtn) waBtn.onclick = function(){ shareWhatsApp(); };
 
@@ -73579,6 +73580,37 @@ var RN_DOC_CSS = 'body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif
   'i{font-style:normal;font-size:11px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em}' +
   '@media print{body{padding:0}.pb{border-top:0;padding-top:0}}';
 
+/* Preview (-416): the window the statements open, with the record inside a frame.
+   RN_DOC_CSS is written for a document of its own - it styles body, table, th, td
+   and i - so placed straight into the page it would restyle the app behind the
+   window until it closed. No WhatsApp here: that button sends the money summary. */
+var RN_PV_CLOUD = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2">' +
+  '<path d="M17.5 18a4.5 4.5 0 000-9 6 6 0 00-11.6 1.6A3.7 3.7 0 006.5 18"/><line x1="8.5" y1="20.5" x2="7.5" y2="22.5"/>' +
+  '<line x1="12.5" y1="20.5" x2="11.5" y2="22.5"/><line x1="16.5" y1="20.5" x2="15.5" y2="22.5"/></svg>';
+function rnReportPreview(){
+  try {
+    var bg = $('stmt-preview-bg'), body = $('stmt-preview-body');
+    if (!bg || !body){ rnReportOpen(); return; }
+    var farm = (ST && ST.farmName) || (typeof FARM !== 'undefined' && FARM.name) || rnT('Your farm', 'Jou plaas');
+    var el = $('stmt-preview-title'); if (el) el.textContent = rnT('Rainfall record', 'Reënvalrekord');
+    el = $('stmt-preview-sub'); if (el) el.textContent = farm + ' · ' + rnYearLabel(rnToday());
+    var icon = $('stmt-preview-icon');
+    if (icon){ if (!icon._rnSaved) icon._rnSaved = icon.innerHTML; icon.innerHTML = RN_PV_CLOUD; icon.style.background = '#2F6FAB'; }
+    var pr = $('stmt-preview-print-btn');
+    if (pr){ pr.onclick = function(){ rnReportOpen(); }; pr.style.background = '#2F6FAB'; pr.style.display = ''; }
+    var wa = $('stmt-preview-wa-btn'); if (wa) wa.style.display = 'none';
+    body.innerHTML = '';
+    var f = document.createElement('iframe');
+    f.title = rnT('Rainfall record', 'Reënvalrekord');
+    f.style.cssText = 'display:block;width:100%;border:0;min-height:480px;background:#fff';
+    f.onload = function(){ try { var h = f.contentDocument.documentElement.scrollHeight; if (h) f.style.height = h + 'px'; } catch(e){} };
+    f.srcdoc = '<!doctype html><html lang="' + (rnAf() ? 'af' : 'en') + '"><head><meta charset="utf-8"><style>' +
+      RN_DOC_CSS + '</style></head><body>' + rnReportHTML() + '</body></html>';
+    body.appendChild(f);
+    if (bg.parentNode !== document.body) document.body.appendChild(bg);
+    bg.style.display = 'flex';
+  } catch(e){ try{ toast(rnT('Could not open the record.', 'Kon nie die rekord oopmaak nie.'), 'error'); }catch(_){} }
+}
 function rnReportOpen(){
   try {
     var w = window.open('', '_blank');
@@ -73952,6 +73984,7 @@ try {
                              af:'Jou reënboek, hierdie seisoen teen die langtermyn, en wat dit vir die plan beteken.' };
     I18N['rn.rec.title'] = { en:'Rainfall record', af:'Reënvalrekord' };
     I18N['rn.rec.print'] = { en:'Print', af:'Druk' };
+    I18N['rn.rec.preview'] = { en:'Preview', af:'Voorskou' };
     I18N['rn.rec.desc']  = { en:'Your rain year by month and by gauge, against the long-term — for an insurer, the bank or a drought-relief application.',
                              af:'Jou reënjaar per maand en per reënmeter, teen die langtermyn — vir \'n versekeraar, die bank of \'n droogtehulp-aansoek.' };
   }
