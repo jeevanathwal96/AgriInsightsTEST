@@ -153,7 +153,7 @@
       if (error) throw error;
       return true;
     },
-    async signOut() { _srvForget(); await client().auth.signOut(); },
+    async signOut() { _srvForget(); try{ live.stop(); }catch(e){} await client().auth.signOut(); },
     async currentUser() {
       const { data } = await client().auth.getUser();
       return data ? data.user : null;
@@ -3037,6 +3037,37 @@
   _syncWrap('imports',   'importBatch', importBatch, 'remove', true);
   _syncWrap('livestock', 'livestock',  livestock,   'addHealth', true);
 
+  /* ---- LIVE: another device's change reaches this screen without a reload ----------
+     Supabase Realtime (live_updates_migration.sql puts these tables in the publication).
+     Row-level security applies to what a browser hears, so it only ever hears its own farm.
+     Deletes are NOT delivered here - Realtime cannot filter a delete by farm - so the
+     caller keeps a slow poll for those. Only tables another device writes are listened to:
+     the phone's events, and payslip "sent" answers. (signed off 19 Sep 2026) */
+  const LIVE_TABLES = ['transactions', 'livestock_moves', 'livestock_treatments', 'livestock_health',
+    'rainfall_readings', 'rainfall_gauges', 'fuel_issues', 'crop_inputs', 'orchard_sprays',
+    'orchard_harvest', 'crop_events', 'farm_documents', 'payslip_sends'];
+  let _liveCh = null, _liveFarm = null, _liveState = 'off';
+  const live = {
+    tables: LIVE_TABLES,
+    state(){ return _liveState; },
+    farm(){ return _liveFarm; },
+    start(fid, onEvent, onState){
+      live.stop();
+      if(!fid) return;
+      _liveFarm = fid; _liveState = 'joining';
+      let ch = client().channel('farm-live-' + fid);
+      LIVE_TABLES.forEach(function(t){
+        ch = ch.on('postgres_changes', { event: '*', schema: 'public', table: t, filter: 'farm_id=eq.' + fid },
+          function(p){ try{ if(onEvent) onEvent(t, p || {}); }catch(e){} });
+      });
+      _liveCh = ch.subscribe(function(status){ _liveState = String(status || ''); try{ if(onState) onState(_liveState); }catch(e){} });
+    },
+    stop(){
+      if(_liveCh){ try{ client().removeChannel(_liveCh); }catch(e){} }
+      _liveCh = null; _liveFarm = null; _liveState = 'off';
+    }
+  };
+
   const sync = {
     status(){
       var saving = false, failing = [];
@@ -3121,7 +3152,7 @@
                 storage: storage,
                 importBatch: importBatch,
                 rules,
-                pairing: pairing,
+                pairing: pairing, live: live,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
 })(window);

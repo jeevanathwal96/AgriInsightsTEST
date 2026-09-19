@@ -398,7 +398,7 @@
   function enterApp(){
     if (_entering) return Promise.resolve();
     _entering = true;
-    return hydrate().then(hideOverlay).catch(function (e) { _entering = false; throw e; });
+    return hydrate().then(hideOverlay).then(function(){ _liveEnsure(); }).catch(function (e) { _entering = false; throw e; });
   }
 
   // ---- sign in -------------------------------------------------------------
@@ -839,9 +839,7 @@
     if (_refreshing) return;
     if (navigator.onLine === false) return;                                   // offline: outbox handles it
     if (!(window.AI && AI.farm && AI.farm.active()) || !_hasPersistedSession()) return;  // signed-in only
-    var ae = document.activeElement;                                          // don't yank data mid-edit
-    if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
-    try { if (document.querySelector('[id$="-bg"].on')) return; } catch(e){}  // a modal is open
+    if (_refreshBlocked()) return;                                            // mid-edit or a modal open
     if (Date.now() - _lastRefresh < 20000) return;                           // debounce ~20s
     _refreshing = true; _lastRefresh = Date.now();
     try { if (window.flushTxnOutbox) window.flushTxnOutbox(); } catch(e){}    // push local writes first
@@ -862,15 +860,99 @@
         if (AI.workers && window.ST_WORK) pushes.push(AI.workers.saveAll(ST_WORK).catch(function(){}));
       }
     } catch(e){}
-    Promise.all(pushes)
+    return Promise.all(pushes)
       .then(function(){ return (AI.sync && AI.sync.idle) ? AI.sync.idle(15000) : null; })
       .then(function(){ return hydrate({silent:true}); })
       .catch(function(){})
-      .then(function(){ _refreshing = false; });
+      .then(function(){ _refreshing = false; return true; });
+  }
+  /* Never pull data in under the farmer's fingers: not while typing, and not with a dialog open. */
+  function _refreshBlocked(){
+    var ae = document.activeElement;
+    if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return true;
+    try { if (document.querySelector('[id$="-bg"].on')) return true; } catch(e){}
+    return false;
   }
   window.refreshFromCloud = refreshFromCloud;
-  document.addEventListener('visibilitychange', function(){ if (!document.hidden) refreshFromCloud(); });
-  window.addEventListener('online', function(){ refreshFromCloud(); });
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) { refreshFromCloud(); _liveEnsure(); } });
+  window.addEventListener('online', function(){ refreshFromCloud(); _liveEnsure(); });
+
+  /* ---- LIVE: the phone's change shows here without a reload (signed off 19 Sep 2026) ----
+     Before this the computer fetched only when a page loaded or the tab came back into
+     view, so a payslip answered "Yes" on the iPhone stayed "Not sent" on a computer left on
+     screen until the farmer reloaded it. Now Supabase Realtime tells this tab the moment a
+     row another device writes changes; a burst is gathered for 2 seconds, then the same
+     refresh the tab already uses runs and the page on screen is redrawn.
+       - Its OWN saves come back as change messages too. Those are skipped: a row the phone
+         marks as its own (source 'Phone', src 'phone', a payslip answer, a permit or filing)
+         always counts; anything else is ignored within 8 seconds of this tab saving.
+       - Never mid-edit or with a dialog open: it waits and tries again every 3 seconds.
+       - Deletes are not delivered by Realtime, and the connection can drop, so while the tab
+         is visible it also checks: every 60 seconds with no live connection, every 5 minutes
+         with one. */
+  var _liveTimer = null, _livePhone = false, _lastOwnWrite = 0, _livePoll = null, _liveHooked = false;
+  function _liveOwnHooks(){
+    if (_liveHooked) return; _liveHooked = true;
+    try { if (AI.sync && AI.sync.onChange) AI.sync.onChange(function(){ try { if (AI.sync.status().saving) _lastOwnWrite = Date.now(); } catch(e){} }); } catch(e){}
+    ['txnWriteThrough', 'txnUpdateThrough', 'txnDeleteThrough'].forEach(function(n){
+      var f = window[n]; if (typeof f !== 'function' || f.__liveWrapped) return;
+      var w = function(){ _lastOwnWrite = Date.now(); return f.apply(this, arguments); };
+      w.__liveWrapped = true; window[n] = w;
+    });
+  }
+  function _livePhoneRow(table, row){
+    row = row || {};
+    if (table === 'payslip_sends') return true;
+    if (table === 'transactions') return row.source === 'Phone';
+    if (table === 'fuel_issues') return row.src === 'phone';
+    if (table === 'farm_documents') return row.doc_type === 'PERMIT' || row.doc_type === 'FILING';
+    return false;
+  }
+  function _liveOnEvent(table, p){
+    var row = p['new'] || p.record || {};
+    var phone = _livePhoneRow(table, row);
+    if (!phone && Date.now() - _lastOwnWrite < 8000) return;               // this tab's own save, echoed back
+    if (phone) _livePhone = true;
+    _liveKick(2000);
+  }
+  function _liveKick(ms){
+    if (_liveTimer) return;
+    _liveTimer = setTimeout(function tick(){
+      _liveTimer = null;
+      if (document.hidden) return;                                          // coming back into view refreshes anyway
+      if (_refreshing || _refreshBlocked()) { _liveTimer = setTimeout(tick, 3000); return; }
+      var fromPhone = _livePhone; _livePhone = false;
+      _lastRefresh = 0;
+      var r = refreshFromCloud();
+      if (r && r.then) r.then(function(){
+        try { if (typeof window.toast === 'function') window.toast(fromPhone ? 'Updated from your phone just now.' : 'Updated from another device just now.', 'info'); } catch(e){}
+      });
+    }, ms);
+  }
+  function _liveEnsure(){
+    try {
+      if (window.__AI_GUEST || !(window.AI && AI.live && AI.farm && AI.farm.active())) return;
+      if (!_hasPersistedSession()) { AI.live.stop(); return; }
+      _liveOwnHooks();
+      var fid = AI.farm.active();
+      var st = AI.live.state();
+      if (AI.live.farm() !== fid || st === 'off' || st === 'CLOSED' || st === 'CHANNEL_ERROR' || st === 'TIMED_OUT') {
+        AI.live.start(fid, _liveOnEvent, function(){});
+      }
+    } catch(e){}
+    if (!_livePoll) {
+      var last = Date.now();
+      _livePoll = setInterval(function(){
+        if (document.hidden || window.__AI_GUEST) return;
+        _liveEnsure();
+        var up = window.AI && AI.live && AI.live.state() === 'SUBSCRIBED';
+        if (Date.now() - last < (up ? 300000 : 60000)) return;
+        last = Date.now();
+        _lastRefresh = 0; refreshFromCloud();
+      }, 15000);
+    }
+  }
+  window.aiLiveEnsure = _liveEnsure;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { injectUI(); start(); });
