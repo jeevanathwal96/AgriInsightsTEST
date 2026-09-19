@@ -24451,8 +24451,8 @@ async function wkUndoPayRun(runId){
   if(!(await appConfirm(_msg, { danger:true, okLabel:rnT('Undo the pay run','Ontdoen die betaalronde') }))) return;
   wkWithdrawSlips(runId);
   if(typeof ST!=='undefined' && ST.txns){
-    try{ if(window.AI && AI.farm && AI.farm.active()){ ST.txns.filter(function(t){return t.payRunId===runId;}).forEach(function(t){ txnDeleteThrough(t); }); if(AI.workers&&AI.workers.removePayRun) AI.workers.removePayRun(runId).catch(function(e){ console.error('Backend pay-run delete failed:', e); }); } }catch(e){}
-    ST.txns=ST.txns.filter(function(t){ return t.payRunId!==runId; });
+    try{ if(window.AI && AI.farm && AI.farm.active()){ ST.txns.filter(function(t){return wkRunTxn(t, run);}).forEach(function(t){ txnDeleteThrough(t); }); if(AI.workers&&AI.workers.removePayRun) AI.workers.removePayRun(runId).catch(function(e){ console.error('Backend pay-run delete failed:', e); }); } }catch(e){}
+    ST.txns=ST.txns.filter(function(t){ return !wkRunTxn(t, run); });
   }
   (run.applied||[]).forEach(function(a){
     var w=wkFind(a.wid); if(!w) return;
@@ -24465,6 +24465,20 @@ async function wkUndoPayRun(runId){
   if(typeof saveState==='function') saveState();
   if(typeof toast==='function') toast('Pay run reversed \u2014 removed from Labour & Wages.','success');
   renderWorkers();
+}
+/* The books entry a pay run posted. `payRunId` lives only in this tab's memory - the
+   server row carries `ent: 'payrun:<id>'` (monthly) or the "Seasonal wages - <month>"
+   description (seasonal, one run a month) - so after a reload an undo matched nothing
+   and left the wages in the books while the pay run itself went. Found live, 19 Sep 2026:
+   a R38 728,45 Wages entry stayed behind an undone September run. */
+function wkRunTxn(t, run){
+  if(!t || !run) return false;
+  if(t.payRunId===run.id || t.ent==='payrun:'+run.id) return true;
+  if(run.seasonal && !run.source && t.source==='Payroll'){
+    var d=String(t.desc||''), pre='Seasonal wages \u2014 '+run.label;
+    if(d===pre || d.indexOf(pre+' \u00b7 ')===0) return true;
+  }
+  return false;
 }
 function wkSeasonalPosted(label){ return (ST_WORK.payRuns||[]).some(function(r){ return r.label===label && r.seasonal; }); }
 function wkPostSeasonal(){
