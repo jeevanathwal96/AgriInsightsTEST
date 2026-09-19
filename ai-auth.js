@@ -889,7 +889,7 @@
        - Never mid-edit or with a dialog open: it waits and tries again every 3 seconds.
        - Deletes are not delivered by Realtime, and the connection can drop, so while the tab
          is visible it also checks: every 60 seconds with no live connection, every 5 minutes
-         with one. */
+         with one. The live refresh runs even while the tab is hidden. */
   var _liveTimer = null, _livePhone = false, _lastOwnWrite = 0, _livePoll = null, _liveHooked = false;
   function _liveOwnHooks(){
     if (_liveHooked) return; _liveHooked = true;
@@ -919,7 +919,10 @@
     if (_liveTimer) return;
     _liveTimer = setTimeout(function tick(){
       _liveTimer = null;
-      if (document.hidden) return;                                          // coming back into view refreshes anyway
+      /* Refreshed even while the tab is hidden - behind another window, or on the other
+         screen - so it is already right when the farmer looks. Skipping it and relying on
+         "coming back into view" lost the change whenever that refresh fell inside the
+         20-second gap (found testing -419, 19 Sep 2026). */
       if (_refreshing || _refreshBlocked()) { _liveTimer = setTimeout(tick, 3000); return; }
       var fromPhone = _livePhone; _livePhone = false;
       _lastRefresh = 0;
