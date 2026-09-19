@@ -363,6 +363,11 @@
   let CAN_CAT_RULES     = false;
   let CAN_FUEL_METER    = false;
   let CAN_FUEL_SRC      = false;
+  /* Payslips that stay what was paid (payslips_migration.sql, signed off 19 Sep 2026).
+     Without it the desktop works payslips out as it always has, and nothing is kept. */
+  let CAN_PAYSLIPS      = false;   // payslips + payslip_sends
+  let CAN_WORKER_PHONE  = false;   // workers.phone / payslip_whatsapp_ok / _on / payslip_lang
+  let CAN_DEVICES       = false;   // farm_devices: "whose phone is this?"
   let CAN_ASSET_DISPOSAL = false;
   /* "It's a running cost, stop asking." Its own column rather than reusing cat_confirmed:
      that answer is about the CATEGORY being right, this one is about the cost not being
@@ -409,6 +414,9 @@
        way: an un-migrated project must keep saving fuel, not lose every issue. */
     CAN_FUEL_METER     = await has('fuel_issues','hour_meter');
     CAN_FUEL_SRC       = await has('fuel_issues','src');
+    CAN_PAYSLIPS       = (await has('payslips','snap')) && (await has('payslip_sends','outcome'));
+    CAN_WORKER_PHONE   = await has('workers','payslip_whatsapp_ok');
+    CAN_DEVICES        = await has('farm_devices','kind');
   }
   /* ================== ROW MEMORY - two-device safety (Phase 0) ==================
      What this device actually LOADED from the server, per table.
@@ -2095,7 +2103,7 @@
   // ph->holiday hours). Deferred this pass (logged): compliance sub-state
   // (uifPayments[], coida, hours config, doc tracking) and contractTemplate.extra.
   // ==========================================================================
-  function wkrToDb(w, fid){ return { farm_id:fid, local_id:String(w.id),
+  function wkrToDb(w, fid){ var row = { farm_id:fid, local_id:String(w.id),
     name:w.name||null, role:w.role||null, worker_type:w.type||null, start_date:w.start||null,
     on_farm:!!w.onFarm, id_no:w.idNo||null, basis:w.basis||null,
     amt:(w.amt!=null&&w.amt!=='')?Number(w.amt):null,
@@ -2116,12 +2124,20 @@
     fund_freq:(w.fund&&w.fund.freq)||null,
     fund_per_pay:(w.fund&&w.fund.perPay!=null)?Number(w.fund.perPay):null,
     fund_balance:(w.fund&&w.fund.balance!=null)?Number(w.fund.balance):null,
-    fund_consent:(w.fund&&w.fund.consent!=null)?!!w.fund.consent:null }; }
+    fund_consent:(w.fund&&w.fund.consent!=null)?!!w.fund.consent:null };
+    /* The cellphone a payslip goes to, the worker's okay for WhatsApp and the day it was
+       given, and the payslip's language. Sent only once the columns exist. */
+    if(CAN_WORKER_PHONE){ row.phone=w.phone||null; row.payslip_whatsapp_ok=!!w.waOk;
+      row.payslip_whatsapp_on=(w.waOk&&w.waOn)?w.waOn:null; row.payslip_lang=(w.slipLang==='af')?'af':(w.slipLang==='en'?'en':null); }
+    return row; }
   function wkrFromDb(r){ var w={ id:r.local_id, name:r.name||'', role:r.role||'', type:r.worker_type||'',
     start:r.start_date||'', onFarm:!!r.on_farm, idNo:r.id_no||'', basis:r.basis||'month',
     amt:Number(r.amt)||0, hoursWeek:(r.hours_week!=null)?Number(r.hours_week):45,
     hoursDay:(r.hours_day!=null)?Number(r.hours_day):8, uif:(r.uif!=null)?!!r.uif:true,
     uifNo:r.uif_no||'', uifExempt:!!r.uif_exempt, worksSundays:!!r.works_sundays, contract:r.contract_status||'missing', activity:r.activity||'' };
+    if(r.phone) w.phone=r.phone;
+    if(r.payslip_whatsapp_ok){ w.waOk=true; if(r.payslip_whatsapp_on) w.waOn=r.payslip_whatsapp_on; }
+    if(r.payslip_lang) w.slipLang=r.payslip_lang;
     if(r.leave_annual!=null||r.leave_sick!=null||r.leave_family!=null){ w.leave={annual:Number(r.leave_annual)||0,sick:Number(r.leave_sick)||0,family:(r.leave_family!=null)?Number(r.leave_family):3}; }
     if(r.housing_deduction!=null) w.housing={deduction:Number(r.housing_deduction)};
     if(r.adv_owing!=null||r.adv_per_pay!=null||r.adv_reason||r.adv_consent!=null){ w.adv={owing:Number(r.adv_owing)||0,perPay:Number(r.adv_per_pay)||0,reason:r.adv_reason||'',consent:!!r.adv_consent}; } else { w.adv=null; }
@@ -2166,6 +2182,19 @@
     if(r.source)o.source=r.source; if(r.block)o.block=r.block;
     if(r.per_picker!=null)o.perPicker=Number(r.per_picker);
     return o; }
+  /* A kept payslip: written once when its pay run is posted, then only its status moves
+     (issued -> withdrawn on undo -> replaced when the month is posted again). `snap` is
+     the whole printed page, so nothing a later edit does to the worker can change it. */
+  function payslipToDb(p, fid){ return { farm_id:fid, local_id:String(p.id), run_local_id:String(p.runId),
+    worker_local_id:String(p.wid), period_label:p.label||'', seasonal:!!p.seasonal, status:p.status||'issued',
+    replaced_by:p.replacedBy||null, kept_on:p.keptOn||null,
+    gross:(p.snap&&p.snap.gross!=null)?Number(p.snap.gross):null, net:(p.snap&&p.snap.net!=null)?Number(p.snap.net):null,
+    snap:p.snap||{} }; }
+  function payslipFromDb(r){ return { id:r.local_id, runId:r.run_local_id, wid:r.worker_local_id, label:r.period_label||'',
+    seasonal:!!r.seasonal, status:r.status||'issued', replacedBy:r.replaced_by||null, keptOn:r.kept_on||'', snap:r.snap||{} }; }
+  /* Written by the PHONE only: the farmer's answer to "did it reach Sipho?". Read here. */
+  function payslipSendFromDb(r){ return { uid:r.client_uid, slip:r.payslip_local_id, wid:r.worker_local_id||'',
+    outcome:r.outcome||'sent', at:r.sent_at||r.created_at||'' }; }
   function payAppliedRows(stw, fid){ var rows=[]; (stw.payRuns||[]).forEach(function(r){ (r.applied||[]).forEach(function(a){ rows.push({ farm_id:fid, run_local_id:String(r.id), worker_local_id:String(a.wid), adv_repaid:(a.advRepay!=null)?Number(a.advRepay):0, savings_in:(a.savings!=null)?Number(a.savings):0 }); }); }); return rows; }
 
   load.workers = async function(farmId){
@@ -2188,6 +2217,17 @@
       selectAll(() => client().from('pay_run_applied').select('*').eq('farm_id',farmId))
     ]);
     for(const r of [wk,st,lg,lv,dc,pe,pr,pa]) if(r&&r.error) throw r.error;
+    /* Kept payslips and what the phone sent. Only when the tables exist; otherwise the
+       result carries neither and the device keeps what it holds. */
+    var ps=null, sd=null;
+    if(CAN_PAYSLIPS){
+      const [a,b] = await Promise.all([
+        selectAll(() => client().from('payslips').select('*').eq('farm_id',farmId).order('created_at')),
+        selectAll(() => client().from('payslip_sends').select('*').eq('farm_id',farmId).order('sent_at'))
+      ]);
+      if(a&&a.error) throw a.error; if(b&&b.error) throw b.error;
+      ps=(a.data||[]).map(payslipFromDb); sd=(b.data||[]).map(payslipSendFromDb);
+    }
     _srvNote('workers', wk.data);            _srvNote('worker_ledger', lg.data);
     _srvNote('worker_leave_log', lv.data);   _srvNote('worker_docs', dc.data);
     _srvNote('payroll_entries', pe.data);    _srvNote('pay_runs', pr.data);
@@ -2200,7 +2240,9 @@
     var payRuns=(pr.data||[]).map(payRunFromDb);
     var byRun={}; (pa.data||[]).forEach(function(r){ (byRun[r.run_local_id]=byRun[r.run_local_id]||[]).push({wid:r.worker_local_id,advRepay:Number(r.adv_repaid)||0,savings:Number(r.savings_in)||0}); });
     payRuns.forEach(function(r){ if(byRun[r.id]) r.applied=byRun[r.id]; });
-    return { workers:workers, settingsRow:(st.data&&st.data[0])||null, payroll:wkPayrollToMaps(pe.data||[]), payRuns:payRuns };
+    var out={ workers:workers, settingsRow:(st.data&&st.data[0])||null, payroll:wkPayrollToMaps(pe.data||[]), payRuns:payRuns };
+    if(ps){ out.payslips=ps; out.payslipSends=sd; }
+    return out;
   };
 
   var _wkSnap=null;
@@ -2209,7 +2251,7 @@
     async saveAll(stw){
       if(!stw) return;
       const fid=farm.active(); if(!fid) return;
-      const snap=JSON.stringify({ w:stw.workers, s:[stw.nmwRate,stw.hoursWeek,stw.taxThreshold,(stw.compliance&&stw.compliance.sdlRegistered),stw.contractTemplate], p:stw.paye, b:stw.bonus, e:stw.extra, sd:stw.seasonal, r:stw.payRuns });
+      const snap=JSON.stringify({ w:stw.workers, s:[stw.nmwRate,stw.hoursWeek,stw.taxThreshold,(stw.compliance&&stw.compliance.sdlRegistered),stw.contractTemplate], p:stw.paye, b:stw.bonus, e:stw.extra, sd:stw.seasonal, r:stw.payRuns, ps:stw.payslips });
       if(snap===_wkSnap) return;
       { const e=(await client().from('worker_settings').upsert(wkSettToDb(stw,fid),{onConflict:'farm_id'})).error; if(e) throw e; }
       var ws=(stw.workers||[]);
@@ -2220,6 +2262,9 @@
       var peR=wkPayrollRows(stw,fid); if(peR.length){ const e=(await client().from('payroll_entries').upsert(peR,{onConflict:'farm_id,period_label,worker_local_id'})).error; if(e) throw e; }
       var prR=(stw.payRuns||[]).map(function(r){return payRunToDb(r,fid);}); if(prR.length){ const e=(await client().from('pay_runs').upsert(prR,{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       var paR=payAppliedRows(stw,fid);      { const e=await replaceAllRows('pay_run_applied',fid,paR); if(e) throw e; }
+      /* Upsert only, never a prune: a kept payslip is a record that was handed to a worker. */
+      if(CAN_PAYSLIPS && (stw.payslips||[]).length){
+        const e=(await client().from('payslips').upsert(stw.payslips.map(function(p){return payslipToDb(p,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       _wkSnap=snap;
       return true;
     },
@@ -2690,7 +2735,7 @@
   }
   const pairing = {
     available(){ return !!(global.crypto && global.crypto.subtle && global.crypto.getRandomValues); },
-    async create(){
+    async create(kind){
       const fid = farm.active();
       if(!fid) throw new Error('No active farm');
       if(!pairing.available()){
@@ -2708,13 +2753,51 @@
         .insert({ farm_id: fid, created_by: uid, code: code, token_hash: hash })
         .select().single();
       if(r.error) throw r.error;
-      return { code: code, secret: secret, farmId: fid,
+      /* "Whose phone is this?" The code row is deleted the moment a phone uses it, so the
+         answer is kept on its own row, which the phone finds through the same code. */
+      let device = null;
+      if(CAN_DEVICES){
+        const d = await client().from('farm_devices')
+          .insert({ farm_id: fid, pair_code: code, kind: kind === 'owner' ? 'owner' : 'staff', created_by: uid })
+          .select().single();
+        if(d.error) throw d.error;
+        device = d.data || null;
+      }
+      return { code: code, secret: secret, farmId: fid, device: device,
                expiresAt: (r.data && r.data.expires_at) || null,
                id: (r.data && r.data.id) || null };
     },
     /* Cancelling a code the farmer decided not to use. Spending it is what makes
        it dead, so it is marked used rather than deleted - the row is the only
        record that a pairing was ever offered. */
+    /* Phones added, newest first — only those a phone actually paired with. */
+    async devices(){
+      const fid = farm.active(); if(!fid || !CAN_DEVICES) return null;
+      const r = await client().from('farm_devices').select('id,kind,pair_code,created_at').eq('farm_id', fid).order('created_at', { ascending: false });
+      if(r.error) throw r.error;
+      return r.data || [];
+    },
+    async setKind(id, kind){
+      if(!id || !CAN_DEVICES) return false;
+      const r = await client().from('farm_devices').update({ kind: kind === 'owner' ? 'owner' : 'staff' }).eq('id', id);
+      if(r.error) throw r.error;
+      return true;
+    },
+    async forget(id){
+      if(!id || !CAN_DEVICES) return false;
+      const r = await client().from('farm_devices').delete().eq('id', id);
+      if(r.error) throw r.error;
+      return true;
+    },
+    canAsk(){ return CAN_DEVICES; },
+    /* Whether a code was used: the edge function DELETES a code once a phone redeems it,
+       so a row that is still here means no phone paired with it. */
+    async tokenState(id){
+      if(!id) return null;
+      const r = await client().from('device_pair_tokens').select('id,used_at,device_label').eq('id', id).limit(1);
+      if(r.error) throw r.error;
+      return (r.data && r.data[0]) || null;
+    },
     async revoke(id){
       if(!id) return;
       const r = await client().from('device_pair_tokens')

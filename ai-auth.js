@@ -699,7 +699,7 @@
             }
           }
         } catch (e) { console.error('rainfall hydrate', e); }
-        try { if (window.ST_WORK && wk && !_unsent('workers')) { var _wkHas = (wk.workers && wk.workers.length); var _wkLoc = (ST_WORK.workers && ST_WORK.workers.length); if (_wkHas || !_wkLoc) { ST_WORK.workers = wk.workers || []; if (wk.settingsRow && AI.workers && AI.workers.apply) { AI.workers.apply(ST_WORK, wk.settingsRow); } if (wk.payroll) { ST_WORK.paye = wk.payroll.paye || {}; ST_WORK.bonus = wk.payroll.bonus || {}; ST_WORK.extra = wk.payroll.extra || {}; ST_WORK.seasonal = wk.payroll.seasonal || {}; } ST_WORK.payRuns = wk.payRuns || []; } } } catch (e) { console.error('workers apply', e); }
+        try { if (window.ST_WORK && wk && !_unsent('workers')) { var _wkHas = (wk.workers && wk.workers.length); var _wkLoc = (ST_WORK.workers && ST_WORK.workers.length); if (_wkHas || !_wkLoc) { ST_WORK.workers = wk.workers || []; if (wk.settingsRow && AI.workers && AI.workers.apply) { AI.workers.apply(ST_WORK, wk.settingsRow); } if (wk.payroll) { ST_WORK.paye = wk.payroll.paye || {}; ST_WORK.bonus = wk.payroll.bonus || {}; ST_WORK.extra = wk.payroll.extra || {}; ST_WORK.seasonal = wk.payroll.seasonal || {}; } ST_WORK.payRuns = wk.payRuns || []; if (wk.payslips) { ST_WORK.payslips = wk.payslips; ST_WORK.payslipSends = wk.payslipSends || []; } } } } catch (e) { console.error('workers apply', e); }
         /* The same farm facts live in TWO objects and only one of them round-trips.
            ST.vatRegistered comes back from the server here; FARM.vat never did — and the
            whole VAT engine gates on FARM.vat (IE_split, computeRPT's vatOut/vatIn, the

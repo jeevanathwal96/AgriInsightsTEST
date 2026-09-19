@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=55"></script>
-<script src="ai-auth.js?v=41"></script>
+<script src="ai-data.js?v=56"></script>
+<script src="ai-auth.js?v=42"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -8988,6 +8988,18 @@ table.rn-t td.dim{color:var(--t4)}
     </div>
     <div class="hint" id="awf-contract-hint">We&rsquo;ll open the contract builder right after you add them. The law needs signed particulars on file.</div></div>
 
+  <!-- Cellphone and payslips (signed off 19 Sep 2026, screen C1). Only the owner's phone
+       ever uses the number: it is who a payslip is sent to on WhatsApp. -->
+  <div class="wk-sl" style="margin:18px 0 10px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--gm)">Cellphone and payslips <span style="text-transform:none;letter-spacing:0;color:var(--t4);font-weight:600">&mdash; optional</span></div>
+  <div class="wk-f"><label>Cellphone number</label><input type="tel" id="awf-phone" placeholder="082 555 0142" autocomplete="off">
+    <div class="hint">Who their payslip goes to on WhatsApp, from your phone.</div></div>
+  <div class="wk-switch"><div><div class="t">They agreed to get payslips on WhatsApp</div><div class="d">Keep their written okay with their documents, the same way as for an advance.</div></div><div class="wk-sw" id="awf-wa" onclick="wkTogSwitch(this)"></div></div>
+  <div class="wk-f"><label>Payslip in</label>
+    <div class="wk-seg" id="awf-slang">
+      <button class="on" data-v="en" onclick="wkPickSeg(this)">English</button>
+      <button data-v="af" onclick="wkPickSeg(this)">Afrikaans</button>
+    </div></div>
+
   <!-- Money in between -->
   <div class="wk-sl" style="margin:18px 0 10px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--gm)">Money in between <span style="text-transform:none;letter-spacing:0;color:var(--t4);font-weight:600">&mdash; optional</span></div>
   <div class="wk-switch"><div><div class="t">They owe you an advance</div><div class="d">Money you&rsquo;ve fronted them &mdash; paid back off their wage.</div></div><div class="wk-sw" id="awf-adv" onclick="wkTogSwitch(this);wkReveal('awf-adv-rev',this)"></div></div>
@@ -10124,7 +10136,11 @@ table.rn-t td.dim{color:var(--t4)}
         <div class="set-h"><span class="ic">&#128241;</span><span data-t="set.phone.h">Your phone</span></div>
         <div class="hint" data-t="set.phone.sub" style="margin-top:-4px;font-size:12px">The phone app is where the other 340 days happen &mdash; a birth at the gate, diesel at the pump, a rain reading before breakfast. Pair it once and it works from the same books as this screen. The code below is not a password: it dies ten minutes after you ask for it, used or not.</div>
         <div id="set-pair-idle" style="margin-top:12px">
+          <!-- "Whose phone is this?" (signed off 19 Sep 2026, screen C4). Drawn by
+               aiPairKindRender(): only a phone marked as the owner's pulls payslips. -->
+          <div id="set-pair-kind" data-notranslate></div>
           <button type="button" class="btn-pri" id="set-pair-btn" data-t="set.phone.add" onclick="aiPairOpen()">Add your phone</button>
+          <div id="set-pair-devs" data-notranslate></div>
         </div>
         <div id="set-pair-live" style="display:none;margin-top:14px">
           <div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap">
@@ -19615,7 +19631,7 @@ var FRESH_SHAPE = {
   /* nmwRate and hoursWeek are the sectoral determination, not records, and stay.
      Everything the farm has DONE about employment law goes: UIF and SDL numbers,
      the payroll runs, the compliance record. */
-  ST_WORK:    { workers:[], payRuns:[], seasonal:{}, paye:{},
+  ST_WORK:    { workers:[], payRuns:[], payslips:[], payslipSends:[], seasonal:{}, paye:{},
                 compliance:{ uifPayments:[], uifNumber:'', sdlNumber:'', coida:null, coidaFiled:false, docs:[] } },
   ST_LS:      { camps:[], herd:[], animals:[], moves:[], treatments:[], health:[], breedings:[] },
   ST_FRUIT:   { blocks:[], pricing:{}, sprayDiary:{}, phi:{}, harvest:[] },
@@ -19956,6 +19972,7 @@ function nav(id) {
     if (id === 'transactions'){ if(typeof txRefreshDeletedChip==='function') txRefreshDeletedChip(); }
   if (id === 'settings')    {
     try{ renderRulesList(); }catch(e){}
+    try{ if (typeof aiPairKindRender === 'function') aiPairKindRender(); }catch(e){}
     try{ rnSyncVeldSetting(); }catch(e){}
     try{ if (typeof rnSettingsRender === 'function') rnSettingsRender(); }catch(e){}
     var sdi=$('set-di');    if(sdi) sdi.checked = (ST.diOffer==='yes');
@@ -24203,6 +24220,8 @@ function wkMonthLabel(){ var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_T
 function wkPayRows(labelOverride){
   var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
   var label=labelOverride||((typeof wkMonthLabel==='function')?wkMonthLabel():'');
+  /* A posted month is what was paid: its kept payslips, never today's records. */
+  var kept=wkKeptRows(label); if(kept) return kept;
   var bonusMap=(ST_WORK.bonus&&ST_WORK.bonus[label])||{};
   var extraMap=(ST_WORK.extra&&ST_WORK.extra[label])||{};
   return wkList().filter(function(w){ return w.basis==='month'; }).map(function(w){
@@ -24222,6 +24241,100 @@ function wkPayRows(labelOverride){
     return { w:w, base:base, bonus:bonus, premium:premium, sun:(ex.sun||0), ph:(ex.ph||0), gross:gross, uif:uif, advRepay:advRepay, savings:savings, paye:paye, net:gross-uif-paye-advRepay-savings, ok:hourly>=rate-0.005 };
   });
 }
+/* ---- Kept payslips (signed off 19 Sep 2026, decisions d1-d5 = A) -----------------
+   A payslip used to be worked out again every time it was opened, from the worker's
+   record AS IT IS NOW. Proved on the demo farm: September posted with Sipho taking home
+   R6 039,00, then an advance given, and his September payslip read R5 439,00 - an
+   advance repayment that never happened - while the POSTED pay run's own table moved
+   from R25 632 to R25 031,55.
+
+   So posting a pay run now KEEPS one payslip per worker: every line the page prints,
+   frozen (`snap`). A posted month reads its kept payslips and nothing else - the pay-run
+   table, the payslip, its PDF, the payroll report and the phone. Undo withdraws them;
+   posting the month again writes new ones and marks the withdrawn ones replaced. None is
+   ever deleted: it is a record that was handed to a worker. The phone reads these rows
+   (08-mobile/src/core/payslip.ts draws the same page) and writes payslip_sends. */
+function wkSlips(){ if(!ST_WORK.payslips) ST_WORK.payslips=[]; return ST_WORK.payslips; }
+function wkSlipSendsAll(){ return ST_WORK.payslipSends||[]; }
+function wkIsoToday(){ var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); var p=function(n){ return (n<10?'0':'')+n; }; return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+/* The issued payslip for one worker and one pay period, or null. */
+function wkSlipFor(label, wid){ var L=wkSlips(); for(var i=L.length-1;i>=0;i--){ var p=L[i]; if(p.label===label && String(p.wid)===String(wid) && p.status==='issued') return p; } return null; }
+/* Kept rows for a posted monthly run, in the shape wkPayRows returns - or null. */
+function wkKeptRows(label){
+  var out=[]; wkSlips().forEach(function(p){
+    if(p.label!==label || p.seasonal || p.status!=='issued' || !p.snap || !p.snap.row) return;
+    var w=wkFind(p.wid) || { id:p.wid, name:(p.snap.worker&&p.snap.worker.name)||'', basis:'month' };
+    var r=p.snap.row; out.push({ w:w, base:r.base, bonus:r.bonus, premium:r.premium, sun:r.sun, ph:r.ph, gross:r.gross, uif:r.uif,
+      advRepay:r.advRepay, savings:r.savings, paye:r.paye, net:r.net, ok:r.ok!==false, kept:p });
+  });
+  return out.length ? out : null;
+}
+/* A posted period with no kept payslip (posted before this shipped): decision d1 - it is
+   still shown, worked out from today's records, and says so. */
+function wkSlipRebuilt(label, w){
+  if(!w || wkSlipFor(label, w.id)) return false;
+  var seasonal = w.basis!=='month';
+  return (ST_WORK.payRuns||[]).some(function(r){ return r.label===label && !!r.seasonal===seasonal && !r.source; });
+}
+/* Where one payslip stands - the SAME rule as 08-mobile/src/core/payslip.ts slipState. */
+function wkSlipState(p){
+  if(!p) return { k:'none' };
+  if(p.status==='withdrawn') return { k:'withdrawn' };
+  if(p.status==='replaced') return { k:'replaced' };
+  var sends=wkSlipSendsAll().filter(function(s){ return s.slip===p.id; }).sort(function(a,b){ return String(a.at)<String(b.at)?-1:1; });
+  var last=sends[sends.length-1];
+  if(last && last.outcome==='sent') return { k:'sent', at:last.at };
+  var older=wkSlips().some(function(o){ return o.id!==p.id && o.label===p.label && String(o.wid)===String(p.wid) && o.status==='replaced'
+    && wkSlipSendsAll().some(function(s){ return s.slip===o.id && s.outcome==='sent'; }); });
+  if(older) return { k:'new' };
+  var w=wkFind(p.wid);
+  if(!w || !String(w.phone||'').trim()) return { k:'nonum' };
+  return { k:'todo', wrong: !!(last && last.outcome==='wrong') };
+}
+function wkShortDate(iso){ var d=new Date(String(iso||'').slice(0,10)+'T12:00:00'); if(isNaN(d)) return ''; var mo=rnAf()?['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Des']:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return d.getDate()+' '+mo[d.getMonth()]; }
+function wkSlipPill(p){
+  var s=wkSlipState(p), txt, fg, bg;
+  if(s.k==='sent'){ txt=rnT('Sent ','Gestuur ')+wkShortDate(s.at); fg='var(--gm)'; bg='var(--gp)'; }
+  else if(s.k==='new'){ txt=rnT('Send the new one','Stuur die nuwe een'); fg='#B45309'; bg='#FFF8E6'; }
+  else if(s.k==='todo'){ txt=rnT('Not sent','Nie gestuur nie'); fg='#B45309'; bg='#FFF8E6'; }
+  else if(s.k==='nonum'){ txt=rnT('No number','Geen nommer'); fg='var(--t3)'; bg='var(--br2)'; }
+  else return '';
+  return '<span style="display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:800;white-space:nowrap;color:'+fg+';background:'+bg+'">'+esc(txt)+'</span>';
+}
+/* Everything the page prints, frozen. Built from the SAME computation the screen and the
+   PDF used until now (aiPaySlipData), at the moment of posting - before the run moves any
+   advance or savings balance. */
+function wkSlipSnap(w, label, row, seasonal){
+  var d=aiPaySlipData(w.id, label); if(!d) return null;
+  var owing=(w.adv&&w.adv.owing>0)?Math.max(0, Math.round(((w.adv.owing||0)-((row&&row.advRepay)||0))*100)/100):null;
+  return { v:1, lang:(w.slipLang==='af')?'af':'en', kept:wkIsoToday(), label:label, seasonal:!!seasonal,
+    farm:{ name:(ST.farmName||''), addr:[ST.farmAddr, ST.province].filter(Boolean).join(', '), payeRef:(ST.payeRef||'') },
+    worker:{ id:String(w.id), name:w.name||'', occ:(w.role||'').split('·')[0].trim(), idNo:w.idNo||'', start:w.start||'' },
+    earn:d.earn, ded:d.ded, gross:d.gross, totDed:d.totDed, net:d.net, uifEmployer:d.uifEmployer,
+    leave:w.leave?{ annual:(w.leave.annual!=null?w.leave.annual:null), sick:(w.leave.sick!=null?w.leave.sick:null) }:null,
+    advOwing:owing,
+    row:row?{ base:row.base, bonus:row.bonus, premium:row.premium, sun:row.sun, ph:row.ph, gross:row.gross, uif:row.uif,
+              advRepay:row.advRepay, savings:row.savings, paye:row.paye, net:row.net, ok:row.ok }:null };
+}
+/* Keep one payslip per worker for a run being posted. Built in full BEFORE any is added,
+   so every snapshot is computed from the same, un-posted state. */
+function wkKeepSlips(runId, label, workers, rowsByWid, seasonal){
+  var made=[];
+  workers.forEach(function(w){ var snap=wkSlipSnap(w, label, rowsByWid ? rowsByWid[w.id] : null, seasonal); if(snap) made.push({ w:w, snap:snap }); });
+  var L=wkSlips(), today=wkIsoToday();
+  made.forEach(function(m){
+    var id='ps-'+runId+'-'+m.w.id;
+    L.forEach(function(o){ if(o.label===label && String(o.wid)===String(m.w.id) && o.status==='withdrawn' && !!o.seasonal===!!seasonal){ o.status='replaced'; o.replacedBy=id; } });
+    L.push({ id:id, runId:runId, wid:String(m.w.id), label:label, seasonal:!!seasonal, status:'issued', replacedBy:null, keptOn:today, snap:m.snap });
+  });
+  return made.length;
+}
+function wkWithdrawSlips(runId){ var n=0; wkSlips().forEach(function(p){ if(p.runId===runId && p.status==='issued'){ p.status='withdrawn'; n++; } }); return n; }
+/* Who already has a payslip from this run - said before an undo. */
+function wkSentFromRun(runId){
+  return wkSlips().filter(function(p){ return p.runId===runId && p.status==='issued' && wkSlipState(p).k==='sent'; })
+    .map(function(p){ var s=wkSlipState(p); return { name:(p.snap&&p.snap.worker&&p.snap.worker.name)||'', at:s.at }; });
+}
 function wkSetWorksSun(wid, on){ var w=(typeof wkFind==='function')?wkFind(wid):null; if(!w) return; w.worksSundays=!!on; if(typeof saveState==='function') saveState(); if(typeof wkSync==='function') wkSync(); if(typeof toast==='function') toast(on?'Marked as usually works Sundays \u2014 Sunday hours load at 1.5\u00d7.':'Sunday hours load at 2\u00d7 (the usual case).','info'); }
 function wkSetExtra(wid, field, val){
   var label=wkMonthLabel(); var v=Math.max(0, parseFloat(val)||0);
@@ -24237,6 +24350,8 @@ function renderWkPayroll(){ wkSync();
   var rows=wkPayRows(), label=wkMonthLabel();
   var _bonus=(ST_WORK.bonus&&ST_WORK.bonus[label])||{}; var _extra=(ST_WORK.extra&&ST_WORK.extra[label])||{};
   var posted=(ST_WORK.payRuns||[]).some(function(r){ return r.label===label && !r.seasonal; });
+  var _anyKept=posted && rows.some(function(r){ return !!r.kept; });
+  var _keptOn=_anyKept ? ((rows.filter(function(r){ return r.kept; })[0].kept.keptOn)||'') : '';
   var totGross=rows.reduce(function(a,r){return a+r.gross;},0);
   var totUIF=rows.reduce(function(a,r){return a+r.uif;},0);
   var totAdv=rows.reduce(function(a,r){return a+r.advRepay;},0);
@@ -24247,10 +24362,16 @@ function renderWkPayroll(){ wkSync();
     var off=r.uif+(r.paye||0)+r.advRepay+r.savings;
     var sub=['UIF '+Math.round(r.uif)]; if(r.paye) sub.push('PAYE '+Math.round(r.paye)); if(r.bonus) sub.push('bonus '+Math.round(r.bonus)); if(r.premium) sub.push('extra '+Math.round(r.premium)); if(r.advRepay) sub.push('adv '+Math.round(r.advRepay)); if(r.savings) sub.push('save '+Math.round(r.savings));
     var fn=r.w.name.split(/\s+/); var nm=wkE(fn[0]+' '+((fn[1]||'').charAt(0))+(fn[1]?'.':''));
-    return '<tr onclick="wkPayslip(\''+r.w.id+'\')"><td>'+nm+'<div class="sm">'+sub.join(' \u00b7 ')+'</div></td><td>'+wkMoney2(r.gross)+'</td><td>\u2212'+off.toFixed(2)+'</td><td class="net">'+wkMoney2(r.net)+'</td><td class="nmwok">'+(r.ok?'\u2713':'\u26a0')+'</td></tr>';
+    return '<tr onclick="wkPayslip(\''+r.w.id+'\')"><td>'+nm+'<div class="sm">'+sub.join(' \u00b7 ')+'</div></td><td>'+wkMoney2(r.gross)+'</td><td>\u2212'+off.toFixed(2)+'</td><td class="net">'+wkMoney2(r.net)+'</td><td class="nmwok">'+(r.ok?'\u2713':'\u26a0')+'</td>'+(_anyKept?('<td style="text-align:right">'+(r.kept?wkSlipPill(r.kept):'')+'</td>'):'')+'</tr>';
   }).join('');
   var action = posted
-    ? '<div class="wk-posted"><span>\u2713</span><span>Posted to Labour &amp; Wages for '+wkE(label)+'.</span></div>'
+    ? ('<div class="wk-posted"><span>\u2713</span><span>'+(_anyKept
+        ? esc(rnT('Posted to Labour & Wages for '+label+' \u00b7 '+rows.length+' payslip'+(rows.length===1?'':'s')+' kept on '+wkShortDate(_keptOn)+'. These figures no longer change.',
+                  'Geboek na Arbeid & Lone vir '+label+' \u00b7 '+rows.length+' betaalstrokie'+(rows.length===1?'':'s')+' gehou op '+wkShortDate(_keptOn)+'. Hierdie syfers verander nie meer nie.'))
+        : 'Posted to Labour &amp; Wages for '+wkE(label)+'.')+'</span></div>'
+      + (_anyKept
+        ? '<div style="font-size:11px;color:var(--t3);margin-top:8px;line-height:1.5">'+esc(rnT('\u201cSent\u201d comes from your phone. A worker with no number can still have theirs printed from here.','\u201cGestuur\u201d kom van jou foon af. \u2019n Werker sonder \u2019n nommer se strokie kan steeds hier gedruk word.'))+'</div>'
+        : '<div style="font-size:11px;color:var(--t3);margin-top:8px;line-height:1.5">'+esc(rnT('Posted before AgriInsights kept payslips, so these are worked out again from today\u2019s records and may differ from what was paid.','Geboek voordat AgriInsights betaalstrokies gehou het, dus word dit weer uit vandag se rekords uitgewerk en kan dit verskil van wat betaal is.'))+'</div>'))
     : '<div class="wk-act"><button class="sec" onclick="wkPayslip(\''+(rows[0]?rows[0].w.id:'')+'\')">\ud83d\udcc4 Payslips</button><button class="pri" onclick="wkPostPayRun()">Add to my farm costs \u2192</button></div>';
   var history=(ST_WORK.payRuns||[]).map(function(r){
     return '<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--br2);font-size:12.5px"><span style="min-width:0"><b>'+wkE(r.label)+'</b> \u00b7 '+wkE(r.kind||'')+'</span><span style="font-weight:800;margin-left:auto">'+wkMoney(r.net)+'</span><button onclick="wkUndoPayRun(\''+r.id+'\')" style="border:1.5px solid var(--br2);background:#fff;color:var(--t3);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;font-family:inherit;cursor:pointer">Undo</button></div>';
@@ -24269,8 +24390,8 @@ function renderWkPayroll(){ wkSync();
     '<div class="wk-card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><p class="wk-ct" style="margin:0">Pay run \u2014 '+wkE(label)+'</p><span style="font-size:11px;font-weight:800;color:var(--gm);background:var(--gp);border-radius:20px;padding:3px 10px">Monthly</span></div>'
     + '<p class="wk-cw">Your permanent workers, this month\u2019s pay filled in. Change a number if it\u2019s different \u2014 we sort UIF, any advance or savings, and check nobody\u2019s under the minimum. Tap a worker for their payslip.</p>'
     + (rows.length
-        ? '<table class="wk-ptbl" id="wk-pay-table"><thead><tr><th>Worker</th><th>Pay</th><th>Off</th><th>In hand</th><th>Min?</th></tr></thead><tbody>'+trs+'</tbody>'
-          + '<tfoot><tr><td>Totals</td><td>'+wkMoney2(totGross)+'</td><td>\u2212'+(totUIF+totPAYE+totAdv+totSav).toFixed(2)+'</td><td>'+wkMoney2(totNet)+'</td><td></td></tr></tfoot></table>'
+        ? '<table class="wk-ptbl" id="wk-pay-table"><thead><tr><th>Worker</th><th>Pay</th><th>Off</th><th>In hand</th><th>Min?</th>'+(_anyKept?'<th>Payslip</th>':'')+'</tr></thead><tbody>'+trs+'</tbody>'
+          + '<tfoot><tr><td>Totals</td><td>'+wkMoney2(totGross)+'</td><td>\u2212'+(totUIF+totPAYE+totAdv+totSav).toFixed(2)+'</td><td>'+wkMoney2(totNet)+'</td><td></td>'+(_anyKept?'<td></td>':'')+'</tr></tfoot></table>'
           + '<div style="font-size:11px;color:var(--t3);margin-top:10px;line-height:1.5">UIF to pay over: <b>'+wkMoney(totUIF*2)+'</b> (worker + you).'+(totAdv?(' Advances repaid: '+wkMoney(totAdv)+'.'):'')+(totSav?(' Into savings: '+wkMoney(totSav)+'.'):'')+' The cost added to your books is the wages plus your UIF share.</div>'
           + action
         : '<div style="font-size:12px;color:var(--t3)">No monthly-paid workers yet \u2014 add one on the Workers tab.</div>')
@@ -24285,6 +24406,11 @@ function wkPostPayRun(){
   if((ST_WORK.payRuns||[]).some(function(r){return r.label===label && !r.seasonal;})){ if(typeof toast==='function') toast('Already posted for '+label+'.','info'); return; }
   var rows=wkPayRows();
   if(!rows.length){ if(typeof toast==='function') toast('No monthly workers to pay.','info'); return; }
+  var runId='pr'+Date.now();
+  /* Kept FIRST: the loop below moves advance and savings balances, and a payslip must
+     show the run as it was paid. */
+  var _byWid={}; rows.forEach(function(r){ _byWid[r.w.id]=r; });
+  var _kept=wkKeepSlips(runId, label, rows.map(function(r){ return r.w; }), _byWid, false);
   var totGross=0, totUIF=0, totNet=0, applied=[];
   rows.forEach(function(r){
     totGross+=r.gross; totUIF+=r.uif; totNet+=r.net;
@@ -24294,7 +24420,6 @@ function wkPostPayRun(){
     if(rec.advRepay||rec.savings) applied.push(rec);
   });
   var cost=Math.round((totGross+totUIF)*100)/100;   // employment cost = gross + employer UIF (1%)
-  var runId='pr'+Date.now();
   if(typeof ST!=='undefined' && ST.txns){
     ST.txns.unshift({ date:wkTodayStr(), desc:'Wages \u2014 '+label, cat:'Labour & Wages', type:'expense', amt:cost, method:'Bank', source:'Payroll', payRunId:runId });
     var _wkPRTx=ST.txns[0];
@@ -24303,14 +24428,28 @@ function wkPostPayRun(){
   ST_WORK.payRuns.unshift({ id:runId, label:label, kind:rows.length+' permanent', net:Math.round(totNet), gross:Math.round(totGross), uif:Math.round(totUIF*2), date:wkTodayStr(), applied:applied });
   try { if(typeof dataChanged==='function') dataChanged('transaction'); } catch(e){}
   if(typeof saveState==='function') saveState();
-  if(typeof toast==='function') toast('Posted '+wkMoney(cost)+' to Labour & Wages.','success');
+  if(typeof toast==='function') toast('Posted '+wkMoney(cost)+' to Labour & Wages.'+(_kept?rnT(' '+_kept+' payslip'+(_kept===1?'':'s')+' kept.',' '+_kept+' betaalstrokie'+(_kept===1?'':'s')+' gehou.'):''),'success');
+  if(typeof wkSync==='function') wkSync();
   renderWorkers();
 }
 async function wkUndoPayRun(runId){
   var runs=ST_WORK.payRuns||[]; var idx=-1; for(var i=0;i<runs.length;i++){ if(runs[i].id===runId){ idx=i; break; } }
   if(idx<0) return;
   var run=runs[idx];
-  if(!(await appConfirm('Undo the pay run for '+(run.label||'')+'? This removes the Labour & Wages entry it posted.'))) return;
+  /* Undo still works after payslips went out (decision d5): it says who already has one,
+     withdraws the kept payslips rather than deleting them, and posting the month again
+     marks them replaced - the phone then shows who holds an old one. */
+  var _nk=wkSlips().filter(function(p){ return p.runId===runId && p.status==='issued'; }).length;
+  var _sent=wkSentFromRun(runId);
+  var _msg=rnT('Undo the pay run for '+(run.label||'')+'? This removes the Labour & Wages entry it posted',
+               'Ontdoen die betaalronde vir '+(run.label||'')+'? Dit haal die Arbeid & Lone-inskrywing weg wat dit geboek het')
+    + (_nk ? rnT(' and withdraws its '+_nk+' payslip'+(_nk===1?'':'s')+'.', ' en trek sy '+_nk+' betaalstrokie'+(_nk===1?'':'s')+' terug.') : '.')
+    + (_sent.length ? ('\n\n' + rnT(_sent.length+' already sent on WhatsApp: ', _sent.length+' reeds op WhatsApp gestuur: ')
+        + _sent.map(function(x){ return x.name+' ('+wkShortDate(x.at)+')'; }).join(', ')
+        + rnT('. When you post '+(run.label||'')+' again, your phone marks theirs \u201cSend the new one\u201d, and the old ones are kept, marked replaced.',
+              '. Wanneer jy '+(run.label||'')+' weer boek, merk jou foon hulle s\u2019n \u201cStuur die nuwe een\u201d, en die oues word gehou, gemerk vervang.')) : '');
+  if(!(await appConfirm(_msg, { danger:true, okLabel:rnT('Undo the pay run','Ontdoen die betaalronde') }))) return;
+  wkWithdrawSlips(runId);
   if(typeof ST!=='undefined' && ST.txns){
     try{ if(window.AI && AI.farm && AI.farm.active()){ ST.txns.filter(function(t){return t.payRunId===runId;}).forEach(function(t){ txnDeleteThrough(t); }); if(AI.workers&&AI.workers.removePayRun) AI.workers.removePayRun(runId).catch(function(e){ console.error('Backend pay-run delete failed:', e); }); } }catch(e){}
     ST.txns=ST.txns.filter(function(t){ return t.payRunId!==runId; });
@@ -24335,11 +24474,14 @@ function wkPostSeasonal(){
   if(sg<=0){ if(typeof toast==='function') toast('Enter days worked first.','info'); return; }
   var cost=Math.round((sg+su)*100)/100;   // gross + employer UIF (1%)
   var runId='pr'+Date.now();
+  var _sw=wkSeasList().filter(function(w){ return wkSeasDaysFor(label,w.id)>0; });
+  var _skept=wkKeepSlips(runId, label, _sw, null, true);
   if(typeof ST!=='undefined' && ST.txns){ for(var _k in buckets){ if(!buckets.hasOwnProperty(_k)) continue; var _b=buckets[_k]; var _c=Math.round((_b.gross+_b.uif)*100)/100; var _sd='Seasonal wages \u2014 '+label+(_k?(' \u00b7 '+wkActLabel(_k)):''); ST.txns.unshift({ date:wkTodayStr(), desc:_sd, cat:'Labour & Wages', type:'expense', amt:_c, method:'Bank', source:'Payroll', ent:_k||undefined, payRunId:runId }); var _wkSTx=ST.txns[0]; (function(_e,_amt,_desc,_ent){ try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_e, {date:wkTodayStr(),amt:_amt,cat:'Labour & Wages',type:'expense',desc:_desc,method:'Bank',source:'Payroll',ent:_ent}); } }catch(er){} })(_wkSTx,_c,_sd,(_k||('payrun:'+runId))); } }
   ST_WORK.payRuns.unshift({ id:runId, label:label, kind:'Seasonal \u00b7 '+totDays+' days', seasonal:true, net:Math.round(sg-su), gross:Math.round(sg), uif:Math.round(su*2), date:wkTodayStr() });
   try { if(typeof dataChanged==='function') dataChanged('transaction'); } catch(e){}
   if(typeof saveState==='function') saveState();
-  if(typeof toast==='function') toast('Posted '+wkMoney(cost)+' to Labour & Wages.','success');
+  if(typeof toast==='function') toast('Posted '+wkMoney(cost)+' to Labour & Wages.'+(_skept?rnT(' '+_skept+' payslip'+(_skept===1?'':'s')+' kept.',' '+_skept+' betaalstrokie'+(_skept===1?'':'s')+' gehou.'):''),'success');
+  if(typeof wkSync==='function') wkSync();
   if(typeof wkPRRender==='function') wkPRRender();
 }
 function wkSeasPostRow(label){
@@ -24361,7 +24503,7 @@ function wkPayslip(id){
   if(r.advRepay) ded+='<div class="wk-srow"><span>Advance repayment</span><span class="neg">\u2212'+wkMoney2(r.advRepay)+'</span></div>';
   if(r.savings) ded+='<div class="wk-srow"><span>Into funeral &amp; savings</span><span class="neg">\u2212'+wkMoney2(r.savings)+'</span></div>';
   var totOff=r.uif+(r.paye||0)+r.advRepay+r.savings;
-  var pot=(w.fund&&w.fund.on&&w.fund.where==='hold'&&r.savings)?('<div style="font-size:11px;color:var(--t4);margin-top:9px;line-height:1.5">Savings pot would be '+wkMoney2((w.fund.balance||0)+r.savings)+' after this run.</div>'):'';
+  var pot=(!r.kept&&w.fund&&w.fund.on&&w.fund.where==='hold'&&r.savings)?('<div style="font-size:11px;color:var(--t4);margin-top:9px;line-height:1.5">Savings pot would be '+wkMoney2((w.fund.balance||0)+r.savings)+' after this run.</div>'):'';
   box.innerHTML='<div onclick="renderWkPayroll()" style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--gm);cursor:pointer;margin-bottom:12px">\u2039 Back to pay run</div>'
     + '<div class="wk-slip"><div class="sh"><div class="t">'+wkE(farm)+'</div><div class="s">Payslip \u00b7 '+wkE(w.name)+' \u00b7 '+wkE(label)+'</div></div><div class="sb">'
     + '<div class="wk-srow head"><span>What they earned</span><span></span></div>'
@@ -24372,6 +24514,8 @@ function wkPayslip(id){
     + '<div class="wk-srow head"><span>Taken off</span><span></span></div>'+ded
     + '<div class="wk-srow tot"><span>Total taken off</span><span class="neg">\u2212'+wkMoney2(totOff)+'</span></div>'
     + '<div class="wk-snet"><span class="l">Takes home</span><span class="v">'+wkMoney2(r.net)+'</span></div>'+pot
+    + (r.kept ? '<div style="font-size:11px;color:var(--t3);margin-top:9px;line-height:1.5">'+esc(rnT('Kept '+wkShortDate(r.kept.keptOn)+', when the pay run was posted. It no longer changes.','Gehou '+wkShortDate(r.kept.keptOn)+', toe die betaalronde geboek is. Dit verander nie meer nie.'))+' '+wkSlipPill(r.kept)+'</div>'
+        : (wkSlipRebuilt(label, w) ? '<div style="font-size:11px;color:#B45309;margin-top:9px;line-height:1.5">'+esc(rnT('Worked out again from today\u2019s records \u2014 this month was posted before AgriInsights kept payslips, so it may differ from what was paid.','Weer uit vandag se rekords uitgewerk \u2014 hierdie maand is geboek voordat AgriInsights betaalstrokies gehou het, dus kan dit verskil van wat betaal is.'))+'</div>' : ''))
     + '<div class="rc-acts" style="margin-top:12px"><button class="rc-btn" onclick="aiPaySlipShare(\''+w.id+'\')">Preview payslip</button></div>'
     + '<div style="font-size:11px;color:var(--t4);margin-top:9px;line-height:1.5">Shows employer &amp; worker, the period, pay, every deduction and the take-home \u2014 the fields the law requires.</div>'
     + '</div></div>';
@@ -25216,6 +25360,8 @@ function renderWkDetail(id){
     +'<div class="wk-dbox"><div class="l">UIF</div><div class="v">'+(w.uif?'&#10003; sorted':'not registered')+'</div></div>'
     +'<div class="wk-dbox"><div class="l">Contract</div><div class="v">'+(w.contract==='missing'?'<span style="color:var(--rd)">to do</span>':'&#10003; on file')+'</div></div>'
     +'<div class="wk-dbox"><div class="l">Works on</div><div class="v">'+wkE(wkActLabel(w.activity))+'</div></div>'
+    +'<div class="wk-dbox"><div class="l">'+esc(rnT('Cellphone \u00b7 for payslips','Selfoon \u00b7 vir betaalstrokies'))+'</div><div class="v">'+(w.phone?wkE(w.phone):'<span style="color:var(--t4)">'+esc(rnT('none yet','nog geen'))+'</span>')+'</div></div>'
+    +'<div class="wk-dbox"><div class="l">'+esc(rnT('Payslips on WhatsApp','Betaalstrokies op WhatsApp'))+'</div><div class="v">'+(w.waOk?('&#10003; '+esc(rnT('agreed','ingestem'))+(w.waOn?(' '+esc(wkShortDate(w.waOn))):'')):'<span style="color:var(--t4)">'+esc(rnT('not yet','nog nie'))+'</span>')+'</div></div>'
     +'</div>'
     + (w.onFarm?'<div style="font-size:11px;color:var(--t3);margin-top:11px;line-height:1.5">&#127968; Lives on the farm &mdash; housing &amp; ESTA tenure rules apply.</div>':'')
     +'</div>'
@@ -25223,7 +25369,34 @@ function renderWkDetail(id){
     + moneyBoxes + acts + forms + led
     + '<div style="font-size:11px;color:var(--t4);margin-top:11px;line-height:1.5">Anything taken off a wage needs the worker\u2019s written okay &mdash; we keep it on file for an inspection.</div>'
     +'</div>'
-    + wkDocsCard(w) + wkDangerCard(w);
+    + wkPhoneCard(w) + wkDocsCard(w) + wkDangerCard(w);
+}
+/* Cellphone and payslips (screen C1). The phone offers WhatsApp only once the worker's
+   okay is ticked (decision d4); until then Share and Print. */
+function wkPhoneCard(w){
+  var id=w.id, lang=(w.slipLang==='af')?'af':'en';
+  return '<div class="wk-card"><div style="font-size:13px;font-weight:800;color:var(--gd);margin-bottom:4px">'+esc(rnT('Cellphone and payslips','Selfoon en betaalstrokies'))+'</div>'
+    +'<div style="font-size:11.5px;color:var(--t3);margin-bottom:10px">'+esc(rnT('Only your own phone ever uses the number: it is who a payslip is sent to on WhatsApp.','Net jou eie foon gebruik ooit die nommer: dit is na wie \u2019n betaalstrokie op WhatsApp gestuur word.'))+'</div>'
+    +'<div class="wk-f" style="margin:0 0 10px"><label for="wk-ph-num">'+esc(rnT('Cellphone number','Selfoonnommer'))+'</label><input type="tel" id="wk-ph-num" autocomplete="off" placeholder="082 555 0142" value="'+esc(w.phone||'')+'"></div>'
+    +'<label class="wk-consent"><input type="checkbox" id="wk-ph-ok"'+(w.waOk?' checked':'')+'><span>'+esc(rnT(w.name+' agreed to get payslips on WhatsApp.',w.name+' het ingestem om betaalstrokies op WhatsApp te kry.'))+' <span style="color:var(--t3)">'+esc(rnT('Keep their written okay with their documents, the same way as for an advance.','Hou hulle geskrewe toestemming by hulle dokumente, net soos vir \u2019n voorskot.'))+'</span></span></label>'
+    +'<div class="wk-f" style="margin:10px 0 0"><label>'+esc(rnT('Payslip in','Betaalstrokie in'))+'</label><div class="wk-seg" id="wk-ph-lang"><button data-v="en"'+(lang==='en'?' class="on"':'')+' onclick="wkPickSeg(this)">English</button><button data-v="af"'+(lang==='af'?' class="on"':'')+' onclick="wkPickSeg(this)">Afrikaans</button></div></div>'
+    +'<div class="wk-formact" style="margin-top:11px"><button class="save" onclick="wkSavePhone(\''+id+'\')">'+esc(rnT('Save','Stoor'))+'</button></div>'
+    +'</div>';
+}
+function wkSavePhone(id){
+  var w=wkFind(id); if(!w) return;
+  var ph=(($('wk-ph-num')||{}).value||'').trim();
+  var ok=!!($('wk-ph-ok')&&$('wk-ph-ok').checked);
+  var digits=ph.replace(/\D/g,'');
+  if(ph && (digits.length<9 || digits.length>13)){ toast(rnT('That doesn\u2019t look like a cellphone number \u2014 check it and try again.','Dit lyk nie soos \u2019n selfoonnommer nie \u2014 kyk weer en probeer weer.'),'error'); return; }
+  if(ok && !ph){ toast(rnT('Add their cellphone number first \u2014 WhatsApp needs it.','Voeg eers hulle selfoonnommer by \u2014 WhatsApp het dit nodig.'),'error'); return; }
+  w.phone=ph||undefined; if(!ph) delete w.phone;
+  if(ok){ if(!w.waOk) w.waOn=wkIsoToday(); w.waOk=true; } else { w.waOk=false; delete w.waOn; }
+  w.slipLang=(wkSegVal('wk-ph-lang')==='af')?'af':'en';
+  if(typeof saveState==='function') saveState();
+  if(typeof wkSync==='function') wkSync();
+  toast(rnT('Saved.','Gestoor.'),'success');
+  wkRefreshAll(id);
 }
 
 function wkFind(id){ var ws=wkList(); for(var i=0;i<ws.length;i++){ if(ws[i].id===id) return ws[i]; } return null; }
@@ -25402,15 +25575,15 @@ function wkNmw(){
   else{ line.className='wk-nmw bad'; line.innerHTML='<span class="e">&#9888;</span><span>That&rsquo;s only R'+hr+'/hour &mdash; <b>below the R'+rate.toFixed(2)+' minimum</b>. Bump it up before you save.</span>'; }
 }
 function wkFormReset(){
-  var ids=['awf-name','awf-role','awf-id','awf-amt','awf-advamt','awf-advoff','awf-scheme','awf-funamt'];
+  var ids=['awf-name','awf-role','awf-id','awf-amt','awf-advamt','awf-advoff','awf-scheme','awf-funamt','awf-phone'];
   ids.forEach(function(id){ var e=$(id); if(e) e.value=''; });
   var hrs=$('awf-hours'); if(hrs) hrs.value=45;
   var _ae=$('awf-activity'); if(_ae) _ae.innerHTML=wkActOptions('');
   var st=$('awf-start'); if(st && !st.value){ try{ st.value=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY).toISOString().split('T')[0]:new Date().toISOString().split('T')[0]; }catch(e){} }
   // segs to default (first button)
-  ['awf-type','awf-basis','awf-contract','awf-where','awf-freq'].forEach(function(id){ var g=$(id); if(g){ var bs=g.querySelectorAll('button'); for(var i=0;i<bs.length;i++) bs[i].classList.toggle('on', i===0); } });
+  ['awf-type','awf-basis','awf-contract','awf-where','awf-freq','awf-slang'].forEach(function(id){ var g=$(id); if(g){ var bs=g.querySelectorAll('button'); for(var i=0;i<bs.length;i++) bs[i].classList.toggle('on', i===0); } });
   // switches
-  var on={ 'awf-uif':true }, sw=['awf-onfarm','awf-uif','awf-adv','awf-fun','awf-consent'];
+  var on={ 'awf-uif':true }, sw=['awf-onfarm','awf-uif','awf-adv','awf-fun','awf-consent','awf-wa'];
   sw.forEach(function(id){ var e=$(id); if(e) e.classList.toggle('on', !!on[id]); });
   ['awf-adv-rev','awf-fun-rev'].forEach(function(id){ var e=$(id); if(e) e.classList.remove('on'); });
   var _ccf=$('awf-contract-file'); if(_ccf) _ccf.value=''; var _cup=$('awf-contract-up'); if(_cup) _cup.classList.remove('on'); if(typeof wkContractReveal==='function') wkContractReveal();
@@ -25522,6 +25695,9 @@ function wkSaveWorker(){
     idNo:(($('awf-id')||{}).value||'').trim(), basis:basis, amt:amt,
     hoursWeek:(basis==='month'?hrs:45), hoursDay:(basis==='day'?hrs:8), uif:wkSwOn('awf-uif'), activity:(($('awf-activity')||{}).value||''),
     contract:'missing', adv:null, fund:null };
+  var _ph=(($('awf-phone')||{}).value||'').trim(); if(_ph) w.phone=_ph;
+  if(wkSwOn('awf-wa')){ w.waOk=true; w.waOn=wkIsoToday(); }
+  w.slipLang=(wkSegVal('awf-slang')==='af')?'af':'en';
   if(wkSwOn('awf-adv')){ w.adv={ owing:parseFloat(($('awf-advamt')||{}).value)||0, perPay:parseFloat(($('awf-advoff')||{}).value)||0, reason:'' }; }
   if(wkSwOn('awf-fun')){ w.fund={ on:true, where:wkSegVal('awf-where')||'hold', scheme:(($('awf-scheme')||{}).value||'').trim(), freq:wkSegVal('awf-freq')||'month', perPay:parseFloat(($('awf-funamt')||{}).value)||0, balance:0 }; }
   ST_WORK.workers.push(w);
@@ -25997,6 +26173,10 @@ var ST_WORK = {
     { id:'w6', name:'Themba Zulu', role:'Seasonal worker \u00b7 paid daily', type:'Seasonal', start:'', onFarm:false, idNo:'', basis:'day', amt:250, hoursWeek:45, hoursDay:8, uif:false, uifNo:'', contract:'missing', activity:'White maize', adv:null, fund:null },
     { id:'w7', name:'Anele Cele', role:'Seasonal worker \u00b7 paid daily', type:'Seasonal', start:'', onFarm:false, idNo:'', basis:'day', amt:241.84, hoursWeek:45, hoursDay:8, uif:true, uifNo:'5567//2', contract:'missing', activity:'', adv:null, fund:null }
   ],
+  /* Kept payslips and the phone's "sent" answers (payslips_migration.sql). The demo's
+     March and April runs were "posted before payslips were kept" - decision d1. */
+  payslips: [],
+  payslipSends: [],
   payRuns: [
     { id:'pr-apr', label:'April 2026', kind:'4 permanent', net:26082, date:'2026-04-25' },
     { id:'pr-hg',  label:'Seasonal workers', kind:'week of 16 Mar', net:13543, date:'2026-03-20' },
@@ -51348,6 +51528,15 @@ LANG_PAIRS.push(
   ['Tell us which these are and they go on your asset register with the right write-off.',
    'Sê vir ons watter dit is en hulle gaan op jou bateregister met die regte afskrywing.']
 );
+/* Add a worker -> Cellphone and payslips (signed off 19 Sep 2026). Whole phrases only. */
+LANG_PAIRS.push(
+  ['Cellphone and payslips', 'Selfoon en betaalstrokies'],
+  ['Cellphone number', 'Selfoonnommer'],
+  ['Who their payslip goes to on WhatsApp, from your phone.', 'Na wie hulle betaalstrokie op WhatsApp gaan, vanaf jou foon.'],
+  ['They agreed to get payslips on WhatsApp', 'Hulle het ingestem om betaalstrokies op WhatsApp te kry'],
+  ['Keep their written okay with their documents, the same way as for an advance.', 'Hou hulle geskrewe toestemming by hulle dokumente, net soos vir \u2019n voorskot.'],
+  ['Payslip in', 'Betaalstrokie in']
+);
 LANG_PAIRS.sort(function(a,b){ return b[0].length - a[0].length; });
 /* One English phrase must map to exactly ONE Afrikaans phrase. Where the same key
    was paired twice with different wording ("Seeds & Planting" → both "Saad & Plant"
@@ -68279,7 +68468,8 @@ function _aiPairCountdown(){
     if (left <= 0) {
       el.textContent = rnT('This code has expired. Ask for a new one.', "Hierdie kode het verval. Vra vir 'n nuwe een.");
       if (AI_PAIR_TICK) { clearInterval(AI_PAIR_TICK); AI_PAIR_TICK = null; }
-      AI_PAIR = null;
+      var _exp = AI_PAIR; AI_PAIR = null;
+      if (_exp) aiPairForgetUnused(_exp.device, _exp.id);
       return;
     }
     var m = Math.floor(left / 60), sec = left % 60;
@@ -68289,6 +68479,50 @@ function _aiPairCountdown(){
   AI_PAIR_TICK = setInterval(tick, 1000);
 }
 
+/* "Whose phone is this?" - asked once, before the code is shown. The answer is kept on
+   its own row (farm_devices), because the code row is deleted the moment a phone uses it;
+   the phone finds its row through the code it paired with. Honest limit, said to the owner
+   on the sign-off page: every phone added signs in as this account, so this is a setting
+   the phone obeys, not a lock the database enforces. */
+var AI_PAIR_KIND = 'owner';
+function aiPairKindRender(){
+  var box = $('set-pair-kind'); if (!box) return;
+  var can = !!(window.AI && AI.pairing && AI.pairing.canAsk && AI.pairing.canAsk());
+  if (!can) { box.innerHTML = ''; aiPairDevicesRender(); return; }
+  var opt = function(k, t, d){
+    var on = AI_PAIR_KIND === k;
+    return '<label style="display:flex;gap:10px;align-items:flex-start;border:1.5px solid '+(on?'var(--gm)':'var(--br)')+';background:'+(on?'#F3FBF5':'#fff')+';border-radius:12px;padding:10px 12px;margin-top:8px;cursor:pointer">'
+      + '<input type="radio" name="set-pair-kind" value="'+k+'"'+(on?' checked':'')+' onchange="AI_PAIR_KIND=this.value;aiPairKindRender()" style="margin:3px 0 0;width:auto;flex:0 0 auto;accent-color:var(--gm)">'
+      + '<span><b style="font-size:13px">'+esc(t)+'</b><span style="display:block;font-size:12px;color:var(--t3);line-height:1.45">'+esc(d)+'</span></span></label>';
+  };
+  box.innerHTML = '<div style="font-size:12px;font-weight:800;color:var(--t2)">'+esc(rnT('Whose phone is this?','Wie se foon is dit?'))+'</div>'
+    + opt('owner', rnT('Mine','Myne'), rnT('It can show payslips and wages. Pick this only for a phone you keep with you.','Dit kan betaalstrokies en lone wys. Kies dit net vir \u2019n foon wat jy by jou hou.'))
+    + opt('staff', rnT('Someone who works for me','Iemand wat vir my werk'), rnT('Everything else works the same. Payslips and wages never go onto it.','Alles anders werk dieselfde. Betaalstrokies en lone gaan nooit daarop nie.'))
+    + '<div style="height:12px"></div>';
+  aiPairDevicesRender();
+}
+function aiPairDevicesRender(){
+  var box = $('set-pair-devs'); if (!box) return;
+  if (!(window.AI && AI.pairing && AI.pairing.devices && AI.pairing.canAsk && AI.pairing.canAsk())) { box.innerHTML = ''; return; }
+  AI.pairing.devices().then(function(list){
+    list = list || [];
+    if (!list.length) { box.innerHTML = '<div class="hint" style="margin-top:10px;font-size:12px">'+esc(rnT('A phone added before 19 September 2026, or from another phone, is not listed here and shows no payslips. To see payslips on it, add it again from here and choose Mine.','\u2019n Foon wat voor 19 September 2026, of vanaf \u2019n ander foon, bygevoeg is, word nie hier gewys nie en wys geen betaalstrokies nie. Om betaalstrokies daarop te sien, voeg dit weer van hier af by en kies Myne.'))+'</div>'; return; }
+    box.innerHTML = '<div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin:14px 0 4px">'+esc(rnT('Phones added','Fone bygevoeg'))+'</div>'
+      + list.map(function(d){
+          var mine = d.kind === 'owner';
+          return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--br2);font-size:12.5px">'
+            + '<span style="min-width:0"><b>'+esc(mine?rnT('Yours','Joune'):rnT('Someone who works for you','Iemand wat vir jou werk'))+'</b> <span style="color:var(--t3)">\u00b7 '+esc(rnT('added ','bygevoeg ')+wkShortDate(d.created_at))+' \u00b7 '+esc(mine?rnT('may show payslips','mag betaalstrokies wys'):rnT('no payslips','geen betaalstrokies'))+'</span></span>'
+            + '<button type="button" class="btn-sec" style="margin-left:auto;padding:5px 10px;font-size:11.5px;white-space:nowrap;flex-shrink:0" onclick="aiPairSetKind(\''+d.id+'\',\''+(mine?'staff':'owner')+'\')">'+esc(mine?rnT('Stop payslips','Stop betaalstrokies'):rnT('It\u2019s mine','Dis myne'))+'</button></div>';
+        }).join('');
+  }).catch(function(e){ box.innerHTML=''; console.error('devices', e); });
+}
+function aiPairSetKind(id, kind){
+  AI.pairing.setKind(id, kind).then(function(){
+    toast(kind==='owner' ? rnT('That phone may now show payslips. It picks this up the next time it syncs.','Daardie foon mag nou betaalstrokies wys. Dit tel dit op die volgende keer as dit sinkroniseer.')
+                         : rnT('Payslips come off that phone the next time it syncs.','Betaalstrokies gaan van daardie foon af die volgende keer as dit sinkroniseer.'), 'success');
+    aiPairDevicesRender();
+  }).catch(function(e){ toast(rnT('Could not change it: ','Kon dit nie verander nie: ')+String((e&&e.message)||e), 'error'); });
+}
 function aiPairOpen(){
   var btn = $('set-pair-btn');
   if (window.__AI_GUEST) { toast(rnT('The demo has no farm to pair with. Sign in first.', 'Die demo het geen plaas om mee te koppel nie. Teken eers in.'), 'info'); return; }
@@ -68297,7 +68531,9 @@ function aiPairOpen(){
     return;
   }
   if (btn) { btn.disabled = true; btn.textContent = rnT('Making a code…', "Maak 'n kode…"); }
-  Promise.all([aiQrReady(), AI.pairing.create()]).then(function(r){
+  /* "New code" while one is showing: the old one is spent, and leaves no device behind. */
+  if (AI_PAIR) { var _old = AI_PAIR; AI_PAIR = null; AI.pairing.revoke(_old.id).catch(function(){}).then(function(){ aiPairForgetUnused(_old.device, _old.id); }); }
+  Promise.all([aiQrReady(), AI.pairing.create(AI_PAIR_KIND)]).then(function(r){
     AI_PAIR = r[1];
     /* Everything the phone needs and nothing it does not: which farm, the code the
        farmer can read, and the secret it must prove it saw. */
@@ -68329,13 +68565,24 @@ function aiPairOpen(){
 /* Done means spent. A code left live on a screen someone walks past is the one
    risk this flow actually carries, so closing the panel closes the window too. */
 function aiPairDone(){
-  var id = AI_PAIR && AI_PAIR.id;
+  var id = AI_PAIR && AI_PAIR.id, dev = AI_PAIR && AI_PAIR.device;
   AI_PAIR = null;
   if (AI_PAIR_TICK) { clearInterval(AI_PAIR_TICK); AI_PAIR_TICK = null; }
   _aiPairShow(false);
   var qrEl = $('set-pair-qr'); if (qrEl) qrEl.innerHTML = '';
   var codeEl = $('set-pair-code'); if (codeEl) codeEl.textContent = '';
   if (id && window.AI && AI.pairing) AI.pairing.revoke(id).catch(function(){});
+  aiPairForgetUnused(dev, id);
+}
+/* A code shown and never used must not leave a "phone added" behind. The edge function
+   deletes a code the moment a phone uses it, so a code row that still exists, unused, means
+   no phone paired - its device row goes. */
+function aiPairForgetUnused(dev, tokenId){
+  if (!dev || !dev.id || !(window.AI && AI.pairing && AI.pairing.forget)) { aiPairDevicesRender(); return; }
+  Promise.resolve(tokenId ? AI.pairing.tokenState(tokenId) : null).then(function(row){
+    var paired = !row || (row.used_at && row.device_label && row.device_label !== 'cancelled');
+    if (!paired) return AI.pairing.forget(dev.id);
+  }).catch(function(){}).then(function(){ aiPairDevicesRender(); });
 }
 
 function aiPdfReady(){
@@ -69621,6 +69868,13 @@ function aiPayMoney(n){
    screen can never disagree. Handles both the monthly run and seasonal day-rate. */
 function aiPaySlipData(id, label){
   label=label||((typeof wkMonthLabel==='function')?wkMonthLabel():'');
+  /* A kept payslip is the record: printed from what was frozen when the run was posted. */
+  var kept=(typeof wkSlipFor==='function')?wkSlipFor(label, id):null;
+  if(kept && kept.snap && kept.snap.v){ var S=kept.snap;
+    return { w:{ id:S.worker.id, name:S.worker.name, role:S.worker.occ, idNo:S.worker.idNo, start:S.worker.start,
+                 leave:S.leave||null, adv:(S.advOwing!=null&&S.advOwing>0)?{owing:S.advOwing}:null },
+             label:S.label, earn:S.earn||[], ded:S.ded||[], gross:S.gross, totDed:S.totDed, net:S.net, uifEmployer:S.uifEmployer,
+             farm:S.farm||null, lang:S.lang||'en', kept:kept }; }
   var w=(typeof wkFind==='function')?wkFind(id):null; if(!w) return null;
   var earn=[], ded=[], gross=0;
   if(w.basis==='month'){
@@ -69648,6 +69902,7 @@ function aiPaySlipData(id, label){
   if(paye>0) ded.push({d:'PAYE', a:paye});
   var totDed=ded.reduce(function(a,x){ return a+(x.a||0); },0);
   return { w:w, label:label, earn:earn, ded:ded, gross:gross, totDed:totDed,
+           rebuilt:(typeof wkSlipRebuilt==='function')?wkSlipRebuilt(label, w):false, lang:(w.slipLang==='af'?'af':(w.slipLang==='en'?'en':null)),
            /* Was Math.min(gross, STATUTORY.uifCap.value) — but the constant is
               uifCeiling, not uifCap. The guarded ternary hid it: with uifCap
               undefined it fell through to `gross`, so the payslip printed an
@@ -69661,7 +69916,8 @@ function aiPaySlipBuild(id, label, opts){
   opts=opts||{};
   var d=aiPaySlipData(id,label);
   if(!d) return Promise.reject(new Error('No pay data for this worker in '+(label||'this period')));
-  var lang=(opts.lang||ST.lang)==='af'?'af':'en';
+  var lang=(opts.lang||d.lang||ST.lang)==='af'?'af':'en';
+  var F=d.farm||{ name:(ST.farmName||''), addr:[ST.farmAddr, ST.province].filter(Boolean).join(', '), payeRef:(ST.payeRef||'') };
   return Promise.all([aiPdfReady(), aiDocLogo()]).then(function(both){
     var jsPDF=both[0], logo=both[1], L=AI_PAY_L[lang];
     var doc=aiDocNew(jsPDF,{unit:'mm',format:'a4',orientation:'portrait',compress:(opts.compress!==false)});
@@ -69671,11 +69927,11 @@ function aiPaySlipBuild(id, label, opts){
     doc.rect(0,0,W,28,'F');
     var tx=aiDocMark(doc, logo, M, 6.5, 15);
     doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(13);
-    doc.text(aiAnsi(ST.farmName||''), tx, 13);
+    doc.text(aiAnsi(F.name||''), tx, 13);
     doc.setFont('helvetica','normal'); doc.setFontSize(8);
     /* s33 wants the employer's ADDRESS, not just the name. */
-    var addr=[ST.farmAddr, ST.province].filter(Boolean).join(', ');
-    var sub=[addr, ST.payeRef?('PAYE ref '+ST.payeRef):''].filter(Boolean).join('  \u00b7  ');
+    var addr=F.addr||'';
+    var sub=[addr, F.payeRef?('PAYE ref '+F.payeRef):''].filter(Boolean).join('  \u00b7  ');
     doc.text(aiAnsi(sub||'\u2014'), tx, 19.5);
 
     doc.setTextColor(AI_DOC.INK[0],AI_DOC.INK[1],AI_DOC.INK[2]);
@@ -69771,7 +70027,14 @@ function aiPaySlipBuild(id, label, opts){
     doc.setTextColor(AI_DOC.GREY[0],AI_DOC.GREY[1],AI_DOC.GREY[2]);
     doc.text(L.keep, M+4, y+11, {maxWidth:RW-M-8});
 
-    aiDocFoot(doc, ST.farmName+'  \u00b7  '+d.label);
+    /* Decision d1: a month posted before payslips were kept says so on the page. */
+    if(d.rebuilt){
+      doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(150,80,28);
+      doc.text(aiAnsi(lang==='af'
+        ? 'Weer uit vandag se rekords uitgewerk: hierdie maand is geboek voordat betaalstrokies gehou is, en kan verskil van wat betaal is.'
+        : 'Worked out again from today\u2019s records: this month was posted before payslips were kept, and may differ from what was paid.'), M, y+22, {maxWidth:RW-M});
+    }
+    aiDocFoot(doc, (F.name||'')+'  \u00b7  '+d.label+(d.kept&&d.kept.keptOn?('  \u00b7  '+(lang==='af'?'gehou ':'kept ')+aiRcDate(d.kept.keptOn)):''));
     return {doc:doc, data:d};
   });
 }
