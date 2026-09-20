@@ -357,6 +357,7 @@
   let CAN_FARM_RAIN_NK  = false;   // farms.rain_not_kept (rainfall_not_kept.sql)
   let CAN_FARM_RAIN_RULE= false;   // farms.rain_plant_mm/_days + rain_fill_sat (rainfall_farm_settings.sql)
   let CAN_FARM_RAIN_DRV = false;   // farms.rain_derived (rain_derived_migration.sql)
+  let CAN_FARM_STOCK    = false;   // farms.stock_counts (stock_counts_migration.sql)
   let CAN_FARM_BANK_AT  = false;   // farms.bank_balance_at (bank_balance_at_migration.sql)
   let CAN_FARM_VAT_CAT  = false;   // farms.vat_category (vat_category_migration.sql)
   let CAN_FARM_PARTNERS = false;   // farms.partners (farms_partners_migration.sql)
@@ -408,6 +409,7 @@
     CAN_FARM_RAIN_NK   = await has('farms','rain_not_kept');
     CAN_FARM_RAIN_RULE = (await has('farms','rain_plant_days')) && (await has('farms','rain_fill_sat'));
     CAN_FARM_RAIN_DRV  = await has('farms','rain_derived');
+    CAN_FARM_STOCK     = await has('farms','stock_counts');
     CAN_FARM_BANK_AT   = await has('farms','bank_balance_at');
     CAN_FARM_VAT_CAT   = await has('farms','vat_category');
     CAN_FARM_PARTNERS  = await has('farms','partners');
@@ -2480,6 +2482,12 @@
        Read back so a second computer, and the phone, show the same figures
        without re-fetching an archive. Null branches mean "not derived". */
     if(r.rain_derived!=null){ p._rain=p._rain||{}; p._rain.derived=r.rain_derived; }
+    /* Year-end stock counts, keyed by tax year (stock_counts_migration.sql). An absent
+       year means "not counted", never zero - see the column comment. */
+    if(r.stock_counts!=null){
+      try{ p.stockCounts = (typeof r.stock_counts==='string') ? JSON.parse(r.stock_counts) : r.stock_counts; }
+      catch(e){ p.stockCounts = {}; }
+    }
     if(r.rain_fill_sat!=null){ p._rain=p._rain||{}; p._rain.fillFromSat=!!r.rain_fill_sat; }
     if(r.name!=null) p.farmName=r.name;
     if(r.owner_name!=null) p.ownerName=r.owner_name;
@@ -2517,7 +2525,7 @@
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+(CAN_FARM_PARTNERS?'partners,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref,updated_at').eq('id',farmId).single();
+    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_STOCK?'stock_counts,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+(CAN_FARM_PARTNERS?'partners,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref,updated_at').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -2659,7 +2667,15 @@
           }
         }catch(e){}
       }
-      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink,p:rainr,d:raind}); if(snap===_profSnap) return;
+      /* Year-end stock counts (stock_counts_migration.sql). Its own statement on the
+         same rule as every other optional column: a database without it still saves the
+         rest. Sent whenever the app holds the object at all - including when it is EMPTY,
+         because clearing the last count has to overwrite the server's copy. Dropping the
+         key instead would send nothing, and the old figure would come back on the next
+         load. */
+      var stockc={};
+      if(CAN_FARM_STOCK && st.stockCounts && typeof st.stockCounts==='object') stockc.stock_counts=st.stockCounts;
+      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink,p:rainr,d:raind,t:stockc}); if(snap===_profSnap) return;
       /* Only what differs from the row the server last confirmed. */
       var groups = [
         { all: core,  fatal: true },
@@ -2668,6 +2684,7 @@
         { all: cons,  warn: 'Profile: POPIA consent not recorded \u2014 run the consent migration in Supabase.' },
         { all: rainr, warn: 'Profile: planting rule / satellite fill not saved \u2014 run rainfall_farm_settings.sql.' },
         { all: raind, warn: 'Profile: derived rain values (frost / season / veld) not saved \u2014 run rain_derived_migration.sql.' },
+        { all: stockc, warn: 'Profile: year-end stock count not saved \u2014 run stock_counts_migration.sql.' },
         { all: raink, warn: 'Profile: rain-book gaps not saved \u2014 run rainfall_not_kept.sql.' },
         { all: rainc, warn: 'Profile: rainfall location not saved \u2014 run rainfall_schema.sql.' }
       ];

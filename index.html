@@ -52485,6 +52485,18 @@ var heroH = $('hero-h-el') || document.querySelector('[data-t="hero.h"]');
     }
   } catch(e) {}
 
+  /* -427 Same for Tax & SARS: the year-end stock card is written in the farmer's
+     language when it is drawn, so a language switch has to draw it again. Without this
+     the pair pass chews the Afrikaans that is already on screen - the exact fault that
+     turned "Forecast not ready yet" into "Forecast not gereed yet". */
+  try {
+    var _tx = $('pg-tax');
+    if (_tx && _tx.classList.contains('on') && typeof renderTax === 'function') {
+      renderTax();
+      applyLangNodes(_tx, fromIdx, toIdx);
+    }
+  } catch(e) {}
+
   /* The connection line is LIVE STATE that happens to be words. It used to carry
      data-t="offline.sub", so the key pass above overwrote it from the dictionary — and
      that entry is hardcoded to the offline wording. Switching language therefore told a
@@ -54193,7 +54205,14 @@ function _taxFYProfit(offset){
   var now={m:MN[_p[0]]!==undefined?MN[_p[0]]:4,y:parseInt(_p[1],10)||2024}, fyStart=(ST.fyStartMonth||3)-1;
   var curFY=(now.m>=fyStart?now.y:now.y-1)+(offset||0), inc=0,exp=0,byCat={};
   (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var fy=(d.m>=fyStart?d.y:d.y-1); if(fy!==curFY) return; if(t.type==='income') inc+=t.amt; else if(t.type==='expense'){ exp+=t.amt; byCat[_catOf(t)]=(byCat[_catOf(t)]||0)+t.amt; } });
-  return {income:inc,expenses:exp,profit:inc-exp,byCat:byCat};
+  /* -427 Closing stock increases the year's TAXABLE profit, and last year's closing
+     comes back out as this year's opening, so only the MOVEMENT is added. First Schedule
+     para 2, and the two values paragraph 8's livestock-purchase cap is made of.
+     Deliberately here and not in _txFyIE: that one is the raw income and expenses a P&L
+     is built from, where closing stock belongs on its own line rather than folded into
+     income. Taxable income is the figure this adjustment actually changes. */
+  var _sadj=0; try{ if(typeof saStockAdj==='function') _sadj=saStockAdj(curFY); }catch(e){}
+  return {income:inc,expenses:exp,profit:inc-exp+_sadj,stockAdj:_sadj,byCat:byCat};
 }
 function _taxFYVat(){
   if(typeof FARM==='undefined'||!FARM.vat) return 0;
@@ -55242,6 +55261,295 @@ function _txCatLabel(c){
   if(c==null || c==='' || c==='null' || c==='undefined') return 'Uncategorised';
   return (''+c).replace(/\s*&\s*/g,' & ').trim();
 }
+/* -427 Year-end stock, South African law.
+
+   Paragraph 2 of the First Schedule brings LIVESTOCK AND PRODUCE held and not disposed
+   of at year end into taxable income. Consumable stores - fuel, fertiliser, seed, spares
+   - are not trading stock and must never be added: the screen shows them as excluded by
+   law rather than leaving them off, so nobody thinks they were forgotten. That is the
+   opposite of the UK build, where HS232 counts them.
+
+   There is no cash basis for a South African farmer, so unlike the UK there is nothing
+   to gate on: the First Schedule applies to every farming taxpayer, every year. */
+function saStockGap(){
+  var o = { hasRecords:false, hasFigure:false, needed:false, show:false, closed:false,
+            fresh:false, due:false, days:0, daysOver:0, daysToDue:0, label:'', fy:null };
+  try{
+    var today = (window.APP_TODAY ? new Date(APP_TODAY) : new Date());
+    today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    /* The farm's own year. Stored 1-12 and starting on the 1st - South Africa has no
+       fyStartDay - so the year END is the day before the next year starts. */
+    var sm = ((window.ST && ST.fyStartMonth) | 0) || 3;
+    if(sm < 1 || sm > 12) sm = 3;
+    var startThis = new Date(today.getFullYear(), sm - 1, 1);
+    if(today < startThis) startThis = new Date(today.getFullYear() - 1, sm - 1, 1);
+    var endThis = new Date(startThis.getFullYear() + 1, sm - 1, 1); endThis.setDate(endThis.getDate() - 1);
+    var endPrev = new Date(startThis); endPrev.setDate(endPrev.getDate() - 1);
+
+    var DAY = 86400000;
+    o.days     = Math.round((endThis - today) / DAY);
+    o.daysOver = Math.round((today - endPrev) / DAY);
+
+    var MON_EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var MON_AF = ['Januarie','Februarie','Maart','April','Mei','Junie','Julie','Augustus','September','Oktober','November','Desember'];
+    var _af = false; try{ _af = (window.ST && ST.lang === 'af'); }catch(e){}
+    o.label = endThis.getDate() + ' ' + (_af ? MON_AF : MON_EN)[endThis.getMonth()];
+
+    /* A farm with nothing on the books has nothing in the shed to count either. */
+    var nLand = ((window.ST_CROP && ST_CROP.lands) || []).length;
+    var nHerd = ((window.ST_LS   && ST_LS.herd)    || []).length;
+    var nTxn  = ((window.ST      && ST.txns)       || []).length;
+    o.hasRecords = !!(nLand || nHerd || nTxn >= 5);
+
+    o.fy = (typeof fyOf === 'function') ? fyOf(endPrev) : (startThis.getFullYear() - 1);
+    var sc = (window.ST && ST.stockCounts) || null;
+    o.hasFigure = !!(sc && sc[String(o.fy)]);
+    o.needed = o.hasRecords && !o.hasFigure;
+
+    /* Two pulses on dates that actually exist, rather than one strip standing there all
+       year. The first is just after the year end, while the shed is still fresh in mind.
+       The second is the first provisional payment at the end of August, because the
+       IRP6 estimate is built on a profit this figure is still missing. Silent between
+       them, and silent afterwards - by then the year is filed, or late for bigger
+       reasons than a stock figure. */
+    var due = new Date(endPrev.getFullYear(), 7, 31);
+    o.daysToDue = Math.round((due - today) / DAY);
+    o.closed = o.needed && (today > endPrev) && (today <= due);
+    o.fresh  = o.closed && o.daysOver <= 60;
+    o.due    = o.closed && o.daysToDue <= 42;
+    o.show   = o.needed && (o.fresh || o.due || (o.days >= 0 && o.days <= 42));
+  }catch(e){}
+  return o;
+}
+
+/* The permanent half: one quiet word under a figure that is not wrong, only unfinished.
+   It asks for nothing, so it can sit there all year without becoming noise. */
+function saProvisionalNote(){
+  try{ return saStockGap().needed ? _rT('provisional', 'voorlopig') : ''; }catch(e){ return ''; }
+}
+
+/* What we can work out ourselves, so the farmer corrects a figure instead of inventing
+   one. Two lines only - livestock and produce - because those are the two the First
+   Schedule counts and the two the records actually carry. */
+function saStockDerived(fy){
+  var out = { livestock:0, produce:0, why:{}, qty:{} };
+  try{
+    var L = (typeof _lsSarsCompute === 'function') ? _lsSarsCompute() : null;
+    if(L && L.T && L.T.closeV > 0){
+      out.livestock = Math.round(L.T.closeV);
+      out.qty.livestock = (L.T.close || 0) + _rT(' head', ' stuks');
+      out.market = Math.round(L.T.market || 0);
+      out.why.livestock = _rT('Already valued at the standard values in the regulations',
+                              'Reeds gewaardeer teen die standaardwaardes in die regulasies');
+    }
+  }catch(e){}
+  try{
+    /* Harvested less delivered, per crop, so each is valued at its own price rather than
+       one blended figure. Priced at market value: the First Schedule wants the LOWER of
+       cost or market, and the records do not carry a cost for a heap in the shed - so
+       this arrives as a figure to correct downwards, and the card says so. */
+    var byCrop = {};
+    ((window.ST_CROP && ST_CROP.events) || []).forEach(function(e){
+      if(!e || !e.date) return;
+      if(typeof fyOf === 'function' && fyOf(e.date) !== fy) return;
+      if(e.kind !== 'harvested' && e.kind !== 'delivered') return;
+      var land = null;
+      try{ land = ((ST_CROP.lands) || []).filter(function(l){ return l && l.id === e.land; })[0] || null; }catch(x){}
+      var crop = (land && land.crop) || '';
+      if(!crop) return;
+      if(!byCrop[crop]) byCrop[crop] = { t:0, land:land };
+      byCrop[crop].t += (e.kind === 'harvested' ? 1 : -1) * (Number(e.tons) || 0);
+    });
+    var tot = 0, tons = 0, names = [];
+    Object.keys(byCrop).forEach(function(c){
+      var left = Math.round(byCrop[c].t * 10) / 10;
+      if(!(left > 0)) return;
+      var pr = 0;
+      try{ if(typeof cropLandPrice === 'function' && byCrop[c].land) pr = cropLandPrice(byCrop[c].land) || 0; }catch(x){}
+      if(!(pr > 0)){ try{ pr = (typeof cropPrice === 'function') ? (cropPrice(c) || 0) : 0; }catch(x){} }
+      if(!(pr > 0)) return;
+      tot += left * pr; tons += left; names.push(c + ' ' + left + ' t');
+    });
+    if(tot > 0){
+      out.produce = Math.round(tot);
+      out.qty.produce = (Math.round(tons * 10) / 10) + ' t';
+      out.why.produce = names.slice(0, 3).join(', ') + _rT(' \u00b7 at market value', ' \u00b7 teen markwaarde');
+    }
+  }catch(e){}
+  return out;
+}
+
+/* The stored count, and the adjustment it makes. Closing stock increases the year's
+   profit and last year's closing comes back out as this year's opening, so only the
+   MOVEMENT is ever added. */
+function saStockClosing(fy){
+  try{
+    var sc = (window.ST && ST.stockCounts) || null;
+    var r = sc && sc[String(fy)];
+    return (r && isFinite(r.total)) ? Math.round(r.total) : null;
+  }catch(e){ return null; }
+}
+function saStockAdj(fy){
+  try{
+    var close = saStockClosing(fy);
+    if(close == null) return 0;
+    var open = saStockClosing(fy - 1);
+    return close - (open == null ? 0 : open);
+  }catch(e){ return 0; }
+}
+
+/* The card. Two worked-out lines, one box, and the stores the law excludes shown as
+   excluded. It sits in the tab the pack is sent from, at the one moment in the year the
+   farmer is already gathering things for the accountant. */
+function saStockCardHTML(fy){
+  fy = parseInt(fy, 10);
+  if(!isFinite(fy)) fy = (typeof fyOf === 'function') ? fyOf() : 0;
+  var m = function(n){
+    if(typeof fmt === 'function') return fmt(n);
+    return 'R' + ((typeof _grpInt === 'function') ? _grpInt(n) : Math.round(n || 0));
+  };
+  var lbl = (typeof fyLabel === 'function') ? fyLabel(fy) : String(fy);
+  var head = '<div class="tx-card" style="margin-bottom:12px"><div class="tx-h">' +
+    _rT('Year-end stock', 'Jaareinde-voorraad') + ' \u00b7 ' + esc(lbl) + '</div>';
+
+  var saved = (window.ST && ST.stockCounts && ST.stockCounts[String(fy)]) || null;
+  var open  = saStockClosing(fy - 1);
+  var der   = saStockDerived(fy);
+
+  if(saved){
+    var adj = saStockAdj(fy);
+    return head +
+      '<div class="txb-note"><b>' + _rT('Counted', 'Getel') + ' \u2014 ' + m(saved.total) + ' ' +
+      _rT('on hand at your year end.', 'op hande aan die einde van jou jaar.') + '</b> ' +
+      (open == null
+        ? _rT('There is no opening figure for last year, so the whole amount is added to this year\u2019s profit.',
+              'Daar is geen openingsyfer vir verlede jaar nie, so die volle bedrag word by hierdie jaar se wins getel.')
+        : (_rT('Opening stock was ', 'Openingsvoorraad was ') + m(open) + ', ' +
+           (adj >= 0 ? _rT('so this year\u2019s profit rises by ', 'so hierdie jaar se wins styg met ')
+                     : _rT('so this year\u2019s profit falls by ', 'so hierdie jaar se wins daal met ')) + m(Math.abs(adj)) + '.')) +
+      '<div class="txc-btns" style="margin-top:10px;max-width:360px">' +
+        '<span class="txb-b sec" onclick="saStockForget(' + fy + ')">' + _rT('Count it again', 'Tel dit weer') + '</span>' +
+      '</div></div></div>';
+  }
+
+  var row = function(k, nm, why, val, ro){
+    return '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--br2)">' +
+      '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">' + nm + '</div>' +
+      '<div style="font-size:11px;color:var(--t4)">' + why + '</div></div>' +
+      '<input id="sstk-' + k + '" type="number" min="0" step="1" inputmode="decimal" value="' + (val > 0 ? String(val) : '') + '" ' +
+      'placeholder="0" style="width:130px;text-align:right;padding:7px 9px;border:1px solid ' + (ro ? 'var(--gm)' : 'var(--br)') +
+      ';border-radius:8px;background:' + (ro ? 'var(--gb)' : '#fff') + ';font:inherit;font-size:12.5px"></div>';
+  };
+  var grp = function(t){ return '<div style="font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);padding:10px 0 4px">' + t + '</div>'; };
+
+  /* Livestock is shown, not typed. The First Schedule values it at the standard values
+     in the regulations - about R20 a head - while the same herd is worth over a million
+     at market. A farmer looking at R2,518 beside 124 head reads it as broken and
+     "corrects" it to what the herd is worth, and hands themselves a million rand of
+     taxable income. There is no judgement for them to apply here, so there is no box:
+     the figure is stated, the market value is stated beside it, and the card says which
+     one the law uses. */
+  var known = '';
+  if(der.livestock > 0){
+    known += '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--br2)">' +
+      '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">' + _rT('Livestock', 'Vee') + '</div>' +
+      '<div style="font-size:11px;color:var(--t4)">' + (der.qty.livestock || '') + ' \u00b7 ' + der.why.livestock + '</div></div>' +
+      '<div style="font-size:13px;font-weight:800;white-space:nowrap">' + m(der.livestock) + '</div></div>' +
+      '<div style="font-size:11px;color:var(--t4);padding:2px 0 8px;border-bottom:1px solid var(--br2)">' +
+      _rT('Worth about ', 'Werd ongeveer ') + m(der.market || 0) +
+      _rT(' at market \u2014 but the First Schedule counts livestock at the standard values, so this figure is meant to look small. Do not replace it with what the herd would sell for.',
+          ' teen die mark \u2014 maar die Eerste Bylae tel vee teen die standaardwaardes, so hierdie syfer is bedoel om klein te lyk. Moenie dit vervang met wat die kudde sou verkoop nie.') +
+      '</div>';
+  }
+  if(der.produce > 0) known += row('produce', _rT('Produce in store', 'Produkte in die skuur'),
+    (der.qty.produce ? der.qty.produce + ' \u00b7 ' : '') + der.why.produce, der.produce, true);
+
+  var asked = row('other', _rT('Other produce on hand', 'Ander produkte op hande'),
+    _rT('Bales, hay, packed fruit \u2014 leave blank if none', 'Bale, hooi, verpakte vrugte \u2014 los leeg indien geen'), 0, false);
+
+  /* Shown, not dropped: a farmer who sees fuel and fertiliser missing assumes we forgot. */
+  var excluded =
+    '<div style="display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--br);margin-top:8px">' +
+    '<div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700;color:var(--t2)">' +
+      _rT('Fuel, fertiliser, seed, spares', 'Brandstof, kunsmis, saad, onderdele') + '</div>' +
+    '<div style="font-size:11px;color:var(--t4)">' +
+      _rT('Paragraph 2 counts livestock and produce only \u2014 these are not trading stock',
+          'Paragraaf 2 tel net vee en produkte \u2014 hierdie is nie handelsvoorraad nie') + '</div></div>' +
+    '<span style="font-size:10px;font-weight:700;padding:3px 9px;border-radius:99px;background:#F3F4F6;color:var(--t2);border:1px solid var(--br);white-space:nowrap">' +
+      _rT('excluded by law', 'wetlik uitgesluit') + '</span></div>';
+
+  return head +
+    '<div style="font-size:12px;color:var(--t2);margin-bottom:4px">' +
+      _rT('What is on hand on the last day of your year is part of this year\u2019s profit. Until it is counted, every figure on this page says provisional.',
+          'Wat op die laaste dag van jou jaar op hande is, is deel van hierdie jaar se wins. Totdat dit getel is, is elke syfer op hierdie bladsy voorlopig.') + '</div>' +
+    (known ? grp(_rT('We worked these out \u2014 check and correct', 'Ons het dit uitgewerk \u2014 kyk en korrigeer')) + known : '') +
+    grp(_rT('Only you know this', 'Net jy weet hiervan')) + asked +
+    excluded +
+    '<div class="txb-note" style="margin-top:10px">' +
+      _rT('<b>Produce is valued at the lower of cost or market value.</b> The figure above is market value, worked out from your own prices \u2014 if it cost you less to grow, use the lower number.',
+          '<b>Produkte word teen die laagste van kosprys of markwaarde gewaardeer.</b> Die syfer hierbo is markwaarde, uitgewerk uit jou eie pryse \u2014 as dit jou minder gekos het om te produseer, gebruik die laer syfer.') +
+      (open != null ? ' ' + _rT('Opening stock, carried from last year, was ', 'Openingsvoorraad, oorgedra van verlede jaar, was ') + m(open) + '.' : '') +
+    '</div>' +
+    '<div class="txc-btns" style="margin-top:10px;max-width:440px">' +
+      '<span class="txb-b pri" onclick="saStockSave(' + fy + ')">' + _rT('Save the count', 'Stoor die telling') + '</span>' +
+      '<span class="txb-b sec" onclick="saStockLater()">' + _rT('My accountant will do this', 'My rekenmeester sal dit doen') + '</span>' +
+    '</div></div>';
+}
+
+/* A real answer, not a dodge: it leaves the pack provisional, says so, and stops the
+   asking for this year end. */
+function saStockLater(){
+  toast(_rT('Left provisional \u2014 your accountant can add it later',
+            'Gelaat as voorlopig \u2014 jou rekenmeester kan dit later byvoeg'),'success');
+}
+window.saStockLater=saStockLater;
+
+function _saStockPersist(){
+  try{ if(typeof dataChanged==='function') dataChanged(); else if(typeof saveState==='function') saveState(); }catch(e){}
+  try{ if(!window.__AI_GUEST && window.AI && AI.farm && AI.farm.active() && AI.profile && AI.profile.save)
+         AI.profile.save(ST).catch(function(e){ console.error('Year-end stock not saved to the server', e); }); }catch(e){}
+  try{ if(typeof renderAttnCard==='function') renderAttnCard(); }catch(e){}
+  try{ if(typeof renderTax==='function') renderTax(); }catch(e){}
+}
+
+function saStockSave(fy){
+  var num=function(id){ var el=document.getElementById(id); if(!el) return 0;
+    var v=String(el.value||'').replace(/[R,\s]/g,''); return v===''?0:Number(v); };
+  /* Livestock comes from the engine, never from the screen - there is no box for it. */
+  var parts={}, total=0, bad=null;
+  try{
+    var _d=saStockDerived(fy);
+    if(_d && _d.livestock>0){ parts.livestock=Math.round(_d.livestock); total+=Math.round(_d.livestock); }
+  }catch(e){}
+  var keys=['produce','other'];
+  keys.forEach(function(k){
+    var v=num('sstk-'+k);
+    if(!isFinite(v) || v<0){ bad=bad||k; return; }
+    if(v>0){ parts[k]=Math.round(v); total+=Math.round(v); }
+  });
+  if(bad){ toast(_rT('That figure needs to be a number, or left blank','Daardie syfer moet \u2019n getal wees, of leeg gelaat word'),'error');
+    var e=document.getElementById('sstk-'+bad); if(e) e.focus(); return; }
+  if(total<=0){ toast(_rT('Enter at least one figure','Vul ten minste een syfer in'),'error'); return; }
+  ST.stockCounts=(ST.stockCounts && typeof ST.stockCounts==='object') ? ST.stockCounts : {};
+  ST.stockCounts[String(fy)]={ total:total, parts:parts, at:new Date().toISOString(), basis:'cost' };
+  _saStockPersist();
+  toast(_rT('Counted \u2014 this year\u2019s figures are no longer provisional',
+            'Getel \u2014 hierdie jaar se syfers is nie meer voorlopig nie'),'success');
+}
+function saStockForget(fy){
+  /* Leaves an EMPTY OBJECT rather than dropping the key: an absent key sends nothing and
+     the server would hand the old count back on the next load. */
+  if(ST.stockCounts) delete ST.stockCounts[String(fy)];
+  _saStockPersist();
+  toast(_rT('Removed \u2014 the figures are provisional again',
+            'Verwyder \u2014 die syfers is weer voorlopig'),'success');
+}
+window.saStockSave=saStockSave; window.saStockForget=saStockForget;
+window.saStockGap=saStockGap; window.saStockDerived=saStockDerived;
+window.saStockClosing=saStockClosing; window.saStockAdj=saStockAdj;
+window.saProvisionalNote=saProvisionalNote; window.saStockCardHTML=saStockCardHTML;
+
 function taxGlanceHTML(){
   var prov=taxProvEstimate(), ytd=ytdSummary(), vat=taxVatPosition(), wk=taxWorkerSnapshot();
   var cap=taxCapitalAllowances(), pay=taxPayrollAnnual(), vatFY=_taxFYVat(), trend=taxVatTrend();
@@ -55443,6 +55751,11 @@ function taxGlanceHTML(){
   if(wk) chk.push([wk.sdl?'✓':'✓',wk.sdl?'SDL registered':'Under SDL threshold',1]);
   h+='<div class="tx-card" style="margin-bottom:12px"><div class="tx-h">Tax-health check</div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px 18px">'+chk.map(function(c){ var col=c[2]===1?'var(--gm)':c[2]===0?'#B45309':'var(--t4)'; return '<div style="display:flex;gap:8px;align-items:center;font-size:12px"><span style="color:'+col+';font-weight:800">'+c[0]+'</span><span style="color:'+(c[2]===0?'#7a4a10':'var(--t2)')+'">'+esc(c[1])+'</span></div>'; }).join('')+'</div></div>';
 
+  try{
+    var _sg = (typeof saStockGap==='function') ? saStockGap() : null;
+    var _sfy = (_sg && _sg.fy != null) ? _sg.fy : ((typeof fyOf==='function') ? fyOf() : null);
+    h += saStockCardHTML(_sfy);
+  }catch(e){}
   h+='<div class="tx-btn" onclick="taxAccountantPack()">📤 Share SARS-ready pack with your accountant</div>';
   h+='<div class="tx-disc"><b>Everything here is a helper to plan with — not a filed return.</b> Figures are worked out from your records; rates are reviewed each Budget ('+esc((STATUTORY&&STATUTORY.tax&&STATUTORY.tax.yearLabel)||'2026/27')+' tables). These figures follow SARS’s rules rather than just adding everything up. It’s still not tax advice — other money you earn, or farming on the side rather than as your main work, can change the answer. Confirm the final numbers with your accountant — and if farming isn’t your main work, ask them about section 20A.</div>';
   return h;
@@ -62552,6 +62865,37 @@ function _attnPlainFor(title){
 
 function attnItems(){
   var out = [], t = _attnToday();
+
+  /* -427 Year-end stock. Time-bound, because a count is a snapshot at one date: a
+     heads-up before the year ends so the shed can be walked, then again after it closes,
+     and once more as the first provisional payment falls due - the IRP6 estimate is
+     built on a profit this figure is still missing. Never on a farm with no records for
+     stock to have come from. */
+  try{
+    var _sg = (typeof saStockGap === 'function') ? saStockGap() : null;
+    if(_sg && _sg.show){
+      out.push({ tier:'money', sev: _sg.due ? 80 : (_sg.fresh ? 74 : 46),
+        nm: _rT('Year-end stock', 'Jaareinde-voorraad'),
+        lead: _sg.due
+          ? _rT('Your provisional payment is due and last year\u2019s stock is still not counted',
+                'Jou voorlopige betaling is naby en verlede jaar se voorraad is nog nie getel nie')
+          : (_sg.fresh
+            ? _rT('Last year cannot be finished until this is answered',
+                  'Verlede jaar kan nie afgehandel word voordat dit beantwoord is nie')
+            : (_rT('Your year ends ', 'Jou jaar eindig ') + _sg.label + _rT(' \u2014 you will be asked what is on hand',
+                                                                           ' \u2014 jy sal gevra word wat op hande is'))),
+        sub: _sg.closed
+          ? _rT('Livestock and produce on hand are part of last year\u2019s profit',
+                'Vee en produkte op hande is deel van verlede jaar se wins')
+          : _rT('Time to walk the shed while it is still there to look at',
+                'Tyd om die skuur te loop terwyl dit nog daar is om na te kyk'),
+        st: _sg.due ? (_rT('due in ', 'oor ') + _sg.daysToDue + 'd')
+                    : (_sg.fresh ? (_sg.daysOver + _rT('d over', 'd verby')) : (_rT('in ', 'oor ') + _sg.days + _rT(' days', ' dae'))),
+        when: _sg.closed ? -_sg.daysOver : _sg.days,
+        cta: _rT('Open Tax', 'Open Belasting'),
+        action: function(){ try{ nav('tax'); }catch(e){} } });
+    }
+  }catch(e){}
 
   /* Loan repayments we could not tie to a loan. The Reports page explains it where the
      number is, but almost nobody reads an expense breakdown looking for an anomaly —
