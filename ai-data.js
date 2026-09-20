@@ -788,9 +788,15 @@
       /* When the row reached the farm account. Rows that arrived together came from the
          same import, which is how imports made before we recorded them are grouped. */
       _added:   r.created_at || undefined,
-      /* Only set when true: _txNeedsLook treats any truthy value as "settled", and an
-         explicit false would be indistinguishable from "never asked". */
-      _catOk:   (r.cat_confirmed === true) ? true : undefined,
+      /* The server's answer whenever it has the column - false included. It used to be
+         "true or nothing", and preservePendingTxns fills a missing flag from the local row,
+         so once this computer had confirmed a line nothing could un-confirm it: the phone's
+         Undo after its Accept had gone up (or any other device) set cat_confirmed=false,
+         the pull read "nothing", the stale local true was laid back over it - and the
+         computer's next save of the row wrote true to the server again (19 Sep 2026).
+         _txNeedsLook reads it as truthy/falsy, so false and "never asked" still mean the
+         same there. Undefined only when the database has no such column. */
+      _catOk:   (r.cat_confirmed === true) ? true : (r.cat_confirmed === false ? false : undefined),
       /* The asset this payment bought, as the server's uuid. Deliberately NOT converted
          to a local ST_ASSETS id here: assets may not be loaded yet when transactions
          arrive, and the loans code already shows what happens then — loanFromDb sets
@@ -799,9 +805,10 @@
          cloud round-trip. txLinkedAsset() resolves at the point of use instead, which
          cannot race the load order. */
       _assetUuid: r.asset_id || undefined,
-      /* Only when true, matching _catOk: an explicit false is indistinguishable from
-         never-asked, and would permanently suppress a question nobody answered. */
-      _dedOk:     (r.ded_confirmed === true) ? true : undefined,
+      /* The server's answer, false included, for the same reason as _catOk: it is also
+         laid over from the local row when missing. False and never-asked read the same
+         (the question is asked again); only a truthy value settles it. */
+      _dedOk:     (r.ded_confirmed === true) ? true : (r.ded_confirmed === false ? false : undefined),
       _capOk:     (r.cap_confirmed === true) ? true : undefined
     };
   }

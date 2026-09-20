@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=57"></script>
+<script src="ai-data.js?v=58"></script>
 <script src="ai-auth.js?v=44"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -19893,6 +19893,10 @@ function showSkeleton(containerId, rows) {
 function nav(id) {
   var pg = $('pg-' + id);
   if (!pg) { pg = $('pg-dashboard'); id = 'dashboard'; }   // missing target -> fall back to dashboard, never blank the screen
+  /* Drawing the page you are already on again - a background refresh from the phone, the
+     five-minute check, coming back to the tab - keeps your place. It used to jump to the
+     top every time, taking an open bill editor out of view (-422). */
+  var _samePage = pg.classList.contains('on');
   document.querySelectorAll('.pg').forEach(function(p){ p.classList.remove('on'); });
   if (pg) pg.classList.add('on');
 
@@ -19928,7 +19932,7 @@ function nav(id) {
   }catch(e){}
 
   var c = $('content');
-  if (c) c.scrollTop = 0;
+  if (c && !_samePage) c.scrollTop = 0;
 
   /* The Transactions table IS this page's visible content — it starts ~300px down, right
      under the filter bar, where Income/Expenses keep theirs two screens below the fold.
@@ -46154,7 +46158,14 @@ function _cfCoverText(balance, burn){
   if(mo >= 11.5) return 'more than a year of running costs';   // 11.5+ would round to "12 months", which reads as a year anyway
   return (mo<3 ? Math.round(mo*10)/10 : Math.round(mo)) + ' months of running costs';
 }
+/* The two answer-card lines carry data-notranslate only while they hold text written in
+   the farmer's language (-422); every other headline is English for the pair pass. */
+function _cfAnsFence(on){
+  ['cf-fwd-answer-h','cf-fwd-answer-s'].forEach(function(id){ var e = $(id); if (!e) return;
+    if (on) e.setAttribute('data-notranslate', ''); else e.removeAttribute('data-notranslate'); });
+}
 function cfLineHeadline(months, minIdx){
+  _cfAnsFence(false);
   var card=$('cf-fwd-answer'), icon=$('cf-fwd-answer-icon');
   var warnIcon='<svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
   var okIcon='<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>';
@@ -46185,8 +46196,16 @@ function cfLineHeadline(months, minIdx){
     if(m.balance<0){
       if(card) card.className='cf-answer warn';
       if(icon) icon.innerHTML=warnIcon;
-      setEl('cf-fwd-answer-h','Cash runs short in '+_cfMonthFull(m.name));
-      setEl('cf-fwd-answer-s','On this plan you dip to about −'+fmtK(Math.abs(m.balance))+' by '+m.label+'. Line up cover before then.');
+      /* The month the money first runs out, not the lowest one: going negative in October
+         and bottoming out in March, it used to say "short in March" (-422). */
+      var _fi = minIdx; for (var _k = 0; _k < months.length; _k++) { if (months[_k].balance < 0) { _fi = _k; break; } }
+      var _f = months[_fi], _yr = String(m.label || '').split(' ')[1] || '';
+      var _AF = {Jan:'Januarie',Feb:'Februarie',Mar:'Maart',Apr:'April',May:'Mei',Jun:'Junie',Jul:'Julie',Aug:'Augustus',Sep:'September',Oct:'Oktober',Nov:'November',Dec:'Desember'};
+      _cfAnsFence(true);
+      setEl('cf-fwd-answer-h', _rT('Cash runs short from ' + _cfMonthFull(_f.name), 'Kontant raak kort vanaf ' + (_AF[_f.name] || _f.name)));
+      setEl('cf-fwd-answer-s', _rT(
+        'You drop below zero in ' + _cfMonthFull(_f.name) + ' and reach about −' + fmtK(Math.abs(m.balance)) + ' by ' + _cfMonthFull(m.name) + ' ' + _yr + '. Line up cover before then.',
+        'Jy gaan in ' + (_AF[_f.name] || _f.name) + ' onder nul en bereik sowat −' + fmtK(Math.abs(m.balance)) + ' teen ' + (_AF[m.name] || m.name) + ' ' + _yr + '. Re\u00ebl dekking voor dan.'));
     } else {
       var _burn=_cfMonthlyBurn(), _cov=_cfCoverText(m.balance,_burn);
       var _tight=(_cfStatusFor(m.balance,_burn)==='tight');
@@ -46348,13 +46367,25 @@ if (!hasTxns && !hasPlan && !hasRecurring) {
       card.className = 'cf-answer empty';
       var iconEl = $('cf-fwd-answer-icon');
       if (iconEl) iconEl.innerHTML = '<svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-      setEl('cf-fwd-answer-h', 'Forecast not ready yet');
+      /* Its own Afrikaans (-422): through the word pairs it came out "Forecast not gereed yet". */
+      _cfAnsFence(true);
+      setEl('cf-fwd-answer-h', _rT('Forecast not ready yet', 'Vooruitskatting nog nie gereed nie'));
       var sub = $('cf-fwd-answer-s');
-      if (sub) sub.innerHTML = 'Add your <a onclick="nav(\u0027planning\u0027)">crop plan</a> or your first transactions to see your projected runway.';
+      if (sub) sub.innerHTML = _rT(
+        'Add your <a onclick="nav(\u0027planning\u0027)">crop plan</a>, your first transactions or <a onclick="cfRecurOpen()">a repeating bill</a> to see your projected runway.',
+        'Voeg jou <a onclick="nav(\u0027planning\u0027)">gewasplan</a>, jou eerste transaksies of <a onclick="cfRecurOpen()">\u2019n herhalende rekening</a> by om te sien hoe lank jou kontant hou.');
     }
     if (fwdChart)   fwdChart.style.display   = 'none';
     if (sug)        sug.style.display        = 'none';
-    if (recurPanel) recurPanel.style.display = 'none';
+    /* The repeating-bills panel is the only place a bill can be added, so a farm with
+       nothing yet must still reach it - open, with its Add button. Hidden, a new farm had
+       no way in, and removing its only bill took the Undo away with the panel (-422). */
+    if (recurPanel) {
+      recurPanel.style.display = '';
+      var _rb = $('cf-recur-body');
+      if (_rb && _rb.style.display === 'none') { _rb.style.display = 'block'; recurPanel.classList.add('expanded'); }
+    }
+    try { renderCfRecurringPanel(); } catch(e) {}
     ['cfl-line-card','cfl-bd','cfl-wi-card'].forEach(function(id){ var e=$(id); if(e) e.style.display='none'; });
     setEl('cf-plan-status', '');
     return;
@@ -46488,6 +46519,50 @@ renderCfRecurringPanel();
    is still in the queue, and the correction would be lost without a word. */
 function _rT(en, af){ try{ return (typeof ST !== 'undefined' && ST.lang === 'af' && af) ? af : en; }catch(e){ return en; } }
 var CF_RECUR_EDIT = -1;          /* index into ST.recurring, or -2 for a new one */
+/* ...and WHICH bill that is (-422). A refresh from the server replaces ST.recurring, in the
+   server's order: an index held across it pointed at whatever bill now sat there. Proved
+   on the live account - editing R200, a bill added on the phone, the open editor showed
+   R500, and Save would have written to that one. The id is the truth; the index is
+   worked out again from it on every render. */
+var CF_RECUR_EDIT_ID = null, CF_RECUR_EDIT_NAME = '', CF_RECUR_DRAFT = null;
+function _cfRecurIdx(id){
+  var L = ST.recurring || [];
+  for (var i = 0; i < L.length; i++) { if (L[i] && String(L[i].id) === String(id)) return i; }
+  return -1;
+}
+/* What the farmer has typed so far, read off the open editor, keyed by the bill it belongs to. */
+function _cfRecurReadDraft(){
+  var ed = document.querySelector('#cf-recur-list .cfe'); if (!ed) return null;
+  var v = function(id){ var e = document.getElementById(id); return e ? e.value : null; };
+  var months = [], host = document.getElementById('cfe-mons');
+  if (host) Array.prototype.forEach.call(host.querySelectorAll('button'), function(b, i){ if (b.classList.contains('on')) months.push(i); });
+  return { rid: ed.getAttribute('data-rid'), name: v('cfe-name'), amt: v('cfe-amt'), freq: v('cfe-freq'),
+           cat: v('cfe-cat'), type: v('cfe-type'), months: months };
+}
+function _cfRecurApplyDraft(){
+  var d = CF_RECUR_DRAFT, ed = document.querySelector('#cf-recur-list .cfe');
+  if (!d || !ed || d.rid !== ed.getAttribute('data-rid')) return;
+  var set = function(id, val){ var e = document.getElementById(id); if (e && val != null) e.value = val; };
+  set('cfe-name', d.name); set('cfe-amt', d.amt); set('cfe-freq', d.freq); set('cfe-type', d.type);
+  var c = document.getElementById('cfe-cat');
+  if (c && d.cat != null) {
+    var has = false; for (var i = 0; i < c.options.length; i++) { if (c.options[i].value === d.cat) has = true; }
+    if (!has) { var o = document.createElement('option'); o.textContent = d.cat; c.appendChild(o); }
+    c.value = d.cat;
+  }
+  var wrap = document.getElementById('cfe-mons-wrap'); if (wrap) wrap.style.display = (d.freq === 'monthly') ? 'none' : '';
+  var host = document.getElementById('cfe-mons');
+  if (host) Array.prototype.forEach.call(host.querySelectorAll('button'), function(b, i){ b.classList.toggle('on', d.months.indexOf(i) >= 0); });
+}
+function _cfRecurClearEdit(){ CF_RECUR_EDIT = -1; CF_RECUR_EDIT_ID = null; CF_RECUR_EDIT_NAME = ''; CF_RECUR_DRAFT = null; }
+/* "a repeating bill" in the empty forecast's sentence: open the panel and bring it into view. */
+function cfRecurOpen(){
+  var p = $('cf-recur-panel'), b = $('cf-recur-body'); if (!p) return;
+  p.style.display = '';
+  if (b && b.style.display === 'none') { b.style.display = 'block'; p.classList.add('expanded'); }
+  try { p.scrollIntoView({ block: 'center' }); } catch(e) {}
+  var add = p.querySelector('.cf-recur-add'); if (add) { try { add.focus({ preventScroll: true }); } catch(e) {} }
+}
 var CF_RECUR_UNDO = null;        /* the last one removed, so the toast can put it back */
 
 /* The next date this bill is due: written down at last, because the phone app reads it
@@ -46523,9 +46598,13 @@ function cfRecurAfterChange(){
   try{ dataChanged('recurring'); }catch(e){}
   try{ renderCfRecurringPanel(); }catch(e){}
 }
-function cfRecurEdit(i){ CF_RECUR_EDIT = i; renderCfRecurringPanel(); }
-function cfRecurAdd(){ CF_RECUR_EDIT = -2; renderCfRecurringPanel(); }
-function cfRecurCancel(){ CF_RECUR_EDIT = -1; renderCfRecurringPanel(); }
+function cfRecurEdit(i){
+  var r = (ST.recurring || [])[i];
+  CF_RECUR_EDIT = i; CF_RECUR_EDIT_ID = r ? String(r.id) : null; CF_RECUR_EDIT_NAME = r ? (r.name || '') : ''; CF_RECUR_DRAFT = null;
+  renderCfRecurringPanel();
+}
+function cfRecurAdd(){ CF_RECUR_EDIT = -2; CF_RECUR_EDIT_ID = '__new'; CF_RECUR_EDIT_NAME = ''; CF_RECUR_DRAFT = null; renderCfRecurringPanel(); }
+function cfRecurCancel(){ _cfRecurClearEdit(); renderCfRecurringPanel(); }
 function cfRecurMonth(m){
   var host = document.getElementById('cfe-mons'); if(!host) return;
   var freq = (document.getElementById('cfe-freq') || {}).value;
@@ -46556,12 +46635,18 @@ function cfRecurSave(){
   if(!(amt > 0)){ try{ toast(_rT('Put in an amount', 'Vul ’n bedrag in'), 'error'); }catch(e){} return; }
   if(freq !== 'monthly' && !months.length){ try{ toast(_rT('Choose at least one month', 'Kies ten minste een maand'), 'error'); }catch(e){} return; }
   ST.recurring = ST.recurring || [];
+  /* By the bill itself, never by a position that a refresh may have moved. */
+  if (CF_RECUR_EDIT >= 0 && CF_RECUR_EDIT_ID && CF_RECUR_EDIT_ID !== '__new') {
+    var _ix = _cfRecurIdx(CF_RECUR_EDIT_ID);
+    if (_ix < 0) { var _gone = CF_RECUR_EDIT_NAME; _cfRecurClearEdit(); renderCfRecurringPanel(); _cfRecurGoneToast(_gone); return; }
+    CF_RECUR_EDIT = _ix;
+  }
   var r = (CF_RECUR_EDIT >= 0) ? ST.recurring[CF_RECUR_EDIT] : null;
   if(!r){ r = { id: 'frm' + Date.now() }; ST.recurring.push(r); }
   r.name = name; r.amt = amt; r.type = type; r.category = cat;
   r.freq = (freq === 'monthly') ? 'monthly' : 'specific';
   if(r.freq === 'specific') r.months = months; else delete r.months;
-  CF_RECUR_EDIT = -1; CF_RECUR_UNDO = null;
+  _cfRecurClearEdit(); CF_RECUR_UNDO = null;
   cfRecurPersist(r);
   cfRecurAfterChange();
   try{ toast(_rT('Saved', 'Gestoor'), 'success'); }catch(e){}
@@ -46570,7 +46655,7 @@ function cfRecurRemove(i){
   var r = (ST.recurring || [])[i]; if(!r) return;
   CF_RECUR_UNDO = { item: r, at: i };
   ST.recurring.splice(i, 1);
-  CF_RECUR_EDIT = -1;
+  _cfRecurClearEdit();
   try{
     if(window.AI && AI.farm && AI.farm.active() && AI.recurring && r.id != null)
       AI.recurring.remove(null, r.id).catch(function(e){ console.error('Backend recurring delete failed:', e); });
@@ -46592,6 +46677,10 @@ function cfRecurUndo(){
 }
 /* The way back after a removal: it stays until the farmer uses it or changes something
    else, rather than disappearing with a toast. */
+function _cfRecurGoneToast(name){
+  try { toast((name || _rT('That bill', 'Daardie rekening')) +
+    _rT(' was removed on another device, so its editor has closed.', ' is op \u2019n ander toestel verwyder, so die redigeerder het gesluit.'), 'info'); } catch(e) {}
+}
 function cfRecurUndoStripHTML(){
   if(!CF_RECUR_UNDO || !CF_RECUR_UNDO.item) return '';
   return '<div class="cf-recur-undo">' +
@@ -46614,7 +46703,7 @@ function cfRecurEditorHTML(r){
     return '<button type="button" class="' + ((r && (r.months || []).indexOf(i) >= 0) ? 'on' : '') +
            '" onclick="cfRecurMonth(' + i + ')">' + m + '</button>';
   }).join('');
-  return '<div class="cfe">' +
+  return '<div class="cfe" data-rid="' + esc(isNew ? '__new' : String(r.id)) + '">' +
     '<div class="r1">' +
       '<div><label>' + _rT('What it is', 'Wat dit is') + '</label>' +
         '<input id="cfe-name" value="' + esc((r && r.name) || '') + '" placeholder="' + _rT('e.g. Diesel — bulk order', 'bv. Diesel — grootmaat') + '"></div>' +
@@ -46643,16 +46732,29 @@ function cfRecurEditorHTML(r){
 function renderCfRecurringPanel() {
   var list = $('cf-recur-list');
   if (!list) return;
+  /* Before anything is redrawn: keep what has been typed, and find the bill again by its id
+     (-422). A bill gone from the list - removed on another device - closes its editor and
+     says so, instead of opening on whichever bill took its place. */
+  if (CF_RECUR_EDIT !== -1) { var _d = _cfRecurReadDraft(); if (_d) CF_RECUR_DRAFT = _d; }
+  if (CF_RECUR_EDIT >= 0 && CF_RECUR_EDIT_ID) {
+    var _ix = _cfRecurIdx(CF_RECUR_EDIT_ID);
+    if (_ix < 0) { var _gone = CF_RECUR_EDIT_NAME; _cfRecurClearEdit(); _cfRecurGoneToast(_gone); }
+    else CF_RECUR_EDIT = _ix;
+  }
   var items = ST.recurring || [];
+  /* "Use Edit or Remove above" under an empty list pointed at nothing. */
+  var _foot = document.querySelector('#cf-recur-body .cf-recur-foot');
+  if (_foot) _foot.style.display = items.length ? '' : 'none';
   if (!items.length) {
     list.innerHTML =
       '<div style="padding:14px 4px;text-align:center">' +
-        '<div style="font-size:13px;color:var(--t2);font-weight:600;margin-bottom:4px">No recurring items yet</div>' +
+        '<div style="font-size:13px;color:var(--t2);font-weight:600;margin-bottom:4px">' + _rT('No recurring items yet', 'Nog geen herhalende items nie') + '</div>' +
         '<div style="font-size:12px;color:var(--t3);line-height:1.5;max-width:380px;margin:0 auto">' + _rT('Loan repayments, salaries, insurance, a lease \u2014 anything that comes round every month or every season. The forecast uses them from the day you add them.', 'Lenings, salarisse, versekering, huur \u2014 enigiets wat elke maand of elke seisoen terugkom. Die vooruitskatting gebruik dit van die dag af wat jy dit byvoeg.') + '</div>' +
       '</div>' +
       cfRecurUndoStripHTML() +
       (CF_RECUR_EDIT === -2 ? cfRecurEditorHTML(null) : '') +
       '<button class="cf-recur-add" onclick="cfRecurAdd()">' + _rT('+ Add a repeating bill or income', '+ Voeg \u2019n herhalende rekening of inkomste by') + '</button>';
+    _cfRecurApplyDraft();
     setEl('cf-recur-inc-total', '+R0/mo');
     setEl('cf-recur-exp-total', '\u2212R0/mo');
     var hdr = document.querySelector('#cf-recur-panel .cf-recur-totals');
@@ -46673,13 +46775,14 @@ var monthlyInc = 0, monthlyExp = 0;
   setEl('cf-recur-exp-total', '\u2212R' + Math.round(monthlyExp/1000) + 'k/mo');
 
 var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var MO_AF = ['Jan','Feb','Mrt','Apr','Mei','Jun','Jul','Aug','Sep','Okt','Nov','Des'];
   function freqLabel(r) {
-    if (r.freq === 'monthly') return 'Monthly';
+    if (r.freq === 'monthly') return _rT('Monthly', 'Maandeliks');
     if (r.freq === 'specific' && r.months) {
-      if (r.months.length === 1) return MO[r.months[0]] + ' yearly';
-      if (r.months.length === 4) return 'Quarterly';
-      if (r.months.length === 2) return 'Twice yearly';
-      return r.months.length + 'x yearly';
+      if (r.months.length === 1) return _rT(MO[r.months[0]] + ' yearly', MO_AF[r.months[0]] + ' jaarliks');
+      if (r.months.length === 4) return _rT('Quarterly', 'Kwartaalliks');
+      if (r.months.length === 2) return _rT('Twice yearly', 'Twee keer per jaar');
+      return _rT(r.months.length + 'x yearly', r.months.length + ' keer per jaar');
     }
     return r.freq;
   }
@@ -46702,7 +46805,7 @@ var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec
     return '<div class="cf-recur-row has-acts">' +
       '<div class="marker ' + (r.type === 'income' ? 'in' : 'out') + '"></div>' +
       '<div>' +
-        '<div class="nm">' + esc(r.name || '') + (wk ? '<span class="wkTag">' + _rT('From Workers', 'Van Werkers') + '</span>' : '') + '</div>' +
+        '<div class="nm"><span data-notranslate>' + esc(r.name || '') + '</span>' + (wk ? '<span class="wkTag">' + _rT('From Workers', 'Van Werkers') + '</span>' : '') + '</div>' +
         '<div class="meta">' + esc(r.category || '') + (wk ? ' \u00b7 ' + _rT('change this in Workers', 'verander dit in Werkers') : '') + '</div>' +
       '</div>' +
       '<div class="freq">' + freqLabel(r) + '</div>' +
@@ -46718,6 +46821,7 @@ var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec
   }).join('') +
   (CF_RECUR_EDIT === -2 ? cfRecurEditorHTML(null) : '') +
   '<button class="cf-recur-add" onclick="cfRecurAdd()">' + _rT('+ Add a repeating bill or income', '+ Voeg \u2019n herhalende rekening of inkomste by') + '</button>';
+  _cfRecurApplyDraft();
 }
 
 function toggleCfRecur() {
@@ -46978,6 +47082,11 @@ var planHasIncome = ST_PLAN && ST_PLAN.months &&
 var pastSum = txSummaryPeriod(3);
   var avgIn   = (pastSum.income   / 3) || 0;
   var avgOut  = (pastSum.expenses / 3) || 0;
+  /* Without a plan the forecast repeats the last three months, and leaves monthly bills
+     out because those months already paid them. That only holds if there ARE such months:
+     a farm with nothing on a side yet has no history for its bills to be hiding in, and
+     its first lease, 8 000 a month, was forecast as nothing (-422). */
+  var noOutHistory = !(pastSum.expenses > 0), noInHistory = !(pastSum.income > 0);
 
 function recurringFor(monthIdx) {
     var inc = 0, exp = 0;
@@ -47034,8 +47143,12 @@ var inc, exp;
       var specificInc = 0, specificExp = 0;
       (ST.recurring || []).forEach(function(r) {
         if (r.category === 'Loan Repayments') return; // loans pulled from ST_LOANS
-        if (r.freq !== 'specific') return;
-        if (!r.months || r.months.indexOf(mIdx) < 0) return;
+        if (r.freq === 'monthly') {
+          if (!(r.type === 'income' ? noInHistory : noOutHistory)) return;   // already in the history
+        } else {
+          if (r.freq !== 'specific') return;
+          if (!r.months || r.months.indexOf(mIdx) < 0) return;
+        }
         if (r.type === 'income') specificInc += r.amt;
         else                      specificExp += r.amt;
       });
@@ -52150,6 +52263,9 @@ function langSync(root) {
     if (typeof ST === 'undefined' || ST.lang !== 'af') return;
     for (var i = 0; i < batch.length; i++) {
       var n = batch[i];
+      /* ...unless it sits inside a data-notranslate fence (-422): walkTextNodes only checks
+         the node it starts from, and this pass starts inside the fence. */
+      try { if (n && n.closest && n.closest('[data-notranslate]')) continue; } catch(e){}
       if (n && n.isConnected) { try { applyLangNodes(n, 0, 1); } catch(e){} }
     }
   }
@@ -52210,6 +52326,18 @@ var heroH = $('hero-h-el') || document.querySelector('[data-t="hero.h"]');
   /* Same reason: the veld question, its options and its note are written by rnT
      and fenced with data-notranslate, so the passes above skip them. Rewrite. */
   try { if (typeof rnSyncVeldCopy === 'function') rnSyncVeldCopy(); } catch(e) {}
+
+  /* Money Flow's forecast card and its bills are written in the farmer's language when
+     they are drawn (-422), so a language switch has to draw them again - the pair pass had
+     turned "Forecast not ready yet" into "Forecast not gereed yet". The second pass then
+     translates the rest of what the redraw wrote in English. */
+  try {
+    var _cf = $('pg-cashflow');
+    if (_cf && _cf.classList.contains('on') && typeof renderCfForecast === 'function') {
+      renderCfForecast();
+      applyLangNodes(_cf, fromIdx, toIdx);
+    }
+  } catch(e) {}
 
   /* The connection line is LIVE STATE that happens to be words. It used to carry
      data-t="offline.sub", so the key pass above overwrote it from the dictionary — and
