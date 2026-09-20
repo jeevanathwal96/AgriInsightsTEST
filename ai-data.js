@@ -271,6 +271,10 @@
        column makes PostgREST reject the whole write, which would break every save — so
        only include it once we've seen the column exist. */
     if (CAN_CAT_CONFIRM) row.cat_confirmed = !!t._catOk;
+    /* What the matcher suggested when the farmer settled this line. Without it, a line
+       settled against a suggestion that later proves wrong stays wrong for ever - six
+       bank fees on the live farm did exactly that (20 Sep 2026). */
+    if (CAN_CAT_OK_CAT) row.cat_ok_cat_id = t._catOkCat || null;
     /* Same rule as cat_confirmed: gate on the probe, or a database that has not had the
        para 12 migration rejects EVERY transaction write, not just this field. */
     if (CAN_TXN_ASSET) row.asset_id = _txAssetUuid(t);
@@ -362,6 +366,7 @@
      here, where a farmer moves between a laptop and a tablet. */
   let CAN_CAT_RULES     = false;
   let CAN_LOOKS         = false;   // transaction_looks: the computer's stored "needs a look" answer
+  let CAN_CAT_OK_CAT    = false;   // transactions.cat_ok_cat_id: what "keep as is" was told
   let CAN_FUEL_METER    = false;
   let CAN_FUEL_SRC      = false;
   /* Payslips that stay what was paid (payslips_migration.sql, signed off 19 Sep 2026).
@@ -408,6 +413,7 @@
     CAN_FARM_PARTNERS  = await has('farms','partners');
     CAN_CAT_RULES      = await has('category_rules','match_text');
     CAN_LOOKS          = await has('transaction_looks','look_v');
+    CAN_CAT_OK_CAT     = await has('transactions','cat_ok_cat_id');
     /* The whole row-memory scheme rides on this one column. A project that has
        not run agriinsights-13-relational-sync.sql keeps today's behaviour rather
        than having every write rejected for an unknown column. */
@@ -799,6 +805,8 @@
          _txNeedsLook reads it as truthy/falsy, so false and "never asked" still mean the
          same there. Undefined only when the database has no such column. */
       _catOk:   (r.cat_confirmed === true) ? true : (r.cat_confirmed === false ? false : undefined),
+      /* Null is a real answer here: "settled, but we were not recording what it was told". */
+      _catOkCat: r.cat_ok_cat_id || null,
       /* The asset this payment bought, as the server's uuid. Deliberately NOT converted
          to a local ST_ASSETS id here: assets may not be loaded yet when transactions
          arrive, and the loans code already shows what happens then — loanFromDb sets

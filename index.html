@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=59"></script>
+<script src="ai-data.js?v=60"></script>
 <script src="ai-auth.js?v=45"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -16662,8 +16662,32 @@ function _txLookState(t){
   return { need: true, cat: st.cat };
 }
 
+/* "Keep as is", with what it was told. The farmer is agreeing with a SUGGESTION, so
+   the suggestion is remembered beside the agreement: if the computer later reckons
+   something else, the line is worth one more question. Six bank fees on the live farm
+   were settled as Machinery & Repairs under a matcher that has since been fixed, and
+   without this the correction could never have reached anyone (20 Sep 2026).
+   Null means the answer was not recorded - settled before this, or settled when the
+   computer had nothing to say - and such a line is asked about once. */
+function _txSettle(t){
+  if (!t) return;
+  t._catOk = true;
+  try{ var st = t.id ? TX_LOOKS[String(t.id)] : null; t._catOkCat = (st && st.cat) ? st.cat : null; }catch(e){}
+}
+
+/* Has the computer changed its mind since this line was settled? */
+function _txLookChanged(t){
+  var st = _txLookState(t);
+  if (!st || !st.cat) return false;                       // no answer, or nothing to go on
+  var filedId = null;
+  try{ filedId = (t.cat && AI && AI._map) ? AI._map.catToId(t.cat) : null; }catch(e){}
+  if (filedId && String(st.cat) === String(filedId)) return false;   // it agrees with the filing
+  return !t._catOkCat || String(t._catOkCat) !== String(st.cat);
+}
+
 function _txNeedsLook(t){
-  if (!t || !t.desc || t._catOk) return null;
+  if (!t || !t.desc) return null;
+  if (t._catOk && !_txLookChanged(t)) return null;
   /* The stored answer wins wherever there is one: it is what the phone reads too. */
   var st = _txLookState(t);
   if (st) {
@@ -16758,7 +16782,7 @@ function txNeedToggle(kind){
 /* Farmer says the category is right after all — stop flagging it, keep the row as filed. */
 function txCatConfirm(idx, kind){
   var t = ST.txns[idx]; if (!t) return;
-  t._catOk = true;
+  _txSettle(t);
   /* Persist it, or the row re-flags on every other device and after the next pull. */
   try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
@@ -16768,7 +16792,7 @@ function txCatConfirm(idx, kind){
 /* Same confirmation from the all-transactions page. */
 function txAllCatConfirm(idx){
   var t = ST.txns[idx]; if (!t) return;
-  t._catOk = true;
+  _txSettle(t);
   try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   txRender();
@@ -16840,7 +16864,7 @@ function _txCatMenu(idx, anchor, apply){
   /* Plumbing lives in _txMenuMount now — this function only decides what goes inside. */
   _txMenuMount(anchor, h, {
     apply: apply,
-    keep: function(){ var x=ST.txns[idx]; if(x){ x._catOk=true;
+    keep: function(){ var x=ST.txns[idx]; if(x){ _txSettle(x);
                         try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(x); }catch(e){}
                         try{saveState&&saveState();}catch(e){} }
                       try{ txRender(); }catch(e){} try{ filterExpTx(); }catch(e){} try{ filterIncomeTx(); }catch(e){} }
@@ -17242,7 +17266,7 @@ function catRuleApplyExisting(match, cat, type, ruleId){
     var t=ST.txns[i]; if(!t) return;
     if(t._ruleWas===undefined) t._ruleWas=(t.cat==null?'':t.cat);
     t._ruleBy=ruleId;
-    t.cat=cat; t._catOk=true;
+    t.cat=cat; _txSettle(t);
     n++;
     try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(t); }catch(e){}
   });
@@ -17573,7 +17597,7 @@ function txCatApply(idx, cat, kind){
   }
   var from = t.cat;
   t.cat = cat;
-  t._catOk = true;                                          // an explicit choice is a confirmation
+  _txSettle(t);                                             // an explicit choice is a confirmation
   /* Local-only mutation reverts on the next cloud pull — persist like the Edit form does. */
   try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(e){}
   try{ if (typeof dataChanged === 'function') dataChanged('transaction'); }catch(e){}
@@ -17625,7 +17649,7 @@ function txBulkApply(kind){
   var moved = 0;
   ids.forEach(function(i){
     var t = ST.txns[+i];
-    if (t && t.cat !== cat){ t.cat = cat; t._catOk = true; moved++;
+    if (t && t.cat !== cat){ t.cat = cat; _txSettle(t); moved++;
       try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(er){} }
   });
   TX_SEL[kind] = {};
@@ -52527,7 +52551,7 @@ function _txnSnapshot(o){
   return { date:o.date, amt:o.amt, cat:o.cat, type:o.type, desc:o.desc, method:o.method,
            qty:o.qty, unit:o.unit, ent:o.ent, source:o.source, ref:o.ref, note:o.note,
            party:o.party,
-           accountId:o.accountId, cuid:o.cuid, batch:o.batch, _catOk:o._catOk,
+           accountId:o.accountId, cuid:o.cuid, batch:o.batch, _catOk:o._catOk, _catOkCat:o._catOkCat,
            assetId:o.assetId, _assetUuid:o._assetUuid, _dedOk:o._dedOk, _capOk:o._capOk,
            /* receipt was the next one through the same gap. appToDb writes receipt_path,
               receipt_name and receipt_kind from t.receipt, so a payload without the field
@@ -55469,7 +55493,7 @@ function _taxMisfiledApply(idxs, cat){
   var moved=0;
   idxs.forEach(function(i){
     var t=ST.txns[i]; if(!t) return;
-    t.cat=cat; t._catOk=true; t._dedOk=undefined; moved++;
+    t.cat=cat; _txSettle(t); t._dedOk=undefined; moved++;
     try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(t); }catch(e){}
   });
   try{ if(typeof saveState==='function') saveState(); }catch(e){}
@@ -61516,7 +61540,7 @@ function txAllBulkApply(){
   var sel=$('txall-bulk-cat'); var cat=sel&&sel.value; if(!cat) return;
   var ids=Object.keys(TX_SEL.all||{}); if(!ids.length) return;
   var moved=0;
-  ids.forEach(function(i){ var t=ST.txns[+i]; if(t&&t.cat!==cat){ t.cat=cat; t._catOk=true; moved++;
+  ids.forEach(function(i){ var t=ST.txns[+i]; if(t&&t.cat!==cat){ t.cat=cat; _txSettle(t); moved++;
     try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(er){} } });
   TX_SEL.all={};
   try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
@@ -61531,7 +61555,7 @@ function txAllCatOpen(idx, el){
 }
 function txAllCatApply(idx, cat){
   var t=ST.txns[idx]; if(!t||!cat||cat===t.cat) return txRender();
-  var from=t.cat; t.cat=cat; t._catOk=true;
+  var from=t.cat; t.cat=cat; _txSettle(t);
   try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(t); }catch(er){}
   try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
