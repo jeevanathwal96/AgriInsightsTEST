@@ -55975,22 +55975,22 @@ var QC_RULES = [
   {words:['cattle','bees','sheep','skaap','goat','bok','pig','vark','poultry','beef','lamb','lambs','lam','livestock','vee'],                                                    cat:'Livestock Sales',           type:'income'},
   {words:['subsidie','subsidy'], cat:'Subsidies', type:'income'},
   {words:['grant','coupon','voucher'],                                                                                                                       cat:'Government Grant',          type:'income'},
-  {words:['rental','rent ','lease','huur','grazing lease','weidinghuur','servitude','erfdiens'],                                                                                cat:'Rental Income',             type:'income'},
+  {words:['rental','rent','lease','huur','grazing lease','weidinghuur','servitude','erfdiens'],                                                                                cat:'Rental Income',             type:'income'},
 
   {words:['seed','saad','saailing','inoculant','hybrid','kiemplant'],                                                                                                                          cat:'Seeds & Planting',          type:'expense'},
-  {words:['fertiliser','fertilizer','kunsmis','urea','lan ','map ','kcl','lime','kalk','superphosphate'],                                                                           cat:'Fertiliser',                type:'expense'},
+  {words:['fertiliser','fertilizer','kunsmis','urea','lan','map','kcl','lime','kalk','superphosphate'],                                                                           cat:'Fertiliser',                type:'expense'},
   {words:['herbicide','fungicide','insecticide','pesticide','roundup','atrazine','spray','spuit','chemical','chemikal','weed','wied'],                                            cat:'Crop Protection',           type:'expense'},
   {words:['diesel','petrol','fuel','brandstof','oil','olie','hydraulic','hydraulies'],                                                                                            cat:'Fuel & Oil',                type:'expense'},
   {words:['labour','labor','arbeid','wages','loon','salary','salaris','worker','werker','casual','picking','pluk','crew','span','personeel','seasonal work'],                                                                                cat:'Labour & Wages',            type:'expense'},
   {words:['repair','herstel','service','diens','tractor','trekker','machine','masjien','part','onderdeel','workshop','werkswinkel'],                                                           cat:'Machinery & Repairs',       type:'expense'},
-  {words:['vet','dier','animal','dip','doop','vaccine','vaksine','dose','doseer','medicine','medisyne'],                                                                          cat:'Veterinary & Animal Health',type:'expense'},
+  {words:['vet','veterinar','dier','animal','dip','dipping','doop','vaccine','vaksine','dose','dosing','doseer','medicine','medisyne'],                                                                          cat:'Veterinary & Animal Health',type:'expense'},
   {words:['feed','voer','lick','lek','hay','hooi','silage','kuilvoer','pellet','concentrate','konsentraat','grazing','weiding'],  cat:'Animal Feed',               type:'expense'},
   {words:['loan','lening','land bank','instalment','paaiement','hire purchase','huurkoop','finance charge','rentelas'],           cat:'Loan Repayments',           type:'expense'},
   {words:['vodacom','mtn','telkom','internet','airtime','lugtyd','phone','foon','admin','accountant','rekenmeester','bank charge','bankkoste','licence','lisensie'], cat:'Admin & Professional Fees', type:'expense'},
   {words:['water','irrigation','besproei','pump','pomp','pipe','pyp'],                                                                                                            cat:'Irrigation & Water',        type:'expense'},
   {words:['insurance','versekering','premium','premie'],                                                                                                                          cat:'Insurance',                 type:'expense'},
   {words:['fence','fencing','heining','draad','dropper','wire strain'],                                                                                                        cat:'Fencing',                   type:'expense'},
-  {words:['borehole','boorgat','dam ','damwal','pump plant','windmill','windpomp','irrigation scheme'],                                                                        cat:'Dams, boreholes & irrigation', type:'expense'},
+  {words:['borehole','boorgat','dam','damwal','pump plant','windmill','windpomp','irrigation scheme'],                                                                        cat:'Dams, boreholes & irrigation', type:'expense'},
   {words:['road ','pad ','bridge','brug','causeway','gravel road','grader'],                                                                                                   cat:'Roads & bridges',           type:'expense'},
   {words:['shed','loods','barn','skuur','silo build','farm building','plaasgebou'],                                                                                            cat:'Farm buildings',            type:'expense'},
   {words:['erosion','erosie','contour','kontoer','gabion'],                                                                                                                    cat:'Soil erosion works',        type:'expense'},
@@ -56002,10 +56002,22 @@ var QC_RULES = [
 /* Matches a keyword only at the start of a word. Entries are deliberately a mix of
    whole words ('urea') and prefixes ('fertili'), so only the LEFT edge is anchored. */
 var _QC_WORD_RE = {};
+/* Short words that must be the WHOLE word, not the start of one. Most entries stay
+   prefixes on purpose - Afrikaans builds compounds ('veevoer', 'trekkerbande') and
+   English adds endings ('fertilisers', 'irrigation') - but a three-letter prefix also
+   fires inside a NAME: 'lam' matched LAMONT, a customer, and the phone offered to file
+   his payments as a livestock sale (found 19 Sep 2026 comparing the two devices).
+   BOKOMO, BOKSBURG, WOLMARANSSTAD, LEKKER, SPANNER, PARTICULARS, PUMPKIN and DIPLOMA
+   are the same trap. A list, not a length rule, so each one is a decision: 'bees' and
+   'vee' stay prefixes because BEESVLEIS and VEEVOER are real. The phone carries the
+   same set (08-mobile/src/core/categorise.ts QC_WHOLE) and the phone's checks prove it. */
+var QC_WHOLE = ['lam','bok','pig','vark','wol','lek','span','crew','part','pump','dip',
+                'vet','dose','oil','map','lan','kcl','rent','crop','soy','dam'];
 function _qcWordHit(lower, word){
   var re = _QC_WORD_RE[word];
   if (!re){
-    re = new RegExp('(^|[^a-z0-9])' + word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    var w = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    re = new RegExp('(^|[^a-z0-9])' + w + (QC_WHOLE.indexOf(word) >= 0 ? 's?([^a-z0-9]|$)' : ''));
     _QC_WORD_RE[word] = re;
   }
   return re.test(lower);
