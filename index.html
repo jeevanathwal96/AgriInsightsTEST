@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=58"></script>
-<script src="ai-auth.js?v=44"></script>
+<script src="ai-data.js?v=59"></script>
+<script src="ai-auth.js?v=45"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -16622,8 +16622,55 @@ function _txMigrateIfNeeded(){
   }catch(e){}
 }
 
+/* ---- THE STORED ANSWER (signed off 20 Sep 2026, decisions d1-d5 = A) ----------
+   What this computer reckons each line is, worked out ONCE and written down, so the
+   phone reads the same answer instead of guessing with a second word list. The two
+   devices flagged different lines until 20 Sep: 83 agreed, 26 were the computer's
+   alone, 3 the phone's (a customer named LAMONT, read as a lamb sale).
+
+   LOOK_V is the edition of the matcher below. Bump it whenever inferCategory or
+   QC_RULES change and every answer is worked out again, farm by farm, in the
+   background. TX_LOOKS is this farm's answers, keyed by the transaction's server id.
+   (02-database/txn_looks_migration.sql, 03-docs/build/needs-a-look-one-brain.md) */
+var LOOK_V = 1;
+var TX_LOOKS = {};              // txn uuid -> { cat: <category id|null>, v, rulesAt }
+var LOOK_RULES_AT = null;       // the farm's newest filing rule when last read
+var _lookBusy = false, _lookTimer = null;
+
+/* The answer for one line, as a CATEGORY ID or null. Null is "the words point
+   nowhere" — which the phone shows as "Not sure" and never counts as a finding.
+   A shrug ('Other Expenses' / 'Other Income') is null for the same reason
+   _txNeedsLook has always treated it as one. */
+function _txLookCompute(t){
+  if (!t || !t.desc) return null;
+  var isInc = (t.type === 'income'), guess;
+  try{ guess = inferCategory(t.desc, isInc); }catch(e){ return null; }
+  if (!guess || guess === 'Other Expenses' || guess === 'Other Income') return null;
+  try{ return (AI && AI._map && AI._map.catToId) ? (AI._map.catToId(guess) || null) : null; }catch(e){ return null; }
+}
+
+/* The three answers the Inbox needs, from the stored value: needs a look, sure, or
+   nothing to go on. Kept here so the computer and the phone read one rule. */
+function _txLookState(t){
+  var st = t && t.id ? TX_LOOKS[String(t.id)] : null;
+  if (!st) return null;                                    // no answer yet
+  var filedId = null;
+  try{ filedId = (t.cat && AI && AI._map) ? AI._map.catToId(t.cat) : null; }catch(e){}
+  if (!filedId) return { need: true, cat: st.cat };        // uncategorised: always worth a look
+  if (!st.cat) return { need: false, cat: null };          // nothing to go on
+  if (String(st.cat) === String(filedId)) return { need: false, cat: st.cat, sure: true };
+  return { need: true, cat: st.cat };
+}
+
 function _txNeedsLook(t){
   if (!t || !t.desc || t._catOk) return null;
+  /* The stored answer wins wherever there is one: it is what the phone reads too. */
+  var st = _txLookState(t);
+  if (st) {
+    if (!st.need) return null;
+    if (st.cat) { try{ return AI._map.catToCode(st.cat) || null; }catch(e){ return null; } }
+    return (t.type === 'income') ? 'Other Income' : 'Other Expenses';
+  }
   var isInc = (t.type === 'income');
   var guess;
   try{ guess = inferCategory(t.desc, isInc); }catch(e){ return null; }
@@ -16635,6 +16682,70 @@ function _txNeedsLook(t){
   try{ if (typeof normalizeCat==='function' && normalizeCat(t.cat) === guess) return null; }catch(e){}
   if (guess === 'Other Expenses' || guess === 'Other Income') return null;  // a shrug, not a finding
   return guess;
+}
+
+/* The keeper. Any line with no answer, or one older than the word list or the farm's
+   filing rules, gets a fresh one — a few hundred at a time, never while the farmer is
+   typing. One keeper rather than a stamp at each of the twenty-odd places that create
+   a transaction (bank import, co-op, remittance, a pay run, a livestock sale, a loan
+   payment...), so nothing new has to remember to do it. */
+function _txLookStale(t){
+  if (!t || !t.id || !t.desc) return false;               // unsent rows have no server id yet
+  var st = TX_LOOKS[String(t.id)];
+  if (!st) return true;
+  if (Number(st.v) !== LOOK_V) return true;
+  var a = st.rulesAt ? Date.parse(st.rulesAt) : 0, b = LOOK_RULES_AT ? Date.parse(LOOK_RULES_AT) : 0;
+  return b > a;                                            // a filing rule changed since
+}
+
+async function txLookRun(limit){
+  if (_lookBusy) return 0;
+  if (!(window.AI && AI.looks && AI.looks.can && AI.looks.can() && AI.farm && AI.farm.active())) return 0;
+  if (typeof _refreshBlocked === 'function' && _refreshBlocked()) return 0;
+  _lookBusy = true;
+  var wrote = 0;
+  try {
+    var fid = AI.farm.active();
+    if (!TX_LOOKS.__loaded) {
+      TX_LOOKS = await AI.looks.load(fid); TX_LOOKS.__loaded = true;
+      LOOK_RULES_AT = await AI.looks.rulesAt(fid);
+    }
+    var due = (ST.txns || []).filter(_txLookStale).slice(0, limit || 300);
+    if (due.length) {
+      var rows = due.map(function(t){
+        return { txnId: String(t.id), catId: _txLookCompute(t), v: LOOK_V, rulesAt: LOOK_RULES_AT };
+      });
+      await AI.looks.saveMany(rows, fid);
+      rows.forEach(function(r){ TX_LOOKS[r.txnId] = { cat: r.catId, v: r.v, rulesAt: r.rulesAt }; });
+      wrote = rows.length;
+      /* The counts on screen are worked out from these, so redraw once a batch lands. */
+      try{ if (typeof filterExpTx === 'function' && ST.page === 'expenses') filterExpTx(); }catch(e){}
+      try{ if (typeof filterIncomeTx === 'function' && ST.page === 'income') filterIncomeTx(); }catch(e){}
+      try{ if (typeof txRender === 'function' && ST.page === 'transactions') txRender(); }catch(e){}
+    }
+  } catch (e) { /* the next kick tries again; never a dialog for bookkeeping */ }
+  _lookBusy = false;
+  return wrote;
+}
+
+/* Kick it along: after a load, after an import, after a filing rule changes. Keeps
+   going while there is work, then stops. */
+function txLookKick(delay){
+  if (_lookTimer) return;
+  _lookTimer = setTimeout(function tick(){
+    _lookTimer = null;
+    txLookRun(300).then(function(n){ if (n >= 300) txLookKick(400); });
+  }, delay == null ? 1200 : delay);
+}
+window.txLookKick = txLookKick;
+
+/* One line, at once: its description or category just changed on this computer. */
+function txLookOne(t){
+  if (!t || !t.id) return;
+  if (!(window.AI && AI.looks && AI.looks.can && AI.looks.can())) return;
+  var row = { txnId: String(t.id), catId: _txLookCompute(t), v: LOOK_V, rulesAt: LOOK_RULES_AT };
+  TX_LOOKS[row.txnId] = { cat: row.catId, v: row.v, rulesAt: row.rulesAt };
+  try{ AI.looks.saveMany([row]).catch(function(){}); }catch(e){}
 }
 function _txNeedList(kind){
   return (ST.txns||[]).filter(function(t){ return t.type===kind && _txNeedsLook(t); });
@@ -16771,10 +16882,21 @@ var CAT_RULE_Q = null;
 /* Rules reach the server through their own table. Gated: without the migration
    AI.rules.saveAll returns immediately and they stay on the device, which is the same
    behaviour as before the feature existed. */
+/* A filing rule outranks the word list, so changing one changes what every line on
+   the books is reckoned to be. Mark the answers stale and let the keeper re-do them;
+   applying a rule to HISTORY - actually moving old lines - stays the separate,
+   opt-in button it has always been (catRuleApplyExisting). */
+function catRuleTouched(){
+  try{
+    LOOK_RULES_AT = new Date().toISOString();
+    if (typeof txLookKick === 'function') txLookKick(800);
+  }catch(e){}
+}
 function catRuleSync(){
   try{
     if(!(window.AI && AI.farm && AI.farm.active() && AI.rules && AI.rules.saveAll)) return;
     AI.rules.saveAll(catRules()).catch(function(e){ console.error('Backend rule save failed:', e); });
+    catRuleTouched();
   }catch(e){}
 }
 function catRules(){
@@ -52779,6 +52901,10 @@ function txnWriteThrough(localObj, payload){
 // Persist an EDIT to an existing transaction (localObj already mutated in ST.txns).
 function txnUpdateThrough(localObj){
   if(!_hasBackend() || !localObj) return;
+  /* The description or the category just changed, so the stored "needs a look"
+     answer for THIS line is worked out again at once - the keeper would get to it
+     eventually, but the farmer is looking at the row now (d5, 20 Sep 2026). */
+  try{ if (typeof txLookOne === 'function') txLookOne(localObj); }catch(e){}
   var cuid = localObj.cuid;
   // If this row's insert is still queued (created offline, not yet synced), fold the
   // edit into that pending insert instead of queuing a conflicting update.
@@ -64794,6 +64920,11 @@ function bankCommitImport(){
         added.forEach(function(t){ txnWriteThrough(t, _txnSnapshot(t)); });
       }
     } catch(e){ console.error('Bank import backend write-through failed:', e); }
+    /* Freshly imported lines get their "needs a look" answer as they land, rather
+       than waiting for the keeper's next pass - an import is exactly when the farmer
+       looks at the list (d3, 20 Sep 2026). Each row needs its server id first, so
+       this runs after the write-through above has been queued and sent. */
+    try{ if (typeof txLookKick === 'function') txLookKick(2500); }catch(e){}
   }
   try{ saveState&&saveState(); }catch(e){}
   closeBankImport();

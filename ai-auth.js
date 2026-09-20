@@ -728,6 +728,10 @@
         /* Guarded like the rest (-411): a settlement import this device has not sent
            must not be replaced by the server's copy without it. */
         try { if (window.ST && Array.isArray(coop) && !_unsent('coop')) ST.coopSettlements = coop; } catch (e) { console.error('coop apply', e); }
+        /* The stored "needs a look" answers, and the keeper that fills in any line that
+           has none or whose answer is older than the word list or the filing rules
+           (signed off 20 Sep 2026, d3 = one keeper). Never blocks the load. */
+        try { if (typeof window.txLookKick === 'function') window.txLookKick(); } catch (e) { console.error('looks', e); }
         /* Same shape as every other module above: the server wins when it has rows, and
            local is kept when it does not, so a farm that has never synced these is not
            emptied by a load that legitimately returns nothing. */

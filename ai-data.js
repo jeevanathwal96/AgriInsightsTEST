@@ -361,6 +361,7 @@
      shipped them — defensible there because that project is not provisioned, and not
      here, where a farmer moves between a laptop and a tablet. */
   let CAN_CAT_RULES     = false;
+  let CAN_LOOKS         = false;   // transaction_looks: the computer's stored "needs a look" answer
   let CAN_FUEL_METER    = false;
   let CAN_FUEL_SRC      = false;
   /* Payslips that stay what was paid (payslips_migration.sql, signed off 19 Sep 2026).
@@ -406,6 +407,7 @@
     CAN_FARM_VAT_CAT   = await has('farms','vat_category');
     CAN_FARM_PARTNERS  = await has('farms','partners');
     CAN_CAT_RULES      = await has('category_rules','match_text');
+    CAN_LOOKS          = await has('transaction_looks','look_v');
     /* The whole row-memory scheme rides on this one column. A project that has
        not run agriinsights-13-relational-sync.sql keeps today's behaviour rather
        than having every write rejected for an unknown column. */
@@ -1646,6 +1648,50 @@
     return (r.data||[]).map(ruleFromDb);
   };
   var _ruleSnap=null;
+  /* ---- what the computer reckons each bank line is (signed off 20 Sep 2026) ----
+     Worked out ONCE on the computer, from inferCategory - the bank-import matcher,
+     which applies the farmer's own filing rules first - and written down, so the
+     phone reads the same answer instead of guessing with a word list of its own.
+     Kept beside the transaction, never on it: a derived write would bump
+     transactions.updated_at and the phone would raise a "Changed on both" card over
+     a change the farmer never made (02-database/txn_looks_migration.sql). */
+  const looks = {
+    can(){ return CAN_LOOKS; },
+    /* Every answer this farm holds, keyed by transaction id. */
+    async load(farmId){
+      if (!farmId || !CAN_LOOKS) return {};
+      const { data, error } = await selectAll(() => client()
+        .from('transaction_looks').select('txn_id,look_cat_id,look_v,rules_at').eq('farm_id', farmId));
+      if (error) throw error;
+      const out = {};
+      (data || []).forEach(function(r){ out[r.txn_id] = { cat: r.look_cat_id || null, v: r.look_v, rulesAt: r.rules_at || null }; });
+      return out;
+    },
+    /* The newest filing rule, so an answer older than the rules can be re-done.
+       Null when the farm has no rules, or the table has no updated_at yet. */
+    async rulesAt(farmId){
+      if (!farmId || !CAN_CAT_RULES) return null;
+      try {
+        const r = await client().from('category_rules').select('updated_at')
+          .eq('farm_id', farmId).order('updated_at', { ascending: false }).limit(1);
+        if (r.error || !r.data || !r.data.length) return null;
+        return r.data[0].updated_at || null;
+      } catch (e) { return null; }
+    },
+    /* Rows: [{ txnId, catId, v, rulesAt }]. Upserted in one call per batch. */
+    async saveMany(rows, farmId){
+      const fid = farmId || farm.active();
+      if (!fid || !CAN_LOOKS || !rows || !rows.length) return 0;
+      const body = rows.map(function(r){
+        return { txn_id: r.txnId, farm_id: fid, look_cat_id: r.catId || null,
+                 look_v: r.v, rules_at: r.rulesAt || null, updated_at: new Date().toISOString() };
+      });
+      const { error } = await client().from('transaction_looks').upsert(body, { onConflict: 'txn_id' });
+      if (error) throw error;
+      return body.length;
+    }
+  };
+
   const rules = {
     async saveAll(list){
       list=list||[]; const fid=farm.active(); if(!fid || !CAN_CAT_RULES) return;
@@ -3158,7 +3204,7 @@
                 documents: documents, fuel: fuel, rain: rain,
                 storage: storage,
                 importBatch: importBatch,
-                rules,
+                rules, looks: looks,
                 pairing: pairing, live: live,
                 _map: { catToId, catToCode, appToDb, dbToApp } };
 
