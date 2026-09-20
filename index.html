@@ -19737,7 +19737,16 @@ var farmNameEl = document.getElementById('farm-name');
   if (dropItem) dropItem.textContent = '\u2713  ' + ST.farmName;
 
   if (typeof saveState === 'function') saveState();
-  try { if (window.AI && AI.farm && AI.farm.active()) { AI.profile.save(ST).catch(function(e){ console.error('Backend profile save failed:', e); }); } } catch(e){}
+  /* -429 A settings save that never reaches the server used to say "Settings saved!"
+     anyway - the promise was thrown away. It is reported now. The farmer's inputs are
+     never rolled back: what they typed stays, and the message says it is on this device
+     but not on the server yet. */
+  try { if (window.AI && AI.farm && AI.farm.active()) {
+    AI.profile.save(ST).catch(function(e){
+      console.error('Backend profile save failed:', e);
+      try{ toast(_rT('Settings saved on this device, but not on the server \u2014 try again','Instellings op hierdie toestel gestoor, maar nie op die bediener nie \u2014 probeer weer'), 'error'); }catch(x){}
+    });
+  } } catch(e){}
 
   try { updateDashboardFigures(); } catch(e){ console.error('settings: dashboard refresh failed', e); }
   try { renderIncBySource && renderIncBySource(); } catch(e){}

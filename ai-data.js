@@ -2709,16 +2709,33 @@
         var mine = {}; stale.forEach(function(g){ Object.keys(g.body).forEach(function(k){ mine[k] = true; }); });
         try{ _profAdopt(st, mine); }catch(e){}
         for(var si = 0; si < stale.length; si++){
-          var s2 = stale[si], body2 = _profChanged(s2.body);
-          if(!Object.keys(body2).length){ if(s2.done) s2.done(); continue; }
-          var r2 = await _profWrite(fid, body2);
-          if(r2.error){
-            if(s2.fatal) throw r2.error;
-            extraOk = false; firstErr = firstErr || r2.error;
-          } else if(r2.stale){
+          var s2 = stale[si], done2 = false, r2 = null;
+          /* Up to three rounds, not one. The guard is optimistic concurrency on
+             farms.updated_at, and losing it once is ordinary: the row moves whenever
+             anything else writes to it, and a page load writes to it. Giving up after a
+             single retry turned "somebody else touched the row a moment ago" into a
+             refused save - proved on a live account, where the farmer was told the figure
+             had not reached the server while the only other writer was this same page
+             finishing its own hydrate. Each round re-reads the row first, so it is always
+             a fresh version that is sent, and the loop is bounded so a genuinely
+             contested row still fails rather than spinning. */
+          for(var at = 0; at < 3 && !done2; at++){
+            if(at > 0){ try{ await load.profile(fid); }catch(e){} try{ _profAdopt(st, mine); }catch(e){} }
+            var body2 = _profChanged(s2.body);
+            if(!Object.keys(body2).length){ done2 = true; if(s2.done) s2.done(); break; }
+            r2 = await _profWrite(fid, body2);
+            if(r2.error){
+              if(s2.fatal) throw r2.error;
+              extraOk = false; firstErr = firstErr || r2.error;
+              done2 = true;
+            } else if(!r2.stale){
+              done2 = true; if(s2.done) s2.done();
+            }
+          }
+          if(!done2 && r2 && r2.stale){
             extraOk = false;
             firstErr = firstErr || Object.assign(new Error('These settings were changed on another device'), { code: 'stale' });
-          } else if(s2.done) s2.done();
+          }
         }
       }
       if(extraOk) _profSnap=snap;
