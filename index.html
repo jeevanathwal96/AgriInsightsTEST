@@ -55433,9 +55433,14 @@ function saLivestockBought(fy){
    whole count, which also holds produce. */
 function saLivestockValue(fy){
   try{
-    var r = (window.ST && ST.stockCounts) ? ST.stockCounts[String(fy)] : null;
-    var v = r && r.parts && r.parts.livestock;
-    return isFinite(v) ? Math.round(v) : null;
+    var sc = (window.ST && ST.stockCounts) || null;
+    var r  = sc ? sc[String(fy)] : null;
+    var v  = (r && r.parts) ? r.parts.livestock : null;
+    /* -434 typeof, not isFinite alone. isFinite(null) is TRUE, so on a farm with no
+       counts at all this returned 0 for every year instead of null - and 0 is a real
+       value, so the walk below never found a year without one and ran until the tab
+       froze. Every South African farm has no counts yet, so that was all of them. */
+    return (typeof v === 'number' && isFinite(v)) ? Math.round(v) : null;
   }catch(e){ return null; }
 }
 
@@ -55457,8 +55462,11 @@ function saPara8(fy){
 
     /* Walk forward from the first year that has both values, so the amount carried in is
        the one the earlier years actually produced. */
-    var first = fy;
-    while(saLivestockValue(first - 1) != null && saLivestockValue(first - 2) != null) first--;
+    var first = fy, guard = 0;
+    /* Bounded whatever the data says. A walk that depends on finding a gap will run for
+       ever the day something returns a value it should not, and a farmer should never
+       pay for that with a frozen page. */
+    while(guard++ < 30 && saLivestockValue(first - 1) != null && saLivestockValue(first - 2) != null) first--;
     o.firstYear = first;
 
     var bf = 0;
