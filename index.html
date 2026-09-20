@@ -54265,7 +54265,13 @@ function _taxFYProfit(offset){
      is built from, where closing stock belongs on its own line rather than folded into
      income. Taxable income is the figure this adjustment actually changes. */
   var _sadj=0; try{ if(typeof saStockAdj==='function') _sadj=saStockAdj(curFY); }catch(e){}
-  return {income:inc,expenses:exp,profit:inc-exp+_sadj,stockAdj:_sadj,byCat:byCat};
+  /* -433 And paragraph 8: the ledger deducted every rand of livestock bought, but the
+     First Schedule caps it and defers the rest. Positive means part of the deduction is
+     waiting for next year; negative is an earlier year's deferral arriving. Zero unless
+     both livestock values exist, because a guessed opening figure would move a farmer's
+     provisional tax on an invented number. */
+  var _p8=0; try{ if(typeof saPara8Adj==='function') _p8=saPara8Adj(curFY); }catch(e){}
+  return {income:inc,expenses:exp,profit:inc-exp+_sadj+_p8,stockAdj:_sadj,para8Adj:_p8,byCat:byCat};
 }
 function _taxFYVat(){
   if(typeof FARM==='undefined'||!FARM.vat) return 0;
@@ -55376,6 +55382,115 @@ function saStockGap(){
   return o;
 }
 
+/* -433 First Schedule paragraph 8: the deduction for livestock bought is capped, and
+   whatever does not fit is DEFERRED to the next year rather than lost.
+
+       cap = income from farming + closing livestock - opening livestock
+
+   Both livestock values are the standard values in the regulations (para 5), and the
+   opening one is simply last year's closing figure (para 4) - which is exactly what the
+   year-end count stores in parts.livestock. Because those values are about R20 a head,
+   the movement between them is a rounding error beside the income: in practice the cap
+   IS the farm's farming income, and it only bites when a farmer buys stock in a year
+   when that income is low. A drought, or a first year building a herd.
+
+   Nothing is stored. The chain is walked forward from the earliest year that has both a
+   closing and an opening figure, so the deferred amount can never drift from the ledger
+   and the counts it came from. */
+
+/* "Income received or accrued from farming operations" - not everything banked. A guest
+   lodge and a let cottage are separate trades and do not raise the cap; a farming subsidy
+   does. Kept as a named list so the card can show the farmer what it counted. */
+var SA_FARM_INCOME_CATS = ['Crop Sales','Livestock Sales','Milk & Dairy','Wool & Fibre',
+                           'Fruit Sales','Government Grant','Subsidies'];
+var SA_NON_FARM_INCOME_CATS = ['Rental Income','Agritourism','Other Income'];
+
+function saFarmIncome(fy){
+  var t = 0;
+  try{
+    ((window.ST && ST.txns) || []).forEach(function(x){
+      if(!x || x.type !== 'income' || !x.date) return;
+      if(typeof fyOf === 'function' && fyOf(x.date) !== fy) return;
+      if(SA_FARM_INCOME_CATS.indexOf(String(x.cat || '')) < 0) return;
+      t += Number(x.amt) || 0;
+    });
+  }catch(e){}
+  return Math.round(t);
+}
+function saLivestockBought(fy){
+  var t = 0;
+  try{
+    ((window.ST && ST.txns) || []).forEach(function(x){
+      if(!x || x.type !== 'expense' || !x.date) return;
+      if(typeof fyOf === 'function' && fyOf(x.date) !== fy) return;
+      if(String(x.cat || '') !== 'Livestock Purchases') return;
+      t += Math.abs(Number(x.amt) || 0);
+    });
+  }catch(e){}
+  return Math.round(t);
+}
+/* The livestock half of a stored count, which is the figure paragraph 8 wants - not the
+   whole count, which also holds produce. */
+function saLivestockValue(fy){
+  try{
+    var r = (window.ST && ST.stockCounts) ? ST.stockCounts[String(fy)] : null;
+    var v = r && r.parts && r.parts.livestock;
+    return isFinite(v) ? Math.round(v) : null;
+  }catch(e){ return null; }
+}
+
+function saPara8(fy){
+  var o = { ok:false, why:'', income:0, close:null, open:null, cap:0,
+            purch:0, bf:0, allowed:0, deferred:0, adj:0, firstYear:null };
+  try{
+    fy = parseInt(fy, 10);
+    if(!isFinite(fy)) return o;
+    o.purch  = saLivestockBought(fy);
+    o.income = saFarmIncome(fy);
+    o.close  = saLivestockValue(fy);
+    o.open   = saLivestockValue(fy - 1);
+
+    if(o.close == null || o.open == null){
+      o.why = (o.close == null) ? 'thisYearNotCounted' : 'lastYearNotCounted';
+      return o;                                   /* no lawful figure: adjust nothing */
+    }
+
+    /* Walk forward from the first year that has both values, so the amount carried in is
+       the one the earlier years actually produced. */
+    var first = fy;
+    while(saLivestockValue(first - 1) != null && saLivestockValue(first - 2) != null) first--;
+    o.firstYear = first;
+
+    var bf = 0;
+    for(var y = first; y <= fy; y++){
+      var cl = saLivestockValue(y), op = saLivestockValue(y - 1);
+      if(cl == null || op == null) continue;
+      var cap  = saFarmIncome(y) + cl - op;
+      if(cap < 0) cap = 0;
+      var have = saLivestockBought(y) + bf;
+      var got  = Math.min(have, cap);
+      if(y === fy){
+        o.cap = Math.round(cap); o.bf = Math.round(bf);
+        o.allowed = Math.round(got); o.deferred = Math.round(have - got);
+        /* The ledger already deducted this year's purchases in full, so the correction is
+           the difference between that and what the law actually allows. A year that USES
+           an earlier deferral comes out negative, which is the deduction arriving. */
+        o.adj = Math.round(o.purch - got);
+      }
+      bf = have - got;
+    }
+    o.ok = true;
+  }catch(e){}
+  return o;
+}
+/* What paragraph 8 does to this year's taxable income. Positive means part of the
+   deduction is waiting for next year. */
+function saPara8Adj(fy){
+  try{ var r = saPara8(fy); return r.ok ? r.adj : 0; }catch(e){ return 0; }
+}
+window.saPara8 = saPara8; window.saPara8Adj = saPara8Adj;
+window.saFarmIncome = saFarmIncome; window.saLivestockBought = saLivestockBought;
+
 /* The permanent half: a quiet note under a figure that is not wrong, only unfinished.
    It asks for nothing, so it can sit there all year without becoming noise.
 
@@ -55457,6 +55572,96 @@ function saStockAdj(fy){
     return close - (open == null ? 0 : open);
   }catch(e){ return 0; }
 }
+
+/* -433 The card. It appears only when paragraph 8 actually does something - either it
+   has moved part of the deduction, or it cannot be worked out on a farm that has bought
+   livestock. A farmer whose deduction is cut without explanation concludes the app is
+   broken, and they would be right to ask, so it leads with what happens to the money. */
+function saPara8CardHTML(fy){
+  fy = parseInt(fy, 10);
+  if(!isFinite(fy)) return '';
+  var m = function(n){
+    if(typeof fmt === 'function') return fmt(n);
+    return 'R' + ((typeof _grpInt === 'function') ? _grpInt(n) : Math.round(n || 0));
+  };
+  var r; try{ r = saPara8(fy); }catch(e){ return ''; }
+  if(!r) return '';
+  var lbl = (typeof fyLabel === 'function') ? fyLabel(fy) : String(fy);
+  var head = '<div class="tx-card" style="margin-bottom:12px"><div class="tx-h">' +
+    _rT('Livestock bought', 'Vee gekoop') + ' \u00b7 ' + esc(lbl) + '</div>';
+
+  /* Nothing bought, nothing to say. */
+  if(!(r.purch > 0)) return '';
+
+  if(!r.ok){
+    /* No lawful opening figure, so nothing has been adjusted - and the farmer is told
+       that the full amount is still being deducted, which may be more than allowed. */
+    var yrLbl = (typeof fyLabel === 'function') ? fyLabel(fy - 1) : String(fy - 1);
+    return head +
+      '<div class="txb-note" style="background:#FFF8E6;border-color:#FDE68A">' +
+      '<b>' + (r.why === 'thisYearNotCounted'
+        ? _rT('We have not counted this year\u2019s livestock.', 'Ons het nie vanjaar se vee getel nie.')
+        : _rT('We have not counted last year\u2019s livestock.', 'Ons het nie verlede jaar se vee getel nie.')) + '</b> ' +
+      _rT('Paragraph 8 caps what you can deduct for livestock bought at your farming income plus the movement in livestock value, and the opening figure is last year\u2019s closing one. Until ',
+          'Paragraaf 8 beperk wat jy vir vee gekoop kan aftrek tot jou boerdery-inkomste plus die beweging in veewaarde, en die openingsyfer is verlede jaar se slotsyfer. Totdat ') +
+      esc(yrLbl) +
+      _rT(' is counted, the full ', ' getel is, word die volle ') + m(r.purch) +
+      _rT(' is being deducted \u2014 which may be more than the law allows.',
+          ' afgetrek \u2014 wat meer kan wees as wat die wet toelaat.') +
+      '<div style="font-size:11px;color:var(--t3);margin-top:7px">' +
+      _rT('Nothing on this page has been adjusted.', 'Niks op hierdie bladsy is aangepas nie.') +
+      '</div></div></div>';
+  }
+
+  /* It computes, but this year it changes nothing. Say nothing. */
+  if(r.deferred <= 0 && r.bf <= 0) return '';
+
+  var row = function(label, val, strong){
+    return '<div style="display:flex;justify-content:space-between;gap:12px;padding:5px 0;font-size:12.5px' +
+      (strong ? ';border-top:1px solid var(--br);margin-top:5px;padding-top:7px;font-weight:800' : ';border-bottom:1px solid var(--br2)') +
+      '"><span>' + label + '</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">' + val + '</span></div>';
+  };
+
+  var body = head +
+    '<div style="font-size:12px;color:var(--t2);margin-bottom:7px">' +
+      _rT('The First Schedule caps what you can deduct for livestock in a year, and moves the rest to the next one.',
+          'Die Eerste Bylae beperk wat jy in \u2019n jaar vir vee kan aftrek, en skuif die res na die volgende een.') +
+    '</div>' +
+    row(_rT('Income from farming', 'Inkomste uit boerdery'), m(r.income)) +
+    row(_rT('Closing livestock, standard values', 'Slotvee, standaardwaardes'), m(r.close)) +
+    row(_rT('Less opening livestock', 'Min openingsvee'), '\u2212' + m(r.open)) +
+    row(_rT('Most you can deduct this year', 'Meeste wat jy vanjaar kan aftrek'), m(r.cap), true) +
+    row(_rT('Livestock bought', 'Vee gekoop'), m(r.purch)) +
+    (r.bf > 0 ? row(_rT('Brought forward from last year', 'Oorgedra van verlede jaar'), m(r.bf)) : '');
+
+  if(r.deferred > 0){
+    body += '<div style="background:var(--rp);color:#991B1B;font-weight:700;margin:7px -14px 0;padding:8px 14px;' +
+      'display:flex;justify-content:space-between;gap:12px;font-size:12.5px">' +
+      '<span>' + _rT('Waits for next year', 'Wag vir volgende jaar') + '</span>' +
+      '<span style="font-variant-numeric:tabular-nums">' + m(r.deferred) + '</span></div>' +
+      '<div style="font-size:11.5px;color:var(--t2);margin-top:9px;line-height:1.55"><b>' +
+      _rT('Nothing is lost.', 'Niks gaan verlore nie.') + '</b> ' +
+      _rT('The ', 'Die ') + m(r.deferred) +
+      _rT(' becomes a deduction in the next tax year, on top of whatever you buy then. Your taxable income for this year is that much higher than the ledger alone would show, and the estimate on this page already includes it.',
+          ' word \u2019n aftrekking in die volgende belastingjaar, bo-op wat jy dan koop. Jou belasbare inkomste vir hierdie jaar is soveel hoër as wat die grootboek alleen sou wys, en die skatting op hierdie bladsy sluit dit reeds in.') +
+      '</div>';
+  } else {
+    body += '<div style="background:var(--gb);color:var(--gd);font-weight:700;margin:7px -14px 0;padding:8px 14px;' +
+      'display:flex;justify-content:space-between;gap:12px;font-size:12.5px">' +
+      '<span>' + _rT('Deducted this year', 'Vanjaar afgetrek') + '</span>' +
+      '<span style="font-variant-numeric:tabular-nums">' + m(r.allowed) + '</span></div>' +
+      '<div style="font-size:11.5px;color:var(--t2);margin-top:9px;line-height:1.55">' +
+      _rT('This includes the ', 'Dit sluit die ') + m(r.bf) +
+      _rT(' that was held back last year.', ' in wat verlede jaar teruggehou is.') + '</div>';
+  }
+
+  body += '<div style="font-size:11px;color:var(--t3);margin-top:8px">' +
+    _rT('Income from farming counts crop, livestock, dairy, wool, fruit, grants and subsidies. Rental, agritourism and other income are separate trades and do not raise the cap.',
+        'Inkomste uit boerdery tel gewasse, vee, suiwel, wol, vrugte, toekennings en subsidies. Huur, agritoerisme en ander inkomste is afsonderlike bedrywe en verhoog nie die beperking nie.') +
+    '</div></div>';
+  return body;
+}
+window.saPara8CardHTML = saPara8CardHTML;
 
 /* The card. Two worked-out lines, one box, and the stores the law excludes shown as
    excluded. It sits in the tab the pack is sent from, at the one moment in the year the
@@ -55867,6 +56072,9 @@ function taxGlanceHTML(){
     var _sg = (typeof saStockGap==='function') ? saStockGap() : null;
     var _sfy = (_sg && _sg.fy != null) ? _sg.fy : ((typeof fyOf==='function') ? fyOf() : null);
     h += saStockCardHTML(_sfy);
+    /* -433 Paragraph 8, for the same year the stock count is about. Returns '' unless it
+       actually does something, so a farm that never buys livestock never sees it. */
+    if(typeof saPara8CardHTML === 'function') h += saPara8CardHTML(_sfy);
   }catch(e){}
   h+='<div class="tx-btn" onclick="taxAccountantPack()">📤 Share SARS-ready pack with your accountant</div>';
   h+='<div class="tx-disc"><b>Everything here is a helper to plan with — not a filed return.</b> Figures are worked out from your records; rates are reviewed each Budget ('+esc((STATUTORY&&STATUTORY.tax&&STATUTORY.tax.yearLabel)||'2026/27')+' tables). These figures follow SARS’s rules rather than just adding everything up. It’s still not tax advice — other money you earn, or farming on the side rather than as your main work, can change the answer. Confirm the final numbers with your accountant — and if farming isn’t your main work, ask them about section 20A.</div>';
