@@ -16632,7 +16632,7 @@ function _txMigrateIfNeeded(){
    QC_RULES change and every answer is worked out again, farm by farm, in the
    background. TX_LOOKS is this farm's answers, keyed by the transaction's server id.
    (02-database/txn_looks_migration.sql, 03-docs/build/needs-a-look-one-brain.md) */
-var LOOK_V = 1;
+var LOOK_V = 2;   // 2: whole-word English, Afrikaans compound tails, bank fees are not tractor services (20 Sep 2026)
 var TX_LOOKS = {};              // txn uuid -> { cat: <category id|null>, v, rulesAt }
 var LOOK_RULES_AT = null;       // the farm's newest filing rule when last read
 var _lookBusy = false, _lookTimer = null;
@@ -56098,7 +56098,7 @@ var QC_RULES = [
   {words:['citrus','lemon','suurlemoen','orange','lemoen','naartjie','valencia','navel','grape','druiwe','apple','appel','pear','berry','berries','blueberr','strawberr','raspberr','bessie','punnet','avocado','mango','butternut','pumpkin','pampoen','vegetable','groente','tomato','tamatie','onion','potato','aartappel','packhouse','pakhuis','fresh produce'], cat:'Fruit Sales',                type:'income'},
   {words:['milk','melk','clover','dairy','suiwel','cream','cheese','kaas'],                                                                    cat:'Milk & Dairy',              type:'income'},
   {words:['wool','wol','shear','skeer','mohair','sybok','bkb','cape wools','fibre'],                                                                                        cat:'Wool & Fibre',              type:'income'},
-  {words:['cattle','bees','sheep','skaap','goat','bok','pig','vark','poultry','beef','lamb','lambs','lam','livestock','vee'],                                                    cat:'Livestock Sales',           type:'income'},
+  {words:['cattle','bees','sheep','skaap','goat','bok','pig','vark','poultry','beef','lamb','lambs','lam','livestock','vee','vleis','speenkalf','veiling'],                                                    cat:'Livestock Sales',           type:'income'},
   {words:['subsidie','subsidy'], cat:'Subsidies', type:'income'},
   {words:['grant','coupon','voucher'],                                                                                                                       cat:'Government Grant',          type:'income'},
   {words:['rental','rent','lease','huur','grazing lease','weidinghuur','servitude','erfdiens'],                                                                                cat:'Rental Income',             type:'income'},
@@ -56108,9 +56108,9 @@ var QC_RULES = [
   {words:['herbicide','fungicide','insecticide','pesticide','roundup','atrazine','spray','spuit','chemical','chemikal','weed','wied'],                                            cat:'Crop Protection',           type:'expense'},
   {words:['diesel','petrol','fuel','brandstof','oil','olie','hydraulic','hydraulies'],                                                                                            cat:'Fuel & Oil',                type:'expense'},
   {words:['labour','labor','arbeid','wages','loon','salary','salaris','worker','werker','casual','picking','pluk','crew','span','personeel','seasonal work'],                                                                                cat:'Labour & Wages',            type:'expense'},
-  {words:['repair','herstel','service','diens','tractor','trekker','machine','masjien','part','onderdeel','workshop','werkswinkel'],                                                           cat:'Machinery & Repairs',       type:'expense'},
+  {words:['repair','herstel','diens','tractor','trekker','machine','masjien','onderdeel','workshop','werkswinkel','onderhoud','part','spare'],                                                           cat:'Machinery & Repairs',       type:'expense'},
   {words:['vet','veterinar','dier','animal','dip','dipping','doop','vaccine','vaksine','dose','dosing','doseer','medicine','medisyne'],                                                                          cat:'Veterinary & Animal Health',type:'expense'},
-  {words:['feed','voer','lick','lek','hay','hooi','silage','kuilvoer','pellet','concentrate','konsentraat','grazing','weiding'],  cat:'Animal Feed',               type:'expense'},
+  {words:['feed','voer','lick','lek','hay','hooi','silage','kuilvoer','pellet','concentrate','konsentraat','grazing','weiding','voerkraal','byvoeding'],  cat:'Animal Feed',               type:'expense'},
   {words:['loan','lening','land bank','instalment','paaiement','hire purchase','huurkoop','finance charge','rentelas'],           cat:'Loan Repayments',           type:'expense'},
   {words:['vodacom','mtn','telkom','internet','airtime','lugtyd','phone','foon','admin','accountant','rekenmeester','bank charge','bankkoste','licence','lisensie'], cat:'Admin & Professional Fees', type:'expense'},
   {words:['water','irrigation','besproei','pump','pomp','pipe','pyp'],                                                                                                            cat:'Irrigation & Water',        type:'expense'},
@@ -56138,12 +56138,23 @@ var _QC_WORD_RE = {};
    'vee' stay prefixes because BEESVLEIS and VEEVOER are real. The phone carries the
    same set (08-mobile/src/core/categorise.ts QC_WHOLE) and the phone's checks prove it. */
 var QC_WHOLE = ['lam','bok','pig','vark','wol','lek','span','crew','part','pump','dip',
-                'vet','dose','oil','map','lan','kcl','rent','crop','soy','dam'];
+                'vet','dose','oil','map','lan','kcl','rent','crop','soy','dam','barn'];
+/* Afrikaans builds compound words back to front - VEEVOER is voer, MIELIESAAD is saad,
+   DORINGDRAAD is draad - and the word that says what it IS comes last. A left-anchored
+   keyword never sees them, so an Afrikaans statement read as nothing at all while the
+   same words typed in English filed correctly (20 Sep 2026). These match at the END of a
+   word as well as on their own, and still not in the middle: LEKKER is not a lick. */
+var QC_TAIL = ['voer','saad','lek','hooi','draad','pomp','pyp','spuit','werker','huur',
+               'kalk','masjien','diens','olie','melk','loon','vleis','mis'];
 function _qcWordHit(lower, word){
   var re = _QC_WORD_RE[word];
   if (!re){
     var w = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    re = new RegExp('(^|[^a-z0-9])' + w + (QC_WHOLE.indexOf(word) >= 0 ? 's?([^a-z0-9]|$)' : ''));
+    /* Three ways a keyword may sit in a description: the whole word (short ones, or
+       LAMONT reads as a lamb), the end of a compound as well (Afrikaans), or the start
+       of one (the default - 'fertiliser' has to catch 'fertilisers'). */
+    if (QC_TAIL.indexOf(word) >= 0) re = new RegExp(w + '([^a-z0-9]|$)');
+    else re = new RegExp('(^|[^a-z0-9])' + w + (QC_WHOLE.indexOf(word) >= 0 ? 's?([^a-z0-9]|$)' : ''));
     _QC_WORD_RE[word] = re;
   }
   return re.test(lower);
@@ -63407,7 +63418,7 @@ function inferCategory(desc, isIncome){
     if(/refund|rebate/.test(d)) return 'Other Income';
     return 'Other Income';
   }
-  if(/diesel|fuel|petrol|engen|sasol|total|bp |shell|brandstof|engine oil|motor oil|enjinolie|hydraulic oil|hydraulic|hydraulies|hidroulies/.test(d)) return 'Fuel & Oil';
+  if(/diesel|fuel|petrol|engen|sasol|\btotal\b|bp |\bshell\b|brandstof|engine oil|motor oil|olie(?![a-z])|hydraulic oil|hydraulic|hydraulies|hidroulies/.test(d)) return 'Fuel & Oil';
   if(/fertili|urea|lan |kcl|npk|map |dap |compost|kunsmis|\blime\b|\bkalk\b|superphosphate|superfosfaat/.test(d)) return 'Fertiliser';
   if(/seed|seedling|hybrid|saad|saailing|kiemplant|inoculant/.test(d)) return 'Seeds & Planting';
   if(/spray|herbicide|pesticide|round\s*up|crop protect|insecticide|fungicide|atrazine|spuit|chemical|chemikal|\bweed\b|wied|onkruid/.test(d)) return 'Crop Protection';
@@ -63416,13 +63427,18 @@ function inferCategory(desc, isIncome){
   if(/power line|kraglyn|transformer|eskom connection/.test(d)) return 'Power line connection';
   if(/fence|fencing|heining|draad|dropper|wire strain/.test(d)) return 'Fencing';
   if(/\broad\b|\bpad\b|bridge|brug|causeway|gravel road|grader/.test(d)) return 'Roads & bridges';
-  if(/\bshed\b|loods|barn|skuur|silo build|farm building|plaasgebou/.test(d)) return 'Farm buildings';
+  if(/\bshed\b|loods|\bbarn\b|skuur|silo build|farm building|plaasgebou/.test(d)) return 'Farm buildings';
   if(/erosion|erosie|contour|kontoer|gabion/.test(d)) return 'Soil erosion works';
   if(/invasive|indringer|wattle|port jackson|bugweed|alien clearing/.test(d)) return 'Clearing invasive plants';
-  if(/vet|vaccin|dip|dose|drench|deworm|medicat|antibiot|\bdier\b|animal health|dieregesondheid|doop|vaksine|medicine|medisyne/.test(d)) return 'Veterinary & Animal Health';
-  if(/feed|voer|lick|lek|hay|hooi|silage|kuilvoer|grazing|weiding|pellet|meal|concentrate|konsentraat/.test(d)) return 'Animal Feed';
-  if(/wage|loon|salary|salaris|payroll|casual|labour|labor|arbeid|worker|werker|staff|personeel|picking|pluk|crew|span|harvest team|seasonal work/.test(d)) return 'Labour & Wages';
-  if(/john\s*deere|case\s*ih|new\s*holland|repair|service|spare|part|workshop|mechanic|herstel|diens|\btractor\b|trekker|machine|masjien|onderdeel|werkswinkel/.test(d)) return 'Machinery & Repairs';
+  if(/\bvet\b|veterinar|vaccin|\bdip\b|dipping|dipvat|\bdose[ds]?\b|dosering|doseer|drench|deworm|medicat|antibiot|dier(?![a-z])|diere|animal health|dieregesondheid|doop|vaksine|medicine|medisyne/.test(d)) return 'Veterinary & Animal Health';
+  if(/feed|voer(?!tuig)|lick|lek(?![a-z])|\bhay\b|hooi(?![a-z])|silage|kuilvoer|grazing|weiding|pellet|\bmeal\b|concentrate|konsentraat/.test(d)) return 'Animal Feed';
+  if(/wage|loon(?![a-z])|salary|salaris|payroll|casual|labour|labor|arbeid|worker|werker|\bstaff\b|personeel|picking|pluk(?![a-z])|\bcrew\b|\bspan\b|harvest team|seasonal work/.test(d)) return 'Labour & Wages';
+  /* 'service' and 'diens' are the bank's words as often as the workshop's: SERVICE FEE,
+     OVERDRAFT SERVICE FEE and eNote Service Fee were all filed as Machinery & Repairs on
+     the live farm (found 20 Sep 2026). They only count as a repair when nothing in the
+     line says bank. 'part' is inside PARTY, which is why it is a whole word now. */
+  if(/john\s*deere|case\s*ih|new\s*holland|repair|spare|\bparts?\b|workshop|mechanic|herstel|\btractor\b|trekker|machine|masjien|onderdeel|werkswinkel/.test(d)) return 'Machinery & Repairs';
+  if(/\bservice\b|diens(?![a-z])/.test(d) && !/bank|\bfee\b|fooi|account|\bacc\b|overdraft|debit order|\bsms\b|enote/.test(d)) return 'Machinery & Repairs';
   /* ── Money paid to SARS or the municipality ──────────────────────────────────────
      Sits ABOVE irrigation and admin on purpose: 'munic' below would otherwise swallow
      municipal rates into Irrigation & Water, and 'licence' would land vehicle licences
@@ -63439,8 +63455,11 @@ function inferCategory(desc, isIncome){
   if(/irrigation|water|pump|electricity|eskom|munic|besproei|\bpomp\b|pipe|\bpyp\b/.test(d)) return 'Irrigation & Water';
   if(/insurance|santam|hollard|old\s*mutual|outsurance|iwyze|versekering|\bpremie\b|premium/.test(d)) return 'Insurance';
   if(/\brent\b|rental|lease|huurgeld/.test(d)) return 'Land & Rental';
-  if(/loan|land\s*bank|hire\s*purchase|finance|instal|overdraft|interest on|lening|paaiement|huurkoop|rentelas/.test(d)) return 'Loan Repayments';
-  if(/vodacom|mtn|telkom|internet|airtime|lugtyd|phone|foon|admin|accountant|rekenmeester|auditor|ouditeur|bank charge|bankkoste|bank fee|banking fee|cash deposit|deposit fee|autobank|prepaid mobile|mobile purchase|licence|lisensie|legal fee/.test(d)) return 'Admin & Professional Fees';
+  /* An OVERDRAFT SERVICE FEE is what the bank charges for the facility, not a repayment
+     of it - it belongs with the bank charges below (20 Sep 2026). */
+  if(/loan|land\s*bank|hire\s*purchase|finance|instal|overdraft|interest on|lening|paaiement|huurkoop|rentelas/.test(d)
+     && !/service fee|diensfooi|admin fee|maintenance fee/.test(d)) return 'Loan Repayments';
+  if(/vodacom|mtn|telkom|internet|airtime|lugtyd|phone|foon|admin|accountant|rekenmeester|auditor|ouditeur|bank charge|bankkoste|bank fee|banking fee|service fee|diensfooi|maintenance fee|statement fee|\bfee\b.*(statement|balance|enquiry|declined)|cash deposit|deposit fee|autobank|prepaid mobile|mobile purchase|licence|lisensie|legal fee/.test(d)) return 'Admin & Professional Fees';
   return 'Other Expenses';
 }
 
