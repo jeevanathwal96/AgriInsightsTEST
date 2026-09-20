@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=60"></script>
+<script src="ai-data.js?v=61"></script>
 <script src="ai-auth.js?v=45"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -13358,6 +13358,21 @@ function cropHarvestModal(){
       '<div id="ch-yhint" style="font-size:11px;color:var(--t3);margin-top:4px"></div></div>'+
       '<div style="margin-top:12px"><label style="'+lblCss+'">Money in from this crop? <span style="color:var(--t4);font-weight:600;text-transform:none;letter-spacing:0">leave blank if not paid yet</span></label>'+
       '<input id="ch-money" type="number" inputmode="decimal" value="'+(estMoney>0?estMoney:'')+'" style="'+inpCss+'">'+
+      /* -431 Where it went, asked once, here. Three answers because South Africa has
+         three: grain delivered to a co-op silo is issued a SILO CERTIFICATE and stays the
+         farmer's until they choose to sell it - they carry the price risk and pay the
+         storage. So "delivered" is not "sold", and under the First Schedule that grain is
+         still produce held and not disposed of at year end. Inferring the answer from
+         whether money was typed got the commonest route in the country wrong. */
+      '<div style="margin-top:12px"><label style="'+lblCss+'">'+_rT('Where did it go?','Waarheen het dit gegaan?')+'</label>'+
+      '<select id="ch-dest" style="'+inpCss+'">'+
+        '<option value="sold"'+(estMoney>0?' selected':'')+'>'+_rT('Sold','Verkoop')+'</option>'+
+        '<option value="silo"'+(estMoney>0?'':' selected')+'>'+_rT('Silo, on a certificate \u2014 still mine','Silo, op \u2019n sertifikaat \u2014 nog myne')+'</option>'+
+        '<option value="store">'+_rT('In my own shed','In my eie skuur')+'</option>'+
+      '</select>'+
+      '<div style="font-size:11px;color:var(--t3);margin-top:4px">'+
+        _rT('A silo certificate you have not sold yet still counts towards your year-end stock. Leave the money blank until you sell it.',
+            '’n Silosertifikaat wat jy nog nie verkoop het nie, tel steeds by jou jaareinde-voorraad. Los die geld leeg totdat jy dit verkoop.')+'</div></div>'+
       '<div style="font-size:11px;color:var(--t3);margin-top:4px">Creates a Crop Sales income entry tagged to '+esc(sel.name)+'.</div></div>'+
       '<div style="background:#eef4ec;border:1px solid #cfe3d4;border-radius:9px;padding:9px 11px;font-size:11px;color:#3a5a45;line-height:1.5;margin-top:12px">'+esc(sel.name)+' will show as <b>Harvested</b> with its realized margin, and this season is kept in the land’s history before it goes to rest.</div>';
   }
@@ -13380,11 +13395,19 @@ function cropHarvestSave(){
   var y=parseFloat(($('ch-yield')||{}).value); if(isNaN(y)||y<0){ toast('Enter a valid yield','error'); return; }
   var mr=($('ch-money')||{}).value;
   var money=(mr==null||String(mr).trim()==='')?0:(parseFloat(String(mr).replace(/[^0-9.]/g,''))||0);
-  cropHarvestCommit(l, y, money);
+  var dest=(($('ch-dest')||{}).value)||(money>0?'sold':'store');
+  cropHarvestCommit(l, y, money, dest);
   cropCloseModal();
 }
 /* Write logic only (no prompts): yield + Harvested state + optional income (Crop Sales txn). */
-function cropHarvestCommit(l, y, moneyNum){
+/* -431 `dest` says where the crop went: 'sold', 'silo' (delivered to a co-op silo on a
+   certificate, still the farmer's) or 'store' (in their own shed). It used to be inferred
+   from whether money was entered, which is a different question - and in South Africa the
+   commonest route of all, a silo certificate not yet sold, arrives with no money and is
+   still the farmer's produce. Only a SALE disposes of the crop, so only a sale writes a
+   delivered event. Callers that pass nothing keep the old behaviour, so records written
+   before this build read exactly as they read today. */
+function cropHarvestCommit(l, y, moneyNum, dest){
   if(!l) return;
   var prev=l.crop;
   var tons=Math.round(y*(l.area||0)*10)/10;
@@ -13393,9 +13416,16 @@ function cropHarvestCommit(l, y, moneyNum){
   var pIdx=cropFindPlanLine(l);
   if(pIdx>=0){ ST_PLAN.crops[pIdx].yield=y; delete ST_PLAN.crops[pIdx].linkId; }
   l.planId=null;
-  ST_CROP.events.unshift({id:cropNextId(ST_CROP.events,'ce'), land:l.id, kind:'harvested', date:todayISO, note:prev+' '+y+' t/ha', tons:tons, yield:y});
+  var _sold = (dest === 'sold') || (dest == null && moneyNum > 0);
+  ST_CROP.events.unshift({id:cropNextId(ST_CROP.events,'ce'), land:l.id, kind:'harvested', date:todayISO, note:prev+' '+y+' t/ha', tons:tons, yield:y,
+                          dest:(dest || (moneyNum > 0 ? 'sold' : 'store'))});
+  /* Sold is the only one that leaves the farmer's hands. A silo certificate is delivered
+     and still theirs, so it writes no delivered event and stays in the year-end count. */
+  if(_sold){
+    ST_CROP.events.unshift({id:cropNextId(ST_CROP.events,'ce'), land:l.id, kind:'delivered', date:todayISO,
+      note:(moneyNum > 0 ? ('Sold — '+cropFmtR(moneyNum)) : _rT('Sold — price not agreed yet','Verkoop — prys nog nie ooreengekom nie')), tons:tons});
+  }
   if(moneyNum>0){
-    ST_CROP.events.unshift({id:cropNextId(ST_CROP.events,'ce'), land:l.id, kind:'delivered', date:todayISO, note:'Sold — '+cropFmtR(moneyNum), tons:tons});
     ST.txns=ST.txns||[];
     var _desc=(prev||'Crop')+' — '+l.name, _entTag='crop:'+(prev||'');
     var _tx={date:lsFmtDate(LS_TODAY), desc:_desc, cat:'Crop Sales', type:'income', amt:moneyNum, method:'Bank Deposit', source:'Crop harvest', ent:_entTag, qty:tons||undefined, unit:tons?'Tons':undefined};
@@ -19004,6 +19034,20 @@ var pSub = $('season-ytd-profit-sub');
       pSub.textContent = profit >= 0 ? 'Profit so far this year' : 'Loss so far this year';
       pSub.className = 'skpi-sub muted';
     }
+    /* -431 saProvisionalNote() was written for this and never called, so the year-end
+       stock card promised that every figure on the page was marked and not one of them
+       was. In its OWN span: this line carries .skpi-sub.dn and turns red when profit is
+       down, and a figure that is merely unfinished must not borrow an alarm colour. */
+    try{
+      var _sn = (typeof saProvisionalNote === 'function') ? saProvisionalNote() : '';
+      if(_sn){
+        var _ss = document.createElement('span');
+        _ss.textContent = ' \u00b7 ' + _sn;
+        _ss.style.color = 'var(--t4)';
+        _ss.style.fontWeight = '500';
+        pSub.appendChild(_ss);
+      }
+    }catch(e){}
   }
 
 var _MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
@@ -55332,10 +55376,16 @@ function saStockGap(){
   return o;
 }
 
-/* The permanent half: one quiet word under a figure that is not wrong, only unfinished.
-   It asks for nothing, so it can sit there all year without becoming noise. */
+/* The permanent half: a quiet note under a figure that is not wrong, only unfinished.
+   It asks for nothing, so it can sit there all year without becoming noise.
+
+   -431 It says WHAT IS MISSING rather than merely that something is. Two reasons. The
+   farmer can act on "before stock" and cannot act on "provisional". And in Afrikaans
+   "voorlopig" is already spoken for: voorlopige belasting is provisional tax, a SARS term
+   this app uses on these very screens, so a bare "voorlopig" under a profit figure reads
+   as something to do with the farmer's IRP6. */
 function saProvisionalNote(){
-  try{ return saStockGap().needed ? _rT('provisional', 'voorlopig') : ''; }catch(e){ return ''; }
+  try{ return saStockGap().needed ? _rT('before stock', 'voor voorraad') : ''; }catch(e){ return ''; }
 }
 
 /* What we can work out ourselves, so the farmer corrects a figure instead of inventing
@@ -55490,8 +55540,8 @@ function saStockCardHTML(fy){
 
   return head +
     '<div style="font-size:12px;color:var(--t2);margin-bottom:4px">' +
-      _rT('What is on hand on the last day of your year is part of this year\u2019s profit. Until it is counted, every figure on this page says provisional.',
-          'Wat op die laaste dag van jou jaar op hande is, is deel van hierdie jaar se wins. Totdat dit getel is, is elke syfer op hierdie bladsy voorlopig.') + '</div>' +
+      _rT('What is on hand on the last day of your year is part of this year\u2019s profit. Until it is counted, every profit figure here is marked \u201cbefore stock\u201d.',
+          'Wat op die laaste dag van jou jaar op hande is, is deel van hierdie jaar se wins. Totdat dit getel is, is elke winssyfer hier gemerk \u201cvoor voorraad\u201d.') + '</div>' +
     (known ? grp(_rT('We worked these out \u2014 check and correct', 'Ons het dit uitgewerk \u2014 kyk en korrigeer')) + known : '') +
     grp(_rT('Only you know this', 'Net jy weet hiervan')) + asked +
     excluded +
@@ -55532,9 +55582,10 @@ function _saStockPersist(fy, expect){
   try{ if(typeof renderTax==='function') renderTax(); }catch(e){}
 
   var okMsg = (expect == null)
-    ? _rT('Removed \u2014 the figures are provisional again', 'Verwyder \u2014 die syfers is weer voorlopig')
-    : _rT('Counted \u2014 this year\u2019s figures are no longer provisional',
-          'Getel \u2014 hierdie jaar se syfers is nie meer voorlopig nie');
+    ? _rT('Removed \u2014 the profit is missing your stock again',
+          'Verwyder \u2014 die wins is weer sonder jou voorraad')
+    : _rT('Counted \u2014 the profit now includes your stock',
+          'Getel \u2014 die wins sluit nou jou voorraad in');
   var badMsg = (expect == null)
     ? _rT('Removed here, but the server still has it \u2014 try again',
           'Hier verwyder, maar die bediener het dit nog \u2014 probeer weer')
@@ -69218,17 +69269,41 @@ function aiPairKindRender(){
     + '<div style="height:12px"></div>';
   aiPairDevicesRender();
 }
+/* Whether a phone is still being reminded. Three states and no fourth: it never
+   asked, it is being reminded, or it has STOPPED - which is the one a farmer needs
+   to see, because the alternative is deadlines going quiet with nothing said. A
+   phone is called stopped when the daily job retired its token (the phone told Expo
+   it was gone) or when nothing has reached it for a fortnight. */
+function aiPairRemindLine(r){
+  if (!(window.AI && AI.pairing && AI.pairing.canRemind && AI.pairing.canRemind())) return '';
+  if (!r) return '<span style="display:block;font-size:11.5px;color:var(--t3)">'
+    + esc(rnT('Reminders not switched on','Herinnerings nie aangeskakel nie')) + '</span>';
+  var last = r.last_ok_at ? String(r.last_ok_at).slice(0,10) : '';
+  var quiet = last ? Math.round((Date.now() - Date.parse(last+'T00:00:00Z')) / 86400000) : 0;
+  var stopped = !!r.retired_at || r.enabled === false || (last && quiet >= 14);
+  if (stopped) return '<span style="display:block;font-size:11.5px;font-weight:700;color:var(--rd)">'
+    + esc(rnT('Not getting reminders','Kry nie herinnerings nie'))
+    + (last ? esc(rnT(' \u00b7 last one ',' \u00b7 laaste een ')+wkShortDate(last)) : '') + '</span>';
+  return '<span style="display:block;font-size:11.5px;color:var(--gd)">'
+    + esc(rnT('Getting reminders','Kry herinnerings'))
+    + (last ? esc(rnT(' \u00b7 last one ',' \u00b7 laaste een ')+wkShortDate(last)) : '') + '</span>';
+}
 function aiPairDevicesRender(){
   var box = $('set-pair-devs'); if (!box) return;
   if (!(window.AI && AI.pairing && AI.pairing.devices && AI.pairing.canAsk && AI.pairing.canAsk())) { box.innerHTML = ''; return; }
-  AI.pairing.devices().then(function(list){
-    list = list || [];
+  Promise.all([
+    AI.pairing.devices(),
+    (AI.pairing.reminders ? AI.pairing.reminders().catch(function(){ return null; }) : Promise.resolve(null)),
+  ]).then(function(res){
+    var list = res[0] || [];
+    var rem = res[1] || {};
     if (!list.length) { box.innerHTML = '<div class="hint" style="margin-top:10px;font-size:12px">'+esc(rnT('A phone added before 19 September 2026, or from another phone, is not listed here and shows no payslips. To see payslips on it, add it again from here and choose Mine.','\u2019n Foon wat voor 19 September 2026, of vanaf \u2019n ander foon, bygevoeg is, word nie hier gewys nie en wys geen betaalstrokies nie. Om betaalstrokies daarop te sien, voeg dit weer van hier af by en kies Myne.'))+'</div>'; return; }
     box.innerHTML = '<div style="font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);margin:14px 0 4px">'+esc(rnT('Phones added','Fone bygevoeg'))+'</div>'
       + list.map(function(d){
           var mine = d.kind === 'owner';
           return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--br2);font-size:12.5px">'
-            + '<span style="min-width:0"><b>'+esc(mine?rnT('Yours','Joune'):rnT('Someone who works for you','Iemand wat vir jou werk'))+'</b> <span style="color:var(--t3)">\u00b7 '+esc(rnT('added ','bygevoeg ')+wkShortDate(d.created_at))+' \u00b7 '+esc(mine?rnT('may show payslips','mag betaalstrokies wys'):rnT('no payslips','geen betaalstrokies'))+'</span></span>'
+            + '<span style="min-width:0"><b>'+esc(mine?rnT('Yours','Joune'):rnT('Someone who works for you','Iemand wat vir jou werk'))+'</b> <span style="color:var(--t3)">\u00b7 '+esc(rnT('added ','bygevoeg ')+wkShortDate(d.created_at))+' \u00b7 '+esc(mine?rnT('may show payslips','mag betaalstrokies wys'):rnT('no payslips','geen betaalstrokies'))+'</span>'
+            + aiPairRemindLine(rem[String(d.id)])+'</span>'
             + '<button type="button" class="btn-sec" style="margin-left:auto;padding:5px 10px;font-size:11.5px;white-space:nowrap;flex-shrink:0" onclick="aiPairSetKind(\''+d.id+'\',\''+(mine?'staff':'owner')+'\')">'+esc(mine?rnT('Stop payslips','Stop betaalstrokies'):rnT('It\u2019s mine','Dis myne'))+'</button></div>';
         }).join('');
   }).catch(function(e){ box.innerHTML=''; console.error('devices', e); });

@@ -366,6 +366,7 @@
      shipped them — defensible there because that project is not provisioned, and not
      here, where a farmer moves between a laptop and a tablet. */
   let CAN_CAT_RULES     = false;
+  let CAN_REMINDERS     = false;   // push_devices: is this phone still being reminded?
   let CAN_LOOKS         = false;   // transaction_looks: the computer's stored "needs a look" answer
   let CAN_CAT_OK_CAT    = false;   // transactions.cat_ok_cat_id: what "keep as is" was told
   let CAN_FUEL_METER    = false;
@@ -415,6 +416,7 @@
     CAN_FARM_PARTNERS  = await has('farms','partners');
     CAN_CAT_RULES      = await has('category_rules','match_text');
     CAN_LOOKS          = await has('transaction_looks','look_v');
+    CAN_REMINDERS      = await has('push_devices','last_ok_at');
     CAN_CAT_OK_CAT     = await has('transactions','cat_ok_cat_id');
     /* The whole row-memory scheme rides on this one column. A project that has
        not run agriinsights-13-relational-sync.sql keeps today's behaviour rather
@@ -2885,6 +2887,22 @@
       return true;
     },
     canAsk(){ return CAN_DEVICES; },
+    /* Which phones are still being reminded, and when each last heard from us
+       (reminders_migration.sql). The daily job retires a token Expo reports as
+       dead, so a phone that has stopped can be SHOWN as stopped here rather than
+       the farmer wondering why their deadlines went quiet. Keyed by device_id,
+       which is the same row this list is built from. */
+    async reminders(){
+      const fid = farm.active(); if(!fid || !CAN_REMINDERS) return null;
+      const r = await client().from('push_devices')
+        .select('device_id,last_ok_at,retired_at,enabled,platform,lang')
+        .eq('farm_id', fid);
+      if(r.error) throw r.error;
+      const by = {};
+      for(const row of (r.data || [])) if(row.device_id) by[String(row.device_id)] = row;
+      return by;
+    },
+    canRemind(){ return CAN_REMINDERS; },
     /* Whether a code was used: the edge function DELETES a code once a phone redeems it,
        so a row that is still here means no phone paired with it. */
     async tokenState(id){
