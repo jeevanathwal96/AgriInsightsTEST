@@ -55505,12 +55505,52 @@ function saStockLater(){
 }
 window.saStockLater=saStockLater;
 
-function _saStockPersist(){
+/* -428 Say it saved only once the server says so.
+
+   The real-account test caught this: removing a count cleared it here, toasted
+   \u201cRemoved\u201d, and the server kept the figure - with no error at all, because the
+   statement was judged unchanged and never sent. Minutes later the identical write went
+   through, so it is a race, not a logic error. Chasing the race is one fix; telling the
+   truth is the one that holds whatever the cause, and it is the same rule the profile
+   save already follows internally - read back what the server kept.
+
+   `expect` is the total we should find afterwards, or null when we have just removed it.
+   The farmer's own figures are never rolled back on a failure: what they typed stays on
+   the screen, and the message says the server has not got it yet. */
+function _saStockPersist(fy, expect){
   try{ if(typeof dataChanged==='function') dataChanged(); else if(typeof saveState==='function') saveState(); }catch(e){}
-  try{ if(!window.__AI_GUEST && window.AI && AI.farm && AI.farm.active() && AI.profile && AI.profile.save)
-         AI.profile.save(ST).catch(function(e){ console.error('Year-end stock not saved to the server', e); }); }catch(e){}
   try{ if(typeof renderAttnCard==='function') renderAttnCard(); }catch(e){}
   try{ if(typeof renderTax==='function') renderTax(); }catch(e){}
+
+  var okMsg = (expect == null)
+    ? _rT('Removed \u2014 the figures are provisional again', 'Verwyder \u2014 die syfers is weer voorlopig')
+    : _rT('Counted \u2014 this year\u2019s figures are no longer provisional',
+          'Getel \u2014 hierdie jaar se syfers is nie meer voorlopig nie');
+  var badMsg = (expect == null)
+    ? _rT('Removed here, but the server still has it \u2014 try again',
+          'Hier verwyder, maar die bediener het dit nog \u2014 probeer weer')
+    : _rT('Saved here, but it has not reached the server \u2014 try again',
+          'Hier gestoor, maar dit het nie die bediener bereik nie \u2014 probeer weer');
+
+  /* A farm that is not signed in has no server to disagree with. */
+  var live = false;
+  try{ live = !!(!window.__AI_GUEST && window.AI && AI.farm && AI.farm.active() && AI.profile && AI.profile.save); }catch(e){}
+  if(!live){ toast(okMsg, 'success'); return; }
+
+  AI.profile.save(ST)
+    .then(function(){ return AI.load.profile(AI.farm.active()); })
+    .then(function(p){
+      var srv = (p && p.stockCounts) || {};
+      var row = srv[String(fy)];
+      var got = (row && isFinite(row.total)) ? Math.round(row.total) : null;
+      var ok  = (expect == null) ? (got == null) : (got === Math.round(expect));
+      toast(ok ? okMsg : badMsg, ok ? 'success' : 'error');
+      if(!ok) try{ console.warn('Year-end stock: the server kept its own figure', {wanted:expect, got:got}); }catch(e){}
+    })
+    .catch(function(e){
+      try{ console.error('Year-end stock not saved to the server', e); }catch(x){}
+      toast(badMsg, 'error');
+    });
 }
 
 function saStockSave(fy){
@@ -55533,17 +55573,13 @@ function saStockSave(fy){
   if(total<=0){ toast(_rT('Enter at least one figure','Vul ten minste een syfer in'),'error'); return; }
   ST.stockCounts=(ST.stockCounts && typeof ST.stockCounts==='object') ? ST.stockCounts : {};
   ST.stockCounts[String(fy)]={ total:total, parts:parts, at:new Date().toISOString(), basis:'cost' };
-  _saStockPersist();
-  toast(_rT('Counted \u2014 this year\u2019s figures are no longer provisional',
-            'Getel \u2014 hierdie jaar se syfers is nie meer voorlopig nie'),'success');
+  _saStockPersist(fy, total);
 }
 function saStockForget(fy){
   /* Leaves an EMPTY OBJECT rather than dropping the key: an absent key sends nothing and
      the server would hand the old count back on the next load. */
   if(ST.stockCounts) delete ST.stockCounts[String(fy)];
-  _saStockPersist();
-  toast(_rT('Removed \u2014 the figures are provisional again',
-            'Verwyder \u2014 die syfers is weer voorlopig'),'success');
+  _saStockPersist(fy, null);
 }
 window.saStockSave=saStockSave; window.saStockForget=saStockForget;
 window.saStockGap=saStockGap; window.saStockDerived=saStockDerived;
