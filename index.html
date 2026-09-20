@@ -55475,6 +55475,7 @@ function saStockCardHTML(fy){
   var saved = (window.ST && ST.stockCounts && ST.stockCounts[String(fy)]) || null;
   var open  = saStockClosing(fy - 1);
   var der   = saStockDerived(fy);
+  var vatOn = !!(window.ST && (ST.vatRegistered === true || ST.vatRegistered === 'yes'));
 
   if(saved){
     var adj = saStockAdj(fy);
@@ -55548,6 +55549,21 @@ function saStockCardHTML(fy){
     '<div class="txb-note" style="margin-top:10px">' +
       _rT('<b>Produce is valued at the lower of cost or market value.</b> The figure above is market value, worked out from your own prices \u2014 if it cost you less to grow, use the lower number.',
           '<b>Produkte word teen die laagste van kosprys of markwaarde gewaardeer.</b> Die syfer hierbo is markwaarde, uitgewerk uit jou eie pryse \u2014 as dit jou minder gekos het om te produseer, gebruik die laer syfer.') +
+      /* -432 VAT, and deliberately not the sentence the British card carries. A farmer
+         holding the VAT103 authorisation buys fertiliser, feed, remedies, pesticide and
+         seed at the ZERO rate (Part A of Schedule 2), so telling them to strip VAT out of
+         their input costs would be wrong twice over - that VAT was never there, and South
+         Africa's count does not include those stores anyway. The market figure above is
+         already quoted before VAT. So the line that does real work is the one for a
+         farmer who is NOT registered and cannot claim anything back.
+         Worded so it stays true if the zero-rating on feed and fertiliser is repealed -
+         it is under review, with the date still to be gazetted - by saying what is true
+         for the farmer now rather than promising it will last. */
+      (vatOn
+        ? ' ' + _rT('<b>You are registered for VAT</b>, so value it at what it cost you before VAT. Most of what goes into a crop \u2014 fertiliser, seed, remedies, feed \u2014 is zero-rated to you anyway, so there is usually no VAT in it to take out.',
+                    '<b>Jy is vir BTW geregistreer</b>, so waardeer dit teen wat dit jou gekos het voor BTW. Die meeste van wat in \u2019n oes gaan \u2014 kunsmis, saad, middels, voer \u2014 is in elk geval teen nul koers aan jou verkoop, so daar is gewoonlik geen BTW in om uit te haal nie.')
+        : ' ' + _rT('<b>You are not registered for VAT</b>, so any VAT you paid is part of what the crop cost you. Include it.',
+                    '<b>Jy is nie vir BTW geregistreer nie</b>, so enige BTW wat jy betaal het, is deel van wat die oes jou gekos het. Sluit dit in.')) +
       (open != null ? ' ' + _rT('Opening stock, carried from last year, was ', 'Openingsvoorraad, oorgedra van verlede jaar, was ') + m(open) + '.' : '') +
     '</div>' +
     '<div class="txc-btns" style="margin-top:10px;max-width:440px">' +
