@@ -2722,7 +2722,16 @@
              a fresh version that is sent, and the loop is bounded so a genuinely
              contested row still fails rather than spinning. */
           for(var at = 0; at < 3 && !done2; at++){
-            if(at > 0){ try{ await load.profile(fid); }catch(e){} try{ _profAdopt(st, mine); }catch(e){} }
+            /* Re-read the row so the next attempt carries a fresh version - but do NOT
+               adopt into `st` again. The one adoption above is what stops this device
+               sending its older copy of fields the farmer did not touch; repeating it on
+               every round writes server values back over whatever the farmer has typed
+               SINCE the save started, and _profAdopt also refills the Settings inputs
+               from them. A retry that takes a second or two would quietly undo the very
+               correction the farmer had just made - which is exactly what a farmer does
+               after a refused save. The retry does not need it: body2 is computed from
+               s2.body against the ack, and never reads `st`. */
+            if(at > 0){ try{ await load.profile(fid); }catch(e){} }
             var body2 = _profChanged(s2.body);
             if(!Object.keys(body2).length){ done2 = true; if(s2.done) s2.done(); break; }
             r2 = await _profWrite(fid, body2);
