@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=62"></script>
+<script src="ai-data.js?v=63"></script>
 <script src="ai-auth.js?v=45"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -56282,15 +56282,26 @@ function _shortDate(d){ try{ var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','
 /* The old subtitle read "18 400 L diesel ready to claim" straight off the raw
    purchase figure. None of it was backed by a logbook, so none would have survived
    an audit — the card was overstating a SARS claim. */
+/* "Has a logbook" is not the same question as "has a claim". A litre driven to town
+   is logged, kept and printed - SARS wants the whole record, including the litres
+   that earn nothing, and the register prints a Claimable yes/no column for exactly
+   that. Gating on d.logged (qualifying litres only) hid the book from the farm that
+   had written one: all-road, all-private, or every phone capture made before the
+   activity chips shipped. _dslKept is the honest test. */
+function _dslKept(d){ return d ? ((d.logged||0) + (d.nonQual||0)) : 0; }
 function _txDieselSub(){
   var d=(typeof aiDieselStats==='function')?aiDieselStats():null;
-  if(!d || !d.bought) return '';
-  if(!d.logged) return ' \u00b7 '+Math.round(d.bought).toLocaleString('en-ZA')+' \u2113 bought, none logged to a machine yet';
+  var kept=_dslKept(d);
+  if(!d || !(d.bought || kept)) return '';
+  if(!kept) return ' \u00b7 '+Math.round(d.bought).toLocaleString('en-ZA')+' \u2113 bought, none logged to a machine yet';
+  if(!d.logged) return ' \u00b7 '+Math.round(kept).toLocaleString('en-ZA')+' \u2113 logged, none of it claimable';
   return ' \u00b7 '+Math.round(d.logged).toLocaleString('en-ZA')+' \u2113 backed by a logbook';
 }
 function _txDieselPanel(){
   var d=(typeof aiDieselStats==='function')?aiDieselStats():null;
-  if(!d || !d.bought) return '';
+  /* A farm can hold a logbook and no purchase in litres - every diesel invoice
+     entered without a quantity. It still has a record to open. */
+  if(!d || !(d.bought || _dslKept(d))) return '';
   var lose = d.unlogged>0
     ? '<div class="g"><div class="gk">Can\u2019t claim yet</div><div class="gv w">'+aiDieselMoney(d.losing)+'</div>'+
       '<div class="gs">'+Math.round(d.unlogged).toLocaleString('en-ZA')+' \u2113 bought, never logged</div></div>'
@@ -56300,13 +56311,13 @@ function _txDieselPanel(){
       '<div class="gs">'+Math.round(d.logged).toLocaleString('en-ZA')+' \u2113 \u00b7 item 670.04</div></div>'+
     lose+'</div>'+
     '<div class="tx-dsl-a"><button class="rc-btn" onclick="fuelOpen(0)">Log fuel used</button>'+
-      (d.logged?'<button class="rc-btn" style="margin-left:8px" onclick="regOpen(\'diesel\')">Diesel logbook</button>':'')+'</div>'+
+      (_dslKept(d)?'<button class="rc-btn" style="margin-left:8px" onclick="regOpen(\'diesel\')">Diesel logbook</button>':'')+'</div>'+
     '<div class="tx-dsl-n">At '+(aiDieselRate()*100).toFixed(1)+' c/\u2113 \u00b7 '+Math.round(aiDieselShare()*100)+'% of qualifying litres, for on-land farming. '+
     'Rate applies from '+(STATUTORY.dieselRefund.effectiveFrom||'')+' \u2014 it moves with the fuel and RAF levies, so check it after each Budget.'+
     /* Say who this is for. The claim needs a per-machine record, and the farm that
        can produce one is the farm already writing in a tank book at the pump \u2014 for
        them this is a place to put what they already capture, not a new routine. */
-    (d.logged? '' : ' If you already keep a paper tank book, entering it here turns it into the SARS logbook.')+
+    (_dslKept(d)? '' : ' If you already keep a paper tank book, entering it here turns it into the SARS logbook.')+
     (d.txnsWithoutLitres? ' '+d.txnsWithoutLitres+' diesel purchase'+(d.txnsWithoutLitres===1?'':'s')+' recorded no litres and cannot be claimed.':'')+
     '</div>';
 }
@@ -60699,11 +60710,17 @@ function syncTimeAgo(ts){
 var SYNC_AREAS = { assets:['Assets','Bates'], budget:['Budget','Begroting'], recurring:['Recurring items','Herhalende items'], coop:['Co-op deliveries','Ko-op aflewerings'], imports:['Imports','Invoere'], settings:['Settings','Instellings'], loans:['Loans','Lenings'], livestock:['Herds and animals','Kuddes en diere'], crops:['Crops','Gewasse'], orchard:['Orchards','Boorde'], plan:['Plan','Beplanning'], workers:['Workers','Werkers'], fuel:['Fuel log','Brandstofregister'], rain:['Rainfall','Reënval'], documents:['Documents','Dokumente'], rules:['Filing rules','Liasseerreëls'], transactions:['Transactions','Transaksies'], attachments:['Attachments','Aanhegsels'] };
 var SYNC_FIELDS = { entity_type:['Business type','Besigheidstipe'], partners:['Partners','Vennote'], vat_category:['VAT category','BTW-kategorie'], vat_number:['VAT number','BTW-nommer'], vat_registered:['VAT registration','BTW-registrasie'], tax_number:['Tax number','Belastingnommer'], utr:['UTR','UTR'] };
 var _syncBusySince = 0, _syncBusyT = null, _syncToastShown = false, _syncRenderQueued = false, _syncSubscribed = false;
+var _authToastShown = false, _authSubscribed = false;
 function _syncAf(){ return typeof ST !== 'undefined' && ST.lang === 'af'; }
 function _syncPick(pair){ return _syncAf() ? pair[1] : pair[0]; }
 function syncState(){
   var af = _syncAf();
   if (window.__AI_GUEST) return { cls:'demo', text: af ? 'Voorbeeldplaas · nie aanlyn gestoor nie' : 'Sample farm · not saved online' };
+  /* Before anything else: if the login is gone, nothing below it can be true. The
+     computer used to keep showing the farm and "Saved to your account" after its
+     session was revoked - the farmer only found out when adding a phone failed. */
+  if (window.AI && AI.auth && AI.auth.lost && AI.auth.lost())
+    return { cls:'bad', lost:true, text: af ? 'Afgemeld — meld weer aan' : 'Signed out — sign in again' };
   var s = (window.AI && AI.sync && AI.farm && AI.farm.active()) ? AI.sync.status() : null;
   if (!s) return { cls:'', text: af ? 'Gereed' : 'Ready' };
   if (navigator.onLine === false) return { cls:'off', text: af ? 'Aflyn — op hierdie toestel gestoor' : 'Offline — saved on this device' };
@@ -60732,7 +60749,14 @@ function renderSyncIndicator(){
     box.classList.toggle('si-bad', st.cls === 'bad');
     box.title = st.cls === 'bad' ? (_syncAf() ? 'Tik om te sien wat nie gestoor is nie' : 'Tap to see what isn’t saved') : '';
   }
-  if (st.cls === 'bad' && !_syncToastShown && typeof toast === 'function') {
+  /* A lost session is not "some changes aren't saved yet" - nothing more will save
+     at all until the farmer signs in, so it gets its own words and says what to do. */
+  if (st.lost && !_authToastShown && typeof toast === 'function') {
+    _authToastShown = true;
+    toast(_syncAf() ? 'Jy is afgemeld. Jou werk is op hierdie toestel — meld weer aan om dit op te stoor.'
+                    : 'You’ve been signed out. Your work is safe on this device — sign in again to save it to your account.', 'error');
+  }
+  if (st.cls === 'bad' && !st.lost && !_syncToastShown && typeof toast === 'function') {
     _syncToastShown = true;
     toast(_syncAf() ? 'Sommige veranderinge is nog nie aanlyn gestoor nie — tik op die status bo om te sien watter.'
                     : 'Some changes aren’t saved online yet — tap the status at the top to see which.', 'info');
@@ -60743,6 +60767,11 @@ function _syncRenderSoon(){ if (_syncRenderQueued) return; _syncRenderQueued = t
 function updateSyncIndicator(){ renderSyncIndicator(); }
 function initSyncIndicator(){
   if (!_syncSubscribed && window.AI && AI.sync) { AI.sync.onChange(_syncRenderSoon); _syncSubscribed = true; }
+  /* Losing the session is not a sync event, so nothing above would repaint for it.
+     The 15 s tick below would catch it eventually; this says it at once. */
+  if (!_authSubscribed && window.AI && AI.auth && AI.auth.onAuth) {
+    try{ AI.auth.onAuth(function(){ _syncRenderSoon(); }); _authSubscribed = true; }catch(e){}
+  }
   renderSyncIndicator();
   if (SYNC_INTERVAL) clearInterval(SYNC_INTERVAL);
   SYNC_INTERVAL = setInterval(renderSyncIndicator, 15000);   // the retry countdown and the offline state
@@ -71452,13 +71481,59 @@ function rcRender(){
       '</ul></div>');
 }
 
+/* ---------- movement permits captured on a phone ----------
+   The phone photographs the state vet's permit at the pen and files it on
+   farm_documents with doc_type PERMIT. The desktop has always pulled those rows
+   into ST.docs and correctly refused to write them back - but the register
+   filtered to 'RC', so the permit reached the computer and was shown nowhere.
+   Read-only here: these rows belong to the phone, and documents.saveAll must keep
+   its === 'RC' filter or every save writes a second copy of each permit (-396). */
+function _lsPermits(){
+  var all=(ST.docs||[]).filter(function(d){ return d && d.type==='PERMIT'; });
+  /* One permit per movement, the same rule the phone's permitFor uses: a
+     correction supersedes rather than adds, so the newest issued_at wins, and the
+     phone's own row beats the legacy copy an old desktop saved under the NUMBER.
+     Showing a superseded permit number is worse than showing nothing - this is the
+     paper a driver hands over at a roadblock. */
+  var byMove={};
+  all.forEach(function(d){
+    var k=String(d.moveId||d.no||'');
+    var cur=byMove[k];
+    if(!cur){ byMove[k]=d; return; }
+    var own=function(x){ return String(x.lid||'').indexOf('PERMIT:')===0 ? 1 : 0; };
+    if(own(d)!==own(cur)) { if(own(d)>own(cur)) byMove[k]=d; return; }
+    var a=String(d.issuedAt||''), b=String(cur.issuedAt||'');
+    if(a!==b){ if(a>b) byMove[k]=d; return; }
+    if(String(d.no||'')>String(cur.no||'')) byMove[k]=d;
+  });
+  return Object.keys(byMove).map(function(k){ return byMove[k]; })
+    .sort(function(a,b){ return String((b.snap&&b.snap.validTo)||'').localeCompare(String((a.snap&&a.snap.validTo)||'')); });
+}
+function _lsPermitRows(){
+  var today=new Date().toISOString().slice(0,10);
+  return _lsPermits().slice(0,25).map(function(d){
+    var s=d.snap||{};
+    var to=String(s.validTo||''), gone=(to && to<today);
+    var mv=(ST_LS.moves||[]).filter(function(m){ return String(m.id)===String(d.moveId); })[0];
+    var span=[aiRcDate(s.validFrom||d.date), aiRcDate(to)].filter(Boolean).join(' – ');
+    return '<tr>'+
+      '<td class="rc-t-no'+(gone?' rc-t-sup':'')+'">'+esc(s.permitNo||d.no||'')+'</td>'+
+      '<td>'+esc(s.issuedBy||'—')+'</td>'+
+      '<td>'+esc(span||'—')+'</td>'+
+      '<td>'+esc(mv ? ((mv.qty||0)+' head · '+(mv.toPlace||'')) : '—')+'</td>'+
+      '<td>'+(gone?'<span class="rc-pill rc-sup">Expired</span>':'<span class="rc-pill rc-ok">Valid</span>')+'</td>'+
+    '</tr>';
+  }).join('');
+}
+
 /* ---------- register card (inside the existing Register view) ---------- */
 function _lsRegCertsCard(){
   var docs=(ST.docs||[]).filter(function(d){ return d.type==='RC'; });
   var pend=(ST_LS.moves||[]).filter(function(m){
     return m.leaving && !docs.some(function(d){ return d.moveId===m.id && d.status==='issued'; });
   });
-  if(!docs.length && !pend.length) return '';
+  var permRows=_lsPermitRows();
+  if(!docs.length && !pend.length && !permRows) return '';
   var rows=docs.slice(0,25).map(function(d){
     var s=d.snap||{}, sup=(d.status==='superseded');
     return '<tr>'+
@@ -71481,6 +71556,9 @@ function _lsRegCertsCard(){
     '<div class="rc-hd">Removal certificates</div>'+
     (pendHtml?'<div class="rc-pends">'+pendHtml+'</div>':'')+
     (rows?'<div class="rc-tw"><table class="rc-t"><thead><tr><th>Number</th><th>Date</th><th>Stock</th><th>To</th><th>Status</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'')+
+    (permRows?'<div class="rc-hd" style="margin-top:18px">Movement permits</div>'+
+      '<div class="rc-tw"><table class="rc-t"><thead><tr><th>Permit</th><th>Issued by</th><th>Covers</th><th>Movement</th><th>Status</th></tr></thead><tbody>'+permRows+'</tbody></table></div>'+
+      '<div class="rc-note">Photographed on a phone and filed here. The phone keeps the photo the driver shows at a roadblock.</div>':'')+
     '</div>';
 }
 

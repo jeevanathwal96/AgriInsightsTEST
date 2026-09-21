@@ -50,6 +50,15 @@
   let sb = null;
   let catMaps = { code2id: {}, id2code: {}, list: [] };
 
+  /* Did this device lose its session without asking to?
+     A paired phone signs in AS the owner, so anything that revokes the account's
+     sessions takes this computer with it - and until now nothing noticed. The app
+     kept showing the farm, kept saying "Saved to your account", and only admitted
+     something was wrong when the farmer tried to add a phone. _hadSession is what
+     separates a revoke from an ordinary cold start on a device nobody has signed
+     in on yet; _signingOut is what separates it from the farmer's own Sign out. */
+  let _authLost = false, _signingOut = false, _hadSession = false;
+
   function client() {
     if (sb) return sb;
     if (!global.supabase || !global.supabase.createClient) {
@@ -87,6 +96,17 @@
         }catch(e){}
         return qb;
       };
+    }catch(e){}
+    /* Installed once, with the client. supabase-js refreshes the token in the
+       background; when the refresh token is refused it clears the session and
+       emits here, which is the only moment this device can learn that its login
+       is gone. Nothing is torn down - what the farmer has typed stays on the
+       device - but the status must stop claiming the server has it. */
+    try{
+      sb.auth.onAuthStateChange(function(evt, session){
+        if(session){ _hadSession = true; _authLost = false; return; }
+        if(_hadSession && !_signingOut) _authLost = true;
+      });
     }catch(e){}
     return sb;
   }
@@ -153,13 +173,28 @@
       if (error) throw error;
       return true;
     },
-    async signOut() { _srvForget(); try{ live.stop(); }catch(e){} await client().auth.signOut(); },
+    /* Sign THIS device out, not every device on the account.
+       Every paired phone signs in as the owner, and Supabase's default scope is
+       'global' - so Sign out on the computer revoked the phones' sessions too
+       (found 19 Sep 2026 in a production test, from the other direction: the test
+       phone's sign-out ended the computer's session). The phone was fixed then;
+       this is the computer's half. Pass { scope:'global' } deliberately if a
+       "sign out everywhere" is ever offered for a lost or stolen device. */
+    async signOut(opts) {
+      _signingOut = true;
+      _srvForget(); try{ live.stop(); }catch(e){}
+      try { await client().auth.signOut({ scope: (opts && opts.scope) || 'local' }); }
+      finally { _authLost = false; }
+    },
+    /* True once this device's session went away on its own. The app asks before it
+       claims anything was saved to the account. */
+    lost() { return _authLost; },
     async currentUser() {
       const { data } = await client().auth.getUser();
       return data ? data.user : null;
     },
     onAuth(cb) {
-      client().auth.onAuthStateChange((_evt, session) => cb(session ? session.user : null));
+      client().auth.onAuthStateChange((evt, session) => cb(session ? session.user : null, evt));
     }
   };
 
@@ -1638,7 +1673,13 @@
       doc_no:d.no||null, status:d.status||'issued', issued_at:d.issuedAt||null, doc_date:d.date||null,
       move_local_id:d.moveId?String(d.moveId):null, supersedes:d.supersedes||null,
       superseded_by:d.supersededBy||null, snapshot:d.snap||null }; }
-  function docFromDb(r){ var d={ no:r.doc_no||r.local_id, type:r.doc_type||'RC', status:r.status||'issued',
+  /* lid is the row's own key, kept apart from `no`. A certificate's number IS its
+     key, but a phone permit's is `PERMIT:<move>:<uid>` while its number is the one
+     on the paper - and a desktop before -396 saved those permits back under the
+     NUMBER, so some farms carry two rows for one permit. The register needs the key
+     to tell the phone's row from that legacy copy. docToDb never reads this: the
+     write path still keys on d.no and still sends RC rows only. */
+  function docFromDb(r){ var d={ no:r.doc_no||r.local_id, lid:r.local_id||'', type:r.doc_type||'RC', status:r.status||'issued',
       issuedAt:r.issued_at||'', date:r.doc_date||'', moveId:r.move_local_id||null };
     if(r.supersedes) d.supersedes=r.supersedes;
     if(r.superseded_by) d.supersededBy=r.superseded_by;
