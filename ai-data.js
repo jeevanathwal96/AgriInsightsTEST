@@ -416,55 +416,151 @@
      that answer is about the CATEGORY being right, this one is about the cost not being
      capital, and a farmer can mean one without the other. */
   let CAN_TXN_CAPOK      = false;
+  /* ---- what this database actually has, asked once ------------------------
+     Every late-added column is gated on a CAN_* flag, and every flag used to cost
+     its own round trip - 34 of them, in series, on EVERY financeCore load, which
+     the transaction outbox triggers again after a flush. Two things were wrong
+     with that beyond the latency:
+
+       1. `catch(e){ return false; }` treated a dropped connection, a timeout or a
+          401 as "the column is not there". A farmer on a rural link could lose a
+          single probe and have CAN_UPDATED_AT flipped off for the session - which
+          silently disables _srvStamp, _srvPrep and _srvWatch on all 43 tables,
+          i.e. the whole row-memory scheme and the -415 read-back with it.
+       2. Nothing was remembered, so a later flaky run could DOWNGRADE an answer
+          this device had already learned was true.
+
+     Now: definitive answers are cached for the session and never re-asked, so a
+     known column can never be un-learned; a probe that could not reach the server
+     is not an answer and is not stored. app_columns() answers the whole set in one
+     round trip where it exists, and where it does not the probes still run - in
+     parallel rather than in series - so this works on a database that has never had
+     the migration. See 02-database/app_columns_migration.sql. */
+  var _colCache = Object.create(null);          // "table.column" -> true | false
+  var _colRpcDead = false;                      // the function is not on this project
+
+  /* A single column, probed the old way. Returns null for "could not ask", which is
+     NOT an answer: only 42703 / PGRST204 mean the column is really absent. NOT
+     select=count - PostgREST treats count as an aggregate and returns 200 whether or
+     not the column exists, so it would report every column as present. */
+  async function _probeCol(table, col){
+    try{
+      const r = await client().from(table).select(col).limit(1);
+      if(!r.error) return true;
+      const code = String((r.error && r.error.code) || '');
+      const msg  = String((r.error && r.error.message) || '');
+      if(code === '42703' || code === 'PGRST204') return false;
+      if(/does not exist|Could not find the/i.test(msg) && /column/i.test(msg)) return false;
+      return null;
+    }catch(e){ return null; }
+  }
+
+  /* Fill the cache for every pair we do not already know. */
+  async function _learnCols(pairs){
+    const want = pairs.filter(function(p){ return !((p[0] + '.' + p[1]) in _colCache); });
+    if(!want.length) return;
+
+    if(!_colRpcDead){
+      const tables = [];
+      want.forEach(function(p){ if(tables.indexOf(p[0]) < 0) tables.push(p[0]); });
+      let rows = null;
+      try{
+        const r = await client().rpc('app_columns', { p_tables: tables });
+        if(!r.error && Array.isArray(r.data)) rows = r.data;
+        else if(r.error) _colRpcDead = true;   // not migrated: stop asking this session
+      }catch(e){ _colRpcDead = true; }
+      if(rows){
+        const seen = Object.create(null);
+        rows.forEach(function(row){ seen[String(row.t) + '.' + String(row.c)] = true; });
+        /* The function answered for these tables, so a pair it did not name is
+           genuinely absent - a definitive No, safe to remember. */
+        want.forEach(function(p){ _colCache[p[0] + '.' + p[1]] = !!seen[p[0] + '.' + p[1]]; });
+        return;
+      }
+    }
+
+    /* Fallback: ask per column, all at once rather than one after another. */
+    const answers = await Promise.all(want.map(function(p){ return _probeCol(p[0], p[1]); }));
+    want.forEach(function(p, i){
+      if(answers[i] !== null) _colCache[p[0] + '.' + p[1]] = answers[i];
+    });
+  }
+
+  /* Every column any CAN_* flag depends on. */
+  var CAP_COLS = [
+    ['transactions','cat_confirmed'], ['transactions','asset_id'], ['transactions','ded_confirmed'],
+    ['transactions','receipt_path'], ['transactions','counterparty'], ['transactions','cap_confirmed'],
+    ['transactions','cat_ok_cat_id'], ['transactions','updated_at'],
+    ['assets','no_payment'], ['assets','disposal_date'],
+    ['farms','consent_version'], ['farms','bank_balance'], ['farms','rain_lat'],
+    ['farms','rain_not_kept'], ['farms','rain_plant_days'], ['farms','rain_fill_sat'],
+    ['farms','rain_derived'], ['farms','stock_counts'], ['farms','bank_balance_at'],
+    ['farms','vat_category'], ['farms','partners'],
+    ['orchard_block_docs','path'], ['orchard_harvest','att'],
+    ['orchard_compliance_checks','check_iso'], ['orchard_blocks','markets'],
+    ['plan_events','in_forecast'], ['pay_runs','source'],
+    ['category_rules','match_text'], ['transaction_looks','look_v'],
+    ['push_devices','last_ok_at'], ['fuel_issues','hour_meter'], ['fuel_issues','src'],
+    ['payslips','snap'], ['payslip_sends','outcome'],
+    ['workers','payslip_whatsapp_ok'], ['farm_devices','kind']
+  ];
+
   async function probeCaps(farmId){
     if (!farmId) return;
-    /* Probe with a real column name. NOT select=count — PostgREST treats count as an
-       aggregate and returns 200 whether or not the column exists, so it would report
-       every column as present. */
-    const has = async (table, col) => {
-      try{ const r = await client().from(table).select(col).limit(1); return !r.error; }
-      catch(e){ return false; }
+    await _learnCols(CAP_COLS);
+    /* Only a cached TRUE turns a flag on. An unanswered probe leaves the flag as it
+       was, so a bad moment on the line cannot switch the row-memory scheme off. */
+    const has = function(t, c){ return _colCache[t + '.' + c] === true; };
+    const keep = function(cur, t, c){
+      const k = t + '.' + c;
+      return (k in _colCache) ? _colCache[k] === true : cur;
     };
-    CAN_CAT_CONFIRM = await has('transactions', 'cat_confirmed');
-    CAN_TXN_ASSET   = await has('transactions', 'asset_id');
-    CAN_TXN_DEDOK   = await has('transactions', 'ded_confirmed');
-    CAN_ASSET_NOPAY = await has('assets',       'no_payment');
-    CAN_FARM_CONSENT= await has('farms',        'consent_version');
-    CAN_TXN_RECEIPT = await has('transactions', 'receipt_path');
-    CAN_ORCH_DOCFILE= await has('orchard_block_docs','path');
-    CAN_TXN_PARTY   = await has('transactions','counterparty');
-    CAN_ORCH_ATT    = await has('orchard_harvest','att');
-    CAN_ORCH_CHKMETA= await has('orchard_compliance_checks','check_iso');
-    CAN_ORCH_MARKETS= await has('orchard_blocks','markets');
-    CAN_PLANEVT_FC  = await has('plan_events','in_forecast');
-    CAN_PAYRUN_META = await has('pay_runs','source');
-    CAN_ASSET_DISPOSAL = await has('assets','disposal_date');
-    CAN_TXN_CAPOK      = await has('transactions','cap_confirmed');
-    CAN_FARM_SETTINGS  = await has('farms','bank_balance');
-    CAN_FARM_RAIN      = await has('farms','rain_lat');
-    CAN_FARM_RAIN_NK   = await has('farms','rain_not_kept');
-    CAN_FARM_RAIN_RULE = (await has('farms','rain_plant_days')) && (await has('farms','rain_fill_sat'));
-    CAN_FARM_RAIN_DRV  = await has('farms','rain_derived');
-    CAN_FARM_STOCK     = await has('farms','stock_counts');
-    CAN_FARM_BANK_AT   = await has('farms','bank_balance_at');
-    CAN_FARM_VAT_CAT   = await has('farms','vat_category');
-    CAN_FARM_PARTNERS  = await has('farms','partners');
-    CAN_CAT_RULES      = await has('category_rules','match_text');
-    CAN_LOOKS          = await has('transaction_looks','look_v');
-    CAN_REMINDERS      = await has('push_devices','last_ok_at');
-    CAN_CAT_OK_CAT     = await has('transactions','cat_ok_cat_id');
-    /* The whole row-memory scheme rides on this one column. A project that has
-       not run agriinsights-13-relational-sync.sql keeps today's behaviour rather
-       than having every write rejected for an unknown column. */
-    CAN_UPDATED_AT     = await has('transactions','updated_at');
+    CAN_CAT_CONFIRM = keep(CAN_CAT_CONFIRM, 'transactions', 'cat_confirmed');
+    CAN_TXN_ASSET   = keep(CAN_TXN_ASSET,   'transactions', 'asset_id');
+    CAN_TXN_DEDOK   = keep(CAN_TXN_DEDOK,   'transactions', 'ded_confirmed');
+    CAN_ASSET_NOPAY = keep(CAN_ASSET_NOPAY, 'assets',       'no_payment');
+    CAN_FARM_CONSENT= keep(CAN_FARM_CONSENT,'farms',        'consent_version');
+    CAN_TXN_RECEIPT = keep(CAN_TXN_RECEIPT, 'transactions', 'receipt_path');
+    CAN_ORCH_DOCFILE= keep(CAN_ORCH_DOCFILE,'orchard_block_docs','path');
+    CAN_TXN_PARTY   = keep(CAN_TXN_PARTY,   'transactions','counterparty');
+    CAN_ORCH_ATT    = keep(CAN_ORCH_ATT,    'orchard_harvest','att');
+    CAN_ORCH_CHKMETA= keep(CAN_ORCH_CHKMETA,'orchard_compliance_checks','check_iso');
+    CAN_ORCH_MARKETS= keep(CAN_ORCH_MARKETS,'orchard_blocks','markets');
+    CAN_PLANEVT_FC  = keep(CAN_PLANEVT_FC,  'plan_events','in_forecast');
+    CAN_PAYRUN_META = keep(CAN_PAYRUN_META, 'pay_runs','source');
+    CAN_ASSET_DISPOSAL = keep(CAN_ASSET_DISPOSAL,'assets','disposal_date');
+    CAN_TXN_CAPOK      = keep(CAN_TXN_CAPOK,     'transactions','cap_confirmed');
+    CAN_FARM_SETTINGS  = keep(CAN_FARM_SETTINGS, 'farms','bank_balance');
+    CAN_FARM_RAIN      = keep(CAN_FARM_RAIN,     'farms','rain_lat');
+    CAN_FARM_RAIN_NK   = keep(CAN_FARM_RAIN_NK,  'farms','rain_not_kept');
+    if(('farms.rain_plant_days' in _colCache) && ('farms.rain_fill_sat' in _colCache))
+      CAN_FARM_RAIN_RULE = has('farms','rain_plant_days') && has('farms','rain_fill_sat');
+    CAN_FARM_RAIN_DRV  = keep(CAN_FARM_RAIN_DRV, 'farms','rain_derived');
+    CAN_FARM_STOCK     = keep(CAN_FARM_STOCK,    'farms','stock_counts');
+    CAN_FARM_BANK_AT   = keep(CAN_FARM_BANK_AT,  'farms','bank_balance_at');
+    CAN_FARM_VAT_CAT   = keep(CAN_FARM_VAT_CAT,  'farms','vat_category');
+    CAN_FARM_PARTNERS  = keep(CAN_FARM_PARTNERS, 'farms','partners');
+    CAN_CAT_RULES      = keep(CAN_CAT_RULES,     'category_rules','match_text');
+    CAN_LOOKS          = keep(CAN_LOOKS,         'transaction_looks','look_v');
+    CAN_REMINDERS      = keep(CAN_REMINDERS,     'push_devices','last_ok_at');
+    CAN_CAT_OK_CAT     = keep(CAN_CAT_OK_CAT,    'transactions','cat_ok_cat_id');
+    /* The whole row-memory scheme rides on this one column. A project that has not
+       run agriinsights-13-relational-sync.sql keeps today's behaviour rather than
+       having every write rejected for an unknown column - and, now, a project that
+       HAS run it cannot lose the answer to a dropped packet. */
+    CAN_UPDATED_AT     = keep(CAN_UPDATED_AT,    'transactions','updated_at');
     /* The SARS diesel logbook fields the phone captures at the pump. Gated the same
        way: an un-migrated project must keep saving fuel, not lose every issue. */
-    CAN_FUEL_METER     = await has('fuel_issues','hour_meter');
-    CAN_FUEL_SRC       = await has('fuel_issues','src');
-    CAN_PAYSLIPS       = (await has('payslips','snap')) && (await has('payslip_sends','outcome'));
-    CAN_WORKER_PHONE   = await has('workers','payslip_whatsapp_ok');
-    CAN_DEVICES        = await has('farm_devices','kind');
+    CAN_FUEL_METER     = keep(CAN_FUEL_METER,    'fuel_issues','hour_meter');
+    CAN_FUEL_SRC       = keep(CAN_FUEL_SRC,      'fuel_issues','src');
+    if(('payslips.snap' in _colCache) && ('payslip_sends.outcome' in _colCache))
+      CAN_PAYSLIPS     = has('payslips','snap') && has('payslip_sends','outcome');
+    CAN_WORKER_PHONE   = keep(CAN_WORKER_PHONE,  'workers','payslip_whatsapp_ok');
+    CAN_DEVICES        = keep(CAN_DEVICES,       'farm_devices','kind');
   }
+  /* A harness needs to drive a second load and a bad line; the app never calls these. */
+  probeCaps.reset = function(){ _colCache = Object.create(null); _colRpcDead = false; };
+  probeCaps.seen  = function(){ return _colCache; };
   /* ================== ROW MEMORY - two-device safety (Phase 0) ==================
      What this device actually LOADED from the server, per table.
 
@@ -3316,6 +3412,12 @@
                 importBatch: importBatch,
                 rules, looks: looks,
                 pairing: pairing, live: live,
-                _map: { catToId, catToCode, appToDb, dbToApp } };
+                _map: { catToId, catToCode, appToDb, dbToApp },
+                /* Test hooks. 06-tools/schema-probe-harness.html drives the capability
+                   probe directly - what it asserts (a dropped packet must not un-learn a
+                   column) cannot be reached through a public method, because the whole
+                   point is what happens on the SECOND load. Nothing in the app calls
+                   these. */
+                __probeCaps: probeCaps, __client: client };
 
 })(window);
