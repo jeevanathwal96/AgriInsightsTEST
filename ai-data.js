@@ -411,6 +411,8 @@
   let CAN_PAYSLIPS      = false;   // payslips + payslip_sends
   let CAN_WORKER_PHONE  = false;   // workers.phone / payslip_whatsapp_ok / _on / payslip_lang
   let CAN_DEVICES       = false;   // farm_devices: "whose phone is this?"
+  let CAN_ORCH_PARTS    = false;   // orchard_sprays: rate/batch/operator_cert/weather
+  let CAN_INPUT_WEATHER = false;   // crop_inputs.weather
   let CAN_ASSET_DISPOSAL = false;
   /* "It's a running cost, stop asking." Its own column rather than reusing cat_confirmed:
      that answer is about the CATEGORY being right, this one is about the cost not being
@@ -501,6 +503,7 @@
     ['plan_events','in_forecast'], ['pay_runs','source'],
     ['category_rules','match_text'], ['transaction_looks','look_v'],
     ['push_devices','last_ok_at'], ['fuel_issues','hour_meter'], ['fuel_issues','src'],
+    ['orchard_sprays','rate'], ['crop_inputs','weather'],
     ['payslips','snap'], ['payslip_sends','outcome'],
     ['workers','payslip_whatsapp_ok'], ['farm_devices','kind']
   ];
@@ -557,6 +560,12 @@
       CAN_PAYSLIPS     = has('payslips','snap') && has('payslip_sends','outcome');
     CAN_WORKER_PHONE   = keep(CAN_WORKER_PHONE,  'workers','payslip_whatsapp_ok');
     CAN_DEVICES        = keep(CAN_DEVICES,       'farm_devices','kind');
+    /* The particulars a spray register prints. An un-migrated project still saves
+       the spray - it just cannot carry rate, batch, certificate or the weather at
+       application until 02-database/orchard_spray_particulars.sql has run. rate is
+       the sentinel: the four arrive together. */
+    CAN_ORCH_PARTS     = keep(CAN_ORCH_PARTS,    'orchard_sprays','rate');
+    CAN_INPUT_WEATHER  = keep(CAN_INPUT_WEATHER, 'crop_inputs','weather');
   }
   /* A harness needs to drive a second load and a bad line; the app never calls these. */
   probeCaps.reset = function(){ _colCache = Object.create(null); _colRpcDead = false; };
@@ -1980,8 +1989,11 @@
   function landFromDb(r){ var l={ id:_numIf(r.local_id), name:r.name||'', area:Number(r.area)||0, crop:r.crop||'', cultivar:r.cultivar||'', gmo:!!r.gmo, irrigated:!!r.irrigated, planted:r.planted||'', harvest:r.harvest||'', stage:r.stage||'', targetYield:Number(r.target_yield)||0, actualYield:(r.actual_yield!=null)?Number(r.actual_yield):null, inputPerHa:Number(r.input_per_ha)||0, prevCrop:r.prev_crop||'' }; if(r.price) l.price=Number(r.price); if(r.plan_link) l.planId=r.plan_link; return l; }
   function cevToDb(e,fid){ return { farm_id:fid, local_id:String(e.id), land_local_id:(e.land!=null)?String(e.land):null, kind:e.kind||null, event_date:e.date||null, note:e.note||null, tons:(e.tons!=null)?Number(e.tons):null, yield_val:(e.yield!=null)?Number(e.yield):null, cert:e.cert||null }; }
   function cevFromDb(r){ var e={ id:r.local_id, land:_numIf(r.land_local_id), kind:r.kind||'', date:r.event_date||'', note:r.note||'' }; if(r.tons!=null) e.tons=Number(r.tons); if(r.yield_val!=null) e.yield=Number(r.yield_val); if(r.cert) e.cert=r.cert; return e; }
-  function cinToDb(i,fid){ return { farm_id:fid, local_id:String(i.id), land_local_id:(i.land!=null)?String(i.land):null, input_date:i.date||null, product:i.product||null, reg:i.reg||null, kind:i.kind||null, rate:i.rate||null, batch:i.batch||null, by_who:i.by||null, operator_cert:i.operatorCert||null, target_for:i.targetFor||null, phi:(i.phi!=null)?parseInt(i.phi,10):null, cost_per_ha:(i.costPerHa!=null)?Number(i.costPerHa):null }; }
-  function cinFromDb(r){ return { id:r.local_id, land:_numIf(r.land_local_id), date:r.input_date||'', product:r.product||'', reg:r.reg||'', kind:r.kind||'', rate:r.rate||'', batch:r.batch||'', by:r.by_who||'', operatorCert:r.operator_cert||'', targetFor:r.target_for||'', phi:Number(r.phi)||0, costPerHa:Number(r.cost_per_ha)||0 }; }
+  function cinToDb(i,fid){ var row = { farm_id:fid, local_id:String(i.id), land_local_id:(i.land!=null)?String(i.land):null, input_date:i.date||null, product:i.product||null, reg:i.reg||null, kind:i.kind||null, rate:i.rate||null, batch:i.batch||null, by_who:i.by||null, operator_cert:i.operatorCert||null, target_for:i.targetFor||null, phi:(i.phi!=null)?parseInt(i.phi,10):null, cost_per_ha:(i.costPerHa!=null)?Number(i.costPerHa):null };
+    if(CAN_INPUT_WEATHER) row.weather = i.weather || null;
+    return row; }
+  function cinFromDb(r){ return { id:r.local_id, land:_numIf(r.land_local_id), date:r.input_date||'', product:r.product||'', reg:r.reg||'', kind:r.kind||'', rate:r.rate||'', batch:r.batch||'', by:r.by_who||'', operatorCert:r.operator_cert||'', targetFor:r.target_for||'', phi:Number(r.phi)||0, costPerHa:Number(r.cost_per_ha)||0,
+    weather:r.weather||'' }; }
 
   // ---- crop compliance: relational (Option A) — settings row + areas + children
   // ST_CROP.compliance is one farm-level record: flat scalar settings, tracked{}/
@@ -2108,10 +2120,18 @@
   function ociToDb(key,c,fid){ c=c||{}; return { farm_id:fid, item_key:String(key), kind:c.type||null, icon:c.ic||null, title:c.title||null, what:c.what||null, status:c.status||null, status_tag:c.statusTag||null, expiry:c.expiry||null, cropcat:c.cropcat||null, log:(c.log!=null)?String(c.log):null }; }
   function opToDb(blockId,p,fid){ p=p||{}; var lo=p.local||{}; return { farm_id:fid, block_local_id:String(blockId), price:_n(p.price), comm:_n(p.comm), pack:_n(p.pack), ship:_n(p.ship), levy:_n(p.levy), levy_name:p.levyName||null, local_price:_n(lo.price), local_comm:_n(lo.comm), local_trans:_n(lo.trans), local_other:_n(lo.other) }; }
   function opFromDb(r,others){ return { price:Number(r.price)||0, comm:Number(r.comm)||0, pack:Number(r.pack)||0, ship:Number(r.ship)||0, levy:Number(r.levy)||0, levyName:r.levy_name||'', others:(others&&others.length)?others:[{label:'Other costs',amt:0}], local:{price:Number(r.local_price)||0,comm:Number(r.local_comm)||0,trans:Number(r.local_trans)||0,other:Number(r.local_other)||0} }; }
+  /* rate, batch, the operator's certificate and the weather at application are what
+     GlobalG.A.P. 32.02.01/02 asks for and what the register prints. Gated: a database
+     without the migration must still save the spray, minus the particulars. */
   function osToDb(s,cat,fid){ var row = { farm_id:fid, local_id:String(s.id), cropcat:cat||null, block_local_id:(s.bid!=null&&s.bid!=='')?String(s.bid):null, product:s.product||null, reg:s.reg||null, target_for:s.forx||null, applied_by:s.by||null, spray_date:s.dateISO||null, phi_eu:_n(s.phi&&s.phi.eu), phi_uk:_n(s.phi&&s.phi.uk), phi_us:_n(s.phi&&s.phi.us), phi_local:_n(s.phi&&s.phi.local), title:s.t||null, sub:s.s||null, icon:s.ic||null };
     if(CAN_ORCH_ATT) row.att = s.att || null;
+    if(CAN_ORCH_PARTS){
+      row.rate = s.rate || null; row.batch = s.batch || null;
+      row.operator_cert = s.cert || null; row.weather = s.weather || null;
+    }
     return row; }
-  function osFromDb(r){ return { id:r.local_id, ic:r.icon||'\uD83E\uDDEA', t:r.title||'', s:r.sub||'', phi:{eu:Number(r.phi_eu)||0,uk:Number(r.phi_uk)||0,us:Number(r.phi_us)||0,local:Number(r.phi_local)||0}, bid:r.block_local_id||'', product:r.product||'', reg:r.reg||'', forx:r.target_for||'', by:r.applied_by||'', dateISO:r.spray_date||'', cropcat:r.cropcat||'', att:r.att||undefined }; }
+  function osFromDb(r){ return { id:r.local_id, ic:r.icon||'\uD83E\uDDEA', t:r.title||'', s:r.sub||'', phi:{eu:Number(r.phi_eu)||0,uk:Number(r.phi_uk)||0,us:Number(r.phi_us)||0,local:Number(r.phi_local)||0}, bid:r.block_local_id||'', product:r.product||'', reg:r.reg||'', forx:r.target_for||'', by:r.applied_by||'', dateISO:r.spray_date||'', cropcat:r.cropcat||'', att:r.att||undefined,
+    rate:r.rate||'', batch:r.batch||'', cert:r.operator_cert||'', weather:r.weather||'' }; }
   function ohToDb(h,fid){ var row = { farm_id:fid, local_id:String(h.id), cropcat:h.cat||null, block_local_id:(h.bid!=null&&h.bid!=='')?String(h.bid):null, bins:_n(h.bins), tons:_n(h.tons!=null?h.tons:h.tn), cartons:_n(h.cartons), top_grade_pct:_n(h.grade), sold_to:h.to||null, amount:_n(h.money), pick_date:h.dateISO||null, title:h.t||null, sub:h.s||null, revenue:h.r||null, icon:h.ic||null };
     /* The delivery note the farmer attached to this pick. Its bytes are already in
        Storage; without this the pointer died here and the file was orphaned. */

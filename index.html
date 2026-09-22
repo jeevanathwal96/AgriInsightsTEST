@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=64"></script>
+<script src="ai-data.js?v=65"></script>
 <script src="ai-auth.js?v=45"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -13457,7 +13457,10 @@ function cropLogInput(){
     '<div style="margin-bottom:12px">'+lbl('What for?',true)+'<input id="ci-for" placeholder="e.g. stalk borer, ryegrass, leaf rust" style="'+inpCss+'"></div>'+
     '<div style="display:flex;gap:10px;margin-bottom:12px"><div style="flex:1">'+lbl('Days to wait (PHI)',true)+'<input id="ci-phi" type="number" placeholder="0" style="'+inpCss+'"></div>'+
       '<div style="flex:1">'+lbl('Cost per hectare',true)+'<input id="ci-cost" type="number" inputmode="decimal" placeholder="R 0" style="'+inpCss+'"></div></div>'+
-    '<div style="margin-bottom:4px">'+lbl('Date applied')+'<input id="ci-date" type="date" value="'+today+'" style="'+inpCss+'"></div>'+
+    '<div style="display:flex;gap:10px;margin-bottom:4px"><div style="flex:1">'+lbl('Date applied')+'<input id="ci-date" type="date" value="'+today+'" style="'+inpCss+'"></div>'+
+      /* GlobalG.A.P. v6 made weather at application a Major Must (32.02.02); it was
+         only a Minor in v5.2, which is why nothing ever asked. */
+      '<div style="flex:1">'+lbl('Weather',true)+'<input id="ci-weather" placeholder="e.g. still, 18\u00b0C" style="'+inpCss+'"></div></div>'+
     '<div style="background:#eef4ec;border:1px solid #cfe3d4;border-radius:9px;padding:9px 11px;font-size:11px;color:#3a5a45;line-height:1.5;margin-top:12px">The wait time sets the <b>safe-to-harvest date</b> automatically \u2014 and this one entry becomes your SARS cost line and your Act 36 spray record.</div>';
   var footer='<button class="crop-formbtn" style="flex:1" onclick="cropInputFormSave()">Save application</button>'+
     '<button onclick="cropCloseModal()" style="width:110px;border:1px solid var(--br);border-radius:10px;background:#fff;color:var(--t3);font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer">Cancel</button>';
@@ -13474,7 +13477,8 @@ function cropInputFormSave(){
   var forVal=(($('ci-for')||{}).value||'').trim();
   var reg=(($('ci-reg')||{}).value||'').trim(), rate=(($('ci-rate')||{}).value||'').trim(),
       batch=(($('ci-batch')||{}).value||'').trim(), by=(($('ci-by')||{}).value||'').trim()||(FARM.owner||''),
-      cert=(($('ci-cert')||{}).value||'').trim();
+      cert=(($('ci-cert')||{}).value||'').trim(),
+      weather=(($('ci-weather')||{}).value||'').trim();
   var catMap={seed:'Seeds & Planting',fertiliser:'Fertiliser',herbicide:'Crop Protection',fungicide:'Crop Protection',insecticide:'Crop Protection'};
   var cat=catMap[kind]||'Crop Protection';
   /* One tank mix can cover several lands. The rate is per-hectare, so each land gets its own
@@ -13484,7 +13488,7 @@ function cropInputFormSave(){
   landIds.forEach(function(lid){
     var l=cropLandById(lid); if(!l) return; n++;
     ST_CROP.inputs.unshift({ id:cropNextId(ST_CROP.inputs,'ci'), land:l.id, date:date, product:product,
-      reg:reg, kind:kind, rate:rate, batch:batch, by:by, operatorCert:cert, targetFor:forVal, phi:phi, costPerHa:cost });
+      reg:reg, kind:kind, rate:rate, batch:batch, by:by, operatorCert:cert, targetFor:forVal, phi:phi, costPerHa:cost, weather:weather });
     var total = cost * (l.area||0);
     if(total>0){
       totalAll+=total;
@@ -69135,6 +69139,13 @@ function orOpenSprayForm(){
     '<div class="or-frow"><label class="or-flbl">What did you spray?</label><input class="or-finp" id="or-sp-prod" placeholder="e.g. Delegate"></div>'+
     '<div class="or-fg2"><div class="or-frow"><label class="or-flbl">What for? <span class="or-fh">optional</span></label><input class="or-finp" id="or-sp-for" placeholder="e.g. False Codling Moth"></div><div class="or-frow"><label class="or-flbl">Date sprayed</label><input class="or-finp" id="or-sp-date" type="date"></div></div>'+
     '<div class="or-fg2"><div class="or-frow"><label class="or-flbl">Days to wait (PHI)</label><input class="or-finp" id="or-sp-phi" type="number" value="14"></div><div class="or-frow"><label class="or-flbl">Cost <span class="or-fh">optional — posts to expenses</span></label><input class="or-finp" id="or-sp-cost" inputmode="decimal" placeholder="R 0"></div></div>'+
+    /* The particulars a spray register has to print. The field-crop form has asked
+       for these since it shipped; the orchard form never did, so an orchard row
+       merged into the register came out blank in four columns. Same wording and
+       same order as cropLogInput(), so the two forms read as one habit. */
+    '<div class="or-fg2"><div class="or-frow"><label class="or-flbl">Registration no. <span class="or-fh">optional</span></label><input class="or-finp" id="or-sp-reg" placeholder="L7723 (on the label)"></div><div class="or-frow"><label class="or-flbl">Rate used <span class="or-fh">optional</span></label><input class="or-finp" id="or-sp-rate" placeholder="e.g. 50 ml/100ℓ"></div></div>'+
+    '<div class="or-fg2"><div class="or-frow"><label class="or-flbl">Batch no. <span class="or-fh">optional</span></label><input class="or-finp" id="or-sp-batch" placeholder="on the container"></div><div class="or-frow"><label class="or-flbl">Applied by <span class="or-fh">optional</span></label><input class="or-finp" id="or-sp-by" placeholder="who applied it"></div></div>'+
+    '<div class="or-fg2"><div class="or-frow"><label class="or-flbl">Spray licence <span class="or-fh">optional</span></label><input class="or-finp" id="or-sp-cert" placeholder="e.g. P2"></div><div class="or-frow"><label class="or-flbl">Weather <span class="or-fh">optional</span></label><input class="or-finp" id="or-sp-weather" placeholder="e.g. still, 18°C"></div></div>'+
     orAttachField('sp','mix sheet or operator record')+
     '<div style="display:flex;gap:10px;margin-top:8px"><button class="btn-pri" onclick="orSaveSpray()">Save spray</button><button class="btn-sec" onclick="orCloseModal()">Cancel</button></div></div>';
   orModalHTML(h);
@@ -69144,9 +69155,13 @@ function orSaveSpray(){
   var b=orBlockById($('or-sp-block').value); if(!b) return;
   var prod=$('or-sp-prod').value||'Spray'; var forx=$('or-sp-for').value; var days=parseInt($('or-sp-phi').value,10); if(isNaN(days))days=14;
   var cost=parseFloat($('or-sp-cost').value)||0;
+  var _v=function(id){ var e=$(id); return e ? String(e.value||'').trim() : ''; };
+  var reg=_v('or-sp-reg'), rate=_v('or-sp-rate'), batch=_v('or-sp-batch');
+  var by=_v('or-sp-by'), cert=_v('or-sp-cert'), weather=_v('or-sp-weather');
   var dt=new Date($('or-sp-date').value||new Date()); var cat=b.cat;
   ST_FRUIT.sprayDiary[cat]=ST_FRUIT.sprayDiary[cat]||[];
-  ST_FRUIT.sprayDiary[cat].unshift({id:'os'+Date.now().toString(36),ic:'\uD83E\uDDEA',t:prod+(forx?' — for '+forx:''),s:b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray'),phi:{eu:days,uk:days,us:Math.max(0,days-7),local:days},bid:b.id,product:prod,forx:forx,dateISO:dt.toISOString().slice(0,10),att:orAttachTake('sp')});
+  ST_FRUIT.sprayDiary[cat].unshift({id:'os'+Date.now().toString(36),ic:'\uD83E\uDDEA',t:prod+(forx?' — for '+forx:''),s:b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray'),phi:{eu:days,uk:days,us:Math.max(0,days-7),local:days},bid:b.id,product:prod,forx:forx,dateISO:dt.toISOString().slice(0,10),att:orAttachTake('sp'),
+    reg:reg,rate:rate,batch:batch,by:by,cert:cert,weather:weather});
   ST_FRUIT.phi[cat]=ST_FRUIT.phi[cat]||[];
   var safe={eu:orFmtDM(orAddDays(dt,days)),uk:orFmtDM(orAddDays(dt,days)),us:orFmtDM(orAddDays(dt,Math.max(0,days-7))),local:orFmtDM(orAddDays(dt,days))};
   var ex=ST_FRUIT.phi[cat].filter(function(r){return String(r.bid)===String(b.id);})[0];
@@ -70460,15 +70475,21 @@ function aiDocTable(doc, spec){
 var AI_REG={
   spray:{
     title:{en:'Spray & Agricultural Remedy Record', af:'Spuit- en Landbouremedierekord'},
-    law:'Act 36 of 1947 · regulations Aug 2023',
-    foot:{en:'Records of agricultural remedies must be produced to the responsible authority on request.',
-          af:'Rekords van landbouremedies moet op aanvraag aan die verantwoordelike owerheid voorgelê word.'},
+    /* The old line read "Act 36 of 1947 - regulations Aug 2023", which overstates what
+       Act 36 asks of a FARMER: the 2023 regulations (GN 3812, GG 49189) carry no
+       record-keeping duty for an end user, and s23(1)(l), which would allow one, has
+       never been exercised. Act 36's offence is USING a remedy contrary to its label
+       (s7(a)(i) with s18(1)(c)) - which is what the wait period on this page evidences.
+       The record duties come from elsewhere, so the page names all three. */
+    law:'Act 36 of 1947 s7 · APS Act 119 of 1990 · GlobalG.A.P. IFA v6',
+    foot:{en:'Evidence that each remedy was used as its label directs (Act 36 s7). For export fruit the commodity standards under the APS Act require the remedies used on the trees to be certified on request within 24 hours, and the records kept two years. GlobalG.A.P. 32.02.01 and SIZA 3.3 ask for the same particulars. Where a contractor sprays, or the remedy is restricted, or it is applied from the air, the operator keeps their own record under GN R98 of 2011 reg 13.',
+          af:'Bewys dat elke middel gebruik is soos sy etiket voorskryf (Wet 36 a7). Vir uitvoervrugte vereis die kommoditeitstandaarde onder die APS-wet dat die middels op die bome op aanvraag binne 24 uur gesertifiseer word, en die rekords twee jaar gehou word. GlobalG.A.P. 32.02.01 en SIZA 3.3 vra dieselfde besonderhede. Waar ’n kontrakteur spuit, of die middel beperk is, of dit uit die lug toegedien word, hou die operateur sy eie rekord onder GN R98 van 2011 reg 13.'},
     sig:{en:'Certified correct \u2014 responsible person', af:'Gesertifiseer korrek \u2014 verantwoordelike persoon'},
     cols:[{k:'date',label:'Date',w:13},{k:'land',label:'Land',w:16},{k:'ha',label:'Ha',w:8},
           {k:'product',label:'Product',w:20},{k:'reg',label:'Reg no.',w:12},
           {k:'target',label:'Target',w:16},{k:'rate',label:'Rate',w:12},
           {k:'batch',label:'Batch',w:13},{k:'by',label:'Operator',w:15},
-          {k:'cert',label:'Cert',w:14},{k:'phi',label:'PHI',w:11}]
+          {k:'cert',label:'Cert',w:14},{k:'weather',label:'Weather',w:14},{k:'phi',label:'PHI',w:11}]
   },
   diesel:{
     title:{en:'Diesel Logbook', af:'Dieselloglys'},
@@ -70525,16 +70546,40 @@ function aiRegRows(kind, from, to){
       });
   }
   if(kind==='spray'){
-    return ((window.ST_CROP&&ST_CROP.inputs)||[])
+    /* Field-crop applications AND orchard sprays. The register read ST_CROP.inputs
+       alone, so on a farm with orchards it printed a fraction of the record - 5 of
+       17 applications on the pilot farm, 71% of it missing. Nothing in law splits
+       them: Act 36 is crop-agnostic, and GlobalG.A.P. 32.02.01 names "the field,
+       ORCHARD, greenhouse" in one breath. One record, both sources, one sort. */
+    var rows=((window.ST_CROP&&ST_CROP.inputs)||[])
       .filter(function(i){ return _regInRange(i.date, from, to); })
-      .sort(function(a,b){ return a.date<b.date?1:-1; })
       .map(function(i){
         var l=(typeof cropLandById==='function')?cropLandById(i.land):null;
-        return { date:aiRcDate(i.date), land:l?(l.name||''):'', ha:l&&l.area?String(l.area):'',
+        return { _iso:i.date, date:aiRcDate(i.date), land:l?(l.name||''):'', ha:l&&l.area?String(l.area):'',
                  product:i.product||'', reg:i.reg||'', target:i.targetFor||'', rate:i.rate||'',
                  batch:i.batch||'', by:i.by||'', cert:i.operatorCert||'',
-                 phi:i.phi?(i.phi+' d'):'' };
+                 weather:i.weather||'', phi:i.phi?(i.phi+' d'):'' };
       });
+    try{
+      var sd=(window.ST_FRUIT&&ST_FRUIT.sprayDiary)||{};
+      Object.keys(sd).forEach(function(cat){
+        (sd[cat]||[]).forEach(function(x){
+          if(!x || !_regInRange(x.dateISO, from, to)) return;
+          var b=(typeof orBlockById==='function')?orBlockById(x.bid):null;
+          /* The local withholding period is the one a South African register prints.
+             Rows written before -437 carry 0 with a real EU figure, which can only be
+             the old fan-out - orRebuildPhi recovers it the same way. */
+          var ph=x.phi||{}; var d=(ph.local||ph.eu||0);
+          rows.push({ _iso:x.dateISO, date:aiRcDate(x.dateISO),
+                      land:b?(b.name||''):((String(x.s||'').split(' \u00b7 ')[0])||''),
+                      ha:(b&&b.ha)?String(b.ha):'',
+                      product:x.product||'', reg:x.reg||'', target:x.forx||'',
+                      rate:x.rate||'', batch:x.batch||'', by:x.by||'', cert:x.cert||'',
+                      weather:x.weather||'', phi:d?(d+' d'):'' });
+        });
+      });
+    }catch(e){}
+    return rows.sort(function(a,b){ return (a._iso||'')<(b._iso||'')?1:-1; });
   }
   return ((window.ST_LS&&ST_LS.treatments)||[])
     .filter(function(t){ return _regInRange(t.date, from, to); })
@@ -70564,6 +70609,13 @@ function aiRegBuild(kind, opts){
        em-dashes on a document an inspector reads as missing records - which is why
        the logbook has never carried a "where" column at all. */
     var _cols=cfg.cols;
+    /* Weather became a GlobalG.A.P. Major Must only in v6, so most records predate it.
+       Print the column when some row has one, and leave it out entirely when none do -
+       the same rule the diesel logbook uses for the meter, and for the same reason: a
+       column of gap markers reads as a failed record rather than an old one. */
+    if(kind==='spray' && !rows.some(function(r){ return r.weather; })){
+      _cols=cfg.cols.filter(function(c){ return c.k !== 'weather'; });
+    }
     if(kind==='diesel'){
       var _hasMeter=rows.some(function(r){ return r.meter; });
       var _hasWhere=rows.some(function(r){ return r.where; });
