@@ -66535,7 +66535,11 @@ function orRebuildPhi(){
       var name=b?b.name:((s.s||'').split(' \u00b7 ')[0]||'Block');
       var cultivar=(b&&b.cultivar)?b.cultivar.split(' \u00b7 ')[0]:'';
       var dt=new Date(s.dateISO+'T00:00:00'); var ph=s.phi||{eu:0,uk:0,us:0,local:0};
-      var safe={eu:orFmtDM(orAddDays(dt,ph.eu||0)),uk:orFmtDM(orAddDays(dt,ph.uk||0)),us:orFmtDM(orAddDays(dt,ph.us||0)),local:orFmtDM(orAddDays(dt,ph.local||0))};
+      /* Sprays saved before the fix carry local:0 because one typed wait period was
+         fanned out to eu/uk/us only. Recover it rather than telling the farmer zero.
+         Not applied to us, where days-7 can legitimately be 0. */
+      var phLocal=(ph.local||ph.eu||0);
+      var safe={eu:orFmtDM(orAddDays(dt,ph.eu||0)),uk:orFmtDM(orAddDays(dt,ph.uk||0)),us:orFmtDM(orAddDays(dt,ph.us||0)),local:orFmtDM(orAddDays(dt,phLocal))};
       var last=(s.product||'Spray')+' \u00b7 '+orFmtDM(dt);
       ST_FRUIT.phi[cat]=ST_FRUIT.phi[cat]||[];
       var ex=ST_FRUIT.phi[cat].filter(function(r){return String(r.bid)===String(s.bid);})[0];
@@ -68763,7 +68767,10 @@ function orSeasonOf(iso){
   return y+'/'+('0'+((y+1)%100)).slice(-2);
 }
 function orParseBlk(s){ s=String(s||''); if(s.indexOf('—')>=0){ var seg=s.split('·'); if(seg.length>1) return seg[1].split('—')[0].trim(); } return s.split('·')[0].trim(); }
-function orParseBy(s){ var p=String(s||'').split('·'); return (p[2]||'').trim(); }
+/* Only the seeded 4-segment shape (block · date · operator · reg) carries a person
+   here. orSaveSpray writes 3 (block · date · what for), so [2] was the TARGET PEST -
+   the Records archive filed "FCM" as the person who sprayed. */
+function orParseBy(s){ var p=String(s||'').split('·'); return (p.length>=4?(p[2]||''):'').trim(); }
 function orAllRecords(){
   var out=[];
   try{ (ST_FRUIT.harvest||[]).forEach(function(h){
@@ -68772,7 +68779,7 @@ function orAllRecords(){
   }); }catch(e){}
   try{ OR_CAT_ORDER.forEach(function(cat){ (ST_FRUIT.sprayDiary[cat]||[]).forEach(function(x){
     var blk=x.bid?((orBlockById(x.bid)||{}).name||orParseBlk(x.s)):orParseBlk(x.s);
-    out.push({iso:x.dateISO||null,type:'spray',tlabel:'Spray',block:blk,note:x.t||'',by:orParseBy(x.s),att:x.att||null,season:orSeasonOf(x.dateISO)});
+    out.push({iso:x.dateISO||null,type:'spray',tlabel:'Spray',block:blk,note:x.t||'',by:(x.by||orParseBy(x.s)),att:x.att||null,season:orSeasonOf(x.dateISO)});
   }); }); }catch(e){}
   try{ Object.keys(ST_FRUIT.comply||{}).forEach(function(k){ var c=ST_FRUIT.comply[k]; if(!c) return;
     (c.docs||[]).forEach(function(dc){ out.push({iso:dc.iso||null,type:(c.type==='pest'?'check':'inspection'),tlabel:(c.type==='pest'?'Check':'Record'),block:'',note:(c.title||'Record')+' — '+(dc.name||'document'),by:'',att:(dc.id?dc:null),season:orSeasonOf(dc.iso)}); });
@@ -69139,9 +69146,9 @@ function orSaveSpray(){
   var cost=parseFloat($('or-sp-cost').value)||0;
   var dt=new Date($('or-sp-date').value||new Date()); var cat=b.cat;
   ST_FRUIT.sprayDiary[cat]=ST_FRUIT.sprayDiary[cat]||[];
-  ST_FRUIT.sprayDiary[cat].unshift({id:'os'+Date.now().toString(36),ic:'\uD83E\uDDEA',t:prod+(forx?' — for '+forx:''),s:b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray'),phi:{eu:days,uk:days,us:Math.max(0,days-7),local:0},bid:b.id,product:prod,forx:forx,dateISO:dt.toISOString().slice(0,10),att:orAttachTake('sp')});
+  ST_FRUIT.sprayDiary[cat].unshift({id:'os'+Date.now().toString(36),ic:'\uD83E\uDDEA',t:prod+(forx?' — for '+forx:''),s:b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray'),phi:{eu:days,uk:days,us:Math.max(0,days-7),local:days},bid:b.id,product:prod,forx:forx,dateISO:dt.toISOString().slice(0,10),att:orAttachTake('sp')});
   ST_FRUIT.phi[cat]=ST_FRUIT.phi[cat]||[];
-  var safe={eu:orFmtDM(orAddDays(dt,days)),uk:orFmtDM(orAddDays(dt,days)),us:orFmtDM(orAddDays(dt,Math.max(0,days-7))),local:orFmtDM(dt)};
+  var safe={eu:orFmtDM(orAddDays(dt,days)),uk:orFmtDM(orAddDays(dt,days)),us:orFmtDM(orAddDays(dt,Math.max(0,days-7))),local:orFmtDM(orAddDays(dt,days))};
   var ex=ST_FRUIT.phi[cat].filter(function(r){return String(r.bid)===String(b.id);})[0];
   if(ex){ ex.last=prod+' · '+orFmtDM(dt); ex.d=safe; } else ST_FRUIT.phi[cat].unshift({bid:b.id,n:b.name+' ('+b.cultivar.split(' · ')[0]+')',last:prod+' · '+orFmtDM(dt),d:safe});
   if(cost>0 && typeof queueOrSave==='function'){
