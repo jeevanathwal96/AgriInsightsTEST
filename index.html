@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=65"></script>
-<script src="ai-auth.js?v=45"></script>
+<script src="ai-data.js?v=66"></script>
+<script src="ai-auth.js?v=46"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -12913,7 +12913,300 @@ function cropRenderLands(){
     '<div class="crop-infonote">Each land keeps a season-by-season history so rotation, yield trends and gross margin build up over time. Harvest entries capture tonnes, grade and the co-op/silo delivery certificate.</div>';
 }
 
+/* ===================== Correcting and removing a spray or input =====================
+   Signed off 23 Sep 2026, D1–D5 as recommended. Neither app could correct or remove a
+   spray or a field application, and both tables are append-only, so a spray taken off the
+   device came straight back from the server on the next load.
+
+   NOTHING IS DELETED. A removed entry moves out of the live list (ST_CROP.inputs /
+   ST_FRUIT.sprayDiary) into a list of its own (ST_CROP.removed / ST_FRUIT.removedSprays)
+   carrying {at, reason, by}; the data layer saves both lists and splits them again on
+   load. So every one of the ~40 places that read the live lists — the safe-to-pick grid,
+   the register, the costs, Repeat last — is right without knowing removal exists.
+
+   A correction changes the entry IN PLACE: same id, never a second row. The permit
+   correction once wrote a second row and the register printed both. What changed is
+   appended to entry.changes and printed on the register's last page.
+
+   Every action finds its entry again BY ID at the moment it runs. A list position held
+   across a refresh has edited the wrong row before (-422).                               */
+function fixT(en, af){ return (window.ST && ST.lang==='af') ? af : en; }
+var FIX_REASONS={
+  twice:{en:'Logged twice', af:'Twee keer aangeteken'},
+  never:{en:'Logged by mistake — it never happened', af:'Per ongeluk aangeteken — dit het nooit gebeur nie'},
+  wrong:{en:'Wrong block or field', af:'Verkeerde blok of land'}
+};
+function fixReasonLabel(k, lang){
+  var r=FIX_REASONS[k]; if(!r) return k||'';
+  lang = lang || ((window.ST && ST.lang==='af') ? 'af' : 'en');
+  return lang==='af' ? r.af : r.en;
+}
+function fixWho(){ return (window.FARM && FARM.owner) || (window.ST && ST.ownerName) || ''; }
+function fixMoney(n){ return ((typeof _curSym==='function') ? _curSym() : 'R') + _grpInt(Math.round(n)); }
+
+/* Only once the server can store it. Signed out — the demo, a guest — the data lives on
+   this device alone, so there is nothing for a reload to bring back. */
+function fixReady(kind){
+  try{
+    if(!(window.AI && AI.farm && AI.farm.active())) return true;
+    var m = (kind==='input') ? AI.crop : AI.orchard;
+    return !!(m && m.canFix && m.canFix());
+  }catch(e){ return false; }
+}
+function fixNotReady(){
+  toast(fixT('Correcting and removing need a one-off update to your farm’s database. It hasn’t been run yet, so nothing was changed.',
+             'Regstel en verwyder het ’n eenmalige bywerking van jou plaas se databasis nodig. Dit is nog nie gedoen nie, so niks is verander nie.'),'error');
+}
+/* Appends one line of history. Returns 1 when the value really changed. */
+function fixLog(entry, f, from, to){
+  var a=String(from==null?'':from), b=String(to==null?'':to);
+  if(a===b) return 0;
+  entry.changes = Array.isArray(entry.changes) ? entry.changes : [];
+  entry.changes.push({at:new Date().toISOString(), by:fixWho(), f:f, from:a, to:b});
+  return 1;
+}
+/* Every row must have its own id before it can be tapped. The demo's sprays - and any
+   old local-only ones - had none, so every row passed the same empty id and the sheet
+   opened whichever matched last: "Remove" would have taken out the wrong spray. The data
+   layer already mints one this way when it saves; this does it before the list is drawn. */
+function fixEnsureIds(){
+  try{
+    var sd=(window.ST_FRUIT && ST_FRUIT.sprayDiary) || {};
+    Object.keys(sd).forEach(function(c){ (sd[c]||[]).forEach(function(x){
+      if(x && !x.id) x.id='os'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }); });
+    var a=(window.ST_CROP && ST_CROP.inputs) || [];
+    a.forEach(function(x){ if(x && !x.id) x.id=cropNextId(a.concat(ST_CROP.removed||[]),'ci'); });
+  }catch(e){}
+}
+function fixIdOk(id){ return !!id && id!=='undefined' && id!=='null'; }
+function fixFindSpray(id){
+  if(!fixIdOk(id)) return null;
+  var sd=(window.ST_FRUIT && ST_FRUIT.sprayDiary) || {}, hit=null;
+  Object.keys(sd).forEach(function(c){ (sd[c]||[]).forEach(function(x){ if(x && String(x.id)===String(id)) hit={x:x, cat:c}; }); });
+  return hit;
+}
+function fixFindInput(id){
+  if(!fixIdOk(id)) return null;
+  var a=(window.ST_CROP && ST_CROP.inputs) || [];
+  for(var i=0;i<a.length;i++) if(a[i] && String(a[i].id)===String(id)) return {x:a[i]};
+  return null;
+}
+function fixDescSpray(x){
+  var b=(typeof orBlockById==='function') ? orBlockById(x.bid) : null;
+  return (b ? b.name : (String(x.s||'').split(' · ')[0])) + ' · ' + (x.dateISO ? orFmtDM(new Date(x.dateISO+'T00:00:00')) : '');
+}
+function fixDescInput(x){
+  var l=(typeof cropLandById==='function') ? cropLandById(x.land) : null;
+  return (l ? l.name : '') + ' · ' + (x.date ? cropDispDate(x.date) : '');
+}
+
+/* One small sheet of its own, above both the orchard and the crop modals. */
+function fixSheet(title, sub, body){
+  var ov=$('fix-overlay');
+  if(!ov){
+    ov=document.createElement('div'); ov.id='fix-overlay';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:700;display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.addEventListener('click', function(e){ if(e.target===ov) fixClose(); });
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:16px;width:100%;max-width:400px;box-shadow:0 25px 50px -12px rgba(0,0,0,.3);overflow:hidden">'+
+    '<div style="padding:15px 18px;border-bottom:1px solid var(--br)"><div style="font-size:15px;font-weight:800;color:var(--t1)">'+esc(title)+'</div>'+
+    (sub?'<div style="font-size:12px;color:var(--t3);margin-top:2px">'+esc(sub)+'</div>':'')+'</div>'+
+    '<div style="padding:14px 18px 16px">'+body+'</div></div>';
+  ov.style.display='flex';
+}
+function fixClose(){ var ov=$('fix-overlay'); if(ov) ov.style.display='none'; }
+
+var FIX_BTN='display:flex;gap:11px;align-items:flex-start;width:100%;text-align:left;padding:11px 12px;border:1px solid var(--br);border-radius:11px;background:#fff;font:inherit;cursor:pointer;margin-bottom:8px;box-sizing:border-box';
+function fixMenuHtml(kind, id){
+  var sp = (kind==='spray'), q = String(id).replace(/[^A-Za-z0-9_\-]/g,'');
+  return '<button type="button" style="'+FIX_BTN+'" onclick="fixOpenCorrect(\''+kind+'\',\''+q+'\')">'+
+      '<span style="font-size:15px;line-height:1.3">✎</span><span><b style="display:block;font-size:13.5px;color:var(--t1)">'+
+      fixT(sp?'Correct this spray':'Correct this application', sp?'Stel hierdie spuit reg':'Stel hierdie toediening reg')+'</b>'+
+      '<span style="font-size:12px;color:var(--t3)">'+fixT('Fix a detail. It stays on the record.','Stel ’n besonderheid reg. Dit bly op die rekord.')+'</span></span></button>'+
+    '<button type="button" style="'+FIX_BTN+'" onclick="fixAskRemove(\''+kind+'\',\''+q+'\')">'+
+      '<span style="font-size:15px;line-height:1.3;color:#B42318">✕</span><span><b style="display:block;font-size:13.5px;color:#B42318">'+
+      fixT(sp?'Remove this spray':'Remove this application', sp?'Verwyder hierdie spuit':'Verwyder hierdie toediening')+'</b>'+
+      '<span style="font-size:12px;color:var(--t3)">'+fixT('It never happened, or it’s a duplicate.','Dit het nooit gebeur nie, of dis ’n duplikaat.')+'</span></span></button>'+
+    '<button type="button" onclick="fixClose()" style="all:unset;display:block;width:100%;text-align:center;padding:9px;font-size:13px;font-weight:600;color:var(--t3);cursor:pointer">'+fixT('Cancel','Kanselleer')+'</button>';
+}
+function orSprayTap(id){
+  var h=fixFindSpray(id); if(!h) return;
+  fixSheet(h.x.product || h.x.t, fixDescSpray(h.x), fixMenuHtml('spray', id));
+}
+function cropInputTap(id){
+  var h=fixFindInput(id); if(!h) return;
+  fixSheet(h.x.product, fixDescInput(h.x), fixMenuHtml('input', id));
+}
+function fixOpenCorrect(kind, id){
+  if(!fixReady(kind)){ fixNotReady(); return; }
+  fixClose();
+  if(kind==='spray') orOpenSprayForm(id); else cropLogInput(id);
+}
+function fixAskRemove(kind, id){
+  if(!fixReady(kind)){ fixNotReady(); return; }
+  var h = (kind==='spray') ? fixFindSpray(id) : fixFindInput(id); if(!h){ fixClose(); return; }
+  var sp=(kind==='spray'), q=String(id).replace(/[^A-Za-z0-9_\-]/g,'');
+  var opt=function(k, extra){
+    return '<label style="display:flex;gap:10px;align-items:flex-start;padding:10px 11px;border:1px solid var(--br);border-radius:10px;margin-bottom:8px;cursor:pointer;font-size:13px;color:var(--t1)">'+
+      /* The app styles every input full-width; a radio has to opt back out or it stretches
+         across the row and shoves its label to the far edge. */
+      '<input type="radio" name="fix-reason" value="'+k+'" style="width:auto;height:auto;min-width:0;flex:none;margin:2px 0 0;padding:0;accent-color:#2D6A4F">'+
+      '<span style="flex:1;text-align:left">'+esc(fixReasonLabel(k))+
+      (extra?'<span style="display:block;font-size:11.5px;color:var(--t3)">'+esc(extra)+'</span>':'')+'</span></label>';
+  };
+  var body=opt('twice')+opt('never')+opt('wrong', fixT('You’ll log it again on the right one','Jy teken dit weer op die regte een aan'))+
+    '<div style="font-size:11.5px;color:var(--t3);background:var(--bg);border-radius:8px;padding:8px 10px;margin:4px 0 12px;line-height:1.45">'+
+      fixT(sp?'It leaves your spray record and the safe-to-pick dates now. The entry and your reason are kept in the change history.'
+             :'It leaves your spray record now. The entry and your reason are kept in the change history.',
+           sp?'Dit verlaat nou jou spuitrekord en die veilig-om-te-pluk-datums. Die inskrywing en jou rede word in die veranderingsgeskiedenis gehou.'
+             :'Dit verlaat nou jou spuitrekord. Die inskrywing en jou rede word in die veranderingsgeskiedenis gehou.')+'</div>'+
+    '<div style="display:flex;gap:8px">'+
+      '<button type="button" onclick="fixClose()" style="flex:1;padding:10px;border:1px solid var(--br);border-radius:10px;background:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer">'+fixT('Keep it','Hou dit')+'</button>'+
+      '<button type="button" onclick="fixDoRemove(\''+kind+'\',\''+q+'\')" style="flex:1;padding:10px;border:0;border-radius:10px;background:#B42318;color:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer">'+fixT('Remove','Verwyder')+'</button></div>';
+  fixSheet(fixT(sp?'Why remove this spray?':'Why remove this application?', sp?'Hoekom verwyder jy hierdie spuit?':'Hoekom verwyder jy hierdie toediening?'),
+           (h.x.product||'')+' · '+(sp?fixDescSpray(h.x):fixDescInput(h.x)), body);
+}
+function fixDoRemove(kind, id){
+  if(!fixReady(kind)){ fixNotReady(); return; }
+  var sel=document.querySelector('input[name="fix-reason"]:checked');
+  if(!sel){ toast(fixT('Choose why it’s being removed','Kies hoekom dit verwyder word'),'error'); return; }
+  var rm={at:new Date().toISOString(), reason:sel.value, by:fixWho()};
+  if(kind==='spray'){
+    var h=fixFindSpray(id); if(!h){ fixClose(); return; }
+    var arr=ST_FRUIT.sprayDiary[h.cat]; arr.splice(arr.indexOf(h.x),1);
+    h.x.removed=rm; h.x.cropcat=h.x.cropcat||h.cat;
+    ST_FRUIT.removedSprays=ST_FRUIT.removedSprays||[]; ST_FRUIT.removedSprays.push(h.x);
+    if(typeof orRebuildPhi==='function') orRebuildPhi();
+    orSave(); orRenderSpray(ST_FRUIT.market); fixClose();
+    orToast(fixT('Spray removed and kept in the change history. If it also added an expense, remove that in Transactions.',
+                 'Spuit verwyder en in die veranderingsgeskiedenis gehou. As dit ook ’n uitgawe bygevoeg het, verwyder dit in Transaksies.'));
+  } else {
+    var g=fixFindInput(id); if(!g){ fixClose(); return; }
+    ST_CROP.inputs.splice(ST_CROP.inputs.indexOf(g.x),1);
+    g.x.removed=rm;
+    ST_CROP.removed=ST_CROP.removed||[]; ST_CROP.removed.push(g.x);
+    dataChanged('crop'); if(typeof cropRenderInputs==='function') cropRenderInputs(); fixClose();
+    var l=cropLandById(g.x.land), cost=(Number(g.x.costPerHa)||0)*((l&&l.area)||0);
+    toast(cost>0
+      ? fixT('Application removed. The '+fixMoney(cost)+' expense it added is still in Transactions — remove it there too if that was also a mistake.',
+             'Toediening verwyder. Die uitgawe van '+fixMoney(cost)+' wat dit bygevoeg het, is steeds in Transaksies — verwyder dit ook daar as dit ’n fout was.')
+      : fixT('Application removed and kept in the change history.','Toediening verwyder en in die veranderingsgeskiedenis gehou.'), 'success');
+  }
+}
+
+/* ---- correcting a spray: the spray's own form, filled in ---- */
+function orSprayEditFill(id){
+  var h=fixFindSpray(id); if(!h) return;
+  var x=h.x, set=function(k,v){ var e=$(k); if(e && v!=null) e.value=v; };
+  set('or-sp-block', x.bid); set('or-sp-prod', x.product); set('or-sp-for', x.forx); set('or-sp-date', x.dateISO);
+  set('or-sp-phi', (x.phi && (x.phi.eu||x.phi.local||x.phi.uk)) || 0);
+  set('or-sp-reg', x.reg); set('or-sp-rate', x.rate); set('or-sp-batch', x.batch);
+  set('or-sp-by', x.by); set('or-sp-cert', x.cert); set('or-sp-weather', x.weather);
+  /* The cost already posted to expenses when the spray was logged; changing it here would
+     leave that expense saying something else. */
+  var c=$('or-sp-cost'); if(c){ c.value=''; c.disabled=true; c.placeholder=fixT('change it in Transactions','verander dit in Transaksies'); }
+  var root=$('or-modal-content');
+  var t=root&&root.querySelector('.or-mt'); if(t) t.textContent=fixT('Correct this spray','Stel hierdie spuit reg');
+  var s=root&&root.querySelector('.or-ms'); if(s) s.textContent=fixT('Change what was wrong. The record keeps this entry and notes what changed.','Verander wat verkeerd was. Die rekord hou hierdie inskrywing en teken aan wat verander het.');
+  var b=root&&root.querySelector('.btn-pri'); if(b) b.textContent=fixT('Save correction','Stoor regstelling');
+}
+function orSaveSprayEdit(id){
+  if(!fixReady('spray')){ fixNotReady(); return; }
+  var h=fixFindSpray(id); if(!h){ orCloseModal(); return; }
+  var x=h.x, v=function(k){ var e=$(k); return e ? String(e.value||'').trim() : ''; };
+  var b=orBlockById(v('or-sp-block')); if(!b) return;
+  var prod=v('or-sp-prod')||x.product, forx=v('or-sp-for'), dateISO=v('or-sp-date')||x.dateISO;
+  var days=parseInt(v('or-sp-phi'),10); if(isNaN(days)) days=0;
+  var oldDays=(x.phi && (x.phi.eu||x.phi.local||x.phi.uk)) || 0, oldB=orBlockById(x.bid);
+  var n=0;
+  n+=fixLog(x,'product',x.product,prod);   n+=fixLog(x,'forx',x.forx,forx);
+  n+=fixLog(x,'dateISO',x.dateISO,dateISO); n+=fixLog(x,'phi',oldDays,days);
+  n+=fixLog(x,'bid', oldB?oldB.name:x.bid, b.name);
+  ['reg','rate','batch','by','cert','weather'].forEach(function(k){ n+=fixLog(x,k,x[k]||'',v('or-sp-'+k)); });
+  var att=orAttachTake('sp'); if(att){ x.att=att; n+=fixLog(x,'att','',fixT('new attachment','nuwe aanhangsel')); }
+  if(!n){ orCloseModal(); orToast(fixT('Nothing changed.','Niks het verander nie.')); return; }
+  x.product=prod; x.forx=forx; x.dateISO=dateISO; x.bid=b.id;
+  ['reg','rate','batch','by','cert','weather'].forEach(function(k){ x[k]=v('or-sp-'+k); });
+  x.phi={eu:days, uk:days, us:Math.max(0,days-7), local:days};
+  var dt=new Date(dateISO+'T00:00:00');
+  x.t=prod+(forx?' — for '+forx:''); x.s=b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray');
+  if(b.cat!==h.cat){
+    var from=ST_FRUIT.sprayDiary[h.cat]; from.splice(from.indexOf(x),1);
+    (ST_FRUIT.sprayDiary[b.cat]=ST_FRUIT.sprayDiary[b.cat]||[]).unshift(x); x.cropcat=b.cat;
+  }
+  if(typeof orRebuildPhi==='function') orRebuildPhi();
+  orSave(); orRenderSpray(ST_FRUIT.market); orCloseModal();
+  orToast(fixT('Correction saved. The record notes what changed.','Regstelling gestoor. Die rekord teken aan wat verander het.'));
+}
+
+/* ---- correcting an application: the log form, filled in ---- */
+var CROP_INPUT_EDIT=null;
+function cropInputEditFill(id){
+  var h=fixFindInput(id); if(!h) return;
+  var x=h.x, set=function(k,v){ var e=$(k); if(e && v!=null) e.value=v; };
+  /* One record per land: the land is part of what the entry IS. Moving it is a remove
+     ("wrong field") and a fresh log, so the history says so. */
+  Array.prototype.forEach.call(document.querySelectorAll('.ci-land-cb'), function(cb){
+    cb.checked=(String(cb.value)===String(x.land)); cb.disabled=true; });
+  var lh=$('ci-lands'); if(lh && lh.nextElementSibling) lh.nextElementSibling.textContent=
+    fixT('One record per land. To move it, remove it as “wrong block or field” and log it again.',
+         'Een rekord per land. Om dit te skuif, verwyder dit as “verkeerde blok of land” en teken dit weer aan.');
+  set('ci-product',x.product); set('ci-reg',x.reg); set('ci-kind',x.kind); set('ci-rate',x.rate); set('ci-batch',x.batch);
+  set('ci-by',x.by); set('ci-cert',x.operatorCert); set('ci-for',x.targetFor); set('ci-phi',x.phi);
+  set('ci-date',x.date); set('ci-weather',x.weather);
+  var c=$('ci-cost'); if(c){ c.value=''; c.disabled=true; c.placeholder=fixT('change it in Transactions','verander dit in Transaksies'); }
+  var card=$('crop-comply-card');
+  var t=card && card.firstElementChild && card.firstElementChild.firstElementChild; if(t) t.textContent=fixT('Correct this application','Stel hierdie toediening reg');
+  var sv=card && card.querySelector('.crop-formbtn'); if(sv) sv.textContent=fixT('Save correction','Stoor regstelling');
+}
+function cropInputEditSave(id){
+  CROP_INPUT_EDIT=null;
+  if(!fixReady('input')){ fixNotReady(); return; }
+  var h=fixFindInput(id); if(!h){ cropCloseModal(); return; }
+  var x=h.x, v=function(k){ var e=$(k); return e ? String(e.value||'').trim() : ''; };
+  var product=v('ci-product'); if(!product){ toast(fixT('What did you apply?','Wat het jy toegedien?'),'error'); CROP_INPUT_EDIT=id; return; }
+  var nv={ product:product, reg:v('ci-reg'), kind:v('ci-kind')||x.kind, rate:v('ci-rate'), batch:v('ci-batch'),
+           by:v('ci-by')||x.by, operatorCert:v('ci-cert'), targetFor:v('ci-for'), phi:parseInt(v('ci-phi'),10)||0,
+           date:v('ci-date')||x.date, weather:v('ci-weather') };
+  var n=0; Object.keys(nv).forEach(function(k){ n+=fixLog(x,k,x[k]==null?'':x[k],nv[k]); });
+  if(!n){ cropCloseModal(); toast(fixT('Nothing changed.','Niks het verander nie.'),'info'); return; }
+  Object.keys(nv).forEach(function(k){ x[k]=nv[k]; });
+  dataChanged('crop'); cropCloseModal();
+  toast(fixT('Correction saved. The record notes what changed.','Regstelling gestoor. Die rekord teken aan wat verander het.'),'success');
+}
+
+/* ---- the register's last page ---- */
+function aiRegChanges(from, to, lang){
+  var FL={product:['Product','Produk'], forx:['Target','Teiken'], targetFor:['Target','Teiken'], dateISO:['Date','Datum'], date:['Date','Datum'],
+          phi:['Wait (days)','Wagtyd (dae)'], bid:['Block','Blok'], reg:['Reg no.','Reg.nr.'], rate:['Rate','Tempo'], batch:['Batch','Lotnr.'],
+          by:['Applied by','Toegedien deur'], cert:['Licence','Lisensie'], operatorCert:['Licence','Lisensie'], weather:['Weather','Weer'],
+          kind:['Type','Soort'], att:['Attachment','Aanhangsel']};
+  var L=function(en,af){ return lang==='af' ? af : en; };
+  var when=function(iso){ var d=new Date(iso); if(isNaN(d)) return String(iso||'');
+    return aiRcDate(String(iso).slice(0,10))+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); };
+  var out=[];
+  var add=function(x, iso, desc){
+    if(!_regInRange(iso, from, to)) return;
+    if(x.removed) out.push({_t:x.removed.at, when:when(x.removed.at), tag:L('REMOVED','VERWYDER'), entry:desc,
+                            what:fixReasonLabel(x.removed.reason, lang), by:x.removed.by||''});
+    (x.changes||[]).forEach(function(c){
+      var f=FL[c.f];
+      out.push({_t:c.at, when:when(c.at), tag:L('CORRECTED','REGGESTEL'), entry:desc,
+                what:(f?(lang==='af'?f[1]:f[0]):c.f)+': '+(c.from||'-')+' -> '+(c.to||'-'), by:c.by||''});
+    });
+  };
+  var inDesc=function(x){ return (x.product||'')+' · '+fixDescInput(x); };
+  var spDesc=function(x){ return (x.product||'')+' · '+fixDescSpray(x); };
+  ((window.ST_CROP&&ST_CROP.inputs)||[]).concat((window.ST_CROP&&ST_CROP.removed)||[]).forEach(function(x){ if(x) add(x, x.date, inDesc(x)); });
+  var sd=(window.ST_FRUIT&&ST_FRUIT.sprayDiary)||{};
+  Object.keys(sd).forEach(function(c){ (sd[c]||[]).forEach(function(x){ if(x) add(x, x.dateISO, spDesc(x)); }); });
+  ((window.ST_FRUIT&&ST_FRUIT.removedSprays)||[]).forEach(function(x){ if(x) add(x, x.dateISO, spDesc(x)); });
+  return out.sort(function(a,b){ return String(a._t)<String(b._t) ? -1 : 1; });
+}
+
 function cropRenderInputs(){
+  fixEnsureIds();
   var el=$('crop-view-inputs'); if(!el) return;
   var phiByLand=_cropPhiByLand(), phiLands=Object.keys(phiByLand).length;
   /* Safe-to-harvest strip (Orchards pattern): one chip per cropped land \u2014 \u2713 clear or \u26D4 with
@@ -12943,7 +13236,7 @@ function cropRenderInputs(){
     var safe = cropInputActive(i) ? ('\u23F3 '+cropDispDate(cropInputSafe(i).toISOString().slice(0,10))) : (i.phi?'\u2713 clear':'\u2713');
     var safeCls = cropInputActive(i)?'st-wd':'st-ok';
     var batch = (i.kind==='fertiliser'||i.kind==='seed') ? (i.batch||'\u2014') : (i.batch?esc(i.batch):'<span class="miss">missing</span>');
-    return '<tr><td>'+cropDispDate(i.date)+'</td><td>'+esc(l?l.name:'?')+'</td>'+
+    return '<tr style="cursor:pointer" onclick="cropInputTap(\''+String(i.id).replace(/[^A-Za-z0-9_\-]/g,'')+'\')"><td>'+cropDispDate(i.date)+'</td><td>'+esc(l?l.name:'?')+'</td>'+
       '<td>'+esc(i.product)+'<br><span style="color:var(--t4);font-size:11px">Act 36/1947 \u00b7 '+esc(i.reg||'\u2014')+(i.targetFor?' \u00b7 for '+esc(i.targetFor):'')+'</span>'+
         /* T2.5 — what fell around the spray. Only for things that can wash off. */
         ((/^(herbicide|fungicide|insecticide)$/.test(i.kind||'') && typeof rnSprayRainHtml==='function') ? rnSprayRainHtml(i.date) : '')+'</td>'+
@@ -13436,7 +13729,8 @@ function cropHarvestCommit(l, y, moneyNum, dest){
   dataChanged('crop');
   toast(moneyNum>0?('Harvest recorded — '+l.name+' · '+cropFmtR(moneyNum)+' in'):('Harvest recorded — '+l.name),'success');
 }
-function cropLogInput(){
+function cropLogInput(editId){
+  CROP_INPUT_EDIT = editId || null;
   var planted=ST_CROP.lands.filter(cropPlanted);
   if(!planted.length){ toast('Plant a land first','info'); return; }
   var landBoxes=planted.map(function(l,ix){return '<label style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--br);border-radius:9px;margin-bottom:6px;cursor:pointer;font-size:13px"><input type="checkbox" class="ci-land-cb" value="'+l.id+'"'+(ix===0?' checked':'')+' style="width:17px;height:17px;flex:none">'+esc(l.name)+' <span style="color:var(--t4)">'+(l.area||0)+' ha</span></label>';}).join('');
@@ -13465,8 +13759,10 @@ function cropLogInput(){
   var footer='<button class="crop-formbtn" style="flex:1" onclick="cropInputFormSave()">Save application</button>'+
     '<button onclick="cropCloseModal()" style="width:110px;border:1px solid var(--br);border-radius:10px;background:#fff;color:var(--t3);font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer">Cancel</button>';
   cropModalShell('Log an application', body, footer);
+  if(editId) cropInputEditFill(editId);
 }
 function cropInputFormSave(){
+  if(CROP_INPUT_EDIT){ cropInputEditSave(CROP_INPUT_EDIT); return; }
   var landIds=Array.prototype.slice.call(document.querySelectorAll('.ci-land-cb:checked')).map(function(c){return parseInt(c.value,10);}).filter(function(x){return !isNaN(x);});
   if(!landIds.length){ toast('Tick at least one land','error'); return; }
   var product=(($('ci-product')||{}).value||'').trim(); if(!product){ toast('What did you apply?','error'); return; }
@@ -13487,7 +13783,7 @@ function cropInputFormSave(){
   var totalAll=0, n=0;
   landIds.forEach(function(lid){
     var l=cropLandById(lid); if(!l) return; n++;
-    ST_CROP.inputs.unshift({ id:cropNextId(ST_CROP.inputs,'ci'), land:l.id, date:date, product:product,
+    ST_CROP.inputs.unshift({ id:cropNextId(ST_CROP.inputs.concat(ST_CROP.removed||[]),'ci'), land:l.id, date:date, product:product,
       reg:reg, kind:kind, rate:rate, batch:batch, by:by, operatorCert:cert, targetFor:forVal, phi:phi, costPerHa:cost, weather:weather });
     var total = cost * (l.area||0);
     if(total>0){
@@ -19837,8 +20133,8 @@ var FRESH_SHAPE = {
   ST_WORK:    { workers:[], payRuns:[], payslips:[], payslipSends:[], seasonal:{}, paye:{},
                 compliance:{ uifPayments:[], uifNumber:'', sdlNumber:'', coida:null, coidaFiled:false, docs:[] } },
   ST_LS:      { camps:[], herd:[], animals:[], moves:[], treatments:[], health:[], breedings:[] },
-  ST_FRUIT:   { blocks:[], pricing:{}, sprayDiary:{}, phi:{}, harvest:[] },
-  ST_CROP:    { lands:[], events:[], inputs:[], compliance:{}, season:'' },
+  ST_FRUIT:   { blocks:[], pricing:{}, sprayDiary:{}, removedSprays:[], phi:{}, harvest:[] },
+  ST_CROP:    { lands:[], events:[], inputs:[], removed:[], compliance:{}, season:'' },
   ST_PLAN:    { crops:[], events:[], hedge:{}, orchSpill:0 },
   ST_LOANAPP: { req:{}, income:{}, estimates:{}, track:{}, landWater:{}, savedAt:'' },
   ST_FUEL:    { issues:[] },
@@ -67120,9 +67416,10 @@ function orRenderCompare(elId){
 
 /* ---------- spray tab ---------- */
 function orGrpHead(cat){return '<div class="or-grp"><div class="or-gic '+cat+'">'+OR_CATS[cat].ic+'</div><div class="or-gnm">'+OR_CATS[cat].nm+'</div></div>';}
-function orSprayRow(x,m){var d=x.phi[m];var chip=d===0?'<span class="or-cc ok">Clear now</span>':'<span class="or-cc due">'+d+'-day wait</span>';return '<div class="or-lrow"><div class="or-lic">'+x.ic+'</div><div class="or-lmid"><div class="or-lt">'+x.t+'</div><div class="or-ls">'+x.s+'</div></div><div class="or-lr">'+chip+'</div></div>';}
+function orSprayRow(x,m){var d=x.phi[m];var chip=d===0?'<span class="or-cc ok">Clear now</span>':'<span class="or-cc due">'+d+'-day wait</span>';return '<div class="or-lrow" role="button" tabindex="0" style="cursor:pointer" onclick="orSprayTap(\''+String(x.id).replace(/[^A-Za-z0-9_\-]/g,'')+'\')"><div class="or-lic">'+x.ic+'</div><div class="or-lmid"><div class="or-lt">'+x.t+'</div><div class="or-ls">'+x.s+'</div></div><div class="or-lr">'+chip+'</div></div>';}
 function orPhiRow(b,m){var clear=m==='local';return '<div class="or-lrow"><div class="or-lic">'+(clear?'\u2705':'\uD83D\uDCC5')+'</div><div class="or-lmid"><div class="or-lt">'+b.n+'</div><div class="or-ls">Last spray: '+b.last+'</div></div><div class="or-lr"><div style="font-size:13px;font-weight:800;color:'+(clear?'var(--gm)':'var(--t1)')+'">'+b.d[m]+'</div><div style="font-size:11px;color:var(--t3)">safe to pick</div></div></div>';}
 function orRenderSpray(m){
+  fixEnsureIds();
   ST_FRUIT.market=m||ST_FRUIT.market||'eu';
   var diary='';
   OR_CAT_ORDER.forEach(function(cat){
@@ -69132,8 +69429,8 @@ function orOpenBlock(id){
 
 /* ---------- capture: spray + pick (Money Flow + offline + workers) ---------- */
 function orBlockOptions(filterFn){ return ST_FRUIT.blocks.filter(function(b){return !b.removed && (filterFn?filterFn(b):true);}).map(function(b){return '<option value="'+b.id+'">'+OR_CATS[b.cat].ic+' '+b.name+' ('+b.cultivar.split(' · ')[0]+')</option>';}).join(''); }
-function orOpenSprayForm(){
-  OR_MODAL_CTX={type:'sprayform'};
+function orOpenSprayForm(editId){
+  OR_MODAL_CTX={type:'sprayform', edit:editId||null};
   var h='<div class="or-mhd"><div class="or-mic">\uD83E\uDDEA</div><div><div class="or-mt">Log a spray</div><div class="or-ms">Updates your spray diary, your audit pack and the safe-to-pick dates.</div></div><button class="or-mx" onclick="orCloseModal()">\u00d7</button></div><div class="or-mbd">'+
     '<div class="or-frow"><label class="or-flbl">Which block?</label><select class="or-finp" id="or-sp-block">'+orBlockOptions(function(b){return !b.plan;})+'</select></div>'+
     '<div class="or-frow"><label class="or-flbl">What did you spray?</label><input class="or-finp" id="or-sp-prod" placeholder="e.g. Delegate"></div>'+
@@ -69150,8 +69447,10 @@ function orOpenSprayForm(){
     '<div style="display:flex;gap:10px;margin-top:8px"><button class="btn-pri" onclick="orSaveSpray()">Save spray</button><button class="btn-sec" onclick="orCloseModal()">Cancel</button></div></div>';
   orModalHTML(h);
   var di=$('or-sp-date'); if(di&&!di.value) di.value=new Date().toISOString().split('T')[0];
+  if(editId) orSprayEditFill(editId);
 }
 function orSaveSpray(){
+  if(OR_MODAL_CTX && OR_MODAL_CTX.edit){ orSaveSprayEdit(OR_MODAL_CTX.edit); return; }
   var b=orBlockById($('or-sp-block').value); if(!b) return;
   var prod=$('or-sp-prod').value||'Spray'; var forx=$('or-sp-for').value; var days=parseInt($('or-sp-phi').value,10); if(isNaN(days))days=14;
   var cost=parseFloat($('or-sp-cost').value)||0;
@@ -70699,6 +70998,26 @@ function aiRegBuild(kind, opts){
          mid-grey and stops reading as a warning. */
       doc.text('(!) '+res.gaps+' particular'+(res.gaps===1?'':'s')+' not recorded \u2014 shown in the rows above, not left blank.',
                g.M, _y+5);
+    }
+    if(kind==='spray'){
+      /* D3: a removed or corrected entry must not vanish quietly from the page an
+         inspector reads. Nothing here is erased - the last page says what changed. */
+      var _chg=(typeof aiRegChanges==='function') ? aiRegChanges(opts.from, opts.to, lang) : [];
+      if(_chg.length){
+        doc.addPage('a4','landscape');
+        aiDocTable(doc, {geo:g, landscape:true, rows:_chg,
+          header:function(d){
+            var yy=header(d);
+            d.setFont('helvetica','bold'); d.setFontSize(9.5); d.setTextColor(AI_DOC.INK[0],AI_DOC.INK[1],AI_DOC.INK[2]);
+            d.text(lang==='af'?'Veranderinge aan hierdie rekord':'Changes to this record', g.M, yy);
+            d.setFont('helvetica','normal'); d.setFontSize(7.2); d.setTextColor(AI_DOC.GREY[0],AI_DOC.GREY[1],AI_DOC.GREY[2]);
+            d.text(lang==='af'?'Inskrywings wat reggestel of verwyder is nadat hulle aangeteken is. Niks word uitgevee nie.'
+                              :'Entries corrected or removed after they were logged. Nothing is erased.', g.M, yy+4.6);
+            return yy+12; },
+          cols:[{k:'when',label:lang==='af'?'Verander':'Changed',w:17,opt:true},{k:'tag',label:'',w:12,opt:true},
+                {k:'entry',label:lang==='af'?'Inskrywing':'Entry',w:46,opt:true},{k:'what',label:lang==='af'?'Wat verander het':'What changed',w:46,opt:true},
+                {k:'by',label:lang==='af'?'Deur':'By',w:16,opt:true}]});
+      }
     }
     aiDocFoot(doc, cfg.foot[lang], g);
     return {doc:doc, rows:rows.length, gaps:res.gaps};

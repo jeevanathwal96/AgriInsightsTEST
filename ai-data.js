@@ -413,6 +413,12 @@
   let CAN_DEVICES       = false;   // farm_devices: "whose phone is this?"
   let CAN_ORCH_PARTS    = false;   // orchard_sprays: rate/batch/operator_cert/weather
   let CAN_INPUT_WEATHER = false;   // crop_inputs.weather
+  /* Correcting and removing a spray or input (spray_corrections.sql, signed off 23 Sep).
+     One flag a table: the script alters each table in its own statement, so a half-run
+     script must not read as finished. Until it has run the app REFUSES to remove - a
+     removal the server cannot store would come straight back on the next load. */
+  let CAN_ORCH_FIX      = false;   // orchard_sprays: removed_at/removed_reason/removed_by/changes
+  let CAN_INPUT_FIX     = false;   // crop_inputs:    the same four
   let CAN_ASSET_DISPOSAL = false;
   /* "It's a running cost, stop asking." Its own column rather than reusing cat_confirmed:
      that answer is about the CATEGORY being right, this one is about the cost not being
@@ -503,7 +509,7 @@
     ['plan_events','in_forecast'], ['pay_runs','source'],
     ['category_rules','match_text'], ['transaction_looks','look_v'],
     ['push_devices','last_ok_at'], ['fuel_issues','hour_meter'], ['fuel_issues','src'],
-    ['orchard_sprays','rate'], ['crop_inputs','weather'],
+    ['orchard_sprays','rate'], ['crop_inputs','weather'], ['orchard_sprays','removed_at'], ['crop_inputs','removed_at'],
     ['payslips','snap'], ['payslip_sends','outcome'],
     ['workers','payslip_whatsapp_ok'], ['farm_devices','kind']
   ];
@@ -566,6 +572,8 @@
        the sentinel: the four arrive together. */
     CAN_ORCH_PARTS     = keep(CAN_ORCH_PARTS,    'orchard_sprays','rate');
     CAN_INPUT_WEATHER  = keep(CAN_INPUT_WEATHER, 'crop_inputs','weather');
+    CAN_ORCH_FIX       = keep(CAN_ORCH_FIX,      'orchard_sprays','removed_at');
+    CAN_INPUT_FIX      = keep(CAN_INPUT_FIX,     'crop_inputs','removed_at');
   }
   /* A harness needs to drive a second load and a bad line; the app never calls these. */
   probeCaps.reset = function(){ _colCache = Object.create(null); _colRpcDead = false; };
@@ -1991,9 +1999,14 @@
   function cevFromDb(r){ var e={ id:r.local_id, land:_numIf(r.land_local_id), kind:r.kind||'', date:r.event_date||'', note:r.note||'' }; if(r.tons!=null) e.tons=Number(r.tons); if(r.yield_val!=null) e.yield=Number(r.yield_val); if(r.cert) e.cert=r.cert; return e; }
   function cinToDb(i,fid){ var row = { farm_id:fid, local_id:String(i.id), land_local_id:(i.land!=null)?String(i.land):null, input_date:i.date||null, product:i.product||null, reg:i.reg||null, kind:i.kind||null, rate:i.rate||null, batch:i.batch||null, by_who:i.by||null, operator_cert:i.operatorCert||null, target_for:i.targetFor||null, phi:(i.phi!=null)?parseInt(i.phi,10):null, cost_per_ha:(i.costPerHa!=null)?Number(i.costPerHa):null };
     if(CAN_INPUT_WEATHER) row.weather = i.weather || null;
+    if(CAN_INPUT_FIX){ row.removed_at=(i.removed&&i.removed.at)||null; row.removed_reason=(i.removed&&i.removed.reason)||null;
+      row.removed_by=(i.removed&&i.removed.by)||null;
+      row.changes=Array.isArray(i.changes)?i.changes:[]; }   /* NOT NULL on the server: never send null */
     return row; }
   function cinFromDb(r){ return { id:r.local_id, land:_numIf(r.land_local_id), date:r.input_date||'', product:r.product||'', reg:r.reg||'', kind:r.kind||'', rate:r.rate||'', batch:r.batch||'', by:r.by_who||'', operatorCert:r.operator_cert||'', targetFor:r.target_for||'', phi:Number(r.phi)||0, costPerHa:Number(r.cost_per_ha)||0,
-    weather:r.weather||'' }; }
+    weather:r.weather||'',
+    removed:r.removed_at?{at:r.removed_at, reason:r.removed_reason||'', by:r.removed_by||''}:undefined,
+    changes:(Array.isArray(r.changes)&&r.changes.length)?r.changes:undefined }; }
 
   // ---- crop compliance: relational (Option A) — settings row + areas + children
   // ST_CROP.compliance is one farm-level record: flat scalar settings, tracked{}/
@@ -2045,7 +2058,7 @@
       var waterReadings=(cr.data||[]).map(function(r){ return {date:r.reading_date||'',m3:(r.m3!=null?Number(r.m3):0)}; });
       compliance={ settings:ccSettFromDb(settingsRow), tracked:tracked, cadence:cadence, logs:logs, docs:docs, waterReadings:waterReadings };
     }
-    return { lands:(ld.data||[]).map(landFromDb), events:(ev.data||[]).map(cevFromDb), inputs:(ip.data||[]).map(cinFromDb),
+    return { lands:(ld.data||[]).map(landFromDb), events:(ev.data||[]).map(cevFromDb), inputs:(ip.data||[]).filter(function(r){return !r.removed_at;}).map(cinFromDb), removed:(ip.data||[]).filter(function(r){return !!r.removed_at;}).map(cinFromDb),
              season:(cfg.data && cfg.data.crop_season) || null,
              compliance:compliance };
   };
@@ -2054,12 +2067,14 @@
   var _cropCfgSnap=null;
   var _cropCfgGate=Promise.resolve();   // serializes saveConfig so concurrent/rapid calls never overlap (delete-all+insert would otherwise race into duplicate rows)
   const crop = {
+    /* May this device remove an input? Only once the server can store the removal. */
+    canFix(){ return CAN_INPUT_FIX; },
     async saveAll(stc){
       if(!stc) return;
       const fid=farm.active(); if(!fid) return;
-      const snap=JSON.stringify({l:stc.lands,e:stc.events,i:stc.inputs});
+      const snap=JSON.stringify({l:stc.lands,e:stc.events,i:stc.inputs,r:stc.removed});
       if(snap===_cropSnap) return;
-      const lands=(stc.lands||[]), events=(stc.events||[]), inputs=(stc.inputs||[]);
+      const lands=(stc.lands||[]), events=(stc.events||[]), inputs=(stc.inputs||[]).concat(stc.removed||[]);
       if(lands.length){ const e=(await client().from('crop_lands').upsert(lands.map(function(l){return landToDb(l,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       if(events.length){ const e=(await client().from('crop_events').upsert(events.map(function(x){return cevToDb(x,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       if(inputs.length){ const e=(await client().from('crop_inputs').upsert(inputs.map(function(x){return cinToDb(x,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
@@ -2129,9 +2144,14 @@
       row.rate = s.rate || null; row.batch = s.batch || null;
       row.operator_cert = s.cert || null; row.weather = s.weather || null;
     }
+    if(CAN_ORCH_FIX){ row.removed_at=(s.removed&&s.removed.at)||null; row.removed_reason=(s.removed&&s.removed.reason)||null;
+      row.removed_by=(s.removed&&s.removed.by)||null;
+      row.changes=Array.isArray(s.changes)?s.changes:[]; }   /* NOT NULL on the server: never send null */
     return row; }
   function osFromDb(r){ return { id:r.local_id, ic:r.icon||'\uD83E\uDDEA', t:r.title||'', s:r.sub||'', phi:{eu:Number(r.phi_eu)||0,uk:Number(r.phi_uk)||0,us:Number(r.phi_us)||0,local:Number(r.phi_local)||0}, bid:r.block_local_id||'', product:r.product||'', reg:r.reg||'', forx:r.target_for||'', by:r.applied_by||'', dateISO:r.spray_date||'', cropcat:r.cropcat||'', att:r.att||undefined,
-    rate:r.rate||'', batch:r.batch||'', cert:r.operator_cert||'', weather:r.weather||'' }; }
+    rate:r.rate||'', batch:r.batch||'', cert:r.operator_cert||'', weather:r.weather||'',
+    removed:r.removed_at?{at:r.removed_at, reason:r.removed_reason||'', by:r.removed_by||''}:undefined,
+    changes:(Array.isArray(r.changes)&&r.changes.length)?r.changes:undefined }; }
   function ohToDb(h,fid){ var row = { farm_id:fid, local_id:String(h.id), cropcat:h.cat||null, block_local_id:(h.bid!=null&&h.bid!=='')?String(h.bid):null, bins:_n(h.bins), tons:_n(h.tons!=null?h.tons:h.tn), cartons:_n(h.cartons), top_grade_pct:_n(h.grade), sold_to:h.to||null, amount:_n(h.money), pick_date:h.dateISO||null, title:h.t||null, sub:h.s||null, revenue:h.r||null, icon:h.ic||null };
     /* The delivery note the farmer attached to this pick. Its bytes are already in
        Storage; without this the pointer died here and the file was orphaned. */
@@ -2166,7 +2186,9 @@
       return b; });
     var othByBlock={}; (po.data||[]).forEach(function(o){ (othByBlock[o.block_local_id]=othByBlock[o.block_local_id]||[]).push({label:o.label||'',amt:Number(o.amt)||0}); });
     var pricing={}; (pr.data||[]).forEach(function(r){ pricing[r.block_local_id]=opFromDb(r,othByBlock[r.block_local_id]||[]); });
-    var sprayDiary={}; (sp.data||[]).forEach(function(r){ var s=osFromDb(r); (sprayDiary[s.cropcat]=sprayDiary[s.cropcat]||[]).push(s); });
+    /* A removed spray is held apart from the diary, so the safe-to-pick grid, the register
+       and every other reader of sprayDiary are right without knowing removal exists. */
+    var sprayDiary={}, removedSprays=[]; (sp.data||[]).forEach(function(r){ var s=osFromDb(r); if(r.removed_at){ removedSprays.push(s); return; } (sprayDiary[s.cropcat]=sprayDiary[s.cropcat]||[]).push(s); });
     var harvest=(hv.data||[]).map(ohFromDb);
     // compliance: per-key user fields + children, to overlay onto app defaults in ai-auth
     var cDocs={}, cChecks={}, cReads={};
@@ -2180,12 +2202,13 @@
     (ci.data||[]).forEach(function(r){ var o={status:r.status||'',statusTag:r.status_tag||'',expiry:r.expiry||''}; if(r.log!=null) o.log=r.log;
       if(cDocs[r.item_key]) o.docs=cDocs[r.item_key]; if(cChecks[r.item_key]) o.checks=cChecks[r.item_key]; if(cReads[r.item_key]) o.readings=cReads[r.item_key];
       comply[r.item_key]=o; });
-    return { blocks:blocks, pricing:pricing, sprayDiary:sprayDiary, harvest:harvest, comply:comply, market:(cfg.data&&cfg.data.orchard_market)||null };
+    return { blocks:blocks, pricing:pricing, sprayDiary:sprayDiary, removedSprays:removedSprays, harvest:harvest, comply:comply, market:(cfg.data&&cfg.data.orchard_market)||null };
   };
 
   var _orSnap=null, _orCfgSnap=null;
   var _orGate=Promise.resolve();   // serializes orchard saveAll (its delete-all+insert children would otherwise race into duplicate rows on rapid edits)
   const orchard = {
+    canFix(){ return CAN_ORCH_FIX; },
     async saveAll(stf){
       if(!stf) return;
       const fid=farm.active(); if(!fid) return;
@@ -2193,7 +2216,7 @@
       var _prev=_orGate, _rel; _orGate=new Promise(function(r){ _rel=r; });
       try{ await _prev; }catch(e){}
       try {
-      const snap=JSON.stringify({b:stf.blocks,p:stf.pricing,s:stf.sprayDiary,h:stf.harvest,c:stf.comply});
+      const snap=JSON.stringify({b:stf.blocks,p:stf.pricing,s:stf.sprayDiary,r:stf.removedSprays,h:stf.harvest,c:stf.comply});
       if(snap===_orSnap) return true;
       const blocks=(stf.blocks||[]); const blockIds=blocks.map(function(b){return String(b.id);});
       if(blocks.length){ const e=(await client().from('orchard_blocks').upsert(blocks.map(function(b){return obToDb(b,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; _srvWrote('orchard_blocks', blocks.map(function(b){ return {farm_id:fid,local_id:String(b.id)}; })); }
@@ -2223,6 +2246,7 @@
       { const e=await replaceAllRows('orchard_pricing_others',fid,othRows); if(e) throw e; }
       // sprays append-only (assign ids if missing so upsert is stable)
       var sprayRows=[]; var sd=stf.sprayDiary||{}; Object.keys(sd).forEach(function(cat){ (sd[cat]||[]).forEach(function(s){ if(!s.id) s.id='os'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); sprayRows.push(osToDb(s,cat,fid)); }); });
+      (stf.removedSprays||[]).forEach(function(s){ if(s&&s.id) sprayRows.push(osToDb(s, s.cropcat||null, fid)); });
       if(sprayRows.length){ const e=(await client().from('orchard_sprays').upsert(sprayRows,{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       var harvRows=[]; (stf.harvest||[]).forEach(function(h){ if(!h.id) h.id='oh'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); harvRows.push(ohToDb(h,fid)); });
       if(harvRows.length){ const e=(await client().from('orchard_harvest').upsert(harvRows,{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
