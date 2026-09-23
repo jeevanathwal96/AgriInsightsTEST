@@ -19414,10 +19414,10 @@ var FARM_CATS = [
   {n:'Seeds & Planting'           , t:'exp'  , vat:'zero' , ec:'#16A34A'  , ic:''         , tag:'tg'   , tc:'#FEF3C7:#92400E'    , ss:'S11(a)' , sd:'Seed and inoculants', s1:1, ord:1, cor:7, bor:9},
   {n:'Crop Protection'            , t:'exp'  , vat:'zero' , ec:'#EF4444'  , ic:''         , tag:'tr'   , tc:'#FEF3C7:#92400E'    , ss:'S11(a)' , sd:'Herbicides and pesticides', s1:1, ord:3, cor:9, bor:10},
   {n:'Animal Feed'                , t:'exp'  , vat:'zero' , ec:'#CA8A04'  , ic:''         , tag:'to'   , tc:'#FFF3E8:#B45309'    , ss:'S11(a)' , sd:'Animal feed and licks', s1:1, ord:3.5, cor:19, bor:12},
-  {n:'Fuel & Oil'                 , t:'exp'  , vat:'zero' , ec:'#D97706'  , ic:''         , tag:'to'   , tc:'#FFF3E8:#B45309'    , ss:'S11(d)' , sd:'Fuel, oil and lubricants', s1:1, ord:4, cor:11, bor:7},
+  {n:'Fuel & Oil'                 , t:'exp'  , vat:'zero' , ec:'#D97706'  , ic:''         , tag:'to'   , tc:'#FFF3E8:#B45309'    , ss:'S11(a)' , sd:'Fuel, oil and lubricants', s1:1, ord:4, cor:11, bor:7},
   {n:'Labour & Wages'             , t:'exp'  , vat:'none' , ec:'#3B82F6'  , ic:''         , tag:'tb'   , tc:'#EFF6FF:#1D4ED8'    , ss:'S11(a)' , sd:'Labour and wages', s1:1, ord:5, cor:12, bor:13},
   {n:'Loan Repayments'            , t:'exp'  , vat:'exmt' , ec:'#0F766E'  , ic:''         , tag:'tgr'  , tc:'#F1F5F9:#334155'    , ss:'S11(a)' , sd:'Finance charges (interest portion)', s1:1, ord:12.5, cor:20, bor:17},
-  {n:'Machinery & Repairs'        , t:'exp'  , vat:'std'  , ec:'#EA580C'  , ic:''         , tag:'to'   , tc:'#F5F3FF:#5B21B6'    , ss:'S11(e)' , sd:'Repairs and maintenance', s1:1, ord:6, cor:13, bor:14},
+  {n:'Machinery & Repairs'        , t:'exp'  , vat:'std'  , ec:'#EA580C'  , ic:''         , tag:'to'   , tc:'#F5F3FF:#5B21B6'    , ss:'S11(d)' , sd:'Repairs and maintenance', s1:1, ord:6, cor:13, bor:14},
   {n:'Veterinary & Animal Health' , t:'exp'  , vat:'std'  , ec:'#7C3AED'  , ic:''         , tag:'tp'   , tc:'#FDF4FF:#7C3AED'    , ss:'S11(a)' , sd:'Veterinary and animal health', s1:1, ord:7, cor:10, bor:11},
   /* SARS Guide on the Taxation of Farming Operations §3.5.3: "The cost price of livestock
      purchased by a farmer during a year of assessment is deductible under section 11(a)" —
@@ -24869,7 +24869,7 @@ function renderWkPayroll(){ wkSync();
     var off=r.uif+(r.paye||0)+r.advRepay+r.savings;
     var sub=['UIF '+Math.round(r.uif)]; if(r.paye) sub.push('PAYE '+Math.round(r.paye)); if(r.bonus) sub.push('bonus '+Math.round(r.bonus)); if(r.premium) sub.push('extra '+Math.round(r.premium)); if(r.advRepay) sub.push('adv '+Math.round(r.advRepay)); if(r.savings) sub.push('save '+Math.round(r.savings));
     var fn=r.w.name.split(/\s+/); var nm=wkE(fn[0]+' '+((fn[1]||'').charAt(0))+(fn[1]?'.':''));
-    return '<tr onclick="wkPayslip(\''+r.w.id+'\')"><td>'+nm+'<div class="sm">'+sub.join(' \u00b7 ')+'</div></td><td>'+wkMoney2(r.gross)+'</td><td>\u2212'+off.toFixed(2)+'</td><td class="net">'+wkMoney2(r.net)+'</td><td class="nmwok">'+(r.ok?'\u2713':'\u26a0')+'</td>'+(_anyKept?('<td style="text-align:right">'+(r.kept?wkSlipPill(r.kept):'')+'</td>'):'')+'</tr>';
+    return '<tr onclick="wkPayslip(\''+r.w.id+'\')"><td>'+nm+'<div class="sm">'+sub.join(' \u00b7 ')+'</div></td><td>'+wkMoney2(r.gross)+'</td><td>\u2212'+wkMoney2(off)+'</td><td class="net">'+wkMoney2(r.net)+'</td><td class="nmwok">'+(r.ok?'\u2713':'\u26a0')+'</td>'+(_anyKept?('<td style="text-align:right">'+(r.kept?wkSlipPill(r.kept):'')+'</td>'):'')+'</tr>';
   }).join('');
   var action = posted
     ? ('<div class="wk-posted"><span>\u2713</span><span>'+(_anyKept
@@ -24898,7 +24898,7 @@ function renderWkPayroll(){ wkSync();
     + '<p class="wk-cw">Your permanent workers, this month\u2019s pay filled in. Change a number if it\u2019s different \u2014 we sort UIF, any advance or savings, and check nobody\u2019s under the minimum. Tap a worker for their payslip.</p>'
     + (rows.length
         ? '<table class="wk-ptbl" id="wk-pay-table"><thead><tr><th>Worker</th><th>Pay</th><th>Off</th><th>In hand</th><th>Min?</th>'+(_anyKept?'<th>Payslip</th>':'')+'</tr></thead><tbody>'+trs+'</tbody>'
-          + '<tfoot><tr><td>Totals</td><td>'+wkMoney2(totGross)+'</td><td>\u2212'+(totUIF+totPAYE+totAdv+totSav).toFixed(2)+'</td><td>'+wkMoney2(totNet)+'</td><td></td>'+(_anyKept?'<td></td>':'')+'</tr></tfoot></table>'
+          + '<tfoot><tr><td>Totals</td><td>'+wkMoney2(totGross)+'</td><td>\u2212'+wkMoney2(totUIF+totPAYE+totAdv+totSav)+'</td><td>'+wkMoney2(totNet)+'</td><td></td>'+(_anyKept?'<td></td>':'')+'</tr></tfoot></table>'
           + '<div style="font-size:11px;color:var(--t3);margin-top:10px;line-height:1.5">UIF to pay over: <b>'+wkMoney(totUIF*2)+'</b> (worker + you).'+(totAdv?(' Advances repaid: '+wkMoney(totAdv)+'.'):'')+(totSav?(' Into savings: '+wkMoney(totSav)+'.'):'')+' The cost added to your books is the wages plus your UIF share.</div>'
           + action
         : '<div style="font-size:12px;color:var(--t3)">No monthly-paid workers yet \u2014 add one on the Workers tab.</div>')
@@ -49477,7 +49477,7 @@ LANG_PAIRS.push(
   /* These two are the waterfall's own row labels. They looked paired at a glance because
      the same strings appear in the wf[] array that builds the rows — they were not. */
   ['Gross farming income',                     'Bruto boerdery-inkomste'],
-  ['Farming income without VAT',               'Boerdery-inkomste sonder BTW'],
+  ['Income without VAT',                       'Inkomste sonder BTW'],
   ['Taxable profit',                           'Belasbare wins'],
   ['Running costs',                            'Lopende koste'],
   ['Farm improvements',                        'Plaasverbeterings'],
@@ -53818,10 +53818,10 @@ function buildTaxReport() {
     '</table>'+
     '<h2>Allowable Deductions</h2>'+
     '<table><tr><th>Section</th><th>Description</th><th class="amt">Amount (R)</th></tr>'+
-    '<tr><td>S11(a)</td><td>General expenditure — inputs & chemicals</td><td class="amt">'+fmt(R.byCat['Seeds & Planting']||0)+'</td></tr>'+
+    '<tr><td>S11(a)</td><td>Seeds &amp; planting</td><td class="amt">'+fmt(R.byCat['Seeds & Planting']||0)+'</td></tr>'+
     '<tr><td>S11(a)</td><td>Labour &amp; Wages</td><td class="amt">'+fmt(R.byCat['Labour & Wages']||0)+'</td></tr>'+
-    '<tr><td>S11(d)</td><td>Fuel & oil</td><td class="amt">'+fmt(R.byCat['Fuel & Oil']||0)+'</td></tr>'+
-    '<tr><td>S11(e)</td><td>Repairs & maintenance</td><td class="amt">'+fmt(R.byCat['Machinery & Repairs']||0)+'</td></tr>'+
+    '<tr><td>S11(a)</td><td>Fuel & oil</td><td class="amt">'+fmt(R.byCat['Fuel & Oil']||0)+'</td></tr>'+
+    '<tr><td>S11(d)</td><td>Repairs & maintenance</td><td class="amt">'+fmt(R.byCat['Machinery & Repairs']||0)+'</td></tr>'+
     '<tr><td>S12B</td><td>Agricultural capital allowances (est. 50/30/20)</td><td class="amt">—</td></tr>'+
     '<tr class="total"><td colspan="2">TOTAL DEDUCTIONS</td><td class="amt">'+fmt(R.totalCOS+R.totalOpex)+'</td></tr></table>'+
     '<h2>Tax Calculation</h2>'+
@@ -53903,7 +53903,7 @@ function buildPreviewHTML(type, R, lbl) {
   var meta = '<div class="pv-meta">'+
     '<strong>'+FARM.name+'</strong> &nbsp;·&nbsp; '+FARM.owner+'<br>'+
     'Period: '+lbl+(FARM.vat?' &nbsp;·&nbsp; VAT Registered':'')+'<br>'+
-    'Generated: '+new Date().toLocaleDateString('en-ZA')+
+    'Generated: '+_prettyDate(new Date())+
   '</div>';
 
   if(type === 'pl') return css + buildPreviewPL(R, meta);
@@ -54027,8 +54027,8 @@ function buildPreviewTax(R, meta) {
     '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(a)</td><td>Fertiliser</td><td class="amt">'+fmt(R.byCat['Fertiliser']||0)+'</td></tr>'+
     '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(a)</td><td>Crop Protection</td><td class="amt">'+fmt(R.byCat['Crop Protection']||0)+'</td></tr>'+
     '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(a)</td><td>Labour &amp; Wages</td><td class="amt">'+fmt(R.byCat['Labour & Wages']||0)+'</td></tr>'+
-    '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(d)</td><td>Fuel &amp; Oil</td><td class="amt">'+fmt(R.byCat['Fuel & Oil']||0)+'</td></tr>'+
-    '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(e)</td><td>Repairs &amp; Maintenance</td><td class="amt">'+fmt(R.byCat['Machinery & Repairs']||0)+'</td></tr>'+
+    '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(a)</td><td>Fuel &amp; Oil</td><td class="amt">'+fmt(R.byCat['Fuel & Oil']||0)+'</td></tr>'+
+    '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(d)</td><td>Repairs &amp; Maintenance</td><td class="amt">'+fmt(R.byCat['Machinery & Repairs']||0)+'</td></tr>'+
     '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S12B</td><td>Agricultural capital allowances (est.)</td><td class="amt" style="color:#9CA3AF">—</td></tr>'+
     '<tr class="total"><td colspan="2">TOTAL DEDUCTIONS</td><td class="amt">'+fmt(R.totalCOS+R.totalOpex)+'</td></tr>'+
     '</tbody></table></div>'+
@@ -55563,7 +55563,7 @@ function taxWhatIf(){
   setEl('tax-wi-p1','R'+_grpInt(Math.round(t/2))); setEl('tax-wi-p2','R'+_grpInt(t-Math.round(t/2))); setEl('tax-wi-mo','R'+_grpInt(Math.round(t/12))); setEl('tax-wi-marg',mrg+'%');
   var sv=$('tax-wi-save'), ded=t0-t; if(sv){ if(ded>0){ sv.style.display='block'; sv.innerHTML='🛠️ Your deductions cut this year’s tax by about <b>R'+_grpInt(ded)+'</b>.'; } else sv.style.display='none'; }
   var vo=$('tax-wi-vatout'); if(vo){ var vr=taxVatIfRegistered();
-    if(TAX_WI_VAT==='yes') vo.innerHTML='<b style="color:var(--gm)">'+((typeof FARM!=='undefined'&&FARM.vat)?'Registered:':'If you register:')+'</b> reclaim about <b>R'+_grpInt(vr.inputVat)+'</b> input VAT on your standard-rated costs (machinery, repairs, vet, admin)'+(vr.dieselLitres>0?' and claim the diesel refund — about <b>R'+_grpInt(vr.dieselRand)+'</b> on your '+_grpInt(vr.dieselLitres)+' L logged':'')+'. You’d charge 15% on sales (~R'+_grpInt(vr.outputVat)+' output VAT) — usually fine when your buyers are VAT-registered. Below R1m it’s your choice.';
+    if(TAX_WI_VAT==='yes') vo.innerHTML='<b style="color:var(--gm)">'+((typeof FARM!=='undefined'&&FARM.vat)?'Registered:':'If you register:')+'</b> reclaim about <b>R'+_grpInt(vr.inputVat)+'</b> input VAT on your standard-rated costs (machinery, repairs, vet, admin)'+(vr.dieselLitres>0?' and claim the diesel refund — about <b>R'+_grpInt(vr.dieselRand)+'</b> on your '+_grpInt(vr.dieselLitres)+' L logged':'')+((typeof FARM!=='undefined'&&FARM.vat) ? '. You charge 15% on sales — about R'+_grpInt(vr.outputVat)+' output VAT so far this year.' : '. You’d charge 15% on sales (~R'+_grpInt(vr.outputVat)+' output VAT) — usually fine when your buyers are VAT-registered. Below R1m it’s your choice.');
     else vo.innerHTML='<b>Not registered.</b> No VAT returns to file — but you can’t reclaim the ~<b>R'+_grpInt(vr.inputVat)+'</b> input VAT on your standard-rated costs'+(vr.dieselLitres>0?', and can’t claim the diesel refund on your '+_grpInt(vr.dieselLitres)+' L':'')+'. Tap “Registered” to weigh it up.';
   }
 }
@@ -56272,7 +56272,7 @@ function taxGlanceHTML(){
        Both are now in the arithmetic, so both have to be on the page — a waterfall that
        does not reconcile to its own total is the first thing an accountant queries. */
     var _vx=(typeof FARM!=='undefined'&&FARM.vat);   // a VAT vendor is taxed on amounts without VAT
-    var wf=[[_vx?'Farming income without VAT':'Gross farming income',prov.annualIncome,'#40916C']];
+    var wf=[[_vx?'Income without VAT':'Gross farming income',prov.annualIncome,'#40916C']];
     if((prov.recoup||0)>0) wf.push(['+ Sold assets recouped',prov.recoup,'#B45309']);
     wf.push(['− Running costs',-prov.otherDed,'#E86A5E']);
     if((prov.capAllow||0)>0) wf.push(['− Write-off on your assets',-prov.capAllow,'#40916C']);
@@ -56289,7 +56289,7 @@ function taxGlanceHTML(){
       h+='<div style="font-size:11px;color:var(--t3);line-height:1.5;margin-top:9px;padding-top:9px;border-top:1px solid var(--br2)"><b>'+IE_R(prov.capBought)+'</b> of what you spent bought things the farm now owns, so it isn’t a running cost here — it comes off as the write-off above instead, over the life of the item.</div>';
     }
     if((prov.loanCapital||0)>0){
-      h+='<div style="font-size:11px;color:var(--t3);line-height:1.5;margin-top:9px;padding-top:9px;border-top:1px solid var(--br2)"><b>'+IE_R(prov.loanCapital)+'</b> of your loan repayments paid back what you borrowed rather than interest. That part isn’t a cost, so it doesn’t come off here — which is why this figure is smaller than the total on your Transactions page.</div>';
+      h+='<div style="font-size:11px;color:var(--t3);line-height:1.5;margin-top:9px;padding-top:9px;border-top:1px solid var(--br2)"><b>'+IE_R(prov.loanCapital)+'</b> of your loan repayments paid back what you borrowed rather than interest. That part isn’t a cost, so it doesn’t come off here — SARS doesn’t let you take that off.</div>';
     }
     if(prov.nonDed>0){ var _ndp=_taxNonDedPhrase(prov.nonDedByCat);
       h+='<div style="font-size:11px;color:var(--t3);line-height:1.5;margin-top:9px;padding-top:9px;border-top:1px solid var(--br2)">'+
@@ -56648,7 +56648,7 @@ function _txDieselPanel(){
          book are counted in the claim but are not rows the register can print. */
       (((d.appLogged||0)+(d.nonQual||0))>0?'<button class="rc-btn" style="margin-left:8px" onclick="regOpen(\'diesel\')">Diesel logbook</button>':'')+'</div>'+
     '<div class="tx-dsl-n">At '+(aiDieselRate()*100).toFixed(1)+' c/\u2113 \u00b7 '+Math.round(aiDieselShare()*100)+'% of qualifying litres, for on-land farming. '+
-    'Rate applies from '+(STATUTORY.dieselRefund.effectiveFrom||'')+' \u2014 it moves with the fuel and RAF levies, so check it after each Budget.'+
+    'Rate applies from '+_prettyDate(STATUTORY.dieselRefund.effectiveFrom)+' \u2014 it moves with the fuel and RAF levies, so check it after each Budget.'+
     /* Say who this is for. The claim needs a per-machine record, and the farm that
        can produce one is the farm already writing in a tank book at the pump \u2014 for
        them this is a place to put what they already capture, not a new routine. */
@@ -61421,6 +61421,14 @@ var bg = $('stmt-preview-bg');
    computeRPT() has always done this for the Reports page, but BOTH SARS export paths
    built their own byCat inline and neither applied it — so the document handed to SARS
    claimed the entire instalment. One implementation now, used by both. */
+/* "23 Sep 2026" for a Date or an ISO string. en-ZA's toLocaleDateString prints 2026/09/23,
+   which read as a machine date on the packs an accountant files from. */
+function _prettyDate(d){
+  if(!d) return '';
+  var x=(typeof d.getTime==='function')?d:new Date(String(d).slice(0,10)+'T00:00:00');
+  if(isNaN(x.getTime())) return String(d);
+  return x.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][x.getMonth()]+' '+x.getFullYear();
+}
 function _sarsByCat(fy){
   /* Section B of the IT12 pack. It lists the same rands the Tax tab deducts — the rules in
      _taxFySplit, applied line by line so the accountant can see each category:
@@ -61542,7 +61550,7 @@ var pill = function(txt, col){ return '<span style="background:'+col+';color:#ff
       (FARM&&FARM.taxNo?'Income Tax No: <strong>'+FARM.taxNo+'</strong><br>':'')+
       (FARM&&FARM.vatNo?'VAT No: <strong>'+FARM.vatNo+'</strong><br>':'')+
       'Financial Year: <strong>1 March '+fy+' – 28 February '+(fy+1)+'</strong><br>'+
-      'Generated: '+new Date().toLocaleDateString('en-ZA')+
+      'Generated: '+_prettyDate(new Date())+
     '</div>'+
 
 '<div class="sars-hero">'+
@@ -61675,7 +61683,7 @@ var _sc = IT.sc, byCat = _sc.byCat;
     '<div class="meta">'+FARM.name+' &nbsp;·&nbsp; '+FARM.owner+'<br>'+
     (FARM.taxNo?'Tax Number: '+FARM.taxNo+'<br>':'')+
     'Financial Year: 1 March '+fy+' – 28 February '+(fy+1)+'<br>'+
-    'Generated: '+ new Date().toLocaleDateString('en-ZA')+
+    'Generated: '+ _prettyDate(new Date())+
     '</div>'+
 
     '<button onclick="window.print()" style="background:#1B4332;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;margin-bottom:24px">🖨 Print / Save as PDF</button>'+
@@ -61733,7 +61741,7 @@ var _sc = IT.sc, byCat = _sc.byCat;
     'AgriInsights does not constitute tax advice.'+
     '</div>';
 
-  printWindow('SARS IT12 Pre-fill — FY '+fy, html);
+  printWindow('SARS IT12 Pre-fill — FY '+fy+'/'+String(fy+1).slice(-2), html);
 }
 
 // ============================================================
