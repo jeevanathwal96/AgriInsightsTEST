@@ -11973,6 +11973,10 @@ function cropOpenLandFromPlan(linkId){
 }
 function cropDispDate(iso){ if(!iso) return '\u2014'; var p=iso.split('-'); if(p.length<3) return iso; var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return parseInt(p[2],10)+' '+M[parseInt(p[1],10)-1]+' '+p[0]; }
 function cropInputSafe(inp){ if(!inp.phi||!inp.date) return null; var d=new Date(inp.date+'T00:00:00'); d.setDate(d.getDate()+inp.phi); return d; }
+/* The safe date as YYYY-MM-DD in LOCAL time. toISOString() is UTC, so local midnight read back
+   a day early wherever the clock is ahead of UTC - all year in South Africa, all summer in the
+   UK - and the table said harvest was safe the day before the header did. */
+function cropLocalISO(d){ if(!d) return ''; var m=d.getMonth()+1, x=d.getDate(); return d.getFullYear()+'-'+(m<10?'0':'')+m+'-'+(x<10?'0':'')+x; }
 function cropInputActive(inp){ var s=cropInputSafe(inp); return s && s>LS_TODAY; }
 function cropInputKindMeta(k){ return {seed:['Seed','p-seed'],fertiliser:['Fertiliser','p-fert'],herbicide:['Herbicide','p-herb'],fungicide:['Fungicide','p-fung'],insecticide:['Insecticide','p-pest']}[k] || ['Other','p-fert']; }
 function cropInputCostTotal(){ return ST_CROP.inputs.reduce(function(s,inp){var l=cropLandById(inp.land);return s+(inp.costPerHa||0)*((l&&l.area)||0);},0); }
@@ -13233,7 +13237,7 @@ function cropRenderInputs(){
   });
   var rows=list.map(function(i){
     var l=cropLandById(i.land); var meta=cropInputKindMeta(i.kind);
-    var safe = cropInputActive(i) ? ('\u23F3 '+cropDispDate(cropInputSafe(i).toISOString().slice(0,10))) : (i.phi?'\u2713 clear':'\u2713');
+    var safe = cropInputActive(i) ? ('\u23F3 '+cropDispDate(cropLocalISO(cropInputSafe(i)))) : (i.phi?'\u2713 clear':'\u2713');
     var safeCls = cropInputActive(i)?'st-wd':'st-ok';
     var batch = (i.kind==='fertiliser'||i.kind==='seed') ? (i.batch||'\u2014') : (i.batch?esc(i.batch):'<span class="miss">missing</span>');
     return '<tr style="cursor:pointer" onclick="cropInputTap(\''+String(i.id).replace(/[^A-Za-z0-9_\-]/g,'')+'\')"><td>'+cropDispDate(i.date)+'</td><td>'+esc(l?l.name:'?')+'</td>'+
@@ -13981,11 +13985,11 @@ function openCropSprayReport(){
   var all=ST_CROP.inputs.slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var active=cropActivePHI();
   var missing=all.filter(function(i){return i.product && i.kind!=='fertiliser' && i.kind!=='seed' && !i.batch;});
-  var awRows=active.length?active.map(function(i){var l=cropLandById(i.land);return '<tr><td>'+escTxHtml(l?l.name:'?')+'</td><td>'+escTxHtml(i.product)+'</td><td>'+cropDispDate(i.date)+'</td><td class="amt">'+i.phi+' d</td><td class="lsr-wd">\u23F3 '+cropDispDate(cropInputSafe(i).toISOString().slice(0,10))+'</td></tr>';}).join(''):'<tr><td colspan="5" style="color:#16a34a;font-weight:700">\u2713 No land is inside a pre-harvest interval.</td></tr>';
+  var awRows=active.length?active.map(function(i){var l=cropLandById(i.land);return '<tr><td>'+escTxHtml(l?l.name:'?')+'</td><td>'+escTxHtml(i.product)+'</td><td>'+cropDispDate(i.date)+'</td><td class="amt">'+i.phi+' d</td><td class="lsr-wd">\u23F3 '+cropDispDate(cropLocalISO(cropInputSafe(i)))+'</td></tr>';}).join(''):'<tr><td colspan="5" style="color:#16a34a;font-weight:700">\u2713 No land is inside a pre-harvest interval.</td></tr>';
   var regRows=all.map(function(i){
     var l=cropLandById(i.land); var meta=cropInputKindMeta(i.kind);
     var batch=(i.kind==='fertiliser'||i.kind==='seed')?(i.batch||'\u2014'):(i.batch?escTxHtml(i.batch):'<span class="lsr-miss">missing</span>');
-    var safe=cropInputActive(i)?('\u23F3 '+cropDispDate(cropInputSafe(i).toISOString().slice(0,10))):(i.phi?'cleared':'\u2014');
+    var safe=cropInputActive(i)?('\u23F3 '+cropDispDate(cropLocalISO(cropInputSafe(i)))):(i.phi?'cleared':'\u2014');
     var status=cropInputActive(i)?'<span class="lsr-wd">\u23F3 within PHI</span>':'<span class="lsr-ok">\u2713 clear</span>';
     return '<tr><td>'+cropDispDate(i.date)+'</td><td>'+escTxHtml(l?l.name:'?')+'</td><td>'+escTxHtml(i.product)+'<br><span style="color:#9ca3af;font-size:11px">Act 36/1947 \u00b7 '+escTxHtml(i.reg||'\u2014')+'</span></td><td><span class="lsr-pill '+meta[1].replace('p-','lsr-')+'">'+meta[0]+'</span></td><td>'+escTxHtml(i.rate||'')+'</td><td>'+batch+'</td><td>'+escTxHtml(i.by||'')+(i.operatorCert?' ('+escTxHtml(i.operatorCert)+')':'')+'</td><td>'+(i.phi?i.phi+' d':'None')+'</td><td>'+safe+'</td><td>'+status+'</td></tr>';
   }).join('');
@@ -13998,7 +14002,7 @@ function openCropSprayReport(){
     '<h2>3 \u00b7 Records to keep</h2><ul class="lsr-keep"><li>Registered product (Act 36 / L-number) used at label rate.</li><li>Date, land, batch and applicator for every application.</li><li>Pre-harvest interval observed before harvest/delivery.</li><li>Operator training and PPE for restricted products.</li></ul>'+
     '<div class="lsr-disc"><b>Not agronomic or legal advice.</b> Confirm registration, rates and PHIs against the current product label. Final responsibility rests with the farm.</div>';
   var csv=lsCsvRow(['Spray Program & PHI Audit',FARM.name||'Farm','Season',ST_CROP.season])+lsCsvRow([])+lsCsvRow(['Date','Land','Product','Reg','Type','Rate','Batch','By','Cert','PHI (d)','Safe from','Status']);
-  all.forEach(function(i){var l=cropLandById(i.land);csv+=lsCsvRow([i.date,l?l.name:'',i.product,i.reg||'',cropInputKindMeta(i.kind)[0],i.rate||'',i.batch||'',i.by||'',i.operatorCert||'',i.phi||0,cropInputActive(i)?cropInputSafe(i).toISOString().slice(0,10):'cleared',cropInputActive(i)?'within PHI':'clear']);});
+  all.forEach(function(i){var l=cropLandById(i.land);csv+=lsCsvRow([i.date,l?l.name:'',i.product,i.reg||'',cropInputKindMeta(i.kind)[0],i.rate||'',i.batch||'',i.by||'',i.operatorCert||'',i.phi||0,cropInputActive(i)?cropLocalISO(cropInputSafe(i)):'cleared',cropInputActive(i)?'within PHI':'clear']);});
   lsShowReport('Spray program & PHI audit','linear-gradient(135deg,#9a3d6e,#7C2D5A)',html,csv,'crop-spray-phi-audit.csv');
 }
 
@@ -69479,10 +69483,13 @@ function orSaveSpray(){
   ST_FRUIT.sprayDiary[cat]=ST_FRUIT.sprayDiary[cat]||[];
   ST_FRUIT.sprayDiary[cat].unshift({id:'os'+Date.now().toString(36),ic:'\uD83E\uDDEA',t:prod+(forx?' — for '+forx:''),s:b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray'),phi:{eu:days,uk:days,us:Math.max(0,days-7),local:days},bid:b.id,product:prod,forx:forx,dateISO:dt.toISOString().slice(0,10),att:orAttachTake('sp'),
     reg:reg,rate:rate,batch:batch,by:by,cert:cert,weather:weather});
-  ST_FRUIT.phi[cat]=ST_FRUIT.phi[cat]||[];
-  var safe={eu:orFmtDM(orAddDays(dt,days)),uk:orFmtDM(orAddDays(dt,days)),us:orFmtDM(orAddDays(dt,Math.max(0,days-7))),local:orFmtDM(orAddDays(dt,days))};
-  var ex=ST_FRUIT.phi[cat].filter(function(r){return String(r.bid)===String(b.id);})[0];
-  if(ex){ ex.last=prod+' · '+orFmtDM(dt); ex.d=safe; } else ST_FRUIT.phi[cat].unshift({bid:b.id,n:b.name+' ('+b.cultivar.split(' · ')[0]+')',last:prod+' · '+orFmtDM(dt),d:safe});
+  /* Rebuilt from the diary (-442). Writing only the day-month strings left the full dates
+     (_t) the safe-to-pick check reads from -441 on at the OLD spray's, so a block read "Clear"
+     straight after a new spray until a reload; and it overwrote the block's date with the
+     newest spray even while an older, longer one was still running. */
+  if(typeof orRebuildPhi==='function') orRebuildPhi();
+  var _pe=(ST_FRUIT.phi[cat]||[]).filter(function(r){return String(r.bid)===String(b.id);})[0];
+  var safe=(_pe&&_pe.d)?_pe.d:{eu:orFmtDM(orAddDays(dt,days))};
   if(cost>0 && typeof queueOrSave==='function'){
     queueOrSave({date:orFmtDM(dt)+' '+dt.getFullYear(),desc:prod+' — '+b.name,cat:'Crop Protection',type:'expense',amt:cost,method:'Bank Debit'});
   }
