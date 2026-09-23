@@ -6586,8 +6586,8 @@ table.rn-t td.dim{color:var(--t4)}
 
       <div class="ob-left-footer">
         Made for South African farmers<br>
-        Works offline · No accountant needed<br>
-        Your data stays on your device
+        Works offline · Your accountant can open it too<br>
+        Saved privately to your own account
       </div>
     </div>
 
@@ -19189,12 +19189,12 @@ setEl('dash-budget-period', month);
   // ── Metric cards (legacy IDs — elements removed from DOM, setEl no-ops gracefully) ──
   setEl('dash-income',   fmt(cur.income));
   setEl('dash-expenses', fmt(cur.expenses));
-  setEl('dash-profit',   fmt(Math.abs(profit)));
+  setEl('dash-profit',   (profit<0?'\u2212':'')+fmt(Math.abs(profit)));
 
   // ── Cashflow grid (Option A — single panel with deltas, margin & footer) ──
   setEl('dash-cf-in',  fmt(cur.income));
   setEl('dash-cf-out', fmt(cur.expenses));
-  setEl('dash-cf-net', fmt(Math.abs(profit)));
+  setEl('dash-cf-net', (profit<0?'\u2212':'')+fmt(Math.abs(profit)));
   /* Which of the farm's profits this one is. The card header already says the
      month, so the tag carries the BASIS - the part no label on the screen states. */
   if(typeof setTags==='function') setTags('dash-cf-profit-tags','actual','Cash');
@@ -19265,7 +19265,7 @@ var txCount = ST.txns.filter(function(t){
   // ── Cashflow page ──
   setEl('cashflow-in',  fmt(cur.income));
   setEl('cashflow-out', fmt(cur.expenses));
-  setEl('cashflow-net', fmt(Math.abs(profit)));
+  setEl('cashflow-net', (profit<0?'\u2212':'')+fmt(Math.abs(profit)));
   setEl('cashflow-badge', (profit>=0?'↑':'↓') + ' ' + margin + '% margin');
   setEl('cashflow-sub', (profit>=0?'Yes, you have enough':'Watch your cash — expenses exceed income') + ' this month.');
   setEl('cashflow-detail', 'You earned ' + (profit>=0 ? fmt(Math.abs(profit)) + ' more' : fmt(Math.abs(profit)) + ' less') + ' than you spent in ' + month + '.');
@@ -19310,7 +19310,10 @@ function renderSeasonKpis() {
 
 setEl('season-ytd-income',   fmt(ytd.income));
   setEl('season-ytd-expenses', fmt(ytd.expenses));
-  setEl('season-ytd-profit',   fmt(Math.abs(profit)));
+  /* A loss keeps its minus sign and says "Loss": the red colour alone read as a profit. */
+  setEl('season-ytd-profit',   (profit<0?'\u2212':'')+fmt(Math.abs(profit)));
+  (function(){ var v=$('season-ytd-profit'), l=v&&v.previousElementSibling; if(!l) return;
+    var tn=l.firstChild; if(tn && tn.nodeType===3) tn.nodeValue=(profit<0?'Loss':'Profit')+' Year-to-date'; })();
   /* No income, no margin. The dashboard's main card already said so; this tile said 0.0%. */
   setEl('season-margin', ytd.income > 0 ? margin + '%' : '\u2014');
   (function(){ var v = $('season-margin'); if (!v) return;
@@ -50668,8 +50671,8 @@ LANG_PAIRS.push(
    "Bestaande skuld, kontantvloei & sekuriteit"],
   ["Estimates, diesel refund & allowances",
    "Skattings, dieselterugbetaling & toelaes"],
-  ["Works offline · No accountant needed",
-   "Werk vanlyn · Geen rekenmeester nodig"],
+  ["Works offline · Your accountant can open it too",
+   "Werk vanlyn · Jou rekenmeester kan dit ook oopmaak"],
   ["A printable statement for the period",
    "’n Drukbare staat vir die tydperk"],
   ["Click to choose a CSV, PDF, or photo",
@@ -51241,8 +51244,8 @@ LANG_PAIRS.push(
    "Het jy verlede seisoen se rekords om in te bring?"],
   ["Recurring items in the forecast",
    "Herhalende items in die vooruitskatting"],
-  ["Your data stays on your device",
-   "Jou data bly op jou toestel"],
+  ["Saved privately to your own account",
+   "Privaat gestoor in jou eie rekening"],
   /* sample rows in the co-op import preview — not stored transactions */
   ["Sunflower — delivery to Senwes",  "Sonneblom — aflewering aan Senwes"],
   ["White maize — delivery to NWK",   "Witmielies — aflewering aan NWK"],
@@ -51530,6 +51533,7 @@ LANG_PAIRS.push(
   ["Income tax for the year", "Inkomstebelasting vir die jaar"],
   ["🟢 You keep",             "🟢 Jy hou"],
   ["Should you register for VAT?", "Moet jy vir BTW registreer?"],
+  ["VAT — registered or not", "BTW — geregistreer of nie"],
   ["Not registered",          "Nie geregistreer nie"],
   /* Profit */
   ["transactions aren’t counted in the margins below.", "transaksies word nie in die marges hieronder getel nie."],
@@ -55522,12 +55526,15 @@ function taxPayrollAnnual(){
   return {uif:Math.round(uifMo*12),paye:Math.round(payeMo*12),sdl:Math.round(sdlMo*12),total:Math.round((uifMo+payeMo+sdlMo)*12)};
 }
 function taxVatTrend(){
-  if(typeof FARM==='undefined'||!FARM.vat) return [];
-  var now=_txNow(), MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], out=[];
-  for(var k=2;k>=0;k--){
-    var end=new Date(now.getFullYear(),now.getMonth()+1-(k*2),0), start=new Date(now.getFullYear(),now.getMonth()-1-(k*2),1), o=0,i=0;
-    (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var dd=new Date(d.y,d.m,d.d||1); if(dd<start||dd>end) return; var s=IE_split(t.amt,t.cat); if(t.type==='income') o+=s.vat; else i+=s.vat; });
-    out.push({label:MO[end.getMonth()], net:Math.round(o-i)});
+  /* The farm's own last three VAT periods (the Reports picker's calendar, which follows the
+     VAT category), not fixed two-month blocks - the UK files quarterly. Net is signed:
+     negative means SARS owes the farm. */
+  if(typeof FARM==='undefined'||!FARM.vat||typeof _txVatBlock!=='function') return [];
+  var out=[];
+  for(var k=-2;k<=0;k++){
+    var b=_txVatBlock(k), start=new Date(b.from+'T00:00:00'), end=new Date(b.to+'T00:00:00'), o=0,i=0;
+    (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var dd=new Date(d.y,d.m,d.d||1); if(dd<start||dd>end) return; var s=IE_split(t.amt,t.cat); if(t.type==='income') o+=s.vat; else if(t.type==='expense') i+=s.vat; });
+    out.push({label:b.label, net:Math.round(o-i)});
   }
   return out;
 }
@@ -56255,7 +56262,7 @@ function taxGlanceHTML(){
     h+='<div class="tx-card" style="display:flex;flex-direction:column"><div class="tx-h">Set aside each month</div><div style="flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:24px;font-weight:800">'+fmt(Math.round(prov.annualTax/12))+'</div><div style="font-size:11px;color:var(--t3);margin-top:3px">to cover '+esc(prov.next.lbl)+' — '+(prov.daysAway>0?prov.daysAway+' days to go':'due now')+'</div><div style="font-size:11px;color:var(--t4);margin-top:3px">'+(prov.basis==='plan'?'From your season plan':'Spread evenly (no plan yet)')+'</div></div></div>';
   } else { h+='<div class="tx-card"><div class="tx-h">Set aside for tax</div><div style="font-size:12.5px;color:var(--t3)">Once your season shows a profit, your provisional-tax set-aside appears here.</div></div>'; }
   if(trend.length){ var mx=Math.max.apply(null,trend.map(function(t){return Math.abs(t.net);}).concat(1));
-    h+='<div class="tx-card" style="display:flex;flex-direction:column"><div class="tx-h">VAT — last 3 periods</div><div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:4px"><div style="display:flex;align-items:flex-end;gap:10px;height:62px">'+trend.map(function(t,i){var pc=Math.max(6,Math.round(Math.abs(t.net)/mx*100));return '<div style="flex:1;text-align:center"><div style="height:'+Math.round(pc*0.44)+'px;background:'+(i===trend.length-1?'#DC2626':'#F87171')+';border-radius:4px 4px 0 0"></div><div style="font-size:11px;color:var(--t4);margin-top:3px">'+t.label+'</div></div>';}).join('')+'</div><div style="font-size:11px;color:var(--t4);margin-top:6px;text-align:center">Net VAT payable per period</div></div></div>';
+    h+='<div class="tx-card" style="display:flex;flex-direction:column"><div class="tx-h">VAT — last 3 periods</div><div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:4px"><div style="display:flex;align-items:flex-end;gap:10px;height:62px">'+trend.map(function(t,i){var pc=Math.max(6,Math.round(Math.abs(t.net)/mx*100));var owe=t.net>=0, cur=(i===trend.length-1); return '<div style="flex:1;text-align:center;min-width:0"><div style="font-size:10.5px;font-weight:700;color:'+(owe?'#B91C1C':'#2D6A4F')+';margin-bottom:2px;white-space:nowrap">'+(owe?'':'+')+fmt(Math.abs(t.net))+'</div><div style="height:'+Math.round(pc*0.44)+'px;background:'+(owe?(cur?'#DC2626':'#F87171'):(cur?'#2D6A4F':'#74A98A'))+';border-radius:4px 4px 0 0"></div><div style="font-size:10.5px;color:var(--t4);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+t.label+'</div></div>';}).join('')+'</div><div style="font-size:11px;color:var(--t4);margin-top:6px;text-align:center">Red: you pay SARS · green (+): SARS pays you</div></div></div>';
   } else { h+='<div class="tx-card"><div class="tx-h">VAT</div><div style="font-size:12.5px;color:var(--t3)">Not registered for VAT — no VAT to track.</div></div>'; }
   h+='</div>';
 
@@ -56889,7 +56896,7 @@ function taxWhatIfHTML(){
     '</div>'+
     '<div id="tax-wi-save" style="font-size:12px;margin-top:14px;background:rgba(255,255,255,.1);border-radius:9px;padding:9px 12px;line-height:1.5;display:none"></div></div>';
   // ── VAT registration helper (a separate tax) ──
-  h+='<div class="tx-card"><div class="tx-h"><span class="tx-vaticon">%</span> Should you register for VAT? <small style="font-weight:600;color:var(--t4)">— a separate tax</small></div>'+
+  h+='<div class="tx-card"><div class="tx-h"><span class="tx-vaticon">%</span> '+((typeof FARM!=='undefined'&&FARM.vat)?'VAT — registered or not':'Should you register for VAT?')+' <small style="font-weight:600;color:var(--t4)">— a separate tax</small></div>'+
     '<div id="tax-wi-vatseg" style="display:flex;gap:5px;max-width:260px">'+
       '<button data-v="no" class="'+(TAX_WI_VAT==='no'?'on':'')+'" onclick="taxWiVat(\'no\')" '+eb+'>Not registered</button>'+
       '<button data-v="yes" class="'+(TAX_WI_VAT==='yes'?'on':'')+'" onclick="taxWiVat(\'yes\')" '+eb+'>Registered</button>'+
