@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=66"></script>
+<script src="ai-data.js?v=67"></script>
 <script src="ai-auth.js?v=46"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -8955,6 +8955,7 @@ table.rn-t td.dim{color:var(--t4)}
     </div></div>
   <div class="wk-f"><label>When did they start?</label><input type="date" id="awf-start"></div>
   <div class="wk-switch"><div><div class="t">Lives on the farm?</div><div class="d">Turns on the housing &amp; tenure rules (ESTA).</div></div><div class="wk-sw" id="awf-onfarm" onclick="wkTogSwitch(this)"></div></div>
+  <div class="wk-switch"><div><div class="t">A family member or connected person?</div><div class="d">The Employment Tax Incentive can&rsquo;t be claimed for them. Leave off for everyone else &mdash; with their ID number we check age and the rest.</div></div><div class="wk-sw" id="awf-etiex" onclick="wkTogSwitch(this)"></div></div>
   <div class="wk-f"><label>ID number <span style="color:var(--t4);font-weight:600">&mdash; can add later</span></label><input type="text" id="awf-id" placeholder="13 digits"></div>
   <div class="wk-f"><label>Works on <span style="color:var(--t4);font-weight:600">&mdash; sends their pay to a crop/herd in Profit</span></label><select id="awf-activity" style="width:100%;padding:11px 12px;font-size:14px;border:1.5px solid var(--br2);border-radius:10px;font-family:inherit;background:#fff;font-weight:600"></select></div>
 
@@ -21609,6 +21610,27 @@ function LN_monthsElapsed(l){
   return (n>0 && n<600) ? n : null;
 }
 /* First month of the loan as 'YYYY-MM', or null if we genuinely cannot tell. */
+/* A loan's next payment. The day comes from what was typed ("1 Jun" -> the 1st), else the
+   1st. Paid this month = confirmed on the loans page, or a repayment in this month's books
+   tagged to the loan or for its exact amount. A settled loan has no next payment. */
+function LN_dueLbl(d){ return d.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]; }
+function LN_nextDue(l){
+  if(!l || !(l.payment>0) || !((l.balance||0)>0)) return null;
+  var today=(typeof _lnToday==='function')?_lnToday():new Date(); today=new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  var m=String(l.next||'').match(/^\s*(\d{1,2})\b/), day=m?Math.min(28,Math.max(1,+m[1])):1;
+  var thisDue=new Date(today.getFullYear(), today.getMonth(), day);
+  var paid=false;
+  try{ paid=(typeof LN_isConfirmed==='function') && LN_isConfirmed(l.id); }catch(e){}
+  if(!paid){
+    (ST.txns||[]).forEach(function(t){
+      if(paid||!t||t.type!=='expense'||t.cat!=='Loan Repayments') return;
+      var d=parseDate(t.date); if(!d||d.y!==today.getFullYear()||d.m!==today.getMonth()) return;
+      if(t.ent==='loan:'+l.id || Math.round(t.amt||0)===Math.round(l.payment)) paid=true;
+    });
+  }
+  if(paid) return {date:new Date(today.getFullYear(), today.getMonth()+1, day), overdue:false, paid:true};
+  return {date:thisDue, overdue:(thisDue<today), paid:false};
+}
 function LN_startYM(l){
   if(l && l.startYM && /^\d{4}-\d{2}$/.test(l.startYM)) return l.startYM;
   var n=LN_monthsElapsed(l); if(n==null) return null;
@@ -21761,7 +21783,9 @@ var LA_INCPURP={
 };
 var LA_DMIN=1.25, LA_DGOOD=1.5;
 var LA=null;
-function laPrime(){ try{ return (STATUTORY&&STATUTORY.primeRate&&STATUTORY.primeRate.value)||10.5; }catch(e){ return 10.5; } }
+/* Prime on today's date: the new rate only from the day it takes effect. */
+function laPrime(){ try{ var P=STATUTORY.primeRate, t=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date();
+  if(P.effectiveFrom && P.prior!=null && t < new Date(P.effectiveFrom+'T00:00:00')) return P.prior; return P.value||10.75; }catch(e){ return 10.75; } }
 function laSuggestRate(p){ var m=LA_MARGINS[p]; if(m==null) m=2.5; return Math.round((laPrime()+m)*100)/100; }
 function laPmt(P,rp,y){ var r=rp/100/12,n=y*12; if(!(P>0)||!(y>0)) return 0; if(r<=0) return P/n; return P*r/(1-Math.pow(1+r,-n)); }
 function laFarmIncome(){ try{ var e=taxProvEstimate(); return Math.max(0,Math.round((e&&e.annualProfit)||0)); }catch(err){ return 0; } }
@@ -22129,7 +22153,11 @@ function laReportHTML(withLoan){
   var shortLiab=odUsed+coUsed;
   var currentRatio=shortLiab>0?(currentAssets/shortLiab):null;
   var annInt=0; try{ annInt=LN_annualInterest(); }catch(e){}
-  var intCover=annInt>0?(farmIncome/annInt):null;
+  /* Interest cover = profit BEFORE interest / interest: income less running costs (which
+     hold the interest, not the capital repaid), with the interest added back. It divided
+     a profit that already had the interest - and on SA the capital repaid - taken off. */
+  var _pbi=null; try{ var _pe=taxProvEstimate(); _pbi=Math.round((_pe.annualIncome||0)-(_pe.otherDed||0)+annInt); }catch(e){}
+  var intCover=annInt>0?(((_pbi!=null)?_pbi:(farmIncome+annInt))/annInt):null;
   var roa=totalAssets>0?Math.round(farmIncome/totalAssets*100):0;
 
   var H=[];
@@ -22390,7 +22418,7 @@ function laReportHTML(withLoan){
   var ratioRows='<tr><td>Equity ratio</td><td class="l2">Net worth ÷ total assets</td><td>'+equityPct+'%</td></tr>'+
     '<tr><td>Debt-to-asset ratio</td><td class="l2">Total liabilities ÷ total assets</td><td>'+debtAssetPct+'%</td></tr>'+
     (currentRatio!=null?'<tr><td>Current ratio</td><td class="l2">Current assets ÷ current liabilities</td><td>'+currentRatio.toFixed(1)+'</td></tr>':'')+
-    (intCover!=null?'<tr><td>Interest cover</td><td class="l2">Operating income ÷ interest</td><td>'+intCover.toFixed(1)+'×</td></tr>':'')+
+    (intCover!=null?'<tr><td>Interest cover</td><td class="l2">Profit before interest ÷ interest</td><td>'+intCover.toFixed(1)+'×</td></tr>':'')+
     '<tr><td>Return on assets</td><td class="l2">Operating income ÷ total assets</td><td>'+roa+'%</td></tr>';
   H.push('<div class="lar-sec">'+sh('Financial ratios','Standard solvency, liquidity and return measures.')+
     '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Ratio</th><th class="l2">Basis</th><th>Value</th></tr></thead><tbody>'+ratioRows+'</tbody></table></div></div>');
@@ -22556,13 +22584,22 @@ function lnGlanceHTML(){
   h+=lnConfirmBox('summary');
   /* 3. Upcoming payments */
   h+='<div class="ln-card"><p class="ln-ct">Upcoming payments</p>';
-  ST_LOANS.loans.forEach(function(l){ h+='<div class="ln-up"><span><b>'+esc(l.name)+'</b> <span class="d">\u00b7 '+esc(l.next||'this month')+'</span></span><span class="a">'+LN_R(l.payment)+'</span></div>'; });
+  /* The real next date for each loan, from its payment day: next month once this month's
+     payment is confirmed or in the books, this month otherwise. It printed whatever was
+     typed in "next" - '1 Jun' on every demo loan, in September. */
+  var _due=ST_LOANS.loans.map(function(l){ return {l:l, d:LN_nextDue(l)}; }).filter(function(x){ return x.d; });
+  _due.sort(function(a,b){ return a.d.date-b.d.date; });
+  _due.forEach(function(x){ var l=x.l, d=x.d;
+    h+='<div class="ln-up"><span><b>'+esc(l.name)+'</b> <span class="d"'+(d.overdue?' style="color:#B45309;font-weight:700"':'')+'>\u00b7 '+(d.overdue?'was due '+LN_dueLbl(d.date)+' \u2014 not marked paid':LN_dueLbl(d.date))+'</span></span><span class="a">'+LN_R(l.payment)+'</span></div>'; });
   h+='</div>';
   /* 4. Anything to watch */
   var hasSeason=ST_LOANS.loans.some(function(l){ return /season|prime/i.test(l.type+' '+l.name); });
   h+='<div class="ln-card"><p class="ln-ct">Anything to watch?</p>';
   if(hasSeason) h+='<div class="ln-issue"><span class="ln-dot2 ln-amber"></span><div>Your <b>season loan</b> follows prime. If prime goes up, that payment goes up too \u2014 leave a little room for it.</div></div>';
-  h+='<div class="ln-issue"><span class="ln-dot2 ln-green"></span><div>Nothing overdue \u2014 you\u2019re <b>up to date</b> on every loan.</div></div></div>';
+  /* Only says "up to date" when it is: this was fixed text. */
+  var _late=_due.filter(function(x){ return x.d.overdue; });
+  if(_late.length) h+='<div class="ln-issue"><span class="ln-dot2 ln-amber"></span><div><b>'+_late.length+' payment'+(_late.length===1?'':'s')+' not marked paid</b> this month \u2014 '+_late.map(function(x){ return esc(x.l.name)+' ('+LN_dueLbl(x.d.date)+')'; }).join(', ')+'. Confirm it above if it has gone out.</div></div></div>';
+  else h+='<div class="ln-issue"><span class="ln-dot2 ln-green"></span><div>Nothing overdue \u2014 you\u2019re <b>up to date</b> on every loan.</div></div></div>';
   /* 5. AI insights */
   h+='<div class="ln-card"><div class="ln-aihdr"><p class="ln-ct" style="margin:0">AI insights</p><span class="ln-aibadge">\u2728 from your numbers</span></div>'+
      '<p class="ln-cw" style="margin:4px 0 12px">Things worth knowing, picked out for you.</p>';
@@ -22763,7 +22800,10 @@ function lnOpenInterest(id){
 var LN_OD_UI = {};
 function lnOdUI(id){ if(!LN_OD_UI[id]) LN_OD_UI[id]={mode:null, amt:0, src:'bank'}; return LN_OD_UI[id]; }
 function LN_od(id){ return (ST_LOANS.overdrafts||[]).concat(ST_LOANS.coopAccounts||[]).filter(function(o){return o.id===id;})[0]; }
-function LN_odRate(o){ return (o&&o.rateMode==='flat') ? (o.flatRate||0) : (((o&&o.prime)||0)+((o&&o.margin)||0)); }
+/* A rate-linked facility follows the published rate on today's date plus the bank's margin.
+   It used the copy of the rate stored when the account was set up (10.25% on the demo),
+   so the interest never moved when the rate did. */
+function LN_odRate(o){ return (o&&o.rateMode==='flat') ? (o.flatRate||0) : (((typeof laPrime==='function')?laPrime():((o&&o.prime)||0))+((o&&o.margin)||0)); }
 function LN_odAvail(o){ return Math.max(0,((o&&o.limit)||0)-((o&&o.used)||0)); }
 function LN_odIntM(o){ return Math.round(((o&&o.used)||0)*LN_odRate(o)/100/12); }
 function LN_odUsedTotal(){ var t=0; (ST_LOANS.overdrafts||[]).forEach(function(o){ t+=o.used||0; }); return t; }
@@ -22779,7 +22819,7 @@ function lnOdRateMode(id,m){ var o=LN_od(id); if(!o) return; o.rateMode=m; saveS
 function lnOdRateInput(id){
   var o=LN_od(id); if(!o) return;
   var pe=$('od-'+id+'-prime'), me=$('od-'+id+'-margin'), fe=$('od-'+id+'-flat');
-  if(pe) o.prime=parseFloat(pe.value)||0;
+  /* the rate field is read-only now: it shows the published rate, not a stored copy */
   if(me) o.margin=parseFloat(me.value)||0;
   if(fe) o.flatRate=parseFloat(fe.value)||0;
   saveState();
@@ -22842,7 +22882,7 @@ function lnOdRateEditor(o){
     body='<div class="od-re-row"><div class="od-re-f"><label>Rate (% per year)</label><div class="od-re-inp"><input id="od-'+id+'-flat" type="number" step="0.25" value="'+(o.flatRate||0)+'" oninput="lnOdRateInput(\''+id+'\')"><span>%</span></div><div class="od-re-hint">you set this \u2014 won\u2019t move with prime</div></div>'+
       '<div class="od-re-op">=</div><div class="od-re-effbox"><div class="od-re-effv" id="od-'+id+'-eff">'+eff+'</div><div class="od-re-effl">effective rate</div></div></div>';
   } else {
-    body='<div class="od-re-row"><div class="od-re-f"><label>Prime rate</label><div class="od-re-inp"><input id="od-'+id+'-prime" type="number" step="0.25" value="'+(o.prime||0)+'" oninput="lnOdRateInput(\''+id+'\')"><span>%</span></div><div class="od-re-hint">Current SA prime \u00b7 10.25%</div></div>'+
+    body='<div class="od-re-row"><div class="od-re-f"><label>Prime rate</label><div class="od-re-inp"><input id="od-'+id+'-prime" type="number" step="0.25" value="'+((typeof laPrime==='function')?laPrime():(o.prime||0))+'" readonly title="Follows the published prime \u2014 only the bank\u2019s margin is yours to set" style="background:var(--bg2,#f4f4f1)"><span>%</span></div><div class="od-re-hint">Current SA prime \u00b7 10.25%</div></div>'+
       '<div class="od-re-op">+</div><div class="od-re-f"><label>Bank adds</label><div class="od-re-inp"><input id="od-'+id+'-margin" type="number" step="0.25" value="'+(o.margin||0)+'" oninput="lnOdRateInput(\''+id+'\')"><span>%</span></div><div class="od-re-hint">your bank\u2019s mark-up over prime</div></div>'+
       '<div class="od-re-op">=</div><div class="od-re-effbox"><div class="od-re-effv" id="od-'+id+'-eff">'+eff+'</div><div class="od-re-effl">effective rate</div></div></div>';
   }
@@ -22970,9 +23010,9 @@ function lnOdFormRateWrap(o){
   if(LN_OD_FORM_MODE==='flat'){
     inputs='<div class="ln-frow"><label>Rate (% a year)</label><input id="odf-flat" class="ln-inp" inputmode="decimal" placeholder="e.g. 12.25" value="'+((o&&o.rateMode==='flat')?(o.flatRate||''):'')+'"></div>';
   } else {
-    inputs='<div class="ln-two"><div class="ln-frow"><label>Prime rate (%)</label><input id="odf-prime" class="ln-inp" inputmode="decimal" value="'+((o&&o.prime!=null)?o.prime:'10.25')+'"></div>'+
+    inputs='<div class="ln-two"><div class="ln-frow"><label>Prime rate (%)</label><input id="odf-prime" class="ln-inp" inputmode="decimal" value="'+((o&&o.prime!=null)?o.prime:laPrime())+'"></div>'+
       '<div class="ln-frow"><label>Bank adds (%)</label><input id="odf-margin" class="ln-inp" inputmode="decimal" placeholder="e.g. 2" value="'+((o&&o.margin!=null)?o.margin:'')+'"></div></div>'+
-      '<div class="ln-hint">Your bank\u2019s mark-up over prime \u2014 the extra the bank charges. Current SA prime is about 10.25%.</div>';
+      '<div class="ln-hint">Your bank\u2019s mark-up over prime \u2014 the extra the bank charges. SA prime is '+laPrime()+'% today.</div>';
   }
   return toggle+inputs;
 }
@@ -23002,7 +23042,7 @@ function lnSaveOverdraft(){
   var limit=lnNum('odf-limit'), used=lnNum('odf-used');
   if(used>limit) used=limit;
   var mode=LN_OD_FORM_MODE;
-  var prime=mode==='prime'?(parseFloat(($('odf-prime')||{}).value)||0):10.25;
+  var prime=mode==='prime'?(parseFloat(($('odf-prime')||{}).value)||0):laPrime();
   var margin=mode==='prime'?(parseFloat(($('odf-margin')||{}).value)||0):0;
   var flatRate=mode==='flat'?(parseFloat(($('odf-flat')||{}).value)||0):(prime+margin);
   var o=LN_OD_EDIT_ID?LN_od(LN_OD_EDIT_ID):null;
@@ -23120,9 +23160,9 @@ function lnAddCoHTML(){
   h+='<div class="ln-frow"><label>Which co-op?</label><select id="cof-coop" class="ln-inp">'+coops.map(function(x){return '<option'+(x===cv?' selected':'')+'>'+x+'</option>';}).join('')+'</select></div>';
   h+='<div class="ln-two"><div class="ln-frow"><label>What\u2019s your credit limit?</label><input id="cof-limit" class="ln-inp" inputmode="numeric" placeholder="R 0" value="'+(o?o.limit:'')+'"></div>'+
      '<div class="ln-frow"><label>What do you owe so far?</label><input id="cof-used" class="ln-inp" inputmode="numeric" placeholder="R 0" value="'+(o?o.used:'')+'"></div></div>';
-  h+='<div class="ln-two"><div class="ln-frow"><label>Prime rate (%)</label><input id="cof-prime" class="ln-inp" inputmode="decimal" value="'+((o&&o.prime!=null)?o.prime:'10.25')+'"></div>'+
+  h+='<div class="ln-two"><div class="ln-frow"><label>Prime rate (%)</label><input id="cof-prime" class="ln-inp" inputmode="decimal" value="'+((o&&o.prime!=null)?o.prime:laPrime())+'"></div>'+
      '<div class="ln-frow"><label>Co-op adds (%)</label><input id="cof-margin" class="ln-inp" inputmode="decimal" placeholder="e.g. 2" value="'+((o&&o.margin!=null)?o.margin:'')+'"></div></div>';
-  h+='<div class="ln-hint">The co-op\u2019s mark-up over prime \u2014 the extra they charge. Current SA prime is about 10.25%. You can switch to a flat rate later on the account card.</div>';
+  h+='<div class="ln-hint">The co-op\u2019s mark-up over prime \u2014 the extra they charge. SA prime is '+laPrime()+'% today. You can switch to a flat rate later on the account card.</div>';
   h+=lnFFFormRow('coop', o?o.id:null);
   h+='<button class="ln-addbtn" onclick="lnSaveCoopAcct()">'+(o?'Save changes':'Save co-op account')+'</button>';
   if(o) h+='<button class="ln-addbtn" style="background:#fff;color:var(--gd);border:1px solid var(--gm);margin-top:8px" onclick="lnArchive(\'coop\',\''+o.id+'\')">Archive (close account)</button>';
@@ -23136,7 +23176,7 @@ function lnSaveCoopAcct(){
   var coop=($('cof-coop')&&$('cof-coop').value)||'Other';
   if(!name) name=coop+' account';
   var limit=lnNum('cof-limit'), used=lnNum('cof-used'); if(used>limit) used=limit;
-  var prime=parseFloat(($('cof-prime')||{}).value)||10.25;
+  var prime=parseFloat(($('cof-prime')||{}).value)||laPrime();
   var margin=parseFloat(($('cof-margin')||{}).value)||0;
   var o=LN_CO_EDIT_ID?LN_coAcct(LN_CO_EDIT_ID):null;
   if(o){ o.name=name; o.coop=coop; o.lender=coop; o.limit=limit; o.used=used; if(o.rateMode!=='flat'){ o.prime=prime; o.margin=margin; } o.flatRate=(o.rateMode==='flat')?(o.flatRate||prime+margin):(prime+margin); toast('Co-op account updated','success'); }
@@ -24746,7 +24786,7 @@ function wkPayRows(labelOverride){
     /* PAYE is withheld from the worker, so it MUST come off the take-home. The PAYE
        report already computed net this way; only this row did not, so a worker over
        the tax threshold was shown too much. */
-    var paye=(typeof wkPayeFor==='function')?(wkPayeFor(label,w.id)||0):0;
+    var paye=(typeof wkPayeFor==='function')?(wkPayeFor(label,w.id,gross)||0):0;
     var savings=(w.fund&&w.fund.on&&w.fund.freq==='month')?(w.fund.perPay||0):0;
     return { w:w, base:base, bonus:bonus, premium:premium, sun:(ex.sun||0), ph:(ex.ph||0), gross:gross, uif:uif, advRepay:advRepay, savings:savings, paye:paye, net:gross-uif-paye-advRepay-savings, ok:hourly>=rate-0.005 };
   });
@@ -25559,7 +25599,98 @@ function cbGenerate(id, commit){
 // ---- Payroll report ----
 var prPayeEdit=null;
 function wkPayState(){ var c=ST_WORK; if(!c.paye)c.paye={}; if(!c.seasonal)c.seasonal={}; if(typeof c.taxThreshold!=='number')c.taxThreshold=STATUTORY.taxThreshold.value; return c; }
-function wkPayeFor(label,wid){ return (((ST_WORK.paye||{})[label])||{})[wid]||0; }
+/* ── PAYE and ETI (SA -446) ──────────────────────────────────────────────────
+   PAYE used to be a number the farmer typed per worker per month; left blank it was 0
+   everywhere, including the EMP201. It is now worked out the way SARS's tables do it for
+   a monthly-paid worker - annualise the month's pay, apply the tax table, take off the
+   rebates for the worker's age, divide by 12 (Guide PAYE-GEN-01-G01) - and a figure the
+   farmer types still wins, so a payroll bureau's number is never overwritten. Medical-aid
+   credits are not held for a worker, so a worker on a medical scheme pays less than shown
+   until the farmer enters the payroll's own figure. */
+function saIdDob(id){
+  var d=String(id||'').replace(/\s/g,''); if(!/^\d{13}$/.test(d)) return null;
+  var sum=0; for(var i=0;i<13;i++){ var n=+d[12-i]; if(i%2===1){ n*=2; if(n>9) n-=9; } sum+=n; }
+  if(sum%10!==0) return null;                                  // not a valid SA ID number
+  var yy=+d.slice(0,2), mm=+d.slice(2,4), dd=+d.slice(4,6);
+  var now=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date();
+  var yr=(yy<=now.getFullYear()%100)?2000+yy:1900+yy;
+  var dob=new Date(yr,mm-1,dd); return (dob.getMonth()===mm-1)?dob:null;
+}
+function saAgeOn(w, when){
+  var dob=saIdDob(w&&w.idNo); if(!dob) return null;
+  var a=when.getFullYear()-dob.getFullYear(); if(when.getMonth()<dob.getMonth()||(when.getMonth()===dob.getMonth()&&when.getDate()<dob.getDate())) a--;
+  return a;
+}
+function _saLabelEnd(label){ var p=String(label||'').split(' '), M=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var mi=M.indexOf(p[0]); if(mi<0) mi=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(p[0]); var y=+p[1];
+  return (mi>=0&&y)?new Date(y,mi+1,0):((typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date()); }
+function saPAYE(monthlyGross, w, label){
+  var T=(typeof STATUTORY!=='undefined'&&STATUTORY.tax&&STATUTORY.tax.individual)||null; var g=Number(monthlyGross)||0; if(!T||g<=0) return 0;
+  var end=_saLabelEnd(label), fyEnd=new Date(end.getMonth()>=2?end.getFullYear()+1:end.getFullYear(),1,28);
+  var age=saAgeOn(w, fyEnd);                                      // the 65+/75+ tables apply for the whole year they turn 65/75
+  var annual=g*12, thr=T.threshold, reb=T.primaryRebate;
+  if(age!=null && age>=65){ thr=T.threshold65||thr; reb+=T.secondaryRebate||0; }
+  if(age!=null && age>=75){ thr=T.threshold75||thr; reb+=T.tertiaryRebate||0; }
+  if(annual<=thr) return 0;
+  var tax=_taxFromBands(annual, T.bands)-reb;
+  return Math.max(0, Math.round(tax/12*100)/100);
+}
+function wkMonthGross(label, w){
+  var kept=(typeof wkKeptRows==='function')?wkKeptRows(label):null;
+  if(kept){ var k=kept.filter(function(r){ return String(r.w.id)===String(w.id); })[0]; if(k) return k.gross; }
+  if(w.basis==='day') return (wkSeasDaysFor(label,w.id)||0)*(w.amt||0);
+  var bonus=((ST_WORK.bonus&&ST_WORK.bonus[label])||{})[w.id]||0, ex=((ST_WORK.extra&&ST_WORK.extra[label])||{})[w.id]||{}, hourly=wkHourly(w);
+  var sunMult=(w.worksSundays)?STATUTORY.sundayMult.value:STATUTORY.sundayMultDefault.value;
+  return (w.amt||0)+bonus+((ex.sun||0)*hourly*sunMult+(ex.ph||0)*hourly*STATUTORY.holidayMult.value);
+}
+/* PAYE for one worker, one month: what the farmer typed, else what an issued payslip
+   deducted, else worked out. `grossHint` avoids re-deriving the gross inside wkPayRows. */
+function wkPayeFor(label,wid,grossHint){
+  var manual=(((ST_WORK.paye||{})[label])||{})[wid];
+  if(manual!=null && manual!=='') return Number(manual)||0;
+  var w=(typeof wkFind==='function')?wkFind(wid):null; if(!w) return 0;
+  var kept=(typeof wkKeptRows==='function')?wkKeptRows(label):null;
+  if(kept){ var k=kept.filter(function(r){ return String(r.w.id)===String(wid); })[0]; if(k) return Number(k.paye)||0; }
+  var g=(grossHint!=null)?grossHint:wkMonthGross(label,w);
+  return saPAYE(g, w, label);
+}
+function wkPayeIsCalc(label,wid){ var m=(((ST_WORK.paye||{})[label])||{})[wid]; return !(m!=null && m!==''); }
+/* The Employment Tax Incentive (Act 26 of 2013 as amended from 1 Apr 2025; SARS guide
+   PAYE-GEN-01-G05 Rev 17). For a worker aged 18-29 with a valid SA ID, employed from
+   1 Oct 2013, not a connected person, paid at least the minimum wage and less than R7,500:
+     first 12 qualifying months  R0-2,499: 60% of pay · R2,500-5,499: R1,500 · R5,500-7,499: R1,500 - 0.75 x (pay - R5,500)
+     next 12 qualifying months   half of that
+   Under 160 hours the pay is grossed up to 160 hours to find the band, and the incentive
+   is scaled by hours / 160. It comes off the PAYE on the EMP201; an excess rolls over. */
+function saEtiFor(label, w, gross){
+  var out={amt:0, why:'', month:null};
+  if(!w) return out;
+  var end=_saLabelEnd(label);
+  var dob=saIdDob(w.idNo); if(!dob){ out.why='Add their SA ID number to check'; return out; }
+  if(w.etiExcluded){ out.why='Family member or connected person'; return out; }
+  var age=saAgeOn(w,end); if(age<18||age>29){ out.why='Age '+age+' (18–29 only)'; return out; }
+  var st=w.start?new Date(String(w.start).slice(0,10)+'T00:00:00'):null;
+  if(!st||isNaN(st.getTime())){ out.why='Add their start date to check'; return out; }
+  if(st<new Date(2013,9,1)){ out.why='Employed before 1 Oct 2013'; return out; }
+  var d18=new Date(dob.getFullYear()+18,dob.getMonth(),dob.getDate()), from=(d18>st)?d18:st;
+  var n=(end.getFullYear()-from.getFullYear())*12+(end.getMonth()-from.getMonth())+1;
+  if(n<1){ out.why='Not yet qualifying'; return out; }
+  if(n>24){ out.why='All 24 qualifying months used'; return out; }
+  var hours=(w.basis==='day')?(wkSeasDaysFor(label,w.id)||0)*(w.hoursDay||8):((w.hoursWeek||45)*52/12);
+  if(!(hours>0)||!(gross>0)){ out.why='No pay this month'; return out; }
+  var rate=(ST_WORK.nmwRate||STATUTORY.nmwRate.value); if(gross/hours < rate-0.005){ out.why='Paid below the minimum wage'; return out; }
+  var R=(hours<160)?gross*160/hours:gross;
+  if(R>=7500){ out.why='Pay of R7,500 or more'; return out; }
+  var e=(R<2500)?0.6*R:((R<5500)?1500:(1500-0.75*(R-5500)));
+  if(n>12) e=e/2;
+  if(hours<160) e=e*hours/160;
+  out.amt=Math.round(Math.max(0,e)*100)/100; out.month=n; out.why=(n<=12?'first':'second')+' 12 months (month '+n+')';
+  return out;
+}
+function wkToggleEtiExcl(id){ var w=wkFind(id); if(!w) return; w.etiExcluded=!w.etiExcluded; if(typeof wkSync==='function') wkSync(); else if(typeof saveState==='function') saveState(); try{ wkOpenDetail(id); }catch(e){} }
+function wkEtiMonth(label){
+  var t=0; (wkList()||[]).forEach(function(w){ var g=wkMonthGross(label,w); if(g>0) t+=saEtiFor(label,w,g).amt; }); return Math.round(t*100)/100;
+}
 function wkSetPaye(label,wid,amt){ wkPayState(); ST_WORK.paye[label]=ST_WORK.paye[label]||{}; ST_WORK.paye[label][wid]=amt; }
 function wkSeasDaysFor(label,wid){ return (((ST_WORK.seasonal||{})[label])||{})[wid]||0; }
 function wkSetSeasDays(label,wid,days){ wkPayState(); ST_WORK.seasonal[label]=ST_WORK.seasonal[label]||{}; ST_WORK.seasonal[label][wid]=days; }
@@ -25690,11 +25821,13 @@ function wkPRCustom(){ var f=($('pr-from')||{}).value, t=($('pr-to')||{}).value;
 
 function wkPRMonthTotals(){
   var labels=wkPRLabels(); var single=labels.length===1; var rows=wkPayRows();
-  var t={gross:0,uif:0,adv:0,sav:0,paye:0,net:0,seasGross:0,seasUif:0,rows:rows,labels:labels,single:single,n:labels.length};
+  var t={gross:0,uif:0,adv:0,sav:0,paye:0,net:0,seasGross:0,seasUif:0,seasPaye:0,eti:0,rows:rows,labels:labels,single:single,n:labels.length};
   labels.forEach(function(L){
     wkPayRows(L).forEach(function(r){ t.gross+=r.gross; t.uif+=r.uif; t.paye+=wkPayeFor(L,r.w.id); if(single){ t.adv+=r.advRepay; t.sav+=r.savings; } });
-    wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); t.seasGross+=g; t.seasUif+=wkSeasUif(g,days,w); } });
+    wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); t.seasGross+=g; t.seasUif+=wkSeasUif(g,days,w); t.seasPaye+=wkPayeFor(L,w.id,g); } });
+    t.eti+=wkEtiMonth(L);
   });
+  t.payeAll=t.paye+t.seasPaye; t.payeDue=Math.max(0,t.payeAll-t.eti); t.etiRoll=Math.max(0,t.eti-t.payeAll);
   t.net=t.gross-t.uif-t.paye-t.adv-t.sav;
   t.label = single ? labels[0] : (wkShortMo(labels[0])+' \u2013 '+wkShortMo(labels[labels.length-1]));
   return t;
@@ -25704,7 +25837,7 @@ function wkPRSummary(){
   var t=wkPRMonthTotals(); var single=t.single;
   var cost=t.gross+t.uif+t.seasGross+t.seasUif;
   var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*STATUTORY.sdlRate.value):0;
-  var sarsTot=t.paye+(t.uif+t.seasUif)*2+sdl;
+  var sarsTot=t.payeDue+(t.uif+t.seasUif)*2+sdl;   // PAYE less the Employment Tax Incentive
   function kpi(l,v,sub){ return '<div class="pr-kpi"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+sub+'</div></div>'; }
   var take=t.net+ (t.seasGross-t.seasUif);
   var perLbl=single?'this month':('across '+t.n+' months');
@@ -25723,12 +25856,13 @@ function wkPRSummary(){
       +'<div class="r tot"><span>Take-home pay</span><span>'+wkMoney(take)+'</span></div>'
     +'</div><div style="font-size:11.5px;color:var(--t3);margin-top:12px;background:var(--gb);border-radius:9px;padding:10px 12px;line-height:1.5">On top of wages, your UIF share is <b>'+wkMoney(t.uif+t.seasUif)+'</b>, so the full cost to the farm is <b>'+wkMoney(cost)+'</b> \u2014 the figure on your expenses.</div></div>'
     +'<div class="wk-card pr-sars"><div class="pr-h3">'+(single?'What to pay over this month':'What to pay over \u2014 period total')+'</div><div class="pr-sub">'+(single?'The EMP201 figures':('Across '+t.n+' months \u2014 filed as '+t.n+' monthly EMP201s'))+'</div><div class="pr-flow">'
-      +'<div class="r"><span>PAYE</span><span>'+wkMoney(t.paye)+'</span></div>'
+      +'<div class="r"><span>PAYE</span><span>'+wkMoney(t.payeAll)+'</span></div>'
+      +(t.eti>0?'<div class="r"><span>\u2212 Employment Tax Incentive</span><span>\u2212 '+wkMoney(Math.min(t.eti,t.payeAll))+'</span></div>':'')
       +'<div class="r"><span>UIF (1% + 1%)</span><span>'+wkMoney((t.uif+t.seasUif)*2)+'</span></div>'
       +'<div class="r"><span>Skills levy (SDL)</span><span>'+(wkSdlApplies()?wkMoney(sdl):'n/a')+'</span></div>'
       +'<div class="r tot"><span>Total to SARS</span><span>'+wkMoney(sarsTot)+'</span></div>'
-    +'</div><div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:10px">'+(single?'Enter PAYE per worker on the register \u2014 it flows in here. SDL doesn\u2019t apply under R500k a year.':'Each month files its own EMP201 \u2014 see the SARS &amp; statutory tab for the per-month breakdown.')+'</div></div>'
-    +'<div class="pr-disc"><b>Not tax advice.</b> Figures come from your pay runs. UIF and SDL follow the set rules; PAYE is what you enter from the SARS tables.</div>';
+    +'</div><div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:10px">'+(single?('PAYE is worked out from the SARS tables for each worker \u2014 type your payroll\u2019s own figure on the register to replace it.'+(t.etiRoll>0?' '+wkMoney(t.etiRoll)+' of incentive is more than this month\u2019s PAYE and rolls over to next month.':'')+' SDL doesn\u2019t apply under R500k a year.'):'Each month files its own EMP201 \u2014 see the SARS &amp; statutory tab for the per-month breakdown.')+'</div></div>'
+    +'<div class="pr-disc"><b>Not tax advice.</b> Figures come from your pay runs. UIF and SDL follow the set rules; PAYE is worked out from the SARS tables (medical-aid credits are not included \u2014 enter your payroll\u2019s figure for a worker on a medical scheme). The Employment Tax Incentive is shown for workers aged 18\u201329 with an SA ID on file.</div>';
 }
 
 function wkPRRegister(){
@@ -25787,13 +25921,13 @@ function wkPRStatutory(){
   var coidaCard='<div class="wk-card"><div class="pr-h3">Workmen\u2019s comp earnings <span class="pr-pill tech">COIDA \u00b7 W.As.8</span></div><div class="pr-sub">Total wages for the once-a-year return</div><div class="pr-flow"><div class="r"><span>Earnings this tax year ('+wkE(ty.label)+')</span><span>'+wkMoney(coida)+'</span></div><div class="r tot"><span>Return of Earnings figure</span><span>'+wkMoney(coida)+'</span></div></div><div style="font-size:11px;color:var(--t4);margin-top:9px">Capped per worker at the COIDA ceiling on export.</div></div>';
   if(!single){
     var rows=wkPayRows();
-    var blocks=labels.map(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var tot=paye+uif2+sdl;
-      return '<div class="wk-card" style="padding:12px 15px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:12.5px;font-weight:800">EMP201 \u00b7 '+wkE(L)+'</div><span class="pr-pill tech">file separately</span></div><div class="pr-flow"><div class="r"><span>PAYE</span><span>'+wkMoney(paye)+'</span></div><div class="r"><span>UIF (1% + 1%)</span><span>'+wkMoney(uif2)+'</span></div>'+(wkSdlApplies()?('<div class="r"><span>SDL</span><span>'+wkMoney(sdl)+'</span></div>'):'')+'<div class="r tot"><span>Total</span><span>'+wkMoney(tot)+'</span></div></div></div>'; }).join('');
+    var blocks=labels.map(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w); paye+=wkPayeFor(L,w.id,g);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var eti=wkEtiMonth(L), payeGross=paye; paye=Math.max(0,paye-eti); var tot=paye+uif2+sdl;
+      return '<div class="wk-card" style="padding:12px 15px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:12.5px;font-weight:800">EMP201 \u00b7 '+wkE(L)+'</div><span class="pr-pill tech">file separately</span></div><div class="pr-flow"><div class="r"><span>PAYE</span><span>'+wkMoney(payeGross)+'</span></div>'+(eti>0?'<div class="r"><span>\u2212 Employment Tax Incentive</span><span>\u2212 '+wkMoney(Math.min(eti,payeGross))+'</span></div>':'')+'<div class="r"><span>UIF (1% + 1%)</span><span>'+wkMoney(uif2)+'</span></div>'+(wkSdlApplies()?('<div class="r"><span>SDL</span><span>'+wkMoney(sdl)+'</span></div>'):'')+'<div class="r tot"><span>Total</span><span>'+wkMoney(tot)+'</span></div></div></div>'; }).join('');
     return '<div class="wk-card pr-sars" style="padding:13px 15px"><div class="pr-h3">One EMP201 per month</div><div class="pr-sub">'+labels.length+' monthly returns \u2014 they don\u2019t combine. UI-19 works the same way.</div></div>'
       + blocks + coidaCard;
   }
   var t=wkPRMonthTotals(); var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*STATUTORY.sdlRate.value):0;
-  var uif2=(t.uif+t.seasUif)*2; var sarsTot=t.paye+uif2+sdl;
+  var uif2=(t.uif+t.seasUif)*2; var sarsTot=t.payeDue+uif2+sdl;
   var u19=wkList().map(function(w){
     var rem=(w.basis==='day')? (wkSeasDaysFor(t.label,w.id)*(w.amt||0)) : (w.amt||0);
     if(w.basis==='day' && rem<=0) return '';
@@ -25802,7 +25936,8 @@ function wkPRStatutory(){
     return '<div class="pr-stat-row"><div><div class="nm">'+wkE(w.name)+'</div><div class="s">'+no+'</div></div><div class="right">'+wkMoney(rem)+' \u00b7 <b>'+wkMoney(c)+'</b></div></div>';
   }).join('');
   return '<div class="wk-card"><div class="pr-h3">Monthly declaration <span class="pr-pill tech">EMP201</span></div><div class="pr-sub">What gets declared to SARS \u00b7 '+wkE(t.label)+'</div><div class="pr-flow">'
-      +'<div class="r"><span>PAYE</span><span>'+wkMoney(t.paye)+'</span></div>'
+      +'<div class="r"><span>PAYE</span><span>'+wkMoney(t.payeAll)+'</span></div>'
+      +(t.eti>0?'<div class="r"><span>\u2212 Employment Tax Incentive</span><span>\u2212 '+wkMoney(Math.min(t.eti,t.payeAll))+'</span></div>':'')
       +'<div class="r"><span>SDL '+(wkSdlApplies()?'':'<span class="pr-pill na">under R500k</span>')+'</span><span>'+(wkSdlApplies()?wkMoney(sdl):'R0.00')+'</span></div>'
       +'<div class="r"><span>UIF (employer + employee)</span><span>'+wkMoney(uif2)+'</span></div>'
       +'<div class="r tot"><span>Total payable</span><span>'+wkMoney(sarsTot)+'</span></div>'
@@ -25884,6 +26019,10 @@ function renderWkDetail(id){
     +'<div class="wk-dbox"><div class="l">Pay</div><div class="v">'+wage+'</div></div>'
     +'<div class="wk-dbox"><div class="l">Minimum wage</div><div class="v" style="color:'+(ok?'var(--gm)':'var(--rd)')+'">'+(ok?'&#10003; above':'&#9888; below')+'</div></div>'
     +'<div class="wk-dbox"><div class="l">UIF</div><div class="v">'+(w.uif?'&#10003; sorted':'not registered')+'</div></div>'
+    +(function(){ var L=wkMonthLabel(), g=wkMonthGross(L,w), py=wkPayeFor(L,w.id,g), calc=wkPayeIsCalc(L,w.id), e=saEtiFor(L,w,g);
+        return '<div class="wk-dbox"><div class="l">PAYE this month</div><div class="v">'+wkMoney2(py)+' <span style="font-size:10.5px;font-weight:600;color:var(--t4)">'+(calc?(py>0?'SARS tables':'under the threshold'):'your figure')+'</span></div></div>'
+          +'<div class="wk-dbox"><div class="l">Tax incentive (ETI)</div><div class="v">'+(e.amt>0?('<span style="color:var(--gm)">'+wkMoney2(e.amt)+'</span> <span style="font-size:10.5px;font-weight:600;color:var(--t4)">'+esc(e.why)+'</span>'):('<span style="font-size:12px;font-weight:600;color:var(--t3)">'+esc(e.why||'not eligible')+'</span>'))
+          +'<div style="font-size:10.5px;margin-top:3px"><span onclick="wkToggleEtiExcl(\''+w.id+'\')" style="color:var(--gm);font-weight:700;cursor:pointer">'+(w.etiExcluded?'Not family \u2014 include again':'Family member? Leave out')+'</span></div></div></div>'; })()
     +'<div class="wk-dbox"><div class="l">Contract</div><div class="v">'+(w.contract==='missing'?'<span style="color:var(--rd)">to do</span>':'&#10003; on file')+'</div></div>'
     +'<div class="wk-dbox"><div class="l">Works on</div><div class="v">'+wkE(wkActLabel(w.activity))+'</div></div>'
     +'<div class="wk-dbox"><div class="l">'+esc(rnT('Cellphone \u00b7 for payslips','Selfoon \u00b7 vir betaalstrokies'))+'</div><div class="v">'+(w.phone?wkE(w.phone):'<span style="color:var(--t4)">'+esc(rnT('none yet','nog geen'))+'</span>')+'</div></div>'
@@ -26217,7 +26356,7 @@ function wkSaveWorker(){
   if(h < rate-0.005){ if(typeof toast==='function') toast('That\u2019s below the R'+rate.toFixed(2)+' minimum wage \u2014 bump it up first.','error'); return; }
   var contractSel=wkSegVal('awf-contract');
   var w={ id:'w'+Date.now(), name:name, role:(($('awf-role')||{}).value||'').trim()||'Worker',
-    type:wkSegVal('awf-type')||'Permanent', start:(($('awf-start')||{}).value||''), onFarm:wkSwOn('awf-onfarm'),
+    type:wkSegVal('awf-type')||'Permanent', start:(($('awf-start')||{}).value||''), onFarm:wkSwOn('awf-onfarm'), etiExcluded:wkSwOn('awf-etiex'),
     idNo:(($('awf-id')||{}).value||'').trim(), basis:basis, amt:amt,
     hoursWeek:(basis==='month'?hrs:45), hoursDay:(basis==='day'?hrs:8), uif:wkSwOn('awf-uif'), activity:(($('awf-activity')||{}).value||''),
     contract:'missing', adv:null, fund:null };
@@ -26612,7 +26751,7 @@ function animalOptions(selected){ var html='',cur=null; SA_ANIMALS.forEach(funct
  * are tax FORMULAS reserved for specialist review. These are published constants.
  * ========================================================================== */
 var STATUTORY = {
-  primeRate:    { value: 10.5,  effectiveFrom:'2026-05-28', asOf:'2026-07', source:'SARB repo 7.00% + 3.5% spread (prime 10.5%, eff 28 May 2026)' },
+  primeRate:    { value: 10.75, effectiveFrom:'2026-09-25', prior:10.5, asOf:'2026-09', source:'SARB MPC 23 Sep 2026: repo 7.25% from 25 Sep (+25bp); prime = repo + 3.5% = 10.75%. Was 10.5% from 28 May 2026' },
   nmwRate:      { value: 30.23, effectiveFrom:'2026-03-01', asOf:'2026-06', source:'DEL gazette 54075 (3 Feb 2026); farm workers paid at NMW' },
   hoursWeek:    { value: 45,    effectiveFrom:'',           asOf:'2026-06', source:'BCEA ordinary-hours standard' },
   hoursDay:     { value: 8,     effectiveFrom:'',           asOf:'2026-06', source:'BCEA ordinary-hours standard (5-day week)' },
@@ -26657,7 +26796,7 @@ var STATUTORY = {
         { min: 887000,  rate: 0.41, base: 259783 },
         { min: 1878600, rate: 0.45, base: 666339 }
       ],
-      primaryRebate: 17820, threshold: 99000,
+      primaryRebate: 17820, threshold: 99000, secondaryRebate: 9765, tertiaryRebate: 3249, threshold65: 153250, threshold75: 171300,
       source: 'SARS 2026/27 individual table; primary rebate R17,820; under-65 threshold R99,000'
     },
     company: { rate: 0.27, source: 'CIT 27% (YOA ending on/after 31 Mar 2023); unchanged Budget 2026' },
@@ -47524,6 +47663,34 @@ function cfToggleFwdRow(idx){
 // and VAT. Returns {inc, exp, lines:[{label,src,amt}]} for one forecast month (amt +in / -out). Guards against
 // double-counting: loan payments come from ST_LOANS (the "Loan Repayments" recurring category is skipped in
 // buildCfForecast), and an asset instalment is only added when it is NOT already represented by a loan record.
+/* The VAT payments and refunds due in one forecast month. A period that has ended uses what
+   was recorded; the one in progress, what is recorded so far plus last year's same dates for
+   the rest; a future one, last year's same dates - farm VAT is seasonal, so a flat average
+   puts harvest VAT in the wrong quarter. Falls back to this year's monthly average when
+   there is no last year to go on. */
+function cfVatDue(year, mIdx){
+  if(typeof FARM==='undefined'||!FARM.vat||typeof _txVatBlock!=='function') return [];
+  var today=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); today.setHours(0,0,0,0);
+  var rows=[]; (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; if(t.type!=='income'&&t.type!=='expense') return;
+    var x=IE_split(t.amt,t.cat); if(!x.vat) return; rows.push({d:new Date(d.y,d.m,d.d||1).getTime(), v:(t.type==='income'?x.vat:-x.vat)}); });
+  var net=function(a,b){ var s=0; rows.forEach(function(r){ if(r.d>=a.getTime()&&r.d<=b.getTime()) s+=r.v; }); return s; };
+  var lastYr=function(d){ return new Date(d.getFullYear()-1, d.getMonth(), d.getDate()); };
+  var hasLast=rows.some(function(r){ return r.d<lastYr(today).getTime(); });
+  var ytdStart=new Date(today.getFullYear(), today.getMonth()-11, 1), avgDay=net(ytdStart,today)/Math.max(1,(today-ytdStart)/864e5);
+  var est=function(a,b){ if(b<a) return 0; return hasLast ? net(lastYr(a),lastYr(b)) : avgDay*((b-a)/864e5+1); };
+  var out=[];
+  for(var k=-3;k<=14;k++){
+    var p=_txVatBlock(k), from=new Date(p.from+'T00:00:00'), to=new Date(p.to+'T00:00:00');
+    var due=new Date(to.getFullYear(), to.getMonth()+1, 1);
+    if(due.getFullYear()!==year||due.getMonth()!==mIdx) continue;
+    var amt;
+    if(to<today) amt=net(from,to);
+    else if(from<=today){ var y=new Date(today); y.setDate(y.getDate()+1); amt=net(from,today)+est(y,to); }
+    else amt=est(from,to);
+    out.push({label:p.label, amt:Math.round(amt), from:p.from, to:p.to, ended:(to<today)});
+  }
+  return out;
+}
 function _cfFinanceFor(year, mIdx, stepIdx){
   var inc=0, exp=0, lines=[];
   function out(label, src, amt){ amt=Math.round(amt||0); if(amt>0){ exp+=amt; lines.push({label:label, src:src, amt:-amt}); } }
@@ -47560,12 +47727,14 @@ function _cfFinanceFor(year, mIdx, stepIdx){
         out('Provisional tax ('+dt.per+')', 'Tax & SARS', dt.amt);
     }); } } }catch(e){}
 
-  // 5) VAT — net payable spread over the six 2-month VAT201 cycles (payment months = odd month indices).
-  try{ if(typeof FARM!=='undefined' && FARM.vat && typeof _taxFYVat==='function' && (mIdx%2===1)){
-    var perCycle=Math.round((_taxFYVat()||0)/6);
-    if(perCycle>0) out('VAT (VAT201)', 'Tax & SARS', perCycle);
-    else if(perCycle<0) inn('VAT refund (VAT201)', 'Tax & SARS', -perCycle);
-  } }catch(e){}
+  // 5) VAT — each of the farm's own VAT periods, on the month its payment falls due
+  //    (the 25th of the month after the period ends). It was this year's VAT so far
+  //    divided by six and booked in odd months - the South African two-monthly pattern -
+  //    so a farm was shown a sixth of a year where one real return was due.
+  try{ (typeof cfVatDue==='function' ? cfVatDue(year, mIdx) : []).forEach(function(v){
+    if(v.amt>0) out('VAT (VAT201) · '+v.label, 'Tax & SARS', v.amt);
+    else if(v.amt<0) inn('VAT refund (VAT201) · '+v.label, 'Tax & SARS', -v.amt);
+  }); }catch(e){}
 
   return {inc:inc, exp:exp, lines:lines};
 }
@@ -52290,7 +52459,7 @@ I18N['lar.totalliabilitiestotalassets']={en:"Total liabilities ÷ total assets",
 I18N['lar.currentratio']={en:"Current ratio",af:"Bedryfsverhouding"};
 I18N['lar.currentassetscurrentliabilities']={en:"Current assets ÷ current liabilities",af:"Bedryfsbates ÷ bedryfslaste"};
 I18N['lar.interestcover']={en:"Interest cover",af:"Rentedekking"};
-I18N['lar.operatingincomeinterest']={en:"Operating income ÷ interest",af:"Bedryfsinkomste ÷ rente"};
+I18N['lar.operatingincomeinterest']={en:"Profit before interest ÷ interest",af:"Wins voor rente ÷ rente"};
 I18N['lar.returnonassets']={en:"Return on assets",af:"Opbrengs op bates"};
 I18N['lar.operatingincometotalassets']={en:"Operating income ÷ total assets",af:"Bedryfsinkomste ÷ totale bates"};
 I18N['lar.total']={en:"Total",af:"Totaal"};
@@ -53476,10 +53645,14 @@ function _rptLoanInterest(t){
     var byName = loans.filter(function(l){ return l.name && d.indexOf((''+l.name).toLowerCase())>=0; });
     if (byName.length===1) loan = byName[0];
   }
-  if (loan) { _rptLoanInterest.resolved = true; return Math.min(amt, LN_intM(loan)); } // that loan's monthly interest, capped at the payment
+  /* The interest in THIS payment's month, off the loan's own schedule - it was today's
+     monthly interest for every payment in the year. */
+  var _pd = parseDate(t.date), _ym = _pd ? (_pd.y+'-'+('0'+(_pd.m+1)).slice(-2)) : null;
+  var _int = function(l){ return (_ym && typeof LN_intForMonth==='function') ? LN_intForMonth(l, _ym) : LN_intM(l); };
+  if (loan) { _rptLoanInterest.resolved = true; return Math.min(amt, _int(loan)); } // that loan's interest for the month, capped at the payment
   // 4) fallback: blended term-loan interest share of a repayment
   var sInt=0, sPay=0;
-  loans.forEach(function(l){ sInt+=LN_intM(l); sPay+=(l.payment||0); });
+  loans.forEach(function(l){ sInt+=_int(l); sPay+=(l.payment||0); });
   if (sPay <= 0) {
     /* No loan register at all, so there is nothing to split this against. This used to
        return the FULL repayment as interest, which made every rand of a capital
@@ -54458,6 +54631,33 @@ function _txLedgerMonths(fy, fyMonths, meCal){
   if(first<0) return 0;
   return Math.max(1, meCal-first);
 }
+/* The first provisional payment actually made for tax year fy: the farmer's own figure if
+   they have entered one, otherwise income-tax payments in the books between July and
+   October (the 31 Aug payment and anything paid a little late), leaving out anything
+   described as a top-up, a third or second payment, or an assessment - those belong to
+   another year or another payment. null when nothing is recorded. */
+function saProvPaid1(fy){
+  try{
+    var o=(ST.provPaid||{})[String(fy)];
+    if(o!=null && o!=='' && !isNaN(o)) return {amt:Math.round(Number(o)), src:'you'};
+  }catch(e){}
+  var t=0, n=0;
+  (ST.txns||[]).forEach(function(x){
+    if(!x||x.type!=='expense') return;
+    var cat=(typeof normalizeCat==='function')?normalizeCat(x.cat):x.cat; if(cat!=='Income tax') return;
+    var d=parseDate(x.date); if(!d) return;
+    var dd=new Date(d.y,d.m,d.d||1); if(dd<new Date(fy,6,1)||dd>new Date(fy,9,31)) return;
+    if(/top.?up|third|3rd|second|2nd|ita\s?34|assessment/i.test(String(x.desc||''))) return;
+    t+=Number(x.amt)||0; n++;
+  });
+  return n ? {amt:Math.round(t), src:'books'} : {amt:null, src:null};
+}
+function saSetProvPaid1(fy, v){
+  ST.provPaid=(ST.provPaid&&typeof ST.provPaid==='object')?ST.provPaid:{};
+  if(v===''||v==null) delete ST.provPaid[String(fy)]; else ST.provPaid[String(fy)]=Math.max(0,Math.round(Number(v)||0));
+  try{ if(typeof saveState==='function') saveState(); }catch(e){}
+  try{ if(typeof renderTax==='function') renderTax(); }catch(e){}
+}
 function taxProvEstimate(){
   var ytd=ytdSummary(), fy=getCurrentFY(), fyMonths=getFYMonths(fy), cur=currentPeriodLabel();
   var meCal=fyMonths.indexOf(cur)+1; if(meCal<1) meCal=5;
@@ -54538,12 +54738,33 @@ function taxProvEstimate(){
   var ringFence=_taxRingFence(annualIncome, annualOtherDed, annualCapLim, taxCarryForwardInto(fy), annualCapAllow, annualRecoup);
   var taxableProfit=ringFence.taxable;
   var annualTax=(typeof calcAnnualIncomeTax==='function')?calcAnnualIncomeTax(Math.max(0,taxableProfit),entity):0;
-  var pay1=Math.round(annualTax/2), pay2=Math.max(0,annualTax-pay1);   // IRP6: 2nd = estimate - 1st
-  var now=_txNow(), endFebDay=new Date(fy+1,2,0).getDate();
-  var dts=[{d:new Date(fy,7,31),lbl:'31 Aug '+fy,per:'1st',amt:pay1},
-           {d:new Date(fy+1,1,endFebDay),lbl:endFebDay+' Feb '+(fy+1),per:'2nd',amt:pay2},
-           {d:new Date(fy+1,8,30),lbl:'30 Sep '+(fy+1),per:'top-up',amt:0}];
+  /* IRP6. The first payment is half the year's estimate. The SECOND is the whole year's
+     estimate less the first payment ACTUALLY PAID (Fourth Schedule para 21; SARS guide
+     GEN-PT-01-G01) - it was the estimate less half the estimate, so a farm that paid
+     R40k in August where R60k was suggested was still told R60k in February and came up
+     short. Due dates move back to the last business day when they fall on a weekend
+     (28 Feb 2027 is a Sunday: due Friday 26 Feb). */
+  var now=_txNow();
+  var _lbd=function(d){ var x=new Date(d); while(x.getDay()===0||x.getDay()===6) x.setDate(x.getDate()-1); return x; };
+  var _M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], _lbl=function(d){ return d.getDate()+' '+_M[d.getMonth()]+' '+d.getFullYear(); };
+  var d1=_lbd(new Date(fy,7,31)), d2=_lbd(new Date(fy+1,2,0)), d3=new Date(fy+1,8,30);
+  var paid1=saProvPaid1(fy);
+  var pay1=Math.round(annualTax/2);
+  var firstPast=(now>d1);
+  var base1=(paid1.amt!=null)?paid1.amt:(firstPast?null:pay1);
+  var pay2=Math.max(0, annualTax-((base1!=null)?base1:pay1));
+  var dts=[{d:d1,lbl:_lbl(d1),per:'1st',amt:pay1,paid:paid1.amt,paidSrc:paid1.src},
+           {d:d2,lbl:_lbl(d2),per:'2nd',amt:pay2},
+           {d:d3,lbl:_lbl(d3),per:'top-up',amt:0}];
   var next=dts[0]; for(i=0;i<dts.length;i++){ if(dts[i].d>=now){ next=dts[i]; break; } }
+  /* Set aside each month = what the NEXT payment still needs, over the months left until
+     it is due. It was the year's tax / 12, whatever the date. */
+  var _mLeft=Math.max(1, (next.d.getFullYear()-now.getFullYear())*12 + (next.d.getMonth()-now.getMonth()) + (next.d.getDate()>=now.getDate()?0:0));
+  var setAsideMonthly=Math.round((next.amt||0)/_mLeft);
+  /* The 20% underestimation penalty (para 20): above R1m taxable, the estimate for the
+     second payment must reach 80% of the final figure; at or below R1m, 90% or the basic
+     amount. The app can only warn - it cannot know the final figure. */
+  var penaltyRule=(taxableProfit>1000000)?'80':'90';
   var nudge={show:(basis==='straight' && _provIncomeLumpy()), enterprise:(missingEnt||'season')};   // seasonal income only -> steady farms stay silent
   return {annualIncome:annualIncome,annualExpense:annualExpense,annualProfit:annualProfit,annualTax:annualTax,
           taxableProfit:taxableProfit,nonDed:annualNonDed,nonDedByCat:_sp.nonDedByCat,
@@ -54551,7 +54772,10 @@ function taxProvEstimate(){
           capAllow:annualCapAllow,recoup:annualRecoup,capBought:annualCapBought,loanCapital:annualLoanCapital,
           provPayment:next.amt,pay1:pay1,pay2:pay2,entity:entity,next:next,dts:dts,basis:basis,planComplete:planComplete,
           monthsElapsed:me,monthsLedger:meLedger,tooNew:tooNew,
-          nudge:nudge,daysAway:Math.ceil((next.d-now)/86400000),ok:(annualProfit>0&&annualIncome>0)};
+          setAsideMonthly:setAsideMonthly, monthsToNext:_mLeft, paid1:paid1, penaltyRule:penaltyRule,
+          /* Shown whenever there is TAXABLE profit. Keyed off cash profit, a farm whose cash
+             went on loan capital (not a cost for tax) was told there was nothing to set aside. */
+          nudge:nudge,daysAway:Math.ceil((next.d-now)/86400000),ok:(taxableProfit>0&&annualIncome>0)};
 }
 // VAT filing period for the farm's SARS category (audit #7): A/B = 2-monthly
 // (SARS assigns which); C = monthly; D = 6-monthly farming cycle; E = annual.
@@ -55518,12 +55742,22 @@ function _taxNonDedPhrase(byCat){
 }
 
 function taxPayrollAnnual(){
-  var ws=(typeof wkList==='function')?wkList():[]; if(!ws.length) return {total:0,uif:0,paye:0,sdl:0};
-  var uifMo=ws.reduce(function(a,w){ return a+wkUIF(w.basis==='month'?(w.amt||0):0)*2; },0);
-  var payeMo=ws.reduce(function(a,w){ return a+(w.paye||0); },0);
-  var grossMo=ws.filter(function(w){return w.basis==='month';}).reduce(function(a,w){return a+(w.amt||0);},0);
-  var sdlMo=((typeof wkSdlApplies==='function'&&wkSdlApplies())?Math.round(grossMo*0.01):0);
-  return {uif:Math.round(uifMo*12),paye:Math.round(payeMo*12),sdl:Math.round(sdlMo*12),total:Math.round((uifMo+payeMo+sdlMo)*12)};
+  /* The payroll's own figures for this month, carried to a year: PAYE from the SARS tables
+     (or the farmer's typed figure) less the Employment Tax Incentive, UIF both halves, SDL.
+     It read w.paye off each worker - a key that is never set - so PAYE was always R0 here,
+     whatever the payroll screens said. */
+  var ws=(typeof wkList==='function')?wkList():[]; if(!ws.length) return {total:0,uif:0,paye:0,sdl:0,eti:0};
+  var L=(typeof wkMonthLabel==='function')?wkMonthLabel():'';
+  var uifMo=0, payeMo=0, grossMo=0;
+  ws.forEach(function(w){
+    var g=(w.basis==='month')?wkMonthGross(L,w):0;          // casual days vary; the year is not twelve of this month
+    if(!(g>0)) return;
+    grossMo+=g; uifMo+=wkUIF(g)*2; payeMo+=wkPayeFor(L,w.id,g);
+  });
+  var etiMo=(typeof wkEtiMonth==='function')?wkEtiMonth(L):0;
+  var payeNet=Math.max(0,payeMo-etiMo);
+  var sdlMo=((typeof wkSdlApplies==='function'&&wkSdlApplies())?Math.round(grossMo*STATUTORY.sdlRate.value):0);
+  return {uif:Math.round(uifMo*12),paye:Math.round(payeNet*12),payeGross:Math.round(payeMo*12),eti:Math.round(etiMo*12),sdl:Math.round(sdlMo*12),total:Math.round((uifMo+payeNet+sdlMo)*12)};
 }
 function taxVatTrend(){
   /* The farm's own last three VAT periods (the Reports picker's calendar, which follows the
@@ -56259,7 +56493,15 @@ function taxGlanceHTML(){
      rate is a share of what SARS actually charges tax on, and is bounded by the tables. */
   if(prov.ok){ var eff=prov.taxableProfit>0?Math.round(prov.annualTax/prov.taxableProfit*100):0;
     h+='<div class="tx-card"><div class="tx-h">Effective tax rate</div>'+_taxGauge(eff/45)+'<div style="text-align:center;font-size:20px;font-weight:800;margin-top:-6px">'+eff+'%</div><div style="text-align:center;font-size:11px;color:var(--t4)">of taxable profit · '+esc(_entityTaxLabel(prov.entity))+'</div></div>';
-    h+='<div class="tx-card" style="display:flex;flex-direction:column"><div class="tx-h">Set aside each month</div><div style="flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:24px;font-weight:800">'+fmt(Math.round(prov.annualTax/12))+'</div><div style="font-size:11px;color:var(--t3);margin-top:3px">to cover '+esc(prov.next.lbl)+' — '+(prov.daysAway>0?prov.daysAway+' days to go':'due now')+'</div><div style="font-size:11px;color:var(--t4);margin-top:3px">'+(prov.basis==='plan'?'From your season plan':'Spread evenly (no plan yet)')+'</div></div></div>';
+    /* What the next payment still needs, spread over the months left - and, once the first
+       payment is due, what was actually paid, because the second one is the year less that. */
+    var _p1=prov.dts&&prov.dts[0], _fy=(typeof getCurrentFY==='function')?getCurrentFY():0;
+    var _paidLine=(_p1 && prov.next && prov.next.per!=='1st')
+      ? '<div style="font-size:11px;color:var(--t3);margin-top:6px;line-height:1.45">1st payment made: <input type="number" inputmode="decimal" value="'+(_p1.paid!=null?_p1.paid:'')+'" placeholder="amount" onchange="saSetProvPaid1('+_fy+',this.value)" style="width:92px;font:inherit;font-size:11px;padding:2px 5px;border:1px solid var(--br);border-radius:6px"> '
+        +(_p1.paidSrc==='books'?'<span style="color:var(--t4)">found in your books</span>':(_p1.paidSrc==='you'?'<span style="color:var(--t4)">your figure</span>':'<span style="color:#B45309">not recorded \u2014 the 2nd payment assumes you paid '+fmt(_p1.amt)+'</span>'))+'</div>'
+      : '';
+    h+='<div class="tx-card" style="display:flex;flex-direction:column"><div class="tx-h">Set aside each month</div><div style="flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center"><div style="font-size:24px;font-weight:800">'+fmt(prov.setAsideMonthly)+'</div><div style="font-size:11px;color:var(--t3);margin-top:3px">'+fmt(prov.next.amt)+' to cover the '+esc(prov.next.per)+' payment on '+esc(prov.next.lbl)+' \u2014 over '+prov.monthsToNext+' month'+(prov.monthsToNext===1?'':'s')+'</div><div style="font-size:11px;color:var(--t4);margin-top:3px">'+(prov.basis==='plan'?'From your season plan':'Spread evenly (no plan yet)')+'</div>'+_paidLine
+      +'<div style="font-size:10.5px;color:var(--t4);margin-top:6px;line-height:1.4">SARS charges a 20% penalty if the estimate for the 2nd payment is below '+(prov.penaltyRule==='80'?'80%':'90%')+' of the final tax'+(prov.penaltyRule==='80'?'':' (or last year\u2019s assessed figure)')+'.</div></div></div>';
   } else { h+='<div class="tx-card"><div class="tx-h">Set aside for tax</div><div style="font-size:12.5px;color:var(--t3)">Once your season shows a profit, your provisional-tax set-aside appears here.</div></div>'; }
   if(trend.length){ var mx=Math.max.apply(null,trend.map(function(t){return Math.abs(t.net);}).concat(1));
     h+='<div class="tx-card" style="display:flex;flex-direction:column"><div class="tx-h">VAT — last 3 periods</div><div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:4px"><div style="display:flex;align-items:flex-end;gap:10px;height:62px">'+trend.map(function(t,i){var pc=Math.max(6,Math.round(Math.abs(t.net)/mx*100));var owe=t.net>=0, cur=(i===trend.length-1); return '<div style="flex:1;text-align:center;min-width:0"><div style="font-size:10.5px;font-weight:700;color:'+(owe?'#B91C1C':'#2D6A4F')+';margin-bottom:2px;white-space:nowrap">'+(owe?'':'+')+fmt(Math.abs(t.net))+'</div><div style="height:'+Math.round(pc*0.44)+'px;background:'+(owe?(cur?'#DC2626':'#F87171'):(cur?'#2D6A4F':'#74A98A'))+';border-radius:4px 4px 0 0"></div><div style="font-size:10.5px;color:var(--t4);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+t.label+'</div></div>';}).join('')+'</div><div style="font-size:11px;color:var(--t4);margin-top:6px;text-align:center">Red: you pay SARS · green (+): SARS pays you</div></div></div>';
@@ -63839,11 +64081,11 @@ function attnItems(){
       var runs = W.payRuns || [];
       if(runs.length){
         var last = runs[runs.length - 1];
-        var lm = _attnDaysTo(last && last.paidOn) ;
+        var lm = _attnDaysTo(last && (last.paidOn || last.date)) ;
         if(lm === null && last && last.label){
           /* Pay runs are labelled "March 2026" rather than dated. */
-          var pd = new Date(last.label + ' 1');
-          if(!isNaN(pd)) lm = Math.round((pd - t) / 86400000);
+          var pd = new Date(last.label + ' 1');   // a run labelled "August" is for the END of August
+          if(!isNaN(pd)){ pd = new Date(pd.getFullYear(), pd.getMonth()+1, 0); lm = Math.round((pd - t) / 86400000); }
         }
         if(lm !== null && lm < -45){
           var months = Math.round(Math.abs(lm) / 30);
@@ -64287,8 +64529,8 @@ function wkPRExportUif(){
 }
 function wkPRExportEmp201(){
   var labels=wkPRLabels(); var rows=wkPayRows(); var data=[];
-  labels.forEach(function(L){ var paye=0,uif=0,gross=0; wkPayRows(L).forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var tot=paye+uif2+sdl; data.push([L, paye.toFixed(2), sdl.toFixed(2), uif2.toFixed(2), tot.toFixed(2)]); });
-  wkDownload('EMP201_'+wkPRTag(), toCSV(['Month','PAYE (R)','SDL (R)','UIF 1%+1% (R)','Total payable (R)'], data));
+  labels.forEach(function(L){ var paye=0,uif=0,gross=0; wkPayRows(L).forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w); paye+=wkPayeFor(L,w.id,g);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var eti=wkEtiMonth(L), payeGross=paye; paye=Math.max(0,paye-eti); var tot=paye+uif2+sdl; data.push([L, payeGross.toFixed(2), eti.toFixed(2), paye.toFixed(2), sdl.toFixed(2), uif2.toFixed(2), tot.toFixed(2)]); });
+  wkDownload('EMP201_'+wkPRTag(), toCSV(['Month','PAYE (R)','ETI (R)','PAYE after ETI (R)','SDL (R)','UIF 1%+1% (R)','Total payable (R)'], data));
 }
 function wkPRPrint(){
   var labels=wkPRLabels(); var single=labels.length===1; var focus=labels[single?0:labels.length-1];
@@ -64307,11 +64549,11 @@ function wkPRPrint(){
   }
   var empSec;
   if(single){
-    var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*STATUTORY.sdlRate.value):0; var uif2=(t.uif+t.seasUif)*2; var tot=t.paye+uif2+sdl;
-    empSec='<div class="kv"><span>PAYE</span><span>R'+t.paye.toFixed(2)+'</span></div><div class="kv"><span>SDL</span><span>R'+sdl.toFixed(2)+'</span></div><div class="kv"><span>UIF (1% + 1%)</span><span>R'+uif2.toFixed(2)+'</span></div><div class="kv"><span><b>Total payable to SARS</b></span><span><b>R'+tot.toFixed(2)+'</b></span></div>';
+    var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*STATUTORY.sdlRate.value):0; var uif2=(t.uif+t.seasUif)*2; var tot=t.payeDue+uif2+sdl;
+    empSec='<div class="kv"><span>PAYE</span><span>R'+t.payeAll.toFixed(2)+'</span></div>'+(t.eti>0?'<div class="kv"><span>Less Employment Tax Incentive</span><span>(R'+Math.min(t.eti,t.payeAll).toFixed(2)+')</span></div>':'')+'<div class="kv"><span>SDL</span><span>R'+sdl.toFixed(2)+'</span></div><div class="kv"><span>UIF (1% + 1%)</span><span>R'+uif2.toFixed(2)+'</span></div><div class="kv"><span><b>Total payable to SARS</b></span><span><b>R'+tot.toFixed(2)+'</b></span></div>';
   } else {
-    var er=labels.map(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var tot=paye+uif2+sdl; return '<tr><td>'+wkE(L)+'</td><td>'+paye.toFixed(2)+'</td><td>'+sdl.toFixed(2)+'</td><td>'+uif2.toFixed(2)+'</td><td>'+tot.toFixed(2)+'</td></tr>'; }).join('');
-    empSec='<table><thead><tr><th>Month</th><th>PAYE</th><th>SDL</th><th>UIF 1%+1%</th><th>Total</th></tr></thead><tbody>'+er+'</tbody></table><p style="font-size:11px;color:#6B7280">Each month is filed as a separate EMP201.</p>';
+    var er=labels.map(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w); paye+=wkPayeFor(L,w.id,g);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var eti=wkEtiMonth(L), payeGross=paye; paye=Math.max(0,paye-eti); var tot=paye+uif2+sdl; return '<tr><td>'+wkE(L)+'</td><td>'+paye.toFixed(2)+'</td><td>'+sdl.toFixed(2)+'</td><td>'+uif2.toFixed(2)+'</td><td>'+tot.toFixed(2)+'</td></tr>'; }).join('');
+    empSec='<table><thead><tr><th>Month</th><th>PAYE after ETI</th><th>SDL</th><th>UIF 1%+1%</th><th>Total</th></tr></thead><tbody>'+er+'</tbody></table><p style="font-size:11px;color:#6B7280">Each month is filed as a separate EMP201.</p>';
   }
   var u19=wkList().map(function(w){ var rem=(w.basis==='day')?(wkSeasDaysFor(focus,w.id)*(w.amt||0)):(w.amt||0); if(w.basis==='day'&&rem<=0) return ''; var c=Math.round(Math.min(rem,STATUTORY.uifCeiling.value)*0.02*100)/100; return '<tr><td>'+wkE(w.name)+'</td><td>'+wkE(w.uifNo||'\u2014')+'</td><td>'+rem.toFixed(2)+'</td><td>'+c.toFixed(2)+'</td></tr>'; }).join('');
   var html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>Payroll report \u2014 '+wkE(farm)+'</title>'

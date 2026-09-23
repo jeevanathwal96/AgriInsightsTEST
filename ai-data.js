@@ -410,6 +410,7 @@
      Without it the desktop works payslips out as it always has, and nothing is kept. */
   let CAN_PAYSLIPS      = false;   // payslips + payslip_sends
   let CAN_WORKER_PHONE  = false;   // workers.phone / payslip_whatsapp_ok / _on / payslip_lang
+  let CAN_WKR_ETI     = false;   /* workers.eti_excluded - sa-workers-eti.sql (SA -446) */
   let CAN_DEVICES       = false;   // farm_devices: "whose phone is this?"
   let CAN_ORCH_PARTS    = false;   // orchard_sprays: rate/batch/operator_cert/weather
   let CAN_INPUT_WEATHER = false;   // crop_inputs.weather
@@ -511,7 +512,7 @@
     ['push_devices','last_ok_at'], ['fuel_issues','hour_meter'], ['fuel_issues','src'],
     ['orchard_sprays','rate'], ['crop_inputs','weather'], ['orchard_sprays','removed_at'], ['crop_inputs','removed_at'],
     ['payslips','snap'], ['payslip_sends','outcome'],
-    ['workers','payslip_whatsapp_ok'], ['farm_devices','kind']
+    ['workers','payslip_whatsapp_ok'], ['farm_devices','kind'], ['workers','eti_excluded']
   ];
 
   async function probeCaps(farmId){
@@ -565,6 +566,7 @@
     if(('payslips.snap' in _colCache) && ('payslip_sends.outcome' in _colCache))
       CAN_PAYSLIPS     = has('payslips','snap') && has('payslip_sends','outcome');
     CAN_WORKER_PHONE   = keep(CAN_WORKER_PHONE,  'workers','payslip_whatsapp_ok');
+    CAN_WKR_ETI        = keep(CAN_WKR_ETI,       'workers','eti_excluded');
     CAN_DEVICES        = keep(CAN_DEVICES,       'farm_devices','kind');
     /* The particulars a spray register prints. An un-migrated project still saves
        the spray - it just cannot carry rate, batch, certificate or the weather at
@@ -2375,12 +2377,15 @@
        given, and the payslip's language. Sent only once the columns exist. */
     if(CAN_WORKER_PHONE){ row.phone=w.phone||null; row.payslip_whatsapp_ok=!!w.waOk;
       row.payslip_whatsapp_on=(w.waOk&&w.waOn)?w.waOn:null; row.payslip_lang=(w.slipLang==='af')?'af':(w.slipLang==='en'?'en':null); }
+    /* A family member / connected person: the one ETI condition the app cannot work out. */
+    if(CAN_WKR_ETI){ row.eti_excluded=!!w.etiExcluded; }
     return row; }
   function wkrFromDb(r){ var w={ id:r.local_id, name:r.name||'', role:r.role||'', type:r.worker_type||'',
     start:r.start_date||'', onFarm:!!r.on_farm, idNo:r.id_no||'', basis:r.basis||'month',
     amt:Number(r.amt)||0, hoursWeek:(r.hours_week!=null)?Number(r.hours_week):45,
     hoursDay:(r.hours_day!=null)?Number(r.hours_day):8, uif:(r.uif!=null)?!!r.uif:true,
     uifNo:r.uif_no||'', uifExempt:!!r.uif_exempt, worksSundays:!!r.works_sundays, contract:r.contract_status||'missing', activity:r.activity||'' };
+    if(r.eti_excluded!==undefined) w.etiExcluded=!!r.eti_excluded;
     if(r.phone) w.phone=r.phone;
     if(r.payslip_whatsapp_ok){ w.waOk=true; if(r.payslip_whatsapp_on) w.waOn=r.payslip_whatsapp_on; }
     if(r.payslip_lang) w.slipLang=r.payslip_lang;
