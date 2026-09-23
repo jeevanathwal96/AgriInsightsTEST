@@ -67002,7 +67002,7 @@ function orCardHealthHTML(b){
     var hit=null;
     list.forEach(function(e){ if(!e||!e.n) return; if(String(e.n).toLowerCase().indexOf(String(b.name).toLowerCase())>=0) hit=e; });
     if(hit&&hit.d){
-      var dd=orDaysUntil(hit.d.eu||hit.d.local);
+      var dd=orPhiWait(hit, hit.d.eu?'eu':'local');
       if(dd!=null&&dd>0) return '<div class="oa-hbox warn"><span class="hl">Spray hold — EU export</span>Clear to export-pick from '+esc(hit.d.eu||hit.d.local)+'. Local &amp; USA may differ — see Spray tab.</div>';
       return '<div class="oa-hbox okk"><span class="hl">Clear to pick</span>Last spray '+esc(hit.last||'')+'. No active export waiting period.</div>';
     }
@@ -67217,7 +67217,7 @@ function orBlockPhiEntry(b){
 }
 function orBlockClearance(b){
   var e=orBlockPhiEntry(b), mk=['eu','uk','us','local'], waiting=[], soonest=null;
-  if(e&&e.d){ mk.forEach(function(m){ var dd=orDaysUntil(e.d[m]); if(dd!=null&&dd>0){ waiting.push(m); if(!soonest||dd<soonest.days) soonest={m:m,days:dd,date:e.d[m]}; } }); }
+  if(e&&e.d){ mk.forEach(function(m){ var dd=orPhiWait(e,m); if(dd!=null&&dd>0){ waiting.push(m); if(!soonest||dd<soonest.days) soonest={m:m,days:dd,date:e.d[m]}; } }); }
   return {entry:e, waiting:waiting, soonest:soonest, clearAll:waiting.length===0};
 }
 var OR_MKT_LABEL={eu:'EU',uk:'UK',us:'USA',local:'Local'};
@@ -67271,7 +67271,7 @@ function orTeaserHTML(){
 }
 function orMatCell(e,m){
   if(!e||!e.d||e.d[m]==null) return '<span class="or-mc na">—</span>';
-  var dd=orDaysUntil(e.d[m]);
+  var dd=orPhiWait(e,m);
   if(dd==null) return '<span class="or-mc na">—</span>';
   if(dd<=0) return '<span class="or-mc ok">✓ Clear</span>';
   return '<span class="or-mc wait">'+esc(e.d[m])+' · '+dd+'d</span>';
@@ -67292,11 +67292,29 @@ function orSprayMatrixHTML(){
 
 function orMonIdx(m){ return ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(String(m||'').slice(0,3).toLowerCase()); }
 function orDaysUntil(s){
-  if(!s) return null; var dt=null;
+  if(!s) return null; var dt=null, dm=false;
   if(/^\d{4}-\d{2}-\d{2}/.test(s)){ dt=new Date(s); }
-  else { var m=String(s).trim().match(/^(\d{1,2})\s+([A-Za-z]{3,})/); if(m){ var mo=orMonIdx(m[2]); if(mo>=0) dt=new Date(new Date().getFullYear(),mo,parseInt(m[1],10)); } }
+  else { var m=String(s).trim().match(/^(\d{1,2})\s+([A-Za-z]{3,})/); if(m){ var mo=orMonIdx(m[2]); if(mo>=0){ dt=new Date(new Date().getFullYear(),mo,parseInt(m[1],10)); dm=true; } } }
   if(!dt||isNaN(dt.getTime())) return null;
-  return Math.round((dt-new Date())/86400000);
+  var n=Math.round((dt-new Date())/86400000);
+  /* A day and month with no year ("19 Jan") was read as THIS year, so in December a
+     January safe date was eleven months in the past and the block showed clear to pick
+     at once. A withholding date is never half a year away either side: take the nearer
+     year. Real dates (ISO) are left alone. */
+  if(dm){ if(n<-183){ dt.setFullYear(dt.getFullYear()+1); n=Math.round((dt-new Date())/86400000); }
+          else if(n>183){ dt.setFullYear(dt.getFullYear()-1); n=Math.round((dt-new Date())/86400000); } }
+  return n;
+}
+/* Days until an entry's safe date for one market, from the FULL date orRebuildPhi keeps in
+   _t where there is one - the day-month string cannot say which year it means. The phone
+   already works from real dates (08-mobile/src/core/phi.ts); this brings the desktop in line. */
+function orPhiWait(e, m){
+  if(!e) return null;
+  if(e._t && e._t[m]!=null && isFinite(e._t[m])){
+    var t=new Date(); t.setHours(0,0,0,0); var d=new Date(e._t[m]); d.setHours(0,0,0,0);
+    return Math.round((d-t)/86400000);
+  }
+  return (e.d && e.d[m]!=null) ? orDaysUntil(e.d[m]) : null;
 }
 function orAttentionHTML(){
   try{ orComplyEnsure(); }catch(e){}
@@ -67326,7 +67344,7 @@ function orAttentionHTML(){
   // 4) picking / spray withholding (best effort from PHI safe-to-pick dates)
   try{
     var inHold=[]; var phi=ST_FRUIT.phi||{};
-    Object.keys(phi).forEach(function(cat){ (phi[cat]||[]).forEach(function(e){ var dd=e&&e.d?orDaysUntil(e.d.eu||e.d.local):null; if(dd!=null&&dd>0) inHold.push(e.n+' ('+(e.d.eu||e.d.local)+')'); }); });
+    Object.keys(phi).forEach(function(cat){ (phi[cat]||[]).forEach(function(e){ var dd=e&&e.d?orPhiWait(e, e.d.eu?'eu':'local'):null; if(dd!=null&&dd>0) inHold.push(e.n+' ('+(e.d.eu||e.d.local)+')'); }); });
     if(inHold.length){ rows.push(['amber','\u23F3','<b>Spray waiting period active</b> \u2014 can\u2019t export-pick yet: '+esc(inHold.join(', '))+'.']); }
     else { rows.push(['green','\u2713','<b>All blocks are clear to pick</b> \u2014 no spray waiting periods active for any market.']); }
   }catch(e){}
@@ -67918,7 +67936,7 @@ var AUDIT_RULES = [
        var b=(typeof orBlockById==='function')?orBlockById(h.bid):null; if(!b) return;
        var e=orBlockPhiEntry(b); if(!e||!e.d) return;
        orBlockMarkets(b).forEach(function(m){
-         var days=orDaysUntil(e.d[m]);
+         var days=orPhiWait(e,m);
          if(days!=null && days>0) bad.push(b.name+' ('+m.toUpperCase()+')');
        });
      });
@@ -68411,7 +68429,7 @@ function auditPickMatrix(opts){
     var sells=orBlockMarkets(b), cells={};
     ['eu','uk','us','local'].forEach(function(m){
       if(sells.indexOf(m)<0){ cells[m]={t:'Not sold', c:'na'}; return; }
-      var d=(e&&e.d)?orDaysUntil(e.d[m]):null;
+      var d=(e&&e.d)?orPhiWait(e,m):null;
       if(d==null||d<=0) cells[m]={t:'Clear', c:'ok'};
       else cells[m]={t:'Hold '+d+'d', c:(d<=3?'soon':'hold')};
     });
