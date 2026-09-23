@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=67"></script>
+<script src="ai-data.js?v=68"></script>
 <script src="ai-auth.js?v=46"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -8955,6 +8955,8 @@ table.rn-t td.dim{color:var(--t4)}
     </div></div>
   <div class="wk-f"><label>When did they start?</label><input type="date" id="awf-start"></div>
   <div class="wk-switch"><div><div class="t">Lives on the farm?</div><div class="d">Turns on the housing &amp; tenure rules (ESTA).</div></div><div class="wk-sw" id="awf-onfarm" onclick="wkTogSwitch(this)"></div></div>
+  <div class="wk-f"><label>People on their medical aid <span style="color:var(--t4);font-weight:600">&mdash; them plus dependants, 0 if none</span></label><input type="number" id="awf-med" min="0" max="12" placeholder="0">
+    <div class="hint">Only if they pay into a registered medical scheme through you. SARS&rsquo;s medical tax credit comes off their PAYE each month.</div></div>
   <div class="wk-switch"><div><div class="t">A family member or connected person?</div><div class="d">The Employment Tax Incentive can&rsquo;t be claimed for them. Leave off for everyone else &mdash; with their ID number we check age and the rest.</div></div><div class="wk-sw" id="awf-etiex" onclick="wkTogSwitch(this)"></div></div>
   <div class="wk-f"><label>ID number <span style="color:var(--t4);font-weight:600">&mdash; can add later</span></label><input type="text" id="awf-id" placeholder="13 digits"></div>
   <div class="wk-f"><label>Works on <span style="color:var(--t4);font-weight:600">&mdash; sends their pay to a crop/herd in Profit</span></label><select id="awf-activity" style="width:100%;padding:11px 12px;font-size:14px;border:1.5px solid var(--br2);border-radius:10px;font-family:inherit;background:#fff;font-weight:600"></select></div>
@@ -24781,7 +24783,7 @@ function wkPayRows(labelOverride){
     var sunMult=(w.worksSundays)?STATUTORY.sundayMult.value:STATUTORY.sundayMultDefault.value;  // BCEA s16: 2x unless they ordinarily work Sundays
     var premium=Math.round(((ex.sun||0)*hourly*sunMult + (ex.ph||0)*hourly*STATUTORY.holidayMult.value)*100)/100;
     var gross=base+bonus+premium;
-    var uif=wkUIF(gross);
+    var uif=w.uifExempt?0:wkUIF(gross);                        // under 24 hours a month: outside the UIF
     var advRepay=(w.adv&&w.adv.owing>0)?Math.min(w.adv.perPay||0, w.adv.owing):0;
     /* PAYE is withheld from the worker, so it MUST come off the take-home. The PAYE
        report already computed net this way; only this row did not, so a worker over
@@ -25624,16 +25626,53 @@ function saAgeOn(w, when){
 function _saLabelEnd(label){ var p=String(label||'').split(' '), M=['January','February','March','April','May','June','July','August','September','October','November','December'];
   var mi=M.indexOf(p[0]); if(mi<0) mi=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(p[0]); var y=+p[1];
   return (mi>=0&&y)?new Date(y,mi+1,0):((typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date()); }
-function saPAYE(monthlyGross, w, label){
-  var T=(typeof STATUTORY!=='undefined'&&STATUTORY.tax&&STATUTORY.tax.individual)||null; var g=Number(monthlyGross)||0; if(!T||g<=0) return 0;
+/* Normal tax on an annual amount after the rebates for this worker's age. */
+function _saAnnualTax(annual, w, label){
+  var T=STATUTORY.tax.individual; if(!(annual>0)) return 0;
   var end=_saLabelEnd(label), fyEnd=new Date(end.getMonth()>=2?end.getFullYear()+1:end.getFullYear(),1,28);
   var age=saAgeOn(w, fyEnd);                                      // the 65+/75+ tables apply for the whole year they turn 65/75
-  var annual=g*12, thr=T.threshold, reb=T.primaryRebate;
+  var thr=T.threshold, reb=T.primaryRebate;
   if(age!=null && age>=65){ thr=T.threshold65||thr; reb+=T.secondaryRebate||0; }
   if(age!=null && age>=75){ thr=T.threshold75||thr; reb+=T.tertiaryRebate||0; }
   if(annual<=thr) return 0;
-  var tax=_taxFromBands(annual, T.bands)-reb;
-  return Math.max(0, Math.round(tax/12*100)/100);
+  return Math.max(0, _taxFromBands(annual, T.bands)-reb);
+}
+/* PAYE for one month (SARS employer's method, the way payroll packages do it):
+     regular pay   annualised x 12, taxed, / 12
+     a bonus       the "annual payment" method - tax on (annual equivalent + bonus) less
+                   tax on the annual equivalent, deducted in full this month. Annualising a
+                   month that holds a 13th cheque taxed it as if it were paid twelve times.
+     non-standard  a worker on fewer than 22 hours a week: 25% of pay, except no PAYE for
+                   a day of at least 5 hours paid under R394. */
+function saPAYE(monthlyGross, w, label, annualPayment, info){
+  var T=(typeof STATUTORY!=='undefined'&&STATUTORY.tax&&STATUTORY.tax.individual)||null; var g=Number(monthlyGross)||0, ap=Number(annualPayment)||0;
+  if(!T||(g<=0&&ap<=0)) return 0;
+  if(info && info.nonStandard){
+    var dayPay=info.dayPay||0, hrs=info.hoursDay||0;
+    if(hrs>=(T.nonStandardMinHours||5) && dayPay<(T.nonStandardDayLimit||394)) return 0;
+    return Math.round((g+ap)*(T.nonStandardRate||0.25)*100)/100;
+  }
+  var AE=g*12, base=_saAnnualTax(AE,w,label);
+  var tax=base/12 + (ap>0 ? (_saAnnualTax(AE+ap,w,label)-base) : 0);
+  tax-=saMedCredit(w);                                           // medical scheme fees tax credit, monthly
+  return Math.max(0, Math.round(tax*100)/100);
+}
+/* The monthly medical scheme fees tax credit (s6A): R376 for the member, R376 for the first
+   dependant, R254 for each one after that (2026/27). */
+function saMedCredit(w){
+  var n=Math.max(0, parseInt(w&&w.medAidPeople,10)||0); if(!n) return 0;
+  var T=STATUTORY.tax.individual; return (T.medCredit1||376) + (n>1?(T.medCredit2||376):0) + (n>2?(n-2)*(T.medCreditMore||254):0);
+}
+/* Is a day worker a non-standard employee this month? Worked out from the days actually
+   posted (days x hours a day, over the month's weeks) against SARS's 22 hours a week. */
+function saNonStandard(label, w){
+  if(!w || w.basis!=='day') return null;
+  var T=STATUTORY.tax.individual, days=wkSeasDaysFor(label,w.id)||0; if(!days) return null;
+  var end=_saLabelEnd(label), weeks=end.getDate()/7, hrs=Number(w.hoursDay)||8;
+  var perWeek=days*hrs/weeks;
+  /* A worker under 22 hours a week who declares IN WRITING that they have no other
+     employer is deemed a standard employee (4th Schedule para 1) - taxed on the tables. */
+  return { nonStandard: perWeek < (T.standardWeekHours||22) && !w.soleEmployer, declared:!!w.soleEmployer, perWeek:Math.round(perWeek*10)/10, dayPay:Number(w.amt)||0, hoursDay:hrs };
 }
 function wkMonthGross(label, w){
   var kept=(typeof wkKeptRows==='function')?wkKeptRows(label):null;
@@ -25651,8 +25690,9 @@ function wkPayeFor(label,wid,grossHint){
   var w=(typeof wkFind==='function')?wkFind(wid):null; if(!w) return 0;
   var kept=(typeof wkKeptRows==='function')?wkKeptRows(label):null;
   if(kept){ var k=kept.filter(function(r){ return String(r.w.id)===String(wid); })[0]; if(k) return Number(k.paye)||0; }
+  var bonus=(w.basis==='month')?(((ST_WORK.bonus&&ST_WORK.bonus[label])||{})[w.id]||0):0;
   var g=(grossHint!=null)?grossHint:wkMonthGross(label,w);
-  return saPAYE(g, w, label);
+  return saPAYE(Math.max(0,g-bonus), w, label, bonus, saNonStandard(label,w));
 }
 function wkPayeIsCalc(label,wid){ var m=(((ST_WORK.paye||{})[label])||{})[wid]; return !(m!=null && m!==''); }
 /* The Employment Tax Incentive (Act 26 of 2013 as amended from 1 Apr 2025; SARS guide
@@ -25687,6 +25727,8 @@ function saEtiFor(label, w, gross){
   out.amt=Math.round(Math.max(0,e)*100)/100; out.month=n; out.why=(n<=12?'first':'second')+' 12 months (month '+n+')';
   return out;
 }
+function wkToggleSoleEmp(id){ var w=wkFind(id); if(!w) return; w.soleEmployer=!w.soleEmployer; if(typeof wkSync==='function') wkSync(); else if(typeof saveState==='function') saveState(); try{ wkOpenDetail(id); }catch(e){} }
+function wkSetMedAid(id,v){ var w=wkFind(id); if(!w) return; w.medAidPeople=Math.max(0,Math.min(12,parseInt(v,10)||0)); if(typeof wkSync==='function') wkSync(); else if(typeof saveState==='function') saveState(); try{ wkOpenDetail(id); }catch(e){} }
 function wkToggleEtiExcl(id){ var w=wkFind(id); if(!w) return; w.etiExcluded=!w.etiExcluded; if(typeof wkSync==='function') wkSync(); else if(typeof saveState==='function') saveState(); try{ wkOpenDetail(id); }catch(e){} }
 function wkEtiMonth(label){
   var t=0; (wkList()||[]).forEach(function(w){ var g=wkMonthGross(label,w); if(g>0) t+=saEtiFor(label,w,g).amt; }); return Math.round(t*100)/100;
@@ -25749,7 +25791,8 @@ var prActEdit=null;
 function wkSeasActEdit(wid){ prActEdit=wid; ST_WORK.payRepTab='reg'; wkPRRender(); }
 function wkSeasActSave(wid){ var v=($('pr-act-sel')||{}).value||''; var w=wkFind(wid); if(w) w.activity=v; prActEdit=null; if(typeof saveState==='function') saveState(); if(typeof toast==='function') toast('Tagged to '+wkActLabel(v)+'.','success'); ST_WORK.payRepTab='reg'; wkPRRender(); }
 function wkSeasActBox(){ if(!prActEdit) return ''; var w=wkFind(prActEdit); if(!w) return ''; return '<div class="pr-payebox"><div style="font-size:11.5px;font-weight:800;margin-bottom:7px">Works on \u2014 '+wkE(w.name)+'</div><select id="pr-act-sel" onchange="wkSeasActSave(\''+w.id+'\')" style="width:100%;padding:9px 10px;border:1.5px solid var(--br2);border-radius:9px;font-family:inherit;font-weight:700;background:#fff">'+wkActOptions(w.activity||'')+'</select><div style="font-size:11px;color:var(--t4);margin-top:7px;line-height:1.5">Sends this worker\u2019s pay to that part of your farm. General = whole farm.</div></div>'; }
-function wkSeasUif(gross,days,w){ return (days*(w.hoursDay||STATUTORY.hoursDay.value)>24) ? Math.round(Math.min(gross,STATUTORY.uifCeiling.value)*STATUTORY.uifRate.value*100)/100 : 0; }
+function wkSeasUif(gross,days,w){ return (days*(w.hoursDay||STATUTORY.hoursDay.value)>=24) ?   // UIC Act: excluded only if UNDER 24 hours in the month
+   Math.round(Math.min(gross,STATUTORY.uifCeiling.value)*STATUTORY.uifRate.value*100)/100 : 0; }
 
 function wkOpenModal(o){ o=o||{};
   var t=$('stmt-preview-title'); if(t) t.textContent=o.title||'';
@@ -25862,7 +25905,7 @@ function wkPRSummary(){
       +'<div class="r"><span>Skills levy (SDL)</span><span>'+(wkSdlApplies()?wkMoney(sdl):'n/a')+'</span></div>'
       +'<div class="r tot"><span>Total to SARS</span><span>'+wkMoney(sarsTot)+'</span></div>'
     +'</div><div style="font-size:11px;color:rgba(255,255,255,.75);margin-top:10px">'+(single?('PAYE is worked out from the SARS tables for each worker \u2014 type your payroll\u2019s own figure on the register to replace it.'+(t.etiRoll>0?' '+wkMoney(t.etiRoll)+' of incentive is more than this month\u2019s PAYE and rolls over to next month.':'')+' SDL doesn\u2019t apply under R500k a year.'):'Each month files its own EMP201 \u2014 see the SARS &amp; statutory tab for the per-month breakdown.')+'</div></div>'
-    +'<div class="pr-disc"><b>Not tax advice.</b> Figures come from your pay runs. UIF and SDL follow the set rules; PAYE is worked out from the SARS tables (medical-aid credits are not included \u2014 enter your payroll\u2019s figure for a worker on a medical scheme). The Employment Tax Incentive is shown for workers aged 18\u201329 with an SA ID on file.</div>';
+    +'<div class="pr-disc"><b>Not tax advice.</b> Figures come from your pay runs. UIF and SDL follow the set rules; PAYE is worked out from the SARS tables, with each worker\u2019s age rebates and medical-aid credit; a bonus is taxed as an annual payment and casual workers on under 22 hours a week follow the 25% rule. The Employment Tax Incentive is shown for workers aged 18\u201329 with an SA ID on file.</div>';
 }
 
 function wkPRRegister(){
@@ -26020,7 +26063,9 @@ function renderWkDetail(id){
     +'<div class="wk-dbox"><div class="l">Minimum wage</div><div class="v" style="color:'+(ok?'var(--gm)':'var(--rd)')+'">'+(ok?'&#10003; above':'&#9888; below')+'</div></div>'
     +'<div class="wk-dbox"><div class="l">UIF</div><div class="v">'+(w.uif?'&#10003; sorted':'not registered')+'</div></div>'
     +(function(){ var L=wkMonthLabel(), g=wkMonthGross(L,w), py=wkPayeFor(L,w.id,g), calc=wkPayeIsCalc(L,w.id), e=saEtiFor(L,w,g);
-        return '<div class="wk-dbox"><div class="l">PAYE this month</div><div class="v">'+wkMoney2(py)+' <span style="font-size:10.5px;font-weight:600;color:var(--t4)">'+(calc?(py>0?'SARS tables':'under the threshold'):'your figure')+'</span></div></div>'
+        return '<div class="wk-dbox"><div class="l">PAYE this month</div><div class="v">'+wkMoney2(py)+' <span style="font-size:10.5px;font-weight:600;color:var(--t4)">'+(calc?((function(){ var ns=saNonStandard(L,w); if(ns&&ns.nonStandard) return py>0?'25% \u2014 casual, under 22 hrs a week':'casual day under R394 \u2014 no PAYE'; return py>0?'SARS tables':'under the threshold'; })()):'your figure')+'</span>'
+          +(w.basis==='day'?('<div style="font-size:10.5px;margin-top:3px"><span onclick="wkToggleSoleEmp(\''+w.id+'\')" style="color:var(--gm);font-weight:700;cursor:pointer">'+(w.soleEmployer?'\u2713 Signed: no other job \u2014 undo':'Signed that this is their only job?')+'</span></div>'):'')
+          +'<div style="font-size:10.5px;margin-top:3px;color:var(--t3)">On medical aid: <input type="number" min="0" max="12" value="'+(parseInt(w.medAidPeople,10)||0)+'" onchange="wkSetMedAid(\''+w.id+'\',this.value)" style="width:42px;font-size:10.5px;padding:1px 4px"> people'+(saMedCredit(w)>0?(' &middot; credit '+wkMoney2(saMedCredit(w))):'')+'</div></div></div>'
           +'<div class="wk-dbox"><div class="l">Tax incentive (ETI)</div><div class="v">'+(e.amt>0?('<span style="color:var(--gm)">'+wkMoney2(e.amt)+'</span> <span style="font-size:10.5px;font-weight:600;color:var(--t4)">'+esc(e.why)+'</span>'):('<span style="font-size:12px;font-weight:600;color:var(--t3)">'+esc(e.why||'not eligible')+'</span>'))
           +'<div style="font-size:10.5px;margin-top:3px"><span onclick="wkToggleEtiExcl(\''+w.id+'\')" style="color:var(--gm);font-weight:700;cursor:pointer">'+(w.etiExcluded?'Not family \u2014 include again':'Family member? Leave out')+'</span></div></div></div>'; })()
     +'<div class="wk-dbox"><div class="l">Contract</div><div class="v">'+(w.contract==='missing'?'<span style="color:var(--rd)">to do</span>':'&#10003; on file')+'</div></div>'
@@ -26240,7 +26285,7 @@ function wkNmw(){
   else{ line.className='wk-nmw bad'; line.innerHTML='<span class="e">&#9888;</span><span>That&rsquo;s only R'+hr+'/hour &mdash; <b>below the R'+rate.toFixed(2)+' minimum</b>. Bump it up before you save.</span>'; }
 }
 function wkFormReset(){
-  var ids=['awf-name','awf-role','awf-id','awf-amt','awf-advamt','awf-advoff','awf-scheme','awf-funamt','awf-phone'];
+  var ids=['awf-name','awf-role','awf-id','awf-amt','awf-advamt','awf-advoff','awf-scheme','awf-funamt','awf-phone','awf-med'];
   ids.forEach(function(id){ var e=$(id); if(e) e.value=''; });
   var hrs=$('awf-hours'); if(hrs) hrs.value=45;
   var _ae=$('awf-activity'); if(_ae) _ae.innerHTML=wkActOptions('');
@@ -26248,7 +26293,7 @@ function wkFormReset(){
   // segs to default (first button)
   ['awf-type','awf-basis','awf-contract','awf-where','awf-freq','awf-slang'].forEach(function(id){ var g=$(id); if(g){ var bs=g.querySelectorAll('button'); for(var i=0;i<bs.length;i++) bs[i].classList.toggle('on', i===0); } });
   // switches
-  var on={ 'awf-uif':true }, sw=['awf-onfarm','awf-uif','awf-adv','awf-fun','awf-consent','awf-wa'];
+  var on={ 'awf-uif':true }, sw=['awf-onfarm','awf-uif','awf-adv','awf-fun','awf-consent','awf-wa','awf-etiex'];
   sw.forEach(function(id){ var e=$(id); if(e) e.classList.toggle('on', !!on[id]); });
   ['awf-adv-rev','awf-fun-rev'].forEach(function(id){ var e=$(id); if(e) e.classList.remove('on'); });
   var _ccf=$('awf-contract-file'); if(_ccf) _ccf.value=''; var _cup=$('awf-contract-up'); if(_cup) _cup.classList.remove('on'); if(typeof wkContractReveal==='function') wkContractReveal();
@@ -26356,7 +26401,7 @@ function wkSaveWorker(){
   if(h < rate-0.005){ if(typeof toast==='function') toast('That\u2019s below the R'+rate.toFixed(2)+' minimum wage \u2014 bump it up first.','error'); return; }
   var contractSel=wkSegVal('awf-contract');
   var w={ id:'w'+Date.now(), name:name, role:(($('awf-role')||{}).value||'').trim()||'Worker',
-    type:wkSegVal('awf-type')||'Permanent', start:(($('awf-start')||{}).value||''), onFarm:wkSwOn('awf-onfarm'), etiExcluded:wkSwOn('awf-etiex'),
+    type:wkSegVal('awf-type')||'Permanent', start:(($('awf-start')||{}).value||''), onFarm:wkSwOn('awf-onfarm'), etiExcluded:wkSwOn('awf-etiex'), medAidPeople:Math.max(0,parseInt((($('awf-med')||{}).value||'0'),10)||0),
     idNo:(($('awf-id')||{}).value||'').trim(), basis:basis, amt:amt,
     hoursWeek:(basis==='month'?hrs:45), hoursDay:(basis==='day'?hrs:8), uif:wkSwOn('awf-uif'), activity:(($('awf-activity')||{}).value||''),
     contract:'missing', adv:null, fund:null };
@@ -26797,6 +26842,8 @@ var STATUTORY = {
         { min: 1878600, rate: 0.45, base: 666339 }
       ],
       primaryRebate: 17820, threshold: 99000, secondaryRebate: 9765, tertiaryRebate: 3249, threshold65: 153250, threshold75: 171300,
+      medCredit1: 376, medCredit2: 376, medCreditMore: 254,   // monthly medical scheme fees tax credit 2026/27
+      nonStandardRate: 0.25, nonStandardDayLimit: 394, nonStandardMinHours: 5, standardWeekHours: 22,   // SARS PAYE-GEN-01-G01 (2026/27)
       source: 'SARS 2026/27 individual table; primary rebate R17,820; under-65 threshold R99,000'
     },
     company: { rate: 0.27, source: 'CIT 27% (YOA ending on/after 31 Mar 2023); unchanged Budget 2026' },
