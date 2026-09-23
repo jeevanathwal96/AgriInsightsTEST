@@ -14010,7 +14010,7 @@ function openCropInputCostReport(){
   var byKind={}; var total=0;
   ST_CROP.inputs.forEach(function(i){var l=cropLandById(i.land);var c=(i.costPerHa||0)*((l&&l.area)||0);var k=cropInputKindMeta(i.kind)[0];byKind[k]=(byKind[k]||0)+c;total+=c;});
   var rows=Object.keys(byKind).map(function(k){return '<tr><td>'+k+'</td><td class="amt neg">'+cropRand(byKind[k])+'</td></tr>';}).join('');
-  var diesel=ST_CROP.compliance.dieselLitres||0;
+  var diesel=Math.round(_dslC().logged||0);   // the one diesel engine — see aiDieselStats
   var html='<h1>Crop Input Cost (SARS)</h1>'+
     '<div class="lsr-meta">'+escTxHtml(FARM.name||'Farm')+' \u00b7 season '+ST_CROP.season+' \u00b7 Section 11(a) deductible inputs</div>'+
     '<h2>1 \u00b7 Input cost by category</h2><table><tbody>'+rows+'</tbody><tfoot><tr class="total"><td>Total direct crop inputs</td><td class="amt">'+cropRand(total)+'</td></tr></tfoot></table>'+
@@ -25151,7 +25151,9 @@ function renderWkCompliance(){ wkSync();
     var off=cs.untracked[it.key];
     var click = off ? '' : (' onclick="wkCompOpen(\''+it.key+'\')" style="cursor:pointer"');
     return '<div class="wk-citem'+(off?' off':'')+'"'+click+'><div class="ch"><span class="wk-dot '+(off?'off':it.status)+'"></span><div><div class="wk-cname">'+wkE(it.name)+'</div><div class="wk-claw">'+wkE(it.law)+'</div></div><span class="wk-pill '+(off?'off':it.status)+'">'+(off?'Not tracked':wkE(it.pill))+'</span>'+(off?'':'<span style="color:var(--t4);font-size:18px;margin-left:4px">\u203a</span>')+'</div>'
-      + (off?'':('<div class="wk-cdesc">'+esc(it.desc)+'</div>'))
+      /* desc is authored markup (<b>) with every worker name already escaped by names()/wkE,
+         so escaping it again printed the tags: "&lt;b&gt;R30.23 an hour&lt;/b&gt;". */
+      + (off?'':('<div class="wk-cdesc">'+it.desc+'</div>'))
       + '</div>';
   }).join('');
   box.innerHTML =
@@ -39127,7 +39129,7 @@ function gbpLevers(c) {
   }
 
   /* ── Statutory money. Published rules, and nobody else surfaces them. ── */
-  /* The refund is claimed on eligible LITRES of diesel, on a VAT201/DA66 — not
+  /* The refund is claimed on eligible LITRES of diesel, on the VAT201 — not
      on rands of fuel. This used to take the whole Fuel & Oil line, divide it by
      an assumed pump price and call every litre diesel, which quietly billed the
      farmer's bakkie to a farming refund and put a confident rand figure on a
@@ -39137,10 +39139,10 @@ function gbpLevers(c) {
      becomes "log them" rather than inventing a value. */
   var fuel = gbpCatRow(cats.expense.rows, /fuel|diesel|petrol/i);
   if (fuel && fuel.act > 0) {
-    var _dc  = (typeof ST_CROP !== 'undefined' && ST_CROP.compliance) ? ST_CROP.compliance : null;
-    var lit  = (_dc && _dc.dieselLitres) || 0;
-    var book = !!(_dc && _dc.dieselLogbook);
-    var dsl  = Math.round(lit * GBP_DSL_RE);
+    var _dd  = _dslC();                               // the one diesel engine — see aiDieselStats
+    var lit  = Math.round(_dd.logged || 0);
+    var book = lit > 0;                               // every litre counted there has a logbook behind it
+    var dsl  = Math.round(_dd.claimable || 0);
     if (lit > 0 && dsl > 500) {
       ways.push({
         ico:'⛽', v:dsl, sure:3, conf:'near certain', cat:'tax', catL:'Tax & grants',
@@ -39152,7 +39154,7 @@ function gbpLevers(c) {
                     : 'No per-activity logbook yet — SARS wants date, machine and litres',
                'From 1 April 2026 you may claim on 100% of eligible diesel, up from 80%',
                'Claims can be made in arrears, with records kept five years'],
-        steps:['Claim on your VAT201 using form DA66.',
+        steps:['Claim it on your VAT201 return (the diesel refund section).',
                'Check the current cents-per-litre rate on the SARS schedule.',
                book ? 'Keep the logbook up to date for next year\u2019s claim.'
                     : 'Start a per-activity logbook so the claim survives an audit.'],
@@ -39170,7 +39172,7 @@ function gbpLevers(c) {
                'Claims can be made in arrears, with records kept five years'],
         steps:['Record eligible diesel litres against the crop compliance item.',
                'Keep a per-activity logbook — date, machine, litres.',
-               'Then claim on your VAT201 using form DA66.'],
+               'Then claim it on your VAT201 return.'],
         note:'No rand figure here on purpose: without litres there is nothing to work it out from.',
         src:'SARS Diesel Refund Scheme, Customs & Excise Act Schedule 6 Part 3.'
       });
@@ -44377,8 +44379,8 @@ function mkaFuel(){
     tot+=a; n++;
     if(/diesel/i.test(d)){ dsl+=a; nd++; } else unspl+=a;
   });
-  var litres=(typeof ST_CROP!=='undefined'&&ST_CROP.compliance&&ST_CROP.compliance.dieselLitres)||0;
-  var book=!!(typeof ST_CROP!=='undefined'&&ST_CROP.compliance&&ST_CROP.compliance.dieselLogbook);
+  var _dd=_dslC(), litres=Math.round(_dd.logged||0);   // the one diesel engine — see aiDieselStats
+  var book=litres>0;
   return {fy:fy, total:tot, diesel:dsl, unsplit:unspl, txns:n, dieselTxns:nd, litres:litres, logbook:book};
 }
 function mkaRenderFuel(){
@@ -44401,7 +44403,7 @@ function mkaRenderFuel(){
     nudge='<div class="mkf-n"><span style="font-size:17px">⛽</span><p><span class="t" data-t="mkt.fClaimT">'+
       'Split the diesel out and you can claim it back</span>'+
       'A primary producer claims the SARS diesel refund on <b>eligible litres of diesel</b>, on the VAT201 '+
-      'using form DA66. Right now this farm has <b>no litres logged</b>, so none of '+R(f.total)+' can be '+
+      'return. Right now this farm has <b>no litres logged</b>, so none of '+R(f.total)+' can be '+
       'claimed. Record the litres against the crop compliance item and the claim opens up.</p>'+
       '<button type="button" class="mkr-btn p" onclick="nav(\'crop\')" data-t="mkt.fLogLitres">Log diesel litres</button></div>';
   } else {
@@ -44422,7 +44424,7 @@ function mkaRenderFuel(){
       ' your descriptions call diesel.';
     nudge='<div class="mkf-n ok"><span style="font-size:17px">✅</span><p><span class="t" data-t="mkt.fLoggedT">'+
       N(f.litres)+' litres logged for the diesel refund</span>'+
-      'Claimed on the VAT201 using form DA66'+(f.logbook?', with a per-activity logbook kept':
+      'Claimed on the VAT201 return'+(f.logbook?', with a per-activity logbook kept':
       ' — but <b>no per-activity logbook</b> yet, which SARS asks for')+'. '+read+
       '</p><button type="button" class="mkr-btn" onclick="nav(\'crop\')" data-t="mkt.fReview">Review the logbook</button></div>';
   }
@@ -48739,7 +48741,8 @@ var LANG_PAIRS = [
   ['worked out for you', 'vir jou uitgewerk'],
   ['Money back — diesel refund', 'Geld terug — dieselterugbetaling'],
   ['Eligible farming diesel logged', 'Toegelate plaas-diesel aangeteken'],
-  ['Eligible farming diesel logged — ready for your diesel refund claim (SARS now handles this separately from the VAT201).', 'Toegelate plaas-diesel aangeteken — gereed vir jou dieselterugbetaling-eis (SARS hanteer dit nou apart van die BTW201).'],
+  ['Eligible farming diesel logged, worth about', 'Toegelate plaas-diesel aangeteken, werd ongeveer'],
+  ['. Claim it on your VAT201 return.', '. Eis dit op jou BTW201-opgawe.'],
   ['What’s due, and when', 'Wat is betaalbaar, en wanneer'],
   ['What is this?', 'Wat is dit?'],
   ['Workers’ tax & UIF', 'Werkers se belasting & UIF'],
@@ -49474,6 +49477,7 @@ LANG_PAIRS.push(
   /* These two are the waterfall's own row labels. They looked paired at a glance because
      the same strings appear in the wf[] array that builds the rows — they were not. */
   ['Gross farming income',                     'Bruto boerdery-inkomste'],
+  ['Farming income without VAT',               'Boerdery-inkomste sonder BTW'],
   ['Taxable profit',                           'Belasbare wins'],
   ['Running costs',                            'Lopende koste'],
   ['Farm improvements',                        'Plaasverbeterings'],
@@ -51494,8 +51498,8 @@ LANG_PAIRS.push(
   ["your target).",           "jou teiken)."],
   ["Your herd is worth approximately", "Jou kudde is ongeveer werd"],
   ["of the bill —",           "van die rekening —"],
-  ["Claimed on the VAT201 using form DA66, with a per-activity logbook kept. At the pump those litres come to about",
-   "Geëis op die BTW201 met vorm DA66, met ’n per-aktiwiteit logboek gehou. By die pomp beloop daardie liters ongeveer"],
+  ["Claimed on the VAT201 return, with a per-activity logbook kept. At the pump those litres come to about",
+   "Geëis op die BTW201-opgawe, met ’n per-aktiwiteit logboek gehou. By die pomp beloop daardie liters ongeveer"],
   [", which lines up with the", ", wat ooreenstem met die"],
   ["your descriptions call diesel.", "wat jou beskrywings diesel noem."],
   /* Settings */
@@ -54500,8 +54504,25 @@ function taxProvEstimate(){
      Both are therefore taken at their ACTUAL year-to-date figures. This does not move the
      tax estimate (non-deductibles cancel from both sides of the taxable-profit sum); it
      makes the improvement claim and the on-screen note honest. */
-  var _sp=_taxFySplit(fy), _scale=(ytd.expenses>0)?(annualExpense/ytd.expenses):1;
-  var annualOtherDed=Math.round(_sp.otherDed*_scale);
+  /* Running costs for the year = what has been recorded as a running cost so far, plus
+     the rest of the year. It used to be the recorded running costs multiplied by
+     annualExpense/ytd.expenses — but ytd.expenses also holds loan capital and asset
+     purchases, so on the demo farm R2.6m of costs was scaled ×4 and the loan capital
+     taken out beforehand came back in as missing deductions: tax R663k where the same
+     books give R344k. Now:
+       · plan basis     — recorded running costs + the planned costs still to come
+       · straight basis — recorded running costs carried at their own monthly rate
+     And for a VAT vendor the whole estimate is ex-VAT: _taxFySplit already strips VAT
+     from what is recorded, and the planned remainder loses VAT at the same rate the
+     farm's recorded sales and costs carry it. */
+  var _sp=_taxFySplit(fy);
+  var _inR=(_sp.incomeGross>0)?(_sp.income/_sp.incomeGross):1, _exR=(_sp.expensesGross>0)?(_sp.expenses/_sp.expensesGross):1;
+  if(_inR!==1||_exR!==1){
+    annualIncome=Math.round(annualIncome*_inR); annualExpense=Math.round(annualExpense*_exR);
+    annualProfit=annualIncome-annualExpense;
+  }
+  var annualOtherDed=(basis==='plan') ? Math.round(_sp.otherDed+Math.max(0,remExpense)*_exR)
+                    : (tooNew ? Math.round(_sp.otherDed) : Math.round(_sp.otherDed/me*12));
   var annualCapLim=Math.round(_sp.capLim);
   var annualNonDed=Math.round(_sp.nonDed);
   /* Neither is annualised. An allowance is already a full-year figure and a disposal is a
@@ -55091,10 +55112,16 @@ function _taxFySplit(fy){
   ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
     if(!t) return; var d=parseDate(t.date); if(!d) return;
     if(((d.m>=2)?d.y:d.y-1)!==fy) return;
-    var a=t.amt||0;
-    if(t.type==='income'){ o.income+=a; return; }
+    /* A VAT vendor is taxed on amounts WITHOUT VAT: output VAT on a sale belongs to SARS
+       and input VAT on a cost comes back through the VAT201, so neither is income or a
+       cost. Every figure below is therefore the ex-VAT amount (IE_split returns the
+       amount unchanged for a farm that is not registered). Gross totals are kept so
+       taxProvEstimate can take the same VAT out of the planned rest of the year. */
+    var g=t.amt||0, a=g;
+    try{ if(typeof IE_split==='function') a=IE_split(g, t.cat).net; }catch(e){ a=g; }
+    if(t.type==='income'){ o.income+=a; o.incomeGross=(o.incomeGross||0)+g; return; }
     if(t.type!=='expense') return;              // account payments are cash, not a P&L line
-    o.expenses+=a;
+    o.expenses+=a; o.expensesGross=(o.expensesGross||0)+g;
     /* Key the breakdown by the DISPLAY name, not the raw stored one. The server keeps
        category CODES ('IncomeTax', 'SARSfines&interest'), so keying on t.cat put those
        unspaced strings straight into a sentence a farmer reads. Two spellings of the
@@ -55518,7 +55545,8 @@ function taxVatIfRegistered(){
   var _p=(currentPeriodLabel()).split(' '), MN={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
   var now={m:MN[_p[0]]!==undefined?MN[_p[0]]:4,y:parseInt(_p[1],10)||2024}, fyStart=(ST.fyStartMonth||3)-1, curFY=(now.m>=fyStart?now.y:now.y-1), inV=0,outV=0;
   (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var fy=(d.m>=fyStart?d.y:d.y-1); if(fy!==curFY) return; if(typeof IE_treat==='function' && IE_treat(t.cat)==='std'){ var vat=Math.round((t.amt||0)*0.15/1.15); if(t.type==='expense') inV+=vat; else if(t.type==='income') outV+=vat; } });
-  return {inputVat:inV, outputVat:outV, dieselLitres:(typeof ST_CROP!=='undefined'&&ST_CROP.compliance&&ST_CROP.compliance.dieselLitres)||0};
+  var _dd=_dslC();   // the one diesel engine — see aiDieselStats
+  return {inputVat:inV, outputVat:outV, dieselLitres:Math.round(_dd.logged||0), dieselRand:Math.round(_dd.claimable||0)};
 }
 function taxWhatIf(){
   var pe=$('tax-wi-profit'); if(!pe) return;
@@ -55535,7 +55563,7 @@ function taxWhatIf(){
   setEl('tax-wi-p1','R'+_grpInt(Math.round(t/2))); setEl('tax-wi-p2','R'+_grpInt(t-Math.round(t/2))); setEl('tax-wi-mo','R'+_grpInt(Math.round(t/12))); setEl('tax-wi-marg',mrg+'%');
   var sv=$('tax-wi-save'), ded=t0-t; if(sv){ if(ded>0){ sv.style.display='block'; sv.innerHTML='🛠️ Your deductions cut this year’s tax by about <b>R'+_grpInt(ded)+'</b>.'; } else sv.style.display='none'; }
   var vo=$('tax-wi-vatout'); if(vo){ var vr=taxVatIfRegistered();
-    if(TAX_WI_VAT==='yes') vo.innerHTML='<b style="color:var(--gm)">If you register:</b> reclaim about <b>R'+_grpInt(vr.inputVat)+'</b> input VAT on your standard-rated costs (machinery, repairs, vet, admin)'+(vr.dieselLitres>0?' and claim the diesel refund on your <b>'+_grpInt(vr.dieselLitres)+' L</b> logged':'')+'. You’d charge 15% on sales (~R'+_grpInt(vr.outputVat)+' output VAT) — usually fine when your buyers are VAT-registered. Below R1m it’s your choice.';
+    if(TAX_WI_VAT==='yes') vo.innerHTML='<b style="color:var(--gm)">'+((typeof FARM!=='undefined'&&FARM.vat)?'Registered:':'If you register:')+'</b> reclaim about <b>R'+_grpInt(vr.inputVat)+'</b> input VAT on your standard-rated costs (machinery, repairs, vet, admin)'+(vr.dieselLitres>0?' and claim the diesel refund — about <b>R'+_grpInt(vr.dieselRand)+'</b> on your '+_grpInt(vr.dieselLitres)+' L logged':'')+'. You’d charge 15% on sales (~R'+_grpInt(vr.outputVat)+' output VAT) — usually fine when your buyers are VAT-registered. Below R1m it’s your choice.';
     else vo.innerHTML='<b>Not registered.</b> No VAT returns to file — but you can’t reclaim the ~<b>R'+_grpInt(vr.inputVat)+'</b> input VAT on your standard-rated costs'+(vr.dieselLitres>0?', and can’t claim the diesel refund on your '+_grpInt(vr.dieselLitres)+' L':'')+'. Tap “Registered” to weigh it up.';
   }
 }
@@ -56187,7 +56215,7 @@ function taxGlanceHTML(){
   var prior=_taxFYProfit(-1);
   var priorRF=taxRingFenceFY(((typeof getCurrentFY==='function')?getCurrentFY():2024)-1);
   var priorTax=(typeof calcAnnualIncomeTax==='function')?calcAnnualIncomeTax(Math.max(0,priorRF.taxable),(ST.entityType||'sole')):0;
-  var bank=(typeof ST!=='undefined')?ST.bankBalance:null, diesel=(typeof ST_CROP!=='undefined'&&ST_CROP.compliance&&ST_CROP.compliance.dieselLitres)||0;
+  var _dd=_dslC(), bank=(typeof ST!=='undefined')?ST.bankBalance:null, diesel=Math.round(_dd.logged||0);   // the one diesel engine — see aiDieselStats
   var ft=(typeof getFarmType==='function')?getFarmType():'', h='';
   var incomeTax=prov.ok?prov.annualTax:0, vatComp=Math.max(0,vatFY), total=incomeTax+vatComp+pay.total;
 
@@ -56243,7 +56271,8 @@ function taxGlanceHTML(){
        the write-off on the asset register, and anything a sale brought back into income.
        Both are now in the arithmetic, so both have to be on the page — a waterfall that
        does not reconcile to its own total is the first thing an accountant queries. */
-    var wf=[['Gross farming income',prov.annualIncome,'#40916C']];
+    var _vx=(typeof FARM!=='undefined'&&FARM.vat);   // a VAT vendor is taxed on amounts without VAT
+    var wf=[[_vx?'Farming income without VAT':'Gross farming income',prov.annualIncome,'#40916C']];
     if((prov.recoup||0)>0) wf.push(['+ Sold assets recouped',prov.recoup,'#B45309']);
     wf.push(['− Running costs',-prov.otherDed,'#E86A5E']);
     if((prov.capAllow||0)>0) wf.push(['− Write-off on your assets',-prov.capAllow,'#40916C']);
@@ -56363,7 +56392,7 @@ function taxGlanceHTML(){
   h+='</div>';
 
   // diesel money-back
-  if(diesel>0) h+='<div class="tx-card" id="tax-diesel-card" style="border-color:var(--gp);margin-bottom:12px"><div class="tx-h">🛢️ Money back — diesel refund</div><div style="font-size:24px;font-weight:800;color:var(--gd)">'+_grpInt(diesel)+' L</div><div style="font-size:12px;color:var(--t3)">Eligible farming diesel logged — ready for your diesel refund claim (SARS now handles this separately from the VAT201).</div></div>';
+  if(diesel>0) h+='<div class="tx-card" id="tax-diesel-card" style="border-color:var(--gp);margin-bottom:12px"><div class="tx-h">🛢️ Money back — diesel refund</div><div style="font-size:24px;font-weight:800;color:var(--gd)">'+_grpInt(diesel)+' L</div><div style="font-size:12px;color:var(--t3)">Eligible farming diesel logged, worth about <b>'+aiDieselMoney(_dd.claimable)+'</b>. Claim it on your VAT201 return.</div>'+(_dd.unlogged>0?'<div style="font-size:12px;color:#B45309;margin-top:4px">'+_grpInt(Math.round(_dd.unlogged))+' L bought but not logged to a machine yet — that part can’t be claimed.</div>':'')+'</div>';
 
   // registration nudge
   var vatThr=(STATUTORY.vatThreshold&&STATUTORY.vatThreshold.value)||1000000;
@@ -56374,8 +56403,8 @@ function taxGlanceHTML(){
   chk=[]; chk.push([(typeof FARM!=='undefined'&&FARM.vat)?'✓':'—',(typeof FARM!=='undefined'&&FARM.vat)?'VAT registered':'Not VAT registered',(typeof FARM!=='undefined'&&FARM.vat)?1:2]);
   chk.push(['✓','Provisional taxpayer',1]);
   if(wk) chk.push([wk.allOk?'✓':'⚠',wk.allOk?'All workers above minimum wage':'A worker is below minimum wage',wk.allOk?1:0]);
-  var dlog=(typeof ST_CROP!=='undefined'&&ST_CROP.compliance&&ST_CROP.compliance.dieselLogbook);
-  if(diesel>0) chk.push([dlog?'✓':'⚠',dlog?'Diesel logbook kept':'Diesel logbook incomplete',dlog?1:0]);
+  var dlog=!(_dd.unlogged>0);   // complete when every litre bought is logged to a machine
+  if(diesel>0||_dd.bought>0) chk.push([dlog?'✓':'⚠',dlog?'Diesel logbook kept':'Diesel logbook incomplete',dlog?1:0]);
   chk.push(['✓','Records kept (5-year rule)',1]);
   if(wk) chk.push([wk.sdl?'✓':'✓',wk.sdl?'SDL registered':'Under SDL threshold',1]);
   h+='<div class="tx-card" style="margin-bottom:12px"><div class="tx-h">Tax-health check</div><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px 18px">'+chk.map(function(c){ var col=c[2]===1?'var(--gm)':c[2]===0?'#B45309':'var(--t4)'; return '<div style="display:flex;gap:8px;align-items:center;font-size:12px"><span style="color:'+col+';font-weight:800">'+c[0]+'</span><span style="color:'+(c[2]===0?'#7a4a10':'var(--t2)')+'">'+esc(c[1])+'</span></div>'; }).join('')+'</div></div>';
@@ -56615,13 +56644,16 @@ function _txDieselPanel(){
       '<div class="gs">'+Math.round(d.logged).toLocaleString('en-ZA')+' \u2113 \u00b7 item 670.04</div></div>'+
     lose+'</div>'+
     '<div class="tx-dsl-a"><button class="rc-btn" onclick="fuelOpen(0)">Log fuel used</button>'+
-      (_dslKept(d)?'<button class="rc-btn" style="margin-left:8px" onclick="regOpen(\'diesel\')">Diesel logbook</button>':'')+'</div>'+
+      /* The printed logbook is built from the in-app fuel log only; litres kept in a paper
+         book are counted in the claim but are not rows the register can print. */
+      (((d.appLogged||0)+(d.nonQual||0))>0?'<button class="rc-btn" style="margin-left:8px" onclick="regOpen(\'diesel\')">Diesel logbook</button>':'')+'</div>'+
     '<div class="tx-dsl-n">At '+(aiDieselRate()*100).toFixed(1)+' c/\u2113 \u00b7 '+Math.round(aiDieselShare()*100)+'% of qualifying litres, for on-land farming. '+
     'Rate applies from '+(STATUTORY.dieselRefund.effectiveFrom||'')+' \u2014 it moves with the fuel and RAF levies, so check it after each Budget.'+
     /* Say who this is for. The claim needs a per-machine record, and the farm that
        can produce one is the farm already writing in a tank book at the pump \u2014 for
        them this is a place to put what they already capture, not a new routine. */
-    (_dslKept(d)? '' : ' If you already keep a paper tank book, entering it here turns it into the SARS logbook.')+
+    ((d.paperBook&&d.paper>0)? ' '+Math.round(d.paper).toLocaleString('en-ZA')+' \u2113 of this come from your paper logbook (Crops \u203a Compliance) \u2014 keep that book, SARS asks to see it.'
+      : (_dslKept(d)? '' : ' If you already keep a paper tank book, entering it here turns it into the SARS logbook.'))+
     (d.txnsWithoutLitres? ' '+d.txnsWithoutLitres+' diesel purchase'+(d.txnsWithoutLitres===1?'':'s')+' recorded no litres and cannot be claimed.':'')+
     '</div>';
 }
@@ -56657,10 +56689,10 @@ function taxReportsHTML(){
     var vp=_txResolveVatp();
     var vpick='<div class="tx-step"><button onclick="taxRptVatP(-1)" aria-label="Previous VAT period">‹</button><span class="lbl">'+vp.label+'</span><button onclick="taxRptVatP(1)"'+(vp.atCur?' disabled':'')+' aria-label="Next VAT period">›</button></div>';
     h+='<section class="txband">'+
-      bandHd('%','var(--tx-violet)','Every 2 months · VAT','VAT vendor · filed bi-monthly · due 25th after period end',vpick)+
+      bandHd('%','var(--tx-violet)',({C:'Every month',D:'Every 6 months',E:'Once a year'}[vp.cat]||'Every 2 months')+' · VAT','VAT vendor · Category '+vp.cat+' · filed '+_vatCadence(vp.cat)+' · due 25th after period end',vpick)+
       '<div class="tx-card"><div class="txc-hd"><span class="txc-ic" style="background:#E8F0FE">&#128202;</span><div><div class="txc-t">VAT201 + diesel refund</div><div class="txc-s">Output vs input VAT for '+vp.label+_txDieselSub()+'</div></div></div>'+_txDieselPanel()+
         '<div class="txc-btns" style="max-width:430px"><span class="txb-b pri" onclick="taxOpenIE(\'preview\',\'vat\')">Preview</span><span class="txb-b sec" onclick="taxOpenIE(\'print\',\'vat\')">Print / PDF</span><span class="txb-b sec" onclick="taxOpenIE(\'csv\',\'vat\')">CSV</span></div></div>'+
-      '<div class="txb-note">Farming enterprises may qualify for Category D (6-monthly) — confirm your VAT category with SARS.</div>'+
+      (vp.cat==='D'?'':'<div class="txb-note">Farming enterprises may qualify for Category D (6-monthly) — confirm your VAT category with SARS.</div>')+
     '</section>';
   }
 
@@ -56693,12 +56725,22 @@ function taxRptFy(dir){
   var v=_txResolveFy()+dir; if(v>cur) v=cur; if(v<min) v=min; TAX_RPT_FY=v; _txRerenderReports();
 }
 function _txVatBlock(offset){
+  /* The VAT201 period for the farm's OWN category, stepped back `offset` returns. It was
+     hard-wired to Jan–Feb, Mar–Apr … — Category B's calendar — so a Category A farm (periods
+     ending Jan, Mar, May, Jul, Sep, Nov) was handed a Sep–Oct return that SARS never asked
+     for, and C/D/E farms got two-month returns too. _vatPeriod() already knew the calendar;
+     this now asks it. */
   var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date();
-  var y=d.getFullYear(), idx=Math.floor(d.getMonth()/2)+(offset||0);
-  y+=Math.floor(idx/6); idx=((idx%6)+6)%6; var m0=idx*2;
+  var cat=(typeof ST!=='undefined'&&ST.vatCategory)||'A';
+  var len=(cat==='C')?1:((cat==='D')?6:((cat==='E')?12:2));
+  var cur=_vatPeriod(d,cat), at=new Date(cur.start.getFullYear(), cur.start.getMonth()+(offset||0)*len, 1);
+  var pr=_vatPeriod(at,cat), st=pr.start, en=pr.end;
   var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var lastDay=new Date(y,m0+2,0).getDate();
-  return {from:y+'-'+('0'+(m0+1)).slice(-2)+'-01', to:y+'-'+('0'+(m0+2)).slice(-2)+'-'+('0'+lastDay).slice(-2), label:MO[m0]+'–'+MO[m0+1]+' '+y};
+  var iso=function(x){ return x.getFullYear()+'-'+('0'+(x.getMonth()+1)).slice(-2)+'-'+('0'+x.getDate()).slice(-2); };
+  var label=(len===1) ? MO[st.getMonth()]+' '+st.getFullYear()
+          : (st.getFullYear()===en.getFullYear() ? MO[st.getMonth()]+'\u2013'+MO[en.getMonth()]+' '+en.getFullYear()
+                                                 : MO[st.getMonth()]+' '+st.getFullYear()+' \u2013 '+MO[en.getMonth()]+' '+en.getFullYear());
+  return {from:iso(st), to:iso(en), label:label, cat:cat};
 }
 function _txResolveVatp(){ var b=_txVatBlock(TAX_RPT_VATP||0); b.atCur=((TAX_RPT_VATP||0)>=0); return b; }
 function taxRptVatP(dir){ var v=(TAX_RPT_VATP||0)+dir; if(v>0) v=0; if(v<-11) v=-11; TAX_RPT_VATP=v; _txRerenderReports(); }
@@ -59104,7 +59146,7 @@ var AIJ = [
 
  { t:'SARS, and the paperwork', ic:'🧾', sub:'What to set aside, what you claim back, and the forms', mins:'~60s',
    end:'reports',
-   stakes:{kicker:'Money SARS owes you',n:'R67 344',good:true,line:'Your diesel refund. Most farms never claim it.',sub:'18 400 litres already logged. It is claimed on the VAT201 with form DA66 — and it repeats every single year.'},
+   stakes:{kicker:'Money SARS owes you',n:'R70 325',good:true,line:'Your diesel refund. Most farms never claim it.',sub:'18 400 litres already logged, at 382,2 c a litre. It is claimed on the VAT201 return — and it repeats every single year.'},
    payoff:{kicker:'And the paperwork behind it',n:'4 statements',line:'Printed, plus an IT12 pre-fill and a pack your accountant can open.',sub:'Every year. From the entries you were making anyway.'},
    steps:[
      {page:'tax', tab:'glance', target:'tax-hero-card', icon:'🧾', title:'SARS, handled as you go', act:{k:'count'},
@@ -60321,7 +60363,7 @@ var PAGE_TOURS = {
       tip:'Set budget targets in the Budgets tab to make these bars meaningful.', pos:'smart' },
     { target:'prov-tax-card', title:'Provisional tax estimate', icon:'📋',
       text:'Based on your year-to-date profit, this card estimates your next provisional tax payment and shows how many days until it\'s due.',
-      tip:'SARS requires two provisional tax payments per year — 31 August and 28 February. This estimate uses 21% for profits under R1.5M, 28% above.', pos:'smart' }
+      tip:'SARS requires two provisional tax payments per year — 31 August and 28 February. The estimate works the tax out on SARS\u2019s tax tables for your type of business, on profit without VAT.', pos:'smart' }
   ],
   income: [
     { intro:true, title:'Income page overview', icon:'💵',
@@ -61361,7 +61403,7 @@ var printBtn = $('stmt-preview-print-btn');
   if (printBtn) {
     printBtn.textContent = '';
     printBtn.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Print / Save PDF';
-    printBtn.onclick = function() { printSARSExport(); };
+    printBtn.onclick = function() { printSARSExport(fy); };   // the year being previewed, not always this one
   }
 
 var waBtn = $('stmt-preview-wa-btn');
@@ -61380,11 +61422,25 @@ var bg = $('stmt-preview-bg');
    built their own byCat inline and neither applied it — so the document handed to SARS
    claimed the entire instalment. One implementation now, used by both. */
 function _sarsByCat(fy){
-  var byCat = {}, loanPaid = 0, loanInt = 0, total = 0, capBought = 0;
+  /* Section B of the IT12 pack. It lists the same rands the Tax tab deducts — the rules in
+     _taxFySplit, applied line by line so the accountant can see each category:
+       · without VAT for a VAT vendor (input VAT comes back through the VAT201, so it is
+         not a cost — deducting it here as well claimed it twice);
+       · income tax, provisional tax and SARS penalties are NOT deductions. They used to be
+         listed as S11(a) expenses and taken off, so the pack under-stated taxable income
+         by whatever tax the farm had paid. They are now reported beside Section B, not in it;
+       · farm-development spending (First Schedule para 12) is capped at farming income, so
+         it goes through the ring fence in Section D, not straight into this total. */
+  var byCat = {}, loanPaid = 0, loanInt = 0, total = 0, capBought = 0, nonDed = 0, nonDedByCat = {}, capLim = 0;
   (ST.txns || []).forEach(function(t){
-    if (t.type !== 'expense') return;
+    if (!t || t.type !== 'expense') return;
     var d = parseDate(t.date); if (!d) return;
     if (((d.m >= 2) ? d.y : d.y - 1) !== fy) return;
+    var a = t.amt || 0;
+    try{ if (typeof IE_split === 'function') a = IE_split(a, t.cat).net; }catch(e){}
+    var k = (typeof taxCatKind === 'function') ? taxCatKind(t.cat) : 'ded';
+    if (k === 'nonded'){ var nl = _catOf(t); nonDed += a; nonDedByCat[nl] = (nonDedByCat[nl] || 0) + a; return; }
+    if (k === 'caplim'){ capLim += a; return; }
     /* A payment that bought a depreciating asset is not a running cost, and Section C of
        this same pack already claims the wear and tear on it. Listing it here as well
        claimed the purchase twice — R380 000 as an expense and R190 000 as an allowance, in
@@ -61392,27 +61448,53 @@ function _sarsByCat(fy){
        _taxFySplit; s12u is left alone in both, because farm development is deducted under
        para 12 rather than depreciated. */
     var _la = null; try{ _la = (typeof txLinkedAsset === 'function') ? txLinkedAsset(t) : null; }catch(e){}
-    if (_la && _la.deprType !== 's12u'){ capBought += (t.amt || 0); return; }
-    byCat[_catOf(t)] = (byCat[_catOf(t)] || 0) + t.amt;
+    if (_la && _la.deprType !== 's12u'){ capBought += a; return; }
     if (t.cat === 'Loan Repayments' && typeof _rptLoanInterest === 'function'){
-      loanPaid += (t.amt || 0);
-      loanInt  += _rptLoanInterest(t);
+      var _i = 0; try{ _i = Math.min(a, _rptLoanInterest(t) || 0); }catch(e){ _i = 0; }
+      loanPaid += a; loanInt += _i;
+      return;
     }
+    byCat[_catOf(t)] = (byCat[_catOf(t)] || 0) + a;
   });
-  if (loanPaid > 0) byCat['Loan Repayments'] = loanInt;
+  if (loanPaid > 0) byCat['Loan Repayments'] = (byCat['Loan Repayments'] || 0) + loanInt;
   Object.keys(byCat).forEach(function(k){ total += byCat[k]; });
   return {
     byCat: byCat,
     total: total,
     capBought: capBought,
+    nonDed: nonDed, nonDedByCat: nonDedByCat, capLim: capLim,
     loan: loanPaid > 0 ? {paid:loanPaid, interest:loanInt, capital:Math.max(0, loanPaid - loanInt)} : null
   };
 }
+/* Every figure the IT12 pack prints, from the SAME engines as the Tax tab, so the preview,
+   the printed pack and the Tax tab cannot disagree. Before this the pack worked its own
+   sum: VAT-inclusive income, income tax deducted as a cost, renewable-energy write-offs and
+   the para 12 claim left out, and tax at a flat 21% or 28% — R1.44m printed where the
+   farm's own tax table gave R2.12m. */
+function _sarsIT12(fy){
+  var sc = _sarsByCat(fy), sp = _taxFySplit(fy), ca = taxCapitalAllowancesFY(fy), rf = taxRingFenceFY(fy);
+  var entity = (typeof ST !== 'undefined' && ST.entityType) || 'sole';
+  var taxable = rf.taxable;
+  var tax = (typeof calcAnnualIncomeTax === 'function') ? calcAnnualIncomeTax(Math.max(0, taxable), entity) : 0;
+  /* VAT for the SAME tax year the rest of the pack covers. It used to be whatever period the
+     Reports tab was set to (print) or the reporting year (preview), so the two copies of one
+     document showed different VAT figures, neither for the year on the page. */
+  var vat = null;
+  if (typeof FARM !== 'undefined' && FARM.vat){
+    var vo = 0, vi = 0;
+    (ST.txns || []).forEach(function(t){
+      if (!t) return; var d = parseDate(t.date); if (!d || (((d.m >= 2) ? d.y : d.y - 1) !== fy)) return;
+      var x = IE_split(t.amt || 0, t.cat);
+      if (t.type === 'income') vo += x.vat; else if (t.type === 'expense') vi += x.vat;
+    });
+    vat = {out:Math.round(vo), inp:Math.round(vi), net:Math.round(vo - vi), cat:(ST.vatCategory || 'A')};
+  }
+  return {sc:sc, income:Math.round(sp.income), ca:ca, rf:rf, recoup:rf.recoup, taxable:taxable, tax:tax, entity:entity, vat:vat,
+          check:Math.round(sp.income + rf.recoup - sc.total - ca.total - rf.allowed) - taxable};
+}
 function buildSARSPreviewHTML(fy) {
   var _curFY = (typeof getCurrentFY==='function') ? getCurrentFY() : fy;
-  var ytd    = (typeof _txFyIE==='function' && fy!==_curFY) ? _txFyIE(fy) : (ytdSummary ? ytdSummary() : {income:0,expenses:0,profit:0});
-  var assets = ST_ASSETS ? ST_ASSETS.assets : [];
-  var R      = computeRPT ? (function(){ var old=RPT_STATE.type; RPT_STATE.type='yearly'; var r=computeRPT(); RPT_STATE.type=old; return r; })() : null;
+  var IT     = _sarsIT12(fy), R = IT.vat;
 
   /* The schedule's `yr` is on the same footing as getCurrentFY(): calcDepr() stamps each
      row with purchaseFY+i, and purchaseFY is the year the tax year OPENS. Reading fy+1 here
@@ -61421,15 +61503,9 @@ function buildSARSPreviewHTML(fy) {
      a tractor bought this year claims 50%% and the pack printed the 30%%. Income and
      deductions in this same document come from _sarsByCat(fy), so the pack was also
      internally inconsistent: FY2026 income against FY2027 allowances. */
-  var s12bTotal=0, s11eTotal=0;
-  assets.forEach(function(a){
-    var d=calcDepr?calcDepr(a):{deprSchedule:[]}; var _amt=0;
-    (d.deprSchedule||[]).forEach(function(x){ if(x.yr===fy) _amt+=x.amount; });
-    if(a.deprType==='s12b') s12bTotal+=_amt;
-    if(a.deprType==='s11e') s11eTotal+=_amt;
-  });
+  var s12bTotal=IT.ca.s12b, s11eTotal=IT.ca.s11e, renewTotal=IT.ca.renew, capTotal=IT.ca.total;
 
-  var _sc = _sarsByCat(fy), byCat = _sc.byCat;
+  var _sc = IT.sc, byCat = _sc.byCat;
 
   var sarsMap = _fcPick('s1', function(c){ return {section:c.ss}; });
 
@@ -61441,8 +61517,11 @@ function buildSARSPreviewHTML(fy) {
      the return, so it is disclosed as available and left for the accountant to claim. */
   var _sarsDisp = {recoupment:0, scrapping:0, items:[]};
   try{ if(typeof astDisposalsFY==='function') _sarsDisp=astDisposalsFY(fy); }catch(e){}
-  var netTaxable = Math.max(0, ytd.income + (_sarsDisp.recoupment||0) - _sc.total - s12bTotal - s11eTotal);
-  var taxEst     = Math.round(netTaxable * (netTaxable > 1500000 ? 0.28 : 0.21));
+  var netTaxable = IT.taxable, taxEst = IT.tax, _rf = IT.rf, _inc = IT.income;
+  var _effRate   = netTaxable > 0 ? Math.round(taxEst / netTaxable * 1000) / 10 : 0;
+  var _nonDedNote = _sc.nonDed > 0
+    ? '<div class="sars-note"><b>Not deductible, so left out.</b> '+Object.keys(_sc.nonDedByCat).map(function(k){ return esc(_txCatLabel(k))+' '+fmt2(_sc.nonDedByCat[k]); }).join(', ')+'. Tax and SARS penalties paid are not a farming expense.</div>'
+    : '';
 
 var pill = function(txt, col){ return '<span style="background:'+col+';color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;margin-left:6px">'+txt+'</span>'; };
 
@@ -61467,15 +61546,15 @@ var pill = function(txt, col){ return '<span style="background:'+col+';color:#ff
     '</div>'+
 
 '<div class="sars-hero">'+
-      '<div class="sars-card"><div class="sars-card-lbl">Gross Farming Income</div><div class="sars-card-val pv-pos">'+fmt2(ytd.income)+'</div></div>'+
-      '<div class="sars-card"><div class="sars-card-lbl">Total Deductions</div><div class="sars-card-val pv-neg">'+fmt2(ytd.expenses+s12bTotal+s11eTotal)+'</div></div>'+
+      '<div class="sars-card"><div class="sars-card-lbl">Gross Farming Income</div><div class="sars-card-val pv-pos">'+fmt2(_inc)+'</div></div>'+
+      '<div class="sars-card"><div class="sars-card-lbl">Total Deductions</div><div class="sars-card-val pv-neg">'+fmt2(_sc.total+capTotal+(_rf.allowed||0))+'</div></div>'+
       '<div class="sars-card"><div class="sars-card-lbl">Net Taxable Income</div><div class="sars-card-val '+(netTaxable>0?'pv-pos':'pv-neg')+'">'+fmt2(netTaxable)+'</div></div>'+
     '</div>'+
 
 '<div class="sars-section"><div class="sars-h2">Section A — Farming Income <span class="sars-ref">Source code 4250 / IT12 Schedule S</span></div>'+
     '<table class="pv-table"><thead><tr><th>Description</th><th class="amt">Amount (R)</th></tr></thead><tbody>'+
-    '<tr><td>Total agricultural income — all sources</td><td class="amt pv-pos">'+fmt2(ytd.income)+'</td></tr>'+
-    '<tr class="total"><td>GROSS FARMING INCOME</td><td class="amt pv-pos">'+fmt2(ytd.income)+'</td></tr>'+
+    '<tr><td>Total agricultural income — all sources'+(R?' (excluding VAT)':'')+'</td><td class="amt pv-pos">'+fmt2(_inc)+'</td></tr>'+
+    '<tr class="total"><td>GROSS FARMING INCOME</td><td class="amt pv-pos">'+fmt2(_inc)+'</td></tr>'+
     '</tbody></table></div>'+
 
 '<div class="sars-section"><div class="sars-h2">Section B — Allowable Deductions</div>'+
@@ -61490,6 +61569,7 @@ var pill = function(txt, col){ return '<span style="background:'+col+';color:#ff
     '</tbody></table></div>'+
     /* The printed pack has always explained why this total is smaller than the ledger; the
        preview of the same document explained nothing. Both reasons now appear in both. */
+    _nonDedNote+
     ((_sc.loan && _sc.loan.paid>0)
       ? '<div class="sars-note"><b>Loan repayments.</b> '+fmt2(_sc.loan.paid)+' left the bank this period. Only '+fmt2(_sc.loan.interest)+' of that is interest and appears above as an expense; '+fmt2(_sc.loan.capital)+' repays the loan itself and is not a deduction.</div>'
       : '')+
@@ -61501,7 +61581,8 @@ var pill = function(txt, col){ return '<span style="background:'+col+';color:#ff
     '<table class="pv-table"><tbody>'+
     '<tr><td>Section 12B — Accelerated depreciation (50/30/20 over 3 years)'+pill('S12B','#1B4332')+'</td><td class="amt pv-neg">'+fmt2(s12bTotal)+'</td></tr>'+
     '<tr><td>Section 11(e) — Wear and tear (straight-line)'+pill('S11(e)','#7C3AED')+'</td><td class="amt pv-neg">'+fmt2(s11eTotal)+'</td></tr>'+
-    '<tr class="total-neg"><td>TOTAL CAPITAL ALLOWANCES</td><td class="amt pv-neg">'+fmt2(s12bTotal+s11eTotal)+'</td></tr>'+
+    (renewTotal>0 ? '<tr><td>Section 12B — Renewable energy'+pill('S12B','#1B4332')+'</td><td class="amt pv-neg">'+fmt2(renewTotal)+'</td></tr>' : '')+
+    '<tr class="total-neg"><td>TOTAL CAPITAL ALLOWANCES</td><td class="amt pv-neg">'+fmt2(capTotal)+'</td></tr>'+
     (_sarsDisp.items.length ? _sarsDisp.items.map(function(x){
       return '<tr><td style="color:#6B7280">'+esc(x.name)+' \u2014 '+esc(x.reasonLabel.toLowerCase())+' '+esc(x.date||'')+', tax value '+fmt2(x.taxValue)+', proceeds '+fmt2(x.proceeds)+'</td><td class="amt" style="color:#6B7280">'+(x.recoupment>0?fmt2(x.recoupment):(x.scrapping>0?'('+fmt2(x.scrapping)+')':'\u2014'))+'</td></tr>';
     }).join('')+
@@ -61512,26 +61593,28 @@ var pill = function(txt, col){ return '<span style="background:'+col+';color:#ff
 
 '<div class="sars-section"><div class="sars-h2">Section D — Taxable Income Summary</div>'+
     '<table class="pv-table"><tbody>'+
-    '<tr><td>Gross farming income</td><td class="amt pv-pos">'+fmt2(ytd.income)+'</td></tr>'+
+    '<tr><td>Gross farming income</td><td class="amt pv-pos">'+fmt2(_inc)+'</td></tr>'+
     /* _sc.total, not ytd.expenses. _sarsByCat() replaces a loan repayment with its INTEREST
        — the capital portion is not deductible — and netTaxable below has always been built
        on _sc.total. Printing ytd.expenses beside it meant Section D did not add up to its own
        bottom line, out by exactly the capital repaid (R220 194 on the demo farm). */
     '<tr><td>Less: Allowable deductions (S11)</td><td class="amt pv-neg">('+fmt2(_sc.total)+')</td></tr>'+
     (_sarsDisp.recoupment>0 ? '<tr><td>Add: Recoupment on assets sold (S8(4)(a))</td><td class="amt pv-pos">'+fmt2(_sarsDisp.recoupment)+'</td></tr>' : '')+
-    '<tr><td>Less: Capital allowances (S12B + S11e)</td><td class="amt pv-neg">('+fmt2(s12bTotal+s11eTotal)+')</td></tr>'+
-    '<tr class="total"><td style="font-size:15px">NET TAXABLE FARMING INCOME</td><td class="amt '+(netTaxable>0?'pv-pos':'pv-neg')+'" style="font-size:15px">'+fmt2(netTaxable)+'</td></tr>'+
-    '<tr><td style="color:#6B7280">Estimated tax rate</td><td class="amt" style="color:#6B7280">'+(netTaxable>1500000?'28%':'21%')+'</td></tr>'+
+    '<tr><td>Less: Capital allowances (S12B + S11e)</td><td class="amt pv-neg">('+fmt2(capTotal)+')</td></tr>'+
+    ((_rf.allowed||0)>0 ? '<tr><td>Less: Farm improvements (First Schedule para 12)</td><td class="amt pv-neg">('+fmt2(_rf.allowed)+')</td></tr>' : '')+
+    ((_rf.carried||0)>0 ? '<tr><td style="color:#6B7280">Farm improvements carried to next year (para 12(3))</td><td class="amt" style="color:#6B7280">'+fmt2(_rf.carried)+'</td></tr>' : '')+
+    '<tr class="total"><td style="font-size:15px">'+(netTaxable<0?'ASSESSED LOSS':'NET TAXABLE FARMING INCOME')+'</td><td class="amt '+(netTaxable>0?'pv-pos':'pv-neg')+'" style="font-size:15px">'+fmt2(netTaxable)+'</td></tr>'+
+    '<tr><td style="color:#6B7280">Tax worked out on SARS’s '+esc((typeof _entityTaxLabel==='function'?_entityTaxLabel(IT.entity):IT.entity))+' tables — average rate</td><td class="amt" style="color:#6B7280">'+_effRate+'%</td></tr>'+
     '<tr><td>Estimated tax bill</td><td class="amt pv-neg">'+fmt2(taxEst)+'</td></tr>'+
     '</tbody></table></div>'+
 
-(FARM&&FARM.vat&&R ?
-    '<div class="sars-section"><div class="sars-h2">Section E — VAT 201 Summary <span class="sars-ref">VAT No: '+(FARM.vatNo||'—')+'</span></div>'+
+(R ?
+    '<div class="sars-section"><div class="sars-h2">Section E — VAT for this tax year <span class="sars-ref">VAT No: '+(FARM.vatNo||'—')+'</span></div>'+
     '<table class="pv-table"><tbody>'+
-    '<tr><td>Output VAT (15% on sales)</td><td class="amt">'+fmt2(R.vatOut)+'</td></tr>'+
-    '<tr><td>Input VAT (15% on purchases)</td><td class="amt">('+fmt2(R.vatIn)+')</td></tr>'+
-    '<tr class="'+(R.vatPayable>=0?'total-neg':'total')+'"><td>NET VAT PAYABLE TO SARS</td><td class="amt '+(R.vatPayable>=0?'pv-neg':'pv-pos')+'">'+fmt2(Math.abs(R.vatPayable))+'</td></tr>'+
-    '</tbody></table></div>' : '')+
+    '<tr><td>Output VAT (15% on sales)</td><td class="amt">'+fmt2(R.out)+'</td></tr>'+
+    '<tr><td>Input VAT (15% on purchases)</td><td class="amt">('+fmt2(R.inp)+')</td></tr>'+
+    '<tr class="'+(R.net>=0?'total-neg':'total')+'"><td>'+(R.net>=0?'NET VAT PAYABLE TO SARS':'NET VAT REFUND FROM SARS')+'</td><td class="amt '+(R.net>=0?'pv-neg':'pv-pos')+'">'+fmt2(Math.abs(R.net))+'</td></tr>'+
+    '</tbody></table><div class="sars-note">1 March '+fy+' – 28 February '+(fy+1)+', the same year as the rest of this pack. VAT is filed on the VAT201 '+_vatCadence(R.cat)+' (Category '+esc(R.cat)+'); this is the year’s total, to tie back to those returns.</div></div>' : '')+
 
     '<div class="sars-disclaimer">'+
     '<strong>⚠ Disclaimer:</strong> This pre-fill export is generated from AgriInsights transaction data. '+
@@ -61543,25 +61626,14 @@ var pill = function(txt, col){ return '<span style="background:'+col+';color:#ff
 function printSARSExport(fy) {
   fy = (fy==null) ? (getCurrentFY ? getCurrentFY() : 2024) : fy;
   var _curFY = (typeof getCurrentFY==='function') ? getCurrentFY() : fy;
-  var R   = computeRPT ? computeRPT() : null;
-  var ytd = (typeof _txFyIE==='function' && fy!==_curFY) ? _txFyIE(fy) : (ytdSummary ? ytdSummary() : {income:0,expenses:0,profit:0});
-  var assets = ST_ASSETS ? ST_ASSETS.assets : [];
+  /* Same figures as the preview, from the same helper — see _sarsIT12. */
+  var IT  = _sarsIT12(fy), R = IT.vat, _rf = IT.rf, _inc = IT.income;
 
-var s12bTotal=0, s11eTotal=0;
-  /* Its own copy — this is a separate function from the preview builder, and the two must
-     produce the same document. */
+var s12bTotal=IT.ca.s12b, s11eTotal=IT.ca.s11e, renewTotal=IT.ca.renew, capTotal=IT.ca.total;
   var _sarsDisp = {recoupment:0, scrapping:0, items:[]};
   try{ if(typeof astDisposalsFY==='function') _sarsDisp=astDisposalsFY(fy); }catch(e){}
-  /* Same off-by-one as the preview builder above — the two must agree, and both must agree
-     with taxCapitalAllowances() on the Tax tab. */
-  assets.forEach(function(a) {
-    var d = calcDepr ? calcDepr(a) : {deprSchedule:[]}; var _amt=0;
-    (d.deprSchedule||[]).forEach(function(x){ if(x.yr===fy) _amt+=x.amount; });
-    if (a.deprType==='s12b') s12bTotal += _amt;
-    if (a.deprType==='s11e') s11eTotal += _amt;
-  });
 
-var _sc = _sarsByCat(fy), byCat = _sc.byCat;
+var _sc = IT.sc, byCat = _sc.byCat;
 
   var sarsMap = _fcPick('ss', function(c){ return {section:c.ss, desc:c.sd}; });
 
@@ -61592,6 +61664,13 @@ var _sc = _sarsByCat(fy), byCat = _sc.byCat;
       'and is therefore not an expense here. The allowances on those assets are claimed in Section C.</p>'
     : '';
 
+  var nonDedNote = _sc.nonDed > 0
+    ? '<p style="margin-top:10px;font-size:11px;color:#6B7280;line-height:1.6;border-left:3px solid #E5E7EB;padding-left:10px">' +
+      '<b>Not deductible, so left out.</b> ' + Object.keys(_sc.nonDedByCat).map(function(k){ return esc(_txCatLabel(k)) + ' ' + fmt2(_sc.nonDedByCat[k]); }).join(', ') +
+      '. Tax and SARS penalties paid are not a farming expense.</p>'
+    : '';
+  var _eff = IT.taxable > 0 ? Math.round(IT.tax / IT.taxable * 1000) / 10 : 0;
+
   var html = '<h1>SARS IT12 Farming Schedule — Pre-fill Export</h1>'+
     '<div class="meta">'+FARM.name+' &nbsp;·&nbsp; '+FARM.owner+'<br>'+
     (FARM.taxNo?'Tax Number: '+FARM.taxNo+'<br>':'')+
@@ -61603,21 +61682,22 @@ var _sc = _sarsByCat(fy), byCat = _sc.byCat;
 
     '<h2>Section A — Farming Income <span style="font-size:12px;font-weight:400;color:#6B7280">(IT12 Schedule — Source code 4250/4252)</span></h2>'+
     '<table><tr><th>Source</th><th style="text-align:right">Amount</th></tr>'+
-    '<tr><td>Total agricultural income (all sources)</td><td style="text-align:right;font-weight:700">'+fmt2(ytd.income)+'</td></tr>'+
-    '<tr class="total"><td>TOTAL INCOME</td><td style="text-align:right">'+fmt2(ytd.income)+'</td></tr>'+
+    '<tr><td>Total agricultural income (all sources)'+(R?' (excluding VAT)':'')+'</td><td style="text-align:right;font-weight:700">'+fmt2(_inc)+'</td></tr>'+
+    '<tr class="total"><td>TOTAL INCOME</td><td style="text-align:right">'+fmt2(_inc)+'</td></tr>'+
     '</table>'+
 
     '<h2>Section B — Allowable Deductions</h2>'+
     '<table><tr><th>Expense Category</th><th>SARS Section</th><th>Description</th><th style="text-align:right">Amount</th></tr>'+
     rows+
     '<tr class="total"><td colspan="3">TOTAL ALLOWABLE DEDUCTIONS</td><td style="text-align:right">'+fmt2(_sc.total)+'</td></tr>'+
-    '</table>'+ loanNote + capNote +
+    '</table>'+ nonDedNote + loanNote + capNote +
 
     '<h2>Section C — Capital Allowances</h2>'+
     '<table>'+
     '<tr><td>Section 12B — Accelerated depreciation (50/30/20)</td><td style="text-align:right;font-weight:600">'+fmt2(s12bTotal)+'</td></tr>'+
     '<tr><td>Section 11(e) — Wear and tear allowance</td><td style="text-align:right;font-weight:600">'+fmt2(s11eTotal)+'</td></tr>'+
-    '<tr class="total"><td>TOTAL CAPITAL ALLOWANCES</td><td style="text-align:right">'+fmt2(s12bTotal+s11eTotal)+'</td></tr>'+
+    (renewTotal>0 ? '<tr><td>Section 12B — Renewable energy</td><td style="text-align:right;font-weight:600">'+fmt2(renewTotal)+'</td></tr>' : '')+
+    '<tr class="total"><td>TOTAL CAPITAL ALLOWANCES</td><td style="text-align:right">'+fmt2(capTotal)+'</td></tr>'+
     (_sarsDisp.items.length ?
       '<tr><td>Section 8(4)(a) \u2014 recoupment on disposals</td><td style="text-align:right;font-weight:600">'+fmt2(_sarsDisp.recoupment)+'</td></tr>'+
       (_sarsDisp.scrapping>0 ? '<tr><td>Section 11(o) scrapping allowance available on election \u2014 not claimed here</td><td style="text-align:right">('+fmt2(_sarsDisp.scrapping)+')</td></tr>' : '')
@@ -61626,22 +61706,26 @@ var _sc = _sarsByCat(fy), byCat = _sc.byCat;
 
     '<h2>Section D — Summary</h2>'+
     '<table>'+
-    '<tr><td>Total farming income</td><td style="text-align:right">'+fmt2(ytd.income)+'</td></tr>'+
+    '<tr><td>Total farming income</td><td style="text-align:right">'+fmt2(_inc)+'</td></tr>'+
     /* Same correction as the preview builder: the capital half of a loan repayment is not a
        deduction, and this builder was subtracting it in the total as well as showing it. */
     '<tr><td>Less: allowable deductions</td><td style="text-align:right">('+fmt2(_sc.total)+')</td></tr>'+
     (_sarsDisp.recoupment>0 ? '<tr><td>Add: recoupment on assets sold (S8(4)(a))</td><td style="text-align:right">'+fmt2(_sarsDisp.recoupment)+'</td></tr>' : '')+
-    '<tr><td>Less: capital allowances (S12B + S11e)</td><td style="text-align:right">('+fmt2(s12bTotal+s11eTotal)+')</td></tr>'+
-    '<tr class="total"><td>NET TAXABLE FARMING INCOME</td><td style="text-align:right;font-size:16px">'+fmt2(Math.max(0,ytd.income+(_sarsDisp.recoupment||0)-_sc.total-s12bTotal-s11eTotal))+'</td></tr>'+
+    '<tr><td>Less: capital allowances (S12B + S11e)</td><td style="text-align:right">('+fmt2(capTotal)+')</td></tr>'+
+    ((_rf.allowed||0)>0 ? '<tr><td>Less: farm improvements (First Schedule para 12)</td><td style="text-align:right">('+fmt2(_rf.allowed)+')</td></tr>' : '')+
+    ((_rf.carried||0)>0 ? '<tr><td style="color:#6B7280">Farm improvements carried to next year (para 12(3))</td><td style="text-align:right;color:#6B7280">'+fmt2(_rf.carried)+'</td></tr>' : '')+
+    '<tr class="total"><td>'+(IT.taxable<0?'ASSESSED LOSS':'NET TAXABLE FARMING INCOME')+'</td><td style="text-align:right;font-size:16px">'+fmt2(IT.taxable)+'</td></tr>'+
+    '<tr><td style="color:#6B7280">Tax worked out on SARS’s '+esc((typeof _entityTaxLabel==='function'?_entityTaxLabel(IT.entity):IT.entity))+' tables — average rate '+_eff+'%</td><td style="text-align:right">'+fmt2(IT.tax)+'</td></tr>'+
     '</table>'+
 
-    (FARM.vat && R ?
-    '<h2>Section E — VAT 201 Summary <span style="font-size:12px;font-weight:400;color:#6B7280">(VAT No: '+(FARM.vatNo||'—')+')</span></h2>'+
+    (R ?
+    '<h2>Section E — VAT for this tax year <span style="font-size:12px;font-weight:400;color:#6B7280">(VAT No: '+(FARM.vatNo||'—')+')</span></h2>'+
     '<table>'+
-    '<tr><td>Output VAT (15% on sales)</td><td style="text-align:right">'+fmt2(R.vatOut)+'</td></tr>'+
-    '<tr><td>Input VAT (15% on purchases)</td><td style="text-align:right">('+fmt2(R.vatIn)+')</td></tr>'+
-    '<tr class="total"><td>NET VAT PAYABLE TO SARS</td><td style="text-align:right">'+fmt2(Math.abs(R.vatPayable))+'</td></tr>'+
-    '</table>' : '')+
+    '<tr><td>Output VAT (15% on sales)</td><td style="text-align:right">'+fmt2(R.out)+'</td></tr>'+
+    '<tr><td>Input VAT (15% on purchases)</td><td style="text-align:right">('+fmt2(R.inp)+')</td></tr>'+
+    '<tr class="total"><td>'+(R.net>=0?'NET VAT PAYABLE TO SARS':'NET VAT REFUND FROM SARS')+'</td><td style="text-align:right">'+fmt2(Math.abs(R.net))+'</td></tr>'+
+    '</table>'+
+    '<p style="margin-top:8px;font-size:11px;color:#6B7280;line-height:1.6">1 March '+fy+' – 28 February '+(fy+1)+', the same year as the rest of this pack. VAT is filed on the VAT201 '+_vatCadence(R.cat)+' (Category '+esc(R.cat)+'); this is the year’s total, to tie back to those returns.</p>' : '')+
 
     '<div style="margin-top:28px;padding:14px;background:#F3F4F6;border-radius:8px;font-size:12px;color:#6B7280;line-height:1.7">'+
     '<strong>Disclaimer:</strong> This pre-fill export is generated from AgriInsights transaction data and is intended as a starting point for your IT12 return. '+
@@ -67220,9 +67304,11 @@ function orBlockPhiEntry(b){
   return null;
 }
 function orBlockClearance(b){
-  var e=orBlockPhiEntry(b), mk=['eu','uk','us','local'], waiting=[], soonest=null;
-  if(e&&e.d){ mk.forEach(function(m){ var dd=orPhiWait(e,m); if(dd!=null&&dd>0){ waiting.push(m); if(!soonest||dd<soonest.days) soonest={m:m,days:dd,date:e.d[m]}; } }); }
-  return {entry:e, waiting:waiting, soonest:soonest, clearAll:waiting.length===0};
+  var e=orBlockPhiEntry(b), mk=['eu','uk','us','local'], waiting=[], days={}, soonest=null, longest=null;
+  if(e&&e.d){ mk.forEach(function(m){ var dd=orPhiWait(e,m); if(dd!=null&&dd>0){ waiting.push(m); days[m]=dd;
+    if(!soonest||dd<soonest.days) soonest={m:m,days:dd,date:e.d[m]};
+    if(!longest||dd>longest.days) longest={m:m,days:dd,date:e.d[m]}; } }); }
+  return {entry:e, waiting:waiting, days:days, soonest:soonest, longest:longest, clearAll:waiting.length===0};
 }
 var OR_MKT_LABEL={eu:'EU',uk:'UK',us:'USA',local:'Local'};
 function orSafePickStripHTML(){
@@ -67232,7 +67318,10 @@ function orSafePickStripHTML(){
   bearing.forEach(function(b){
     var c=orBlockClearance(b);
     if(c.clearAll){ clear++; chips+='<span class="or-sp-chip ok">'+esc(b.name)+' ✓ all markets</span>'; }
-    else { var mk=c.waiting.map(function(m){return OR_MKT_LABEL[m];}).join(' & '); chips+='<span class="or-sp-chip wait">'+esc(b.name)+' ⏳ '+mk+' · '+c.soonest.days+'d</span>'; }
+    /* Each waiting market with its OWN wait. "EU & UK · 5d" printed the SHORTEST wait
+       against both, so a block with 12 days left for the UK read as safe for it in 5. */
+    else { var mk=c.waiting.slice().sort(function(x,y){ return c.days[x]-c.days[y]; }).map(function(m){ return OR_MKT_LABEL[m]+' '+c.days[m]+'d'; }).join(' · ');
+      chips+='<span class="or-sp-chip wait">'+esc(b.name)+' ⏳ '+mk+'</span>'; }
   });
   orActiveBlocks().filter(function(b){return b.plan;}).forEach(function(b){ chips+='<span class="or-sp-chip na">'+esc(b.name)+' · first crop '+(b.plant+3)+'</span>'; });
   return '<div class="or-sp"><div class="or-sp-h">🧺 Safe to pick today <span class="n">'+clear+' of '+bearing.length+' clear</span> <span class="more" onclick="orSetTab(\'spray\')">Full market view ›</span></div><div class="or-sp-chips">'+chips+'</div></div>';
@@ -67792,7 +67881,10 @@ function orBlockMarkets(b){ if(b.markets&&b.markets.length) return b.markets; re
 function orBlockExports(b){ var m=orBlockMarkets(b); return m.indexOf('eu')>=0||m.indexOf('uk')>=0||m.indexOf('us')>=0; }
 function orBlockHasSprayRec(b){ var has=false; OR_CAT_ORDER.forEach(function(cat){ (ST_FRUIT.sprayDiary[cat]||[]).forEach(function(x){ if(x.bid===b.id) has=true; }); }); return has; }
 function orBlockPestOpen(b){ var open=false; orCropPests(b.cat).forEach(function(k){ if(ST_FRUIT.comply[k].statusTag==='red') open=true; }); return open; }
-function orTrainingOk(){ var o=ST_FRUIT.comply&&ST_FRUIT.comply.operators; return o?(o.statusTag==='green'):true; }
+function orTrainingOk(){ var o=ST_FRUIT.comply&&ST_FRUIT.comply.operators; if(!o) return true;
+  /* An operator certificate past its expiry date is not "trained", whatever tag was saved. */
+  if(o.expiry){ var d=new Date(String(o.expiry)+'T00:00:00'), t=(typeof LS_TODAY!=='undefined'&&LS_TODAY)?LS_TODAY:new Date(); if(!isNaN(d.getTime()) && d<t) return false; }
+  return o.statusTag==='green'; }
 function orBlockAuditScore(b){
   var sprays=orBlockSprays(b), exporting=orBlockExports(b), pests=orCropPests(b.cat);
   var items=OR_AUDIT_REQ.map(function(r){
@@ -69202,11 +69294,21 @@ function orRenderComply(){
   if(kp){
     var complyKeys=Object.keys(ST_FRUIT.comply);
     var certKeys=complyKeys.filter(function(k){return ST_FRUIT.comply[k].type==='cert';});
-    var certsValid=certKeys.filter(function(k){return ST_FRUIT.comply[k].statusTag==='green';}).length;
+    /* Read each certificate's LIVE state from its expiry date (orCertState), not the stored
+       tag: the stored tag is whatever it was when last saved, so GLOBALG.A.P. and SIZA,
+       both expired, still counted as "3 of 4 valid". Expiring soon is still valid. */
+    var _cs=certKeys.map(function(k){ return orCertState(ST_FRUIT.comply[k]); });
+    var certsValid=_cs.filter(function(x){ return !x.expired && (x.tag==='green'||x.tag==='amber'); }).length;
+    var certsExpired=_cs.filter(function(x){ return x.expired; }).length;
     var pests=complyKeys.filter(function(k){return ST_FRUIT.comply[k].type==='pest'&&ST_FRUIT.comply[k].statusTag==='red';}).length;
-    var readyPct=certKeys.length?Math.round(certsValid/certKeys.length*100)+'%':'n/a';
-    kp.innerHTML='<div class="lskpi-c accent"><div class="lskpi-l">Export readiness</div><div class="lskpi-v">'+(exp?(certsValid?readyPct:'Set up'):'n/a')+'</div><div class="lskpi-s">'+(exp?(certsValid?(pests?pests+' items need action':'on track'):'add your certificates'):'local only')+'</div></div>'+
-      '<div class="lskpi-c"><div class="lskpi-l">Certificates on file</div><div class="lskpi-v">'+(exp?(certsValid+' of '+certKeys.length):'\u2014')+'</div><div class="lskpi-s">'+(exp?(certsValid?'valid':'none set up yet'):'none needed')+'</div></div>'+
+    /* The same figure as the audit meter below it — two "readiness" numbers (75% here,
+       55% there) on one page could not both be believed. */
+    var _ab=orActiveBlocks().filter(function(b){ return !b.plan && b.tons>0; }), _asum=0;
+    try{ _ab.forEach(function(b){ _asum+=orBlockAuditScore(b).score; }); }catch(e){ _ab=[]; }
+    var readyPct=_ab.length ? Math.round(_asum/_ab.length)+'%' : (certKeys.length?Math.round(certsValid/certKeys.length*100)+'%':'n/a');
+    var _need=pests+certsExpired;
+    kp.innerHTML='<div class="lskpi-c accent"><div class="lskpi-l">Export readiness</div><div class="lskpi-v">'+(exp?((certsValid||certsExpired)?readyPct:'Set up'):'n/a')+'</div><div class="lskpi-s">'+(exp?((certsValid||certsExpired)?(_need?_need+(_need===1?' item needs':' items need')+' action':'on track'):'add your certificates'):'local only')+'</div></div>'+
+      '<div class="lskpi-c"><div class="lskpi-l">Certificates on file</div><div class="lskpi-v'+(certsExpired?' lsneg':'')+'">'+(exp?(certsValid+' of '+certKeys.length):'\u2014')+'</div><div class="lskpi-s">'+(exp?(certsExpired?('valid · '+certsExpired+' expired'):(certsValid?'valid':'none set up yet')):'none needed')+'</div></div>'+
       '<div class="lskpi-c"><div class="lskpi-l">Open pest alerts</div><div class="lskpi-v '+(pests?'lsneg':'')+'">'+pests+'</div><div class="lskpi-s">'+(pests?'needs action':'all clear')+'</div></div>';
   }
   if(typeof orRenderCmpDriver==='function') orRenderCmpDriver(exp,cats);
@@ -71085,9 +71187,23 @@ function aiDieselStats(fy){
     if(fy!=null && typeof fyOf==='function' && fyOf(i.date)!==fy) return;
     if(i.qualifies) logged += Number(i.litres)||0; else nonQual += Number(i.litres)||0;
   });
+  /* Litres the farmer keeps in a PAPER logbook (Crops › Compliance, "litres logged on
+     paper, outside the app"). They used to be read on their own by the Tax glance, the
+     Market fuel panel, the What-if and the levers, while the Reports tab read only the
+     in-app fuel log — so one farm was told "18 400 L ready for your claim" and "Refund
+     claimable R0" on the same page. They are counted here, once, and every screen reads
+     this. Only with the logbook ticked: without a per-machine record there is no claim
+     (Schedule 6 Note 6 — the 20% no-logbook concession ended in 2013). The figure has no
+     date, so it counts for the current year only. */
+  var _cp=(typeof ST_CROP!=='undefined'&&ST_CROP.compliance)||{}, paper=Number(_cp.dieselLitres)||0, paperBook=!!_cp.dieselLogbook;
+  var _curFy=(typeof fyOf==='function')?fyOf():null;
+  if(fy!=null && _curFy!=null && fy!==_curFy) paper=0;
+  var appLogged=logged;
+  if(paperBook) logged+=paper;
   var unlogged = Math.max(0, bought - logged - nonQual);
   var rate=aiDieselRate()*aiDieselShare();
-  return { fy:fy, bought:bought, logged:logged, nonQual:nonQual, unlogged:unlogged,
+  return { fy:fy, bought:bought, logged:logged, appLogged:appLogged, paper:paper, paperBook:paperBook,
+           paperNoBook:(paperBook?0:paper), nonQual:nonQual, unlogged:unlogged,
            spend:spend, txnsWithoutLitres:noLitres, rate:rate,
            claimable:Math.round(logged*rate), losing:Math.round(unlogged*rate) };
 }
