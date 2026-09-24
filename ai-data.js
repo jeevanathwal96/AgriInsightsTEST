@@ -637,7 +637,7 @@
   /* Called from load.* with rows exactly as the server returned them. Replaces the
      table's memory outright: a fresh load is fresh truth. */
   function _srvNote(table,rows){
-    var t={ rows:Object.create(null), ids:[], maxUa:null };
+    var t={ rows:Object.create(null), ids:[], maxUa:null, loaded:true };   // loaded: a real load filled this (-448)
     (rows||[]).forEach(function(r){
       if(!r || typeof r!=='object') return;
       var k=_srvKey(table,r); if(k!=null) t.rows[k]=r;
@@ -654,6 +654,40 @@
       if(r.id!=null) t.ids.push(r.id);
     });
     _SRV[table]=t;
+    /* Every id is noted above, so the next save deletes all of them; what the app
+       works with from here is the set with the repeats taken out. */
+    if(_REPLACE_ALL[table] && Array.isArray(rows)){ var _n0=rows.length; _collapseRepeats(rows); if(rows.length<_n0) _HEALED[table]=_n0-rows.length; }
+    return rows;
+  }
+  /* Tables saved by replaceAllRows (insert the new set, then delete the old ids).
+     Until -448 a save that ran before its table had loaded - the start-up catch-up does
+     exactly that - inserted a full copy on top of the server's, and the farm reloaded
+     with everything twice. The SA test farm reached 85,328 copies of ONE orchard document
+     and 64 of every plan line, which is what made it take minutes to open. */
+  var _HEALED=Object.create(null);   // table -> copies dropped on load, for the one clean-up save
+  var _REPLACE_ALL={ plan_crops:1, plan_events:1, crop_compliance_docs:1, crop_compliance_log_photos:1,
+    crop_compliance_logs:1, crop_compliance_readings:1, orchard_block_docs:1, orchard_compliance_checks:1,
+    orchard_compliance_docs:1, orchard_compliance_readings:1, orchard_pricing_others:1, pay_run_applied:1,
+    worker_docs:1, worker_leave_log:1, worker_ledger:1 };
+  /* Takes out WHOLE-SET repeats, in place. Rows identical apart from id / timestamps /
+     position are grouped; each group keeps its size divided by the highest common factor
+     of all the group sizes. A set copied 64 times goes back to one copy, and a farmer's
+     two genuinely identical entries survive (in an uncopied set the factor is 1 and
+     nothing is touched; in a copied one they come back as two). */
+  /* A row's content, without the server's bookkeeping or its position. Numbers are
+     compared as numbers: the server hands numeric columns back as 6.2 where the app
+     sent 6.2, but also 120 for 120.0 - both sides go through Number(). */
+  function _rowKey(r, cols){ var o={}; (cols || Object.keys(r)).slice().sort().forEach(function(k){ if(_SRV_SKIP[k] || k==='sort_idx') return; var v=r[k]; if(v===undefined) v=null; o[k]=(typeof v==='string' && /^-?\d+(\.\d+)?$/.test(v)) ? Number(v) : v; }); return JSON.stringify(o); }
+  function _collapseRepeats(rows){
+    if(!rows || rows.length<2) return rows;
+    var n=Object.create(null), keys=rows.map(function(r){ return _rowKey(r); });   // not map(_rowKey): the index would arrive as cols
+    keys.forEach(function(k){ n[k]=(n[k]||0)+1; });
+    var g=0; Object.keys(n).forEach(function(k){ var a=g, b=n[k]; while(b){ var t=a%b; a=b; b=t; } g=a; });
+    if(g<2) return rows;
+    var seen=Object.create(null), out=[];
+    rows.forEach(function(r,i){ var k=keys[i]; seen[k]=(seen[k]||0)+1; if(seen[k]<=n[k]/g) out.push(r); });
+    try{ console.warn('AgriInsights: '+rows.length+' rows loaded were the same '+out.length+' repeated '+g+' times - using one copy; the next save clears the rest.'); }catch(e){}
+    rows.length=0; Array.prototype.push.apply(rows,out);
     return rows;
   }
   /* Sign-out, or a switch to another farm. Another farm's rows are not ours. */
@@ -895,20 +929,37 @@
          rather than an empty table;
        - a table this device never loaded is pruned NOT AT ALL. Reading its ids now
          and deleting them destroys rows another device wrote, which is the whole
-         hazard this registry exists to prevent. A visible duplicate is recoverable,
-         a silent deletion is not - and _srvSetIds then gives the next save a proper
-         scope, so at worst it doubles once and corrects itself. */
-  var _pruneWarned = Object.create(null);
+         hazard this registry exists to prevent.
+     It used to insert the whole set regardless, on the reasoning that "at worst it
+     doubles once and corrects itself". It did not: the start-up catch-up runs before
+     the load on EVERY open that follows an unsent save, the doubled set loads, and the
+     next save writes it back - the SA test farm reached 64 copies of its plan and
+     85,328 of one document (-448). So an unloaded table is now MERGED: only the rows
+     the server does not already hold are added, and nothing is deleted. */
   async function replaceAllRows(table, fid, rows){
     try {
-      var oldIds = _srvIds(table);
+      /* Only a LOAD entitles a prune. The write watcher (_srvSettled) also creates a memory
+         for a table it sees a reply from - with no ids - and that read as "loaded, and
+         empty": the next save inserted everything and deleted nothing (-448). */
+      var oldIds = (_SRV[table] && _SRV[table].loaded) ? _srvIds(table) : null;
       if (oldIds === null){
-        if(!_pruneWarned[table]){
-          _pruneWarned[table] = 1;
-          console.warn('AgriInsights: ' + table + ' was never loaded on this device - '
-            + 'leaving its rows alone rather than replacing what it cannot see.');
+        /* Not loaded on this device yet (the start-up catch-up sends before the load).
+           Add only what the server lacks - counted, so two genuinely identical entries
+           stay two - and delete nothing. The load that follows notes every id, and the
+           first save after it is a proper replace. */
+        var cur = await selectAll(function(){ return client().from(table).select('*').eq('farm_id', fid); });
+        if (cur && cur.error) return cur.error;
+        /* Compared on the columns THIS device sends: the server row also carries ones it
+           does not (a document's url, a path), which would make nothing ever match. */
+        var cm = Object.create(null); (rows||[]).forEach(function(r){ Object.keys(r).forEach(function(k){ cm[k]=1; }); });
+        var cols = Object.keys(cm), have = Object.create(null);
+        ((cur && cur.data) || []).forEach(function(r){ var k=_rowKey(r, cols); have[k]=(have[k]||0)+1; });
+        var add = (rows||[]).filter(function(r){ var k=_rowKey(r, cols); if(have[k]>0){ have[k]--; return false; } return true; });
+        if (add.length){
+          var ins0 = await client().from(table).insert(add);
+          if (ins0.error) return ins0.error;
         }
-        oldIds = [];
+        return null;
       }
       var newIds = [];
       if (rows && rows.length){
@@ -2307,6 +2358,9 @@
     if(CAN_PLANEVT_FC) row.in_forecast = (e.inForecast===false) ? false : true;
     return row; }
   function planEvtFromDb(r){ return { herdId:_numIf(r.herd_local_id), species:r.species||'', animal:r.animal||'', icon:r.icon||'', desc:r.descr||'', type:r.type||'sell', month:r.month||'', qty:Number(r.qty)||0, unit:r.unit||'head', price:Number(r.price)||0, recur:r.recur||'annual', notes:r.notes||'', useMarket:!!r.use_market, done:!!r.done, inForecast:(r.in_forecast===false)?false:true }; }
+  /* Tables whose load dropped repeated copies: the caller saves once after the first
+     load so the server loses them too, instead of waiting for the farmer's next edit. */
+  load.healed = function(){ var o={}; Object.keys(_HEALED).forEach(function(k){ o[k]=_HEALED[k]; }); return o; };
   load.plan = async function(farmId){
     farmId = farmId || farm.active();
     const [pc,pe] = await Promise.all([
@@ -2321,7 +2375,14 @@
     var cropRows=(pc&&pc.data)||[], evtRows=(pe&&pe.data)||[];
     // null when the farm has never saved a plan — caller drops the demo + seeds from lands.
     if(!cropRows.length && !evtRows.length) return null;
-    return { crops:cropRows.map(planCropFromDb), events:evtRows.map(planEvtFromDb) };
+    /* A line tied to a crop field is ONE line per field: cropFindPlanLine only ever
+       updates the first, so any later copy sits in the forecast unedited and counted
+       twice. Copies left by the replace-all doubling differ (other costs 0 on one, filled
+       on the other), so the whole-set collapse cannot see them - the first one is kept,
+       being the one the field has been updating. */
+    var seenLink=Object.create(null), crops=cropRows.map(planCropFromDb).filter(function(c){
+      if(!c.linkId) return true; if(seenLink[c.linkId]) return false; seenLink[c.linkId]=1; return true; });
+    return { crops:crops, events:evtRows.map(planEvtFromDb) };
   };
   var _planSnap=null;
   var _planGate=Promise.resolve();   // serializes plan saveAll (plan_crops/plan_events are delete-all+insert)
@@ -3472,6 +3533,8 @@
                    column) cannot be reached through a public method, because the whole
                    point is what happens on the SECOND load. Nothing in the app calls
                    these. */
-                __probeCaps: probeCaps, __client: client };
+                __probeCaps: probeCaps, __client: client,
+                /* 06-tools/sa-doubling-harness.html: the copy collapse and the row key (-448). */
+                __collapseRepeats: _collapseRepeats, __rowKey: _rowKey };
 
 })(window);

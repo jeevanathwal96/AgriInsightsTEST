@@ -779,6 +779,12 @@
         /* The first load has finished: saves that were waiting for it go now. */
         if (window.AI && AI.sync) AI.sync.open();
         if (typeof window.updateSyncIndicator === 'function') window.updateSyncIndicator();
+        /* The load found copies left by the old replace-all doubling and is showing one of
+           each: save those areas now, so the server drops the rest (-448). */
+        if (window.AI && AI.load && AI.load.healed && Object.keys(AI.load.healed()).length && typeof window.flushRelationalToBackend === 'function') {
+          try { console.warn('AgriInsights: clearing repeated copies from the server:', JSON.stringify(AI.load.healed())); } catch (_) {}
+          window.flushRelationalToBackend();
+        }
       } catch (e) {}
     });
   }
