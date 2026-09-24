@@ -53472,6 +53472,317 @@ function aiRepullShared(force){
     .then(function(n){ _AI_REPULL_BUSY = false; return n; });
 }
 
+/* ══ Batch 5 step 2 — the engines (-450) ═══════════════════════════════════════════════
+   One function per number (sign-off D4-D11). NOTHING on screen reads these yet: step 3
+   switches each tab over, so every figure below can be proved before a farmer sees it.
+     b5BookDepr(fy)      D9  the accounts write-off: straight line by the month over a useful
+                             life (by asset type, overridable per asset as bookLife), profit or
+                             loss on sale. Tax allowances stay where they are (the Tax page).
+     b5Profit(fy,opt)    D4  accounting profit: ex-VAT income less running costs, interest (D10:
+                             the interest half of each loan repayment), the write-off, plus any
+                             gain on sale. Loan capital, assets bought, drawings, income tax,
+                             VAT paid/refunded and account payments are NOT costs.
+     b5ProfitHeading(fy) D11 actual so far + the working budget for the months still to come.
+     b5BudgetLines(fy)       the working budget as category lines by month - derived from the
+                             month totals x the category mix until step 3 stores real lines.
+     b5CashNow / b5CashForecast  D5 bank balance rolled forward from the date it was typed, and
+                             the 12 months ahead from it; lowest point and month.
+     b5BridgeCash(fy)        Profit -> money through the bank, line by line (exact).
+     b5BridgeTax(fy)         Profit -> taxable profit (the IT12 computation), line by line.
+     b5Margins(opt)      D7  gross margin by enterprise tag, by season and by farm year. */
+var B5_BOOK_LIFE = { 'Vehicles & Tractors':8, 'Machinery & Equipment':10, 'Irrigation & Water':15,
+  'Storage & Silos':20, 'Renewable Energy':20, 'Capital Development':20, 'Land & Buildings':25 };
+function b5Ym(d){ return d.y+'-'+String(d.m+1).padStart(2,'0'); }
+function b5YmAdd(ym, n){ var p=ym.split('-'), t=(+p[0])*12+(+p[1]-1)+n; return Math.floor(t/12)+'-'+String(t%12+1).padStart(2,'0'); }
+function b5YmDiff(a, b){ var x=a.split('-'), y=b.split('-'); return ((+y[0])*12+(+y[1]))-((+x[0])*12+(+x[1])); }   // b - a, in months
+function b5FyYms(fy){ var out=[], s=fy+'-'+String(fyStartMonth()).padStart(2,'0'); for(var i=0;i<12;i++) out.push(b5YmAdd(s,i)); return out; }
+function b5TodayYm(){ var t=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0'); }
+function b5YmLabel(ym){ var p=ym.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][(+p[1])-1]+' '+p[0]; }
+/* What a category IS to the three numbers. */
+function b5CatRole(cat){
+  var c=cat; try{ if(typeof normalizeCat==='function') c=normalizeCat(cat); }catch(e){}
+  var fc=null; for(var i=0;i<FARM_CATS.length;i++){ if(FARM_CATS[i].n===c){ fc=FARM_CATS[i]; break; } }
+  fc=fc||{};
+  if(fc.nonop) return 'nonop';                 // drawings, VAT paid to / refunded by SARS
+  if(c==='Income tax') return 'tax';           // below the line
+  if(c==='Loan Repayments') return 'loan';     // interest is a cost, capital is not
+  if(fc.capx || fc.cap) return 'capital';      // an asset bought (on the register: written off instead)
+  return 'running';
+}
+/* ── D9: the accounts write-off ───────────────────────────────────────────────────── */
+function b5AssetLife(a){
+  if(!a) return 0;
+  if(+a.bookLife>0) return +a.bookLife;
+  if(a.deprType==='none' || a.cat==='Financial Assets') return 0;   // land, dwellings, shares: not written off
+  return B5_BOOK_LIFE[a.cat] || 10;
+}
+function b5BookDepr(fy, toYm){
+  var yms=b5FyYms(fy), first=yms[0], last=toYm && toYm<yms[11] ? toYm : yms[11], out={total:0, gain:0, rows:[]};
+  ((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]).forEach(function(a){
+    var price=+a.price||0, life=b5AssetLife(a); if(!(price>0)) return;
+    var pd=parseDate(a.date||''); if(!pd) return;
+    var start=b5Ym(pd), per=life>0 ? price/(life*12) : 0, lastLife=life>0 ? b5YmAdd(start, life*12-1) : null;
+    var dd=a.disposalDate ? parseDate(a.disposalDate) : null, disp=dd ? b5Ym(dd) : null;
+    var from=start>first?start:first, to=last;
+    if(lastLife && lastLife<to) to=lastLife;
+    if(disp && disp<to) to=disp;
+    var months=(per>0 && to>=from) ? b5YmDiff(from,to)+1 : 0, charge=Math.round(per*months*100)/100;
+    var row={id:a.id, name:a.name, life:life, charge:charge, gain:0};
+    if(disp && disp>=first && disp<=last){
+      var used=Math.min(life>0?life*12:0, b5YmDiff(start,disp)+1), nbv=Math.max(0, price-per*used);
+      row.gain=Math.round(((+a.disposalProceeds||0)-nbv)*100)/100; out.gain+=row.gain;
+    }
+    if(charge || row.gain){ out.rows.push(row); out.total+=charge; }
+  });
+  out.total=Math.round(out.total*100)/100; out.gain=Math.round(out.gain*100)/100;
+  return out;
+}
+/* ── D4 / D10: profit ─────────────────────────────────────────────────────────────── */
+function b5Profit(fy, opt){
+  opt=opt||{};
+  var yms=b5FyYms(fy), set={}, i; for(i=0;i<12;i++) set[yms[i]]=1;
+  var r={fy:fy, income:0, running:0, interest:0, depr:0, gain:0, profit:0,
+         loanCapital:0, capitalLinked:0, capitalUnreg:0, nonopIn:0, nonopOut:0, tax:0, paydown:0,
+         vatIn:0, vatOut:0, cashIn:0, cashOut:0, unlinkedLoan:0, byCat:{}};
+  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
+    if(!t) return; var d=parseDate(t.date||''); if(!d) return; var ym=b5Ym(d);
+    if(!set[ym] || (opt.toYm && ym>opt.toYm)) return;
+    var g=+t.amt||0, s=IE_split(g, t.cat), a=s.net, v=g-a, role=b5CatRole(t.cat);
+    if(t.type==='income'){
+      r.cashIn+=g;
+      if(role==='nonop'){ r.nonopIn+=g; return; }
+      r.income+=a; r.vatIn+=v; return;
+    }
+    r.cashOut+=g;
+    if(t.type!=='expense'){ r.paydown+=g; return; }      // account payments: cash, never a cost
+    r.vatOut+=v;
+    if(role==='nonop'){ r.nonopOut+=a; return; }
+    if(role==='tax'){ r.tax+=a; return; }
+    if(role==='loan'){
+      var it=0; try{ it=Math.min(a, _rptLoanInterest(t)||0); if(!_rptLoanInterest.resolved) r.unlinkedLoan+=a; }catch(e){}
+      r.interest+=it; r.loanCapital+=a-it; return;
+    }
+    if(role==='capital'){
+      var la=null; try{ la=txLinkedAsset(t); }catch(e){}
+      if(la){ r.capitalLinked+=a; return; }
+      r.capitalUnreg+=a;                                   // safety net: stays a cost, flagged
+    }
+    r.running+=a; var cn=t.cat; try{ cn=normalizeCat(t.cat); }catch(e){} r.byCat[cn]=(r.byCat[cn]||0)+a;
+  });
+  var dep=b5BookDepr(fy, opt.toYm);
+  r.depr=dep.total; r.gain=dep.gain; r.deprRows=dep.rows;
+  r.profit=r.income-r.running-r.interest-r.depr+r.gain;
+  ['income','running','interest','profit','loanCapital','capitalLinked','capitalUnreg','nonopIn','nonopOut','tax','paydown','vatIn','vatOut','cashIn','cashOut','unlinkedLoan']
+    .forEach(function(k){ r[k]=Math.round(r[k]*100)/100; });
+  return r;
+}
+/* The working budget as lines. ST.budgets holds MONTH TOTALS, all money out included, so the
+   split by category comes from the farmer's category targets when set, else this year's
+   actual mix, else last year's. Step 3 replaces this with stored lines (D1) - one function,
+   so every engine moves together. */
+function b5BudgetLines(fy){
+  var yms=b5FyYms(fy), out={source:'none', months:{}};
+  function mixFrom(obj){ var t=0,k,m={}; for(k in obj) if((obj[k]||0)>0) t+=obj[k]; if(!(t>0)) return null; for(k in obj) if((obj[k]||0)>0) m[k]=obj[k]/t; return m; }
+  function actualMix(f, type){ var o={}; ((ST&&ST.txns)||[]).forEach(function(t){ if(!t||t.type!==type) return; var d=parseDate(t.date||''); if(!d||_taxFyOf(d)!==f) return; var c=t.cat; try{ c=normalizeCat(t.cat); }catch(e){} o[c]=(o[c]||0)+(+t.amt||0); }); return o; }
+  var ct=(ST.budgets&&ST.budgets.catTargets)||{};
+  var em=mixFrom(ct.expense||{}), im=mixFrom(ct.income||{});
+  if(em) out.source='targets';
+  if(!em){ em=mixFrom(actualMix(fy,'expense')); if(em) out.source='actuals'; }
+  if(!em){ em=mixFrom(actualMix(fy-1,'expense')); if(em) out.source='last year'; }
+  if(!im) im=mixFrom(actualMix(fy,'income')) || mixFrom(actualMix(fy-1,'income')) || {'Other Income':1};
+  em=em||{'Other Expenses':1};
+  yms.forEach(function(ym){
+    var L=b5YmLabel(ym), ti=+((ST.budgets.monthlyIncome||{})[L]||0), te=+((ST.budgets.monthlyExpenses||{})[L]||0), inc={}, exp={}, k;
+    for(k in im) inc[k]=ti*im[k]; for(k in em) exp[k]=te*em[k];
+    out.months[ym]={income:inc, expense:exp, totalIn:ti, totalOut:te};
+  });
+  return out;
+}
+/* The WORKING BUDGET for the months still to come, as D1 defines it: the production lines
+   come from Planning (always current), overheads and other income are added at a calibrated
+   rate (below), and interest comes from the loan schedule. Using the typed month TOTALS was
+   wrong in practice: the plan only fills EMPTY budget months, so a budget typed once goes
+   stale - on the SA demo R6.8m in against R2.6m out for Oct-Feb while the plan said R8.3m
+   against R8.6m. A month outside the plan window falls back to the typed totals. */
+/* Categories Planning never models, whatever the farm tags. */
+var B5_OVERHEAD_CATS = ['Labour & Wages','Admin & Professional Fees','Insurance','Land & Rental','Rates & licences','PAYE & UIF','Other Expenses'];
+var B5_OTHER_INCOME_CATS = ['Government Grant','Subsidies','Agritourism','Rental Income','Other Income'];
+function b5WorkingBudget(fy){
+  fy=(fy!=null)?fy:getCurrentFY();
+  var now=b5TodayYm(), yms=b5FyYms(fy);
+  var plan={}; ((typeof ST_PLAN!=='undefined'&&ST_PLAN&&ST_PLAN.months)||[]).forEach(function(pm){ if(pm&&pm.label) plan[pm.label]=pm; });
+  /* Actual running costs and other income by month, this farm year, ex-VAT. */
+  var run={}, ohc={}, oin={}, elapsed=yms.filter(function(y){ return y<=now; });
+  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
+    if(!t || (t.type!=='income' && t.type!=='expense')) return;
+    var d=parseDate(t.date||''); if(!d || _taxFyOf(d)!==fy) return; var ym=b5Ym(d); if(ym>now) return;
+    var role=b5CatRole(t.cat); if(role!=='running') return;
+    var c=t.cat; try{ c=normalizeCat(t.cat); }catch(e){} var a=IE_split(+t.amt||0, t.cat).net;
+    if(t.type==='expense'){ run[ym]=(run[ym]||0)+a; if(B5_OVERHEAD_CATS.indexOf(c)>=0) ohc[ym]=(ohc[ym]||0)+a; }
+    else if(B5_OTHER_INCOME_CATS.indexOf(c)>=0) oin[ym]=(oin[ym]||0)+a;
+  });
+  /* OVERHEADS for the months ahead, calibrated so they are never counted twice. Where the plan
+     and the ledger overlap, overheads are what was spent beyond what the plan expected: a plan
+     that covers everything leaves ~0, one that covers production only leaves the overheads -
+     and it does not matter whether the farm tags its spending. With fewer than three months of
+     overlap that is too noisy, so the run-rate of the categories Planning never models is used. */
+  var overlap=elapsed.filter(function(ym){ return !!plan[b5YmLabel(ym)]; }), method, ohRate=0;
+  if(overlap.length>=3){
+    var gap=0; overlap.forEach(function(ym){ gap+=(run[ym]||0)-(+plan[b5YmLabel(ym)].expenses||0); });
+    ohRate=Math.max(0, gap/overlap.length); method='plan gap ('+overlap.length+' months)';
+  } else {
+    var t=0; elapsed.forEach(function(ym){ t+=ohc[ym]||0; }); ohRate=t/(elapsed.length||1); method='overhead categories';
+  }
+  var oi=0; elapsed.forEach(function(ym){ oi+=oin[ym]||0; }); var oiRate=oi/(elapsed.length||1);
+  var fallback=b5BudgetLines(fy), out={fy:fy, months:{}, overheadRate:Math.round(ohRate), otherIncomeRate:Math.round(oiRate), overheadMethod:method, sources:{}};
+  yms.forEach(function(ym){
+    if(ym<=now) return;
+    var L=b5YmLabel(ym), pm=plan[L], row={ym:ym, prodIncome:0, prodCost:0, overheads:ohRate, otherIncome:oiRate, interest:0, loanCapital:0, source:''};
+    if(pm){ row.prodIncome=+pm.income||0; row.prodCost=+pm.expenses||0; row.source='plan'; }
+    else {                                         // outside the plan window: the typed budget, split
+      var fm=fallback.months[ym], k;
+      for(k in fm.income) if(b5CatRole(k)!=='nonop') row.prodIncome+=IE_split(fm.income[k],k).net;
+      for(k in fm.expense) if(b5CatRole(k)==='running') row.prodCost+=IE_split(fm.expense[k],k).net;
+      row.overheads=0; row.otherIncome=0; row.source='budget';
+    }
+    ((typeof ST_LOANS!=='undefined'&&ST_LOANS.loans)||[]).forEach(function(l){
+      if(!(l.payment>0)) return; var it=0; try{ it=LN_intForMonth(l, ym)||0; }catch(e){}
+      row.interest+=it; row.loanCapital+=Math.max(0,(+l.payment||0)-it);
+    });
+    out.sources[row.source]=(out.sources[row.source]||0)+1;
+    out.months[ym]=row;
+  });
+  return out;
+}
+/* D11: heading for = actual so far + the working budget for the months still to come. */
+function b5ProfitHeading(fy){
+  fy=(fy!=null)?fy:getCurrentFY();
+  var now=b5TodayYm(), yms=b5FyYms(fy), soFar=b5Profit(fy, {toYm:now}), full=b5BookDepr(fy);
+  var wb=b5WorkingBudget(fy), rest={income:0, running:0, interest:0, loanCapital:0, months:0};
+  Object.keys(wb.months).forEach(function(ym){ var r=wb.months[ym]; rest.months++;
+    rest.income+=r.prodIncome+r.otherIncome; rest.running+=r.prodCost+r.overheads; rest.interest+=r.interest; rest.loanCapital+=r.loanCapital; });
+  var restDepr=Math.round((full.total-soFar.depr)*100)/100;
+  var heading=soFar.profit + rest.income - rest.running - rest.interest - restDepr + (full.gain-soFar.gain);
+  return { fy:fy, soFar:soFar, rest:rest, restDepr:restDepr, working:wb, budgetSource:Object.keys(wb.sources).join('+')||'none', heading:Math.round(heading*100)/100 };
+}
+/* ── D5: cash in hand ─────────────────────────────────────────────────────────────── */
+function b5CashNow(){
+  var typed=(ST.bankBalance!=null && ST.bankBalance!=='' && isFinite(+ST.bankBalance));
+  if(!typed) return { bal:Math.round(cfCurrentCashEstimate()*100)/100, estimated:true, rolled:0, at:null };
+  var at=ST.bankBalanceAt ? parseDate(ST.bankBalanceAt) : null, atD=at ? new Date(at.y,at.m,at.d||1) : null;
+  var bal=+ST.bankBalance, n=0, today=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date();
+  if(atD){ ((ST&&ST.txns)||[]).forEach(function(t){
+    if(!t) return; var d=parseDate(t.date||''); if(!d) return; var dt=new Date(d.y,d.m,d.d||1);
+    if(dt<=atD || dt>today) return;                           // after the balance was typed, up to today
+    bal+=(t.type==='income' ? 1 : -1)*(+t.amt||0); n++;
+  }); }
+  return { bal:Math.round(bal*100)/100, estimated:false, rolled:n, at:ST.bankBalanceAt||null };
+}
+/* The 12 months ahead. The month-by-month movement is the Money Flow forecast's own
+   (plan, recurring bills, loans, provisional tax, VAT - buildCfForecast), re-based on the
+   rolled-forward balance, over ONE horizon for every screen. */
+function b5CashForecast(n){
+  n=n||12; var now=b5CashNow(), f=null;
+  try{ f=buildCfForecast(n); }catch(e){ f=null; }
+  var months=[], bal=now.bal, low=null;
+  (Array.isArray(f) ? f : ((f&&f.months)||[])).forEach(function(m){
+    var net=(m.income||0)-(m.expenses||0);
+    bal+=net; var row={label:m.label, net:Math.round(net), balance:Math.round(bal)};
+    months.push(row); if(!low || row.balance<low.balance) low=row;
+  });
+  return { start:now, months:months, lowest:low };
+}
+/* ── The bridges ──────────────────────────────────────────────────────────────────── */
+/* Profit -> the money that moved through the bank in the same months. Exact: every rand in
+   the ledger lands in exactly one line. */
+function b5BridgeCash(fy, toYm){
+  var p=b5Profit(fy, {toYm:toYm});
+  var lines=[
+    ['Profit', p.profit],
+    ['Write-off of machinery and buildings (not money out)', p.depr],
+    ['Gain on selling an asset (not money in)', -p.gain],
+    ['VAT collected on sales', p.vatIn],
+    ['VAT paid on purchases', -p.vatOut],
+    ['Loan capital repaid', -p.loanCapital],
+    ['Assets bought', -p.capitalLinked],
+    ['Drawings and VAT paid to SARS', -p.nonopOut],
+    ['VAT refunds from SARS', p.nonopIn],
+    ['Income tax paid', -p.tax],
+    ['Account payments (overdraft, co-op)', -p.paydown]
+  ];
+  var sum=0; lines.forEach(function(l){ sum+=l[1]; });
+  var cash=Math.round((p.cashIn-p.cashOut)*100)/100;
+  return { lines:lines, total:Math.round(sum*100)/100, cash:cash, residual:Math.round((cash-sum)*100)/100, profit:p };
+}
+/* Profit -> taxable profit, line by line against the IT12 computation for the same year. */
+function b5BridgeTax(fy){
+  var p=b5Profit(fy), it=null; try{ it=_sarsIT12(fy); }catch(e){}
+  if(!it) return null;
+  var sp=_taxFySplit(fy), ca=(it.ca&&it.ca.total)||0, rf=it.rf||{}, recoup=it.recoup||0;
+  var nonDedInRunning=0; Object.keys(p.byCat).forEach(function(c){ if(taxCatKind(c)==='nonded') nonDedInRunning+=p.byCat[c]; });
+  var capLimInRunning=0; Object.keys(p.byCat).forEach(function(c){ if(taxCatKind(c)==='caplim') capLimInRunning+=p.byCat[c]; });
+  var lines=[
+    ['Profit', p.profit],
+    ['Add back the accounts write-off', p.depr],
+    ['Less the tax allowances on the asset register', -ca],
+    ['Add back gain on sale (tax uses recoupments)', -p.gain],
+    ['Recoupments on assets sold', recoup],
+    ['Add back costs SARS does not allow (fines, penalties)', nonDedInRunning],
+    ['Add back machinery not yet on the register (not claimed until it is)', (sp.capUnreg||0)],
+    ['Farm development: as a cost in profit, under paragraph 12 for tax', capLimInRunning - (rf.allowed||0)]
+  ];
+  var sum=0; lines.forEach(function(l){ sum+=l[1]; });
+  var taxable=it.taxable;
+  return { lines:lines, total:Math.round(sum*100)/100, taxable:taxable, residual:Math.round((taxable-sum)*100)/100, profit:p, it12:it };
+}
+/* ── D7: gross margins ────────────────────────────────────────────────────────────── */
+/* Output less direct costs for each enterprise tag, before overheads - by season (what the
+   enterprise pages show) and by farm year (what adds up to Profit; the difference is timing). */
+function b5Margins(opt){
+  opt=opt||{};
+  var season=(opt.season!=null)?opt.season:(typeof planYear!=='undefined'?planYear:seasonOf()), fy=(opt.fy!=null)?opt.fy:getCurrentFY();
+  var by={}, untag={income:0, cost:0};
+  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
+    if(!t || (t.type!=='income' && t.type!=='expense')) return;
+    var d=parseDate(t.date||''); if(!d) return;
+    var role=b5CatRole(t.cat); if(role!=='running') return;           // gross margin: farming income and running costs only
+    var a=IE_split(+t.amt||0, t.cat).net, sz=(seasonOf(t.date)===season), fz=(_taxFyOf(d)===fy);
+    var code=t.ent && !/^(loan|payrun|asset):/.test(t.ent) ? t.ent : null;
+    if(!code){ if(fz){ if(t.type==='income') untag.income+=a; else untag.cost+=a; } return; }
+    var e=by[code]||(by[code]={code:code, name:(typeof wkActLabel==='function')?wkActLabel(code):code, season:{income:0,cost:0}, fy:{income:0,cost:0}});
+    if(sz){ if(t.type==='income') e.season.income+=a; else e.season.cost+=a; }
+    if(fz){ if(t.type==='income') e.fy.income+=a; else e.fy.cost+=a; }
+  });
+  var rows=Object.keys(by).map(function(k){ var e=by[k]; e.season.gm=Math.round(e.season.income-e.season.cost); e.fy.gm=Math.round(e.fy.income-e.fy.cost); return e; })
+    .sort(function(a,b){ return b.season.gm-a.season.gm; });
+  var fyGm=rows.reduce(function(s,e){ return s+e.fy.gm; },0), seasonGm=rows.reduce(function(s,e){ return s+e.season.gm; },0);
+  return { season:season, fy:fy, rows:rows, untagged:{income:Math.round(untag.income), cost:Math.round(untag.cost)}, fyGm:fyGm, seasonGm:seasonGm, timing:seasonGm-fyGm };
+}
+/* D6 + D11: the ONE tax computation (the IT12's), run on actual so far + the working budget
+   for the months still to come. The return runs it on actuals; provisional tax (IRP6) takes
+   this estimate. taxProvEstimate projects from the SEASON PLAN instead - step 3 moves the
+   Tax page onto this so the estimate, the return and the payments share one engine. */
+function b5TaxEstimate(fy){
+  fy=(fy!=null)?fy:getCurrentFY();
+  var it=null; try{ it=_sarsIT12(fy); }catch(e){} if(!it) return null;
+  /* Same working budget as "heading for". Overheads are taken as deductible: the barred
+     items (income tax, fines) are not running costs in the ledger rules above. */
+  var wb=b5WorkingBudget(fy), rest={income:0, deductible:0, interest:0, months:0};
+  Object.keys(wb.months).forEach(function(ym){ var r=wb.months[ym]; rest.months++;
+    rest.income+=r.prodIncome+r.otherIncome; rest.deductible+=r.prodCost+r.overheads; rest.interest+=r.interest; });
+  var taxable=Math.max(0, it.taxable + rest.income - rest.deductible - rest.interest);
+  var ent=(ST.entityType)||'sole', tax=0; try{ tax=Math.round(calcAnnualIncomeTax(taxable, ent)||0); }catch(e){}
+  return { fy:fy, actualTaxable:it.taxable, rest:rest, taxable:Math.round(taxable), tax:tax, budgetSource:Object.keys(wb.sources).join('+')||'none' };
+}
+/* Enterprise margins (farm year) + untagged income - overheads (untagged running costs) -
+   interest - write-off + gain = Profit. Exact, by construction of the same ledger rules. */
+function b5ProfitFromMargins(fy){
+  var m=b5Margins({fy:fy}), p=b5Profit(fy);
+  var total=m.fyGm + m.untagged.income - m.untagged.cost - p.interest - p.depr + p.gain;
+  return { margins:m.fyGm, untaggedIncome:m.untagged.income, overheads:m.untagged.cost, interest:p.interest, depr:p.depr, gain:p.gain,
+           total:Math.round(total), profit:Math.round(p.profit), residual:Math.round(p.profit-total), timing:m.timing };
+}
+
 function flushRelationalToBackend(){
   if(!(window.AI && AI.farm && AI.farm.active())) return;
   try{ if(window.ST_CROP && AI.crop){ AI.crop.saveAll(ST_CROP).catch(function(){}); AI.crop.saveConfig(ST_CROP).catch(function(){}); } }catch(e){}
