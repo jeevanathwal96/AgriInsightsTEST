@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=69"></script>
-<script src="ai-auth.js?v=47"></script>
+<script src="ai-data.js?v=70"></script>
+<script src="ai-auth.js?v=48"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -10067,6 +10067,7 @@ table.rn-t td.dim{color:var(--t4)}
               <option value="4">April</option>
               <option value="7">July</option>
             </select>
+            <div id="set-fystart-note" style="display:none;font-size:11px;line-height:1.45;color:#B45309;margin-top:5px">SARS assesses individuals, partnerships and trusts on a March&ndash;February year. Change this only if SARS has accepted your farm accounts to another date &mdash; your tax figures follow this year.</div>
           </div>
           <div><label>Season starts <span class="set-ihint"><button type="button" class="set-i" onclick="setPop(this,event)" aria-label="Why we ask">i</button><span class="set-pop"><b>Your growing year</b>, which is not your financial year. It sets the twelve months the Planning and Season Tracker screens run over. Summer grain usually starts in May; a winter-rainfall farm or an orchard may start somewhere else. Your financial year is unaffected.</span></span></label>
             <select id="set-season">
@@ -16567,7 +16568,19 @@ function txDispDate(s) {
   return ('0' + d.d).slice(-2) + ' ' + MO[d.m] + ' ' + d.y;
 }
 
-function currentPeriodLabel() { return ST.budgets.currentMonth || (function(){ var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); return MO[d.getMonth()]+' '+d.getFullYear(); })(); }
+/* ONE clock (-449). This returned ST.budgets.currentMonth first — a label saved to the cloud
+   with the budget (farms.budget_current_month) and put back by every load, AFTER boot had
+   anchored it to today. A farm whose budget was last saved in August therefore read every
+   "this month" / "this year" headline as August all through September, while fyOf() and the
+   year helpers followed the real date. The label is derived from APP_TODAY, always, and kept
+   in ST.budgets.currentMonth only for the direct readers of that field. */
+function currentPeriodLabel() {
+  var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date();
+  var L=MO[d.getMonth()]+' '+d.getFullYear();
+  try{ if(typeof ST!=='undefined' && ST.budgets && ST.budgets.currentMonth!==L) ST.budgets.currentMonth=L; }catch(e){}
+  return L;
+}
 
 function prevMonthLabel(monthLabel) {
   var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -19473,7 +19486,22 @@ var FARM_CATS = [
   {n:'Income tax'                 , t:'exp'  , vat:'none' , ec:'#DC2626'  , ic:''         , tag:'tr'   , tc:'#FEF2F2:#B91C1C'    , ss:''       , sd:'', bor:19, ded:0},
   {n:'SARS fines & interest'      , t:'exp'  , vat:'none' , ec:'#B91C1C'  , ic:''         , tag:'tr'   , tc:'#FEF2F2:#B91C1C'    , ss:''       , sd:'', bor:19.2, ded:0},
   {n:'PAYE & UIF'                 , t:'exp'  , vat:'none' , ec:'#EF4444'  , ic:''         , tag:'tr'   , tc:'#FEF2F2:#B91C1C'    , ss:''       , sd:'', bor:19.4},
-  {n:'Rates & licences'           , t:'exp'  , vat:'exmt' , ec:'#F87171'  , ic:''         , tag:'tr'   , tc:'#FEF2F2:#B91C1C'    , ss:''       , sd:'', bor:19.6}
+  {n:'Rates & licences'           , t:'exp'  , vat:'exmt' , ec:'#F87171'  , ic:''         , tag:'tr'   , tc:'#FEF2F2:#B91C1C'    , ss:''       , sd:'', bor:19.6},
+  /* ── Batch 5 step 1 (-449): the money that is not farming at all ────────────────────
+     Profit, cash and tax each treat these differently, and with no category of their own
+     they were filed as Other Expenses / Machinery & Repairs and counted as running costs.
+       Drawings — the owner taking money out. Not a cost, never deductible (ded:0).
+       VAT paid to SARS / VAT refund from SARS — settling the VAT201. Not income tax
+         relevant either way (ded:0 / notax:1) and never itself carries VAT (vat:'none'),
+         so it can never be read as a purchase with input VAT.
+       Machinery & equipment purchases — buying a tractor, not repairing one. Capital
+         (capx:1): the tax figures claim its write-off from the asset register, never the
+         purchase itself, so until it is on the register it is held back and flagged
+         rather than deducted in full. Input VAT on it is claimable (vat:'std'). */
+  {n:'Drawings'                   , t:'exp'  , vat:'none' , ec:'#94A3B8'  , ic:''         , tag:'tgr'  , tc:'#F1F5F9:#475569'    , ss:''       , sd:'', bor:19.8, ded:0, nonop:1},
+  {n:'VAT paid to SARS'           , t:'exp'  , vat:'none' , ec:'#F59E0B'  , ic:''         , tag:'to'   , tc:'#FEF3C7:#92400E'    , ss:''       , sd:'', bor:19.9, ded:0, nonop:1},
+  {n:'VAT refund from SARS'       , t:'inc'  , vat:'none' , ec:''         , ic:'#F59E0B'  , tag:'to'   , tc:''                   , ss:''       , sd:'', bor:6.5, notax:1, nonop:1},
+  {n:'Machinery & equipment purchases', t:'exp', vat:'std', ec:'#C2410C'  , ic:''         , tag:'to'   , tc:'#F5F3FF:#5B21B6'    , ss:''       , sd:'', bor:14.5, capx:1}
 ];
 
 /* Derivations. Membership is driven strictly by whether a field is set, so each generated
@@ -20506,7 +20534,8 @@ function nav(id) {
     /* Both year selects were never populated from state — they always opened on
        their first option, so a farmer who had chosen July saw "March" staring
        back at him and re-saving silently reset it. */
-    var sfy=$('set-fystart'); if(sfy) sfy.value = String(fyStartMonth());
+    var sfy=$('set-fystart'); if(sfy){ sfy.value = String(fyStartMonth()); sfy.onchange=setFyNote; }
+    try{ var _se=$('set-entity'); if(_se && !_se._fyn){ _se._fyn=1; _se.addEventListener('change', setFyNote); } setFyNote(); }catch(e){}
     var sse=$('set-season');  if(sse) sse.value = String(seasonStartMonth());
     var stb=$('set-tour-btn'); if(stb) stb.checked = ST.showTourBtn !== false;
     var sdb=$('set-demo-btn'); if(sdb) sdb.checked = ST.showDemoBtn !== false;
@@ -34438,10 +34467,23 @@ function seasonStartMonth(){
   return (m>=1 && m<=12) ? m : 5;
 }
 /* The month the tax year opens (1-12). SA default is March. */
+/* Settings: an individual, partnership or trust moving off March-February is told what
+   that means, because the tax figures now follow this setting (-449, D13). */
+function setFyNote(){
+  try{ var f=$('set-fystart'), e=$('set-entity'), n=$('set-fystart-note'); if(!f||!n) return;
+    var co=e && /^(company|sbc)$/.test(e.value||''); n.style.display=(!co && String(f.value)!=='3')?'block':'none'; }catch(x){}
+}
 function fyStartMonth(){
   var m=(typeof ST!=='undefined' && ST && ST.fyStartMonth)|0;
   return (m>=1 && m<=12) ? m : 3;
 }
+/* The TAX year of a parsed date {y,m(0-based)} (-449, sign-off D13). SARS assesses
+   individuals, partnerships and trusts on March-February, a company on its own financial
+   year - and a farmer whose accounts SARS accepts to another date files on that. The farm
+   year setting (default March) is exactly that date, so the tax engine follows it. Until now
+   fifteen tax functions hard-coded March while the headlines followed the setting, so for
+   any farm not on a February year end the tax pages covered different 12 months. */
+function _taxFyOf(d){ return (d.m >= fyStartMonth()-1) ? d.y : d.y-1; }
 function _yearOf(d, startMonth){
   var t;
   if(d==null){
@@ -35267,11 +35309,14 @@ function recomputePlan() {
 
   // ── Step 3: Load actuals from recorded transactions ───────
   var MON_IDX = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  var MON_LBL3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   ST.txns.forEach(function(t){
-    var parts = t.date.trim().split(' ');
-    if(parts.length < 3) return;
-    var mn = parts[1], yr = parseInt(parts[2],10);
-    var label = mn + ' ' + yr;
+    /* parseDate, not split(' '): bank imports and the phone store ISO dates ("2025-09-03"),
+       which split into one part and were skipped - so "Actual so far" read R0 on any farm
+       that imports its statements (-449). */
+    var _d = (t && t.date && typeof parseDate === 'function') ? parseDate(t.date) : null;
+    if(!_d) return;
+    var label = MON_LBL3[_d.m] + ' ' + _d.y;
     var mi = ST_PLAN.months.findIndex(function(m){return m.label===label;});
     if(mi < 0) return;
     if(t.type === 'income')  ST_PLAN.months[mi].actIncome   += t.amt;
@@ -35444,11 +35489,19 @@ function recomputePlan() {
   }
 
   // ── Step 4: Push plan to budgets ─────────────────────────
-  ST_PLAN.months.forEach(function(m){
-    if(!m.label) return;
-    if(m.income   > 0 && !(ST.budgets.monthlyIncome[m.label]   > 0)) ST.budgets.monthlyIncome[m.label]   = m.income;
-    if(m.expenses > 0 && !(ST.budgets.monthlyExpenses[m.label] > 0)) ST.budgets.monthlyExpenses[m.label] = m.expenses;
-  });
+  /* Only into THIS financial year's empty months, and never into a locked year (-449).
+     The plan window is a season (May-Apr), so it also covered next year's Mar-Apr: those got
+     filled, next year then looked budgeted and its first-run doors never appeared. And this
+     runs on every recompute - including while Budgets draws - so it must not touch a year
+     the farmer has locked with the bank (bgtIsLocked, switched on in step 3). */
+  var _s4fy=(typeof getCurrentFY==='function')?getCurrentFY():null, _s4m=(_s4fy!=null&&typeof getFYMonths==='function')?getFYMonths(_s4fy):null;
+  if(_s4m && !(typeof bgtIsLocked==='function' && bgtIsLocked(_s4fy))){
+    ST_PLAN.months.forEach(function(m){
+      if(!m.label || _s4m.indexOf(m.label)<0) return;
+      if(m.income   > 0 && !(ST.budgets.monthlyIncome[m.label]   > 0)) ST.budgets.monthlyIncome[m.label]   = m.income;
+      if(m.expenses > 0 && !(ST.budgets.monthlyExpenses[m.label] > 0)) ST.budgets.monthlyExpenses[m.label] = m.expenses;
+    });
+  }
 
   /* Rendered from HERE, not from updatePlanPeriod: the header is also written by
      renderCalGrid, so hooking the notice to one caller meant it never appeared.
@@ -38595,24 +38648,41 @@ function bgtRenderDrift(c) {
   box.style.display = hide ? 'none' : 'flex';
 }
 
+/* Has the farmer locked this financial year's budget as the bank copy? Always false until
+   budget versions arrive (batch 5 step 3); every writer asks it now so none is missed then. */
+function bgtIsLocked(fy){ try{ return !!(ST.budgets && ST.budgets.locked && ST.budgets.locked[String(fy)]); }catch(e){ return false; } }
+/* The plan into this financial year's budget, one side or both (-449). Months the plan
+   covers take the plan figure; months it does not cover KEEP what the farmer had. Both
+   buttons used to zero the whole year first - and the plan window is a season, so the
+   months outside it (SA: Mar-Apr of the new year) ended at R0 - and "Pull from plan" then
+   ran recomputePlan, whose step 4 refilled the zeroed months, before adding the plan again:
+   every planned month came out DOUBLE. Returns the labels left as they were. */
+function bgtPlanIntoMonths(sides){
+  try { if (typeof recomputePlan === 'function') recomputePlan(); } catch(e) {}
+  var fyMonths = getFYMonths(getCurrentFY()), byLbl = {}, kept = [];
+  ((typeof ST_PLAN!=='undefined' && ST_PLAN && ST_PLAN.months) || []).forEach(function(pm){ if (pm && pm.label) byLbl[pm.label] = pm; });
+  fyMonths.forEach(function(m){
+    var pm = byLbl[m];
+    if (!pm) { kept.push(m); return; }
+    if (sides.indexOf('in')  >= 0) ST.budgets.monthlyIncome[m]   = Math.round(pm.income   || 0);
+    if (sides.indexOf('out') >= 0) ST.budgets.monthlyExpenses[m] = Math.round(pm.expenses || 0);
+  });
+  return kept;
+}
+function _bgtKeptNote(kept){ if (!kept.length) return ''; var a=kept[0].split(' ')[0], b=kept[kept.length-1].split(' ')[0]; return ' ' + (kept.length===1 ? a : a + '–' + b) + ' ' + (kept.length===1?'is':'are') + ' outside this season’s plan, so your figures there were kept.'; }
 async function bgtApplyPlan(skipConfirm) {
   var c = BGT_LAST || bgtCompute();
   if (skipConfirm !== true && (c.annualIn > 0 || c.annualOut > 0)) {
     var ok = await appConfirm('This will replace your income target and spending budget with the figures from your Planning page.\n\nMonth-by-month tweaks you have made will be lost.\n\nContinue?');
     if (!ok) return;
   }
-  try { if (typeof recomputePlan === 'function') recomputePlan(); } catch(e) {}
   if (typeof ST_PLAN === 'undefined' || !ST_PLAN || !ST_PLAN.months) return;
-  c.fyMonths.forEach(function(m) { ST.budgets.monthlyIncome[m] = 0; ST.budgets.monthlyExpenses[m] = 0; });
-  ST_PLAN.months.forEach(function(pm) {
-    if (c.fyMonths.indexOf(pm.label) < 0) return;
-    ST.budgets.monthlyIncome[pm.label]   += Math.round(pm.income   || 0);
-    ST.budgets.monthlyExpenses[pm.label] += Math.round(pm.expenses || 0);
-  });
+  if (bgtIsLocked(getCurrentFY())) { toast('This year’s budget is locked — make a new version to change it.', 'info'); return; }
+  var kept = bgtPlanIntoMonths(['in','out']);
   ST.budgets.incomePattern = 'custom'; ST.budgets.expensePattern = 'custom';
   delete ST.budgets.driftDismissSig;
   dataChanged('budget');
-  toast('Targets updated from your plan', 'success');
+  toast('Targets updated from your plan.' + _bgtKeptNote(kept), 'success');
 }
 
 function bgtDismissDrift() {
@@ -39857,25 +39927,15 @@ async function pullPlanToBudgets(side) {
     if (!ok) return;
   }
 
-  fyMonths.forEach(function(m){ target[m] = 0; });
-  if (typeof recomputePlan === 'function') recomputePlan();
-
-  ST_PLAN.months.forEach(function(planMonth) {
-    var match = fyMonths.indexOf(planMonth.label);
-    if (match < 0) return;
-    if (side === 'in') {
-      target[planMonth.label] = (target[planMonth.label] || 0) + (planMonth.income   || 0);
-    } else {
-      target[planMonth.label] = (target[planMonth.label] || 0) + (planMonth.expenses || 0);
-    }
-  });
+  if (bgtIsLocked(fy)) { toast('This year’s budget is locked — make a new version to change it.', 'info'); return; }
+  var kept = bgtPlanIntoMonths([side === 'in' ? 'in' : 'out']);
 
   var sum = fyMonths.reduce(function(s,m){ return s + (target[m] || 0); }, 0);
   var inp = side === 'in' ? $('bgt-annual-input') : $('bgt-annual-exp-input');
   if (inp) inp.value = sum;
 
   dataChanged('budget');
-  toast('Pulled R' + Math.round(sum/1000) + 'k from your plan into ' + (side === 'in' ? 'income target' : 'spending budget'), 'success');
+  toast('Pulled R' + Math.round(sum/1000) + 'k from your plan into ' + (side === 'in' ? 'income target' : 'spending budget') + '.' + _bgtKeptNote(kept), 'success');
 }
 
 function updateAnnualBudget() {
@@ -44171,14 +44231,14 @@ async function pushPlanToBudgets() {
     if (!ok) return;
   }
 
-  ST_PLAN.months.forEach(function(m){
-    if (m.income   > 0) ST.budgets.monthlyIncome[m.label]   = m.income;
-    if (m.expenses > 0) ST.budgets.monthlyExpenses[m.label] = m.expenses;
-  });
+  if (typeof bgtIsLocked === 'function' && bgtIsLocked(getCurrentFY())) { toast('This year’s budget is locked — make a new version to change it.', 'info'); return; }
+  /* This financial year only, and the shared rule (-449): it wrote every plan month, so the
+     season's tail landed in next year's budget. */
+  var kept = bgtPlanIntoMonths(['in','out']);
   // Keep the legacy single-figure budget in sync for places still referencing it
   ST.budgetExpenseTarget = Math.round(ST_PLAN.months.reduce(function(s,x){return s+x.expenses;},0)/12);
   dataChanged('budget');
-  toast('Plan pushed to Budgets and Money Flow forecast','success');
+  toast('Plan pushed to Budgets and Money Flow forecast.' + _bgtKeptNote(kept),'success');
 }
 
 // ============================================================
@@ -53636,6 +53696,9 @@ var MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct',
 function rptParseISO(s){ var p=(''+s).split('-'); return new Date(+p[0], (+p[1])-1, +p[2]); }
 function rptISO(dt){ var m=dt.getMonth()+1, d=dt.getDate(); return dt.getFullYear()+'-'+(m<10?'0'+m:m)+'-'+(d<10?'0'+d:d); }
 function rptMonthsBetween(f, to){ var out=[], y=f.getFullYear(), m=f.getMonth(), ey=to.getFullYear(), em=to.getMonth(); while (y<ey || (y===ey && m<=em)){ out.push(MONTH_LABELS[m]+' '+y); m++; if(m>11){m=0;y++;} } return out; }
+/* The financial year the yearly view shows (-449). It always used getCurrentFY(), so Prev/Next
+   did nothing in yearly mode and the "prior period" column repeated the current year. */
+function rptFY(){ return (RPT_STATE.fy != null) ? RPT_STATE.fy : getCurrentFY(); }
 function rptPeriodInfo(){
   var t = RPT_STATE.type;
   if (t === 'custom' && RPT_STATE.customFrom && RPT_STATE.customTo){
@@ -53645,7 +53708,7 @@ function rptPeriodInfo(){
   var months = [];
   if (t === 'monthly') months = [MONTH_LABELS[RPT_STATE.monthIdx] + ' ' + RPT_STATE.year];
   else if (t === 'quarterly'){ var q = RPT_STATE.quarterIdx*3; for (var i=0;i<3;i++){ var mi=(q+i)%12, yr=RPT_STATE.year+(q+i>=12?1:0); months.push(MONTH_LABELS[mi]+' '+yr); } }
-  else { var fy=getCurrentFY(); months=getFYMonths(fy); }
+  else { months=getFYMonths(rptFY()); }
   return {months: months, from: null, to: null};
 }
 function rptInPeriod(d, info){
@@ -53827,7 +53890,7 @@ function getPeriodLabel() {
     var qNames=['Q1','Q2','Q3','Q4'];
     return qNames[q]+' '+RPT_STATE.year;
   }
-  var fy = getCurrentFY();
+  var fy = rptFY();
   return 'FY '+fy+'/'+(fy+1).toString().slice(-2);
 }
 
@@ -53871,9 +53934,11 @@ var tbody = $('rpt-cmp-tbody');
 
 function computePrevRPT() {
   var old = JSON.parse(JSON.stringify(RPT_STATE));
-  if (RPT_STATE.type==='monthly')   RPT_STATE.monthIdx   = (RPT_STATE.monthIdx+11)%12;
-  if (RPT_STATE.type==='quarterly') RPT_STATE.quarterIdx = (RPT_STATE.quarterIdx+3)%4;
-  if (RPT_STATE.type==='yearly')    RPT_STATE.year--;
+  /* January's prior month is December of the YEAR BEFORE, Q1's prior quarter is Q4 of the
+     year before, and the yearly view's prior year is the previous financial year (-449). */
+  if (RPT_STATE.type==='monthly')   { if (RPT_STATE.monthIdx===0) RPT_STATE.year--; RPT_STATE.monthIdx = (RPT_STATE.monthIdx+11)%12; }
+  if (RPT_STATE.type==='quarterly') { if (RPT_STATE.quarterIdx===0) RPT_STATE.year--; RPT_STATE.quarterIdx = (RPT_STATE.quarterIdx+3)%4; }
+  if (RPT_STATE.type==='yearly')    RPT_STATE.fy = rptFY() - 1;
   if (RPT_STATE.type==='custom' && RPT_STATE.customFrom && RPT_STATE.customTo){
     var _f=rptParseISO(RPT_STATE.customFrom), _day=86400000, _span=(rptParseISO(RPT_STATE.customTo)-_f)+_day;
     RPT_STATE.customTo  =rptISO(new Date(_f.getTime()-_day));
@@ -53914,7 +53979,7 @@ function rptPrev() {
     RPT_STATE.quarterIdx--;
     if (RPT_STATE.quarterIdx < 0) { RPT_STATE.quarterIdx=3; RPT_STATE.year--; }
   } else {
-    RPT_STATE.year--;
+    RPT_STATE.fy = rptFY() - 1;
   }
   updateRptDisplay();
 }
@@ -53928,7 +53993,7 @@ function rptNext() {
     RPT_STATE.quarterIdx++;
     if (RPT_STATE.quarterIdx > 3) { RPT_STATE.quarterIdx=0; RPT_STATE.year++; }
   } else {
-    RPT_STATE.year++;
+    RPT_STATE.fy = rptFY() + 1;
   }
   updateRptDisplay();
 }
@@ -54693,7 +54758,8 @@ function saProvPaid1(fy){
     if(!x||x.type!=='expense') return;
     var cat=(typeof normalizeCat==='function')?normalizeCat(x.cat):x.cat; if(cat!=='Income tax') return;
     var d=parseDate(x.date); if(!d) return;
-    var dd=new Date(d.y,d.m,d.d||1); if(dd<new Date(fy,6,1)||dd>new Date(fy,9,31)) return;
+    var _s=fyStartMonth()-1;   // a month either side of the 1st payment's due date (end of the tax year's 6th month); -449
+    var dd=new Date(d.y,d.m,d.d||1); if(dd<new Date(fy,_s+4,1)||dd>new Date(fy,_s+8,0)) return;
     if(/top.?up|third|3rd|second|2nd|ita\s?34|assessment/i.test(String(x.desc||''))) return;
     t+=Number(x.amt)||0; n++;
   });
@@ -54702,6 +54768,7 @@ function saProvPaid1(fy){
 function saSetProvPaid1(fy, v){
   ST.provPaid=(ST.provPaid&&typeof ST.provPaid==='object')?ST.provPaid:{};
   if(v===''||v==null) delete ST.provPaid[String(fy)]; else ST.provPaid[String(fy)]=Math.max(0,Math.round(Number(v)||0));
+  try{ if(window.AI && AI.farm && AI.farm.active() && AI.budget && ST.budgets) AI.budget.save(ST.budgets).catch(function(){}); }catch(e){}   // -449: saved with the budget settings
   try{ if(typeof saveState==='function') saveState(); }catch(e){}
   try{ if(typeof renderTax==='function') renderTax(); }catch(e){}
 }
@@ -54781,6 +54848,7 @@ function taxProvEstimate(){
      not contain and multiply a single sale. Same reasoning as annualCapLim above. */
   var annualCapAllow=Math.round(_sp.capAllow), annualRecoup=Math.round(_sp.recoup);
   var annualCapBought=Math.round(_sp.capBought||0);   // spent on assets, so not a running cost
+  var annualCapUnreg=Math.round(_sp.capUnreg||0);     // machinery bought but not on the register: nothing claimed yet (-449)
   var annualLoanCapital=Math.round(_sp.loanCapital||0);  // repaid borrowings, never a cost
   var ringFence=_taxRingFence(annualIncome, annualOtherDed, annualCapLim, taxCarryForwardInto(fy), annualCapAllow, annualRecoup);
   var taxableProfit=ringFence.taxable;
@@ -54794,7 +54862,11 @@ function taxProvEstimate(){
   var now=_txNow();
   var _lbd=function(d){ var x=new Date(d); while(x.getDay()===0||x.getDay()===6) x.setDate(x.getDate()-1); return x; };
   var _M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], _lbl=function(d){ return d.getDate()+' '+_M[d.getMonth()]+' '+d.getFullYear(); };
-  var d1=_lbd(new Date(fy,7,31)), d2=_lbd(new Date(fy+1,2,0)), d3=new Date(fy+1,8,30);
+  /* Dates follow the tax year (-449, D13): 1st = end of its 6th month, 2nd = its last day,
+     top-up = 30 Sep for a February year end, else six months after the year end. For the
+     default March year these are exactly the 31 Aug / end Feb / 30 Sep that were hard-coded. */
+  var _sm=fyStartMonth()-1;
+  var d1=_lbd(new Date(fy,_sm+6,0)), d2=_lbd(new Date(fy+1,_sm,0)), d3=(_sm===2)?new Date(fy+1,8,30):new Date(fy+1,_sm+6,0);
   var paid1=saProvPaid1(fy);
   var pay1=Math.round(annualTax/2);
   var firstPast=(now>d1);
@@ -54816,7 +54888,7 @@ function taxProvEstimate(){
   return {annualIncome:annualIncome,annualExpense:annualExpense,annualProfit:annualProfit,annualTax:annualTax,
           taxableProfit:taxableProfit,nonDed:annualNonDed,nonDedByCat:_sp.nonDedByCat,
           otherDed:annualOtherDed,capLim:annualCapLim,ringFence:ringFence,
-          capAllow:annualCapAllow,recoup:annualRecoup,capBought:annualCapBought,loanCapital:annualLoanCapital,
+          capAllow:annualCapAllow,recoup:annualRecoup,capBought:annualCapBought,capUnreg:annualCapUnreg,loanCapital:annualLoanCapital,
           provPayment:next.amt,pay1:pay1,pay2:pay2,entity:entity,next:next,dts:dts,basis:basis,planComplete:planComplete,
           monthsElapsed:me,monthsLedger:meLedger,tooNew:tooNew,
           setAsideMonthly:setAsideMonthly, monthsToNext:_mLeft, paid1:paid1, penaltyRule:penaltyRule,
@@ -54911,7 +54983,7 @@ function _taxFYVat(){
       misfiled-cost finder, which refuses to accuse on a fallback shrug. */
 var CAP_MIN_ASK   = 7000;      // IN 47 small-item write-off line
 var CAP_ALWAYS_ASK= 50000;     // big enough that "repairs" is unlikely whatever it says
-var CAP_SUSPECT_CATS = ['Machinery & Repairs','Irrigation & Water','Land & Rental','Other Expenses'];
+var CAP_SUSPECT_CATS = ['Machinery & equipment purchases','Machinery & Repairs','Irrigation & Water','Land & Rental','Other Expenses'];
 /* VERBS only. The first draft listed equipment nouns too — tractor, pump, planter — and that
    made "Tractor service and parts" read as a purchase, which is exactly the false positive
    that teaches a farmer to dismiss the question unread. The machine's name says nothing about
@@ -55094,7 +55166,7 @@ function capCandidates(fy){
     if(!t || t.type!=='expense' || t._capOk) return;
     var amt=t.amt||0; if(amt<CAP_MIN_ASK) return;
     if(!capIsSuspectCat(t.cat)) return;
-    var d=parseDate(t.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
+    var d=parseDate(t.date); if(!d||_taxFyOf(d)!==fy) return;
     /* Already answered by pointing it at an asset — the link IS the answer. */
     try{ if(typeof txLinkedAsset==='function' && txLinkedAsset(t)) return; }catch(e){}
     /* A purchase verb always asks. Failing that, wording that says work-done or
@@ -55342,13 +55414,15 @@ function assetLinkedTxn(asset){ var a = assetLinkedTxns(asset); return a.length 
    a thing under both would deduct it twice, so the two never read the same source. */
 function _taxDedSets(){
   if(_taxDedSets._c) return _taxDedSets._c;
-  var nonDed={}, capLim={}, capAny={};
+  var nonDed={}, capLim={}, capAny={}, capx={}, notax={};
   FARM_CATS.forEach(function(c){
     if(c.ded===0) nonDed[c.n]=1;
     else if(c.cap && c.lim) capLim[c.n]=1;
     if(c.cap) capAny[c.n]=1;          // every para 12 head, limited or exempt
+    if(c.capx) capx[c.n]=1;
+    if(c.notax) notax[c.n]=1;
   });
-  return (_taxDedSets._c={nonDed:nonDed, capLim:capLim, capAny:capAny});
+  return (_taxDedSets._c={nonDed:nonDed, capLim:capLim, capAny:capAny, capx:capx, notax:notax});
 }
 /* Is this category a First Schedule para 12 head at all? Used to decide whether an
    asset's purchase is already being claimed as capital development, which is a wider
@@ -55364,9 +55438,16 @@ function taxCatKind(cat){
   try{ if(typeof normalizeCat==='function') c=normalizeCat(cat); }catch(e){}
   if(s.nonDed[c]) return 'nonded';
   if(s.capLim[c]) return 'caplim';
+  if(s.capx[c]) return 'capx';
   return 'ded';
 }
-/* Para 12(3) is a TAX-year rule, so these walk 1 Mar – 28 Feb regardless of the farm's
+/* Income that is not taxable income (a VAT refund). */
+function taxIncomeCounts(cat){
+  var s=_taxDedSets(), c=cat;
+  try{ if(typeof normalizeCat==='function') c=normalizeCat(cat); }catch(e){}
+  return !s.notax[c];
+}
+/* Para 12(3) is a TAX-year rule: these walk the tax year (_taxFyOf, the farm year setting; -449), not the season. Formerly: 1 Mar – 28 Feb regardless of the farm's
    own reporting year — same boundary getCurrentFY() uses. */
 function _taxFySplit(fy){
   var o={income:0, expenses:0, nonDed:0, capLim:0, otherDed:0, nonDedByCat:{}, capAllow:0, recoup:0, capBought:0, loanCapital:0};
@@ -55386,7 +55467,7 @@ function _taxFySplit(fy){
   var _capAmts=[];        // rand amounts of this year's capital costs, for the asset dedupe below
   ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
     if(!t) return; var d=parseDate(t.date); if(!d) return;
-    if(((d.m>=2)?d.y:d.y-1)!==fy) return;
+    if(_taxFyOf(d)!==fy) return;
     /* A VAT vendor is taxed on amounts WITHOUT VAT: output VAT on a sale belongs to SARS
        and input VAT on a cost comes back through the VAT201, so neither is income or a
        cost. Every figure below is therefore the ex-VAT amount (IE_split returns the
@@ -55394,7 +55475,7 @@ function _taxFySplit(fy){
        taxProvEstimate can take the same VAT out of the planned rest of the year. */
     var g=t.amt||0, a=g;
     try{ if(typeof IE_split==='function') a=IE_split(g, t.cat).net; }catch(e){ a=g; }
-    if(t.type==='income'){ o.income+=a; o.incomeGross=(o.incomeGross||0)+g; return; }
+    if(t.type==='income'){ if(!taxIncomeCounts(t.cat)) return; o.income+=a; o.incomeGross=(o.incomeGross||0)+g; return; }
     if(t.type!=='expense') return;              // account payments are cash, not a P&L line
     o.expenses+=a; o.expensesGross=(o.expensesGross||0)+g;
     /* Key the breakdown by the DISPLAY name, not the raw stored one. The server keeps
@@ -55404,6 +55485,13 @@ function _taxFySplit(fy){
     var k=taxCatKind(t.cat), cn=t.cat;
     try{ if(typeof normalizeCat==='function') cn=normalizeCat(t.cat); }catch(e){}
     if(k==='nonded'){ o.nonDed+=a; o.nonDedByCat[cn]=(o.nonDedByCat[cn]||0)+a; }
+    /* A machinery purchase is capital: on the register it is claimed as wear and tear,
+       off it nothing is claimable yet — held back (capUnreg) and flagged, never deducted
+       in full. Deferring a claim is the error a farmer can survive; over-claiming is not. */
+    else if(k==='capx'){
+      var _lx=null; try{ _lx=(typeof txLinkedAsset==='function')?txLinkedAsset(t):null; }catch(e){}
+      if(_lx) o.capBought=(o.capBought||0)+a; else o.capUnreg=(o.capUnreg||0)+a;
+    }
     /* Only UNLINKED capital costs join the dedupe pool. A payment that already names its
        asset is fully explained, and letting its amount absorb some other asset as well
        would cancel a second, unrelated claim — the heuristic quietly overruling the
@@ -55461,7 +55549,7 @@ function _taxFySplit(fy){
   o.capLimAssets=0; o.capLimAssetList=[]; o.capLimAssetsSkipped=[];
   ((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]).forEach(function(a){
     if(!a || a.deprType!=='s12u' || !(a.price>0)) return;
-    var d=parseDate(a.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
+    var d=parseDate(a.date); if(!d||_taxFyOf(d)!==fy) return;
     try{ if(typeof assetLinkedTxn==='function' && assetLinkedTxn(a)) return; }catch(e){}
     /* No link, but a capital cost of exactly this size in the same year almost certainly
        IS this asset — the farmer simply never joined them up. Counting both would claim
@@ -55517,7 +55605,7 @@ function taxCarryForwardInto(fy){
   var first=null;
   ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
     if(!t) return; var d=parseDate(t.date); if(!d) return;
-    var y=(d.m>=2)?d.y:d.y-1; if(first==null||y<first) first=y;
+    var y=_taxFyOf(d); if(first==null||y<first) first=y;
   });
   var carry=0;
   if(first!=null){
@@ -55570,13 +55658,13 @@ function taxDoubleCountRisk(fy){
   var caps={}; FARM_CATS.forEach(function(c){ if(c.cap) caps[c.n]=1; });
   ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
     if(!t||t.type!=='expense') return;
-    var d=parseDate(t.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
+    var d=parseDate(t.date); if(!d||_taxFyOf(d)!==fy) return;
     var cn=t.cat; try{ if(typeof normalizeCat==='function') cn=normalizeCat(t.cat); }catch(e){}
     if(!caps[cn]) return;
     for(var i=0;i<assets.length;i++){
       var a=assets[i], ad=parseDate(a.date);
       if(Math.round(a.price)!==Math.round(t.amt||0)) continue;
-      if(ad && ((ad.m>=2)?ad.y:ad.y-1)!==fy) continue;
+      if(ad && _taxFyOf(ad)!==fy) continue;
       out.push({amount:Math.round(t.amt||0), cat:cn, desc:(t.desc||''), asset:(a.name||'an asset')});
       break;
     }
@@ -55601,14 +55689,14 @@ function taxCapitalToReconcile(fy){
   var _capLoose=_taxRecUnexplainedCapital(fy);     // computed once, not per asset
   assets.forEach(function(a, ai){
     if(!a || a.deprType!=='s12u' || !(a.price>0) || a._noPayment) return;
-    var d=parseDate(a.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
+    var d=parseDate(a.date); if(!d||_taxFyOf(d)!==fy) return;
     try{ if(typeof assetLinkedTxn==='function' && assetLinkedTxn(a)) return; }catch(e){}
     // the lookalike the engine would otherwise silently assume
     var match=null;
     for(var i=0;i<txns.length;i++){
       var t=txns[i]; if(!t||t.type!=='expense') continue;
       if(Math.round(t.amt||0)!==Math.round(a.price)) continue;
-      var td=parseDate(t.date); if(!td||((td.m>=2)?td.y:td.y-1)!==fy) continue;
+      var td=parseDate(t.date); if(!td||_taxFyOf(td)!==fy) continue;
       if(typeof taxCatKind==='function' && taxCatKind(t.cat)!=='caplim') continue;
       var lk=null; try{ lk=(typeof txLinkedAsset==='function')?txLinkedAsset(t):null; }catch(e){}
       if(lk) continue;
@@ -55642,7 +55730,7 @@ function _taxRecCandidates(asset, fy, q){
   q=String(q||'').toLowerCase();
   for(var i=0;i<txns.length;i++){
     var t=txns[i]; if(!t||t.type!=='expense') continue;
-    var d=parseDate(t.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) continue;
+    var d=parseDate(t.date); if(!d||_taxFyOf(d)!==fy) continue;
     var lk=null; try{ lk=(typeof txLinkedAsset==='function')?txLinkedAsset(t):null; }catch(e){}
     if(lk && String(lk.id)!==String(asset.id)) continue;
     if(q && String(t.desc||'').toLowerCase().indexOf(q)<0) continue;
@@ -55665,13 +55753,13 @@ function _taxRecUnexplainedCapital(fy){
   var claimed={};
   assets.forEach(function(a){
     if(!a || a.deprType!=='s12u' || !(a.price>0) || a._noPayment) return;
-    var d=parseDate(a.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
+    var d=parseDate(a.date); if(!d||_taxFyOf(d)!==fy) return;
     claimed[Math.round(a.price)]=(claimed[Math.round(a.price)]||0)+1;
   });
   var total=0;
   for(var i=0;i<txns.length;i++){
     var t=txns[i]; if(!t||t.type!=='expense') continue;
-    var d2=parseDate(t.date); if(!d2||((d2.m>=2)?d2.y:d2.y-1)!==fy) continue;
+    var d2=parseDate(t.date); if(!d2||_taxFyOf(d2)!==fy) continue;
     if(typeof taxCatKind!=='function' || taxCatKind(t.cat)!=='caplim') continue;
     var lk=null; try{ lk=(typeof txLinkedAsset==='function')?txLinkedAsset(t):null; }catch(e){}
     if(lk) continue;
@@ -56581,6 +56669,9 @@ function taxGlanceHTML(){
     /* Why the running-costs line is smaller than what left the bank. Without saying it, a
        farmer who has just moved a R380 000 planter onto the register sees their deduction
        fall and has no way to know the write-off replaced it. */
+    if((prov.capUnreg||0)>0){
+      h+='<div style="font-size:11px;color:var(--am,#B45309);line-height:1.5;margin-top:9px;padding-top:9px;border-top:1px solid var(--br2)"><b>'+IE_R(prov.capUnreg)+'</b> of machinery bought this year is not on your asset register yet, so nothing is claimed for it. <span onclick="nav(\'assets\')" style="font-weight:700;text-decoration:underline;cursor:pointer">Add it to Assets</span> to claim its write-off.</div>';
+    }
     if((prov.capBought||0)>0){
       h+='<div style="font-size:11px;color:var(--t3);line-height:1.5;margin-top:9px;padding-top:9px;border-top:1px solid var(--br2)"><b>'+IE_R(prov.capBought)+'</b> of what you spent bought things the farm now owns, so it isn’t a running cost here — it comes off as the write-off above instead, over the life of the item.</div>';
     }
@@ -56736,7 +56827,7 @@ function taxMisfiledDeductions(fy){
   var out=[];
   ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t,i){
     if(!t || t.type!=='expense' || t._dedOk) return;
-    var d=parseDate(t.date); if(!d||((d.m>=2)?d.y:d.y-1)!==fy) return;
+    var d=parseDate(t.date); if(!d||_taxFyOf(d)!==fy) return;
     if(typeof taxCatKind!=='function' || taxCatKind(t.cat)!=='nonded') return;
     var g=''; try{ g=inferCategory(t.desc||'', false); }catch(e){}
     /* Same rule the amber chip uses: a fallback shrug is not a finding. Without it every
@@ -57012,7 +57103,7 @@ function taxReportsHTML(){
 function _txResolveFy(){ return (TAX_RPT_FY!=null)?TAX_RPT_FY:((typeof getCurrentFY==='function')?getCurrentFY():2024); }
 function _txFyLabel(fy){ var n=(fy+1)%100; return 'FY '+fy+'/'+(n<10?'0':'')+n; }
 function _txMinFy(){
-  var min=null; ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var fy=(d.m>=2)?d.y:d.y-1; if(min==null||fy<min) min=fy; });
+  var min=null; ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var fy=_taxFyOf(d); if(min==null||fy<min) min=fy; });
   var cur=(typeof getCurrentFY==='function')?getCurrentFY():2024;
   if(min==null||min>cur) min=cur-1; return min;
 }
@@ -57044,7 +57135,7 @@ function _txRerenderReports(){ var el=document.getElementById('tax-tab-reports')
 
 function _txFyIE(fy){
   var inc=0,exp=0,byCat={};
-  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var f=(d.m>=2)?d.y:d.y-1; if(f!==fy) return; if(t.type==='income') inc+=t.amt; else if(t.type==='expense'){ exp+=t.amt; byCat[_catOf(t)]=(byCat[_catOf(t)]||0)+t.amt; } });
+  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var f=_taxFyOf(d); if(f!==fy) return; if(t.type==='income') inc+=t.amt; else if(t.type==='expense'){ exp+=t.amt; byCat[_catOf(t)]=(byCat[_catOf(t)]||0)+t.amt; } });
   return {income:inc,expenses:exp,profit:inc-exp,byCat:byCat};
 }
 
@@ -61735,16 +61826,18 @@ function _sarsByCat(fy){
          by whatever tax the farm had paid. They are now reported beside Section B, not in it;
        · farm-development spending (First Schedule para 12) is capped at farming income, so
          it goes through the ring fence in Section D, not straight into this total. */
-  var byCat = {}, loanPaid = 0, loanInt = 0, total = 0, capBought = 0, nonDed = 0, nonDedByCat = {}, capLim = 0;
+  var byCat = {}, loanPaid = 0, loanInt = 0, total = 0, capBought = 0, capUnreg = 0, nonDed = 0, nonDedByCat = {}, capLim = 0;
   (ST.txns || []).forEach(function(t){
     if (!t || t.type !== 'expense') return;
     var d = parseDate(t.date); if (!d) return;
-    if (((d.m >= 2) ? d.y : d.y - 1) !== fy) return;
+    if (_taxFyOf(d) !== fy) return;
     var a = t.amt || 0;
     try{ if (typeof IE_split === 'function') a = IE_split(a, t.cat).net; }catch(e){}
     var k = (typeof taxCatKind === 'function') ? taxCatKind(t.cat) : 'ded';
     if (k === 'nonded'){ var nl = _catOf(t); nonDed += a; nonDedByCat[nl] = (nonDedByCat[nl] || 0) + a; return; }
     if (k === 'caplim'){ capLim += a; return; }
+    if (k === 'capx'){ var _lx = null; try{ _lx = (typeof txLinkedAsset === 'function') ? txLinkedAsset(t) : null; }catch(e){}
+      if (_lx) capBought += a; else capUnreg += a; return; }
     /* A payment that bought a depreciating asset is not a running cost, and Section C of
        this same pack already claims the wear and tear on it. Listing it here as well
        claimed the purchase twice — R380 000 as an expense and R190 000 as an allowance, in
@@ -61765,7 +61858,7 @@ function _sarsByCat(fy){
   return {
     byCat: byCat,
     total: total,
-    capBought: capBought,
+    capBought: capBought, capUnreg: capUnreg,
     nonDed: nonDed, nonDedByCat: nonDedByCat, capLim: capLim,
     loan: loanPaid > 0 ? {paid:loanPaid, interest:loanInt, capital:Math.max(0, loanPaid - loanInt)} : null
   };
@@ -61787,7 +61880,7 @@ function _sarsIT12(fy){
   if (typeof FARM !== 'undefined' && FARM.vat){
     var vo = 0, vi = 0;
     (ST.txns || []).forEach(function(t){
-      if (!t) return; var d = parseDate(t.date); if (!d || (((d.m >= 2) ? d.y : d.y - 1) !== fy)) return;
+      if (!t) return; var d = parseDate(t.date); if (!d || (_taxFyOf(d) !== fy)) return;
       var x = IE_split(t.amt || 0, t.cat);
       if (t.type === 'income') vo += x.vat; else if (t.type === 'expense') vi += x.vat;
     });
@@ -64868,7 +64961,8 @@ function inferCategory(desc, isIncome){
   if(/provisional tax|income tax|inkomstebelasting|\bitr12\b|\bit34\b|\birp6\b/.test(d)) return 'Income tax';
   if(/\bpaye\b|\buif\b|\bsdl\b|\bemp201\b|\bemp501\b/.test(d)) return 'PAYE & UIF';
   if(/municipal rates|property rates|rates (and|&) taxes|eiendomsbelasting|vehicle licen[cs]e|licence disc|licensing dept|motor licen/.test(d)) return 'Rates & licences';
-  if(/sars|efiling|vat201/.test(d)) return '';
+  if(/vat\s*201|vat payment|btw[- ]betaling|sars.*\bvat\b|\bvat\b.*sars/.test(d)) return 'VAT paid to SARS';
+  if(/sars|efiling/.test(d)) return '';
   if(/irrigation|water|pump|electricity|eskom|munic|besproei|\bpomp\b|pipe|\bpyp\b/.test(d)) return 'Irrigation & Water';
   if(/insurance|santam|hollard|old\s*mutual|outsurance|iwyze|versekering|\bpremie\b|premium/.test(d)) return 'Insurance';
   if(/\brent\b|rental|lease|huurgeld/.test(d)) return 'Land & Rental';

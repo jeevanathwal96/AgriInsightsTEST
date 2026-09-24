@@ -544,7 +544,7 @@
       return AI.load.financeCore(fid);
     }).then(function (core) {
       // Replace the app's working data with the farm's real data.
-      if (window.ST) { ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || []) : (core.txns || [])); if (!(window.AI && AI.sync && AI.sync.isUnsent('recurring'))) ST.recurring = core.recurring || []; if (core.budgets) ST.budgets = core.budgets; if (core.batches && !(window.AI && AI.sync && AI.sync.isUnsent('imports'))) ST.importBatches = core.batches;
+      if (window.ST) { ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || []) : (core.txns || [])); if (!(window.AI && AI.sync && AI.sync.isUnsent('recurring'))) ST.recurring = core.recurring || []; if (core.budgets) { var _ct = ST.budgets && ST.budgets.catTargets; ST.budgets = core.budgets; if (!ST.budgets.catTargets && _ct) ST.budgets.catTargets = _ct; } if (core.provPaid && typeof core.provPaid === 'object') ST.provPaid = core.provPaid; /* -449: targets were wiped by this replace; provisional payment now comes from the cloud */ if (core.batches && !(window.AI && AI.sync && AI.sync.isUnsent('imports'))) ST.importBatches = core.batches;
         /* Has this farmer ever been through setup? A farm auto-created at first
            sign-in has no owner_name until obFinish saves one, so "no owner AND no
            transactions" is an un-onboarded farm on any device. Requiring the empty
@@ -557,7 +557,7 @@
       // currentMonth is a local "trailing window" anchor the backend doesn't persist — financeCore returns it as null,
       // which blanked the boot-time anchor on every sign-in (money views then fell back to a computed default). Re-anchor
       // it to the real current month here. Only sets the label; never shifts transaction dates, so real data is untouched.
-      try { if (window.ST && ST.budgets && !ST.budgets.currentMonth) { var _d=(window.APP_TODAY?new Date(window.APP_TODAY):new Date()); var _ml=(window.MONTH_LABELS_SHORT)||['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; ST.budgets.currentMonth=_ml[_d.getMonth()]+' '+_d.getFullYear(); } } catch (e) {}
+      try { if (window.ST && ST.budgets) { var _d=(window.APP_TODAY?new Date(window.APP_TODAY):new Date());   /* ALWAYS today (-449): the cloud keeps the month the budget was last saved in, and a stale one shifted every headline */ var _ml=(window.MONTH_LABELS_SHORT)||['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; ST.budgets.currentMonth=_ml[_d.getMonth()]+' '+_d.getFullYear(); } } catch (e) {}
       // Brand-new pilot farm: wipe any in-memory demo defaults across ALL modules
       // so the user starts on a clean slate and can begin entering data straight away.
       if (isNewFarm && typeof window.clearAllToFresh === 'function') {

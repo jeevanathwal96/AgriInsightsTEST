@@ -412,6 +412,8 @@
   let CAN_WORKER_PHONE  = false;   // workers.phone / payslip_whatsapp_ok / _on / payslip_lang
   let CAN_WKR_ETI     = false;   /* workers.eti_excluded - sa-workers-eti.sql (SA -446) */
   let CAN_WKR_MED     = false;   /* workers.med_aid_people + sole_employer - sa-workers-paye-fields.sql (SA -447) */
+  let CAN_BUDGET_CATTGT = false; /* farms.budget_cat_targets - sa-batch5-step1.sql (SA -449) */
+  let CAN_PROV_PAID   = false;   /* farms.prov_paid - sa-batch5-step1.sql (SA -449) */
   let CAN_DEVICES       = false;   // farm_devices: "whose phone is this?"
   let CAN_ORCH_PARTS    = false;   // orchard_sprays: rate/batch/operator_cert/weather
   let CAN_INPUT_WEATHER = false;   // crop_inputs.weather
@@ -513,7 +515,7 @@
     ['push_devices','last_ok_at'], ['fuel_issues','hour_meter'], ['fuel_issues','src'],
     ['orchard_sprays','rate'], ['crop_inputs','weather'], ['orchard_sprays','removed_at'], ['crop_inputs','removed_at'],
     ['payslips','snap'], ['payslip_sends','outcome'],
-    ['workers','payslip_whatsapp_ok'], ['farm_devices','kind'], ['workers','eti_excluded'], ['workers','med_aid_people']
+    ['workers','payslip_whatsapp_ok'], ['farm_devices','kind'], ['workers','eti_excluded'], ['workers','med_aid_people'], ['farms','budget_cat_targets'], ['farms','prov_paid']
   ];
 
   async function probeCaps(farmId){
@@ -569,6 +571,8 @@
     CAN_WORKER_PHONE   = keep(CAN_WORKER_PHONE,  'workers','payslip_whatsapp_ok');
     CAN_WKR_ETI        = keep(CAN_WKR_ETI,       'workers','eti_excluded');
     CAN_WKR_MED        = keep(CAN_WKR_MED,       'workers','med_aid_people');
+    CAN_BUDGET_CATTGT  = keep(CAN_BUDGET_CATTGT, 'farms','budget_cat_targets');
+    CAN_PROV_PAID      = keep(CAN_PROV_PAID,     'farms','prov_paid');
     CAN_DEVICES        = keep(CAN_DEVICES,       'farm_devices','kind');
     /* The particulars a spray register prints. An un-migrated project still saves
        the spray - it just cannot carry rate, batch, certificate or the weather at
@@ -1111,7 +1115,7 @@
         selectAll(() => client().from('transactions').select('*').eq('farm_id', farmId).order('txn_date', { ascending: false })),
         client().from('budget_months').select('*').eq('farm_id', farmId),
         client().from('recurring').select('*').eq('farm_id', farmId).order('name'),
-        client().from('farms').select('budget_income_pattern,budget_expense_pattern,budget_current_month').eq('id', farmId).single()
+        client().from('farms').select('budget_income_pattern,budget_expense_pattern,budget_current_month' + (CAN_BUDGET_CATTGT ? ',budget_cat_targets' : '') + (CAN_PROV_PAID ? ',prov_paid' : '')).eq('id', farmId).single()
       ]);
       for (const r of [acc, txn, bud, rec]) if (r.error) throw r.error;
       _srvNote('accounts', acc.data);      _srvNote('transactions', txn.data);
@@ -1121,6 +1125,11 @@
         incomePattern: (fst.data && fst.data.budget_income_pattern) || 'harvest',
         expensePattern: (fst.data && fst.data.budget_expense_pattern) || 'planting',
         currentMonth: (fst.data && fst.data.budget_current_month) || null };
+      /* Category targets and the first provisional payment lived only in the browser - and
+         this load REPLACES ST.budgets, so the targets were wiped on every sign-in (-449). */
+      function _js(v){ if (v == null) return null; try { return (typeof v === 'string') ? JSON.parse(v) : v; } catch (e) { return null; } }
+      if (fst.data && fst.data.budget_cat_targets != null) bObj.catTargets = _js(fst.data.budget_cat_targets) || { income:{}, expense:{} };
+      var provPaid = (fst.data && fst.data.prov_paid != null) ? _js(fst.data.prov_paid) : null;
       (bud.data || []).forEach(function (r) {
         var lbl = ymToLabel(r.period_year, r.period_month);
         if (r.side === 'income') bObj.monthlyIncome[lbl] = Number(r.amount);
@@ -1133,6 +1142,7 @@
         batches:    impBatches,
         txns:       (txn.data || []).map(dbToApp),
         budgets:    bObj,
+        provPaid:   provPaid,
         recurring:  (rec.data || []).map(r => ({
           id: (r.local_id != null && r.local_id !== '') ? r.local_id : r.id,
           name: r.name, type: r.type, amt: Number(r.amount),
@@ -1280,6 +1290,18 @@
       }).eq('id', fid).select('budget_income_pattern,budget_expense_pattern,budget_current_month,updated_at');
       if (r2.error) throw r2.error;
       try { if ((r2.data || []).length) _profNoteAck(r2.data[0]); } catch (e) {}
+      /* Own statements behind own probes: a database without the columns yet still saves
+         the month figures rather than losing the whole budget to one missing field. */
+      if (CAN_BUDGET_CATTGT && b.catTargets) {
+        var r3 = await client().from('farms').update({ budget_cat_targets: b.catTargets }).eq('id', fid).select('budget_cat_targets,updated_at');
+        try { if (!r3.error && (r3.data || []).length) _profNoteAck(r3.data[0]); } catch (e) {}
+        if (r3.error) console.warn('Budgets: category targets not saved - add farms.budget_cat_targets. (' + (r3.error.message || r3.error) + ')');
+      }
+      if (CAN_PROV_PAID && global.ST && global.ST.provPaid && typeof global.ST.provPaid === 'object') {
+        var r4 = await client().from('farms').update({ prov_paid: global.ST.provPaid }).eq('id', fid).select('prov_paid,updated_at');
+        try { if (!r4.error && (r4.data || []).length) _profNoteAck(r4.data[0]); } catch (e) {}
+        if (r4.error) console.warn('Budgets: provisional payment not saved - add farms.prov_paid. (' + (r4.error.message || r4.error) + ')');
+      }
       return true;
     }
   };
