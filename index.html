@@ -22510,6 +22510,10 @@ function laReportHTML(withLoan){
   /* -460: from the engine - profit before interest over the year's interest, and the same
      profit before interest over total assets. */
   var DC=null; try{ DC=b5DebtCover(); }catch(e){ DC=null; }
+  /* -461: the real figure, a shortfall included - it was clamped to R0, which showed a bank
+     'R0 / 0.00×' for a farm whose year runs at a loss. */
+  if(DC) farmIncome=DC.available;
+  var laCov=function(v){ return (v>0 && isFinite(v)) ? v.toFixed(2)+'×' : 'Not covered'; };
   var intCover=(DC&&DC.interest>0)?((DC.profit+DC.interest)/DC.interest):null;
   var roa=(DC&&totalAssets>0)?Math.round((DC.profit+DC.interest)/totalAssets*100):0;
 
@@ -22610,7 +22614,7 @@ function laReportHTML(withLoan){
   // ── executive summary (factual) ──
   var execCells='';
   if(hasLoan){ var dscrAfter=LC.totalAfter>0?(farmIncome/LC.totalAfter):0; execCells+='<div class="lar-exec-c"><div class="l">Facility requested</div><div class="v">'+laRR(LC.amount)+'</div><div class="s">'+LC.inp.term+'-year term</div></div>'+
-    '<div class="lar-exec-c"><div class="l">Debt service cover</div><div class="v">'+dscrAfter.toFixed(2)+'×</div><div class="s">after facility, current income</div></div>'; }
+    '<div class="lar-exec-c"><div class="l">Debt service cover</div><div class="v">'+laCov(dscrAfter)+'</div><div class="s">after facility, current income</div></div>'; }
   execCells+='<div class="lar-exec-c"><div class="l">Net worth</div><div class="v">'+laRR(netWorth)+'</div><div class="s">'+equityPct+'% equity</div></div>'+
     '<div class="lar-exec-c"><div class="l">Cash-flow position</div><div class="v">'+(cfPositive?'Positive':'Shortfall')+'</div><div class="s">'+(cfPositive?'across the 12-month forecast':'in '+esc(cfMinName))+'</div></div>';
   H.push('<div class="lar-exec"><div class="lar-exec-h">Summary of key figures</div><div class="lar-exec-g">'+execCells+'</div></div>');
@@ -22631,7 +22635,7 @@ function laReportHTML(withLoan){
       '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Per annum</th><th>Current</th><th>After facility</th></tr></thead><tbody>'+
         '<tr><td>Cash available to repay debt</td><td>'+laRR(farmIncome)+'</td><td>'+laRR(farmIncome)+'</td></tr>'+
         '<tr><td>Annual debt service</td><td>'+laRR(LC.exist)+'</td><td>'+laRR(LC.totalAfter)+'</td></tr>'+
-        '<tr class="tot"><td>Debt service cover (DSCR)</td><td>'+dscrNow.toFixed(2)+'×</td><td class="g">'+dscrAf.toFixed(2)+'×</td></tr>'+
+        '<tr class="tot"><td>Debt service cover (DSCR)</td><td>'+(LC.exist>0?laCov(dscrNow):'No loans yet')+'</td><td class="g">'+laCov(dscrAf)+'</td></tr>'+
       '</tbody></table></div>'+
       (DC?'<div class="lar-note"><b>How the cash available is worked out:</b> the year’s profit '+laRR(DC.profit)+' (the same as the farm’s Profit page) + loan interest '+laRR(DC.interest)+' + write-off on assets '+laRR(DC.depr)+' (not cash) = '+laRR(DC.available)+'.</div>':'')+
       '<div class="lar-note">Cover shown on current income only'+((LC.inp.addedIncome>0&&LC.totalAfter>0)?'; with the '+laRR(LC.inp.addedIncome)+' a year the facility is expected to add, cover improves to '+((farmIncome+LC.inp.addedIncome)/LC.totalAfter).toFixed(2)+'×':'')+'. Repayment estimated at prime + margin; the final rate is set by the lender. Lenders typically require a DSCR of at least 1.25×.</div>'+
