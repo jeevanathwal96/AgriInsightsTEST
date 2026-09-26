@@ -2099,7 +2099,24 @@ label{font-size:13px;color:var(--t3);font-weight:500;display:block;margin-bottom
 #tax-tab-glance .txh-ok{color:#1B7A4A;font-weight:700}
 #tax-tab-glance .txh-warn{color:#B45309;font-weight:700}
 #tax-tab-glance .txh-sec{font-size:15px;font-weight:800;color:#16241C;margin:28px 2px 12px}
-#tax-tab-glance .txh-g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:start}
+#tax-tab-glance .txh-g2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch}
+#tax-tab-glance .txh-g2>.tx-card{display:flex;flex-direction:column}   /* -456: side by side, the same height */
+#tax-tab-glance details.txh-chkd{display:block;padding:0}
+#tax-tab-glance details.txh-chkd.bad{border-color:#F2DFA8}
+#tax-tab-glance details.txh-chkd>summary{display:flex;align-items:center;gap:10px;padding:12px 20px;cursor:pointer;list-style:none;min-width:0}
+#tax-tab-glance details.txh-chkd>summary::-webkit-details-marker{display:none}
+#tax-tab-glance details.txh-chkd>summary .sm{color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+#tax-tab-glance details.txh-chkd>summary .cv{font-size:20px;line-height:1;color:var(--t4);transition:transform .15s}
+#tax-tab-glance details.txh-chkd[open]>summary .cv{transform:rotate(90deg)}
+#tax-tab-glance details.txh-chkd>summary:focus-visible{outline:2px solid #2D6A4F;outline-offset:-2px;border-radius:12px}
+#tax-tab-glance details.txh-chkd .ls{border-top:1px solid var(--br2);padding:4px 20px 8px}
+#tax-tab-glance details.txh-chkd .ck{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:12px;align-items:start;padding:11px 0;border-top:1px solid #EEF1EE}
+#tax-tab-glance details.txh-chkd .ck:first-child{border-top:0}
+#tax-tab-glance details.txh-chkd .mk{width:22px;height:22px;border-radius:50%;background:#DDF1E3;color:#0B5B3E;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+#tax-tab-glance details.txh-chkd .ck.bad .mk{background:#FCEBB6;color:#6B4A00}
+#tax-tab-glance details.txh-chkd .tx{font-size:13px;color:var(--t3);line-height:1.5}
+#tax-tab-glance details.txh-chkd .tx b{display:block;color:#16241C;font-size:13.5px}
+#tax-tab-glance details.txh-chkd .tx .do{margin-top:6px;color:#6B4A00;background:#FFF8E6;border:1px solid #F2DFA8;border-radius:8px;padding:7px 10px}
 #tax-tab-glance .txh-g2 .tx-card{margin-bottom:0}
 #tax-tab-glance .txh-chk{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#fff;border:1px solid var(--br);border-radius:12px;padding:12px 18px;margin-bottom:12px;font-size:12.5px;color:var(--t3)}
 #tax-tab-glance .txh-chk b{color:#16241C}
@@ -57543,7 +57560,7 @@ function taxGlanceHTML(){
   cc.slice(0,4).forEach(function(r){ sort.push('<div class="txh-sr"><div class="t"><b>'+esc(r.desc)+'</b> · '+fmt(r.amt)+'<div>'+esc(r.t.date||'')+' · Something the farm owns (written off over years) or a running cost?</div></div><div class="x"><button class="txh-sb pri" onclick="capItIsAnAsset('+r.i+')">We own it</button><button class="txh-sb" onclick="capItIsRunning('+r.i+')">Running cost</button></div></div>'); });
   if(cc.length>4) sort.push('<div class="txh-sr"><div class="t" style="color:var(--t3)">and '+(cc.length-4)+' more like these</div></div>');
   if((prov.capUnreg||0)>0) sort.push('<div class="txh-sr"><div class="t"><b>'+fmt(prov.capUnreg)+' of machinery</b> isn’t on your asset register<div>Nothing is claimed for it until it is.</div></div><div class="x"><button class="txh-sb" onclick="nav(\'assets\')">Add to Assets</button></div></div>');
-  if(_dd.unlogged>0) sort.push('<div class="txh-sr"><div class="t"><b>'+_grpInt(Math.round(_dd.unlogged))+' L of diesel</b> not logged to a machine<div>That part of the refund can’t be claimed.</div></div><div class="x"><button class="txh-sb" onclick="nav(\'assets\')">Log it</button></div></div>');
+  if(_dd.unlogged>0) sort.push('<div class="txh-sr"><div class="t"><b>'+_grpInt(Math.round(_dd.unlogged))+' L of diesel</b> not logged to a machine<div>That part of the refund can’t be claimed.</div></div><div class="x"><button class="txh-sb" onclick="nav(\'crop\')">Log it</button></div></div>');
   if(prov.ok && prov.nudge && prov.nudge.show) sort.push('<div class="txh-sr"><div class="t"><b>Add your '+esc(prov.nudge.enterprise)+' to the season plan</b><div>Until then income is spread evenly, so the estimate is rougher.</div></div><div class="x"><button class="txh-sb" onclick="nav(\'planning\')">Open plan</button></div></div>');
   if(sort.length) h+='<div class="txh-sort"><div class="txh-sort-h">'+sort.length+(sort.length===1?' thing':' things')+' to sort<span>each one changes the figures above</span></div>'+sort.join('')+'</div>';
   try{ h+=taxReconcileHTML(); }catch(e){}
@@ -57670,9 +57687,11 @@ function taxGlanceHTML(){
   var _ty=prov.ok?prov.annualTax:0;
   if(prov.ok||priorTax){ var _ch=priorTax>0?Math.round((_ty-priorTax)/priorTax*100):null, _ym=Math.max(_ty,priorTax,1);
     var _pb=function(lbl,v,col,strong){ return '<div class="txh-pb"><span style="color:'+(strong?'#16241C':'var(--t3)')+';font-weight:'+(strong?700:500)+'">'+lbl+'</span><div class="bar"><i style="width:'+Math.max(1,Math.round(v/_ym*100))+'%;background:'+col+'"></i></div><b style="color:'+(strong?'#16241C':'var(--t3)')+'">'+fmt(v)+'</b></div>'; };
-    h+='<div class="txh-yoy"><span class="big">'+fmt(_ty)+'</span><span class="chg">'+(_ch==null?'income tax this year (estimate)':(_ch<0?'↓ '+(-_ch)+'% on last year':'↑ '+_ch+'% on last year'))+'</span></div>'+
+    h+='<div class="txh-yoy"><span class="big">'+fmt(_ty)+'</span><span class="chg">'+(_ch==null?'income tax this year (estimate)':(_ty===0?'no income tax this year':_ch<0?'↓ '+(-_ch)+'% on last year':'↑ '+_ch+'% on last year'))+'</span></div>'+
        _pb('This year',_ty,'#2D6A4F',true)+_pb('Last year',priorTax,'#B7D3C1',false)+
-       '<div style="font-size:12px;color:var(--t3);margin:12px 0 14px;line-height:1.5">Taxable profit is <b style="color:#16241C">'+fmt(Math.max(0,prov.taxableProfit||0))+'</b> this year, against '+fmt(Math.max(0,priorRF.taxable||0))+' last year.</div>';
+       '<div style="font-size:12px;color:var(--t3);margin:12px 0 14px;line-height:1.5">'+((typeof _tl!=='undefined' && _tl<0)
+         ? 'A taxable loss of <b style="color:#16241C">'+fmt(-_tl)+'</b> this year, so no income tax \u2014 against a taxable profit of '+fmt(Math.max(0,priorRF.taxable||0))+' last year.'   /* -456: it said "Taxable profit is R0" */
+         : 'Taxable profit is <b style="color:#16241C">'+fmt(Math.max(0,prov.taxableProfit||0))+'</b> this year, against '+fmt(Math.max(0,priorRF.taxable||0))+' last year.')+'</div>';
   }
   var fyp=_taxFYProfit(0), ded=[]; Object.keys(fyp.byCat||{}).forEach(function(k){ if(taxCatKind(k)!=='nonded') ded.push([k,fyp.byCat[k]]); }); ded.sort(function(a,b){return b[1]-a[1];}); ded=ded.slice(0,3);
   if(cap.total>0) ded.push(['Wear-and-tear on what you own',cap.total]);
@@ -57708,14 +57727,32 @@ function taxGlanceHTML(){
     h+='</div>';
   }
   /* ---- 5. Checks, the year-end count, the small print ---- */
-  var chk=[]; var _v=(typeof FARM!=='undefined'&&FARM.vat);
-  chk.push([1,_v?'VAT registered':'Not VAT registered']); chk.push([1,'Provisional taxpayer']);
-  if(wk) chk.push([wk.allOk?1:0,wk.allOk?'workers above minimum wage':'a worker below minimum wage']);
-  if(diesel>0||_dd.bought>0) chk.push([_dd.unlogged>0?0:1,_dd.unlogged>0?'diesel logbook incomplete':'diesel logbook kept']);
-  chk.push([1,'records kept 5 years']); if(wk) chk.push([1,wk.sdl?'SDL registered':'under the SDL line']);
-  var bad=chk.filter(function(c){return !c[0];});
-  h+='<div class="txh-chk">'+_ic('ok')+(bad.length?'<span class="txh-warn">▲ '+bad.length+' to look at:</span> <b>'+bad.map(function(c){return c[1];}).join(', ')+'</b> · ':'<span class="txh-ok">'+chk.length+' checks OK</span>')+
-     '<span>'+chk.filter(function(c){return c[0];}).map(function(c){return c[1];}).join(' · ')+'</span></div>';
+  /* -456: the checks open into a list - each one says what it looked at, and one that is not
+     right says what to do about it. Opens by itself when something needs attention. */
+  var chk=[], _v=(typeof FARM!=='undefined'&&FARM.vat), _vt=(STATUTORY.vatThreshold&&STATUTORY.vatThreshold.value)||1000000, _inc=ytd?ytd.income:0;
+  if(_v) chk.push({ok:1, t:'VAT registered', d:vat?'You file a VAT201 for each period — the next is due '+_shortDate(new Date(vat.to.getFullYear(),vat.to.getMonth()+1,25))+'.':'You file a VAT201 for each period.'});
+  else if(_inc>=_vt) chk.push({ok:0, t:'VAT registration', d:'Your income this year is over '+fmt(_vt)+', where VAT registration is usually compulsory.', todo:'Register with SARS within 21 days of passing the line — your accountant can do it — then switch VAT on in Settings.', btn:['Open Settings',"nav('settings')"]});
+  else chk.push({ok:1, t:'Not VAT registered', d:'Fine while income is under '+fmt(_vt)+' a year — you’re '+fmt(Math.max(0,_vt-_inc))+' away.'});
+  var _p0=prov.dts&&prov.dts[0], _p1=prov.dts&&prov.dts[1];
+  chk.push({ok:1, t:'Provisional taxpayer', d:(_p0&&_p1)?(prov.ok?'Two IRP6 payments a year: '+_shortDate(_p0.d)+' and '+_shortDate(_p1.d)+'.':'Nothing to pay on this year’s estimate, but both IRP6 returns are still filed: '+_shortDate(_p0.d)+' and '+_shortDate(_p1.d)+'.'):'Two IRP6 payments a year.'});
+  if(wk){
+    var _low=[]; try{ _low=wkList().filter(function(w){ var r=wkHourly(w); return r>0 && r<wk.rate-0.005; }).map(function(w){ return w.name||'A worker'; }); }catch(e){}
+    if(wk.allOk) chk.push({ok:1, t:'Minimum wage', d:'All '+wk.count+' workers are paid at least R'+(+wk.rate).toFixed(2)+' an hour.'});
+    else chk.push({ok:0, t:'Minimum wage', d:(_low.length?esc(_low.slice(0,3).join(', '))+(_low.length>3?' and '+(_low.length-3)+' more':'')+(_low.length===1?' is':' are'):'Someone is')+' paid below R'+(+wk.rate).toFixed(2)+' an hour.', todo:'Raise the rate in Workers. Paying below the national minimum wage is against the law, and back-pay can be claimed.', btn:['Open Workers',"nav('workers')"]});
+  }
+  if(diesel>0||_dd.bought>0){
+    if(_dd.unlogged>0) chk.push({ok:0, t:'Diesel logbook', d:_grpInt(Math.round(_dd.unlogged))+' L bought but not logged to a machine'+(_dd.losing>0?', worth about '+aiDieselMoney(_dd.losing)+' in refund':'')+'.', todo:'Log it against the tractor or pump that used it — SARS only refunds diesel that is in the logbook.', btn:['Log diesel',"nav('crop')"]});
+    else chk.push({ok:1, t:'Diesel logbook', d:'Every litre bought is logged to a machine'+(_dd.claimable>0?' — '+aiDieselMoney(_dd.claimable)+' refund to claim':'')+'.'});
+  }
+  chk.push({ok:1, t:'Records', d:'SARS can ask for records up to five years back. What you capture stays here — keep the slips and invoices too.'});
+  if(wk) chk.push({ok:1, t:'Skills levy', d:wk.sdl?'Payroll is over R500k a year, so 1% skills levy goes on your EMP201 — make sure you’re registered for it.':'Payroll is under R500k a year, so no skills levy yet.'});
+  var bad=chk.filter(function(c){ return !c.ok; });
+  h+='<details class="txh-chk txh-chkd'+(bad.length?' bad':'')+'"'+(bad.length?' open':'')+'><summary>'+_ic('ok')+
+     (bad.length?'<span class="txh-warn">▲ '+bad.length+' of '+chk.length+' checks '+(bad.length===1?'needs':'need')+' attention</span><span class="sm">'+bad.map(function(c){ return c.t; }).join(', ')+'</span>'
+                :'<span class="txh-ok">'+chk.length+' checks OK</span><span class="sm">'+chk.map(function(c){ return c.t; }).join(' · ')+'</span>')+
+     '<span class="cv">›</span></summary><div class="ls">'+
+     chk.map(function(c){ return '<div class="ck'+(c.ok?'':' bad')+'"><span class="mk">'+(c.ok?'✓':'▲')+'</span><div class="tx"><b>'+c.t+'</b><div>'+c.d+'</div>'+(c.todo?'<div class="do">'+c.todo+'</div>':'')+'</div>'+
+       (c.btn?'<button class="txh-sb" onclick="'+c.btn[1]+'">'+c.btn[0]+'</button>':'<span></span>')+'</div>'; }).join('')+'</div></details>';
   try{
     var _sg = (typeof saStockGap==='function') ? saStockGap() : null;
     var _sfy = (_sg && _sg.fy != null) ? _sg.fy : ((typeof fyOf==='function') ? fyOf() : null);
@@ -57757,12 +57794,13 @@ function taxGlanceHTML(){
     var vat = c.vat, prov = c.prov, h = '', ey = '', title = '', acts = '';
     var n = days(it.d), when = n <= 0 ? 'today' : (n < 45 ? 'in '+n+' day'+(n===1?'':'s') : 'in '+Math.round(n/30.4)+' months');
     var pill = it.paid ? '<span class="td-pl td-g">✓ Paid '+it.paid.label+'</span>' : (it.nil ? '<span class="td-pl">Nothing to pay · file by '+d2(it.d)+'</span>' : '<span class="td-pl'+(n<=7?' td-a':' td-g')+'">Due '+d3(it.d)+' · '+when+'</span>');
-    var howPay = function(form){ return '<div class="td-sec"><div class="td-sh">How to pay</div><p class="td-p">Submit your '+form+' on SARS eFiling. It gives you a payment reference (PRN) — pay with that reference so SARS matches the money to this return.</p></div>'; };
+    var howPay = function(form, nil){ return nil ? '<div class="td-sec"><div class="td-sh">How to file</div><p class="td-p">Submit your '+form+' on SARS eFiling by the due date, showing nothing to pay. There\u2019s no payment and no reference to use.</p></div>'
+      : '<div class="td-sec"><div class="td-sh">How to pay</div><p class="td-p">Submit your '+form+' on SARS eFiling. It gives you a payment reference (PRN) — pay with that reference so SARS matches the money to this return.</p></div>'; };
 
     if(it.code === 'VAT201'){
       ey = 'VAT · VAT201'; title = c.sub(it);
       h += '<div class="td-big">'+fmt(Math.abs(it.amt))+'</div><div class="td-bs">'+(it.amt >= 0 ? 'to pay SARS' : 'SARS pays you')+' by '+d3(it.d)+'</div>';
-      h += '<div class="td-sec"><div class="td-sh">How it’s made up</div>'+row('VAT on your sales', fmt(vat.out))+row('VAT on your costs', '−'+fmt(vat.inp))+row(it.amt >= 0 ? 'To pay' : 'Refund', fmt(Math.abs(it.amt)), 't')+'</div>';
+      h += '<div class="td-sec"><div class="td-sh">How it’s made up</div>'+row('VAT on your sales', fmt(vat.out))+row('VAT on your costs', (vat.inp > 0 ? '−' : '')+fmt(vat.inp))+row(it.amt >= 0 ? 'To pay' : 'Refund', fmt(Math.abs(it.amt)), 't')+'</div>';
       if(_txNow() <= vat.to) h += '<div class="td-note">The period is still open. Sales and costs you record up to <b>'+d2(vat.to)+'</b> still change this figure.</div>';
       if(c.dd && c.dd.claimable > 0) h += '<div class="td-note">You can also claim a <b>'+aiDieselMoney(c.dd.claimable)+'</b> diesel refund on this return, for the farming diesel in your logbook.</div>';
       h += howPay('VAT201');
@@ -57783,7 +57821,7 @@ function taxGlanceHTML(){
         h += '<div class="td-sec"><div class="td-sh">Getting ready for it</div>'+row('Set aside each month', fmt(prov.setAsideMonthly))+row('Months until it’s due', String(prov.monthsToNext || ''))+'</div>';
         h += '<p class="td-p" style="font-size:12.5px;color:#5F6368;margin-top:10px">SARS adds 20% if this estimate ends up below '+(prov.penaltyRule === '80' ? '80%' : '90%')+' of your final tax for the year, so update it if profit climbs. <span class="td-lk" onclick="txhClose();taxTab(\'whatif\')">Try the What-if</span></p>';
       }
-      h += howPay('IRP6');
+      h += howPay('IRP6', it.nil);
       acts = '<button class="td-b1" onclick="txhClose();var e=document.getElementById(\'txh-how\');if(e)e.scrollIntoView({behavior:\'smooth\'})">See the working</button>';
     } else if(it.code === 'EMP201'){
       var pm = new Date(it.d.getFullYear(), it.d.getMonth()-1, 1), pp = it.parts || {};
