@@ -54579,12 +54579,12 @@ var FARM = {
   enterprises: null
 };
 
-var RPT_STATE = {
-  type:       'monthly',
-  monthIdx:   4,
-  year:       2024,
-  quarterIdx: 1
-};
+/* -464: opens on THIS month. It was fixed at May 2024, and only the demo moved it to today,
+   so a signed-in farm opened Reports on an empty month two years back. */
+var RPT_STATE = (function(){
+  var t = (typeof APP_TODAY !== 'undefined' && APP_TODAY) ? new Date(APP_TODAY) : new Date();
+  return { type:'monthly', monthIdx:t.getMonth(), year:t.getFullYear(), quarterIdx:Math.floor(t.getMonth()/3) };
+})();
 
 var MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
