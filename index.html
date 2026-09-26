@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=71"></script>
-<script src="ai-auth.js?v=49"></script>
+<script src="ai-data.js?v=72"></script>
+<script src="ai-auth.js?v=50"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -57432,9 +57432,17 @@ window.saStockGap=saStockGap; window.saStockDerived=saStockDerived;
 window.saStockClosing=saStockClosing; window.saStockAdj=saStockAdj;
 window.saProvisionalNote=saProvisionalNote; window.saStockCardHTML=saStockCardHTML;
 
-/* -455: the Tax home's own state. TAX_ALL_DATES opens the month cards; TAX_PAID is what the
-   farmer has marked paid (filled by -456); TAX_TXH is what the payment panel reads. */
-var TAX_ALL_DATES=false, TAX_PAID={}, TAX_TXH=null;
+/* -455: the Tax home's own state. TAX_ALL_DATES opens the month cards; TAX_TXH is what the
+   payment panel reads. What the farmer has marked paid is ST.taxPaid (-457): saved with the
+   farm (farms.tax_paid) so it shows on every device, keyed FORM:due-date. */
+var TAX_ALL_DATES=false, TAX_TXH=null;
+function taxSetPaid(key, rec){
+  ST.taxPaid=(ST.taxPaid&&typeof ST.taxPaid==='object')?ST.taxPaid:{};
+  if(rec) ST.taxPaid[key]={amt:Math.max(0,Math.round(Number(rec.amt)||0)), date:rec.date||''}; else delete ST.taxPaid[key];
+  try{ if(window.AI && AI.farm && AI.farm.active() && AI.budget && ST.budgets) AI.budget.save(ST.budgets).catch(function(){}); }catch(e){}   // saved with the budget settings, as prov_paid is
+  try{ if(typeof saveState==='function') saveState(); }catch(e){}
+  try{ if(typeof renderTax==='function') renderTax(); }catch(e){}
+}
 function taxGlanceHTML(){
   /* -455: the Tax home, rebuilt from the research (FreeAgent's tax timeline, Countingup/Starling
      set-aside, GOV.UK status wording). One answer first - what SARS gets next, when, and whether
@@ -57545,8 +57553,10 @@ function taxGlanceHTML(){
   if(prov.next && prov.next.d){
     items.push({d:prov.next.d, what:'Provisional tax · '+prov.next.per+' payment', code:'IRP6', amt:(prov.ok?prov.next.amt:0), pay:!!(prov.ok&&prov.next.amt>0), nil:!(prov.ok&&prov.next.amt>0)}); }
   items.sort(function(x,y){ return x.d-y.d; });
-  var PAID=TAX_PAID;   /* what the farmer has marked paid - -456 fills it from the saved record */
-  items.forEach(function(it){ it.key=it.code+':'+it.d.getFullYear()+'-'+(it.d.getMonth()+1)+'-'+it.d.getDate(); it.paid=PAID[it.key]||null; if(it.paid) it.pay=false; });
+  var PAID=(ST.taxPaid&&typeof ST.taxPaid==='object')?ST.taxPaid:{};   /* -457: marked paid, saved with the farm */
+  var _iso=function(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); };
+  items.forEach(function(it){ it.key=it.code+':'+_iso(it.d); var pr=PAID[it.key];
+    it.paid=pr?{amt:+pr.amt||0, date:pr.date||'', label:(pr.date?_shortDate(new Date(pr.date+'T00:00:00')):'')}:null; if(it.paid) it.pay=false; });
   var cash=null; try{ cash=b5CashForecast(12).start.bal; }catch(e){ cash=null; }
   h+=_txhAnswerD();
   if(prov.ok && prov.tooNew) h+='<div style="font-size:12px;color:var(--t3);margin:-4px 2px 12px">Tax on what you have recorded so far — not a full-year figure yet. The full-year estimate appears once you have a month of trading behind you.</div>';
@@ -57693,6 +57703,7 @@ function taxGlanceHTML(){
          ? 'A taxable loss of <b style="color:#16241C">'+fmt(-_tl)+'</b> this year, so no income tax \u2014 against a taxable profit of '+fmt(Math.max(0,priorRF.taxable||0))+' last year.'   /* -456: it said "Taxable profit is R0" */
          : 'Taxable profit is <b style="color:#16241C">'+fmt(Math.max(0,prov.taxableProfit||0))+'</b> this year, against '+fmt(Math.max(0,priorRF.taxable||0))+' last year.')+'</div>';
   }
+  else h+='<div style="font-size:12.5px;color:var(--t3);margin:0 0 14px">No income tax this year or last.</div>';   /* -457: the card had nothing above its cost list */
   var fyp=_taxFYProfit(0), ded=[]; Object.keys(fyp.byCat||{}).forEach(function(k){ if(taxCatKind(k)!=='nonded') ded.push([k,fyp.byCat[k]]); }); ded.sort(function(a,b){return b[1]-a[1];}); ded=ded.slice(0,3);
   if(cap.total>0) ded.push(['Wear-and-tear on what you own',cap.total]);
   h+='<div style="font-size:12px;font-weight:700;color:var(--t3);margin-bottom:2px">Biggest costs that come off</div>'+
@@ -57789,7 +57800,7 @@ function taxGlanceHTML(){
   window.txhClose = function(){ var el = document.getElementById('txh-drawer'); if(el) el.className = ''; };
   document.addEventListener('keydown', function(e){ if(e.key === 'Escape') window.txhClose(); });
 
-  window.txhOpen = function(i){
+  window.txhOpen = function(i, mode){
     var c = TAX_TXH; if(!c) return; var it = c.items[i]; if(!it) return;
     var vat = c.vat, prov = c.prov, h = '', ey = '', title = '', acts = '';
     var n = days(it.d), when = n <= 0 ? 'today' : (n < 45 ? 'in '+n+' day'+(n===1?'':'s') : 'in '+Math.round(n/30.4)+' months');
@@ -57834,7 +57845,18 @@ function taxGlanceHTML(){
       acts = '<button class="td-b1" onclick="txhClose();nav(\'workers\')">Open payroll</button>';
     }
 
-    if(it.paid) h = '<div class="td-note" style="margin-top:14px">\u2713 Marked paid: <b>'+fmt(+it.paid.amt)+'</b> on <b>'+it.paid.label+'</b>.</div>' + h;
+    /* -457: mark it paid - the amount (filled in) and the date (today) - or undo a mark. */
+    if(it.paid){
+      h = '<div class="td-note" style="margin-top:14px">\u2713 You marked this paid: <b>'+fmt(+it.paid.amt)+'</b>'+(it.paid.label?' on <b>'+it.paid.label+'</b>':'')+'. <span class="td-lk" role="button" tabindex="0" onclick="txhUnpay('+i+')">Undo</span></div>' + h;
+    } else if(!it.nil && !it.refund){
+      if(mode === 'pay'){
+        acts = '<button class="td-b1" onclick="txhSavePaid('+i+')">Save</button><button class="td-b2" onclick="txhOpen('+i+')">Cancel</button>';
+        h += '<div class="td-sec" id="txh-payform"><div class="td-sh">Mark as paid</div>'+
+             '<label for="txh-pa">Amount you paid</label><input id="txh-pa" type="number" inputmode="decimal" min="0" value="'+Math.abs(it.amt)+'">'+
+             '<label for="txh-pd">Date you paid</label><input id="txh-pd" type="date" value="'+iso(_txNow())+'">'+
+             '<p class="td-p" style="font-size:12.5px;color:#5F6368;margin-top:10px">It then shows as paid here and comes off what\u2019s due. Nothing is sent to SARS.</p></div>';
+      } else acts += '<button class="td-b2" onclick="txhOpen('+i+',\'pay\')">Mark as paid</button>';
+    }
 
     var el = document.getElementById('txh-drawer');
     if(!el){ el = document.createElement('div'); el.id = 'txh-drawer'; document.body.appendChild(el); }
@@ -57842,7 +57864,18 @@ function taxGlanceHTML(){
       '<div class="td-hd"><div><div class="td-ey">'+ey+'</div><h3>'+title+'</h3><div style="margin-top:8px">'+pill+'</div></div><button class="td-x" aria-label="Close" onclick="txhClose()">×</button></div>'+
       '<div class="td-bd">'+h+'</div>'+(acts ? '<div class="td-ft">'+acts+'</div>' : '')+'</aside>';
     el.className = 'on';
-    var f = el.querySelector('.td-x'); if(f) try{ f.focus(); }catch(e){}
+    var f = el.querySelector(mode === 'pay' ? '#txh-pa' : '.td-x'); if(f) try{ f.focus(); }catch(e){}
+  };
+  window.txhSavePaid = function(i){
+    var c = TAX_TXH, it = c && c.items[i]; if(!it) return;
+    var ae = document.getElementById('txh-pa'), a = parseFloat(ae && ae.value), dv = (document.getElementById('txh-pd') || {}).value || iso(_txNow());
+    if(!(a > 0)){ if(ae){ ae.focus(); ae.style.borderColor = '#C2410C'; } return; }
+    window.txhClose(); taxSetPaid(it.key, { amt: a, date: dv });
+    try{ if(typeof toast === 'function') toast('Marked as paid \u2014 '+fmt(a)+' on '+d2(new Date(dv+'T00:00:00')), 'success'); }catch(e){}
+  };
+  window.txhUnpay = function(i){
+    var c = TAX_TXH, it = c && c.items[i]; if(!it) return;
+    window.txhClose(); taxSetPaid(it.key, null);
   };
 
 })();

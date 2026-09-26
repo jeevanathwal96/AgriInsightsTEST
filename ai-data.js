@@ -415,6 +415,7 @@
   let CAN_BUDGET_CATTGT = false; /* farms.budget_cat_targets - sa-batch5-step1.sql (SA -449) */
   let CAN_PROV_PAID   = false;   /* farms.prov_paid - sa-batch5-step1.sql (SA -449) */
   let CAN_BUDGET_LOCK = false;   /* farms.budget_locked - sa-batch5-step3.sql (SA -451): the bank copy lock */
+  let CAN_TAX_PAID    = false;   /* farms.tax_paid - sa-tax-paid.sql (SA -457): SARS payments marked paid on the Tax home */
   let CAN_DEVICES       = false;   // farm_devices: "whose phone is this?"
   let CAN_ORCH_PARTS    = false;   // orchard_sprays: rate/batch/operator_cert/weather
   let CAN_INPUT_WEATHER = false;   // crop_inputs.weather
@@ -516,7 +517,7 @@
     ['push_devices','last_ok_at'], ['fuel_issues','hour_meter'], ['fuel_issues','src'],
     ['orchard_sprays','rate'], ['crop_inputs','weather'], ['orchard_sprays','removed_at'], ['crop_inputs','removed_at'],
     ['payslips','snap'], ['payslip_sends','outcome'],
-    ['workers','payslip_whatsapp_ok'], ['farm_devices','kind'], ['workers','eti_excluded'], ['workers','med_aid_people'], ['farms','budget_cat_targets'], ['farms','prov_paid'], ['farms','budget_locked']
+    ['workers','payslip_whatsapp_ok'], ['farm_devices','kind'], ['workers','eti_excluded'], ['workers','med_aid_people'], ['farms','budget_cat_targets'], ['farms','prov_paid'], ['farms','budget_locked'], ['farms','tax_paid']
   ];
 
   async function probeCaps(farmId){
@@ -575,6 +576,7 @@
     CAN_BUDGET_CATTGT  = keep(CAN_BUDGET_CATTGT, 'farms','budget_cat_targets');
     CAN_PROV_PAID      = keep(CAN_PROV_PAID,     'farms','prov_paid');
     CAN_BUDGET_LOCK    = keep(CAN_BUDGET_LOCK,   'farms','budget_locked');
+    CAN_TAX_PAID       = keep(CAN_TAX_PAID,      'farms','tax_paid');
     CAN_DEVICES        = keep(CAN_DEVICES,       'farm_devices','kind');
     /* The particulars a spray register prints. An un-migrated project still saves
        the spray - it just cannot carry rate, batch, certificate or the weather at
@@ -1117,7 +1119,7 @@
         selectAll(() => client().from('transactions').select('*').eq('farm_id', farmId).order('txn_date', { ascending: false })),
         client().from('budget_months').select('*').eq('farm_id', farmId),
         client().from('recurring').select('*').eq('farm_id', farmId).order('name'),
-        client().from('farms').select('budget_income_pattern,budget_expense_pattern,budget_current_month' + (CAN_BUDGET_CATTGT ? ',budget_cat_targets' : '') + (CAN_PROV_PAID ? ',prov_paid' : '') + (CAN_BUDGET_LOCK ? ',budget_locked' : '')).eq('id', farmId).single()
+        client().from('farms').select('budget_income_pattern,budget_expense_pattern,budget_current_month' + (CAN_BUDGET_CATTGT ? ',budget_cat_targets' : '') + (CAN_PROV_PAID ? ',prov_paid' : '') + (CAN_BUDGET_LOCK ? ',budget_locked' : '') + (CAN_TAX_PAID ? ',tax_paid' : '')).eq('id', farmId).single()
       ]);
       for (const r of [acc, txn, bud, rec]) if (r.error) throw r.error;
       _srvNote('accounts', acc.data);      _srvNote('transactions', txn.data);
@@ -1133,6 +1135,7 @@
       if (fst.data && fst.data.budget_cat_targets != null) bObj.catTargets = _js(fst.data.budget_cat_targets) || { income:{}, expense:{} };
       var provPaid = (fst.data && fst.data.prov_paid != null) ? _js(fst.data.prov_paid) : null;
       if (fst.data && fst.data.budget_locked != null) bObj.locked = _js(fst.data.budget_locked) || {};   /* -451 */
+      var taxPaid = (fst.data && fst.data.tax_paid != null) ? _js(fst.data.tax_paid) : null;   /* -457 */
       (bud.data || []).forEach(function (r) {
         var lbl = ymToLabel(r.period_year, r.period_month);
         if (r.side === 'income') bObj.monthlyIncome[lbl] = Number(r.amount);
@@ -1146,6 +1149,7 @@
         txns:       (txn.data || []).map(dbToApp),
         budgets:    bObj,
         provPaid:   provPaid,
+        taxPaid:    taxPaid,
         recurring:  (rec.data || []).map(r => ({
           id: (r.local_id != null && r.local_id !== '') ? r.local_id : r.id,
           name: r.name, type: r.type, amt: Number(r.amount),
@@ -1310,6 +1314,12 @@
         var r5 = await client().from('farms').update({ budget_locked: b.locked }).eq('id', fid).select('budget_locked,updated_at');
         try { if (!r5.error && (r5.data || []).length) _profNoteAck(r5.data[0]); } catch (e) {}
         if (r5.error) console.warn('Budgets: lock not saved - add farms.budget_locked. (' + (r5.error.message || r5.error) + ')');
+      }
+      /* -457: the SARS payments the farmer has marked paid on the Tax home. */
+      if (CAN_TAX_PAID && global.ST && global.ST.taxPaid && typeof global.ST.taxPaid === 'object') {
+        var r6 = await client().from('farms').update({ tax_paid: global.ST.taxPaid }).eq('id', fid).select('tax_paid,updated_at');
+        try { if (!r6.error && (r6.data || []).length) _profNoteAck(r6.data[0]); } catch (e) {}
+        if (r6.error) console.warn('Tax: payments marked paid not saved - add farms.tax_paid. (' + (r6.error.message || r6.error) + ')');
       }
       return true;
     }
