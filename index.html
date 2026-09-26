@@ -38473,6 +38473,16 @@ function bgtRenderKpis(c) {
     var t3b = $('bgt-kpi-net-t');
     if (t3b) t3b.innerHTML = 'heading for <b>' + (_chh < 0 ? '−' : '') + bgtFmt(Math.abs(_chh)) + '</b> · budget ' + (_g.cashLeft < 0 ? '−' : '') + bgtFmt(Math.abs(_g.cashLeft));
     var f3c = $('bgt-kpi-net-fill'); if (f3c) f3c.parentNode.style.visibility = 'hidden';
+  } else {
+    /* -454: no targets set yet. The cards still add up - money in less money out is net
+       cash - and say there is no budget. The third card showed the PROFIT heading under
+       "Net cash so far" (-£75k on a farm with £11k in and £143 out). */
+    _card('in', c.ytdIn, c.annualIn, _fin);
+    _card('out', c.ytdOut, c.annualOut, _fout);
+    var _l0 = c.ytdIn - c.ytdOut, _ch0 = b5CashHeading(_fy);
+    setEl('bgt-kpi-net-v', (_l0 < 0 ? '−' : '') + bgtFmt(Math.abs(_l0)));
+    var t3n = $('bgt-kpi-net-t'); if (t3n) t3n.innerHTML = 'heading for <b>' + (_ch0 < 0 ? '−' : '') + bgtFmt(Math.abs(_ch0)) + '</b> this year';
+    var f3n = $('bgt-kpi-net-fill'); if (f3n) f3n.parentNode.style.visibility = 'hidden';
   }
   /* The second total - cash left after loans and machinery, every budget line (-452: a card). */
   var ch = b5CashHeading(_fy), cg = _g.cashLeft;
