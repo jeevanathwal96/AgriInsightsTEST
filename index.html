@@ -8105,7 +8105,7 @@ table.rn-t td.dim{color:var(--t4)}
         <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="white" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Export All Reports
       </button>
-      <button id="rpt-sars-it12" onclick="previewSARSExport()" style="display:flex;align-items:center;gap:6px;background:#7C3AED;color:#fff;border:none;border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>SARS IT12 Pre-fill Export</button>
+      <button id="rpt-sars-it12" onclick="previewSARSExport(_rptTaxFY())" style="display:flex;align-items:center;gap:6px;background:#7C3AED;color:#fff;border:none;border-radius:var(--rs);padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>SARS IT12 Pre-fill Export</button>
     </div>
   </div>
 
@@ -8127,11 +8127,11 @@ table.rn-t td.dim{color:var(--t4)}
   </div>
 
   <!-- Dynamic metrics -->
-  <div class="metrics mrow-hero" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-bottom:16px">
+  <div class="metrics mrow-hero" style="grid-template-columns:1fr 1fr 1fr;margin-bottom:16px">
     <div class="mc mc-hero kpi-tap" onclick="kpiOpen('rptProfitBT')" style="position:relative"><span class="kpi-i" style="border-color:rgba(255,255,255,.35);color:#9fcbb0">&#9432;</span><div class="mc-lbl">Profit before tax</div><div class="mc-val" id="rpt-net">R223 090</div><div class="mc-chg"><b id="rpt-margin" style="color:#eaf6ee">34.9%</b> margin · before tax</div></div>
-    <div class="mc"><div class="mc-tic up">↑</div><div class="mc-lbl">Total Income</div><div class="mc-val g" id="rpt-income">R1 328 750</div><div class="mc-chg" id="rpt-income-lbl" style="color:var(--t3)">May 2024</div></div>
-    <div class="mc"><div class="mc-tic dn">↓</div><div class="mc-lbl">Total Expenses</div><div class="mc-val" style="color:var(--rd)" id="rpt-expenses">R1 043 320</div><div class="mc-chg" id="rpt-expenses-lbl" style="color:var(--t3)">May 2024</div></div>
-    <div class="mc"><div class="mc-lbl">Gross Profit</div><div class="mc-val b" id="rpt-gross">R285 430</div><div class="mc-chg" style="color:var(--t3)">Before allowances</div></div>  </div>
+    <div class="mc"><div class="mc-tic up">↑</div><div class="mc-lbl">Income (without VAT)</div><div class="mc-val g" id="rpt-income">R1 328 750</div><div class="mc-chg" id="rpt-income-lbl" style="color:var(--t3)">May 2024</div></div>
+    <div class="mc"><div class="mc-tic dn">↓</div><div class="mc-lbl">Costs</div><div class="mc-val" style="color:var(--rd)" id="rpt-expenses">R1 043 320</div><div class="mc-chg" id="rpt-expenses-lbl" style="color:var(--t3)">May 2024</div></div>
+  </div>
 
   <!-- Statement cards -->
   <div style="font-size:14px;font-weight:700;margin-bottom:4px">Your Statements</div>
@@ -8150,7 +8150,7 @@ table.rn-t td.dim{color:var(--t4)}
     <div class="stmt">
       <div class="stmt-icon g"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
       <div class="stmt-title">Profit &amp; Loss Statement</div>
-      <div class="stmt-desc">Income, expenses and net profit for the period — aligned to SARS IT12.</div>
+      <div class="stmt-desc">Income without VAT, less running costs, loan interest and the write-off — the same profit as your Profit page.</div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
         <button onclick="previewStatement('pl')" style="flex:1;background:var(--gb);border:1px solid var(--gp);border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:var(--gd);cursor:pointer">Preview</button>
         <button onclick="openStatement('pl')" style="flex:1;background:var(--gd);border:none;border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:#fff;cursor:pointer">Print</button>
@@ -8159,7 +8159,7 @@ table.rn-t td.dim{color:var(--t4)}
     <div class="stmt">
       <div class="stmt-icon b"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
       <div class="stmt-title">Cash Flow Statement</div>
-      <div class="stmt-desc" data-t="rpt.cf.desc">Cash received and paid — operating, investing and financing activities.</div>
+      <div class="stmt-desc">Every rand in and out of the bank, grouped by what it was for — the money on your bank statement.</div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
         <button onclick="previewStatement('cf')" style="flex:1;background:var(--bp);border:1px solid #BFDBFE;border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:var(--bl);cursor:pointer">Preview</button>
         <button onclick="openStatement('cf')" style="flex:1;background:var(--bl);border:none;border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:#fff;cursor:pointer">Print</button>
@@ -8168,7 +8168,7 @@ table.rn-t td.dim{color:var(--t4)}
     <div class="stmt">
       <div class="stmt-icon p"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
       <div class="stmt-title">Tax Summary</div>
-      <div class="stmt-desc">SARS Section 26 farming income, VAT, wear &amp; tear and capital allowances.</div>
+      <div class="stmt-desc">Your IT12 figures for the tax year — the same as the Tax page and the IT12 pre-fill.</div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
         <button onclick="previewStatement('tax')" style="flex:1;background:#F3E8FF;border:1px solid #D8B4FE;border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:#7C3AED;cursor:pointer">Preview</button>
         <button onclick="openStatement('tax')" style="flex:1;background:#7C3AED;border:none;border-radius:var(--rs);padding:7px 0;font-size:12px;font-weight:600;color:#fff;cursor:pointer">Print</button>
@@ -9080,7 +9080,7 @@ table.rn-t td.dim{color:var(--t4)}
         <h2 class="la-sh">Let's use your real numbers</h2>
         <div class="la-sub">We start from your records — but you own every forward figure, so nothing is assumed. Change anything that doesn't look right.</div>
         <div class="la-ask plain">
-          <div class="la-ask-h">Your net farm income, per season</div>
+          <div class="la-ask-h">Cash your farm makes to repay debt, per season</div>
           <div class="la-ask-q">This year comes from your records. Pick what you expect next — or type each season. Every figure is yours to change.</div>
           <div class="la-chips" id="la-forward" style="margin-bottom:2px">
             <span class="la-chip on" onclick="laFwd(this,1.0)">Same each year</span>
@@ -9088,10 +9088,11 @@ table.rn-t td.dim{color:var(--t4)}
             <span class="la-chip" onclick="laFwd(this,0.92)">A bit lower</span>
           </div>
           <div class="la-yrrow" style="margin-top:11px">
-            <div><div class="yl">This year <span class="rc">records</span></div><div class="la-in"><span class="pfx">R</span><input class="la-txt" id="la-y1" inputmode="numeric" onblur="laGrp(this)"></div></div>
+            <div><div class="yl">This year <span class="rc">records</span></div><div class="la-in"><span class="pfx">R</span><input class="la-txt" id="la-y1" inputmode="numeric" onblur="laGrp(this);laRecSay()"></div></div>
             <div><div class="yl">Year 2</div><div class="la-in"><span class="pfx">R</span><input class="la-txt" id="la-y2" inputmode="numeric" onblur="laGrp(this)"></div></div>
             <div><div class="yl">Year 3</div><div class="la-in"><span class="pfx">R</span><input class="la-txt" id="la-y3" inputmode="numeric" onblur="laGrp(this)"></div></div>
           </div>
+          <div class="la-srcn" id="la-recsay" style="margin-top:8px;display:none"></div>
           <div class="la-srcn" style="margin-top:8px">Income after running costs, before tax and loan repayments. We check the loan against your <b>leanest</b> of these three seasons.</div>
         </div>
         <div class="la-ask">
@@ -22096,7 +22097,19 @@ function laPrime(){ try{ var P=STATUTORY.primeRate, t=(typeof APP_TODAY!=='undef
   if(P.effectiveFrom && P.prior!=null && t < new Date(P.effectiveFrom+'T00:00:00')) return P.prior; return P.value||10.75; }catch(e){ return 10.75; } }
 function laSuggestRate(p){ var m=LA_MARGINS[p]; if(m==null) m=2.5; return Math.round((laPrime()+m)*100)/100; }
 function laPmt(P,rp,y){ var r=rp/100/12,n=y*12; if(!(P>0)||!(y>0)) return 0; if(r<=0) return P/n; return P*r/(1-Math.pow(1+r,-n)); }
-function laFarmIncome(){ try{ var e=taxProvEstimate(); return Math.max(0,Math.round((e&&e.annualProfit)||0)); }catch(err){ return 0; } }
+/* -460: what the farm makes that can repay debt, the way a bank reads it - the year's PROFIT
+   (the Profit page's heading: actual so far + the plan for the rest) with the loan interest and
+   the write-off added back (interest is part of the repayment it is measured against; the
+   write-off is not cash). It was taxProvEstimate().annualProfit: cash after ALL repayments and
+   purchases, then divided by the repayments again - the demo read 0.26x where the farm covers
+   about 1.03x. */
+function b5DebtCover(fy){
+  fy=(fy==null)?getCurrentFY():fy;
+  var H=b5ProfitHeading(fy), p=b5Profit(fy,{toYm:b5TodayYm()});
+  var interest=Math.round((p.interest||0)+((H.rest&&H.rest.interest)||0)), depr=Math.round((p.depr||0)+(H.restDepr||0)), profit=Math.round(H.heading||0);
+  return {fy:fy, profit:profit, interest:interest, depr:depr, available:profit+interest+depr};
+}
+function laFarmIncome(){ try{ return Math.max(0, b5DebtCover().available); }catch(err){ return 0; } }
 function laExistingService(){ try{ return Math.round((LN_monthlyPay()||0)*12); }catch(e){ return 0; } }
 function laTaxOn(profit){ try{ var ent=(typeof ST!=='undefined'&&ST.entityType)||'sole'; return Math.round(calcAnnualIncomeTax(Math.max(0,profit),ent)||0); }catch(e){ return Math.round(Math.max(0,profit)*0.2); } }
 function laMaxLoan(noi,rp,y){ var ms=noi/LA_DMIN-laExistingService(); if(ms<=0) return 0; var r=rp/100/12,n=y*12,mo=ms/12; var P=r<=0?mo*n:mo*(1-Math.pow(1+r,-n))/r; return Math.max(0,Math.floor(P/50000)*50000); }
@@ -22136,6 +22149,7 @@ function laSeedInputs(){
   set('la-term', String(LA.term));
   set('la-rate', String(LA.rate));
   set('la-y1', _grpInt(LA.y1)); set('la-y2', _grpInt(LA.y2)); set('la-y3', _grpInt(LA.y3));
+  laRecSay();
   set('la-inc', LA.addedIncome?_grpInt(LA.addedIncome):'0');
   set('la-incfrom', String(LA.addedFrom));
   set('la-draw', LA.drawMo?_grpInt(LA.drawMo):'0');
@@ -22169,6 +22183,22 @@ function laPersist(){
 
 function laMode(el,m){ document.querySelectorAll('#la-modeseg .la-seg-o').forEach(function(o){o.classList.remove('on');}); el.classList.add('on'); LA.mode=m; document.getElementById('la-amtfld').style.display=m==='max'?'none':'block'; }
 function laPurpose(el,p,margin){ document.querySelectorAll('#la-chips .la-chip').forEach(function(c){c.classList.remove('on');}); el.classList.add('on'); LA.margin=margin; LA.purpose=p; var rt=document.getElementById('la-rate'); if(rt && Math.abs(laNum(rt.value)-LA.lastSug)<0.01){ rt.value=String(laSuggestRate(p)); } LA.lastSug=laSuggestRate(p); laRateHint(); }
+/* -460: the records figure beside a typed "this year", so the farmer sees the gap before the bank does. */
+function laRecSay(){
+  var el=document.getElementById('la-recsay'), y=document.getElementById('la-y1'); if(!el||!y) return;
+  var rec=0; try{ rec=laFarmIncome(); }catch(e){}
+  var typed=laNum(y.value);
+  if(!(rec>0) || Math.abs(typed-rec)<=Math.max(1000, rec*0.01)){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='';
+  el.innerHTML='Your records say <b>'+laR(rec)+'</b> this year. <a href="#" onclick="laUseRec();return false" style="color:#1B4332;font-weight:700">Use it</a>';
+}
+function laUseRec(){
+  var rec=0; try{ rec=laFarmIncome(); }catch(e){}
+  var y1=document.getElementById('la-y1'); if(!y1||!(rec>0)) return;
+  y1.value=_grpInt(rec);
+  var on=document.querySelector('#la-forward .la-chip.on'); if(on) on.click(); else { document.getElementById('la-y2').value=_grpInt(rec); document.getElementById('la-y3').value=_grpInt(rec); }
+  laRecSay();
+}
 function laFwd(el,f){ document.querySelectorAll('#la-forward .la-chip').forEach(function(c){c.classList.remove('on');}); el.classList.add('on'); var y1=laNum(document.getElementById('la-y1').value); document.getElementById('la-y2').value=_grpInt(Math.round(y1*f)); document.getElementById('la-y3').value=_grpInt(Math.round(y1*f*f)); }
 function laInfo(id){ var e=document.getElementById(id); if(e) e.classList.toggle('open'); }
 function laRateHint(){ var h=document.getElementById('la-ratehint'); if(!h) return; var p=LA.purpose||'this'; h.innerHTML='Starting point: SA prime <b style="color:var(--t3)">'+laPrime()+'%</b> + '+(LA_MARGINS[LA.purpose]!=null?LA_MARGINS[LA.purpose]:2.5).toFixed(1).replace(/\.0$/,'')+'% for '+p.toLowerCase()+' ≈ '+laSuggestRate(LA.purpose).toFixed(2).replace(/\.?0+$/,'')+'%. Change it to whatever your bank has quoted — SA agri loans run about 11%–14%.'; }
@@ -22310,8 +22340,8 @@ function laCFPersist(){
   ST_LOANAPP.estimates.crops=laCFVal('la-cf-crops');
   ST_LOANAPP.estimates.debtors=laCFVal('la-cf-debtors');
   ST_LOANAPP.track=ST_LOANAPP.track||{};
-  ST_LOANAPP.track.back1={income:laCFVal('la-cf-b1i'),costs:laCFVal('la-cf-b1c')};
-  ST_LOANAPP.track.back2={income:laCFVal('la-cf-b2i'),costs:laCFVal('la-cf-b2c')};
+  if(document.getElementById('la-cf-b1i')) ST_LOANAPP.track.back1={income:laCFVal('la-cf-b1i'),costs:laCFVal('la-cf-b1c')};
+  if(document.getElementById('la-cf-b2i')) ST_LOANAPP.track.back2={income:laCFVal('la-cf-b2i'),costs:laCFVal('la-cf-b2c')};
   ST_LOANAPP.landWater=ST_LOANAPP.landWater||{};
   ST_LOANAPP.landWater.ownedHa=laCFVal('la-cf-ownedha');
   ST_LOANAPP.landWater.leasedHa=laCFVal('la-cf-leasedha');
@@ -22320,26 +22350,39 @@ function laCFPersist(){
   try{ saveState&&saveState(); }catch(e){}
 }
 function laCFBuild(){ laCFPersist(); laCFClose(); laShowReport(LA_REPORT_LOAN); }
+/* -460: a past tax year's income and costs from the records, or null when the year has none. */
+function laYearRecorded(y){
+  var p=null; try{ p=b5Profit(y); }catch(e){ return null; }
+  if(!p || !(p.income>0 || p.running>0)) return null;
+  var gi=p.income+Math.max(0,p.gain||0);
+  return {income:Math.round(gi), costs:Math.round(gi-p.profit)};
+}
 function laRenderCheckFigures(){
   var body=document.getElementById('la-cf-body'); if(!body) return;
   var est=(ST_LOANAPP.estimates)||{}, tr=(ST_LOANAPP.track)||{}, lw=(ST_LOANAPP.landWater)||{};
   var cash=(typeof ST!=='undefined'&&typeof ST.bankBalance==='number')?ST.bankBalance:'';
   var b1=tr.back1||{}, b2=tr.back2||{};
   // pre-fill past seasons from records where available
-  var t1={},t2={}; try{ t1=_taxFYProfit(-1)||{}; }catch(e){} try{ t2=_taxFYProfit(-2)||{}; }catch(e){}
-  var b1i=(b1.income!=null?b1.income:(t1.income>0?t1.income:'')), b1c=(b1.costs!=null?b1.costs:(t1.income>0?t1.expenses:''));
-  var b2i=(b2.income!=null?b2.income:(t2.income>0?t2.income:'')), b2c=(b2.costs!=null?b2.costs:(t2.income>0?t2.expenses:''));
+  /* -460: pre-filled from each year's profit (the engine), so income less costs is the profit. */
+  var _fq=getCurrentFY(), r1=laYearRecorded(_fq-1), r2=laYearRecorded(_fq-2);
+  var b1i=(b1.income!=null?b1.income:''), b1c=(b1.costs!=null?b1.costs:'');
+  var b2i=(b2.income!=null?b2.income:''), b2c=(b2.costs!=null?b2.costs:'');
   var v=function(x){ return (x===''||x==null)?'':_grpInt(x); };
+  /* A year with records comes from them (the report prints the same); only a year without
+     records asks the farmer. */
+  var seas=function(r, yl, ki, kc, ii, ic, vi, vc){
+    if(r) return '<div class="la-cf-seas"><div class="la-cf-sc" style="grid-column:1/-1;flex:1 1 100%"><div class="cl">'+yl+' — from your records</div><div style="font-size:13px;padding:6px 0;white-space:nowrap;overflow-x:auto">Income '+laR(r.income)+' · costs '+laR(r.costs)+' · profit <b>'+laR(r.income-r.costs)+'</b></div></div></div>';
+    return '<div class="la-cf-seas"><div class="la-cf-sc"><div class="cl" data-t="'+ki+'">'+yl+' — income</div><div class="la-cf-in"><span>R</span><input id="'+ii+'" inputmode="numeric" value="'+v(vi)+'" onblur="laCFGrp(this)"></div></div>'+
+      '<div class="la-cf-sc"><div class="cl" data-t="'+kc+'">'+yl+' — costs</div><div class="la-cf-in"><span>R</span><input id="'+ic+'" inputmode="numeric" value="'+v(vc)+'" onblur="laCFGrp(this)"></div></div></div>';
+  };
   body.innerHTML=
     '<div class="la-cf-grp"><div class="la-cf-h rec"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1e5bb0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Ready from your records</div>'+
       '<div class="la-cf-rec"><b>Pulled in automatically</b> — your loans, this year’s income &amp; costs, tax, land &amp; machinery, and livestock value. Nothing to re-enter.</div></div>'+
     '<div class="la-cf-grp"><div class="la-cf-h you"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg>We need these from you</div>'+
       '<div class="la-cf-item"><div class="la-cf-lbl" data-t="lacf.cash">Money in the bank right now</div><div class="la-cf-sub">The report starts your cash-flow from here. A rough figure is fine.</div><div class="la-cf-in"><span>R</span><input id="la-cf-cash" inputmode="numeric" value="'+v(cash)+'" placeholder="0" onblur="laCFGrp(this)"></div></div>'+
-      '<div class="la-cf-item"><div class="la-cf-lbl"><span data-t="lacf.past2">Your past 2 seasons</span> <span class="la-cf-opt" data-t="lacf.trackrec">for a track record</span></div><div class="la-cf-sub">So the report shows history, not just this year. Round figures from old records are fine — leave blank if you’re new to farming.</div>'+
-        '<div class="la-cf-seas"><div class="la-cf-sc"><div class="cl" data-t="lacf.ly.inc">Last year — income</div><div class="la-cf-in"><span>R</span><input id="la-cf-b1i" inputmode="numeric" value="'+v(b1i)+'" onblur="laCFGrp(this)"></div></div>'+
-        '<div class="la-cf-sc"><div class="cl" data-t="lacf.ly.cost">Last year — costs</div><div class="la-cf-in"><span>R</span><input id="la-cf-b1c" inputmode="numeric" value="'+v(b1c)+'" onblur="laCFGrp(this)"></div></div></div>'+
-        '<div class="la-cf-seas"><div class="la-cf-sc"><div class="cl" data-t="lacf.yb.inc">Year before — income</div><div class="la-cf-in"><span>R</span><input id="la-cf-b2i" inputmode="numeric" value="'+v(b2i)+'" onblur="laCFGrp(this)"></div></div>'+
-        '<div class="la-cf-sc"><div class="cl" data-t="lacf.yb.cost">Year before — costs</div><div class="la-cf-in"><span>R</span><input id="la-cf-b2c" inputmode="numeric" value="'+v(b2c)+'" onblur="laCFGrp(this)"></div></div></div>'+
+      '<div class="la-cf-item"><div class="la-cf-lbl"><span data-t="lacf.past2">Your past 2 seasons</span> <span class="la-cf-opt" data-t="lacf.trackrec">for a track record</span></div><div class="la-cf-sub">'+((r1&&r2)?'Both come from your records — nothing to enter.':'So the report shows history, not just this year. Round figures from old records are fine — leave blank if you’re new to farming.')+'</div>'+
+        seas(r1, 'Last year', 'lacf.ly.inc', 'lacf.ly.cost', 'la-cf-b1i', 'la-cf-b1c', b1i, b1c)+
+        seas(r2, 'Year before', 'lacf.yb.inc', 'lacf.yb.cost', 'la-cf-b2i', 'la-cf-b2c', b2i, b2c)+
       '</div></div>'+
       '<div class="la-cf-item"><div class="la-cf-lbl">Land &amp; water rights <span class="la-cf-opt">a lender always asks for this</span></div><div class="la-cf-sub">The app can\'t verify title deeds or water licenses — this is what you tell your lender directly. Leave blank to skip this section in the report.</div>'+
         '<div class="la-cf-row2"><div><div class="cl" style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:var(--t4);margin-bottom:4px">Land you own (ha)</div><div class="la-cf-in"><input id="la-cf-ownedha" inputmode="numeric" value="'+v(lw.ownedHa!=null?lw.ownedHa:((typeof FARM!=='undefined'&&FARM.ha>0)?FARM.ha:''))+'" placeholder="0" onblur="laCFGrp(this);laCFLWCheck()"></div></div>'+
@@ -22464,9 +22507,11 @@ function laReportHTML(withLoan){
   /* Interest cover = profit BEFORE interest / interest: income less running costs (which
      hold the interest, not the capital repaid), with the interest added back. It divided
      a profit that already had the interest - and on SA the capital repaid - taken off. */
-  var _pbi=null; try{ var _pe=taxProvEstimate(); _pbi=Math.round((_pe.annualIncome||0)-(_pe.otherDed||0)+annInt); }catch(e){}
-  var intCover=annInt>0?(((_pbi!=null)?_pbi:(farmIncome+annInt))/annInt):null;
-  var roa=totalAssets>0?Math.round(farmIncome/totalAssets*100):0;
+  /* -460: from the engine - profit before interest over the year's interest, and the same
+     profit before interest over total assets. */
+  var DC=null; try{ DC=b5DebtCover(); }catch(e){ DC=null; }
+  var intCover=(DC&&DC.interest>0)?((DC.profit+DC.interest)/DC.interest):null;
+  var roa=(DC&&totalAssets>0)?Math.round((DC.profit+DC.interest)/totalAssets*100):0;
 
   var H=[];
   // ── professional-rework derived values ──
@@ -22557,7 +22602,7 @@ function laReportHTML(withLoan){
     '<div class="sub">A credit-assessment summary compiled from the farm’s financial records.</div>'+
     '<div class="lar-hdm">'+
       '<div><div class="mk">Entity</div><div class="mv">'+ent+'</div></div>'+
-      '<div><div class="mk">Reporting period</div><div class="mv">'+fyLabel+' season<br>'+fyRange+'</div></div>'+
+      '<div><div class="mk">Reporting period</div><div class="mv">'+fyLabel+' financial year<br>'+fyRange+'</div></div>'+
       '<div><div class="mk">Prepared by</div><div class="mv">'+(owner?esc(owner):'The applicant')+'<br>via AgriInsights</div></div>'+
       '<div><div class="mk">Date</div><div class="mv">'+today+'</div></div>'+
     '</div></div>');
@@ -22584,11 +22629,12 @@ function laReportHTML(withLoan){
         '<div class="r" style="grid-column:1/-1"><div class="k">Indicative repayment</div><div class="v">'+laRR(LC.mo)+' / month at '+LC.rate+'% (prime + margin)</div></div>'+
       '</div>'+
       '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Per annum</th><th>Current</th><th>After facility</th></tr></thead><tbody>'+
-        '<tr><td>Net operating income (before debt)</td><td>'+laRR(farmIncome)+'</td><td>'+laRR(farmIncome)+'</td></tr>'+
+        '<tr><td>Cash available to repay debt</td><td>'+laRR(farmIncome)+'</td><td>'+laRR(farmIncome)+'</td></tr>'+
         '<tr><td>Annual debt service</td><td>'+laRR(LC.exist)+'</td><td>'+laRR(LC.totalAfter)+'</td></tr>'+
         '<tr class="tot"><td>Debt service cover (DSCR)</td><td>'+dscrNow.toFixed(2)+'×</td><td class="g">'+dscrAf.toFixed(2)+'×</td></tr>'+
       '</tbody></table></div>'+
-      '<div class="lar-note">Cover shown on current income only'+((LC.tight&&LC.tight>dscrAf)?'; with the income the facility is expected to generate, cover improves to '+LC.tight.toFixed(2)+'×':'')+'. Repayment estimated at prime + margin; the final rate is set by the lender. Lenders typically require a DSCR of at least 1.25×.</div>'+
+      (DC?'<div class="lar-note"><b>How the cash available is worked out:</b> the year’s profit '+laRR(DC.profit)+' (the same as the farm’s Profit page) + loan interest '+laRR(DC.interest)+' + write-off on assets '+laRR(DC.depr)+' (not cash) = '+laRR(DC.available)+'.</div>':'')+
+      '<div class="lar-note">Cover shown on current income only'+((LC.inp.addedIncome>0&&LC.totalAfter>0)?'; with the '+laRR(LC.inp.addedIncome)+' a year the facility is expected to add, cover improves to '+((farmIncome+LC.inp.addedIncome)/LC.totalAfter).toFixed(2)+'×':'')+'. Repayment estimated at prime + margin; the final rate is set by the lender. Lenders typically require a DSCR of at least 1.25×.</div>'+
     '</div>');
   }
 
@@ -22643,9 +22689,14 @@ function laReportHTML(withLoan){
   (function(){
     var tr=(ST_LOANAPP.track)||{}, cols=[];
     function pushCol(lbl, entered, off, now){
-      if(entered && (entered.income||entered.costs)){ cols.push({lbl:lbl,inc:entered.income||0,cost:entered.costs||0,now:now}); return; }
-      var t=null; try{ t=_taxFYProfit(off); }catch(e){}
-      if(t && (t.income>0||now)){ cols.push({lbl:lbl,inc:t.income||0,cost:t.expenses||0,now:now}); }
+      /* -460: records first. A year with records shows its PROFIT from the engine (income without
+         VAT, costs = running + interest + write-off), the same as the Profit page. The farmer's
+         typed figures are used only for a year before they started recording. */
+      var r=now?null:laYearRecorded(fy+off);
+      if(r){ cols.push({lbl:lbl,inc:r.income,cost:r.costs,now:false}); return; }
+      if(!now){ if(entered && (entered.income||entered.costs)) cols.push({lbl:lbl,inc:entered.income||0,cost:entered.costs||0,now:false,typed:true}); return; }
+      var p=null; try{ p=b5Profit(fy, {toYm:b5TodayYm()}); }catch(e){}
+      if(p){ var gi=p.income+Math.max(0,p.gain||0); cols.push({lbl:lbl,inc:Math.round(gi),cost:Math.round(gi-p.profit),now:true}); }
     }
     pushCol((fy-2)+'/'+String(fy-1).slice(-2), tr.back2, -2, false);
     pushCol((fy-1)+'/'+String(fy).slice(-2), tr.back1, -1, false);
@@ -22663,8 +22714,8 @@ function laReportHTML(withLoan){
     var doneCols=cols.filter(function(c){ return !c.now; });
     if(cols.length>=2 && doneCols.length>=1){
       var heads=cols.map(function(c){ return '<th>'+c.lbl+'</th>'; }).join('');
-      var incR='<tr><td>Gross income</td>'+cols.map(function(c){ return '<td>'+laRR(c.inc)+'</td>'; }).join('')+'</tr>';
-      var costR='<tr><td>Operating costs</td>'+cols.map(function(c){ return '<td>'+laRR(c.cost)+'</td>'; }).join('')+'</tr>';
+      var incR='<tr><td>Income (without VAT)</td>'+cols.map(function(c){ return '<td>'+laRR(c.inc)+'</td>'; }).join('')+'</tr>';
+      var costR='<tr><td>Costs, incl. interest and write-off</td>'+cols.map(function(c){ return '<td>'+laRR(c.cost)+'</td>'; }).join('')+'</tr>';
       var netR='<tr class="tot"><td>Net farm profit</td>'+cols.map(function(c){ return '<td'+(c.now?' class="g"':'')+'>'+laRR(c.inc-c.cost)+'</td>'; }).join('')+'</tr>';
       var avg=Math.round(doneCols.reduce(function(a,c){return a+(c.inc-c.cost);},0)/doneCols.length);
       var curCol=null; for(var _ci=0;_ci<cols.length;_ci++){ if(cols[_ci].now) curCol=cols[_ci]; }
@@ -22679,7 +22730,9 @@ function laReportHTML(withLoan){
       }
       H.push('<div class="lar-sec">'+sh('Track record','Recorded financial performance over the completed seasons on record, with the current season to date.')+
         '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Per season</th>'+heads+'</tr></thead><tbody>'+incR+costR+netR+'</tbody></table></div>'+
-        '<div class="lar-note">Net profit has averaged '+laRR(avg)+' '+overWord+'.'+closing+'</div></div>');
+        '<div class="lar-note">Net profit has averaged '+laRR(avg)+' '+overWord+'.'+closing+'</div>'+
+        (cols.some(function(c){ return c.typed; }) ? '<div class="lar-note">'+cols.filter(function(c){ return c.typed; }).map(function(c){ return c.lbl; }).join(' and ')+' as given by the farmer, from before the farm’s records in this app; the other seasons are from the records.</div>' : '')+
+        '</div>');
     }
   })();
 
@@ -22727,7 +22780,7 @@ function laReportHTML(withLoan){
     '<tr><td>Debt-to-asset ratio</td><td class="l2">Total liabilities ÷ total assets</td><td>'+debtAssetPct+'%</td></tr>'+
     (currentRatio!=null?'<tr><td>Current ratio</td><td class="l2">Current assets ÷ current liabilities</td><td>'+currentRatio.toFixed(1)+'</td></tr>':'')+
     (intCover!=null?'<tr><td>Interest cover</td><td class="l2">Profit before interest ÷ interest</td><td>'+intCover.toFixed(1)+'×</td></tr>':'')+
-    '<tr><td>Return on assets</td><td class="l2">Operating income ÷ total assets</td><td>'+roa+'%</td></tr>';
+    '<tr><td>Return on assets</td><td class="l2">Profit before interest ÷ total assets</td><td>'+roa+'%</td></tr>';
   H.push('<div class="lar-sec">'+sh('Financial ratios','Standard solvency, liquidity and return measures.')+
     '<div class="lar-wrap"><table class="lar-tbl"><thead><tr><th>Ratio</th><th class="l2">Basis</th><th>Value</th></tr></thead><tbody>'+ratioRows+'</tbody></table></div></div>');
 
@@ -53930,15 +53983,16 @@ function b5Profit(fy, opt){
   var yms=b5FyYms(fy), set={}, i; for(i=0;i<12;i++) set[yms[i]]=1;
   var r={fy:fy, income:0, running:0, interest:0, depr:0, gain:0, profit:0,
          loanCapital:0, capitalLinked:0, capitalUnreg:0, nonopIn:0, nonopOut:0, tax:0, paydown:0,
-         vatIn:0, vatOut:0, cashIn:0, cashOut:0, unlinkedLoan:0, byCat:{}};
+         vatIn:0, vatOut:0, cashIn:0, cashOut:0, unlinkedLoan:0, byCat:{}, byCatLbl:{}, byIncLbl:{}};
   ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
     if(!t) return; var d=parseDate(t.date||''); if(!d) return; var ym=b5Ym(d);
     if(!set[ym] || (opt.toYm && ym>opt.toYm)) return;
+    if((opt.fromYm && ym<opt.fromYm) || (opt.filter && !opt.filter(d))) return;   /* -460: any period, for Reports */
     var g=+t.amt||0, s=IE_split(g, t.cat), a=s.net, v=g-a, role=b5CatRole(t.cat);
     if(t.type==='income'){
       r.cashIn+=g;
       if(role==='nonop'){ r.nonopIn+=g; return; }
-      r.income+=a; r.vatIn+=v; return;
+      r.income+=a; r.vatIn+=v; var il=_catOf(t); r.byIncLbl[il]=(r.byIncLbl[il]||0)+a; return;
     }
     r.cashOut+=g;
     if(t.type!=='expense'){ r.paydown+=g; return; }      // account payments: cash, never a cost
@@ -53955,13 +54009,39 @@ function b5Profit(fy, opt){
       r.capitalUnreg+=a;                                   // safety net: stays a cost, flagged
     }
     r.running+=a; var cn=t.cat; try{ cn=normalizeCat(t.cat); }catch(e){} r.byCat[cn]=(r.byCat[cn]||0)+a;
+    var cl=_catOf(t); r.byCatLbl[cl]=(r.byCatLbl[cl]||0)+a;
   });
   var dep=b5BookDepr(fy, opt.toYm);
+  /* -460: from a month inside the year, the write-off is the months in range only. */
+  if(opt.fromYm && opt.fromYm>yms[0]){ var d0=b5BookDepr(fy, b5YmAdd(opt.fromYm,-1)); dep={total:dep.total-d0.total, gain:dep.gain-d0.gain, rows:dep.rows}; }
   r.depr=dep.total; r.gain=dep.gain; r.deprRows=dep.rows;
   r.profit=r.income-r.running-r.interest-r.depr+r.gain;
   ['income','running','interest','profit','loanCapital','capitalLinked','capitalUnreg','nonopIn','nonopOut','tax','paydown','vatIn','vatOut','cashIn','cashOut','unlinkedLoan']
     .forEach(function(k){ r[k]=Math.round(r[k]*100)/100; });
   return r;
+}
+/* -460: the profit for any Reports period - a month, a quarter, a year or a custom range - from
+   the SAME engine as the Profit page and the Dashboard, one financial year at a time. A custom
+   range filters transactions by date; the write-off is counted in whole months. */
+function b5ProfitPeriod(info){
+  var ml=(info&&info.months)||[]; if(!ml.length) return null;
+  var MI={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  var ymOf=function(lbl){ var p=String(lbl).split(' '); return p[1]+'-'+String(MI[p[0]]+1).padStart(2,'0'); };
+  var fyOfYm=function(ym){ var p=ym.split('-'); return (+p[1]>=fyStartMonth())?+p[0]:(+p[0]-1); };
+  var a0=ymOf(ml[0]), b0=ymOf(ml[ml.length-1]), out=null, _now=b5TodayYm();
+  if(b0>_now) b0=_now;   /* actual to today, like the Profit page's "so far" - not transactions dated ahead */
+  if(a0>b0) return null;
+  var flt=(info.from&&info.to)?function(d){ return rptInPeriod(d,info); }:null;
+  for(var fy=fyOfYm(a0); fy<=fyOfYm(b0); fy++){
+    var yms=b5FyYms(fy), a=a0>yms[0]?a0:yms[0], b=b0<yms[11]?b0:yms[11]; if(a>b) continue;
+    var p=b5Profit(fy,{fromYm:a, toYm:b, filter:flt});
+    if(!out){ out=p; continue; }
+    Object.keys(p).forEach(function(k){
+      if(typeof p[k]==='number' && k!=='fy') out[k]=(out[k]||0)+p[k];
+      else if(k==='byCat'||k==='byCatLbl'||k==='byIncLbl'){ Object.keys(p[k]).forEach(function(c){ out[k][c]=(out[k][c]||0)+p[k][c]; }); }
+    });
+  }
+  return out;
 }
 /* The working budget as lines. ST.budgets holds MONTH TOTALS, all money out included, so the
    split by category comes from the farmer's category targets when set, else this year's
@@ -54620,71 +54700,63 @@ function _rptLoanNoteRows(R, cls, withCta){
 }
 
 function computeRPT() {
-  var info = rptPeriodInfo();
-  var months = info.months;
-
-  var totalIncome = 0, totalCOS = 0, totalOpex = 0;
-  var wt = 0, vatOut = 0, vatIn = 0;
-  var byCat = {};
-  var byIncCat = {};
-  var loanIntSum = 0, loanSplit = null;
-  /* Repayments we could not tie to a loan. Their interest is not claimed, so the farmer
-     should be told what it cost them rather than the deduction quietly vanishing. */
-  var loanUnres = {count:0, amount:0};
-
-  ST.txns.forEach(function(t) {
-    var d = parseDate(t.date); if (!d) return;
-    if (!rptInPeriod(d, info)) return;
-    if (t.type === 'income') {
-      totalIncome += t.amt;
-      byIncCat[_catOf(t)] = (byIncCat[_catOf(t)]||0) + t.amt;
-      if (FARM.vat) vatOut += IE_split(t.amt, t.cat).vat;
-    } else {
-      var isCOS = ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].indexOf(t.cat) >= 0;
-      if (isCOS) totalCOS += t.amt; else totalOpex += t.amt;
-      if (FARM.vat) vatIn += IE_split(t.amt, t.cat).vat;
-      byCat[_catOf(t)] = (byCat[_catOf(t)]||0) + t.amt;
-      if (t.cat === 'Loan Repayments') {
-        var _li = _rptLoanInterest(t);
-        loanIntSum += _li;
-        if (!_rptLoanInterest.resolved) { loanUnres.count++; loanUnres.amount += t.amt; }
-      }
-    }
-  });
-
-  // Loans: expense only the interest portion of recorded repayments (capital is balance-sheet)
-  if (typeof LN_intM === 'function') {
-    var _loanFull = byCat['Loan Repayments'] || 0;
-    if (_loanFull > 0) {                         // transactions-driven: no repayments -> no injection
-      totalOpex = totalOpex - _loanFull + loanIntSum;
-      byCat['Loan Repayments'] = loanIntSum;     // line item shows deductible interest
-      /* Transactions shows the full instalment (that is what left the bank); this report
-         shows only the deductible interest. Publish both so a caption can say why. */
-      loanSplit = {paid:_loanFull, interest:loanIntSum, capital:Math.max(0, _loanFull - loanIntSum),
-               unresolved:loanUnres.count, unresolvedAmount:loanUnres.amount};
-    }
+  /* -460: the Reports page on the ONE engine (b5Profit) - the same profit as the Profit page, the
+     Dashboard and the Tax page's working. It counted income WITH VAT, took capital purchases,
+     drawings and income tax off as costs, had no write-off, and ran a full year's tax tables on
+     a single month: September read R2 033 640 where the Profit page's rules give R1 807 069.
+     Income is without VAT; costs are running costs, loan interest and the write-off. The cash
+     side (cf) is every rand in and out, grouped, for the Cash Flow statement. */
+  var info = rptPeriodInfo(), months = info.months;
+  var P = b5ProfitPeriod(info) || {income:0,running:0,interest:0,depr:0,gain:0,profit:0,loanCapital:0,cashIn:0,cashOut:0,vatIn:0,vatOut:0,unlinkedLoan:0,byCatLbl:{},byIncLbl:{}};
+  var COS = ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'];
+  var byIncCat = {}, byCat = {};
+  Object.keys(P.byIncLbl||{}).forEach(function(k){ if(Math.round(P.byIncLbl[k])) byIncCat[k] = P.byIncLbl[k]; });
+  if(P.gain > 0.5) byIncCat['Gain on things sold'] = P.gain;
+  Object.keys(P.byCatLbl||{}).forEach(function(k){ if(Math.round(P.byCatLbl[k])) byCat[k] = P.byCatLbl[k]; });
+  if(P.interest > 0.5) byCat['Loan interest'] = P.interest;
+  if(P.depr > 0.5) byCat['Write-off on what you own'] = P.depr;
+  var totalIncome = P.income + Math.max(0, P.gain);
+  var totalCOS = 0; COS.forEach(function(k){ totalCOS += byCat[k] || 0; });
+  var totalCosts = P.running + P.interest + P.depr;
+  var totalOpex = totalCosts - totalCOS;
+  var grossProfit = totalIncome - totalCOS;
+  var netProfitBT = P.profit;
+  /* Tax only for a whole tax year - the Tax page's own figure (IT12 for a year that has ended,
+     the estimate for the year still running). A month or a quarter has no tax of its own. */
+  var taxAmount = null, taxNote = '';
+  if (RPT_STATE.type === 'yearly') {
+    var _fy = rptFY();
+    try {
+      if (_fy === getCurrentFY()) { var _pe = taxProvEstimate(); taxAmount = _pe.ok ? Math.round(_pe.annualTax) : 0; taxNote = 'estimate for the whole year, as on the Tax page'; }
+      else { var _it = _sarsIT12(_fy); taxAmount = Math.round(_it.tax || 0); taxNote = 'on the IT12 figures for the year'; }
+    } catch(e) { taxAmount = null; }
   }
-  var grossProfit  = totalIncome - totalCOS;
-  var netProfitBT  = grossProfit - totalOpex;
-  /* Use the app's own SARS engine (bands, rebate, threshold, entity type) instead of a flat
-     rate. The old 28%/21% step created a R105k cliff at R1.5m — R1 more income cost R105 000 —
-     and 28% contradicted STATUTORY.company.rate (27%). taxRate is still returned (5 render
-     sites) but is now the EFFECTIVE rate, which is what those labels actually mean. */
-  var taxAmount    = (typeof calcAnnualIncomeTax === 'function')
-                       ? calcAnnualIncomeTax(netProfitBT, (window.ST && ST.entityType) || 'sole')
-                       : Math.max(0, netProfitBT * 0.21);
-  var taxRate      = netProfitBT > 0 ? (taxAmount / netProfitBT) : 0;
-  var netProfitAT  = netProfitBT - taxAmount;
-  var grossMargin  = totalIncome > 0 ? (grossProfit/totalIncome*100).toFixed(1) : '0.0';
-  var netMargin    = totalIncome > 0 ? (netProfitBT/totalIncome*100).toFixed(1) : '0.0';
-  var vatPayable   = vatOut - vatIn;
-
+  var taxRate = (taxAmount != null && netProfitBT > 0) ? (taxAmount / netProfitBT) : 0;
+  var netProfitAT = (taxAmount != null) ? (netProfitBT - taxAmount) : null;
+  var grossMargin = totalIncome > 0 ? (grossProfit/totalIncome*100).toFixed(1) : '0.0';
+  var netMargin   = totalIncome > 0 ? (netProfitBT/totalIncome*100).toFixed(1) : '0.0';
+  var loanSplit = (P.interest + P.loanCapital) > 0.5
+    ? {paid:P.interest+P.loanCapital, interest:P.interest, capital:P.loanCapital, unresolved:(P.unlinkedLoan>0.5?1:0), unresolvedAmount:P.unlinkedLoan}
+    : null;
+  /* Every rand in and out of the bank in the period, by what it was for (VAT included - this is
+     the bank statement). The groups add up to the net. */
+  var cf = {sales:0, otherIn:0, running:0, loans:0, bought:0, taxPaid:0, own:0, accounts:0, rowsIn:[], rowsOut:[]};
+  ST.txns.forEach(function(t){
+    var d = parseDate(t.date); if (!d || !rptInPeriod(d, info) || b5Ym(d) > b5TodayYm()) return;
+    var g = +t.amt || 0, role = b5CatRole(t.cat);
+    (t.type === 'income' ? cf.rowsIn : cf.rowsOut).push({t:t, k:d.y*10000+(d.m+1)*100+(d.d||0)});
+    if (t.type === 'income') { if (role === 'nonop') cf.otherIn += g; else cf.sales += g; return; }
+    if (t.type !== 'expense') { cf.accounts += g; return; }
+    if (role === 'loan') cf.loans += g; else if (role === 'capital') cf.bought += g; else if (role === 'tax') cf.taxPaid += g; else if (role === 'nonop') cf.own += g; else cf.running += g;
+  });
+  cf.in = cf.sales + cf.otherIn; cf.out = cf.running + cf.loans + cf.bought + cf.taxPaid + cf.own + cf.accounts; cf.net = cf.in - cf.out;
+  var _byDay = function(a, b){ return a.k - b.k; }; cf.rowsIn.sort(_byDay); cf.rowsOut.sort(_byDay);
   return {
-    months:months, from:info.from, to:info.to, totalIncome:totalIncome, totalCOS:totalCOS, totalOpex:totalOpex,
-    grossProfit:grossProfit, netProfitBT:netProfitBT, taxAmount:taxAmount,
+    months:months, from:info.from, to:info.to, totalIncome:totalIncome, totalCOS:totalCOS, totalOpex:totalOpex, totalCosts:totalCosts,
+    grossProfit:grossProfit, netProfitBT:netProfitBT, taxAmount:taxAmount, taxNote:taxNote,
     netProfitAT:netProfitAT, grossMargin:grossMargin, netMargin:netMargin,
-    vatOut:vatOut, vatIn:vatIn, vatPayable:vatPayable, byCat:byCat, byIncCat:byIncCat,
-    wt:wt, taxRate:(taxRate*100).toFixed(0), loanSplit:loanSplit
+    vatOut:P.vatIn, vatIn:P.vatOut, vatPayable:P.vatIn-P.vatOut, byCat:byCat, byIncCat:byIncCat,
+    wt:0, taxRate:(taxRate*100).toFixed(0), loanSplit:loanSplit, cf:cf, running:P.running, interest:P.interest, depr:P.depr
   };
 }
 
@@ -54711,27 +54783,25 @@ function updateRptDisplay() {
   setEl('rpt-sub', 'Showing figures for '+lbl+' — click any statement to open and print.');
   setEl('rpt-period-disp', lbl);
   setEl('rpt-income',   fmt(R.totalIncome));
-  setEl('rpt-expenses', fmt(R.totalCOS+R.totalOpex));
-  setEl('rpt-gross',    IE_R(R.grossProfit));
+  setEl('rpt-expenses', fmt(R.totalCosts));
   setEl('rpt-net',      IE_R(R.netProfitBT));
   /* No tag on the Reports hero: that card is narrow and the Afrikaans label fills
      the line by itself, so a tag wrapped it and dropped the figure 7.5px. */
   setEl('rpt-margin',   R.totalIncome > 0 ? R.netMargin+'%' : '\u2014');
   setEl('rpt-income-lbl', lbl);
-  setEl('rpt-expenses-lbl', lbl);
+  setEl('rpt-expenses-lbl', 'running costs, loan interest, write-off');
   var _ss=$('rpt-stmt-sub'); if(_ss) _ss.innerHTML='Showing figures for <strong>'+lbl+'</strong> — preview inline or open to print.';
 
 var tbody = $('rpt-cmp-tbody');
   if (tbody) {
     var prevR = computePrevRPT();
     var rows = [
-      ['Income',    R.totalIncome,   prevR.totalIncome],
-      ['Expenses',  R.totalCOS+R.totalOpex, prevR.totalCOS+prevR.totalOpex],
-      ['Gross Profit', R.grossProfit, prevR.grossProfit],
-      ['Net Profit',  R.netProfitBT, prevR.netProfitBT]
+      ['Income (without VAT)', R.totalIncome, prevR.totalIncome],
+      ['Costs',       R.totalCosts,  prevR.totalCosts],
+      ['Profit before tax', R.netProfitBT, prevR.netProfitBT]
     ];
     tbody.innerHTML = rows.map(function(r) {
-      var diff = r[1]-r[2], pct = r[2]>0?((diff/r[2])*100).toFixed(1):'—';
+      var diff = r[1]-r[2], pct = r[2]>0?((diff/r[2])*100).toFixed(1):'—';   /* -460: three rows that add up */
       var col  = diff>=0?'var(--gl)':'var(--rd)';
       return '<div class="cmp-row">'+
         '<span>'+r[0]+'</span>'+
@@ -54859,9 +54929,11 @@ function buildPLReport() {
     '<h2>Summary</h2>'+
     '<table>'+
     '<tr><td>Gross Profit</td><td class="amt '+(R.grossProfit>=0?'pos':'neg')+'">'+IE_R(R.grossProfit)+'</td></tr>'+
-    '<tr><td>Net Profit (before tax)</td><td class="amt '+(R.netProfitBT>=0?'pos':'neg')+'">'+IE_R(R.netProfitBT)+'</td></tr>'+
-    '<tr><td>Estimated Tax ('+R.taxRate+'%)</td><td class="amt neg">'+fmt(R.taxAmount)+'</td></tr>'+
-    '<tr class="total"><td>NET PROFIT AFTER TAX</td><td class="amt '+(R.netProfitAT>=0?'pos':'neg')+'">'+IE_R(R.netProfitAT)+'</td></tr>'+
+    '<tr class="total"><td>NET PROFIT (BEFORE TAX)</td><td class="amt '+(R.netProfitBT>=0?'pos':'neg')+'">'+IE_R(R.netProfitBT)+'</td></tr>'+
+    (R.taxAmount!=null
+      ? '<tr><td>Income tax ('+R.taxNote+')</td><td class="amt neg">'+fmt(R.taxAmount)+'</td></tr>'+
+        '<tr class="total"><td>NET PROFIT AFTER TAX</td><td class="amt '+(R.netProfitAT>=0?'pos':'neg')+'">'+IE_R(R.netProfitAT)+'</td></tr>'
+      : '<tr><td colspan="2" style="color:#6B7280;font-size:12px">Income tax is worked out for the whole tax year — choose Yearly, or see the Tax page.</td></tr>')+
     '<tr><td>Net Margin</td><td class="amt">'+R.netMargin+'%</td></tr>'+
     '</table>';
   printWindow('P&L — '+lbl, html);
@@ -54874,70 +54946,126 @@ function buildCFReport() {
     '<h1>Cash Flow Statement</h1>'+
     '<div class="meta">'+FARM.name+' &nbsp;·&nbsp; Period: '+lbl+'</div>'+
     '<button onclick="window.print()" style="background:#1B4332;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;margin-bottom:20px">🖨 Print</button>'+
-    '<h2>Cash Inflows</h2>'+
-    '<table><tr><th>Description</th><th>Category</th><th class="amt">Amount (R)</th></tr>'+
-    ST.txns.filter(function(t){
-      if(t.type!=='income') return false;
-      var d=parseDate(t.date); if(!d) return false;
-      var lbl2=MONTH_LABELS[d.m]+' '+d.y;
-      return R.months.indexOf(lbl2)>=0;
-    }).map(function(t){
-      return '<tr><td>'+esc(t.desc)+'</td><td>'+esc(t.cat)+'</td><td class="amt pos">'+fmt(t.amt)+'</td></tr>';
-    }).join('')+
-    '<tr class="total"><td colspan="2">TOTAL INFLOWS</td><td class="amt pos">'+fmt(R.totalIncome)+'</td></tr></table>'+
-    '<h2>Cash Outflows</h2>'+
-    '<table><tr><th>Description</th><th>Category</th><th class="amt">Amount (R)</th></tr>'+
-    ST.txns.filter(function(t){
-      if(t.type!=='expense') return false;
-      var d=parseDate(t.date); if(!d) return false;
-      var lbl2=MONTH_LABELS[d.m]+' '+d.y;
-      return R.months.indexOf(lbl2)>=0;
-    }).map(function(t){
-      return '<tr><td>'+esc(t.desc)+'</td><td>'+esc(t.cat)+'</td><td class="amt neg">'+fmt(t.amt)+'</td></tr>';
-    }).join('')+
-    '<tr class="total"><td colspan="2">TOTAL OUTFLOWS</td><td class="amt neg">'+fmt(R.totalCOS+R.totalOpex)+'</td></tr></table>'+
-    '<h2>Net Cash Position</h2>'+
-    '<table>'+
-    '<tr class="total"><td>Net Cash Flow</td><td class="amt '+(R.netProfitBT>=0?'pos':'neg')+'">'+IE_R(R.netProfitBT)+'</td></tr>'+
-    '</table>';
+    _rptCfTable(R, false)+
+    _rptCfDetail(R, false)+
+    '<p style="font-size:12px;color:#6B7280;margin-top:14px">Money in and out of the bank, VAT included. Profit is on the Profit &amp; Loss statement: it counts only the interest part of loan repayments and spreads things bought over their life.</p>';
   printWindow('Cash Flow — '+lbl, html);
 }
 
+function _rptCfTable(R, cls){
+  /* -460: every rand in and out, grouped - the groups add up to the net, which keeps its sign. */
+  var c=R.cf||{}, pos=cls?'pv-pos':'pos', neg=cls?'pv-neg':'neg', tbl=cls?'pv-table':'', tr=function(k,v,c2){ return '<tr><td>'+k+'</td><td class="amt '+(c2||'')+'">'+v+'</td></tr>'; };
+  return '<table class="'+tbl+'"><tbody>'+
+    '<tr><td colspan="2" style="font-weight:800">Money in</td></tr>'+
+    tr('Sales and farm income', fmt(c.sales||0), pos)+
+    (c.otherIn?tr('Loans received, grants and money put in', fmt(c.otherIn), pos):'')+
+    '<tr class="total"><td>Total money in</td><td class="amt '+pos+'">'+fmt(c.in||0)+'</td></tr>'+
+    '<tr><td colspan="2" style="font-weight:800;padding-top:14px">Money out</td></tr>'+
+    tr('Running costs', '−'+fmt(c.running||0), neg)+
+    (c.loans?tr('Loan repayments (interest and capital)', '−'+fmt(c.loans), neg):'')+
+    (c.bought?tr('Things bought to keep (machinery, buildings)', '−'+fmt(c.bought), neg):'')+
+    (c.taxPaid?tr('Tax paid to SARS', '−'+fmt(c.taxPaid), neg):'')+
+    (c.own?tr('Drawings and other money out', '−'+fmt(c.own), neg):'')+
+    (c.accounts?tr('Account payments', '−'+fmt(c.accounts), neg):'')+
+    '<tr class="'+(cls?'total-neg':'total')+'"><td>Total money out</td><td class="amt '+neg+'">−'+fmt(c.out||0)+'</td></tr>'+
+    '<tr class="'+((c.net||0)>=0?'total':(cls?'total-neg':'total'))+'"><td>NET CASH FOR THE PERIOD</td><td class="amt '+((c.net||0)>=0?pos:neg)+'">'+((c.net||0)<0?'−':'')+fmt(Math.abs(c.net||0))+'</td></tr>'+
+    '</tbody></table>';
+}
+
+function _rptCfDetail(R, cls){
+  /* Every payment in and out, one line each - the totals are the same as the summary above. */
+  var c = R.cf || {}, pos = cls?'pv-pos':'pos', neg = cls?'pv-neg':'neg', tbl = cls?'pv-table':'';
+  var cat = function(t, bg, fg){ var l = esc((typeof _catOf==='function') ? _catOf(t) : t.cat);
+    return cls ? '<span style="background:'+bg+';color:'+fg+';padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600">'+l+'</span>' : l; };
+  var list = function(rows, total, title, totLbl, cc, bg, fg, empty, trc){
+    return '<h2>'+title+'</h2>'+
+      '<table class="'+tbl+'"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amt">Amount</th></tr></thead><tbody>'+
+      (rows.length ? rows.map(function(r){ var t = r.t;
+        return '<tr><td style="color:#6B7280;font-size:12px;white-space:nowrap">'+esc(t.date)+'</td><td>'+esc(t.desc||'')+'</td><td>'+cat(t, bg, fg)+'</td><td class="amt '+cc+'">'+fmt(+t.amt||0)+'</td></tr>'; }).join('')
+        : '<tr><td colspan="4" style="color:#9CA3AF;text-align:center">'+empty+'</td></tr>')+
+      '<tr class="'+(trc||'total')+'"><td colspan="3">'+totLbl+'</td><td class="amt '+cc+'">'+fmt(total)+'</td></tr>'+
+      '</tbody></table>';
+  };
+  var wrap = function(h){ return cls ? '<div class="pv-section">'+h+'</div>' : h; };
+  return wrap(list(c.rowsIn||[], c.in||0, 'Every payment in', 'Total money in', pos, '#DCFCE7', '#16A34A', 'No money in for this period'))+
+         wrap(list(c.rowsOut||[], c.out||0, 'Every payment out', 'Total money out', neg, '#FEE2E2', '#DC2626', 'No money out for this period', cls?'total-neg':'total'));
+}
+
 function buildTaxReport() {
-  var R = computeRPT();
-  var fy = getCurrentFY();
+  var R = computeRPT(), fy = _rptTaxFY(), T = _rptTaxRows(fy, false);
   var html =
-    '<h1>Tax Summary — FY '+fy+'</h1>'+
+    '<h1>Tax Summary — '+getFYLabel(fy)+'</h1>'+
     '<div class="meta">'+FARM.name+' &nbsp;·&nbsp; '+FARM.owner+'<br>'+
     (FARM.vat?'VAT Registered'+(FARM.vatNo?' — VAT No: '+FARM.vatNo:'')+'<br>':'')+
-    'Financial Year: '+getFYLabel(fy)+'</div>'+
+    'Tax year: '+getFYLabel(fy)+'</div>'+
     '<button onclick="window.print()" style="background:#1B4332;color:#fff;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;margin-bottom:20px">🖨 Print</button>'+
-    '<h2>Income (IT3b / Schedule S)</h2>'+
-    '<table><tr><th>Source</th><th class="amt">Amount (R)</th></tr>'+
-    '<tr><td>Agricultural income — gross</td><td class="amt">'+fmt(R.totalIncome)+'</td></tr>'+
-    '</table>'+
-    '<h2>Allowable Deductions</h2>'+
-    '<table><tr><th>Section</th><th>Description</th><th class="amt">Amount (R)</th></tr>'+
-    '<tr><td>S11(a)</td><td>Seeds &amp; planting</td><td class="amt">'+fmt(R.byCat['Seeds & Planting']||0)+'</td></tr>'+
-    '<tr><td>S11(a)</td><td>Labour &amp; Wages</td><td class="amt">'+fmt(R.byCat['Labour & Wages']||0)+'</td></tr>'+
-    '<tr><td>S11(a)</td><td>Fuel & oil</td><td class="amt">'+fmt(R.byCat['Fuel & Oil']||0)+'</td></tr>'+
-    '<tr><td>S11(d)</td><td>Repairs & maintenance</td><td class="amt">'+fmt(R.byCat['Machinery & Repairs']||0)+'</td></tr>'+
-    '<tr><td>S12B</td><td>Agricultural capital allowances (est. 50/30/20)</td><td class="amt">—</td></tr>'+
-    '<tr class="total"><td colspan="2">TOTAL DEDUCTIONS</td><td class="amt">'+fmt(R.totalCOS+R.totalOpex)+'</td></tr></table>'+
-    '<h2>Tax Calculation</h2>'+
-    '<table>'+
-    '<tr><td>Taxable income</td><td class="amt">'+IE_R(R.netProfitBT)+'</td></tr>'+
-    '<tr><td>Tax rate</td><td class="amt">'+R.taxRate+'%</td></tr>'+
-    '<tr class="total"><td>Estimated tax bill</td><td class="amt neg">'+fmt(R.taxAmount)+'</td></tr>'+
-    '</table>'+
+    '<h2>Income tax (the IT12 figures)</h2>'+T.html+T.detail+
     (FARM.vat?
-    '<h2>VAT 201 Summary</h2>'+
+    '<h2>VAT for '+getPeriodLabel()+'</h2>'+
     '<table>'+
-    '<tr><td>Output VAT (sales)</td><td class="amt">'+fmt(R.vatOut)+'</td></tr>'+
-    '<tr><td>Input VAT (purchases)</td><td class="amt">'+fmt(R.vatIn)+'</td></tr>'+
-    '<tr class="total"><td>VAT payable to SARS</td><td class="amt '+(R.vatPayable>=0?'neg':'pos')+'">'+fmt(Math.abs(R.vatPayable))+'</td></tr>'+
-    '</table>':'');
-  printWindow('Tax Summary — FY '+fy, html);
+    '<tr><td>VAT on sales</td><td class="amt">'+fmt(R.vatOut)+'</td></tr>'+
+    '<tr><td>VAT on costs</td><td class="amt">'+fmt(R.vatIn)+'</td></tr>'+
+    '<tr class="total"><td>'+(R.vatPayable>=0?'VAT to pay SARS':'VAT SARS pays you')+'</td><td class="amt">'+fmt(Math.abs(R.vatPayable))+'</td></tr>'+
+    '</table><p style="font-size:12px;color:#6B7280;margin:8px 0 0">Submit the VAT 201 on SARS eFiling by the last business day of the month after the period.</p>':'')+
+    '<p style="font-size:12px;color:#6B7280;margin-top:14px">The same figures as the Tax page and the SARS IT12 pre-fill. An estimate to plan with — confirm with your accountant.</p>';
+  printWindow('Tax Summary — '+getFYLabel(fy), html);
+}
+
+function _rptTaxFY(){
+  /* -460: the tax year the Reports period falls in - the yearly view's own year, else the year
+     of the period's first month. */
+  if (RPT_STATE.type === 'yearly') return rptFY();
+  var ml = rptPeriodInfo().months || [], MI = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+  if (!ml.length) return getCurrentFY();
+  var p = String(ml[0]).split(' '), m = MI[p[0]] + 1, y = +p[1];
+  return (m >= fyStartMonth()) ? y : y - 1;
+}
+function _rptTaxRows(fy, cls){
+  var it = _sarsIT12(fy), pos = cls ? 'pv-pos' : 'pos', neg = cls ? 'pv-neg' : 'neg';
+  var tr = function(k, v, c2){ return '<tr><td>'+k+'</td><td class="amt '+(c2||'')+'">'+v+'</td></tr>'; };
+  var cur = (fy === getCurrentFY());
+  return {it:it, html:
+    '<table class="'+(cls?'pv-table':'')+'"><tbody>'+
+    tr('Farming income (without VAT)', fmt(it.income||0))+
+    ((it.recoup||0) > 0 ? tr('+ Sold assets recouped', fmt(it.recoup)) : '')+
+    tr('− Costs SARS lets you deduct', '−'+fmt((it.sc&&it.sc.total)||0), neg)+
+    tr('− Wear-and-tear and capital allowances', '−'+fmt((it.ca&&it.ca.total)||0), neg)+
+    (((it.rf&&it.rf.allowed)||0) > 0 ? tr('− Farm improvements', '−'+fmt(it.rf.allowed), neg) : '')+
+    '<tr class="total"><td>Taxable income'+(cur?' (year so far)':'')+'</td><td class="amt">'+IE_R(it.taxable||0)+'</td></tr>'+
+    '<tr class="total"><td>Income tax on it</td><td class="amt">'+fmt(it.tax||0)+'</td></tr>'+
+    '</tbody></table>', detail:_rptTaxDetail(it, fy, cls)};
+}
+function _rptTaxDetail(it, fy, cls){
+  /* The line-by-line behind the IT12 figures: each cost SARS allows, with its section, and each
+     kind of allowance. Both lists add up to the lines in the summary above. */
+  var sc = it.sc || {byCat:{}, total:0}, ca = it.ca || {}, neg = cls ? 'pv-neg' : 'neg', tbl = cls ? 'pv-table' : '';
+  var sm = _fcPick('ss', function(c){ return {section:c.ss}; });
+  var sec = function(txt){ return cls ? '<span style="background:#EDE9FE;color:#6D28D9;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700">'+txt+'</span>' : txt; };
+  var keys = Object.keys(sc.byCat||{}).filter(function(k){ return Math.round(sc.byCat[k]) !== 0; })
+    .sort(function(a, b){ return sc.byCat[b] - sc.byCat[a]; });
+  var sect = function(x){ return cls ? '<div class="pv-section">'+x+'</div>' : x; };
+  var h = '<h2>Costs SARS lets you deduct</h2>'+
+    '<table class="'+tbl+'"><thead><tr><th>Cost</th><th>SARS section</th><th class="amt">Amount</th></tr></thead><tbody>'+
+    (keys.length ? keys.map(function(k){
+      var lbl = (k === 'Loan Repayments') ? 'Loan interest' : ((typeof _txCatLabel==='function') ? _txCatLabel(k) : k);
+      var ss = (sm[k] && sm[k].section) || 'S11(a)';
+      return '<tr><td>'+esc(lbl)+'</td><td>'+sec(ss)+'</td><td class="amt">'+fmt(sc.byCat[k])+'</td></tr>'; }).join('')
+      : '<tr><td colspan="3" style="color:#9CA3AF;text-align:center">No costs recorded for this tax year</td></tr>')+
+    '<tr class="total"><td colspan="2">Total costs</td><td class="amt">'+fmt(sc.total||0)+'</td></tr>'+
+    '</tbody></table>'+
+    ((sc.nonDed||0) > 0 ? '<p style="font-size:12px;color:#6B7280;margin:8px 0 0">Left out because SARS does not allow them: '+
+      Object.keys(sc.nonDedByCat||{}).map(function(k){ return esc((typeof _txCatLabel==='function') ? _txCatLabel(k) : k)+' '+fmt(sc.nonDedByCat[k]); }).join(', ')+'.</p>' : '');
+  var rows = [['Wear and tear (straight-line)', 'S11(e)', ca.s11e||0], ['Farm machinery and equipment (50/30/20)', 'S12B', ca.s12b||0], ['Renewable energy', 'S12B', ca.renew||0]];
+  var other = (ca.total||0) - rows.reduce(function(a, r){ return a + r[2]; }, 0);
+  if (Math.round(other) !== 0) rows.push(['Other allowances', '', other]);
+  rows = rows.filter(function(r){ return Math.round(r[2]) !== 0; });
+  h = sect(h);
+  if (rows.length) h += sect('<h2>Wear-and-tear and capital allowances</h2>'+
+    '<table class="'+tbl+'"><thead><tr><th>Allowance</th><th>SARS section</th><th class="amt">Amount</th></tr></thead><tbody>'+
+    rows.map(function(r){ return '<tr><td>'+r[0]+'</td><td>'+(r[1]?sec(r[1]):'')+'</td><td class="amt">'+fmt(r[2])+'</td></tr>'; }).join('')+
+    '<tr class="total"><td colspan="2">Total allowances</td><td class="amt">'+fmt(ca.total||0)+'</td></tr>'+
+    '</tbody></table>');
+  return h;
 }
 
 // ============================================================
@@ -55017,12 +55145,12 @@ function buildPreviewPL(R, meta) {
   return meta +
     '<div class="pv-hero">'+
       '<div class="pv-card">'+
-        '<div class="pv-card-lbl">Total Income</div>'+
+        '<div class="pv-card-lbl">Income (without VAT)</div>'+
         '<div class="pv-card-val pv-pos">'+fmt(R.totalIncome)+'</div>'+
       '</div>'+
       '<div class="pv-card">'+
-        '<div class="pv-card-lbl">Total Expenses</div>'+
-        '<div class="pv-card-val pv-neg">'+fmt(R.totalCOS+R.totalOpex)+'</div>'+
+        '<div class="pv-card-lbl">Costs</div>'+
+        '<div class="pv-card-val pv-neg">'+fmt(R.totalCosts)+'</div>'+
       '</div>'+
       '<div class="pv-card">'+
         '<div class="pv-card-lbl">Net Profit</div>'+
@@ -55062,92 +55190,48 @@ function buildPreviewPL(R, meta) {
     '<table class="pv-table"><tbody>'+
     '<tr><td>Gross Profit</td><td class="amt '+(R.grossProfit>=0?'pv-pos':'pv-neg')+'">'+IE_R(R.grossProfit)+'</td></tr>'+
     '<tr><td>Gross Margin</td><td class="amt">'+R.grossMargin+'%</td></tr>'+
-    '<tr><td>Net Profit (before tax)</td><td class="amt '+(R.netProfitBT>=0?'pv-pos':'pv-neg')+'">'+IE_R(R.netProfitBT)+'</td></tr>'+
-    '<tr><td>Estimated Tax ('+R.taxRate+'%)</td><td class="amt pv-neg">'+fmt(R.taxAmount)+'</td></tr>'+
-    '<tr class="total"><td>NET PROFIT AFTER TAX</td><td class="amt '+(R.netProfitAT>=0?'pv-pos':'pv-neg')+'">'+IE_R(R.netProfitAT)+'</td></tr>'+
+    '<tr class="'+(R.netProfitBT>=0?'total':'total-neg')+'"><td>NET PROFIT (BEFORE TAX)</td><td class="amt '+(R.netProfitBT>=0?'pv-pos':'pv-neg')+'">'+IE_R(R.netProfitBT)+'</td></tr>'+
+    (R.taxAmount!=null
+      ? '<tr><td>Income tax ('+R.taxNote+')</td><td class="amt pv-neg">'+fmt(R.taxAmount)+'</td></tr>'+
+        '<tr class="total"><td>NET PROFIT AFTER TAX</td><td class="amt '+(R.netProfitAT>=0?'pv-pos':'pv-neg')+'">'+IE_R(R.netProfitAT)+'</td></tr>'
+      : '<tr><td colspan="2" style="color:#6B7280;font-size:12px">Income tax is worked out for the whole tax year — choose Yearly, or see the Tax page.</td></tr>')+
     '<tr><td>Net Margin</td><td class="amt">'+R.netMargin+'%</td></tr>'+
     '</tbody></table></div>'+
-    '<div class="pv-disclaimer">This P&amp;L is prepared for management purposes only. Please review with your accountant before submitting to SARS.</div>';
+    '<div class="pv-disclaimer">The same profit as your Profit page and Dashboard: income without VAT, less running costs, the interest part of loan repayments and the write-off on what you own. Capital repaid, things bought, drawings and income tax are not costs — they are on the Cash Flow statement. For management purposes; review with your accountant.</div>';
 }
 
 function buildPreviewCF(R, meta) {
-  var inflows = ST.txns.filter(function(t){
-    if(t.type!=='income') return false;
-    var d=parseDate(t.date); if(!d) return false;
-    return R.months.indexOf(MONTH_LABELS[d.m]+' '+d.y) >= 0;
-  });
-  var outflows = ST.txns.filter(function(t){
-    if(t.type!=='expense') return false;
-    var d=parseDate(t.date); if(!d) return false;
-    return R.months.indexOf(MONTH_LABELS[d.m]+' '+d.y) >= 0;
-  });
-  var net = R.totalIncome - (R.totalCOS+R.totalOpex);
-
+  var c = R.cf || {}, net = c.net || 0;
   return meta +
     '<div class="pv-hero">'+
-      '<div class="pv-card"><div class="pv-card-lbl">Total Inflows</div><div class="pv-card-val pv-pos">'+fmt(R.totalIncome)+'</div></div>'+
-      '<div class="pv-card"><div class="pv-card-lbl">Total Outflows</div><div class="pv-card-val pv-neg">'+fmt(R.totalCOS+R.totalOpex)+'</div></div>'+
-      '<div class="pv-card"><div class="pv-card-lbl">Net Cash Position</div><div class="pv-card-val '+(net>=0?'pv-pos':'pv-neg')+'">'+fmt(Math.abs(net))+'</div></div>'+
+      '<div class="pv-card"><div class="pv-card-lbl">Money in</div><div class="pv-card-val pv-pos">'+fmt(c.in||0)+'</div></div>'+
+      '<div class="pv-card"><div class="pv-card-lbl">Money out</div><div class="pv-card-val pv-neg">'+fmt(c.out||0)+'</div></div>'+
+      '<div class="pv-card"><div class="pv-card-lbl">Net cash</div><div class="pv-card-val '+(net>=0?'pv-pos':'pv-neg')+'">'+(net<0?'−':'')+fmt(Math.abs(net))+'</div></div>'+
     '</div>'+
-    '<div class="pv-section"><h2>Cash Inflows</h2>'+
-    '<table class="pv-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amt">Amount</th></tr></thead><tbody>'+
-    (inflows.length ? inflows.map(function(t){
-      return '<tr><td style="color:#6B7280;font-size:12px">'+t.date+'</td><td>'+esc(t.desc)+'</td><td><span style="background:#DCFCE7;color:#16A34A;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600">'+esc(t.cat)+'</span></td><td class="amt pv-pos">'+fmt(t.amt)+'</td></tr>';
-    }).join('') : '<tr><td colspan="4" style="color:#9CA3AF;text-align:center">No income transactions for this period</td></tr>')+
-    '<tr class="total"><td colspan="3">TOTAL INFLOWS</td><td class="amt pv-pos">'+fmt(R.totalIncome)+'</td></tr>'+
-    '</tbody></table></div>'+
-    '<div class="pv-section"><h2>Cash Outflows</h2>'+
-    '<table class="pv-table"><thead><tr><th>Date</th><th>Description</th><th>Category</th><th class="amt">Amount</th></tr></thead><tbody>'+
-    (outflows.length ? outflows.map(function(t){
-      return '<tr><td style="color:#6B7280;font-size:12px">'+t.date+'</td><td>'+esc(t.desc)+'</td><td><span style="background:#FEE2E2;color:#DC2626;padding:2px 7px;border-radius:10px;font-size:11px;font-weight:600">'+esc(t.cat)+'</span></td><td class="amt pv-neg">'+fmt(t.amt)+'</td></tr>';
-    }).join('') : '<tr><td colspan="4" style="color:#9CA3AF;text-align:center">No expense transactions for this period</td></tr>')+
-    '<tr class="total-neg"><td colspan="3">TOTAL OUTFLOWS</td><td class="amt pv-neg">'+fmt(R.totalCOS+R.totalOpex)+'</td></tr>'+
-    '</tbody></table></div>'+
-    '<div class="pv-section"><h2>Net Position</h2>'+
-    '<table class="pv-table"><tbody>'+
-    '<tr class="'+(net>=0?'total':'total-neg')+'"><td>NET CASH FLOW</td><td class="amt '+(net>=0?'pv-pos':'pv-neg')+'">'+fmt(Math.abs(net))+'</td></tr>'+
-    '</tbody></table></div>';
+    '<div class="pv-section"><h2>Where the money came from and went</h2>'+_rptCfTable(R, true)+'</div>'+
+    _rptCfDetail(R, true)+
+    '<div class="pv-disclaimer">Money in and out of the bank, VAT included. Profit is on the Profit &amp; Loss statement: it counts only the interest part of loan repayments and spreads things bought over their life.</div>';
 }
 
 function buildPreviewTax(R, meta) {
-  var fy = getCurrentFY();
+  var fy = _rptTaxFY(), T = _rptTaxRows(fy, true), it = T.it;
+  var eff = (it.taxable > 0) ? Math.round((it.tax||0) / it.taxable * 100) : 0;
   return meta +
     '<div class="pv-hero">'+
-      '<div class="pv-card"><div class="pv-card-lbl">Taxable Income</div><div class="pv-card-val">'+IE_R(R.netProfitBT)+'</div></div>'+
-      '<div class="pv-card"><div class="pv-card-lbl">Tax Rate</div><div class="pv-card-val">'+R.taxRate+'%</div></div>'+
-      '<div class="pv-card"><div class="pv-card-lbl">Est. tax bill</div><div class="pv-card-val pv-neg">'+fmt(R.taxAmount)+'</div></div>'+
+      '<div class="pv-card"><div class="pv-card-lbl">Taxable income</div><div class="pv-card-val">'+IE_R(it.taxable||0)+'</div></div>'+
+      '<div class="pv-card"><div class="pv-card-lbl">Works out at</div><div class="pv-card-val">'+eff+'%</div></div>'+
+      '<div class="pv-card"><div class="pv-card-lbl">Income tax</div><div class="pv-card-val">'+fmt(it.tax||0)+'</div></div>'+
     '</div>'+
-    '<div class="pv-section"><h2>Income (Section 26)</h2>'+
-    '<table class="pv-table"><tbody>'+
-    '<tr><td>Agricultural income — gross</td><td class="amt">'+fmt(R.totalIncome)+'</td></tr>'+
-    '</tbody></table></div>'+
-    '<div class="pv-section"><h2>Allowable Deductions</h2>'+
-    '<table class="pv-table"><thead><tr><th>SARS Section</th><th>Description</th><th class="amt">Amount</th></tr></thead><tbody>'+
-    '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(a)</td><td>Seeds &amp; Planting</td><td class="amt">'+fmt(R.byCat['Seeds & Planting']||0)+'</td></tr>'+
-    '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(a)</td><td>Fertiliser</td><td class="amt">'+fmt(R.byCat['Fertiliser']||0)+'</td></tr>'+
-    '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(a)</td><td>Crop Protection</td><td class="amt">'+fmt(R.byCat['Crop Protection']||0)+'</td></tr>'+
-    '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(a)</td><td>Labour &amp; Wages</td><td class="amt">'+fmt(R.byCat['Labour & Wages']||0)+'</td></tr>'+
-    '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(a)</td><td>Fuel &amp; Oil</td><td class="amt">'+fmt(R.byCat['Fuel & Oil']||0)+'</td></tr>'+
-    '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S11(d)</td><td>Repairs &amp; Maintenance</td><td class="amt">'+fmt(R.byCat['Machinery & Repairs']||0)+'</td></tr>'+
-    '<tr><td style="font-size:12px;color:#7C3AED;font-weight:600">S12B</td><td>Agricultural capital allowances (est.)</td><td class="amt" style="color:#9CA3AF">—</td></tr>'+
-    '<tr class="total"><td colspan="2">TOTAL DEDUCTIONS</td><td class="amt">'+fmt(R.totalCOS+R.totalOpex)+'</td></tr>'+
-    '</tbody></table></div>'+
-    '<div class="pv-section"><h2>Tax Calculation</h2>'+
-    '<table class="pv-table"><tbody>'+
-    '<tr><td>Net taxable income</td><td class="amt">'+IE_R(R.netProfitBT)+'</td></tr>'+
-    '<tr><td>Applicable tax rate</td><td class="amt">'+R.taxRate+'%</td></tr>'+
-    '<tr class="total-neg"><td>ESTIMATED TAX BILL</td><td class="amt pv-neg">'+fmt(R.taxAmount)+'</td></tr>'+
-    '</tbody></table></div>'+
+    '<div class="pv-section"><h2>Income tax — '+getFYLabel(fy)+(fy===getCurrentFY()?' (year so far)':'')+'</h2>'+T.html+'</div>'+
+    T.detail+
     (FARM.vat ?
-    '<div class="pv-section"><h2>VAT 201 Summary</h2>'+
+    '<div class="pv-section"><h2>VAT for '+getPeriodLabel()+'</h2>'+
     '<table class="pv-table"><tbody>'+
-    '<tr><td>Output VAT (on sales)</td><td class="amt">'+fmt(R.vatOut)+'</td></tr>'+
-    '<tr><td>Input VAT (on purchases)</td><td class="amt">'+fmt(R.vatIn)+'</td></tr>'+
-    '<tr class="'+(R.vatPayable>=0?'total-neg':'total')+'"><td>VAT PAYABLE TO SARS</td><td class="amt '+(R.vatPayable>=0?'pv-neg':'pv-pos')+'">'+fmt(Math.abs(R.vatPayable))+'</td></tr>'+
-    '</tbody></table>'+
-    '<div style="margin-top:8px;font-size:12px;color:#6B7280">Submit VAT 201 via SARS eFiling. Due: last business day of month after period.</div>'+
-    '</div>' : '')+
-    '<div class="pv-disclaimer">This tax summary is an estimate only. Section 12B capital allowances and wear &amp; tear require your accountant\'s input. FY '+fy+'/'+((fy+1).toString().slice(-2))+' — 1 March '+fy+' to 28 February '+(fy+1)+'.</div>';
+    '<tr><td>VAT on sales</td><td class="amt">'+fmt(R.vatOut)+'</td></tr>'+
+    '<tr><td>VAT on costs</td><td class="amt">'+fmt(R.vatIn)+'</td></tr>'+
+    '<tr class="total"><td>'+(R.vatPayable>=0?'VAT to pay SARS':'VAT SARS pays you')+'</td><td class="amt'+(R.vatPayable>=0?'':' pv-pos')+'">'+fmt(Math.abs(R.vatPayable))+'</td></tr>'+
+    '</tbody></table><div style="font-size:12px;color:#6B7280;margin-top:8px">Submit the VAT 201 on SARS eFiling by the last business day of the month after the period.</div></div>' : '')+
+    '<div class="pv-disclaimer">The same figures as the Tax page and the SARS IT12 pre-fill — income without VAT, the costs SARS allows, and your wear-and-tear and capital allowances. An estimate to plan with; confirm with your accountant.</div>';
 }
 
 var IE_VATT = _fcPick('vat');
@@ -64591,7 +64675,9 @@ function computeAIInsights(){
   var curOut = cur.filter(function(t){return t.type==='expense'}).reduce(function(s,t){return s+t.amt;},0);
   var prvIn  = prv.filter(function(t){return t.type==='income' }).reduce(function(s,t){return s+t.amt;},0);
   var prvOut = prv.filter(function(t){return t.type==='expense'}).reduce(function(s,t){return s+t.amt;},0);
-  var curProfit = curIn - curOut, prvProfit = prvIn - prvOut;
+  /* -460: "profit" is the Profit page's profit for the month (it was money in less money out). */
+  var _mp=function(k){ try{ var p=b5ProfitPeriod({months:[k]}); return p?Math.round(p.profit):0; }catch(e){ return 0; } };
+  var curProfit = _mp(cm), prvProfit = _mp(pm);
 
   // 1. Profit MoM change
   var profitChg = pctChange(curProfit, prvProfit);
@@ -64809,7 +64895,8 @@ function computeNotifications(){
   var prvOut = prv.filter(function(t){return t.type==='expense'}).reduce(function(s,t){return s+t.amt;},0);
 
   // Profit MoM
-  var pNow = curIn - curOut, pPrv = prvIn - prvOut;
+  var pNow = (function(){ try{ var p=b5ProfitPeriod({months:[cm]}); return p?Math.round(p.profit):0; }catch(e){ return 0; } })();   /* -460: the Profit page's profit */
+  var pPrv = (function(){ try{ var p=b5ProfitPeriod({months:[pm]}); return p?Math.round(p.profit):0; }catch(e){ return 0; } })();
   if(pPrv > 0 && pNow > pPrv){
     var c = pctChange(pNow, pPrv);
     if(c >= 10){
@@ -65595,36 +65682,30 @@ function accCsvTransactions(){
 }
 
 function accCsvPL(){
-  var cm = getCurrentMonthKey();
-  // Year-to-date P&L by category
-  var fyStart = (ST && ST.fyStartMonth) ? ST.fyStartMonth - 1 : 2;
-  var curParts = cm.split(' '); var curM = MONTHS_SHORT.indexOf(curParts[0]); var curY = parseInt(curParts[1],10);
-  // figure FY year (March-Feb): fyYear is curY if curM>=fyStart else curY-1
-  var fyYear = (curM >= fyStart) ? curY : curY - 1;
-  var byIncome = {}, byExpense = {};
-  var arr = getTxArr();
-  for(var i=0; i<arr.length; i++){
-    var d = parseTxDate(arr[i].date); if(!d) continue;
-    var inFy = (d.y === fyYear && d.m >= fyStart) || (d.y === fyYear+1 && d.m < fyStart);
-    if(!inFy) continue;
-    if(arr[i].type !== 'income' && arr[i].type !== 'expense') continue;
-    var bucket = arr[i].type === 'income' ? byIncome : byExpense;
-    var c = arr[i].cat || 'Other';
-    bucket[c] = (bucket[c] || 0) + Number(arr[i].amt || 0);
-  }
-  var rows = [];
-  rows.push(['INCOME','','']);
-  var inT = 0;
-  Object.keys(byIncome).sort().forEach(function(k){ rows.push(['', k, byIncome[k]]); inT += byIncome[k]; });
-  rows.push(['', 'Total Income', inT]);
+  /* -460: the accountant's P&L is the engine's profit for the financial year so far - income
+     without VAT, running costs, loan interest, the write-off. It took every payment off
+     (capital repaid, things bought, drawings, tax) and counted income with VAT. */
+  var fy = getCurrentFY(), p = b5Profit(fy, {toYm:b5TodayYm()});
+  var rows = [], cell = function(n){ return Math.round(n*100)/100; };
+  rows.push(['INCOME (without VAT)','','']);
+  Object.keys(p.byIncLbl||{}).sort().forEach(function(k){ rows.push(['', k, cell(p.byIncLbl[k])]); });
+  if(p.gain>0) rows.push(['', 'Gain on things sold', cell(p.gain)]);
+  rows.push(['', 'Total income', cell(p.income+Math.max(0,p.gain))]);
   rows.push(['','','']);
-  rows.push(['EXPENSES','','']);
-  var exT = 0;
-  Object.keys(byExpense).sort().forEach(function(k){ rows.push(['', k, byExpense[k]]); exT += byExpense[k]; });
-  rows.push(['', 'Total Expenses', exT]);
+  rows.push(['COSTS','','']);
+  Object.keys(p.byCatLbl||{}).sort().forEach(function(k){ rows.push(['', k, cell(p.byCatLbl[k])]); });
+  rows.push(['', 'Loan interest', cell(p.interest)]);
+  rows.push(['', 'Write-off on what you own', cell(p.depr)]);
+  rows.push(['', 'Total costs', cell(p.running+p.interest+p.depr)]);
   rows.push(['','','']);
-  rows.push(['', 'NET PROFIT', inT - exT]);
-  return toCSV(['Section','Line item','Amount (ZAR)'], rows);
+  rows.push(['', 'NET PROFIT (before tax)', cell(p.profit)]);
+  rows.push(['','','']);
+  rows.push(['NOT COSTS (on the cash flow)','','']);
+  rows.push(['', 'Loan capital repaid', cell(p.loanCapital)]);
+  rows.push(['', 'Things bought to keep (on the asset register)', cell(p.capitalLinked)]);
+  rows.push(['', 'Tax paid', cell(p.tax)]);
+  rows.push(['', 'Drawings and other money out', cell(p.nonopOut)]);
+  return toCSV(['Section','Line item','Amount (ZAR) · '+getFYLabel(fy)+' to date'], rows);
 }
 
 function accCsvAssets(){
@@ -74320,23 +74401,20 @@ function _lsRegCertsCard(){
         trail:(af?'‹ Terug na verslae':'‹ Back to reports'), show:(af?'Wys lenings':'Showing loans')};
       return base;
     }
-    if(cap>0){
-      base.verdict={tone:'info',
-        head: isNow ? (af?'Hoekom Geldvloei '+fmt(cap)+' minder wys':'Why Money Flow shows '+fmt(cap)+' less')
-                    : (af?'Hoekom jy '+fmt(cap)+' minder gehou het':'Why you kept '+fmt(cap)+' less than this'),
-        text: af ? (' Jy het '+fmt(cap)+' van jou lening hierdie tydperk terugbetaal. Daardie geld het die bank verlaat, maar SARS tel die terugbetaling van ’n lening nie as ’n koste nie — so dit word nie van hierdie wins afgetrek nie.')
-                 : (' You paid back '+fmt(cap)+' of your loan this period. That money left the bank, but SARS does not count paying back a loan as a cost — so it is not taken off this profit.')};
-      base.breakdown={title:(af?'Hierdie wins en wat jy gehou het':'This profit and what you kept'),
-        rows:[{nm:(af?'Hierdie wins':'This profit'), amt:fmt(R.netProfitBT), pct:100},
-              {nm:(af?'− Lening terugbetaal':'− Loan paid back'), amt:'−'+fmt(cap), pct:pc(cap,R.netProfitBT), neg:true, cls:'gold'}],
-        tot:{nm:(isNow?(af?'Wat Geldvloei wys':'What Money Flow shows'):(af?'Geld wat jy gehou het':'Money you kept')), amt:fmt(kept)}};
-    } else {
-      base.verdict={tone:'info', head:(af?'Wat SARS belas':'What SARS taxes'),
-        text:(af?' Jou inkomste vir '+(lbl||'die tydperk')+' min die koste wat SARS jou laat aftrek. Geen lening is hierdie tydperk terugbetaal nie, so dit is ook die geld wat jy gehou het.'
-                :' Your income for '+(lbl||'the period')+' less the costs SARS lets you take off. No loan capital was paid back this period, so this is also the money you kept.')};
-    }
-    base.jump={label:(af?'Maak Geldvloei oop':'Open Money Flow'), tone:'', go:function(){ nav('cashflow'); },
-      back:function(){ nav('reports'); kpiOpen('rptProfitBT'); }, trail:(af?'‹ Terug na verslae':'‹ Back to reports'), show:(af?'Wys Geldvloei':'Showing Money Flow')};
+    /* -460: how this profit is made - the same rules as the Profit page. It explained the
+       difference to "money you kept", which was cash, not profit. */
+    base.verdict={tone:'info', head:(af?'Dieselfde wins as jou Winsblad':'The same profit as your Profit page'),
+      text:(af?' Inkomste sonder BTW, min lopende koste, die rente op lenings en die afskrywing. Lening-kapitaal terugbetaal, goed gekoop en onttrekkings is nie koste nie.'
+              :' Income without VAT, less running costs, the interest on loans and the write-off on what you own. Loan capital paid back, things bought and drawings are not costs.')};
+    var _top=Math.max(1,R.totalIncome);
+    base.breakdown={title:(af?'Hoe die wins gemaak is':'How the profit is made'),
+      rows:[{nm:(af?'Inkomste (sonder BTW)':'Income (without VAT)'), amt:fmt(R.totalIncome), pct:100},
+            {nm:(af?'− Lopende koste':'− Running costs'), amt:'−'+fmt(R.running||0), pct:pc(R.running||0,_top), neg:true},
+            {nm:(af?'− Rente op lenings':'− Loan interest'), amt:'−'+fmt(R.interest||0), pct:pc(R.interest||0,_top), neg:true},
+            {nm:(af?'− Afskrywing':'− Write-off on what you own'), amt:'−'+fmt(R.depr||0), pct:pc(R.depr||0,_top), neg:true}],
+      tot:{nm:(af?'Wins voor belasting':'Profit before tax'), amt:fmt(R.netProfitBT)}};
+    base.jump={label:(af?'Maak die Winsblad oop':'Open the Profit page'), tone:'', go:function(){ nav('profit'); },
+      back:function(){ nav('reports'); kpiOpen('rptProfitBT'); }, trail:(af?'‹ Terug na verslae':'‹ Back to reports'), show:(af?'Wys wins':'Showing Profit')};
     return base;
   };
   REG.pfBestEarner=function(){
