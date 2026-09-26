@@ -57481,8 +57481,6 @@ function taxGlanceHTML(){
        month"; a bill paid for a month with nothing else due (so the headline has moved on) is
        named, or the farmer loses sight of the payment they just recorded. */
     var paidUp=items.filter(function(it){ return it.paid && it.d>=new Date(now.getFullYear(),now.getMonth(),now.getDate()); });
-    var mPaid=paidUp.filter(function(it){ return f1 && same(it.d,f1.d); }).reduce(function(a,it){ return a+(+it.paid.amt||0); },0);
-    var oPaid=paidUp.filter(function(it){ return !(f1 && same(it.d,f1.d)); });
     var sh=!!(f1 && cash!=null && cash<mTot), sn=!!(f1 && (_days(f1.d)<=7 || sh));
     var ico=sn?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>'
               :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
@@ -57490,20 +57488,16 @@ function taxGlanceHTML(){
     if(f1){
       o+='<div class="txh-chip">'+ico+(sh?'Cash in hand won’t cover it':(sn?'Due '+_when(f1.d):'Next payment '+_when(f1.d)))+'</div>'+
          '<div class="txh-head">Due to SARS in '+MF[f1.d.getMonth()]+': <b>'+fmt(mTot)+'</b></div>';
-      var ps=mIt.slice().sort(function(x,y){ return y.amt-x.amt; }).map(function(it){ return _nm[it.code]+' '+fmt(it.amt)+' on '+_shortDate(it.d); });
+      /* -459: one short line under the headline - what and when, and whether cash covers it. The
+         amounts and the provisional set-aside are on the tiles; saying them twice was the wall of text. */
+      var ps=mIt.slice().sort(function(x,y){ return y.amt-x.amt; }).map(function(it){ return _nm[it.code]+' on '+_shortDate(it.d); });
       var s1=ps.length>1?ps.slice(0,-1).join(', ')+' and '+ps[ps.length-1]:ps[0];
       s1=s1.charAt(0)+s1.slice(1).replace('Worker tax','worker tax').replace('Provisional tax','provisional tax');
-      o+='<div class="txh-sub">'+s1+'. '+(cash==null?'':(sh?'Cash in hand is <b>'+(cash<0?'−':'')+fmt(Math.abs(cash))+'</b>, so you’re <b>'+fmt(mTot-cash)+'</b> short.':'Your cash in hand covers it.'))+'</div>';
+      o+='<div class="txh-sub">'+s1+(cash==null?'':' \u00b7 '+(sh?'cash in hand is <b>'+fmt(mTot-cash)+'</b> short':'your cash covers it'))+'</div>';
     } else {
-      o+='<div class="txh-chip">'+ico+'Nothing to pay right now</div><div class="txh-head">Nothing due to SARS on what you’ve recorded</div>';
+      o+='<div class="txh-chip">'+ico+'Nothing to pay right now</div><div class="txh-head">Nothing due to SARS on what you\u2019ve recorded</div>';
     }
-    if(mPaid>0) o+='<div class="txh-sub"><span class="txh-ok">✓ Already paid this month: '+fmt(mPaid)+'</span></div>';
-    if(oPaid.length) o+='<div class="txh-sub"><span class="txh-ok">\u2713 Already paid: '+oPaid.map(function(it){ return _nm[it.code]+' '+fmt(+it.paid.amt)+' (due '+_shortDate(it.d)+')'; }).join(', ')+'</span></div>';
-    if(f1){
-      var ip=items.filter(function(it){ return it.code==='IRP6'; })[0];
-      if(ip && ip.pay && mIt.indexOf(ip)<0) o+='<div class="txh-sub">After that: provisional tax <b>'+fmt(ip.amt)+'</b> on '+_shortDate(ip.d)+'. Set aside <b>'+fmt(prov.setAsideMonthly)+' a month</b> until then.</div>';
-      else if(ip && ip.nil) o+='<div class="txh-sub">No provisional tax to pay on this estimate. You still file your IRP6 by '+_shortDate(ip.d)+'.</div>';
-    }
+    if(paidUp.length) o+='<div class="txh-sub"><span class="txh-ok">\u2713 Already paid: '+paidUp.map(function(it){ return _nm[it.code]+' '+fmt(+it.paid.amt); }).join(', ')+'</span></div>';
     o+='</div><button class="txh-btn" onclick="taxAccountantPack()">Share with your accountant</button></div>';
     /* the tiles: the next three dates, paid ones included until their date passes */
     var up=items.filter(function(it){ return it.d>=new Date(now.getFullYear(),now.getMonth(),now.getDate()); }).slice(0,3);
@@ -57514,7 +57508,7 @@ function taxGlanceHTML(){
         '<div class="t2-tp">'+pill(it)+'<span class="t2-cv">›</span></div>'+
         '<div class="t2-nm">'+_nm[it.code]+'</div><div class="t2-sb">'+sub(it)+'</div>'+
         '<div class="t2-am">'+(it.paid?fmt(+it.paid.amt):(it.nil?'R0':(it.refund?'+':'')+fmt(Math.abs(it.amt))))+'</div>'+
-        '<div class="t2-ft">'+'Due '+_shortDate(it.d)+'</div></button>'; }).join('')+'</div>';
+        '<div class="t2-ft">'+'Due '+_shortDate(it.d)+(it.code==='IRP6' && it.pay && !(f1 && same(it.d,f1.d)) ? ' \u00b7 put aside '+fmt(prov.setAsideMonthly)+' a month' : '')+'</div></button>'; }).join('')+'</div>';
     /* every other date to the year end */
     var fyEnd=(prov.dts&&prov.dts[1])?new Date(prov.dts[1].d.getFullYear(),prov.dts[1].d.getMonth()+1,0):new Date(now.getFullYear()+1,1,28);
     var all=[]; items.forEach(function(it,ix){ all.push({d:it.d,nm:_nm[it.code],code:it.code,sb:sub(it),amt:it.nil?0:it.amt,it:it,ix:ix}); });
@@ -57601,12 +57595,15 @@ function taxGlanceHTML(){
       '</div><div class="f"><a onclick="taxTab(\'whatif\')">What if profit changes?</a></div></div>';
   }
   if(vat){
-    var prev=trend.slice(0,-1).reverse().map(function(t){ return t.label.replace(/ \d{4}$/,'')+' '+(t.net<0?'refund +'+fmt(-t.net):fmt(t.net)); }).join(' · ');
+    /* -459: last period as one row, lined up with the others - the "Before:" line wrapped mid-figure. */
+    var _lq=trend.length>1?trend[trend.length-2]:null;
+    var prevRow=_lq?'<div class="r"><span>Last period ('+_lq.label.replace(/ \d{4}$/,'')+')</span><b'+(_lq.net<0?' class="in"':'')+'>'+(_lq.net<0?fmt(-_lq.net)+' back':fmt(_lq.net)+' paid')+'</b></div>':'';
     h+='<div class="txh-c"><div class="l">'+_ic('vat')+'VAT · '+_vp(vat)+'</div><div class="v'+(vat.owe<0?' in':'')+'">'+fmt(Math.abs(vat.owe))+'</div><div class="u">'+(vat.owe>=0?'to pay SARS':'SARS pays you')+' by '+_shortDate(new Date(vat.to.getFullYear(),vat.to.getMonth()+1,25))+' · period still open</div><div class="rows">'+
       '<div class="r"><span>VAT on your sales</span><b>'+fmt(vat.out)+'</b></div>'+
-      '<div class="r"><span>VAT on your costs</span><b>−'+fmt(vat.inp)+'</b></div>'+
+      '<div class="r"><span>VAT on your costs</span><b>'+(vat.inp>0?'−':'')+fmt(vat.inp)+'</b></div>'+
       (diesel>0?'<div class="r"><span>Diesel refund to claim</span><b class="in">'+aiDieselMoney(_dd.claimable)+'</b></div>':'')+
-      '</div><div class="f">'+(prev?'Before: '+prev+'<br>':'')+'<a onclick="nav(\'settings\')">VAT settings</a></div></div>';
+      prevRow+
+      '</div><div class="f"><a onclick="nav(\'settings\')">VAT settings</a></div></div>';
   } else {
     var vatThr=(STATUTORY.vatThreshold&&STATUTORY.vatThreshold.value)||1000000, inc=ytd?ytd.income:0;
     h+='<div class="txh-c"><div class="l">'+_ic('vat')+'VAT</div><div class="v q">Not registered</div><div class="u">'+(inc>=vatThr?'<span class="txh-warn">Income this year is over R1m — registration is usually compulsory. Check with your accountant.</span>':'no VAT to pay or claim')+'</div><div class="rows">'+
