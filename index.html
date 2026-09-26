@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=72"></script>
-<script src="ai-auth.js?v=50"></script>
+<script src="ai-data.js?v=73"></script>
+<script src="ai-auth.js?v=51"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -19233,6 +19233,7 @@ function setExpPeriod(p) {
 // that via its switch statement.
 // ============================================================
 function dataChanged(event) {
+  try { if (typeof taxPlanQueue === 'function') taxPlanQueue(); } catch (e) {}   /* -463: the phone's tax figures */
   // Backend sync: all budget edits funnel through dataChanged('budget')
   if (event === 'budget') {
     try { if (window.AI && AI.farm && AI.farm.active()) { AI.budget.save(ST.budgets).catch(function(e){ console.error('Backend budget save failed:', e); }); } } catch (e) {}
@@ -57533,6 +57534,79 @@ function taxSetPaid(key, rec){
   try{ if(typeof saveState==='function') saveState(); }catch(e){}
   try{ if(typeof renderTax==='function') renderTax(); }catch(e){}
 }
+/* -463: every date SARS is owed something, in date order - built once, for the Tax home and for
+   the snapshot the phone reads (farms.tax_plan). A payment is PAID when it is marked here
+   (ST.taxPaid, -457) OR marked on the phone (a FILING document, doc_type FILING, whose snapshot
+   key names the same tax: "emp201:2026-10-07"). The two are matched by the tax and the MONTH it
+   is due, not the exact day - the phone and this page move weekend dates by their own rules,
+   and a one-day difference must not leave a paid bill showing as due on one of them. */
+function _taxVpLbl(v){ var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return M[v.from.getMonth()]+'–'+M[v.to.getMonth()]; }
+function _taxIso(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+function taxPhonePaid(code, d){
+  var ym=_taxIso(d).slice(0,7), want=String(code).toLowerCase(), hit=null;
+  ((typeof ST!=='undefined' && ST.docs)||[]).forEach(function(doc){
+    /* ai-data docFromDb: type, snap, lid, date (the row's doc_type, snapshot, local_id, doc_date). */
+    if(!doc || String(doc.type||doc.doc_type||'')!=='FILING' || doc.status==='void') return;
+    var sn=doc.snap||doc.snapshot; if(typeof sn==='string'){ try{ sn=JSON.parse(sn); }catch(e){ sn=null; } }
+    var k=String((sn&&sn.key)||doc.lid||doc.local_id||'').replace(/^FILING:/,'');
+    var m=/^([a-z0-9]+):(\d{4}-\d{2})/i.exec(k); if(!m) return;
+    if(m[1].toLowerCase()!==want || m[2]!==ym) return;
+    hit={ amt:(sn && sn.amt!=null) ? +sn.amt : null, date:String((sn&&sn.filedOn)||doc.date||doc.doc_date||'').slice(0,10) };
+  });
+  return hit;
+}
+function taxDueItems(prov, vat, wk, pay, now){
+  var items=[];
+  if(vat){ var vd=new Date(vat.to.getFullYear(),vat.to.getMonth()+1,25);
+    items.push({d:vd, what:(vat.owe>=0?'VAT for '+_taxVpLbl(vat):'VAT refund for '+_taxVpLbl(vat)), code:'VAT201', amt:vat.owe, pay:vat.owe>0, refund:vat.owe<0}); }
+  if(wk && pay.total>0){ var ed=new Date(now.getFullYear(),now.getMonth(),7); if(ed<=now) ed=new Date(now.getFullYear(),now.getMonth()+1,7);
+    var _wp={paye:Math.round(pay.paye/12), uif:Math.round(pay.uif/12), sdl:Math.round(pay.sdl/12)};
+    items.push({d:ed, what:'Worker tax', code:'EMP201', amt:_wp.paye+_wp.uif+_wp.sdl, parts:_wp, pay:true, note:'every month'}); }
+  if(prov.next && prov.next.d){
+    items.push({d:prov.next.d, what:'Provisional tax · '+prov.next.per+' payment', code:'IRP6', amt:(prov.ok?prov.next.amt:0), pay:!!(prov.ok&&prov.next.amt>0), nil:!(prov.ok&&prov.next.amt>0)}); }
+  items.sort(function(x,y){ return x.d-y.d; });
+  var PAID=(typeof ST!=='undefined' && ST.taxPaid && typeof ST.taxPaid==='object')?ST.taxPaid:{};   /* -457: marked paid, saved with the farm */
+  items.forEach(function(it){ it.key=it.code+':'+_taxIso(it.d); var pr=PAID[it.key], src='here';
+    if(!pr){ var ph=taxPhonePaid(it.code, it.d); if(ph){ pr={amt:(ph.amt!=null?ph.amt:Math.abs(it.amt)), date:ph.date}; src='phone'; } }
+    it.paid=pr?{amt:+pr.amt||0, date:pr.date||'', label:(pr.date?_shortDate(new Date(pr.date+'T00:00:00')):''), src:src}:null; if(it.paid) it.pay=false; });
+  return items;
+}
+/* -463: what the phone shows about tax (signed off 26 Sep: "What you owe SARS"). The phone never
+   works tax out - it has none of the engine - so this page writes its answer down, dated, in
+   farms.tax_plan, and the phone shows that. Written a few seconds after anything changes, only
+   once the farm has loaded from the cloud (never the demo's figures, never a guest), and only
+   when the figures actually moved. */
+function taxPlanSnapshot(){
+  var prov=taxProvEstimate(), vat=taxVatPosition(), wk=taxWorkerSnapshot(), pay=taxPayrollAnnual(), now=_txNow();
+  var items=taxDueItems(prov, vat, wk, pay, now).filter(function(it){ return it.d>=new Date(now.getFullYear(),now.getMonth(),now.getDate()); }).slice(0,3);
+  var p1=prov.dts&&prov.dts[0], dd=null; try{ dd=_dslC(); }catch(e){ dd=null; }
+  var MF=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  return { v:1, fy:(typeof getCurrentFY==='function')?getCurrentFY():null,
+    items: items.map(function(it){
+      var o={ code:it.code, due:_taxIso(it.d), amt:Math.round(Math.abs(it.amt)||0), nil:!!it.nil, refund:!!it.refund };
+      if(it.code==='EMP201'){ var pm=new Date(it.d.getFullYear(),it.d.getMonth()-1,1); o.parts=it.parts; o.period=MF[pm.getMonth()]; }
+      if(it.code==='VAT201' && vat){ o.period=_taxVpLbl(vat); o.out=Math.round(vat.out||0); o.inp=Math.round(vat.inp||0); o.openTo=_taxIso(vat.to); if(dd && dd.claimable>0) o.diesel=Math.round(dd.claimable); }
+      if(it.code==='IRP6'){ o.per=prov.next?prov.next.per:''; o.annual=Math.round(prov.annualTax||0); o.monthly=Math.round(prov.setAsideMonthly||0); o.months=prov.monthsToNext||0;
+        if(p1 && o.per==='2nd'){ o.p1={ due:_taxIso(p1.d), paid:(p1.paid!=null?Math.round(p1.paid):null), assumed:Math.round(p1.assumed||0) }; } }
+      if(it.paid) o.paid={ amt:Math.round(it.paid.amt||0), date:it.paid.date, src:it.paid.src };
+      return o; }) };
+}
+var _taxPlanLast=null, _taxPlanT=null;
+function taxPlanQueue(){
+  if(_taxPlanT) clearTimeout(_taxPlanT);
+  _taxPlanT=setTimeout(function(){
+    _taxPlanT=null;
+    try{
+      if(window.__AI_GUEST || !window.__AI_HYDRATED_AT) return;
+      if(!(window.AI && AI.taxPlan && AI.farm && AI.farm.active())) return;
+      var snap=taxPlanSnapshot(), key=JSON.stringify(snap);
+      if(key===_taxPlanLast) return;
+      snap.at=new Date().toISOString();
+      AI.taxPlan.save(snap).then(function(ok){ if(ok) _taxPlanLast=key; }).catch(function(e){ console.warn('tax plan not saved', e); });
+    }catch(e){ console.warn('tax plan', e); }
+  }, 6000);
+}
+
 function taxGlanceHTML(){
   /* -455: the Tax home, rebuilt from the research (FreeAgent's tax timeline, Countingup/Starling
      set-aside, GOV.UK status wording). One answer first - what SARS gets next, when, and whether
@@ -57635,20 +57709,9 @@ function taxGlanceHTML(){
     TAX_TXH={items:items, vat:vat, prov:prov, pay:pay, dd:_dd, fy:_fyNow, cash:cash, sub:sub};
     return o;
   };
-  /* ---- Every date SARS is owed something, in date order ---- */
-  var items=[];
-  if(vat){ var vd=new Date(vat.to.getFullYear(),vat.to.getMonth()+1,25);
-    items.push({d:vd, what:(vat.owe>=0?'VAT for '+_vp(vat):'VAT refund for '+_vp(vat)), code:'VAT201', amt:vat.owe, pay:vat.owe>0, refund:vat.owe<0}); }
-  if(wk && pay.total>0){ var ed=new Date(now.getFullYear(),now.getMonth(),7); if(ed<=now) ed=new Date(now.getFullYear(),now.getMonth()+1,7);
-    var _wp={paye:Math.round(pay.paye/12), uif:Math.round(pay.uif/12), sdl:Math.round(pay.sdl/12)};
-    items.push({d:ed, what:'Worker tax', code:'EMP201', amt:_wp.paye+_wp.uif+_wp.sdl, parts:_wp, pay:true, note:'every month'}); }
-  if(prov.next && prov.next.d){
-    items.push({d:prov.next.d, what:'Provisional tax · '+prov.next.per+' payment', code:'IRP6', amt:(prov.ok?prov.next.amt:0), pay:!!(prov.ok&&prov.next.amt>0), nil:!(prov.ok&&prov.next.amt>0)}); }
-  items.sort(function(x,y){ return x.d-y.d; });
-  var PAID=(ST.taxPaid&&typeof ST.taxPaid==='object')?ST.taxPaid:{};   /* -457: marked paid, saved with the farm */
-  var _iso=function(d){ return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); };
-  items.forEach(function(it){ it.key=it.code+':'+_iso(it.d); var pr=PAID[it.key];
-    it.paid=pr?{amt:+pr.amt||0, date:pr.date||'', label:(pr.date?_shortDate(new Date(pr.date+'T00:00:00')):'')}:null; if(it.paid) it.pay=false; });
+  /* ---- Every date SARS is owed something, in date order (-463: one builder, shared with the
+     phone's snapshot, so the phone and this page can never list different payments) ---- */
+  var items=taxDueItems(prov, vat, wk, pay, now);
   var cash=null; try{ cash=b5CashForecast(12).start.bal; }catch(e){ cash=null; }
   h+=_txhAnswerD();
   if(prov.ok && prov.tooNew) h+='<div style="font-size:12px;color:var(--t3);margin:-4px 2px 12px">Tax on what you have recorded so far — not a full-year figure yet. The full-year estimate appears once you have a month of trading behind you.</div>';
@@ -57942,7 +58005,10 @@ function taxGlanceHTML(){
 
     /* -457: mark it paid - the amount (filled in) and the date (today) - or undo a mark. */
     if(it.paid){
-      h = '<div class="td-note" style="margin-top:14px">\u2713 You marked this paid: <b>'+fmt(+it.paid.amt)+'</b>'+(it.paid.label?' on <b>'+it.paid.label+'</b>':'')+'. <span class="td-lk" role="button" tabindex="0" onclick="txhUnpay('+i+')">Undo</span></div>' + h;
+      /* -463: marked on the phone - its own record, so it is taken back there, not here. */
+      h = (it.paid.src==='phone'
+        ? '<div class="td-note" style="margin-top:14px">\u2713 Marked paid on the phone: <b>'+fmt(+it.paid.amt)+'</b>'+(it.paid.label?' on <b>'+it.paid.label+'</b>':'')+'. To take it back, undo it on the phone.</div>'
+        : '<div class="td-note" style="margin-top:14px">\u2713 You marked this paid: <b>'+fmt(+it.paid.amt)+'</b>'+(it.paid.label?' on <b>'+it.paid.label+'</b>':'')+'. <span class="td-lk" role="button" tabindex="0" onclick="txhUnpay('+i+')">Undo</span></div>') + h;
     } else if(!it.nil && !it.refund){
       if(mode === 'pay'){
         acts = '<button class="td-b1" onclick="txhSavePaid('+i+')">Save</button><button class="td-b2" onclick="txhOpen('+i+')">Cancel</button>';
@@ -58601,7 +58667,7 @@ function shareWhatsApp() {
     farm + ' | ' + period + nl + nl +
     '\uD83D\uDCB0 *Income:* R ' + Math.round(R.totalIncome).toLocaleString('en-ZA') + nl +
     '\uD83D\uDCC9 *Expenses:* R ' + Math.round(R.totalCOS + R.totalOpex).toLocaleString('en-ZA') + nl +
-    '\u2705 *Net Profit:* R ' + Math.round(R.netProfitAT).toLocaleString('en-ZA') + nl +
+    '\u2705 *Profit before tax:* R ' + Math.round(R.netProfitBT).toLocaleString('en-ZA') + nl +
     '\uD83D\uDCCA *Net Margin:* ' + R.netMargin + '%' + nl + nl +
     '*Top expense:* ' + topExpCat().cat + nl +
     vsLine + nl +
