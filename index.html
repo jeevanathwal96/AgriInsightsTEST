@@ -11183,8 +11183,13 @@ function loadState() {
     if (snap.FARM && typeof FARM !== 'undefined') {
       for (var k5 in snap.FARM) { if (Object.prototype.hasOwnProperty.call(snap.FARM,k5)) FARM[k5] = snap.FARM[k5]; }
     }
+    /* -465: remember HOW the farmer reads Reports (monthly, quarterly, yearly, or their own
+       range) but open on THIS period. Restoring the saved month brought back May 2024 - the old
+       default, saved into every browser - on every load. */
     if (snap.RPT_STATE && typeof RPT_STATE !== 'undefined') {
-      for (var k6 in snap.RPT_STATE) { if (Object.prototype.hasOwnProperty.call(snap.RPT_STATE,k6)) RPT_STATE[k6] = snap.RPT_STATE[k6]; }
+      var _rs = snap.RPT_STATE;
+      if (/^(monthly|quarterly|yearly|custom)$/.test(_rs.type || '')) RPT_STATE.type = _rs.type;
+      if (_rs.type === 'custom' && _rs.customFrom && _rs.customTo) { RPT_STATE.customFrom = _rs.customFrom; RPT_STATE.customTo = _rs.customTo; }
     }
     LAST_SAVED_AT = snap.savedAt;
     STATE_LOADED_FROM_DISK = true;
