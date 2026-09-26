@@ -16029,7 +16029,7 @@ function renderProfit(){
     '<div class="pf-flow" style="flex-wrap:wrap">'+_b5seg('pf-gm','Gross margins so far',_pfK(_b5pm.fyGm))+_b5op('+')+_b5seg('pf-gm','Income not linked',_pfK(_b5pm.untagged.income),'opacity:.85')+_b5op('\u2212')+
       _b5seg('pf-co','Shared costs',_pfK(_b5pm.untagged.cost))+_b5op('\u2212')+_b5seg('pf-co','Loan interest',_pfK(_b5pf.interest))+_b5op('\u2212')+_b5seg('pf-co','Write-off',_pfK(_b5pf.depr))+_b5op('=')+_b5seg('pf-pr','Profit so far',_pfK(_b5pf.profit))+'</div>'+
     '<div class="pf-sw" style="margin-top:12px"><b>Same profit everywhere:</b> this is the figure on your Dashboard, in Budgets and at the top of Tax &amp; SARS.</div>'+
-    '<div class="pf-cw" style="margin-top:10px;font-size:11.5px;line-height:1.55"><b>Timing:</b> this season\u2019s margins so far are <b>'+_pfK(_b5pm.seasonGm)+'</b>; <b>'+_pfK(Math.abs(_b5pm.timing))+'</b> of that '+(_b5pm.timing>=0?'falls in the next financial year':'fell in the last financial year')+', because the season ('+esc(seasonLabel(_b5pm.season))+') and your financial year ('+esc(fyLabel(_b5fy))+') don\u2019t start on the same day.</div>'+
+    '<div class="pf-cw" style="margin-top:10px;font-size:11.5px;line-height:1.55"><b>Timing:</b> this season\u2019s margins so far are <b>'+_pfK(_b5pm.seasonGm)+'</b> and this financial year\u2019s are <b>'+_pfK(_b5pm.fyGm)+'</b>. They differ by <b>'+_pfK(Math.abs(_b5pm.timing))+'</b> because the season ('+esc(seasonLabel(_b5pm.season))+') and your financial year ('+esc(fyLabel(_b5fy))+') cover different months.</div>'+
     '<div class="pf-cw" style="margin-top:8px;font-size:11px;line-height:1.5">Loan payments count as <b>interest only</b> \u2014 paying back what you borrowed isn\u2019t a cost. Machinery on your asset register is written off over its life instead of all at once. You still see every rand leave the bank in <b>Money Flow</b>.</div>'+
     ((typeof _pfTaggedLabourTotal==='function'&&_pfTaggedLabourTotal()>0)?'<div class="pf-cw" style="margin-top:10px;font-size:11px;line-height:1.5"><b data-t="pf.ls.lab1">Tagged labour</b> ('+_pfK(_pfTaggedLabourTotal())+'<span data-t="pf.ls.yr">/yr</span>) <span data-t="pf.sw.lab">is counted inside the crops and herds it\u2019s tagged to \u2014 already in their margins above and taken out of shared costs.</span></div>':'')+'</div>';
   var ins=[];
@@ -19474,8 +19474,11 @@ function renderSeasonKpis() {
     setEl('season-cash', (_b5.cash.start.bal < 0 ? '\u2212' : '') + fmt(Math.abs(_b5.cash.start.bal)));
     var _lo = _b5.cash.lowest, cSub = $('season-cash-sub');
     if (cSub) {
+      /* -453 (from UK -371): when today's balance is itself the low point, say so - the 12-month
+         low looks only at the months ahead, so it could read higher than the balance above it. */
       cSub.textContent = !_lo ? (_b5.cash.start.estimated ? 'Estimated from your records' : '')
-        : (_lo.balance < 0 ? 'Runs short in ' + _lo.label : 'Lowest ' + fmtK(_lo.balance) + ' in ' + _lo.label);
+        : (_lo.balance < 0 ? 'Runs short in ' + _lo.label
+          : (_b5.cash.start.bal <= _lo.balance ? 'The lowest point in the next 12 months' : 'Lowest ' + fmtK(_lo.balance) + ' in ' + _lo.label));
       cSub.className = 'skpi-sub' + (_lo && _lo.balance < 0 ? ' dn' : ' muted');
     }
   }
@@ -74137,7 +74140,7 @@ function _lsRegCertsCard(){
     var f=b5SeasonFigures(), c=f.cash, lo=c.lowest;
     return {
       label:'Cash in hand', value:fmt(c.start.bal), warn:!!(lo&&lo.balance<0), chip:c.start.estimated?'Estimated':'From your bank balance',
-      verdict: !lo?{tone:'info',head:'Cash in hand',text:'Add your bank balance on Money Flow to see the months ahead.'}:(lo.balance<0?{tone:'watch',head:'Cash runs short',text:'On your plan you go below zero by '+lo.label+'. Line up cover before then.'}:{tone:'good',head:'Cash stays positive',text:'The lowest point in the next 12 months is about '+fmt(lo.balance)+' in '+lo.label+'.'}),
+      verdict: !lo?{tone:'info',head:'Cash in hand',text:'Add your bank balance on Money Flow to see the months ahead.'}:(lo.balance<0?{tone:'watch',head:'Cash runs short',text:'On your plan you go below zero by '+lo.label+'. Line up cover before then.'}:{tone:'good',head:'Cash stays positive',text:(c.start.bal<=lo.balance?'Today is the lowest point in the next 12 months; your plan has it rising from here.':'The lowest point in the next 12 months is about '+fmt(lo.balance)+' in '+lo.label+'.')}),
       mean:c.start.estimated?'Worked out from your records. Type the balance from your bank statement on Money Flow and this becomes exact.':'Your bank balance, plus everything recorded since you typed it.',
       jump:{label:'Open the cash forecast', tone:'', go:function(){ nav('cashflow'); mfTab('forecast'); }, back:function(){ nav('dashboard'); kpiOpen('seasonCash'); }, trail:'\u2039 Back to dashboard', show:'Showing Money Flow'}
     };
