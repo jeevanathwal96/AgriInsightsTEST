@@ -57477,7 +57477,12 @@ function taxGlanceHTML(){
     var due=items.filter(function(it){ return it.pay; }), f1=due[0]||null;
     var same=function(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth(); };
     var mIt=f1?due.filter(function(it){ return same(it.d,f1.d); }):[], mTot=mIt.reduce(function(a,it){ return a+it.amt; },0);
-    var mPaid=f1?items.filter(function(it){ return it.paid && same(it.d,f1.d); }).reduce(function(a,it){ return a+(+it.paid.amt||0); },0):0;
+    /* -458 (UK -373): paid ahead of its date. In the headline's month it is "already paid this
+       month"; a bill paid for a month with nothing else due (so the headline has moved on) is
+       named, or the farmer loses sight of the payment they just recorded. */
+    var paidUp=items.filter(function(it){ return it.paid && it.d>=new Date(now.getFullYear(),now.getMonth(),now.getDate()); });
+    var mPaid=paidUp.filter(function(it){ return f1 && same(it.d,f1.d); }).reduce(function(a,it){ return a+(+it.paid.amt||0); },0);
+    var oPaid=paidUp.filter(function(it){ return !(f1 && same(it.d,f1.d)); });
     var sh=!!(f1 && cash!=null && cash<mTot), sn=!!(f1 && (_days(f1.d)<=7 || sh));
     var ico=sn?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>'
               :'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
@@ -57489,12 +57494,15 @@ function taxGlanceHTML(){
       var s1=ps.length>1?ps.slice(0,-1).join(', ')+' and '+ps[ps.length-1]:ps[0];
       s1=s1.charAt(0)+s1.slice(1).replace('Worker tax','worker tax').replace('Provisional tax','provisional tax');
       o+='<div class="txh-sub">'+s1+'. '+(cash==null?'':(sh?'Cash in hand is <b>'+(cash<0?'−':'')+fmt(Math.abs(cash))+'</b>, so you’re <b>'+fmt(mTot-cash)+'</b> short.':'Your cash in hand covers it.'))+'</div>';
-      if(mPaid>0) o+='<div class="txh-sub"><span class="txh-ok">✓ Already paid this month: '+fmt(mPaid)+'</span></div>';
+    } else {
+      o+='<div class="txh-chip">'+ico+'Nothing to pay right now</div><div class="txh-head">Nothing due to SARS on what you’ve recorded</div>';
+    }
+    if(mPaid>0) o+='<div class="txh-sub"><span class="txh-ok">✓ Already paid this month: '+fmt(mPaid)+'</span></div>';
+    if(oPaid.length) o+='<div class="txh-sub"><span class="txh-ok">\u2713 Already paid: '+oPaid.map(function(it){ return _nm[it.code]+' '+fmt(+it.paid.amt)+' (due '+_shortDate(it.d)+')'; }).join(', ')+'</span></div>';
+    if(f1){
       var ip=items.filter(function(it){ return it.code==='IRP6'; })[0];
       if(ip && ip.pay && mIt.indexOf(ip)<0) o+='<div class="txh-sub">After that: provisional tax <b>'+fmt(ip.amt)+'</b> on '+_shortDate(ip.d)+'. Set aside <b>'+fmt(prov.setAsideMonthly)+' a month</b> until then.</div>';
       else if(ip && ip.nil) o+='<div class="txh-sub">No provisional tax to pay on this estimate. You still file your IRP6 by '+_shortDate(ip.d)+'.</div>';
-    } else {
-      o+='<div class="txh-chip">'+ico+'Nothing to pay right now</div><div class="txh-head">Nothing due to SARS on what you’ve recorded</div>';
     }
     o+='</div><button class="txh-btn" onclick="taxAccountantPack()">Share with your accountant</button></div>';
     /* the tiles: the next three dates, paid ones included until their date passes */
