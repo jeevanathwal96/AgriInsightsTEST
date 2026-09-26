@@ -4758,6 +4758,8 @@ select.tx-fctl{padding-right:30px}
 .imp-prev-tbl td.r.out{color:var(--rd)}
 .imp-prev-tbl select{width:100%;padding:4px 6px;font-size:11.5px;border:1px solid var(--br);border-radius:6px;background:#fff;font-family:inherit}
 .imp-prev-tbl tr.imp-skip td{opacity:.42;text-decoration:line-through}
+.imp-prev-tbl tr.imp-phone-row td{padding-top:0;border-top:none}
+.imp-phone-note{display:block;font-size:12px;line-height:1.4;color:#8A5A0B;font-weight:600;padding:0 0 6px}
 .imp-prev-tbl input.imp-edit{width:100%;border:1px solid transparent;background:transparent;border-radius:6px;padding:5px 6px;font-family:inherit;font-size:12px;color:var(--t1);font-weight:500}
 .imp-prev-tbl input.imp-edit:hover{border-color:var(--br);background:#fff}
 .imp-prev-tbl input.imp-edit:focus{outline:none;border-color:var(--gl);background:#fff;box-shadow:0 0 0 3px rgba(64,145,108,.13)}
@@ -66884,11 +66886,54 @@ function bankLoadSample(){
   bankPasteChanged();
 }
 
+/* -460: a bank line the PHONE already put on the books. The import used to skip a line only
+   when date, amount AND wording all matched (impIsDuplicate), and a phone capture never does:
+   the farmer writes "Diesel · Engen" on Thursday, the bank says "ENGEN GARAGE KOMANI" on Friday,
+   and the money was counted twice. Same direction, same amount to the cent, the bank line from
+   one day before to five days after the phone entry (a card payment clears in a day or two, an
+   EFT or cheque later) - the closest one wins, and each phone entry pairs with one line only.
+   A phone entry that already has such a bank line beside it is taken (the farmer added both
+   once, on purpose). The line is LEFT OUT by default and says why; ticking it adds it anyway.
+   Signed off 26 Sep 2026 (capture-again x1). */
+function _bankDay(s){ var d=parseDate(String(s||'')); return (d && d.y>1900 && d.m>=0) ? Date.UTC(d.y,d.m,d.d) : null; }
+function _bankPhoneTaken(t){
+  var tp=_bankDay(t.date); if(tp==null) return false;
+  return (ST.txns||[]).some(function(x){
+    if(!x || x===t || x.source!=='Bank import' || x.type!==t.type || Math.abs((x.amt||0)-(t.amt||0))>=0.01) return false;
+    var d=_bankDay(x.date); if(d==null) return false; var diff=(d-tp)/864e5; return diff>=-1 && diff<=5;
+  });
+}
+function bankPhoneTwin(r, used){
+  var rd=_bankDay(r.date); if(rd==null || !(r.amt>0)) return null;
+  var best=null;
+  (ST.txns||[]).forEach(function(t){
+    if(!t || t.source!=='Phone' || t.type!==r.type || Math.abs((t.amt||0)-r.amt)>=0.01) return;
+    var k=String(t.cuid||t.id||''); if(k && used[k]) return;
+    var tp=_bankDay(t.date); if(tp==null) return;
+    var diff=(rd-tp)/864e5; if(diff<-1 || diff>5) return;
+    if(_bankPhoneTaken(t)) return;
+    if(!best || Math.abs(diff)<best.gap) best={t:t, gap:Math.abs(diff), key:k};
+  });
+  return best;
+}
+function bankMarkPhoneTwins(rows){
+  var used={};
+  rows.forEach(function(r){ if(r._phone && r._phone.key) used[r._phone.key]=1; });
+  rows.forEach(function(r){
+    if(r._phoneChk) return; r._phoneChk=1;
+    var tw=bankPhoneTwin(r, used); if(!tw) return;
+    if(tw.key) used[tw.key]=1;
+    r._phone={ key:tw.key, desc:tw.t.desc||'', date:tw.t.date };
+    r.include=false;
+  });
+}
+
 function bankRenderPreview(){
   BANK.allowAnyway = false; bankHideReadNote();
   try{ bankShowColMap(); }catch(e){}
   var tbody = document.getElementById('bank-imp-tbody');
   var rows = BANK.parsed;
+  try{ bankMarkPhoneTwins(rows); }catch(e){ console.error('phone twin check failed', e); }
   var cats = _fcSeq('bor');
   var hasBal = rows.some(function(r){ return r._bal!=null; });
   var thBal = document.getElementById('bank-imp-th-bal'); if(thBal) thBal.style.display = hasBal ? '' : 'none';
@@ -66912,7 +66957,9 @@ function bankRenderPreview(){
         '<input class="imp-num '+(inc?'in':'out')+'" inputmode="decimal" value="'+bankAmtGrouped(r.amt)+'" onfocus="bankAmtFocus('+i+',this)" oninput="bankSetAmt('+i+',this.value)" onblur="bankAmtBlur('+i+',this)"/>' +
       '</div></td>' +
       (hasBal ? '<td class="imp-bal"><input class="imp-edit imp-edit-bal" inputmode="decimal" value="'+bankEscAttr(r._bal!=null?bankAmtGrouped(r._bal):'')+'" oninput="bankSetBal('+i+',this.value)"/></td>' : '') +
-    '</tr>';
+    '</tr>' +
+    /* Its own line, so the reason stays readable while the row itself is greyed out. */
+    (r._phone ? '<tr class="imp-phone-row"><td></td><td colspan="'+(hasBal?6:5)+'"><span class="imp-phone-note">Already on the books from the phone: \u201c'+escTxHtml(r._phone.desc)+'\u201d, '+escTxHtml(txDispDate(r._phone.date))+'. Left out so it isn\u2019t counted twice \u2014 tick the line to add it anyway.</span></td></tr>' : '');
   }).join('');
   BANK._firstBad = null;
   bankRecompute();
