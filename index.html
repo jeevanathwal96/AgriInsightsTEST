@@ -7520,8 +7520,8 @@ table.rn-t td.dim{color:var(--t4)}
 
   <div class="metrics m4" style="margin-bottom:20px">
     <div class="mc"><div class="mc-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div><div class="mc-lbl" id="inc-lbl-in">Money In (This Month)</div><div class="mc-val g" id="inc-metric-in">R1 328 750</div><div class="mc-chg up" id="inc-chg-in">↑ 16% vs last month</div></div>
-    <div class="mc"><div class="mc-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div><div class="mc-lbl" id="inc-lbl-profit">Profit (This Month)</div><div class="mc-val g" id="inc-metric-profit">R285 430</div><div class="mc-chg up" id="inc-chg-profit">↑ 18% vs last month</div></div>
-    <div class="mc"><div class="mc-icon b"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg></div><div class="mc-lbl">Year-to-Date Income</div><div class="mc-val b" id="inc-metric-ytd">—</div><div class="mc-chg" id="inc-chg-ytd">↑ 22% vs last year</div></div>
+    <div class="mc"><div class="mc-icon g"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div><div class="mc-lbl" id="inc-lbl-profit">Profit (This Month)</div><div class="mc-val g" id="inc-metric-profit">—</div><div class="mc-chg" id="inc-chg-profit" style="color:var(--t3)">—</div></div>
+    <div class="mc"><div class="mc-icon b"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg></div><div class="mc-lbl">Year-to-Date Income</div><div class="mc-val b" id="inc-metric-ytd">—</div><div class="mc-chg" id="inc-chg-ytd">—</div></div>
     <div class="mc"><div class="mc-icon p"><svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></div><div class="mc-lbl">Best Month This Year</div><div class="mc-val p" id="inc-metric-best">—</div><div class="mc-chg" id="inc-chg-best" style="color:var(--t3)">—</div></div>
   </div>
   <div class="chart-sec">
@@ -8545,16 +8545,17 @@ table.rn-t td.dim{color:var(--t4)}
       <div class="mc-chg" id="ast-total-count">0 items</div>
     </div>
     <div class="mc">
-      <div class="mc-lbl">Tax value (after write-off)</div>
+      <div class="mc-lbl">Write-off this year</div>
       <div class="mc-val b" id="ast-book">—</div>
-      <div class="mc-chg" style="color:var(--t3)">SARS S12B</div>
+      <div class="mc-chg" style="color:var(--t3)">in your profit, as on the Profit page</div>
     </div>
     <div class="mc">
-      <div class="mc-lbl">Yearly tax write-off</div>
+      <div class="mc-lbl">Tax allowances this year</div>
       <div class="mc-val" id="ast-depr" style="color:var(--or)">—</div>
-      <div class="mc-chg" id="ast-depr-sub" style="color:var(--t3)">Tax deduction this FY</div>
+      <div class="mc-chg" id="ast-depr-sub" style="color:var(--t3)">on your SARS return</div>
     </div>
   </div>
+  <div id="ast-unreg" style="display:none;margin:-4px 0 16px"></div>
 
   <div class="tabs" style="margin-bottom:16px">
     <div class="tab on" id="ast-tab-register" onclick="astTab('register')">Register</div>
@@ -8586,12 +8587,14 @@ table.rn-t td.dim{color:var(--t4)}
         <!-- Widths are set explicitly: left to itself the browser gave Asset 40% and left
              the Edit/✕ pair 94px, which is narrower than the buttons plus their padding. -->
         <tr>
-          <th style="width:31%">Asset</th>
-          <th style="width:12%">Purchased</th>
-          <th class="r" style="width:14%">Purchase Price</th>
-          <th class="r" style="width:15%">Tax value</th>
-          <th class="r" style="width:16%">Write-off this yr</th>
-          <th style="width:11%"></th>
+          <th style="width:23%">Asset</th>
+          <th style="width:10%">Purchased</th>
+          <th class="r" style="width:11%">Price</th>
+          <th class="r" style="width:12%">Value in accounts</th>
+          <th class="r" style="width:11%">Write-off this yr</th>
+          <th class="r" style="width:12%">Tax value</th>
+          <th class="r" style="width:12%">Tax allowance this yr</th>
+          <th style="width:9%"></th>
         </tr>
       </thead>
       <tbody id="ast-tbody"></tbody>
@@ -18520,12 +18523,24 @@ setEl('inc-banner-val',    fmt(R.income));
       el.style.display=''; el.textContent=(pc>=0?'↑ ':'↓ ')+Math.abs(pc)+'% vs '+prevLbl; }
     else { el.style.display='none'; } })();
   setEl('inc-metric-in',     fmt(R.income));
-  setEl('inc-metric-profit', fmt(Math.abs(R.profit)));
   setEl('inc-chart-title',   'Income Overview — ' + lbl);
   ['1','3','6','12'].forEach(function(x){ var b=$('inc-pill-'+x); if(b) b.className='pill'+(p===x?' on':''); });
 
 setEl('inc-lbl-in',     'Money In (' + lbl + ')');
+  /* -466: Profit is the Profit page's profit for the same months - income without VAT, less
+     running costs, loan interest and the write-off. It was money in less money out (and on a
+     loss the minus sign was dropped). Tapping it opens the Profit page. */
   setEl('inc-lbl-profit', 'Profit (' + lbl + ')');
+  (function(){ var ms=_iePeriodMonths(n), pms=_iePeriodMonths(n*2).slice(0,n), P=null, Pp=null;
+    try{ P=b5ProfitPeriod({months:ms}); Pp=b5ProfitPeriod({months:pms}); }catch(e){}
+    var v=P?P.profit:0, el=$('inc-metric-profit');
+    if(el){ el.textContent=IE_R(v); el.className='mc-val '+(v>=0?'g':''); el.style.color=v>=0?'':'var(--rd)';
+      var card=el.closest?el.closest('.mc'):null; if(card){ card.style.cursor='pointer'; card.title='Open the Profit page'; card.onclick=function(){ nav('profit'); }; } }
+    var c=$('inc-chg-profit'); if(!c) return;
+    var pv=Pp?Pp.profit:0;
+    if(pv>0){ var pct=Math.round((v-pv)/Math.abs(pv)*100);
+      if(Math.abs(pct)<=200){ c.textContent=(pct>=0?'\u2191 ':'\u2193 ')+Math.abs(pct)+'% vs '+prevLbl; c.className='mc-chg '+(pct>=0?'up':'dn'); c.style.color=''; return; } }
+    c.textContent='as on the Profit page'; c.className='mc-chg'; c.style.color='var(--t3)'; })();
   /* No tag here: this card is 172px wide at 1024 and the Afrikaans label wraps to
      three lines unaided - a tag took it to six and dropped the figure 30px. The
      label already names the period; the Dashboard and Tax tags carry the basis. */
@@ -18544,12 +18559,12 @@ var prevInc  = Rp.income  - R.income;
   }
 
   setPctChg('inc-chg-in',     R.income, prevInc,  true);
-  setPctChg('inc-chg-profit', R.profit, prevProf, true);
 
   var ytdChgEl = $('inc-chg-ytd');
   if (ytdChgEl) {
     var ytd = ytdSummary();
-    ytdChgEl.textContent = 'Season total (Mar–Feb)';
+    /* -466: it said "Season total (Mar-Feb)" over a farm-year-so-far figure. */
+    ytdChgEl.textContent = 'Financial year so far';
     ytdChgEl.className = 'mc-chg';
     setEl('inc-metric-ytd', fmt(ytd.income));
   }
@@ -18562,6 +18577,13 @@ filterIncomeTx && filterIncomeTx();
   renderIncBySource && renderIncBySource();
   _ieRenderWorth && _ieRenderWorth('income');
   ieCompanion && ieCompanion('income');
+}
+/* -466: the month labels the 1M/3M/6M/12M picker window covers, ending this month. */
+function _iePeriodMonths(n){
+  var MN2={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11}, parts=(currentPeriodLabel()).split(' ');
+  var cm=MN2[parts[0]]!==undefined?MN2[parts[0]]:new Date().getMonth(), cy=parseInt(parts[1],10)||new Date().getFullYear(), out=[];
+  for(var i=(n||1)-1;i>=0;i--){ var k=cm-i, yr=cy+Math.floor(k/12), mo=((k%12)+12)%12; out.push(MONTH_LABELS[mo]+' '+yr); }
+  return out;
 }
 /* "Add your farm size" on the Expenses per Hectare card goes straight to the box. */
 function expAddFarmSize() {
@@ -18807,12 +18829,12 @@ function ieInsights(kind){
   var lyLabel=_ieShiftLabel(cur, -12), lyTotal=_ieTotal(lyLabel, type), haveLY=lyTotal>0;
   var curCats=_ieCats(cur, type);
 
-  // 1) INCOME — biggest single sale this season
+  // 1) INCOME — biggest single sale this farm year (-466: it is counted over the farm year)
   if(type==='income'){
     var big=null; (ST.txns||[]).forEach(function(t){ if(t.type==='income' && _ieInCurFY(t) && (!big||t.amt>big.amt)) big=t; });
     if(big && big.amt>0){
       out.push({type:'pace', icon:'🌾',
-        text:'Your <b>biggest sale this season</b> — <span class="fig">'+_ieK(big.amt)+'</span>'+(big.desc?' ('+esc(_ieShort(big.desc))+')':'')+'.',
+        text:'Your <b>biggest sale this farm year</b> — <span class="fig">'+_ieK(big.amt)+'</span>'+(big.desc?' ('+esc(_ieShort(big.desc))+')':'')+'.',
         basis:'largest sale this season'});
     }
   }
@@ -18859,12 +18881,12 @@ function ieInsights(kind){
   if(stdLast>0){ var pctp=Math.round((std-stdLast)/stdLast*100);
     if(Math.abs(pctp)<=200){ var dir=pctp>=0?'above':'below';
       out.push({type:'pace', icon:'📊',
-        text:'Season-to-date '+(type==='income'?'income is ':'you’ve spent ')+'<span class="fig">'+_ieK(std)+'</span>, tracking <span class="fig">'+Math.abs(pctp)+'%</span> '+dir+' last season.', basis:'season-to-date vs last season'}); } }
+        text:'This farm year so far, money '+(type==='income'?'in':'out')+' is <span class="fig">'+_ieK(std)+'</span> \u2014 <span class="fig">'+Math.abs(pctp)+'%</span> '+dir+' the same months last year.', basis:'farm year so far vs last year'}); } }
 
   // 5) INCOME — enterprise spread (diversification), counted over the season
   if(type==='income'){ var seen={}; (ST.txns||[]).forEach(function(t){ if(t.type==='income' && t.ent && _ieInCurFY(t)) seen[t.ent]=1; });
     var nEnt=0; for(var kk in seen){ if(seen.hasOwnProperty(kk)) nEnt++; }
-    if(nEnt>=2){ out.push({type:'season', icon:'🐄', text:'<span data-t="dash.spread1">Your income <b>isn’t leaning on one enterprise</b> — it is spread across</span> '+nEnt+' <span data-t="dash.spread2">enterprises this season.</span>', basis:'spread across enterprises'}); } }
+    if(nEnt>=2){ out.push({type:'season', icon:'🐄', text:'<span data-t="dash.spread1">Your income <b>isn’t leaning on one enterprise</b> — it is spread across</span> '+nEnt+' <span data-t="dash.spread2">enterprises this farm year.</span>', basis:'spread across enterprises'}); } }
 
   return out.slice(0,3);
 }
@@ -24319,15 +24341,22 @@ function updateAssetSummary() {
     if (a.deprType === 's12u') devCost += a.price || 0;
     else totalDeprYear += d.deprYear;
   });
-  setEl('ast-total',       fmt(totalPurchase));
-  setEl('ast-total-count', _own.length + ' asset' + (_own.length!==1?'s':'') +
+  /* -466: the headline is the asset value the Lender pack uses (the insured value where the
+     farmer entered one, else what was paid), so the two agree. The write-off is the Profit
+     page's figure for this farm year; the SARS allowances are a separate schedule and say so.
+     The value in the accounts is a column in the register. */
+  var _fy=getCurrentFY(), _val=0; _own.forEach(function(a){ _val+=(+a.insuredValue||+a.price||0); });
+  var _wo=0; try{ _wo=b5BookDepr(_fy).total; }catch(e){}
+  setEl('ast-total',       fmt(_val));
+  setEl('ast-total-count', _own.length + ' asset' + (_own.length!==1?'s':'') + ' \u00b7 as in your Lender pack' +
         (_gone ? ' · ' + _gone + ' sold or scrapped' : ''));
-  setEl('ast-book',        fmt(totalBook));
-  setEl('ast-depr',        fmt(totalDeprYear) + '/yr');
+  setEl('ast-book',        fmt(_wo));
+  setEl('ast-depr',        fmt(totalDeprYear));
+  try{ astRenderUnreg(); }catch(e){}
   /* Farm development still has to be visible — it is real money, just claimed once. */
   setEl('ast-depr-sub', devCost > 0
     ? ('plus ' + fmt(devCost) + ' farm development, claimed in its build year')
-    : 'Tax deduction this FY');
+    : 'on your SARS return');
 }
 
 /* True when an asset has been depreciated all the way down. Land, buildings held at
@@ -24360,18 +24389,19 @@ function renderAssetList() {
   /* Subtotals for a band, on the same rules as the summary tile: s12u is claimed at
      cost in its build year, so it never enters a "/yr" figure. */
   function _astSub(list) {
-    var o = {paid:0, book:0, yr:0};
+    var o = {paid:0, book:0, yr:0, acc:0, wo:0}, _fy = getCurrentFY();
     list.forEach(function(a){
-      var dd = calcDepr(a);
+      var dd = calcDepr(a), bk = b5AssetBook(a, _fy);
       o.paid += a.price || 0;
       o.book += dd.bookValue;
+      o.acc += bk.value; o.wo += bk.year;
       if (a.deprType !== 's12u') o.yr += dd.deprYear;
     });
     return o;
   }
 
   var _rowHTML = function(a) {
-    var d   = calcDepr(a);
+    var d   = calcDepr(a), bk = b5AssetBook(a);
     var ic  = CAT_ICONS[a.cat] || CAT_ICONS['Other'];
     var age = a.date ? Math.floor((new Date() - new Date(a.date)) / (365.25*24*3600*1000)) : 0;
     var deprBadge = ASSET_TREAT_BADGE[a.deprType] || '';
@@ -24393,6 +24423,9 @@ function renderAssetList() {
          pill repeated it on every row. That width goes to the asset name instead. */
       '<td style="color:var(--t3);font-size:12px">'+(a.date||'—')+'<br><span style="font-size:11px">'+age+' yr'+(age!==1?'s':'')+' old</span></td>' +
       '<td class="r" style="font-weight:700">'+fmt(a.price||0)+'</td>' +
+      /* -466: the accounts view - what the Profit page writes off, and what is left. */
+      '<td class="r"><div style="font-weight:750">'+fmt(bk.value)+'</div>'+(bk.life>0?'':'<div style="font-size:11px;color:var(--t4);margin-top:3px">not written off</div>')+'</td>' +
+      '<td class="r">'+(bk.year>0?'<div style="font-weight:700">'+fmt(bk.year)+'</div>':'<span style="color:var(--t4)">—</span>')+'</td>' +
       /* A written-off asset is not a worthless one. Showing a working R1 050 000 tractor
          as a red "R0" reads as an error or a loss, when it only means the deduction has
          already been banked — good news. Say that instead, calmly. */
@@ -24446,6 +24479,7 @@ function renderAssetList() {
         (r.capitalGain>0 ? ' &middot; '+fmt(r.capitalGain)+' over cost is a capital gain' : '')+'</div></td>' +
       '<td style="color:var(--t3);font-size:12px">'+(a.disposalDate||'\u2014')+'</td>' +
       '<td class="r" style="font-weight:700">'+fmt(a.price||0)+'</td>' +
+      '<td></td><td></td>' +
       '<td class="r"><div style="font-weight:750">'+fmt(r.proceeds||0)+'</div>' +
         '<div style="font-size:11px;font-weight:800;letter-spacing:.08em;color:var(--t4);margin-top:3px">PROCEEDS</div></td>' +
       '<td class="r">'+effect+'</td>' +
@@ -24474,6 +24508,8 @@ function renderAssetList() {
       _rows += '<tr class="ast-grp"><td>'+esc(c)+'<span class="n">· '+list.length+' item'+(list.length!==1?'s':'')+'</span></td>' +
                '<td></td>' +
                '<td class="r">'+fmt(s.paid)+'</td>' +
+               '<td class="r">'+fmt(s.acc)+'</td>' +
+               '<td class="r">'+(s.wo>0 ? fmt(s.wo) : '—')+'</td>' +
                '<td class="r">'+fmt(s.book)+'</td>' +
                '<td class="r">'+(s.yr>0 ? fmt(s.yr)+'/yr' : '—')+'</td>' +
                '<td></td></tr>';
@@ -24489,6 +24525,8 @@ function renderAssetList() {
   var _totLbl = filter ? (filter+' <span class="sub">· '+assets.length+' of '+_ownTotal+' assets</span>') : ('TOTAL <span class="sub">· '+assets.length+' asset'+(assets.length!==1?'s':'')+'</span>');
   _rows += '<tr class="ast-totrow"><td>'+_totLbl+'</td><td></td>' +
            '<td class="r">'+fmt(_t.paid)+'</td>' +
+           '<td class="r">'+fmt(_t.acc)+'</td>' +
+           '<td class="r">'+(_t.wo>0?fmt(_t.wo):'—')+'</td>' +
            '<td class="r">'+fmt(_t.book)+'</td>' +
            '<td class="r">'+(_t.yr>0?fmt(_t.yr)+'/yr':'—')+'</td><td></td></tr>';
 
@@ -24500,6 +24538,7 @@ function renderAssetList() {
     _rows += '<tr class="ast-grp"><td>'+_goneLbl+'<span class="n">· '+goneAssets.length+' item'+(goneAssets.length!==1?'s':'')+'</span></td>' +
              '<td></td>' +
              '<td class="r">'+fmt(_gc)+'</td>' +
+             '<td></td><td></td>' +
              '<td class="r">'+fmt(_gp)+'</td>' +
              '<td class="r">'+(_gr>0 ? '+'+fmt(_gr) : (_gs>0 ? '-'+fmt(_gs) : '—'))+'</td>' +
              '<td></td></tr>';
@@ -24508,6 +24547,43 @@ function renderAssetList() {
   tbody.innerHTML = _rows;
 }
 
+/* -466 (Batch 5 D4): a machinery or building payment that is not on the register stays a
+   cost in full - so it is flagged here, with a one-tap way to register it. */
+function astUnregTxns(fy){
+  fy=(fy==null)?getCurrentFY():fy; var out=[];
+  (ST.txns||[]).forEach(function(t,i){
+    if(!t || t.type!=='expense' || b5CatRole(t.cat)!=='capital') return;
+    var d=parseDate(t.date||''); if(!d || b5FyYms(fy).indexOf(b5Ym(d))<0) return;
+    var la=null; try{ la=txLinkedAsset(t); }catch(e){} if(la) return;
+    out.push({i:i, t:t, net:IE_split(+t.amt||0, t.cat).net});
+  });
+  return out;
+}
+function astRenderUnreg(){
+  var el=$('ast-unreg'); if(!el) return;
+  var L=astUnregTxns(); if(!L.length){ el.style.display='none'; el.innerHTML=''; return; }
+  var tot=L.reduce(function(a,x){ return a+x.net; },0);
+  el.style.display='';
+  el.innerHTML='<div style="border:1px solid #F3D38B;background:#FFF8E6;border-radius:12px;padding:12px 14px">'+
+    '<div style="font-size:13.5px;font-weight:700;color:#7A5200">'+fmt(tot)+' paid this year for machinery, buildings or farm improvements is not on your register</div>'+
+    '<div style="font-size:12.5px;color:#6B5A33;margin:3px 0 8px">It counts as a cost in full until you add it here. Then it is written off over its life, like the rest.</div>'+
+    L.slice(0,5).map(function(x){ return '<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid #F3E2B8;font-size:13px">'+
+      '<span style="color:var(--t3);white-space:nowrap">'+esc(txDispDate?txDispDate(x.t.date):x.t.date)+'</span>'+
+      '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(x.t.desc||x.t.cat)+'</span>'+
+      '<b style="white-space:nowrap">'+fmt(x.net)+'</b>'+
+      '<button onclick="astAddFromTxn('+x.i+')" style="background:var(--gd);color:#fff;border:0;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Add to register</button></div>'; }).join('')+
+    (L.length>5?'<div style="font-size:12px;color:var(--t3);padding-top:6px">and '+(L.length-5)+' more</div>':'')+
+  '</div>';
+}
+function astAddFromTxn(i){
+  var t=ST.txns[i]; if(!t) return;
+  openAddAsset();
+  var d=parseDate(t.date||''), iso=d?(d.y+'-'+String(d.m+1).padStart(2,'0')+'-'+String(d.d||1).padStart(2,'0')):'';
+  var set=function(id,v){ var e=$(id); if(e) e.value=v; };
+  set('ast-name', t.desc||''); set('ast-price', String(Math.round(IE_split(+t.amt||0, t.cat).net))); if(iso) set('ast-date', iso);
+  try{ astFillTxnPicker(); }catch(e){}
+  var sel=$('ast-txn'); if(sel){ sel.value=String(i); try{ sel.dispatchEvent(new Event('change')); }catch(e){} }
+}
 // ── Liabilities render ────────────────────────────────────────
 
 function openAddAsset() {
@@ -46744,7 +46820,7 @@ function initIncomeCharts() {
   if (c) {
     destroyChart('inc');
     var p = ST.incPeriod || '6';
-    var _s = periodSeries(p==='1'?1 : p==='3'?3 : p==='12'?12 : 6);
+    var _s = periodSeries(Math.max(1, Math.min(12, parseInt(p,10)||6)));   /* -466: the same months as the heading (the year-so-far view was cut to 6) */
     var labels = _s.labels;
     var data   = _s.i;
     ST.charts['inc'] = new Chart(c, {type:'bar', data:{labels:labels, datasets:[{label:'Income',data:data,backgroundColor:barGrad('#40916C','#2D6A4F'),hoverBackgroundColor:barGrad('#4CA37B','#357A5B'),borderRadius:6,borderSkipped:false}]}, options:baseOpts});
@@ -46763,7 +46839,7 @@ function initExpCharts() {
   if (c) {
     destroyChart('exp');
     var p = ST.expPeriod || '6';
-    var _s = periodSeries(p==='1'?1 : p==='3'?3 : p==='12'?12 : 6);
+    var _s = periodSeries(Math.max(1, Math.min(12, parseInt(p,10)||6)));   /* -466: the same months as the heading (the year-so-far view was cut to 6) */
     var labels = _s.labels;
     var data   = _s.o;
     ST.charts['exp'] = new Chart(c,{type:'bar',data:{labels:labels,datasets:[{label:'Expenses',data:data,backgroundColor:barGrad('#ED6152','#CB3A2B'),hoverBackgroundColor:barGrad('#F2776A','#D6493A'),borderRadius:6,borderSkipped:false}]},options:baseOpts});
@@ -53188,7 +53264,7 @@ I18N['or.moneyby']={en:"Money by fruit type",af:"Geld per vrugtesoort"};
 I18N['rp.cic']={en:"Crop input cost + diesel refund",af:"Gewasinsetkoste + dieselterugbetaling"};
 I18N['tr.dash']={en:"Profit, cashflow & budgets",af:"Wins, kontantvloei & begrotings"};
 I18N['dash.spread1']={en:"Your income <b>isn\u2019t leaning on one enterprise</b> \u2014 it is spread across",af:"Jou inkomste <b>leun nie op een onderneming nie</b> \u2014 dit is versprei oor"};
-I18N['dash.spread2']={en:"enterprises this season.",af:"ondernemings hierdie seisoen."};
+I18N['dash.spread2']={en:"enterprises this farm year.",af:"ondernemings hierdie seisoen."};
 I18N['pf.wi.title']={en:"Stress-test your plan",af:"Toets jou plan onder druk"};
 I18N['cfl.cropcost']={en:"Crop input cost",af:"Gewasinsetkoste"};
 I18N['cfl.cropcost2']={en:"fertiliser, seed, diesel",af:"kunsmis, saad, diesel"};
@@ -53985,6 +54061,22 @@ function b5BookDepr(fy, toYm){
     if(charge || row.gain){ out.rows.push(row); out.total+=charge; }
   });
   out.total=Math.round(out.total*100)/100; out.gain=Math.round(out.gain*100)/100;
+  return out;
+}
+/* -466: one asset's value in the accounts today and its write-off for the farm year - the
+   same straight-line rules as b5BookDepr, so the register adds up to the Profit page. Land,
+   dwellings and shares are not written off and stay at cost. */
+function b5AssetBook(a, fy){
+  fy=(fy==null)?getCurrentFY():fy;
+  var price=+a.price||0, life=b5AssetLife(a), pd=parseDate(a.date||''), out={price:price, life:life, value:price, year:0};
+  if(!(price>0) || !pd || !(life>0)) return out;
+  var start=b5Ym(pd), per=price/(life*12), lastLife=b5YmAdd(start, life*12-1), yms=b5FyYms(fy);
+  var dd=a.disposalDate ? parseDate(a.disposalDate) : null, disp=dd ? b5Ym(dd) : null;
+  var now=b5TodayYm(), to=now; if(lastLife<to) to=lastLife; if(disp && disp<to) to=disp;
+  var used=(to>=start) ? b5YmDiff(start,to)+1 : 0;
+  out.value=Math.max(0, Math.round((price-per*used)*100)/100);
+  var f=start>yms[0]?start:yms[0], t=yms[11]; if(lastLife<t) t=lastLife; if(disp && disp<t) t=disp;
+  out.year=(t>=f) ? Math.round(per*(b5YmDiff(f,t)+1)*100)/100 : 0;
   return out;
 }
 /* ── D4 / D10: profit ─────────────────────────────────────────────────────────────── */
@@ -62213,7 +62305,7 @@ settings: [
     { target:'ast-tab-register', title:'Two views of your assets', icon:'🚜', tab:'register',
       text:'Everything your farm owns lives here. The Register lists every asset; the Insights tab turns that list into plain-language charts. Let\u2019s start with the Register.', pos:'smart' },
     { target:'ast-total', title:'The headline numbers', icon:'💰', tab:'register',
-      text:'Your total asset value, the tax value left after write-off, and the yearly write-off you can claim from SARS \u2014 all worked out for you and kept up to date.',
+      text:'Your total asset value (the same as your Lender pack), this year\u2019s write-off (the same figure your Profit page takes off), and the tax allowances you claim from SARS \u2014 kept apart, because they are different schedules.',
       tip:'Section 12B gives 50/30/20 accelerated write-off on most farming gear; Section 11(e) is straight-line wear and tear. Both lower your taxable income \u2014 the app picks the right one per asset.', pos:'smart' },
     { target:'ast-tbody', title:'Tap any asset to open it', icon:'📋', tab:'register',
       text:'Each row shows the category, what you paid, its current tax value and this year\u2019s depreciation. Filter by category up top, or tap a row to see the full detail.',
@@ -64351,6 +64443,11 @@ function txUpdateSummary() {
 
   setEl3('tx-sum-in',  txFmtK(cur.income),   'tx-sum-in-chg',  pctStr(cur.income,prevInc),   pctCol(cur.income,prevInc,true));
   setEl3('tx-sum-out', txFmtK(cur.expenses), 'tx-sum-out-chg', pctStr(cur.expenses,prevExp), pctCol(cur.expenses,prevExp,false));
+  /* -466: Profit is the Profit page's profit for the month (income without VAT, less running
+     costs, loan interest and the write-off). It was money in less money out. */
+  var _cm=currentPeriodLabel(), _pm=(typeof prevMonthKey==='function')?prevMonthKey(_cm):null, _P=null, _Pp=null;
+  try{ _P=b5ProfitPeriod({months:[_cm]}); if(_pm) _Pp=b5ProfitPeriod({months:[_pm]}); }catch(e){}
+  if(_P){ profit=_P.profit; prevPro=_Pp?_Pp.profit:0; }
   var proEl=$('tx-sum-pro'); if(proEl){proEl.textContent=txFmtK(profit); proEl.style.color=profit>=0?'var(--gd)':'var(--rd)';}
   setEl3('', '', 'tx-sum-pro-chg', pctStr(profit,prevPro), pctCol(profit,prevPro,true));
 }
@@ -64427,8 +64524,11 @@ function txRender() {
       var moTxns = byMonth[mo];
       var moInc  = moTxns.reduce(function(s,t){ return s+(t.type==='income'?t.amt:0);},0);
       var moExp  = moTxns.reduce(function(s,t){ return s+(t.type==='expense'?t.amt:0);},0);
-      var moPro  = moInc - moExp;
-      var proCol = moPro >= 0 ? 'var(--gd)' : 'var(--rd)';
+      /* -466: the month's Profit is the Profit page's, not in less out; a month still ahead
+         (entries dated in the future) has no profit yet. */
+      var _mp = null; try{ _mp = b5ProfitPeriod({months:[mo]}); }catch(e){ _mp = null; }
+      var moPro  = _mp ? _mp.profit : null;
+      var proCol = (moPro||0) >= 0 ? 'var(--gd)' : 'var(--rd)';
 
       rows += '<tr class="tx-month-row"><td colspan="7" style="padding:0">' +
         '<div class="tx-month-hdr">' +
@@ -64436,7 +64536,7 @@ function txRender() {
           '<span class="tx-month-totals">' +
             (moInc?'In '+txFmtK(moInc)+' &nbsp;':'') +
             (moExp?'Out '+txFmtK(moExp)+' &nbsp;':'') +
-            'Profit <span style="color:'+proCol+';font-weight:700">'+txFmtK(moPro)+'</span>' +
+            (moPro!=null ? 'Profit <span style="color:'+proCol+';font-weight:700">'+txFmtK(moPro)+'</span>' : '') +
           '</span>' +
         '</div>' +
       '</td></tr>';
