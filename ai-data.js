@@ -426,6 +426,8 @@
      removal the server cannot store would come straight back on the next load. */
   let CAN_ORCH_FIX      = false;   // orchard_sprays: removed_at/removed_reason/removed_by/changes
   let CAN_INPUT_FIX     = false;   // crop_inputs:    the same four
+  let CAN_HARV_FIX      = false;   // orchard_harvest:      the same four (-467, pick_treatment_corrections.sql)
+  let CAN_TREAT_FIX     = false;   // livestock_treatments: the same four
   let CAN_ASSET_DISPOSAL = false;
   /* "It's a running cost, stop asking." Its own column rather than reusing cat_confirmed:
      that answer is about the CATEGORY being right, this one is about the cost not being
@@ -517,6 +519,7 @@
     ['category_rules','match_text'], ['transaction_looks','look_v'],
     ['push_devices','last_ok_at'], ['fuel_issues','hour_meter'], ['fuel_issues','src'],
     ['orchard_sprays','rate'], ['crop_inputs','weather'], ['orchard_sprays','removed_at'], ['crop_inputs','removed_at'],
+    ['orchard_harvest','removed_at'], ['livestock_treatments','removed_at'],
     ['payslips','snap'], ['payslip_sends','outcome'],
     ['workers','payslip_whatsapp_ok'], ['farm_devices','kind'], ['workers','eti_excluded'], ['workers','med_aid_people'], ['farms','budget_cat_targets'], ['farms','prov_paid'], ['farms','budget_locked'], ['farms','tax_paid'], ['farms','tax_plan']
   ];
@@ -588,6 +591,8 @@
     CAN_INPUT_WEATHER  = keep(CAN_INPUT_WEATHER, 'crop_inputs','weather');
     CAN_ORCH_FIX       = keep(CAN_ORCH_FIX,      'orchard_sprays','removed_at');
     CAN_INPUT_FIX      = keep(CAN_INPUT_FIX,     'crop_inputs','removed_at');
+    CAN_HARV_FIX       = keep(CAN_HARV_FIX,      'orchard_harvest','removed_at');
+    CAN_TREAT_FIX      = keep(CAN_TREAT_FIX,     'livestock_treatments','removed_at');
   }
   /* A harness needs to drive a second load and a bad line; the app never calls these. */
   probeCaps.reset = function(){ _colCache = Object.create(null); _colRpcDead = false; };
@@ -1693,8 +1698,25 @@
      the next desktop save wrote null over it, destroying the answer in the database
      rather than only on screen. moveToDb has always preserved all three. */
   function moveFromDb(r){ var m={ id:r.local_id, herd:_numIf(r.herd_local_id), reason:r.reason||'', qty:Number(r.qty)||0, date:r.move_date||'', note:r.note||'', money:Number(r.money)||0 }; if(r.cls) m.cls=r.cls; if(r.to_cls) m.toCls=r.to_cls; if(r.leaving!=null) m.leaving=!!r.leaving; if(r.from_place) m.fromPlace=r.from_place; if(r.to_place) m.toPlace=r.to_place; if(r.transporter) m.transporter=r.transporter; if(r.veh_reg) m.vehReg=r.veh_reg; if(r.veh_make) m.vehMake=r.veh_make; return m; }
-  function treatToDb(t,fid){ return { farm_id:fid, local_id:String(t.id), herd_local_id:(t.herd!=null)?String(t.herd):null, kind:t.kind||null, product:t.product||null, reg:t.reg||null, act:t.act||null, abx:(t.abx!=null)?!!t.abx:null, target:t.target||null, head:(t.head!=null)?parseInt(t.head,10):null, tags:t.tags||[], dose:t.dose||null, route:t.route||null, reason:t.reason||null, batch:t.batch||null, expiry:t.expiry||null, rx:t.rx||null, treat_date:t.date||null, by_who:t.by||null, cost:(t.cost!=null)?Number(t.cost):null, meat:(t.meat!=null)?parseInt(t.meat,10):null, milk:(t.milk!=null)?parseInt(t.milk,10):null }; }
-  function treatFromDb(r){ var t={ id:r.local_id, herd:_numIf(r.herd_local_id), kind:r.kind||'', product:r.product||'', reg:r.reg||'', act:r.act||'', target:r.target||'', head:Number(r.head)||0, tags:r.tags||[], dose:r.dose||'', route:r.route||'', reason:r.reason||'', batch:r.batch||'', expiry:r.expiry||'', date:r.treat_date||'', by:r.by_who||'', cost:Number(r.cost)||0, meat:Number(r.meat)||0, milk:Number(r.milk)||0 }; /* abx is three-state like leaving: the phone's "No" is false, and reading only true turned it into unknown on the next livestock save. */ if(r.abx!=null) t.abx=!!r.abx; if(r.rx) t.rx=r.rx; return t; }
+  /* -467: the four correction columns. A live row carries only its history; removed_at goes
+     up ONLY on a removed row. Sent as null from a live row it un-removed an entry that
+     another tab had removed - a stale tab resurrected it on its next save. */
+  function _fixCols(row, x){
+    row.changes = Array.isArray(x.changes) ? x.changes : [];   /* NOT NULL on the server: never send null */
+    if(x.removed){ row.removed_at=x.removed.at||null; row.removed_reason=x.removed.reason||null; row.removed_by=x.removed.by||null; }
+    return row; }
+  function _fixRead(o, r){
+    if(r.removed_at) o.removed={at:r.removed_at, reason:r.removed_reason||'', by:r.removed_by||''};
+    if(Array.isArray(r.changes) && r.changes.length) o.changes=r.changes;
+    return o; }
+  /* Upserts live rows and removed rows apart: one PostgREST batch has one set of columns. */
+  async function _upsertSplit(table, rows){
+    var live=rows.filter(function(r){ return !('removed_at' in r); }), gone=rows.filter(function(r){ return ('removed_at' in r); });
+    if(live.length){ const e=(await client().from(table).upsert(live,{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+    if(gone.length){ const e=(await client().from(table).upsert(gone,{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+  }
+  function treatToDb(t,fid){ var row = { farm_id:fid, local_id:String(t.id), herd_local_id:(t.herd!=null)?String(t.herd):null, kind:t.kind||null, product:t.product||null, reg:t.reg||null, act:t.act||null, abx:(t.abx!=null)?!!t.abx:null, target:t.target||null, head:(t.head!=null)?parseInt(t.head,10):null, tags:t.tags||[], dose:t.dose||null, route:t.route||null, reason:t.reason||null, batch:t.batch||null, expiry:t.expiry||null, rx:t.rx||null, treat_date:t.date||null, by_who:t.by||null, cost:(t.cost!=null)?Number(t.cost):null, meat:(t.meat!=null)?parseInt(t.meat,10):null, milk:(t.milk!=null)?parseInt(t.milk,10):null }; if(CAN_TREAT_FIX) _fixCols(row,t); return row; }
+  function treatFromDb(r){ var t={ id:r.local_id, herd:_numIf(r.herd_local_id), kind:r.kind||'', product:r.product||'', reg:r.reg||'', act:r.act||'', target:r.target||'', head:Number(r.head)||0, tags:r.tags||[], dose:r.dose||'', route:r.route||'', reason:r.reason||'', batch:r.batch||'', expiry:r.expiry||'', date:r.treat_date||'', by:r.by_who||'', cost:Number(r.cost)||0, meat:Number(r.meat)||0, milk:Number(r.milk)||0 }; /* abx is three-state like leaving: the phone's "No" is false, and reading only true turned it into unknown on the next livestock save. */ if(r.abx!=null) t.abx=!!r.abx; if(r.rx) t.rx=r.rx; return _fixRead(t, r); }
   function animalToDb(a,fid){ return { farm_id:fid, local_id:String(a.id), herd_local_id:(a.herd!=null)?String(a.herd):null, tag:a.tag||null, name:a.name||null, sex:a.sex||null, breed:a.breed||null, cls:a.cls||null, dob:a.dob||null, dam:a.dam||null, sire:a.sire||null, repro:(a.repro&&a.repro.length)?a.repro:null, status:a.status||null, due_approx:a.dueApprox||null, parity:a.parity||null, weight:(a.weight!=null?a.weight:null) }; }
   function animalFromDb(r){ var a={ id:r.local_id, herd:_numIf(r.herd_local_id), tag:r.tag||'', sex:r.sex||'' }; if(r.name) a.name=r.name; if(r.breed) a.breed=r.breed; if(r.cls) a.cls=r.cls; if(r.dob) a.dob=r.dob; if(r.dam) a.dam=r.dam; if(r.sire) a.sire=r.sire; if(r.repro){ try{ a.repro=(typeof r.repro==='string'?JSON.parse(r.repro):r.repro); }catch(e){} } if(r.status) a.status=r.status; if(r.due_approx) a.dueApprox=r.due_approx; if(r.parity) a.parity=r.parity; if(r.weight!=null) a.weight=r.weight; return a; }
   function healthToDb(h,fid){ return { farm_id:fid, local_id:h.id?String(h.id):null, health_date:h.date||null, type:h.type||null, event:h.event||null, count:(h.count!=null)?parseInt(h.count,10):null, descr:h.desc||null, cost:(h.cost!=null)?Number(h.cost):null, supplier:h.supplier||null }; }
@@ -1756,7 +1778,11 @@
     try{ var bd=await selectAll(() => client().from('livestock_breedings').select('*').eq('farm_id',farmId).order('created_at')); if(!bd.error) breedings=(bd.data||[]).map(breedingFromDb); }
     catch(e){ /* table not migrated yet — ignore */ }
     return { camps:(cp.data||[]).map(campFromDb), herds:herds, benchmarks:benchmarks,
-             moves:(mv.data||[]).map(moveFromDb), treatments:(tr.data||[]).map(treatFromDb),
+             moves:(mv.data||[]).map(moveFromDb),
+             /* A removed treatment is held apart, so every hold, total and register that reads
+                ST_LS.treatments is right without knowing removal exists (the phone does the same). */
+             treatments:(tr.data||[]).filter(function(r){ return !r.removed_at; }).map(treatFromDb),
+             removedTreatments:(tr.data||[]).filter(function(r){ return !!r.removed_at; }).map(treatFromDb),
              animals:(an.data||[]).map(animalFromDb), health:(he.data||[]).map(healthFromDb), breedings:breedings,
              stockRecon:_lsRecon };
   };
@@ -2011,10 +2037,11 @@
 
   var _lsSnap=null;
   const livestock = {
+    canFixTreat(){ return CAN_TREAT_FIX; },
     async saveAll(stls){
       if(!stls) return;
       const fid=farm.active(); if(!fid) return;
-      const snap=JSON.stringify({c:stls.camps,h:stls.herd,b:stls.benchmarks,m:stls.moves,t:stls.treatments,a:stls.animals,br:stls.breedings});
+      const snap=JSON.stringify({c:stls.camps,h:stls.herd,b:stls.benchmarks,m:stls.moves,t:stls.treatments,rt:stls.removedTreatments,a:stls.animals,br:stls.breedings});
       if(snap===_lsSnap) return;
       const camps=(stls.camps||[]), herds=(stls.herd||[]), bench=(stls.benchmarks||{});
       const moves=(stls.moves||[]), treats=(stls.treatments||[]), animals=(stls.animals||[]);
@@ -2050,7 +2077,9 @@
               .eq('farm_id',fid).in('bench_key',goneBm)).error; if(e) throw e; _srvForgetRows('livestock_benchmarks','bench_key',goneBm); } }
       // append-only logs: upsert by local_id, no prune (no delete UI except animals→removeAnimal)
       if(moves.length){ const e=(await client().from('livestock_moves').upsert(moves.map(function(m){return moveToDb(m,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
-      if(treats.length){ const e=(await client().from('livestock_treatments').upsert(treats.map(function(t){return treatToDb(t,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      { var trRows=treats.map(function(t){return treatToDb(t,fid);});
+        (stls.removedTreatments||[]).forEach(function(t){ if(t && t.id!=null) trRows.push(treatToDb(t,fid)); });
+        if(trRows.length) await _upsertSplit('livestock_treatments', trRows); }
       if(animals.length){
         var arows=animals.map(function(a){return animalToDb(a,fid);});
         var ae=(await client().from('animals').upsert(arows,{onConflict:'farm_id,local_id'})).error;
@@ -2097,9 +2126,7 @@
   function cevFromDb(r){ var e={ id:r.local_id, land:_numIf(r.land_local_id), kind:r.kind||'', date:r.event_date||'', note:r.note||'' }; if(r.tons!=null) e.tons=Number(r.tons); if(r.yield_val!=null) e.yield=Number(r.yield_val); if(r.cert) e.cert=r.cert; return e; }
   function cinToDb(i,fid){ var row = { farm_id:fid, local_id:String(i.id), land_local_id:(i.land!=null)?String(i.land):null, input_date:i.date||null, product:i.product||null, reg:i.reg||null, kind:i.kind||null, rate:i.rate||null, batch:i.batch||null, by_who:i.by||null, operator_cert:i.operatorCert||null, target_for:i.targetFor||null, phi:(i.phi!=null)?parseInt(i.phi,10):null, cost_per_ha:(i.costPerHa!=null)?Number(i.costPerHa):null };
     if(CAN_INPUT_WEATHER) row.weather = i.weather || null;
-    if(CAN_INPUT_FIX){ row.removed_at=(i.removed&&i.removed.at)||null; row.removed_reason=(i.removed&&i.removed.reason)||null;
-      row.removed_by=(i.removed&&i.removed.by)||null;
-      row.changes=Array.isArray(i.changes)?i.changes:[]; }   /* NOT NULL on the server: never send null */
+    if(CAN_INPUT_FIX) _fixCols(row, i);
     return row; }
   function cinFromDb(r){ return { id:r.local_id, land:_numIf(r.land_local_id), date:r.input_date||'', product:r.product||'', reg:r.reg||'', kind:r.kind||'', rate:r.rate||'', batch:r.batch||'', by:r.by_who||'', operatorCert:r.operator_cert||'', targetFor:r.target_for||'', phi:Number(r.phi)||0, costPerHa:Number(r.cost_per_ha)||0,
     weather:r.weather||'',
@@ -2175,7 +2202,7 @@
       const lands=(stc.lands||[]), events=(stc.events||[]), inputs=(stc.inputs||[]).concat(stc.removed||[]);
       if(lands.length){ const e=(await client().from('crop_lands').upsert(lands.map(function(l){return landToDb(l,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
       if(events.length){ const e=(await client().from('crop_events').upsert(events.map(function(x){return cevToDb(x,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
-      if(inputs.length){ const e=(await client().from('crop_inputs').upsert(inputs.map(function(x){return cinToDb(x,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      if(inputs.length) await _upsertSplit('crop_inputs', inputs.map(function(x){return cinToDb(x,fid);}));
       _cropSnap=snap;
       return true;
     },
@@ -2242,9 +2269,7 @@
       row.rate = s.rate || null; row.batch = s.batch || null;
       row.operator_cert = s.cert || null; row.weather = s.weather || null;
     }
-    if(CAN_ORCH_FIX){ row.removed_at=(s.removed&&s.removed.at)||null; row.removed_reason=(s.removed&&s.removed.reason)||null;
-      row.removed_by=(s.removed&&s.removed.by)||null;
-      row.changes=Array.isArray(s.changes)?s.changes:[]; }   /* NOT NULL on the server: never send null */
+    if(CAN_ORCH_FIX) _fixCols(row, s);
     return row; }
   function osFromDb(r){ return { id:r.local_id, ic:r.icon||'\uD83E\uDDEA', t:r.title||'', s:r.sub||'', phi:{eu:Number(r.phi_eu)||0,uk:Number(r.phi_uk)||0,us:Number(r.phi_us)||0,local:Number(r.phi_local)||0}, bid:r.block_local_id||'', product:r.product||'', reg:r.reg||'', forx:r.target_for||'', by:r.applied_by||'', dateISO:r.spray_date||'', cropcat:r.cropcat||'', att:r.att||undefined,
     rate:r.rate||'', batch:r.batch||'', cert:r.operator_cert||'', weather:r.weather||'',
@@ -2254,8 +2279,9 @@
     /* The delivery note the farmer attached to this pick. Its bytes are already in
        Storage; without this the pointer died here and the file was orphaned. */
     if(CAN_ORCH_ATT) row.att = h.att || null;
+    if(CAN_HARV_FIX) _fixCols(row, h);
     return row; }
-  function ohFromDb(r){ return { id:r.local_id, ic:r.icon||'\uD83C\uDF4A', t:r.title||'', s:r.sub||'', r:r.revenue||'\u2014', cat:r.cropcat||'', bid:r.block_local_id||'', tn:Number(r.tons)||0, tons:Number(r.tons)||0, cartons:Number(r.cartons)||0, to:r.sold_to||'', money:Number(r.amount)||0, dateISO:r.pick_date||'', att:r.att||undefined }; }
+  function ohFromDb(r){ return _fixRead({ id:r.local_id, ic:r.icon||'\uD83C\uDF4A', t:r.title||'', s:r.sub||'', r:r.revenue||'\u2014', cat:r.cropcat||'', bid:r.block_local_id||'', tn:Number(r.tons)||0, tons:Number(r.tons)||0, cartons:Number(r.cartons)||0, to:r.sold_to||'', money:Number(r.amount)||0, dateISO:r.pick_date||'', att:r.att||undefined }, r); }
 
   load.orchard = async function(farmId){
     farmId = farmId || farm.active();
@@ -2287,7 +2313,7 @@
     /* A removed spray is held apart from the diary, so the safe-to-pick grid, the register
        and every other reader of sprayDiary are right without knowing removal exists. */
     var sprayDiary={}, removedSprays=[]; (sp.data||[]).forEach(function(r){ var s=osFromDb(r); if(r.removed_at){ removedSprays.push(s); return; } (sprayDiary[s.cropcat]=sprayDiary[s.cropcat]||[]).push(s); });
-    var harvest=(hv.data||[]).map(ohFromDb);
+    var harvest=[], removedHarvest=[]; (hv.data||[]).forEach(function(r){ (r.removed_at?removedHarvest:harvest).push(ohFromDb(r)); });
     // compliance: per-key user fields + children, to overlay onto app defaults in ai-auth
     var cDocs={}, cChecks={}, cReads={};
     (cd.data||[]).forEach(function(d){ (cDocs[d.item_key]=cDocs[d.item_key]||[]).push({name:d.name||'',kind:d.kind||'',added:d.added||'',id:d.local_id||undefined,path:d.path||undefined}); });
@@ -2300,13 +2326,14 @@
     (ci.data||[]).forEach(function(r){ var o={status:r.status||'',statusTag:r.status_tag||'',expiry:r.expiry||''}; if(r.log!=null) o.log=r.log;
       if(cDocs[r.item_key]) o.docs=cDocs[r.item_key]; if(cChecks[r.item_key]) o.checks=cChecks[r.item_key]; if(cReads[r.item_key]) o.readings=cReads[r.item_key];
       comply[r.item_key]=o; });
-    return { blocks:blocks, pricing:pricing, sprayDiary:sprayDiary, removedSprays:removedSprays, harvest:harvest, comply:comply, market:(cfg.data&&cfg.data.orchard_market)||null };
+    return { blocks:blocks, pricing:pricing, sprayDiary:sprayDiary, removedSprays:removedSprays, harvest:harvest, removedHarvest:removedHarvest, comply:comply, market:(cfg.data&&cfg.data.orchard_market)||null };
   };
 
   var _orSnap=null, _orCfgSnap=null;
   var _orGate=Promise.resolve();   // serializes orchard saveAll (its delete-all+insert children would otherwise race into duplicate rows on rapid edits)
   const orchard = {
     canFix(){ return CAN_ORCH_FIX; },
+    canFixHarvest(){ return CAN_HARV_FIX; },
     async saveAll(stf){
       if(!stf) return;
       const fid=farm.active(); if(!fid) return;
@@ -2314,7 +2341,7 @@
       var _prev=_orGate, _rel; _orGate=new Promise(function(r){ _rel=r; });
       try{ await _prev; }catch(e){}
       try {
-      const snap=JSON.stringify({b:stf.blocks,p:stf.pricing,s:stf.sprayDiary,r:stf.removedSprays,h:stf.harvest,c:stf.comply});
+      const snap=JSON.stringify({b:stf.blocks,p:stf.pricing,s:stf.sprayDiary,r:stf.removedSprays,h:stf.harvest,rh:stf.removedHarvest,c:stf.comply});
       if(snap===_orSnap) return true;
       const blocks=(stf.blocks||[]); const blockIds=blocks.map(function(b){return String(b.id);});
       if(blocks.length){ const e=(await client().from('orchard_blocks').upsert(blocks.map(function(b){return obToDb(b,fid);}),{onConflict:'farm_id,local_id'})).error; if(e) throw e; _srvWrote('orchard_blocks', blocks.map(function(b){ return {farm_id:fid,local_id:String(b.id)}; })); }
@@ -2345,9 +2372,10 @@
       // sprays append-only (assign ids if missing so upsert is stable)
       var sprayRows=[]; var sd=stf.sprayDiary||{}; Object.keys(sd).forEach(function(cat){ (sd[cat]||[]).forEach(function(s){ if(!s.id) s.id='os'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); sprayRows.push(osToDb(s,cat,fid)); }); });
       (stf.removedSprays||[]).forEach(function(s){ if(s&&s.id) sprayRows.push(osToDb(s, s.cropcat||null, fid)); });
-      if(sprayRows.length){ const e=(await client().from('orchard_sprays').upsert(sprayRows,{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      if(sprayRows.length) await _upsertSplit('orchard_sprays', sprayRows);
       var harvRows=[]; (stf.harvest||[]).forEach(function(h){ if(!h.id) h.id='oh'+Date.now().toString(36)+Math.random().toString(36).slice(2,6); harvRows.push(ohToDb(h,fid)); });
-      if(harvRows.length){ const e=(await client().from('orchard_harvest').upsert(harvRows,{onConflict:'farm_id,local_id'})).error; if(e) throw e; }
+      (stf.removedHarvest||[]).forEach(function(h){ if(h && h.id) harvRows.push(ohToDb(h,fid)); });
+      if(harvRows.length) await _upsertSplit('orchard_harvest', harvRows);
       // compliance: items upsert + prune; docs/checks/readings replace-all per farm
       var comply=stf.comply||{}; var ckeys=Object.keys(comply);
       if(ckeys.length){ const e=(await client().from('orchard_compliance_items').upsert(ckeys.map(function(k){return ociToDb(k,comply[k],fid);}),{onConflict:'farm_id,item_key'})).error; if(e) throw e; _srvWrote('orchard_compliance_items', ckeys.map(function(k){ return {farm_id:fid,item_key:String(k)}; })); }

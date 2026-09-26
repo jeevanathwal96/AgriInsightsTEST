@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=73"></script>
-<script src="ai-auth.js?v=51"></script>
+<script src="ai-data.js?v=74"></script>
+<script src="ai-auth.js?v=52"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -13210,7 +13210,8 @@ function fixT(en, af){ return (window.ST && ST.lang==='af') ? af : en; }
 var FIX_REASONS={
   twice:{en:'Logged twice', af:'Twee keer aangeteken'},
   never:{en:'Logged by mistake — it never happened', af:'Per ongeluk aangeteken — dit het nooit gebeur nie'},
-  wrong:{en:'Wrong block or field', af:'Verkeerde blok of land'}
+  wrong:{en:'Wrong block or field', af:'Verkeerde blok of land'},
+  herd:{en:'Wrong herd or animals', af:'Verkeerde trop of diere'}
 };
 function fixReasonLabel(k, lang){
   var r=FIX_REASONS[k]; if(!r) return k||'';
@@ -13225,6 +13226,8 @@ function fixMoney(n){ return ((typeof _curSym==='function') ? _curSym() : 'R') +
 function fixReady(kind){
   try{
     if(!(window.AI && AI.farm && AI.farm.active())) return true;
+    if(kind==='pick')  return !!(AI.orchard && AI.orchard.canFixHarvest && AI.orchard.canFixHarvest());
+    if(kind==='treat') return !!(AI.livestock && AI.livestock.canFixTreat && AI.livestock.canFixTreat());
     var m = (kind==='input') ? AI.crop : AI.orchard;
     return !!(m && m.canFix && m.canFix());
   }catch(e){ return false; }
@@ -13294,15 +13297,17 @@ function fixSheet(title, sub, body){
 function fixClose(){ var ov=$('fix-overlay'); if(ov) ov.style.display='none'; }
 
 var FIX_BTN='display:flex;gap:11px;align-items:flex-start;width:100%;text-align:left;padding:11px 12px;border:1px solid var(--br);border-radius:11px;background:#fff;font:inherit;cursor:pointer;margin-bottom:8px;box-sizing:border-box';
+var FIX_NOUN={spray:['spray','spuit'], input:['application','toediening'], pick:['pick','pluk'], treat:['treatment','behandeling']};
+function fixNoun(kind){ var n=FIX_NOUN[kind]||FIX_NOUN.input; return fixT(n[0], n[1]); }
 function fixMenuHtml(kind, id){
-  var sp = (kind==='spray'), q = String(id).replace(/[^A-Za-z0-9_\-]/g,'');
+  var q = String(id).replace(/[^A-Za-z0-9_\-]/g,'');
   return '<button type="button" style="'+FIX_BTN+'" onclick="fixOpenCorrect(\''+kind+'\',\''+q+'\')">'+
       '<span style="font-size:15px;line-height:1.3">✎</span><span><b style="display:block;font-size:13.5px;color:var(--t1)">'+
-      fixT(sp?'Correct this spray':'Correct this application', sp?'Stel hierdie spuit reg':'Stel hierdie toediening reg')+'</b>'+
+      fixT('Correct this ','Stel hierdie ')+fixNoun(kind)+fixT('',' reg')+'</b>'+
       '<span style="font-size:12px;color:var(--t3)">'+fixT('Fix a detail. It stays on the record.','Stel ’n besonderheid reg. Dit bly op die rekord.')+'</span></span></button>'+
     '<button type="button" style="'+FIX_BTN+'" onclick="fixAskRemove(\''+kind+'\',\''+q+'\')">'+
       '<span style="font-size:15px;line-height:1.3;color:#B42318">✕</span><span><b style="display:block;font-size:13.5px;color:#B42318">'+
-      fixT(sp?'Remove this spray':'Remove this application', sp?'Verwyder hierdie spuit':'Verwyder hierdie toediening')+'</b>'+
+      fixT('Remove this ','Verwyder hierdie ')+fixNoun(kind)+'</b>'+
       '<span style="font-size:12px;color:var(--t3)">'+fixT('It never happened, or it’s a duplicate.','Dit het nooit gebeur nie, of dis ’n duplikaat.')+'</span></span></button>'+
     '<button type="button" onclick="fixClose()" style="all:unset;display:block;width:100%;text-align:center;padding:9px;font-size:13px;font-weight:600;color:var(--t3);cursor:pointer">'+fixT('Cancel','Kanselleer')+'</button>';
 }
@@ -13317,10 +13322,14 @@ function cropInputTap(id){
 function fixOpenCorrect(kind, id){
   if(!fixReady(kind)){ fixNotReady(); return; }
   fixClose();
-  if(kind==='spray') orOpenSprayForm(id); else cropLogInput(id);
+  if(kind==='spray') orOpenSprayForm(id);
+  else if(kind==='pick') orOpenPickForm(id);
+  else if(kind==='treat') lsTrEditOpen(id);
+  else cropLogInput(id);
 }
 function fixAskRemove(kind, id){
   if(!fixReady(kind)){ fixNotReady(); return; }
+  if(kind==='pick' || kind==='treat'){ fixAskRemove2(kind, id); return; }
   var h = (kind==='spray') ? fixFindSpray(id) : fixFindInput(id); if(!h){ fixClose(); return; }
   var sp=(kind==='spray'), q=String(id).replace(/[^A-Za-z0-9_\-]/g,'');
   var opt=function(k, extra){
@@ -13348,6 +13357,7 @@ function fixDoRemove(kind, id){
   var sel=document.querySelector('input[name="fix-reason"]:checked');
   if(!sel){ toast(fixT('Choose why it’s being removed','Kies hoekom dit verwyder word'),'error'); return; }
   var rm={at:new Date().toISOString(), reason:sel.value, by:fixWho()};
+  if(kind==='pick' || kind==='treat'){ fixDoRemove2(kind, id, rm); return; }
   if(kind==='spray'){
     var h=fixFindSpray(id); if(!h){ fixClose(); return; }
     var arr=ST_FRUIT.sprayDiary[h.cat]; arr.splice(arr.indexOf(h.x),1);
@@ -13369,6 +13379,248 @@ function fixDoRemove(kind, id){
              'Toediening verwyder. Die uitgawe van '+fixMoney(cost)+' wat dit bygevoeg het, is steeds in Transaksies — verwyder dit ook daar as dit ’n fout was.')
       : fixT('Application removed and kept in the change history.','Toediening verwyder en in die veranderingsgeskiedenis gehou.'), 'success');
   }
+}
+
+/* ==== -467: picks and treatments - correct or remove ==========================================
+   Same rules as sprays: the row stays on the server with removed_at set (never deleted), the
+   history rides on the row, and nothing is changed until the server can store it.
+   A pick booked an income and a treatment may have booked an expense. Neither row carries a
+   link the server keeps, so they are found again by what they were booked as. The farmer is
+   shown the one found and chooses whether it goes too. */
+function fixSameDay(a, iso){
+  var d=parseDate(String(a||'')), p=String(iso||'').split('-');
+  return !!d && p.length===3 && d.y===+p[0] && d.m===(+p[1]-1) && d.d===+p[2];
+}
+function fixTxnIdx(test){
+  var a=(window.ST && ST.txns) || [];
+  for(var i=0;i<a.length;i++) if(a[i] && test(a[i])) return i;
+  return -1;
+}
+function fixFindPick(id){
+  if(!fixIdOk(id)) return null;
+  var a=(window.ST_FRUIT && ST_FRUIT.harvest) || [];
+  for(var i=0;i<a.length;i++) if(a[i] && String(a[i].id)===String(id)) return {x:a[i]};
+  return null;
+}
+function fixFindTreat(id){
+  if(!fixIdOk(id)) return null;
+  var a=(window.ST_LS && ST_LS.treatments) || [];
+  for(var i=0;i<a.length;i++) if(a[i] && String(a[i].id)===String(id)) return {x:a[i]};
+  return null;
+}
+function orPickDesc(x){
+  var b=(typeof orBlockById==='function') ? orBlockById(x.bid) : null;
+  return (b ? b.name : String(x.t||'').split(' — ')[0]) + ' · ' + (x.dateISO ? orFmtDM(new Date(x.dateISO+'T00:00:00')) : '');
+}
+/* The income orSavePick booked: its own tag on this device, else the same block text, day and rand. */
+function orPickTxnIdx(x){
+  var b=orBlockById(x.bid), amt=Math.round(Number(x.money)||0); if(!(amt>0)) return -1;
+  var d1=(b?b.name:'')+' — ';
+  return fixTxnIdx(function(t){
+    if(t._oh && String(t._oh)===String(x.id)) return true;
+    return t.type==='income' && Math.round(Number(t.amt)||0)===amt && fixSameDay(t.date, x.dateISO) && String(t.desc||'').indexOf(d1)===0;
+  });
+}
+/* The picking pay run a pick posted to Workers, if one is still there. */
+function orPickRun(x){
+  var b=orBlockById(x.bid); if(!b || typeof ST_WORK==='undefined' || !ST_WORK || !ST_WORK.payRuns) return null;
+  return ST_WORK.payRuns.filter(function(r){ return r && r.source==='Picking' && r.block===b.name && fixSameDay(r.date, x.dateISO); })[0] || null;
+}
+function lsTrDesc(x){
+  var h=(typeof lsHerdById==='function') ? lsHerdById(x.herd) : null;
+  return lsHerdName(h) + ' · ' + (x.date ? lsFmtDate(new Date(x.date+'T00:00:00')) : '');
+}
+/* The expense a treatment booked: its own tag on this device, else the same words, day and rand. */
+function lsTrTxnIdx(x){
+  var amt=Number(x.cost)||0; if(!(amt>0)) return -1;
+  var h=lsHerdById(x.herd), desc=x.product+' — '+lsHerdName(h);
+  return fixTxnIdx(function(t){
+    if(t._ls && String(t._ls)===String(x.id)) return true;
+    return t.type==='expense' && Math.abs((Number(t.amt)||0)-amt)<0.005 && fixSameDay(t.date, x.date) && String(t.desc||'')===desc;
+  });
+}
+function orPickTap(id){
+  var h=fixFindPick(id); if(!h) return;
+  fixSheet(fixT('Pick','Pluk')+(h.x.tons?' · '+h.x.tons+' t':''), orPickDesc(h.x), fixMenuHtml('pick', id));
+}
+function lsTrTap(id){
+  var h=fixFindTreat(id); if(!h) return;
+  fixSheet(h.x.product, lsTrDesc(h.x), fixMenuHtml('treat', id));
+}
+function fixAskRemove2(kind, id){
+  var pk=(kind==='pick'), h=pk?fixFindPick(id):fixFindTreat(id); if(!h){ fixClose(); return; }
+  var x=h.x, q=String(id).replace(/[^A-Za-z0-9_\-]/g,'');
+  var ti=pk?orPickTxnIdx(x):lsTrTxnIdx(x), t=(ti>=0)?ST.txns[ti]:null;
+  var run=pk?orPickRun(x):null;
+  var opt=function(k, extra){
+    return '<label style="display:flex;gap:10px;align-items:flex-start;padding:10px 11px;border:1px solid var(--br);border-radius:10px;margin-bottom:8px;cursor:pointer;font-size:13px;color:var(--t1)">'+
+      '<input type="radio" name="fix-reason" value="'+k+'" style="width:auto;height:auto;min-width:0;flex:none;margin:2px 0 0;padding:0;accent-color:#2D6A4F">'+
+      '<span style="flex:1;text-align:left">'+esc(fixReasonLabel(k))+
+      (extra?'<span style="display:block;font-size:11.5px;color:var(--t3)">'+esc(extra)+'</span>':'')+'</span></label>';
+  };
+  var box='width:auto;height:auto;min-width:0;flex:none;margin:2px 0 0;padding:0;accent-color:#2D6A4F';
+  var money = t ? '<label style="display:flex;gap:10px;align-items:flex-start;padding:10px 11px;background:var(--bg);border-radius:10px;margin:4px 0 8px;cursor:pointer;font-size:13px;color:var(--t1)">'+
+      '<input type="checkbox" id="fix-txn" checked style="'+box+'"><span style="flex:1">'+
+      esc(pk ? fixT('Also remove the '+fixMoney(t.amt)+' income it booked','Verwyder ook die inkomste van '+fixMoney(t.amt)+' wat dit geboek het')
+             : fixT('Also remove the '+fixMoney(t.amt)+' expense it added','Verwyder ook die uitgawe van '+fixMoney(t.amt)+' wat dit bygevoeg het'))+
+      '<span style="display:block;font-size:11.5px;color:var(--t3)">'+esc(t.desc||'')+' · '+esc(txDispDate(t.date))+'</span></span></label>' : '';
+  var note = pk
+    ? fixT('It leaves your picks and pick totals now.','Dit verlaat nou jou plukke en pluktotale.')+
+      (run ? ' '+fixT('The '+fixMoney(run.net||run.gross||0)+' picking pay run stays in Workers — remove it there if it was also a mistake.',
+                      'Die plukloonlopie van '+fixMoney(run.net||run.gross||0)+' bly in Werkers — verwyder dit daar as dit ook ’n fout was.') : '')
+    : fixT('It leaves the medicine register and any not-safe-to-sell hold now.','Dit verlaat nou die medisyneregister en enige nie-veilig-om-te-verkoop-hou.');
+  var body=opt('twice')+opt('never')+(pk?opt('wrong', fixT('You’ll log it again on the right one','Jy teken dit weer op die regte een aan')):opt('herd', fixT('You’ll log it again for the right ones','Jy teken dit weer vir die regtes aan')))+
+    money+
+    '<div style="font-size:11.5px;color:var(--t3);background:var(--bg);border-radius:8px;padding:8px 10px;margin:4px 0 12px;line-height:1.45">'+
+      esc(note)+' '+esc(fixT('The entry and your reason are kept in the change history.','Die inskrywing en jou rede word in die veranderingsgeskiedenis gehou.'))+'</div>'+
+    '<div style="display:flex;gap:8px">'+
+      '<button type="button" onclick="fixClose()" style="flex:1;padding:10px;border:1px solid var(--br);border-radius:10px;background:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer">'+fixT('Keep it','Hou dit')+'</button>'+
+      '<button type="button" onclick="fixDoRemove(\''+kind+'\',\''+q+'\')" style="flex:1;padding:10px;border:0;border-radius:10px;background:#B42318;color:#fff;font:inherit;font-size:13px;font-weight:700;cursor:pointer">'+fixT('Remove','Verwyder')+'</button></div>';
+  fixSheet(fixT('Why remove this '+fixNoun(kind)+'?','Hoekom verwyder jy hierdie '+fixNoun(kind)+'?'),
+           (pk ? orPickDesc(x) : (x.product||'')+' · '+lsTrDesc(x)), body);
+}
+/* Moves one booked row to Recently deleted, as deleting it on the Transactions page does. */
+function fixDropTxn(i){
+  var t=ST.txns[i]; if(!t) return 0;
+  try{ _txBinPush(t); }catch(e){}
+  ST.txns.splice(i,1);
+  try{ txnDeleteThrough(t); }catch(e){}
+  try{ dataChanged('transaction'); }catch(e){}
+  try{ if(typeof txRefreshDeletedChip==='function') txRefreshDeletedChip(); }catch(e){}
+  return Number(t.amt)||0;
+}
+function fixDoRemove2(kind, id, rm){
+  var pk=(kind==='pick'), h=pk?fixFindPick(id):fixFindTreat(id); if(!h){ fixClose(); return; }
+  var x=h.x, cb=$('fix-txn'), dropped=0;
+  if(cb && cb.checked){ var ti=pk?orPickTxnIdx(x):lsTrTxnIdx(x); if(ti>=0) dropped=fixDropTxn(ti); }
+  x.removed=rm;
+  if(pk){
+    ST_FRUIT.harvest.splice(ST_FRUIT.harvest.indexOf(x),1);
+    ST_FRUIT.removedHarvest=ST_FRUIT.removedHarvest||[]; ST_FRUIT.removedHarvest.push(x);
+    orSave(); orRenderHarvest();
+  } else {
+    ST_LS.treatments.splice(ST_LS.treatments.indexOf(x),1);
+    ST_LS.removedTreatments=ST_LS.removedTreatments||[]; ST_LS.removedTreatments.push(x);
+    try{ saveState&&saveState(); }catch(e){}
+    try{ dataChanged('livestock'); }catch(e){}
+    if(typeof renderHealthMed==='function') renderHealthMed();
+  }
+  fixClose();
+  toast((pk?fixT('Pick removed','Pluk verwyder'):fixT('Treatment removed','Behandeling verwyder'))+
+        (dropped?fixT(' with its '+fixMoney(dropped)+(pk?' income':' expense')+' (in Recently deleted for 30 days).',
+                      ' saam met sy '+(pk?'inkomste':'uitgawe')+' van '+fixMoney(dropped)+' (30 dae in Onlangs geskrap).')
+                :fixT(' and kept in the change history.',' en in die veranderingsgeskiedenis gehou.')), 'success');
+}
+
+/* ---- correcting a pick: the pick form, filled in ---- */
+function orPickEditFill(id){
+  var h=fixFindPick(id); if(!h) return;
+  var x=h.x, set=function(k,v){ var e=$(k); if(e && v!=null) e.value=v; };
+  set('or-pk-block', x.bid); set('or-pk-tons', x.tons||x.tn||''); set('or-pk-cartons', x.cartons||''); set('or-pk-date', x.dateISO); set('or-pk-to', x.to||'');
+  /* The pay run already went to Workers; changing its cost here would leave it saying
+     something else. */
+  ['or-pk-labour','or-pk-pickers'].forEach(function(k){ var e=$(k); if(e){ e.value=''; e.disabled=true; e.placeholder=fixT('change it in Workers','verander dit in Werkers'); } });
+  var root=$('or-modal-content');
+  var t=root&&root.querySelector('.or-mt'); if(t) t.textContent=fixT('Correct this pick','Stel hierdie pluk reg');
+  var s=root&&root.querySelector('.or-ms'); if(s) s.textContent=fixT('Change what was wrong. The income it booked follows.','Verander wat verkeerd was. Die inkomste wat dit geboek het, volg.');
+  var b=root&&root.querySelector('.btn-pri'); if(b) b.textContent=fixT('Save correction','Stoor regstelling');
+}
+function orSavePickEdit(id){
+  if(!fixReady('pick')){ fixNotReady(); return; }
+  var h=fixFindPick(id); if(!h){ orCloseModal(); return; }
+  var x=h.x, v=function(k){ var e=$(k); return e ? String(e.value||'').trim() : ''; };
+  var b=orBlockById(v('or-pk-block')); if(!b) return;
+  var tons=parseFloat(v('or-pk-tons'))||0, cartons=parseFloat(v('or-pk-cartons'))||0;
+  var dateISO=v('or-pk-date')||x.dateISO, to=v('or-pk-to'), oldB=orBlockById(x.bid);
+  var ti=orPickTxnIdx(x);          /* found BEFORE anything it is matched on changes */
+  var n=0;
+  n+=fixLog(x,'bid', oldB?oldB.name:x.bid, b.name);
+  n+=fixLog(x,'tons', x.tons||x.tn||0, tons); n+=fixLog(x,'cartons', x.cartons||0, cartons);
+  n+=fixLog(x,'dateISO', x.dateISO, dateISO); n+=fixLog(x,'to', x.to||'', to);
+  var att=orAttachTake('pk'); if(att){ x.att=att; n+=fixLog(x,'att','',fixT('new attachment','nuwe aanhangsel')); }
+  if(!n){ orCloseModal(); orToast(fixT('Nothing changed.','Niks het verander nie.')); return; }
+  /* The money is re-worked only when what was picked changed. A date or packhouse fix keeps
+     the rand booked on the day, not today's price. */
+  var money=Number(x.money)||0;
+  if(String(b.id)!==String(x.bid) || tons!==(Number(x.tons||x.tn)||0) || cartons!==(Number(x.cartons)||0)){
+    var net=orNetPer(b);
+    money=(b.cat==='berry')?tons*1000*net:(b.cat==='veg'?tons*net:cartons*net);
+    n+=fixLog(x,'money', Math.round(Number(x.money)||0), Math.round(money));
+  }
+  var dt=new Date(dateISO+'T00:00:00');
+  x.bid=b.id; x.cat=b.cat; x.ic=b.icon; x.tons=tons; x.tn=tons; x.cartons=cartons; x.dateISO=dateISO; x.to=to; x.money=money;
+  x.t=OR_CATS[b.cat].nm+' · '+b.name+' — '+orFmtDM(dt);
+  x.s=tons+' t'+(cartons?' · '+cartons.toLocaleString('en-ZA')+' cartons':'')+(to?' · '+to:'');
+  x.r=money?orRm(money):'—';
+  var said='';
+  if(ti>=0){
+    var t=ST.txns[ti];
+    t.date=orFmtDM(dt)+' '+dt.getFullYear();
+    t.desc=b.name+' — '+(cartons?cartons.toLocaleString('en-ZA')+' cartons':tons+' t');
+    t.amt=Math.round(money); t._oh=x.id;
+    try{ txnUpdateThrough(t); }catch(e){}
+    try{ dataChanged('transaction'); }catch(e){}
+    said=fixT(' The income it booked now reads '+fixMoney(money)+'.',' Die inkomste wat dit geboek het, lees nou '+fixMoney(money)+'.');
+  } else if(money>0){
+    said=fixT(' No matching income was found — check it in Transactions.',' Geen passende inkomste is gevind nie — kyk in Transaksies.');
+  }
+  orSave(); orRenderHarvest(); orCloseModal();
+  orToast(fixT('Correction saved.','Regstelling gestoor.')+said);
+}
+
+/* ---- correcting a treatment: the treatment form, filled in ---- */
+function lsTrEditOpen(id){
+  var h=fixFindTreat(id); if(!h) return;
+  var x=h.x;
+  lsTrFormOpen(x.herd, {kind:x.kind, product:x.product, reason:x.reason});
+  LS_TR_FORM.edit=x.id; LS_TR_FORM.target=x.target||'whole'; LS_TR_FORM.tags=(x.tags||[]).slice();
+  LS_TR_FORM.vals={product:x.product, date:x.date, reg:x.reg, meat:x.meat||0, milk:x.milk||0, by:x.by, batch:x.batch, reason:x.reason, head:x.head||''};
+  $('ls-tr-in').innerHTML=_lsTrFormHtml(); _lsTrFill(); lsTrWdPrev();
+}
+function _lsTrGrab(){
+  var g=function(k){ var e=$(k); return e ? e.value : undefined; };
+  LS_TR_FORM.vals={product:g('ls-tr-product'), date:g('ls-tr-date'), reg:g('ls-tr-reg'), meat:g('ls-tr-meat'), milk:g('ls-tr-milk'),
+                   by:g('ls-tr-by'), batch:g('ls-tr-batch'), reason:g('ls-tr-reason'), head:g('ls-tr-head')};
+}
+function _lsTrFill(){
+  if(!LS_TR_FORM.edit) return;
+  var v=LS_TR_FORM.vals||{}, set=function(k,val){ var e=$(k); if(e && val!=null && val!=='') e.value=val; };
+  set('ls-tr-product',v.product); set('ls-tr-date',v.date); set('ls-tr-reg',v.reg); set('ls-tr-meat',v.meat); set('ls-tr-milk',v.milk);
+  set('ls-tr-by',v.by); set('ls-tr-batch',v.batch); set('ls-tr-reason',v.reason); set('ls-tr-head',v.head);
+  /* The cost already went to the expenses when it was logged. */
+  var c=$('ls-tr-cost'); if(c){ c.value=''; c.disabled=true; c.placeholder=fixT('change it in Transactions','verander dit in Transaksies'); }
+  var te=$('ls-tr-toexp'); if(te){ te.checked=false; var l=te.closest('label'); if(l) l.style.display='none'; }
+  var root=$('ls-tr-in');
+  var t=root&&root.querySelector('.lshmv-top h3'); if(t) t.textContent=fixT('Correct this treatment','Stel hierdie behandeling reg');
+  var s=root&&root.querySelector('.lshmv-top small'); if(s) s.textContent=fixT('Change what was wrong. The register notes what changed.','Verander wat verkeerd was. Die register teken aan wat verander het.');
+  var b=root&&root.querySelector('.lshmv-act .pri'); if(b) b.textContent=fixT('Save correction','Stoor regstelling');
+}
+function lsTrSaveEdit(id){
+  if(!fixReady('treat')){ fixNotReady(); return; }
+  var hh=fixFindTreat(id); if(!hh){ LS_TR_FORM.edit=null; lsTrFormClose(); return; }
+  var x=hh.x, h=lsHerdById(LS_TR_FORM.herdId); if(!h){ toast('Pick a herd.','error'); return; }
+  var g=function(k){ return (($(k)||{}).value||'').trim(); };
+  var product=g('ls-tr-product'); if(!product){ toast('What product was given?','error'); return; }
+  var target=LS_TR_FORM.target, head=0, tags=[];
+  if(target==='head'){ head=parseInt(g('ls-tr-head'),10)||0; if(head<=0){ toast('How many head were treated?','error'); return; } if(head>h.qty) head=h.qty; }
+  if(target==='tags'){ tags=LS_TR_FORM.tags.slice(); if(!tags.length){ toast('Tap the animals treated, or use "Some head".','error'); return; } }
+  var kind=LS_TR_FORM.kind;
+  var nv={ herd:h.id, kind:kind, target:target, head:head, tags:tags, product:product, date:g('ls-tr-date')||x.date, reg:g('ls-tr-reg'),
+           meat:parseInt(g('ls-tr-meat'),10)||0, milk:parseInt(g('ls-tr-milk'),10)||0, by:g('ls-tr-by'), batch:g('ls-tr-batch'), reason:g('ls-tr-reason') };
+  var oldH=lsHerdById(x.herd), n=0;
+  n+=fixLog(x,'herd', lsHerdName(oldH), lsHerdName(h));
+  ['kind','target','head','product','date','reg','meat','milk','by','batch','reason'].forEach(function(k){ n+=fixLog(x,k,x[k]==null?'':x[k],nv[k]); });
+  n+=fixLog(x,'tags',(x.tags||[]).join(', '),tags.join(', '));
+  if(!n){ LS_TR_FORM.edit=null; lsTrFormClose(); toast(fixT('Nothing changed.','Niks het verander nie.'),'info'); return; }
+  Object.keys(nv).forEach(function(k){ x[k]=nv[k]; });
+  x.act=(kind==='vet'?'101/1965':'36/1947');
+  x.abx=(kind==='vet' && /oxytet|terramycin|engemycin|penicillin|antibiotic|tylosin|amoxy/i.test(product)) || undefined;
+  LS_TR_FORM.edit=null;
+  try{ saveState&&saveState(); }catch(e){}
+  try{ dataChanged('livestock'); }catch(e){}
+  lsTrFormClose();
+  toast(fixT('Correction saved. The register notes what changed.','Regstelling gestoor. Die register teken aan wat verander het.'),'success');
+  if(typeof renderHealthMed==='function') renderHealthMed();
 }
 
 /* ---- correcting a spray: the spray's own form, filled in ---- */
@@ -13404,7 +13656,7 @@ function orSaveSprayEdit(id){
   if(!n){ orCloseModal(); orToast(fixT('Nothing changed.','Niks het verander nie.')); return; }
   x.product=prod; x.forx=forx; x.dateISO=dateISO; x.bid=b.id;
   ['reg','rate','batch','by','cert','weather'].forEach(function(k){ x[k]=v('or-sp-'+k); });
-  x.phi={eu:days, uk:days, us:Math.max(0,days-7), local:days};
+  x.phi={eu:days, uk:days, us:days, local:days};
   var dt=new Date(dateISO+'T00:00:00');
   x.t=prod+(forx?' — for '+forx:''); x.s=b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray');
   if(b.cat!==h.cat){
@@ -13453,8 +13705,9 @@ function cropInputEditSave(id){
 }
 
 /* ---- the register's last page ---- */
-function aiRegChanges(from, to, lang){
-  var FL={product:['Product','Produk'], forx:['Target','Teiken'], targetFor:['Target','Teiken'], dateISO:['Date','Datum'], date:['Date','Datum'],
+function aiRegChanges(from, to, lang, kind){
+  var FL={product:['Product','Produk'], herd:['Herd','Trop'], target:['Given to','Gegee aan'], head:['Head','Koppe'], tags:['Tags','Oormerke'],
+          meat:['Meat withdrawal (days)','Vleisonttrekking (dae)'], milk:['Milk withdrawal (days)','Melkonttrekking (dae)'], reason:['Reason','Rede'], forx:['Target','Teiken'], targetFor:['Target','Teiken'], dateISO:['Date','Datum'], date:['Date','Datum'],
           phi:['Wait (days)','Wagtyd (dae)'], bid:['Block','Blok'], reg:['Reg no.','Reg.nr.'], rate:['Rate','Tempo'], batch:['Batch','Lotnr.'],
           by:['Applied by','Toegedien deur'], cert:['Licence','Lisensie'], operatorCert:['Licence','Lisensie'], weather:['Weather','Weer'],
           kind:['Type','Soort'], att:['Attachment','Aanhangsel']};
@@ -13472,6 +13725,10 @@ function aiRegChanges(from, to, lang){
                 what:(f?(lang==='af'?f[1]:f[0]):c.f)+': '+(c.from||'-')+' -> '+(c.to||'-'), by:c.by||''});
     });
   };
+  if(kind==='treat'){
+    ((window.ST_LS&&ST_LS.treatments)||[]).concat((window.ST_LS&&ST_LS.removedTreatments)||[]).forEach(function(x){ if(x) add(x, x.date, (x.product||'')+' · '+lsTrDesc(x)); });
+    return out.sort(function(a,b){ return String(a._t)<String(b._t) ? -1 : 1; });
+  }
   var inDesc=function(x){ return (x.product||'')+' · '+fixDescInput(x); };
   var spDesc=function(x){ return (x.product||'')+' · '+fixDescSpray(x); };
   ((window.ST_CROP&&ST_CROP.inputs)||[]).concat((window.ST_CROP&&ST_CROP.removed)||[]).forEach(function(x){ if(x) add(x, x.date, inDesc(x)); });
@@ -14281,7 +14538,7 @@ function openCropSprayReport(){
 function openCropInputCostReport(){
   var byKind={}; var total=0;
   ST_CROP.inputs.forEach(function(i){var l=cropLandById(i.land);var c=(i.costPerHa||0)*((l&&l.area)||0);var k=cropInputKindMeta(i.kind)[0];byKind[k]=(byKind[k]||0)+c;total+=c;});
-  var rows=Object.keys(byKind).map(function(k){return '<tr><td>'+k+'</td><td class="amt neg">'+cropRand(byKind[k])+'</td></tr>';}).join('');
+  var rows=Object.keys(byKind).map(function(k){return '<tr><td>'+esc(k)+'</td><td class="amt neg">'+cropRand(byKind[k])+'</td></tr>';}).join('');
   var diesel=Math.round(_dslC().logged||0);   // the one diesel engine — see aiDieselStats
   var html='<h1>Crop Input Cost (SARS)</h1>'+
     '<div class="lsr-meta">'+escTxHtml(FARM.name||'Farm')+' \u00b7 season '+ST_CROP.season+' \u00b7 Section 11(a) deductible inputs</div>'+
@@ -17001,6 +17258,13 @@ var n = parseInt(ST.incPeriod || '6', 10);
     return true;
   });
 
+  /* -467: newest first by the date the money moved. The list kept the order entries were
+     added, so an import or a back-dated entry landed out of place and a month could appear
+     twice. Rows with the same day keep their ledger order. */
+  var _dk = function(t){ var d = parseDate(String(t.date||'')); return (d && d.y) ? (d.y*10000 + (d.m+1)*100 + (d.d||1)) : -1; };
+  list = list.map(function(t, i){ return {t:t, k:_dk(t), i:i}; })
+             .sort(function(a, b){ return (b.k - a.k) || (a.i - b.i); })
+             .map(function(o){ return o.t; });
   var _needHere = 0;
   list.forEach(function(t){ if (_txNeedsLook(t)) _needHere++; });
   window.__txNeedCount_inc = _needHere;
@@ -18391,6 +18655,13 @@ var n = parseInt(ST.expPeriod || '6', 10);
     return true;
   });
 
+  /* -467: newest first by the date the money moved. The list kept the order entries were
+     added, so an import or a back-dated entry landed out of place and a month could appear
+     twice. Rows with the same day keep their ledger order. */
+  var _dk = function(t){ var d = parseDate(String(t.date||'')); return (d && d.y) ? (d.y*10000 + (d.m+1)*100 + (d.d||1)) : -1; };
+  list = list.map(function(t, i){ return {t:t, k:_dk(t), i:i}; })
+             .sort(function(a, b){ return (b.k - a.k) || (a.i - b.i); })
+             .map(function(o){ return o.t; });
   var _needHere = 0;
   list.forEach(function(t){ if (_txNeedsLook(t)) _needHere++; });
   window.__txNeedCount_exp = _needHere;
@@ -18741,7 +19012,7 @@ el.innerHTML = sorted.map(function(cat, i) {
     return '<div class="rl-row">' +
       '<div class="rl-left">' +
         '<div class="leg-dot" style="background:'+col+';border-radius:3px;width:12px;height:12px"></div>' +
-        '<span>'+cat+'</span>' +
+        '<span>'+esc(cat)+'</span>' +
       '</div>' +
       '<div><strong>'+fmt(amt)+'</strong> <span style="font-size:11px;color:var(--t3)">'+pct+'%</span></div>' +
     '</div>';
@@ -20476,8 +20747,8 @@ var FRESH_SHAPE = {
      the payroll runs, the compliance record. */
   ST_WORK:    { workers:[], payRuns:[], payslips:[], payslipSends:[], seasonal:{}, paye:{},
                 compliance:{ uifPayments:[], uifNumber:'', sdlNumber:'', coida:null, coidaFiled:false, docs:[] } },
-  ST_LS:      { camps:[], herd:[], animals:[], moves:[], treatments:[], health:[], breedings:[] },
-  ST_FRUIT:   { blocks:[], pricing:{}, sprayDiary:{}, removedSprays:[], phi:{}, harvest:[] },
+  ST_LS:      { camps:[], herd:[], animals:[], moves:[], treatments:[], removedTreatments:[], health:[], breedings:[] },
+  ST_FRUIT:   { blocks:[], pricing:{}, sprayDiary:{}, removedSprays:[], phi:{}, harvest:[], removedHarvest:[] },
   ST_CROP:    { lands:[], events:[], inputs:[], removed:[], compliance:{}, season:'' },
   ST_PLAN:    { crops:[], events:[], hedge:{}, orchSpill:0 },
   ST_LOANAPP: { req:{}, income:{}, estimates:{}, track:{}, landWater:{}, savedAt:'' },
@@ -34499,7 +34770,7 @@ function _lsTrFormHtml(){
     '<div class="lshmv-act"><button onclick="lsTrFormClose()">Cancel</button><button class="pri" onclick="lsTrFormSave()">Log treatment</button></div>';
 }
 function lsTrPickKind(k){ LS_TR_FORM.kind=k; $('ls-tr-in').querySelectorAll('.ls-trk').forEach(function(el,i){ el.classList.toggle('on', LS_TR_KINDS[i][0]===k); }); }
-function lsTrPickHerd(v){ LS_TR_FORM.herdId=parseInt(v,10); LS_TR_FORM.tags=[]; $('ls-tr-in').innerHTML=_lsTrFormHtml(); lsTrWdPrev(); }
+function lsTrPickHerd(v){ if(LS_TR_FORM.edit) _lsTrGrab(); LS_TR_FORM.herdId=parseInt(v,10); LS_TR_FORM.tags=[]; $('ls-tr-in').innerHTML=_lsTrFormHtml(); _lsTrFill(); lsTrWdPrev(); }
 function lsTrPickTarget(t){
   LS_TR_FORM.target=t;
   $('ls-tr-in').querySelectorAll('.ls-trseg button').forEach(function(b){ b.classList.toggle('on', b.textContent.toLowerCase().indexOf(t==='whole'?'whole':t==='head'?'some':'tag')>=0); });
@@ -34516,6 +34787,7 @@ function lsTrWdPrev(){
   } else { box.className='ls-tr-wdprev on clear'; box.innerHTML='\u2713 No withdrawal period<small>safe to sell immediately</small>'; }
 }
 function lsTrFormSave(){
+  if(LS_TR_FORM.edit){ lsTrSaveEdit(LS_TR_FORM.edit); return; }
   var h=lsHerdById(LS_TR_FORM.herdId); if(!h){ toast('Pick a herd.','error'); return; }
   var product=(($('ls-tr-product')||{}).value||'').trim();
   if(!product){ toast('What product was given?','error'); return; }
@@ -34538,7 +34810,7 @@ function lsTrFormSave(){
   var toExp = ($('ls-tr-toexp')||{}).checked;
   if(toExp && cost>0 && typeof ST!=='undefined'){
     ST.txns=ST.txns||[];
-    ST.txns.unshift({ date:date, desc:product+' \u2014 '+lsHerdName(h), cat:'Veterinary & Animal Health', type:'expense', amt:cost, method:'', _ls:rec.id, ent:'ls:'+h.id });
+    ST.txns.unshift({ date:date, desc:product+' \u2014 '+lsHerdName(h), cat:'Veterinary & Animal Health', type:'expense', amt:cost, method:'', _ls:rec.id, ent:'ls:'+h.id, source:'Livestock treatment' });
     var _lsTV=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsTV, {date:_lsTxnISO(date),amt:cost,cat:'Veterinary & Animal Health',type:'expense',desc:product+' \u2014 '+lsHerdName(h),method:'',ent:'ls:'+h.id,source:'Livestock treatment'}); } }catch(e){}
   }
   try{ saveState&&saveState(); }catch(e){}
@@ -34586,10 +34858,11 @@ function renderHealthMed(){
     var status= wd<=0?'<span class="tag tgr">Logged</span>':(dl<=0?'<span class="tag tg">\u2705 Safe</span>':'<span class="tag to">\u26d4 Hold until '+lsFmtDate(lsTrSafe(t))+'</span>');
     var target= t.target==='whole'?'whole herd':(t.target==='tags'?('tag '+(t.tags||[]).join(', ')):(t.head+' head'));
     var wdtxt= wd<=0?'None':('Meat '+(t.meat||0)+'d'+((t.milk||0)?' \u00b7 Milk '+t.milk+'d':''));
-    var sub= t.reg?'<span class="lsreglbl">'+t.reg+'</span>':'<span style="color:var(--t3);font-size:11px;display:block;margin-top:3px">Health event</span>';
-    return '<tr><td><div style="font-weight:700">'+t.product+'</div>'+sub+'</td>'+
-      '<td>'+lsHerdName(h)+'<br><span style="color:var(--t3);font-size:12px">'+target+'</span></td>'+
-      '<td>'+lsFmtDate(new Date(t.date+'T00:00:00'))+'<br><span style="color:var(--t3);font-size:12px">'+(t.by||'')+'</span></td>'+
+    var sub= t.reg?'<span class="lsreglbl">'+esc(t.reg)+'</span>':'<span style="color:var(--t3);font-size:11px;display:block;margin-top:3px">Health event</span>';
+    /* -467: tap a row to correct or remove it; what the farmer typed is shown as text. */
+    return '<tr style="cursor:pointer" onclick="lsTrTap(\''+String(t.id).replace(/[^A-Za-z0-9_\-]/g,'')+'\')"><td><div style="font-weight:700">'+esc(t.product)+'</div>'+sub+'</td>'+
+      '<td>'+esc(lsHerdName(h))+'<br><span style="color:var(--t3);font-size:12px">'+esc(target)+'</span></td>'+
+      '<td>'+lsFmtDate(new Date(t.date+'T00:00:00'))+'<br><span style="color:var(--t3);font-size:12px">'+esc(t.by||'')+'</span></td>'+
       '<td class="r"><span style="font-weight:800">R '+(t.cost||0).toLocaleString('en-ZA')+'</span><span style="font-size:11px;color:var(--gl);font-weight:700;display:block">claim off tax</span></td>'+
       '<td>'+wdtxt+'</td><td>'+status+'</td></tr>';
   }).join('')+'</tbody></table>';
@@ -45918,7 +46191,7 @@ el.innerHTML = sorted.map(function(cat, i) {
     return '<div class="rl-row">' +
       '<div class="rl-left">' +
         '<div class="leg-dot" style="background:'+col+';border-radius:3px;width:12px;height:12px"></div>' +
-        '<span>'+cat+'</span>' +
+        '<span>'+esc(cat)+'</span>' +
       '</div>' +
       '<div><strong>'+fmt(amt)+'</strong> <span style="font-size:11px;color:var(--t3)">'+pct+'%</span></div>' +
     '</div>';
@@ -53941,6 +54214,14 @@ function aiRepullShared(force){
       if(ls && typeof ST_LS!=='undefined'){
         var mvN = _aiMergeById(ST_LS.moves      = ST_LS.moves||[],      ls.moves||[],      'id', _aiApplyMergedMove);
         var trN = _aiMergeById(ST_LS.treatments = ST_LS.treatments||[], ls.treatments||[], 'id');
+        /* -467: one removed on another desktop leaves this tab's list too (the merge only adds). */
+        try{ if(ls.removedTreatments && ls.removedTreatments.length){
+          var _rmT={}; ls.removedTreatments.forEach(function(x){ if(x && x.id!=null) _rmT[String(x.id)]=1; });
+          var _b4=ST_LS.treatments.length;
+          ST_LS.treatments=ST_LS.treatments.filter(function(x){ return !(x && _rmT[String(x.id)]); });
+          ST_LS.removedTreatments=ls.removedTreatments;
+          if(ST_LS.treatments.length!==_b4) trN++;
+        } }catch(e){}
         var heN = _aiMergeById(ST_LS.health     = ST_LS.health||[],     ls.health||[],     'id');
         if(mvN){ try{ ST_LS.moves.sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); }); }catch(e){} }
         /* Removal particulars the phone added to a sale this tab already holds. The
@@ -55012,19 +55293,19 @@ function buildPLReport() {
     '<h2>Revenue</h2>'+
     '<table><tr><th>Source</th><th class="amt">Amount (R)</th></tr>'+
     (Object.keys(R.byIncCat).length ? Object.keys(R.byIncCat).sort(function(a,b){return R.byIncCat[b]-R.byIncCat[a];}).map(function(k){
-      return '<tr><td>'+k+'</td><td class="amt">'+fmt(R.byIncCat[k]||0)+'</td></tr>';
+      return '<tr><td>'+esc(k)+'</td><td class="amt">'+fmt(R.byIncCat[k]||0)+'</td></tr>';
     }).join('') : '<tr><td style="color:#9ca3af" colspan="2">No income recorded for this period</td></tr>')+
     '<tr class="total"><td>TOTAL INCOME</td><td class="amt pos">'+fmt(R.totalIncome)+'</td></tr></table>'+
     '<h2>Cost of Sales (S11a)</h2>'+
     '<table><tr><th>Category</th><th class="amt">Amount (R)</th></tr>'+
     ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].map(function(k){
-      return '<tr><td>'+k+'</td><td class="amt">'+fmt(R.byCat[k]||0)+'</td></tr>';
+      return '<tr><td>'+esc(k)+'</td><td class="amt">'+fmt(R.byCat[k]||0)+'</td></tr>';
     }).join('')+
     '<tr class="total"><td>TOTAL COS</td><td class="amt neg">'+fmt(R.totalCOS)+'</td></tr></table>'+
     '<h2>Operating Expenses</h2>'+
     '<table><tr><th>Category</th><th class="amt">Amount (R)</th></tr>'+
     Object.keys(R.byCat).filter(function(k){return ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].indexOf(k)<0;}).map(function(k){
-      return '<tr><td>'+k+'</td><td class="amt neg">'+fmt(R.byCat[k]||0)+'</td></tr>';
+      return '<tr><td>'+esc(k)+'</td><td class="amt neg">'+fmt(R.byCat[k]||0)+'</td></tr>';
     }).join('')+
     _rptLoanNoteRows(R, 'neg', false)+
     '<tr class="total"><td>TOTAL OPEX</td><td class="amt neg">'+fmt(R.totalOpex)+'</td></tr></table>'+
@@ -55267,21 +55548,21 @@ function buildPreviewPL(R, meta) {
     '<div class="pv-section"><h2>Revenue</h2>'+
     '<table class="pv-table"><thead><tr><th>Source</th><th class="amt">Amount</th></tr></thead><tbody>'+
     (Object.keys(R.byIncCat).length ? Object.keys(R.byIncCat).sort(function(a,b){return R.byIncCat[b]-R.byIncCat[a];}).map(function(k){
-      return '<tr><td>'+k+'</td><td class="amt pv-pos">'+fmt(R.byIncCat[k]||0)+'</td></tr>';
+      return '<tr><td>'+esc(k)+'</td><td class="amt pv-pos">'+fmt(R.byIncCat[k]||0)+'</td></tr>';
     }).join('') : '<tr><td style="color:#9CA3AF" colspan="2">No income recorded for this period</td></tr>')+
     '<tr class="total"><td>TOTAL INCOME</td><td class="amt pv-pos">'+fmt(R.totalIncome)+'</td></tr>'+
     '</tbody></table></div>'+
     '<div class="pv-section"><h2>Cost of Sales <span style="font-weight:400;color:#9CA3AF">(S11a)</span></h2>'+
     '<table class="pv-table"><thead><tr><th>Category</th><th class="amt">Amount</th></tr></thead><tbody>'+
     ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].map(function(k){
-      return '<tr><td>'+k+'</td><td class="amt pv-neg">'+fmt(R.byCat[k]||0)+'</td></tr>';
+      return '<tr><td>'+esc(k)+'</td><td class="amt pv-neg">'+fmt(R.byCat[k]||0)+'</td></tr>';
     }).join('')+
     '<tr class="total-neg"><td>TOTAL COS</td><td class="amt pv-neg">'+fmt(R.totalCOS)+'</td></tr>'+
     '</tbody></table></div>'+
     '<div class="pv-section"><h2>Operating Expenses</h2>'+
     '<table class="pv-table"><thead><tr><th>Category</th><th class="amt">Amount</th></tr></thead><tbody>'+
     Object.keys(R.byCat).filter(function(k){return ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].indexOf(k)<0;}).map(function(k){
-      return '<tr><td>'+k+'</td><td class="amt pv-neg">'+fmt(R.byCat[k]||0)+'</td></tr>';
+      return '<tr><td>'+esc(k)+'</td><td class="amt pv-neg">'+fmt(R.byCat[k]||0)+'</td></tr>';
     }).join('')+
     (Object.keys(R.byCat).filter(function(k){return ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].indexOf(k)<0;}).length===0?
       '<tr><td style="color:#9CA3AF" colspan="2">No operating expenses for this period</td></tr>':'')+
@@ -64477,6 +64758,13 @@ function txRender() {
 
   /* Count flagged rows INSIDE the active filters, so the button never promises more
      than clicking it will show ("25 need a look" -> 4 rows was this bug). */
+  /* -467: newest first by the date the money moved. The list kept the order entries were
+     added, so an import or a back-dated entry landed out of place and a month could appear
+     twice. Rows with the same day keep their ledger order. */
+  var _dk = function(t){ var d = parseDate(String(t.date||'')); return (d && d.y) ? (d.y*10000 + (d.m+1)*100 + (d.d||1)) : -1; };
+  list = list.map(function(t, i){ return {t:t, k:_dk(t), i:i}; })
+             .sort(function(a, b){ return (b.k - a.k) || (a.i - b.i); })
+             .map(function(o){ return o.t; });
   var _needHere = 0;
   list.forEach(function(t){ if (_txNeedsLook(t)) _needHere++; });
   window.__txAllNeedCount = _needHere;
@@ -64577,7 +64865,7 @@ function txRender() {
               '<div><div class="tx-edit-lbl">Amount (R)</div><input id="txe-amt" type="number" value="'+t.amt+'"/></div>' +
               '<div><div class="tx-edit-lbl">Category</div>' +
                 '<select id="txe-cat">'+cats.map(function(c){ return '<option'+(c===t.cat?' selected':'')+'>'+escHtml(c)+'</option>'; }).join('')+'</select></div>' +
-              '<div><div class="tx-edit-lbl">Date</div><input id="txe-date" type="date" value="'+t.date+'"/></div>' +
+              '<div><div class="tx-edit-lbl">Date</div><input id="txe-date" type="date" value="'+txISODate(t.date)+'"/></div>' +
               '<div style="display:flex;gap:6px;margin-bottom:2px">' +
                 '<button class="tx-edit-btn btn-pri" onclick="txSaveEdit('+ri+')" style="background:var(--gd);color:#fff;border-color:var(--gd);font-size:11px">Save</button>' +
                 '<button class="tx-edit-btn cancel" onclick="txCancelEdit()">Cancel</button>' +
@@ -64637,6 +64925,18 @@ function txStartEdit(idx) {
   }
 }
 
+/* -467: a date box only takes 2026-09-26. Most entries are stored as "26 Sep 2026", so the box
+   opened blank; saved, it wrote the other format. In as ISO, back in the format it had. */
+function txISODate(s){
+  var d = parseDate(String(s||'')); if (!d || !(d.y > 1900) || !(d.m >= 0)) return '';
+  return d.y + '-' + ('0'+(d.m+1)).slice(-2) + '-' + ('0'+(d.d||1)).slice(-2);
+}
+function txDateLike(old, iso){
+  if (!iso) return old;
+  if (/^\d{4}-\d{2}-\d{2}/.test(String(old||''))) return iso;
+  var p = iso.split('-'), MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return ('0' + (+p[2])).slice(-2) + ' ' + MO[+p[1]-1] + ' ' + p[0];
+}
 function txSaveEdit(idx) {
   var t = ST.txns[idx]; if (!t) return;
   var descEl = $('txe-desc'), amtEl  = $('txe-amt'), catEl  = $('txe-cat'), dateEl = $('txe-date');
@@ -64646,8 +64946,10 @@ function txSaveEdit(idx) {
     if(!confirm('This sale has '+_lsMoveSummary(_m)+' recorded against it. Changing the category leaves those animals out of the herd with no sale attached.\n\nOK changes it anyway. Cancel keeps the category.')){
       if (descEl) t.desc = descEl.value;
       if (amtEl)  t.amt  = parseFloat(amtEl.value) || t.amt;
-      if (dateEl && dateEl.value) t.date = dateEl.value;
-      TX_EDIT_IDX=-1; dataChanged('transaction');
+      if (dateEl && dateEl.value) t.date = txDateLike(t.date, dateEl.value);
+      TX_EDIT_IDX=-1;
+      try{ txnUpdateThrough(t); }catch(e){}
+      dataChanged('transaction');
       if(typeof saveState==='function') saveState();
       toast('Saved \u2014 category left as it was','success');
       return;
@@ -64657,8 +64959,11 @@ function txSaveEdit(idx) {
   if (descEl) t.desc   = descEl.value;
   if (amtEl)  t.amt    = parseFloat(amtEl.value) || t.amt;
   if (catEl)  t.cat    = catEl.value;
-  if (dateEl && dateEl.value) t.date   = dateEl.value;
+  if (dateEl && dateEl.value) t.date   = txDateLike(t.date, dateEl.value);
   TX_EDIT_IDX = -1;
+  /* -467: the Edit button changed this device only - the drawer's save sent it to the
+     farm account, this one never did, so the next load put the old figures back. */
+  try{ txnUpdateThrough(t); }catch(e){}
   dataChanged('transaction');
   if(typeof saveState==='function') saveState();
   updateDashboardFigures();
@@ -68691,6 +68996,15 @@ function orRebuildPhi(){
   if(!window.ST_FRUIT) return;
   ST_FRUIT.phi={};
   var sd=ST_FRUIT.sprayDiary||{};
+  /* -467: the form asks for ONE wait, the label's. The USA figure was that wait less seven
+     days - an invented number that cleared fruit for the US a week before the label allows.
+     A stored spray still carrying it (eu = uk, us = eu - 7) goes back to the label's days;
+     the next orchard save writes it to the server. */
+  Object.keys(sd).forEach(function(cat){ (sd[cat]||[]).forEach(function(x){
+    var p=x&&x.phi; if(!p) return;
+    var e=Number(p.eu)||0;
+    if(e>0 && Number(p.uk)===e && Number(p.us)===Math.max(0,e-7)) p.us=e;
+  }); });
   Object.keys(sd).forEach(function(cat){
     var arr=(sd[cat]||[]).slice().filter(function(s){return s.dateISO&&s.bid;});
     arr.sort(function(a,b){ return (a.dateISO||'')<(b.dateISO||'')?-1:1; }); // oldest first → latest spray per block wins
@@ -69387,7 +69701,10 @@ function orRenderPackout(){
 }
 function orRenderHarvest(){
   var hl=$('or-harvest-list');
-  if(hl) hl.innerHTML=ST_FRUIT.harvest.map(function(x){return '<div class="or-lrow"><div class="or-lic">'+x.ic+'</div><div class="or-lmid"><div class="or-lt">'+x.t+'</div><div class="or-ls">'+x.s+'</div></div><div class="or-lr"><span style="font-weight:800">'+x.r+'</span></div></div>';}).join('');
+  /* -467: a pick can be tapped to correct or remove it, and what the farmer typed is shown as text. */
+  if(hl) hl.innerHTML=ST_FRUIT.harvest.map(function(x){
+    if(x && !x.id) x.id='oh'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    return '<div class="or-lrow" role="button" tabindex="0" style="cursor:pointer" onclick="orPickTap(\''+String(x.id).replace(/[^A-Za-z0-9_\-]/g,'')+'\')"><div class="or-lic">'+esc(x.ic||'')+'</div><div class="or-lmid"><div class="or-lt">'+esc(x.t)+'</div><div class="or-ls">'+esc(x.s)+'</div></div><div class="or-lr"><span style="font-weight:800">'+esc(x.r)+'</span></div></div>';}).join('');
   if(OR_CUR_WF==null){ var fp=ST_FRUIT.blocks.filter(function(b){return ST_FRUIT.pricing[b.id]&&!b.plan;})[0]; OR_CUR_WF=fp?fp.id:'f1'; }
   orRenderWfPicker();
   orRenderWf(OR_CUR_WF);
@@ -71359,7 +71676,7 @@ function orSaveSpray(){
   var by=_v('or-sp-by'), cert=_v('or-sp-cert'), weather=_v('or-sp-weather');
   var dt=new Date($('or-sp-date').value||new Date()); var cat=b.cat;
   ST_FRUIT.sprayDiary[cat]=ST_FRUIT.sprayDiary[cat]||[];
-  ST_FRUIT.sprayDiary[cat].unshift({id:'os'+Date.now().toString(36),ic:'\uD83E\uDDEA',t:prod+(forx?' — for '+forx:''),s:b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray'),phi:{eu:days,uk:days,us:Math.max(0,days-7),local:days},bid:b.id,product:prod,forx:forx,dateISO:dt.toISOString().slice(0,10),att:orAttachTake('sp'),
+  ST_FRUIT.sprayDiary[cat].unshift({id:'os'+Date.now().toString(36),ic:'\uD83E\uDDEA',t:prod+(forx?' — for '+forx:''),s:b.name+' · '+orFmtDM(dt)+' · '+(forx||'spray'),phi:{eu:days,uk:days,us:days,local:days},bid:b.id,product:prod,forx:forx,dateISO:dt.toISOString().slice(0,10),att:orAttachTake('sp'),
     reg:reg,rate:rate,batch:batch,by:by,cert:cert,weather:weather});
   /* Rebuilt from the diary (-442). Writing only the day-month strings left the full dates
      (_t) the safe-to-pick check reads from -441 on at the OLD spray's, so a block read "Clear"
@@ -71374,8 +71691,8 @@ function orSaveSpray(){
   orSave(); orRenderSpray(ST_FRUIT.market); orCloseModal();
   orToast('Spray logged \u2713 Safe to pick for EU: '+safe.eu+(cost>0?' · R'+_grpInt(Math.round(cost))+' to expenses':''));
 }
-function orOpenPickForm(){
-  OR_MODAL_CTX={type:'pickform'};
+function orOpenPickForm(editId){
+  OR_MODAL_CTX={type:'pickform', edit:editId||null};
   var h='<div class="or-mhd"><div class="or-mic">\uD83D\uDCE6</div><div><div class="or-mt">Log a pick</div><div class="or-ms">Books the income and the picking labour for you.</div></div><button class="or-mx" onclick="orCloseModal()">\u00d7</button></div><div class="or-mbd">'+
     '<div class="or-frow"><label class="or-flbl">Which block?</label><select class="or-finp" id="or-pk-block">'+orBlockOptions(function(b){return !b.plan;})+'</select></div>'+
     '<div class="or-fg2"><div class="or-frow"><label class="or-flbl">How much picked (tons)</label><input class="or-finp" id="or-pk-tons" inputmode="decimal" placeholder="38"></div><div class="or-frow"><label class="or-flbl">Cartons packed <span class="or-fh">optional</span></label><input class="or-finp" id="or-pk-cartons" inputmode="decimal" placeholder="2540"></div></div>'+
@@ -71385,18 +71702,21 @@ function orOpenPickForm(){
     '<div style="display:flex;gap:10px;margin-top:8px"><button class="btn-pri" onclick="orSavePick()">Save pick</button><button class="btn-sec" onclick="orCloseModal()">Cancel</button></div></div>';
   orModalHTML(h);
   var di=$('or-pk-date'); if(di&&!di.value) di.value=new Date().toISOString().split('T')[0];
+  if(editId) orPickEditFill(editId);
 }
 function orSavePick(){
+  if(OR_MODAL_CTX && OR_MODAL_CTX.edit){ orSavePickEdit(OR_MODAL_CTX.edit); return; }
   var b=orBlockById($('or-pk-block').value); if(!b) return;
   var tons=parseFloat($('or-pk-tons').value)||0; var cartons=parseFloat($('or-pk-cartons').value)||0;
   var labour=parseFloat($('or-pk-labour').value)||0;
   var dt=new Date($('or-pk-date').value||new Date()); var to=$('or-pk-to').value;
   var net=orNetPer(b);
   var money=(b.cat==='berry')?tons*1000*net:(b.cat==='veg'?tons*net:cartons*net);
-  ST_FRUIT.harvest.unshift({id:'oh'+Date.now().toString(36),ic:b.icon,t:OR_CATS[b.cat].nm+' \u00b7 '+b.name+' — '+orFmtDM(dt),s:tons+' t'+(cartons?' \u00b7 '+cartons.toLocaleString('en-ZA')+' cartons':'')+(to?' \u00b7 '+to:''),r:money?orRm(money):'\u2014',bid:b.id,tn:tons,cat:b.cat,tons:tons,cartons:cartons,to:to,money:money,dateISO:dt.toISOString().slice(0,10),att:orAttachTake('pk')});
+  var _ohId='oh'+Date.now().toString(36);
+  ST_FRUIT.harvest.unshift({id:_ohId,ic:b.icon,t:OR_CATS[b.cat].nm+' \u00b7 '+b.name+' — '+orFmtDM(dt),s:tons+' t'+(cartons?' \u00b7 '+cartons.toLocaleString('en-ZA')+' cartons':'')+(to?' \u00b7 '+to:''),r:money?orRm(money):'\u2014',bid:b.id,tn:tons,cat:b.cat,tons:tons,cartons:cartons,to:to,money:money,dateISO:dt.toISOString().slice(0,10),att:orAttachTake('pk')});
   var dstr=orFmtDM(dt)+' '+dt.getFullYear();
   if(money>0 && typeof queueOrSave==='function'){
-    queueOrSave({date:dstr,desc:b.name+' — '+(cartons?cartons.toLocaleString('en-ZA')+' cartons':tons+' t'),cat:'Fruit Sales',type:'income',amt:Math.round(money),method:'Bank Deposit'});
+    queueOrSave({date:dstr,desc:b.name+' — '+(cartons?cartons.toLocaleString('en-ZA')+' cartons':tons+' t'),cat:'Fruit Sales',type:'income',amt:Math.round(money),method:'Bank Deposit',source:'Pick',ent:'or:'+b.id,_oh:_ohId});
   }
   var pickers=parseInt(($('or-pk-pickers')||{}).value,10)||0;
   if(labour>0){ orPostPickingRun(b,Math.round(labour),pickers,dt,dstr); }
@@ -72902,10 +73222,11 @@ function aiRegBuild(kind, opts){
       doc.text('(!) '+res.gaps+' particular'+(res.gaps===1?'':'s')+' not recorded \u2014 shown in the rows above, not left blank.',
                g.M, _y+5);
     }
-    if(kind==='spray'){
+    if(kind==='spray' || kind==='treat'){
       /* D3: a removed or corrected entry must not vanish quietly from the page an
-         inspector reads. Nothing here is erased - the last page says what changed. */
-      var _chg=(typeof aiRegChanges==='function') ? aiRegChanges(opts.from, opts.to, lang) : [];
+         inspector reads. Nothing here is erased - the last page says what changed.
+         -467: the treatment register too, now a treatment can be corrected or removed. */
+      var _chg=(typeof aiRegChanges==='function') ? aiRegChanges(opts.from, opts.to, lang, kind) : [];
       if(_chg.length){
         doc.addPage('a4','landscape');
         aiDocTable(doc, {geo:g, landscape:true, rows:_chg,
