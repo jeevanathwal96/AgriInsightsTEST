@@ -6924,10 +6924,10 @@ table.rn-t td.dim{color:var(--t4)}
 
         <div class="ob-field" id="ob-vat-field">
           <label class="ob-label" style="display:flex;align-items:center;gap:7px">Are you registered for VAT?<span onclick="obVatInfo('ob-vat-why')" role="button" aria-label="Why we ask about VAT" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#D8F3DC;color:#1B4332;font-size:11px;font-weight:800;cursor:pointer;text-transform:none">i</span></label>
-          <div id="ob-vat-why" style="display:none;background:#EEF6FF;border:1px solid #CFE3F7;border-radius:10px;padding:11px 12px;margin-bottom:10px;font-size:12px;line-height:1.55;color:#1E3A5F"><b>Why we ask.</b> If you’re VAT-registered, we split the 15% out of your sales and costs and track what you owe or reclaim on your VAT201. If not, we leave your amounts exactly as entered. Most smaller farmers only register once turnover passes R1 million.</div>
+          <div id="ob-vat-why" style="display:none;background:#EEF6FF;border:1px solid #CFE3F7;border-radius:10px;padding:11px 12px;margin-bottom:10px;font-size:12px;line-height:1.55;color:#1E3A5F"><b>Why we ask.</b> If you’re VAT-registered, we split the 15% out of your sales and costs and track what you owe or reclaim on your VAT201. If not, we leave your amounts exactly as entered. Most smaller farmers only register once turnover passes R2,3 million.</div>
           <div class="ob-fu-opt on" id="ob-vat-no" onclick="obPickVat(false, event)">
             <div class="ob-fu-radio"></div>
-            <div class="ob-fu-tx"><b>No — not registered</b><small>Turnover under R1m, or not yet registered.</small></div>
+            <div class="ob-fu-tx"><b>No — not registered</b><small>Turnover under R2,3m, or not yet registered.</small></div>
             <div class="ob-fu-e">🧾</div>
           </div>
           <div class="ob-fu-opt" id="ob-vat-yes" onclick="obPickVat(true, event)">
@@ -17165,15 +17165,23 @@ var MONTH_NAMES = {
 function parseDate(s) {
   if (!s) return null;
   var MN = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
-  s = s.trim();
+  s = String(s).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) s = s.slice(0,10);      // an ISO date with a time on it
   if (s.indexOf('-') > 0) {
     var p = s.split('-');
     return {y:+p[0], m:+p[1]-1, d:+p[2]};
   }
-  var p = s.split(' ');
-  if (p.length >= 3) return {y:+p[2], m:MN[p[1]], d:+p[0]};
+  var p = s.split(/\s+/);
+  /* The browser writes September as "Sept" ("25 Sept 2026"), and some rows carry the month
+     in full or with a full stop. Only the first three letters decide the month; a row that
+     was read as no month dropped out of every monthly total. */
+  if (p.length >= 3){ var _mk=String(p[1]).replace(/\./g,''); _mk=_mk.charAt(0).toUpperCase()+_mk.slice(1,3).toLowerCase(); return {y:+p[2], m:MN[_mk], d:+p[0]}; }
   return null;
 }
+/* A stored date always spells the month the way parseDate and every month label here do -
+   "Sep", never the browser's "Sept". */
+var _MON3=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function _dmy3(d, pad){ return (pad && d.getDate()<10 ? '0' : '')+d.getDate()+' '+_MON3[d.getMonth()]+' '+d.getFullYear(); }
 
 /* One display format for the Date column no matter how the source string was
    stored ("2026-06-03" from bank imports, "06 Apr 2026" from manual entry).
@@ -21882,7 +21890,8 @@ function saveSale() {
 function fmtDate(s) {
   if (!s) return '';
   var d = new Date(s);
-  return d.toLocaleDateString('en-ZA', {day:'2-digit',month:'short',year:'numeric'});
+  if (isNaN(d)) return String(s);
+  return _dmy3(d, true);   /* was toLocaleDateString: "25 Sept 2026" */
 }
 
 // ============================================================
@@ -27630,12 +27639,25 @@ var STATUTORY = {
   dieselRefund: { value: 3.822, effectiveFrom:'2026-07-01', asOf:'2026-08',
                   source:'382.2 c/\u2113 for farming, forestry and mining from 1 Jul 2026 (tariff Notice R.7479, restoring budget rates after R.7478 set 303.8 c/\u2113 from 3 Jun 2026). Confirm against Schedule 6 before relying on it for a claim.',
                   note:'Rebate item 670.04, Schedule 6, Customs & Excise Act 91 of 1964' },
+  /* Item 3 (27 Sep 2026): the refund a litre earns is the rate and share IN FORCE ON THE
+     DAY IT WAS BOUGHT - every litre was valued at today's 382.2c on 100%, about 16% high on
+     a year that ran through the 80% and the 2026 levy cuts. From the gazetted notices (read
+     27 Sep 2026); SARS's VAT201 does the same - litres bought before a mid-period change are
+     scaled by old rate / new rate (policy SE-DSL-02). */
+  dieselRefundHistory: { asOf:'2026-09', rows:[
+    {from:'2022-08-03', c:366.0, share:0.80, notice:'R.2144 (GG 46520)'},
+    {from:'2025-06-04', c:372.0, share:0.80, notice:'R.6276 (GG 52791)'},
+    {from:'2026-04-01', c:262.2, share:1.00, notice:'R.7341 (GG 54445) - share 80% to 100% from 1 Apr 2026'},
+    {from:'2026-05-06', c:225.0, share:1.00, notice:'R.7427 (GG 54609)'},
+    {from:'2026-06-03', c:303.8, share:1.00, notice:'R.7478 (GG 54678)'},
+    {from:'2026-07-01', c:382.2, share:1.00, notice:'R.7479 (GG 54678)'} ],
+    source:'SARS tariff amendments 2022/2025/2026, Schedule 6 Part 3 Note 6(b)(i), rebate item 670.04' },
   /* How many of your qualifying litres you may claim on \u2014 not the rate. */
   dieselShare:  { value: 1.00, effectiveFrom:'2026-04-01', asOf:'2026-08',
                   source:'SARS \u2014 on-land farming, forestry and mining raised from 80% to 100% of eligible diesel from 1 Apr 2026' },
   taxThreshold: { value: 99000, effectiveFrom:'2026-03-01', asOf:'2026-06', source:'SARS Budget 2026 under-65 threshold (was R95,750)', note:'Advisory PAYE flag only \u2014 not used in any tax calculation' },
   // Tax & SARS home \u2014 advisory only, SPECIALIST-CONFIRM. Neither is used in any tax/VAT calculation.
-  vatThreshold: { value: 1000000, effectiveFrom:'', asOf:'2026-07', source:'VAT Act s23 \u2014 compulsory VAT registration at R1m turnover; SPECIALIST-CONFIRM', note:'Drives an advisory \u201cyou may need to register\u201d nudge only \u2014 not enforced' },
+  vatThreshold: { value: 2300000, effectiveFrom:'2026-04-01', prior:1000000, asOf:'2026-09', source:'VAT Act s23 \u2014 compulsory registration raised from R1m to R2.3m of taxable supplies in 12 months from 1 Apr 2026 (voluntary R50k \u2192 R120k), announced in Budget 2026 and applied by SARS; SARS notes the 2026 Rates Bill is not yet promulgated (SARS Budget 2026 FAQ, read 27 Sep 2026)', note:'Drives an advisory \u201cyou may need to register\u201d nudge only \u2014 not enforced' },
   dieselRebate: { value: null,    effectiveFrom:'', asOf:'2026-07', source:'Customs & Excise diesel refund cents/litre \u2014 set each Budget; SPECIALIST to supply current rate', note:'null \u2192 the app shows eligible litres only, never an invented rand amount' },
   // --- Income-tax tables (2026/27 year of assessment, 1 Mar 2026 - 28 Feb 2027). Source: SARS
   // Budget 2026 FAQ (Budget Speech 25 Feb 2026). Used by the provisional-tax ESTIMATE only
@@ -29230,6 +29252,22 @@ function _lsMvFinish(opts){
       return;
     }
     go(); return;
+  }
+  /* A sale by head count names no animals, so it was never checked: a group under a medicine
+     withdrawal was sold without a word. Ask the same question the tag picker asks. */
+  if(LS_MV_STATE.reason==='sold' && typeof appConfirm==='function' && typeof lsHerdTreatments==='function'){
+    var _tr=lsHerdTreatments(LS_MV_STATE.herdId).filter(lsTrActive);
+    var _whole=_tr.filter(function(t){ return t.target!=='tags'; });
+    if(_whole.length){
+      var _mx=_whole.slice().sort(function(a,b){ return lsTrSafe(b)-lsTrSafe(a); })[0];
+      appConfirm('This group is under a medicine withdrawal until '+lsFmtDate(lsTrSafe(_mx))+' \u2014 not safe to sell yet. Sell anyway?').then(function(ok){ if(ok) _lsMoveCommit(opts); });
+      return;
+    }
+    if(_tr.length){
+      var _n=0; _tr.forEach(function(t){ _n+=(t.tags?t.tags.length:0); });
+      appConfirm(_n+' tagged animal'+(_n===1?' in this group is':'s in this group are')+' under a medicine withdrawal. Make sure '+(_n===1?'it is':'they are')+' not in this sale. Carry on?').then(function(ok){ if(ok) _lsMoveCommit(opts); });
+      return;
+    }
   }
   _lsMoveCommit(opts);
 }
@@ -30944,7 +30982,7 @@ function hpAddToForecast(){
   var P=hpProject(); if(!P){ toast('Nothing to add.','info'); return; }
   if(typeof ST_PLAN==='undefined'){ toast('Planning not available.','error'); return; }
   ST_PLAN.events=ST_PLAN.events||[];
-  var base=(ST_PLAN.months&&ST_PLAN.months[0]&&ST_PLAN.months[0].label)?ST_PLAN.months[0].label:(new Date().toLocaleString('en-ZA',{month:'short',year:'numeric'}));
+  var base=(ST_PLAN.months&&ST_PLAN.months[0]&&ST_PLAN.months[0].label)?ST_PLAN.months[0].label:(function(){ var _n=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); return _MON3[_n.getMonth()]+' '+_n.getFullYear(); })();
   var icon=lsHerdIcon(h);
   var added=0;
   // ---- Poultry: post buys + income from the flock projection ----
@@ -32709,7 +32747,7 @@ function _lsTxnDateISO(v){
   return (d && d.y && d.m!=null && !isNaN(d.m)) ? (d.y+'-'+String(d.m+1).padStart(2,'0')+'-'+String(d.d||1).padStart(2,'0')) : '';
 }
 function _lsTxnISO(d){ return (d && /^\d{4}-\d{2}-\d{2}/.test(String(d))) ? String(d).slice(0,10) : new Date().toISOString().slice(0,10); }
-function lsDispFromISO(iso){ try{ var d=new Date(iso+'T00:00:00'); return d.toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return iso; } }
+function lsDispFromISO(iso){ try{ var d=new Date(iso+'T00:00:00'); if(isNaN(d)) return iso; return _dmy3(d); }catch(e){ return iso; } }   /* was toLocaleDateString, which stores "Sept" */
 /* TAX basis, deliberately — this drives herd reconciliation and closing stock
    valuation, which is an accountant's number. APP_TODAY, not new Date(): it was
    ignoring the app's own clock. */
@@ -32743,7 +32781,11 @@ function lsHerdCompliance(id){
    that labelled residue-carrying animals "clear". Use lsAnimalHoldUntil() in new code. */
 function lsAnimalHoldUntil(a){ return lsAnimalSafe(a); }
 function lsAnimalSafe(a){
-  var act=(ST_LS.treatments||[]).filter(function(t){return t.tags&&t.tags.indexOf(a.tag)>=0&&lsTrActive(t);});
+  /* A treatment given to the whole group holds every animal in it, not only the tagged ones -
+     an animal in a treated group read "clear" and could be picked for sale without a word. */
+  var act=(ST_LS.treatments||[]).filter(function(t){ if(!lsTrActive(t)) return false;
+    if(t.tags && t.tags.indexOf(a.tag)>=0) return true;
+    return t.target!=='tags' && a.herd!=null && String(t.herd)===String(a.herd); });
   if(!act.length) return null;
   return lsTrSafe(act.sort(function(x,y){return lsTrSafe(y)-lsTrSafe(x);})[0]);
 }
@@ -49856,9 +49898,9 @@ var LANG_PAIRS = [
 
   // ── Onboarding VAT step (audit #7 onboarding) ──
   ['Are you registered for VAT?','Is jy vir BTW geregistreer?'],
-  ['<b>Why we ask.</b> If you’re VAT-registered, we split the 15% out of your sales and costs and track what you owe or reclaim on your VAT201. If not, we leave your amounts exactly as entered. Most smaller farmers only register once turnover passes R1 million.','<b>Hoekom ons vra.</b> As jy vir BTW geregistreer is, haal ons die 15% uit jou verkope en koste en hou ons by wat jy skuld of kan terugeis op jou BTW201. Indien nie, los ons jou bedrae presies soos ingevoer. Die meeste kleiner boere registreer eers wanneer omset R1 miljoen verbygaan.'],
+  ['<b>Why we ask.</b> If you’re VAT-registered, we split the 15% out of your sales and costs and track what you owe or reclaim on your VAT201. If not, we leave your amounts exactly as entered. Most smaller farmers only register once turnover passes R2,3 million.','<b>Hoekom ons vra.</b> As jy vir BTW geregistreer is, haal ons die 15% uit jou verkope en koste en hou ons by wat jy skuld of kan terugeis op jou BTW201. Indien nie, los ons jou bedrae presies soos ingevoer. Die meeste kleiner boere registreer eers wanneer omset R2,3 miljoen verbygaan.'],
   ['No — not registered','Nee — nie geregistreer nie'],
-  ['Turnover under R1m, or not yet registered.','Omset onder R1m, of nog nie geregistreer nie.'],
+  ['Turnover under R2,3m, or not yet registered.','Omset onder R2,3m, of nog nie geregistreer nie.'],
   ['Yes — I charge 15% VAT','Ja — ek hef 15% BTW'],
   ['SARS-registered; you file a VAT201.','By SARS geregistreer; jy dien ’n BTW201 in.'],
   ['Every 2 months — Category A','Elke 2 maande — Kategorie A'],
@@ -51923,8 +51965,8 @@ LANG_PAIRS.push(
 LANG_PAIRS.push(
   ["Estimates to help you plan, using the current SA prime rate and the income-to-repayments level SA agri lenders (Land Bank, ABSA, Standard Bank, Nedbank, FNB) typically look for. Tax, existing loans and income come from your records; living costs, outside income and forward seasons are yours. Your bank prices to your own risk and security. Not a credit decision or an offer to lend.",
    "Skattings om jou te help beplan, met die huidige SA prima koers en die inkomste-tot-terugbetalings vlak wat SA landbou-kredietgewers (Land Bank, ABSA, Standard Bank, Nedbank, FNB) gewoonlik soek. Belasting, bestaande lenings en inkomste kom uit jou rekords; lewenskoste, buite-inkomste en toekomstige seisoene is joune. Jou bank prys volgens jou eie risiko en sekuriteit. Nie ’n kredietbesluit of ’n aanbod om te leen nie."],
-  ["If you’re VAT-registered, we split the 15% out of your sales and costs and track what you owe or reclaim on your VAT201. If not, we leave your amounts exactly as entered. Most smaller farmers only register once turnover passes R1 million.",
-   "As jy BTW-geregistreer is, deel ons die 15% uit jou verkope en koste en hou by wat jy skuld of terugeis op jou BTW201. Indien nie, laat ons jou bedrae presies soos ingevoer. Die meeste kleiner boere registreer eers sodra omset R1 miljoen verbysteek."],
+  ["If you’re VAT-registered, we split the 15% out of your sales and costs and track what you owe or reclaim on your VAT201. If not, we leave your amounts exactly as entered. Most smaller farmers only register once turnover passes R2,3 million.",
+   "As jy BTW-geregistreer is, deel ons die 15% uit jou verkope en koste en hou by wat jy skuld of terugeis op jou BTW201. Indien nie, laat ons jou bedrae presies soos ingevoer. Die meeste kleiner boere registreer eers sodra omset R2,3 miljoen verbysteek."],
   ["These are the published DoE prices, not what you paid. Your own fuel bill is at the top of this tab — including how much of it can go on a diesel-refund claim.",
    "Dit is die gepubliseerde DoE-pryse, nie wat jy betaal het nie. Jou eie brandstofrekening is bo-aan hierdie oortjie — insluitend hoeveel daarvan op ’n dieselterugbetaling-eis kan gaan."],
   ["Export a CSV, download a PDF, or snap a clear photo of your statement, then drop it here. We read it right on your device — your data never leaves your phone.",
@@ -56555,13 +56597,13 @@ function taxProvEstimate(){
      short. Due dates move back to the last business day when they fall on a weekend
      (28 Feb 2027 is a Sunday: due Friday 26 Feb). */
   var now=_txNow();
-  var _lbd=function(d){ var x=new Date(d); while(x.getDay()===0||x.getDay()===6) x.setDate(x.getDate()-1); return x; };
+  var _lbd=function(d){ return saBizDayOnOrBefore(new Date(d)); };   /* weekends and public holidays (item 5) */
   var _M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], _lbl=function(d){ return d.getDate()+' '+_M[d.getMonth()]+' '+d.getFullYear(); };
   /* Dates follow the tax year (-449, D13): 1st = end of its 6th month, 2nd = its last day,
      top-up = 30 Sep for a February year end, else six months after the year end. For the
      default March year these are exactly the 31 Aug / end Feb / 30 Sep that were hard-coded. */
   var _sm=fyStartMonth()-1;
-  var d1=_lbd(new Date(fy,_sm+6,0)), d2=_lbd(new Date(fy+1,_sm,0)), d3=(_sm===2)?new Date(fy+1,8,30):new Date(fy+1,_sm+6,0);
+  var d1=_lbd(new Date(fy,_sm+6,0)), d2=_lbd(new Date(fy+1,_sm,0)), d3=_lbd((_sm===2)?new Date(fy+1,8,30):new Date(fy+1,_sm+6,0));
   var paid1=saProvPaid1(fy);
   var pay1=Math.round(annualTax/2);
   var firstPast=(now>d1);
@@ -58339,11 +58381,29 @@ function taxPhonePaid(code, d){
   });
   return hit;
 }
+/* Item 5 (27 Sep 2026): SARS moves a due date that falls on a weekend or a public holiday to
+   the LAST BUSINESS DAY BEFORE it (SARS PAYE, VAT, provisional tax and calendar pages). The app
+   moved only the provisional-tax dates, and only past weekends. Public holidays from gov.za and
+   the Presidency (4 Nov 2026 election day); a Sunday holiday is kept on the Monday. */
+var SA_PUBLIC_HOLIDAYS = {
+  '2025-01-01':1,'2025-03-21':1,'2025-04-18':1,'2025-04-21':1,'2025-04-28':1,'2025-05-01':1,'2025-06-16':1,'2025-08-09':1,'2025-09-24':1,'2025-12-16':1,'2025-12-25':1,'2025-12-26':1,
+  '2026-01-01':1,'2026-03-21':1,'2026-04-03':1,'2026-04-06':1,'2026-04-27':1,'2026-05-01':1,'2026-06-16':1,'2026-08-09':1,'2026-08-10':1,'2026-09-24':1,'2026-11-04':1,'2026-12-16':1,'2026-12-25':1,'2026-12-26':1,
+  '2027-01-01':1,'2027-03-21':1,'2027-03-22':1,'2027-03-26':1,'2027-03-29':1,'2027-04-27':1,'2027-05-01':1,'2027-06-16':1,'2027-08-09':1,'2027-09-24':1,'2027-12-16':1,'2027-12-25':1,'2027-12-26':1,'2027-12-27':1
+};
+function _saIso(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function saBizDayOnOrBefore(d){ var x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); var g=0; while((x.getDay()===0||x.getDay()===6||SA_PUBLIC_HOLIDAYS[_saIso(x)]) && g++<10) x.setDate(x.getDate()-1); return x; }
+/* VAT201 on eFiling: the last business day of the month after the period (the 25th is the
+   paper return's date). EMP201: the 7th, moved back past a weekend or holiday. */
+function saVat201Due(periodEnd){ return saBizDayOnOrBefore(new Date(periodEnd.getFullYear(), periodEnd.getMonth()+2, 0)); }
+function saEmp201Due(y, m){ return saBizDayOnOrBefore(new Date(y, m, 7)); }
+/* The ITR12 filing deadlines SARS set for the season (tax year to end Feb). Provisional
+   taxpayers - most farmers - file by the later date. SARS filing-season page, read 27 Sep 2026. */
+var SA_FILING_SEASONS = { 2025:{ nonProv:'2026-10-23', prov:'2027-01-22' } };
 function taxDueItems(prov, vat, wk, pay, now){
   var items=[];
-  if(vat){ var vd=new Date(vat.to.getFullYear(),vat.to.getMonth()+1,25);
+  if(vat){ var vd=saVat201Due(vat.to);
     items.push({d:vd, what:(vat.owe>=0?'VAT for '+_taxVpLbl(vat):'VAT refund for '+_taxVpLbl(vat)), code:'VAT201', amt:vat.owe, pay:vat.owe>0, refund:vat.owe<0}); }
-  if(wk && pay.total>0){ var ed=new Date(now.getFullYear(),now.getMonth(),7); if(ed<=now) ed=new Date(now.getFullYear(),now.getMonth()+1,7);
+  if(wk && pay.total>0){ var ed=saEmp201Due(now.getFullYear(),now.getMonth()); if(ed<=now) ed=saEmp201Due(now.getFullYear(),now.getMonth()+1);
     var _wp={paye:Math.round(pay.paye/12), uif:Math.round(pay.uif/12), sdl:Math.round(pay.sdl/12)};
     items.push({d:ed, what:'Worker tax', code:'EMP201', amt:_wp.paye+_wp.uif+_wp.sdl, parts:_wp, pay:true, note:'every month'}); }
   if(prov.next && prov.next.d){
@@ -58527,9 +58587,12 @@ function taxGlanceHTML(){
     var fyEnd=(prov.dts&&prov.dts[1])?new Date(prov.dts[1].d.getFullYear(),prov.dts[1].d.getMonth()+1,0):new Date(now.getFullYear()+1,1,28);
     var all=[]; items.forEach(function(it,ix){ all.push({d:it.d,nm:_nm[it.code],code:it.code,sb:sub(it),amt:it.nil?0:it.amt,it:it,ix:ix}); });
     var e0=items.filter(function(it){ return it.code==='EMP201'; })[0];
-    if(e0){ for(var k=1;k<12;k++){ var dk=new Date(e0.d.getFullYear(),e0.d.getMonth()+k,7); if(dk>fyEnd) break; var pm=new Date(dk.getFullYear(),dk.getMonth()-1,1); all.push({d:dk,nm:'Worker tax',code:'EMP201',sb:MF[pm.getMonth()]+' pay',amt:e0.amt,about:true}); } }
-    if(vat && typeof _txVatBlock==='function'){ for(var q=1;q<4;q++){ var b=_txVatBlock(q), bt=new Date(b.to+'T00:00:00'), bd=new Date(bt.getFullYear(),bt.getMonth()+1,25); if(bd>fyEnd) break;
+    if(e0){ for(var k=1;k<12;k++){ var dk=saEmp201Due(e0.d.getFullYear(),e0.d.getMonth()+k); if(dk>fyEnd) break; var pm=new Date(dk.getFullYear(),dk.getMonth()-1,1); all.push({d:dk,nm:'Worker tax',code:'EMP201',sb:MF[pm.getMonth()]+' pay',amt:e0.amt,about:true}); } }
+    if(vat && typeof _txVatBlock==='function'){ for(var q=1;q<4;q++){ var b=_txVatBlock(q), bt=new Date(b.to+'T00:00:00'), bd=saVat201Due(bt); if(bd>fyEnd) break;
       all.push({d:bd,nm:'VAT',code:'VAT201',sb:b.label.replace(/ \d{4}$/,'')+' period',amt:null,later:'known after '+_shortDate(bt)}); } }
+    /* Item 5: last year's return, in the month it is due, while its window is open. */
+    try{ var _fs=SA_FILING_SEASONS[(typeof getCurrentFY==='function'?getCurrentFY():0)-1], _ent=(typeof ST!=='undefined'&&ST.entityType)||'sole';
+      if(_fs && _ent!=='company' && _ent!=='sbc'){ var _rd=new Date(_fs.prov+'T00:00:00'); if(_rd>=now && _rd<=fyEnd) all.push({d:_rd,nm:'Income tax return',code:'ITR12',sb:'last year \u00b7 provisional taxpayers',amt:0,ret:true}); } }catch(e){}
     all.sort(function(x,y){ return x.d-y.d; });
     var more=all.length-up.length, open=!!TAX_ALL_DATES;
     o+='<div class="txh-allk"><a onclick="TAX_ALL_DATES='+(!open)+';renderTax()">'+(open?'Hide the full list':'See every date to the end of the tax year <b>('+more+' more)</b>')+'</a></div>';
@@ -58541,7 +58604,7 @@ function taxGlanceHTML(){
       var tot=function(G){ return G.rows.reduce(function(a,r){ return a+((r.it&&r.it.paid)?0:(r.amt||0)); },0); };
       var unk=function(G){ return G.rows.some(function(r){ return r.amt==null; }); };
       var isCur=function(G){ return f1 && G.d.getFullYear()===f1.d.getFullYear() && G.d.getMonth()===f1.d.getMonth(); };
-      var amtTxt=function(r){ if(r.it&&r.it.paid) return fmt(+r.it.paid.amt); if(r.amt==null) return 'not known yet<small>'+r.later.replace('known ','')+'</small>'; if(r.it&&r.it.nil) return 'R0'; return (r.about?'about ':'')+fmt(r.amt); };
+      var amtTxt=function(r){ if(r.ret) return 'file it'; if(r.it&&r.it.paid) return fmt(+r.it.paid.amt); if(r.amt==null) return 'not known yet<small>'+r.later.replace('known ','')+'</small>'; if(r.it&&r.it.nil) return 'R0'; return (r.about?'about ':'')+fmt(r.amt); };
       var subTxt=function(r){ return r.sb; };
       var pill=function(r,keep){ var E=keep?'<span></span>':''; if(!r.it) return E; if(r.it.paid) return '<span class="al-p ok">✓ Paid</span>'; if(r.it===f1) return '<span class="al-p nx">Next</span>'; return E; };
       var after=[{dt:'From Jul',nm:'Income tax return',sb:'ITR12 · your accountant usually files it'}];
@@ -58608,8 +58671,8 @@ function taxGlanceHTML(){
       prevRow+
       '</div><div class="f"><a onclick="nav(\'settings\')">VAT settings</a></div></div>';
   } else {
-    var vatThr=(STATUTORY.vatThreshold&&STATUTORY.vatThreshold.value)||1000000, inc=ytd?ytd.income:0;
-    h+='<div class="txh-c"><div class="l">'+_ic('vat')+'VAT</div><div class="v q">Not registered</div><div class="u">'+(inc>=vatThr?'<span class="txh-warn">Income this year is over R1m — registration is usually compulsory. Check with your accountant.</span>':'no VAT to pay or claim')+'</div><div class="rows">'+
+    var vatThr=(STATUTORY.vatThreshold&&STATUTORY.vatThreshold.value)||2300000, inc=ytd?ytd.income:0;
+    h+='<div class="txh-c"><div class="l">'+_ic('vat')+'VAT</div><div class="v q">Not registered</div><div class="u">'+(inc>=vatThr?'<span class="txh-warn">Income this year is over '+fmt(vatThr)+' — registration is usually compulsory. Check with your accountant.</span>':'no VAT to pay or claim')+'</div><div class="rows">'+
       '<div class="r"><span>Income so far</span><b>'+fmt(inc)+'</b></div><div class="r"><span>Registration line</span><b>'+fmt(vatThr)+'</b></div></div></div>';
   }
   if(wk){
@@ -58748,8 +58811,8 @@ function taxGlanceHTML(){
   /* ---- 5. Checks, the year-end count, the small print ---- */
   /* -456: the checks open into a list - each one says what it looked at, and one that is not
      right says what to do about it. Opens by itself when something needs attention. */
-  var chk=[], _v=(typeof FARM!=='undefined'&&FARM.vat), _vt=(STATUTORY.vatThreshold&&STATUTORY.vatThreshold.value)||1000000, _inc=ytd?ytd.income:0;
-  if(_v) chk.push({ok:1, t:'VAT registered', d:vat?'You file a VAT201 for each period — the next is due '+_shortDate(new Date(vat.to.getFullYear(),vat.to.getMonth()+1,25))+'.':'You file a VAT201 for each period.'});
+  var chk=[], _v=(typeof FARM!=='undefined'&&FARM.vat), _vt=(STATUTORY.vatThreshold&&STATUTORY.vatThreshold.value)||2300000, _inc=ytd?ytd.income:0;
+  if(_v) chk.push({ok:1, t:'VAT registered', d:vat?'You file a VAT201 for each period — the next is due '+_shortDate(saVat201Due(vat.to))+'.':'You file a VAT201 for each period.'});
   else if(_inc>=_vt) chk.push({ok:0, t:'VAT registration', d:'Your income this year is over '+fmt(_vt)+', where VAT registration is usually compulsory.', todo:'Register with SARS within 21 days of passing the line — your accountant can do it — then switch VAT on in Settings.', btn:['Open Settings',"nav('settings')"]});
   else chk.push({ok:1, t:'Not VAT registered', d:'Fine while income is under '+fmt(_vt)+' a year — you’re '+fmt(Math.max(0,_vt-_inc))+' away.'});
   var _p0=prov.dts&&prov.dts[0], _p1=prov.dts&&prov.dts[1];
@@ -59119,6 +59182,7 @@ function _txDieselPanel(){
     /* -452: one short line; the detail (rate date, the levies, the paper book) is behind it. */
     '<div class="tx-dsl-n" title="'+esc('Rate applies from '+_prettyDate(STATUTORY.dieselRefund.effectiveFrom)+' and moves with the fuel and RAF levies — check it after each Budget. '+Math.round(aiDieselShare()*100)+'% of litres used for on-land farming qualify.'+((d.paperBook&&d.paper>0)?' Keep your paper logbook: SARS asks to see it.':''))+'">'+
       (aiDieselRate()*100).toFixed(1)+' c/\u2113 \u00b7 '+Math.round(aiDieselShare()*100)+'% of on-land litres'+
+      ((d.olderLitres>0)? ' \u00b7 earlier litres at the rate on their date' : '')+
       ((d.paperBook&&d.paper>0)? ' \u00b7 '+Math.round(d.paper).toLocaleString('en-ZA')+' \u2113 from your paper logbook' : '')+
       (d.txnsWithoutLitres? ' \u00b7 <span style="color:#B45309;font-weight:700">'+d.txnsWithoutLitres+' purchase'+(d.txnsWithoutLitres===1?'':'s')+' with no litres</span>' : '')+
     '</div>';
@@ -59423,7 +59487,7 @@ var provDates = [
 
 var vatMonths = [1,3,5,7,9,11];
   vatMonths.forEach(function(m){
-    var dueDate = new Date(m >= 11 ? year+1 : year, (m+1)%12, 25);
+    var dueDate = saVat201Due(new Date(year, m+1, 0));   /* period ends with month m+1 (0-based m) */
     var days = Math.ceil((dueDate - today) / 86400000);
     if(days >= 0 && days <= 30){
       alerts.push({
@@ -65803,11 +65867,11 @@ function aiPriorityInsight(T){
     if (tp && tp.ok && tp.daysAway >= 0 && tp.daysAway <= 30) due.push({ d:tp.daysAway, t:T('Provisional tax due in ', 'Voorlopige belasting betaalbaar oor ') + _nDays(tp.daysAway),
       x:T('Put aside about ' + K(tp.provPayment) + ' for ' + tp.next.lbl + '.', 'Sit ongeveer ' + K(tp.provPayment) + ' opsy vir ' + tp.next.lbl + '.') }); }catch(e){}
   try{ if (typeof FARM!=='undefined' && FARM.vat && typeof taxVatPosition==='function'){ var vp = taxVatPosition();
-    if (vp){ var vd = new Date(vp.to.getFullYear(), vp.to.getMonth()+1, 25), vn = _txDaysTo(vd);
+    if (vp){ var vd = saVat201Due(vp.to), vn = _txDaysTo(vd);
       if (vn >= 0 && vn <= 30) due.push({ d:vn, t:T('VAT return due in ', 'BTW-opgawe betaalbaar oor ') + _nDays(vn),
         x: vp.owe >= 0 ? T('About ' + K(vp.owe) + ' to pay on your VAT201.', 'Ongeveer ' + K(vp.owe) + ' om op jou BTW201 te betaal.') : T('A refund of about ' + K(-vp.owe) + ' is due to you.', '’n Terugbetaling van ongeveer ' + K(-vp.owe) + ' kom na jou toe.') }); } } }catch(e){}
   try{ if (typeof taxWorkerSnapshot==='function' && taxWorkerSnapshot()){ var tn = (typeof APP_TODAY!=='undefined' && APP_TODAY) ? new Date(APP_TODAY) : new Date();
-    var ed = new Date(tn.getFullYear(), tn.getMonth()+1, 7), en = _txDaysTo(ed);
+    var ed = saEmp201Due(tn.getFullYear(), tn.getMonth()); if (_txDaysTo(ed) < 0) ed = saEmp201Due(tn.getFullYear(), tn.getMonth()+1); var en = _txDaysTo(ed);
     /* A monthly return falls due every month, so it is always within 30 days: only its last week counts. */
     if (en >= 0 && en <= 7) due.push({ d:en, t:T('Worker tax (EMP201) due in ', 'Werkersbelasting (EMP201) betaalbaar oor ') + _nDays(en), x:T('PAYE and UIF for your team, due on the 7th.', 'LBS en WVF vir jou span, betaalbaar op die 7de.') }); } }catch(e){}
   due.sort(function(a,b){ return a.d - b.d; });
@@ -66094,7 +66158,7 @@ function computeNotifications(){
     if (typeof FARM!=='undefined' && FARM.vat && typeof taxVatPosition==='function') {
       var _vp = taxVatPosition();
       if (_vp) {
-        var _vd = new Date(_vp.to.getFullYear(), _vp.to.getMonth()+1, 25);
+        var _vd = saVat201Due(_vp.to);
         var vdays = (typeof _txDaysTo==='function') ? _txDaysTo(_vd) : 99;
         if (vdays >= 0 && vdays <= 20) n.push({ color:'var(--am)', score:82, title:'VAT return due in '+vdays+' day'+(vdays===1?'':'s'), body:(_vp.owe>=0?'About '+fmtZAR(_vp.owe)+' to pay':'A refund is due')+' on your VAT201.', time:'Tax', action:function(){ nav('tax'); } });
       }
@@ -73763,15 +73827,15 @@ function aiRegBuild(kind, opts){
     var _tot, _k=(kind==='spray')?'ha':'head';
     var _miss=(kind==='diesel')?0:rows.filter(function(r){ return !(parseFloat(r[_k])>0); }).length;
     if(kind==='diesel'){
-      var _q=0,_n=0;
+      var _q=0,_n=0,_w=0;
       ((window.ST_FUEL&&ST_FUEL.issues)||[]).forEach(function(i){
         if(!_regInRange(i.date, opts.from, opts.to)) return;
-        if(i.qualifies) _q+=Number(i.litres)||0; else _n+=Number(i.litres)||0;
+        if(i.qualifies){ _q+=Number(i.litres)||0; _w+=(Number(i.litres)||0)*aiDieselPerLitreOn(i.date); } else _n+=Number(i.litres)||0;
       });
-      var _rate=aiDieselRate()*aiDieselShare();
+      var _rate=_q?(_w/_q):aiDieselRate()*aiDieselShare();   /* item 3: each litre at its own date's rate */
       _tot=rows.length+' entr'+(rows.length===1?'y':'ies')+'  \u00b7  '+
            Math.round(_q).toLocaleString('en-ZA')+' \u2113 claimable at '+(aiDieselRate()*100).toFixed(1)+
-           ' c/\u2113  \u00b7  refund '+aiDieselMoney(_q*_rate)+
+           ' c/\u2113 today  \u00b7  refund '+aiDieselMoney(_w)+
            (_n?('  \u00b7  '+Math.round(_n).toLocaleString('en-ZA')+' \u2113 road/private, excluded'):'');
     }
     else if(kind==='spray'){
@@ -73842,6 +73906,17 @@ function aiRegFile(kind, from, to){
 var ST_FUEL = (typeof ST_FUEL !== 'undefined') ? ST_FUEL : { issues: [] };
 function aiDieselRate(){ return (STATUTORY.dieselRefund && STATUTORY.dieselRefund.value) || 0; }
 function aiDieselShare(){ var v=(STATUTORY.dieselShare && STATUTORY.dieselShare.value); return (v==null?1:v); }
+/* Rand per qualifying litre bought on this date: that day's rate x that day's share. A date
+   before the table (or none) takes the first row; a date after it takes today's figures. */
+function aiDieselPerLitreOn(dateStr){
+  var H=(STATUTORY.dieselRefundHistory&&STATUTORY.dieselRefundHistory.rows)||[];
+  var p=(typeof parseDate==='function')?parseDate(String(dateStr||'')):null;
+  var iso=(p&&p.y&&p.m!=null&&!isNaN(p.m))?(p.y+'-'+String(p.m+1).padStart(2,'0')+'-'+String(p.d||1).padStart(2,'0')):'';
+  if(!H.length || !iso) return aiDieselRate()*aiDieselShare();
+  var row=H[0]; for(var i=0;i<H.length;i++){ if(H[i].from<=iso) row=H[i]; }
+  if(row===H[H.length-1]) return aiDieselRate()*aiDieselShare();   // today's row: one source for the current figure
+  return (row.c/100)*row.share;
+}
 function _aiIsLitre(u){ return /^(l|litre|litres|liter|liters)$/i.test(String(u||'').trim()); }
 
 /* Purchased litres come only from fuel expenses that actually recorded litres.
@@ -73859,11 +73934,12 @@ function aiDieselStats(fy){
     if(t.qty>0 && _aiIsLitre(t.unit)) bought += Number(t.qty)||0;
     else noLitres++;
   });
-  var logged=0, nonQual=0;
+  var logged=0, nonQual=0, worth=0, older=0, _today=aiDieselRate()*aiDieselShare();
   ((ST_FUEL && ST_FUEL.issues)||[]).forEach(function(i){
     if(!i) return;
     if(fy!=null && typeof fyOf==='function' && fyOf(i.date)!==fy) return;
-    if(i.qualifies) logged += Number(i.litres)||0; else nonQual += Number(i.litres)||0;
+    if(i.qualifies){ var _l=Number(i.litres)||0, _r=aiDieselPerLitreOn(i.date); logged += _l; worth += _l*_r; if(Math.abs(_r-_today)>1e-9) older += _l; }
+    else nonQual += Number(i.litres)||0;
   });
   /* Litres the farmer keeps in a PAPER logbook (Crops › Compliance, "litres logged on
      paper, outside the app"). They used to be read on their own by the Tax glance, the
@@ -73877,13 +73953,13 @@ function aiDieselStats(fy){
   var _curFy=(typeof fyOf==='function')?fyOf():null;
   if(fy!=null && _curFy!=null && fy!==_curFy) paper=0;
   var appLogged=logged;
-  if(paperBook) logged+=paper;
-  var unlogged = Math.max(0, bought - logged - nonQual);
   var rate=aiDieselRate()*aiDieselShare();
+  if(paperBook){ logged+=paper; worth+=paper*rate; }       // a paper figure has no date: today's rate
+  var unlogged = Math.max(0, bought - logged - nonQual);
   return { fy:fy, bought:bought, logged:logged, appLogged:appLogged, paper:paper, paperBook:paperBook,
            paperNoBook:(paperBook?0:paper), nonQual:nonQual, unlogged:unlogged,
-           spend:spend, txnsWithoutLitres:noLitres, rate:rate,
-           claimable:Math.round(logged*rate), losing:Math.round(unlogged*rate) };
+           spend:spend, txnsWithoutLitres:noLitres, rate:rate, olderLitres:older,
+           claimable:Math.round(worth), losing:Math.round(unlogged*rate) };
 }
 /* ---------- the Friday fuel log ----------
    Machines come straight from the asset register, so nothing is set up twice.
