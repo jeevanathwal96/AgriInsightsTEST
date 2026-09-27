@@ -32528,7 +32528,7 @@ function _lsFindSaleMatches(herdId, amount, dateISO, qty){
     if(!_lsIsLivestockSale(t)) return;
     if(t.moveRef) return;                                   // already tied to a movement
     if(_lsHerdIdFromEnt(t.ent)!==herdId) return;
-    var td=Date.parse(_lsTxnISO?_lsTxnISO(t.date):t.date);
+    var _tIso=_lsTxnDateISO(t.date), td=_tIso?Date.parse(_tIso+'T00:00:00'):NaN;
     if(isNaN(td) || Math.abs(td-when)>winMs) return;
     if(amount>0 && t.amt>0 && Math.abs(t.amt-amount)/Math.max(t.amt,amount)>tol) return;
     out.money.push(t);
@@ -32697,6 +32697,16 @@ function _lsRemApply(ids){
   try{ if(typeof renderCamps==='function' && $('ls-view-camps') && $('ls-view-camps').style.display!=='none') renderCamps(); }catch(e){}
   try{ if(typeof renderStockRegister==='function') renderStockRegister(); }catch(e){}
   try{toast(ids.length+' animal'+(ids.length===1?'':'s')+' taken off the tag list.','success');}catch(e){}
+}
+/* The date a transaction is DATED, as YYYY-MM-DD. Transactions are stored as "28 Aug 2024";
+   _lsTxnISO below turns anything that is not already ISO into TODAY (it builds the date for a
+   new entry), so reading a stored date through it put every sale on today: the matcher's
+   7-day window compared each sale with today and almost never offered one, and last year's
+   sales were counted as this year's animals still to account for. */
+function _lsTxnDateISO(v){
+  var s=String(v||''); if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  var d=(typeof parseDate==='function')?parseDate(s):null;
+  return (d && d.y && d.m!=null && !isNaN(d.m)) ? (d.y+'-'+String(d.m+1).padStart(2,'0')+'-'+String(d.d||1).padStart(2,'0')) : '';
 }
 function _lsTxnISO(d){ return (d && /^\d{4}-\d{2}-\d{2}/.test(String(d))) ? String(d).slice(0,10) : new Date().toISOString().slice(0,10); }
 function lsDispFromISO(iso){ try{ var d=new Date(iso+'T00:00:00'); return d.toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return iso; } }
@@ -34456,8 +34466,8 @@ function _lsUnmatched(){
     if(!_lsIsLivestockSale(t)) return;
     if(t.moveRef && _lsMoveByRef(t.moveRef)) return;   // properly paired
     if(_lsIncomeIsProduce(t)) return;                  // milk/wool never move animals
-    var iso=(typeof _lsTxnISO==='function')?_lsTxnISO(t.date):t.date;
-    if(iso<from) return;                               // only this financial year
+    var iso=_lsTxnDateISO(t.date);
+    if(!iso || iso<from) return;                       // only this financial year
     money.push({i:i, t:t});
   });
   (ST_LS.moves||[]).forEach(function(m){
