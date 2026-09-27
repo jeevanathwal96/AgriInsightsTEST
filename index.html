@@ -7608,6 +7608,7 @@ table.rn-t td.dim{color:var(--t4)}
         <span class="tx-bulk-n">0 selected</span>
         <select id="inc-bulk-cat" class="tx-bulk-cat"></select>
         <button class="tx-bulk-go" onclick="txBulkApply('income')">Move</button>
+        <button class="tx-bulk-x" style="color:#B42318;border-color:#F3C9C4" onclick="txBulkDelete('income')">Delete</button>
         <button class="tx-bulk-x" onclick="txSelClear('income')">Cancel</button>
       </div>
     </div>
@@ -7871,6 +7872,7 @@ table.rn-t td.dim{color:var(--t4)}
         <span class="tx-bulk-n">0 selected</span>
         <select id="exp-bulk-cat" class="tx-bulk-cat"></select>
         <button class="tx-bulk-go" onclick="txBulkApply('expense')">Move</button>
+        <button class="tx-bulk-x" style="color:#B42318;border-color:#F3C9C4" onclick="txBulkDelete('expense')">Delete</button>
         <button class="tx-bulk-x" onclick="txSelClear('expense')">Cancel</button>
       </div>
     </div>
@@ -9787,12 +9789,12 @@ table.rn-t td.dim{color:var(--t4)}
       <table class="tbl">
         <thead><tr><th>Crop</th><th>Type</th><th>Price</th><th>Unit</th><th>Notes</th></tr></thead>
         <tbody>
-          <tr><td>🌽 Maize</td><td>Pioneer P2088 / DKC 80-30</td><td style="font-weight:700">R2 800–R3 400</td><td>/80,000 seed bag</td><td style="color:var(--t3)">Plant density 25,000–35,000/ha</td></tr>
+          <tr><td>🌽 Maize</td><td>Pioneer P2088 / DKC 80-30</td><td style="font-weight:700">R2 800–R3 400</td><td>/80 000 seed bag</td><td style="color:var(--t3)">Plant density 25 000–35 000/ha</td></tr>
           <tr><td>🌱 Soybeans</td><td>Certified (various)</td><td style="font-weight:700">R180–R240</td><td>/25kg bag</td><td style="color:var(--t3)">~80–100kg/ha planting rate</td></tr>
           <tr><td>🌾 Wheat</td><td>SST 347 / Buffels</td><td style="font-weight:700">R400–R520</td><td>/50kg bag</td><td style="color:var(--t3)">~100–120kg/ha planting rate</td></tr>
-          <tr><td>🌻 Sunflowers</td><td>Agsun 8251 / PAN 7057</td><td style="font-weight:700">R1 800–R2 200</td><td>/100,000 seed bag</td><td style="color:var(--t3)">Plant density ~25,000/ha</td></tr>
+          <tr><td>🌻 Sunflowers</td><td>Agsun 8251 / PAN 7057</td><td style="font-weight:700">R1 800–R2 200</td><td>/100 000 seed bag</td><td style="color:var(--t3)">Plant density ~25 000/ha</td></tr>
           <tr><td>🌿 Canola</td><td>Hyola 555TT / 43C80</td><td style="font-weight:700">R4 200–R5 400</td><td>/1.5kg bag (~1ha)</td><td style="color:var(--t3)">3–5 kg/ha planting rate</td></tr>
-          <tr><td>🌾 Sorghum</td><td>ACNV 9060</td><td style="font-weight:700">R2 100–R2 500</td><td>/50,000 seed bag</td><td style="color:var(--t3)">Plant density ~80,000/ha</td></tr>
+          <tr><td>🌾 Sorghum</td><td>ACNV 9060</td><td style="font-weight:700">R2 100–R2 500</td><td>/50 000 seed bag</td><td style="color:var(--t3)">Plant density ~80 000/ha</td></tr>
         </tbody>
       </table>
     </div>
@@ -10606,6 +10608,7 @@ table.rn-t td.dim{color:var(--t4)}
     <span class="tx-bulk-n">0 selected</span>
     <select id="txall-bulk-cat" class="tx-bulk-cat"></select>
     <button class="tx-bulk-go" onclick="txAllBulkApply()">Move</button>
+    <button class="tx-bulk-x" style="color:#B42318;border-color:#F3C9C4" onclick="txBulkDelete('all')">Delete</button>
     <button class="tx-bulk-x" onclick="txAllSelClear()">Cancel</button>
   </div>
 
@@ -12343,7 +12346,9 @@ function cropComplianceDue(id){
   if(!months) return {state:'none', next:null, last:null, days:0, label:''};
   var log=cropComplianceLog(id);
   var last = log.length ? new Date(log[0].date+'T00:00:00') : null;
-  if(!last || isNaN(last)) return {state:'over', next:null, last:null, days:-9999, label:'No check logged yet'};
+  /* Step 4: a check never logged is a to-do (amber), not an overdue alarm (red) - there is no
+     date it went past. It still sorts to the top of what is due. */
+  if(!last || isNaN(last)) return {state:'soon', next:null, last:null, days:-1, label:'No check logged yet'};
   var next=cropAddMonths(last, months);
   var days=Math.round((next-LS_TODAY)/86400000);
   var state = days<0 ? 'over' : (days<=14 ? 'soon' : 'ok');
@@ -12370,7 +12375,7 @@ function cropDocExpiry(expiry){
   var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var lbl=M[parseInt(p[1],10)-1]+' '+p[0];
   var state = days<0 ? 'over' : (days<=60 ? 'soon' : 'ok');
-  var label = state==='over' ? ('Expired '+lbl) : (state==='soon' ? ('Expires '+lbl+' ('+days+'d)') : ('Valid to '+lbl));
+  var label = state==='over' ? ('Expired '+lbl) : (state==='soon' ? ('Expires '+lbl+' (in '+_nDays(days)+')') : ('Valid to '+lbl));
   return {state:state, days:days, label:label};
 }
 // Soonest-expiring doc state for an area (drives badges & notifications)
@@ -13009,7 +13014,7 @@ function _cropLandCard(l){
   var money = (planned) ? '<div class="cr-money mut">Not planted yet</div>'
             : (fallow||!l.crop) ? '<div class="cr-money mut">—</div>'
             : '<div class="cr-money">'+_lsCompactRand(cropLandIncomePerHa(l)*(l.area||0))+'</div>';
-  var meta=(l.area||0)+' ha'+(l.crop?(' · '+esc(l.crop)+(l.cultivar?(' '+esc(l.cultivar)):'')+(l.gmo?' (Bt)':'')):'');
+  var meta=(l.area||0)+' ha'+(l.crop?(' · '+esc(l.crop)+(l.cultivar?(' '+esc(l.cultivar)):'')+((l.gmo && !/\bBt\b/i.test(l.cultivar||''))?' (Bt)':'')):'');
   var top='<div class="cr-top"><div class="cr-av">'+(l.crop?cropIcon(l.crop):'🌱')+'</div>'+
       '<div style="min-width:0"><div class="nm">'+esc(l.name)+'</div><div class="meta">'+meta+'</div></div>'+
       '<div class="cr-right">'+money+'<div style="margin-top:3px"><span class="crop-stage '+chipCls+'">'+chip+'</span></div>'+
@@ -13085,7 +13090,7 @@ function _cropLandTable(sorted){
     return '<tr onclick="cropOpenLand('+l.id+')" style="cursor:pointer">'+
       '<td><b>'+esc(l.name)+'</b></td>'+
       '<td class="r">'+(l.area||0)+' ha</td>'+
-      '<td>'+(l.crop?esc(l.crop)+(l.cultivar?' \u00B7 '+esc(l.cultivar):'')+(l.gmo?' (Bt)':''):'\u2014')+'</td>'+
+      '<td>'+(l.crop?esc(l.crop)+(l.cultivar?' \u00B7 '+esc(l.cultivar):'')+((l.gmo && !/\bBt\b/i.test(l.cultivar||''))?' (Bt)':''):'\u2014')+'</td>'+
       '<td><span class="crop-stage '+chipCls+'">'+chip+'</span>'+cropPlantChip(l)+'</td>'+
       '<td class="r">'+yld+'</td>'+
       '<td class="r"'+(gmNeg?' style="color:var(--rd)"':'')+'>'+gm+'</td>'+
@@ -13169,7 +13174,7 @@ function cropPlantChip(l){
 function cropRenderLands(){
   var el=$('crop-view-lands'); if(!el) return;
   var rows=ST_CROP.lands.map(function(l){
-    return '<tr><td><b>'+esc(l.name)+'</b></td><td class="r">'+(l.area||0)+' ha</td><td>'+(l.crop?esc(l.crop)+(l.cultivar?' \u00b7 '+esc(l.cultivar):'')+(l.gmo?' (Bt)':''):'\u2014')+'</td>'+
+    return '<tr><td><b>'+esc(l.name)+'</b></td><td class="r">'+(l.area||0)+' ha</td><td>'+(l.crop?esc(l.crop)+(l.cultivar?' \u00b7 '+esc(l.cultivar):'')+((l.gmo && !/\bBt\b/i.test(l.cultivar||''))?' (Bt)':''):'\u2014')+'</td>'+
       '<td><span class="crop-stage '+cropStageClass(cropEffStage(l))+'">'+cropStageLabel(cropEffStage(l))+'</span>'+cropPlantChip(l)+'</td><td>'+esc(l.prevCrop||'\u2014')+'</td>'+
       '<td class="r">'+(l.actualYield!=null?(l.actualYield+' act'):(l.targetYield?(l.targetYield+(l.stage==='planned'?' tgt':' exp')):'\u2014'))+'</td></tr>';
   }).join('');
@@ -13340,7 +13345,10 @@ function fixAskRemove(kind, id){
       '<span style="flex:1;text-align:left">'+esc(fixReasonLabel(k))+
       (extra?'<span style="display:block;font-size:11.5px;color:var(--t3)">'+esc(extra)+'</span>':'')+'</span></label>';
   };
+  /* Step 2: the expense it posted, found the way a pick's income is (fixMoneyBox). */
+  var _ti=fixLinkedIdx(kind, h.x), _tt=(_ti>=0)?ST.txns[_ti]:null;
   var body=opt('twice')+opt('never')+opt('wrong', fixT('You’ll log it again on the right one','Jy teken dit weer op die regte een aan'))+
+    fixMoneyBox(_tt, false)+
     '<div style="font-size:11.5px;color:var(--t3);background:var(--bg);border-radius:8px;padding:8px 10px;margin:4px 0 12px;line-height:1.45">'+
       fixT(sp?'It leaves your spray record and the safe-to-pick dates now. The entry and your reason are kept in the change history.'
              :'It leaves your spray record now. The entry and your reason are kept in the change history.',
@@ -13358,6 +13366,8 @@ function fixDoRemove(kind, id){
   if(!sel){ toast(fixT('Choose why it’s being removed','Kies hoekom dit verwyder word'),'error'); return; }
   var rm={at:new Date().toISOString(), reason:sel.value, by:fixWho()};
   if(kind==='pick' || kind==='treat'){ fixDoRemove2(kind, id, rm); return; }
+  var _cb=$('fix-txn'), _dropped=0;
+  if(_cb && _cb.checked){ var _hx=(kind==='spray')?fixFindSpray(id):fixFindInput(id); var _di=_hx?fixLinkedIdx(kind,_hx.x):-1; if(_di>=0) _dropped=fixDropTxn(_di); }
   if(kind==='spray'){
     var h=fixFindSpray(id); if(!h){ fixClose(); return; }
     var arr=ST_FRUIT.sprayDiary[h.cat]; arr.splice(arr.indexOf(h.x),1);
@@ -13365,8 +13375,9 @@ function fixDoRemove(kind, id){
     ST_FRUIT.removedSprays=ST_FRUIT.removedSprays||[]; ST_FRUIT.removedSprays.push(h.x);
     if(typeof orRebuildPhi==='function') orRebuildPhi();
     orSave(); orRenderSpray(ST_FRUIT.market); fixClose();
-    orToast(fixT('Spray removed and kept in the change history. If it also added an expense, remove that in Transactions.',
-                 'Spuit verwyder en in die veranderingsgeskiedenis gehou. As dit ook ’n uitgawe bygevoeg het, verwyder dit in Transaksies.'));
+    orToast(_dropped
+      ? fixT('Spray removed, with its '+fixMoney(_dropped)+' expense (in Recently deleted for 30 days).','Spuit verwyder, saam met sy uitgawe van '+fixMoney(_dropped)+' (30 dae in Onlangs geskrap).')
+      : fixT('Spray removed and kept in the change history.','Spuit verwyder en in die veranderingsgeskiedenis gehou.'));
   } else {
     var g=fixFindInput(id); if(!g){ fixClose(); return; }
     ST_CROP.inputs.splice(ST_CROP.inputs.indexOf(g.x),1);
@@ -13374,7 +13385,9 @@ function fixDoRemove(kind, id){
     ST_CROP.removed=ST_CROP.removed||[]; ST_CROP.removed.push(g.x);
     dataChanged('crop'); if(typeof cropRenderInputs==='function') cropRenderInputs(); fixClose();
     var l=cropLandById(g.x.land), cost=(Number(g.x.costPerHa)||0)*((l&&l.area)||0);
-    toast(cost>0
+    toast(_dropped
+      ? fixT('Application removed, with its '+fixMoney(_dropped)+' expense (in Recently deleted for 30 days).','Toediening verwyder, saam met sy uitgawe van '+fixMoney(_dropped)+' (30 dae in Onlangs geskrap).')
+      : cost>0
       ? fixT('Application removed. The '+fixMoney(cost)+' expense it added is still in Transactions — remove it there too if that was also a mistake.',
              'Toediening verwyder. Die uitgawe van '+fixMoney(cost)+' wat dit bygevoeg het, is steeds in Transaksies — verwyder dit ook daar as dit ’n fout was.')
       : fixT('Application removed and kept in the change history.','Toediening verwyder en in die veranderingsgeskiedenis gehou.'), 'success');
@@ -13387,6 +13400,33 @@ function fixDoRemove(kind, id){
    A pick booked an income and a treatment may have booked an expense. Neither row carries a
    link the server keeps, so they are found again by what they were booked as. The farmer is
    shown the one found and chooses whether it goes too. */
+/* Step 2: the expense a spray or an application posted. Found by its tag on this device, else
+   by what it was booked as: the product and the block or land, on the same day. */
+function fixLinkedIdx(kind, x){
+  if(!x) return -1;
+  if(kind==='spray'){
+    var b=(typeof orBlockById==='function')?orBlockById(x.bid):null, d=(x.product||'')+' — '+(b?b.name:'');
+    return fixTxnIdx(function(t){ return (t._os && String(t._os)===String(x.id)) ||
+      (t.type==='expense' && String(t.desc||'')===d && fixSameDay(t.date, x.dateISO)); });
+  }
+  if(kind==='input'){
+    var l=(typeof cropLandById==='function')?cropLandById(x.land):null, d2=(x.product||'')+' \u2014 '+((l&&l.name)||'land');
+    var amt=(Number(x.costPerHa)||0)*((l&&l.area)||0);
+    return fixTxnIdx(function(t){ return (t._ci && String(t._ci)===String(x.id)) ||
+      (t.type==='expense' && String(t.desc||'').indexOf(d2)===0 && fixSameDay(t.date, x.date) && (!(amt>0) || Math.abs((Number(t.amt)||0)-amt)<0.5)); });
+  }
+  return -1;
+}
+/* The tick-box that offers to take the booked money with the entry. */
+function fixMoneyBox(t, income){
+  if(!t) return '';
+  var box='width:auto;height:auto;min-width:0;flex:none;margin:2px 0 0;padding:0;accent-color:#2D6A4F';
+  return '<label style="display:flex;gap:10px;align-items:flex-start;padding:10px 11px;background:var(--bg);border-radius:10px;margin:4px 0 8px;cursor:pointer;font-size:13px;color:var(--t1)">'+
+    '<input type="checkbox" id="fix-txn" checked style="'+box+'"><span style="flex:1">'+
+    esc(income ? fixT('Also remove the '+fixMoney(t.amt)+' income it booked','Verwyder ook die inkomste van '+fixMoney(t.amt)+' wat dit geboek het')
+               : fixT('Also remove the '+fixMoney(t.amt)+' expense it added','Verwyder ook die uitgawe van '+fixMoney(t.amt)+' wat dit bygevoeg het'))+
+    '<span style="display:block;font-size:11.5px;color:var(--t3)">'+esc(t.desc||'')+' · '+esc(txDispDate(t.date))+'</span></span></label>';
+}
 function fixSameDay(a, iso){
   var d=parseDate(String(a||'')), p=String(iso||'').split('-');
   return !!d && p.length===3 && d.y===+p[0] && d.m===(+p[1]-1) && d.d===+p[2];
@@ -13770,7 +13810,7 @@ function cropRenderInputs(){
     var safeCls = cropInputActive(i)?'st-wd':'st-ok';
     var batch = (i.kind==='fertiliser'||i.kind==='seed') ? (i.batch||'\u2014') : (i.batch?esc(i.batch):'<span class="miss">missing</span>');
     return '<tr style="cursor:pointer" onclick="cropInputTap(\''+String(i.id).replace(/[^A-Za-z0-9_\-]/g,'')+'\')"><td>'+cropDispDate(i.date)+'</td><td>'+esc(l?l.name:'?')+'</td>'+
-      '<td>'+esc(i.product)+'<br><span style="color:var(--t4);font-size:11px">Act 36/1947 \u00b7 '+esc(i.reg||'\u2014')+(i.targetFor?' \u00b7 for '+esc(i.targetFor):'')+'</span>'+
+      '<td>'+esc(i.product)+'<br><span style="color:var(--t4);font-size:11px">'+(i.kind==='seed'?'Plant Improvement Act 53/1976':'Act 36/1947')+' \u00b7 '+esc(i.reg||'\u2014')+(i.targetFor?' \u00b7 for '+esc(i.targetFor):'')+'</span>'+
         /* T2.5 — what fell around the spray. Only for things that can wash off. */
         ((/^(herbicide|fungicide|insecticide)$/.test(i.kind||'') && typeof rnSprayRainHtml==='function') ? rnSprayRainHtml(i.date) : '')+'</td>'+
       '<td><span class="crop-tagp '+meta[1]+'">'+meta[0]+'</span></td><td>'+esc(i.rate||'')+'</td><td>'+batch+'</td>'+
@@ -14268,7 +14308,9 @@ function cropLogInput(editId){
   if(!planted.length){ toast('Plant a land first','info'); return; }
   var landBoxes=planted.map(function(l,ix){return '<label style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--br);border-radius:9px;margin-bottom:6px;cursor:pointer;font-size:13px"><input type="checkbox" class="ci-land-cb" value="'+l.id+'"'+(ix===0?' checked':'')+' style="width:17px;height:17px;flex:none">'+esc(l.name)+' <span style="color:var(--t4)">'+(l.area||0)+' ha</span></label>';}).join('');
   var kinds=[['herbicide','Herbicide'],['fungicide','Fungicide'],['insecticide','Insecticide'],['fertiliser','Fertiliser'],['seed','Seed']];
-  var kindOpts=kinds.map(function(k){return '<option value="'+k[0]+'">'+k[1]+'</option>';}).join('');
+  /* Step 2: no silent Herbicide. A fertiliser logged without changing the box was filed as a
+     spray, with a withdrawal period it never had. */
+  var kindOpts='<option value="">Choose the type</option>'+kinds.map(function(k){return '<option value="'+k[0]+'">'+k[1]+'</option>';}).join('');
   var today=LS_TODAY.toISOString().slice(0,10);
   function lbl(t,opt){ return '<label style="display:block;font-size:11px;font-weight:800;color:var(--gm);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">'+t+(opt?' <span style="color:var(--t4);font-weight:600;text-transform:none;letter-spacing:0">optional</span>':'')+'</label>'; }
   var inpCss='width:100%;height:38px;border:1px solid var(--br);border-radius:9px;background:#fff;padding:0 11px;font-size:13.5px;font-family:inherit;box-sizing:border-box';
@@ -14299,7 +14341,8 @@ function cropInputFormSave(){
   var landIds=Array.prototype.slice.call(document.querySelectorAll('.ci-land-cb:checked')).map(function(c){return parseInt(c.value,10);}).filter(function(x){return !isNaN(x);});
   if(!landIds.length){ toast('Tick at least one land','error'); return; }
   var product=(($('ci-product')||{}).value||'').trim(); if(!product){ toast('What did you apply?','error'); return; }
-  var kind=(($('ci-kind')||{}).value||'herbicide');
+  var kind=(($('ci-kind')||{}).value||'');
+  if(!kind){ toast('What type was it — herbicide, fungicide, insecticide, fertiliser or seed?','error'); return; }
   var phi=parseInt(($('ci-phi')||{}).value,10)||0;
   var cost=parseFloat(($('ci-cost')||{}).value)||0;
   var date=(($('ci-date')||{}).value)||LS_TODAY.toISOString().slice(0,10);
@@ -14324,7 +14367,7 @@ function cropInputFormSave(){
       var desc=product+' \u2014 '+(l.name||'land')+(forVal?(' ('+forVal+')'):'');
       var entTag = l.crop ? ('crop:'+l.crop) : undefined;
       ST.txns=ST.txns||[];
-      ST.txns.unshift({ date:cropDispDate(date), desc:desc, cat:cat, type:'expense', amt:total, method:'Bank Debit', source:'Crop input', ent:entTag });
+      ST.txns.unshift({ date:cropDispDate(date), desc:desc, cat:cat, type:'expense', amt:total, method:'Bank Debit', source:'Crop input', ent:entTag, _ci:ST_CROP.inputs[0].id });
       var _ciTx=ST.txns[0];
       try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_ciTx, {date:_lsTxnISO(date),amt:total,cat:cat,type:'expense',desc:desc,method:'Bank Debit',ent:entTag,source:'Crop input'}); } }catch(e){}
     }
@@ -14369,7 +14412,7 @@ function cropRenderLandModal(){
     var dl='';
     dl+=DT+'Stage</dt>'+DD+'<span class="crop-stage '+cropStageClass(est)+'">'+cropStageLabel(est)+'</span></dd>';
     if(l.crop){
-      dl+=DT+'Crop / cultivar</dt>'+DD+esc(l.crop)+(l.cultivar?(' \u00b7 '+esc(l.cultivar)):'')+(l.gmo?' (Bt)':'')+'</dd>';
+      dl+=DT+'Crop / cultivar</dt>'+DD+esc(l.crop)+(l.cultivar?(' \u00b7 '+esc(l.cultivar)):'')+((l.gmo && !/\bBt\b/i.test(l.cultivar||''))?' (Bt)':'')+'</dd>';
       dl+=DT+(l.stage==='planned'?'Plant from':'Planted')+'</dt>'+DD+cropDispDate(l.planted)+'</dd>';
       dl+=DT+'Expected harvest</dt>'+DD+(est==='harvest'?'Now':cropDispDate(l.harvest))+'</dd>';
       dl+=DT+(l.actualYield!=null?'Actual yield':'Expected yield')+'</dt>'+DD+(cropLandYield(l)||0)+' t/ha</dd>';
@@ -14520,7 +14563,7 @@ function openCropSprayReport(){
     var batch=(i.kind==='fertiliser'||i.kind==='seed')?(i.batch||'\u2014'):(i.batch?escTxHtml(i.batch):'<span class="lsr-miss">missing</span>');
     var safe=cropInputActive(i)?('\u23F3 '+cropDispDate(cropLocalISO(cropInputSafe(i)))):(i.phi?'cleared':'\u2014');
     var status=cropInputActive(i)?'<span class="lsr-wd">\u23F3 within PHI</span>':'<span class="lsr-ok">\u2713 clear</span>';
-    return '<tr><td>'+cropDispDate(i.date)+'</td><td>'+escTxHtml(l?l.name:'?')+'</td><td>'+escTxHtml(i.product)+'<br><span style="color:#9ca3af;font-size:11px">Act 36/1947 \u00b7 '+escTxHtml(i.reg||'\u2014')+'</span></td><td><span class="lsr-pill '+meta[1].replace('p-','lsr-')+'">'+meta[0]+'</span></td><td>'+escTxHtml(i.rate||'')+'</td><td>'+batch+'</td><td>'+escTxHtml(i.by||'')+(i.operatorCert?' ('+escTxHtml(i.operatorCert)+')':'')+'</td><td>'+(i.phi?i.phi+' d':'None')+'</td><td>'+safe+'</td><td>'+status+'</td></tr>';
+    return '<tr><td>'+cropDispDate(i.date)+'</td><td>'+escTxHtml(l?l.name:'?')+'</td><td>'+escTxHtml(i.product)+'<br><span style="color:#9ca3af;font-size:11px">'+(i.kind==='seed'?'Plant Improvement Act 53/1976':'Act 36/1947')+' \u00b7 '+escTxHtml(i.reg||'\u2014')+'</span></td><td><span class="lsr-pill '+meta[1].replace('p-','lsr-')+'">'+meta[0]+'</span></td><td>'+escTxHtml(i.rate||'')+'</td><td>'+batch+'</td><td>'+escTxHtml(i.by||'')+(i.operatorCert?' ('+escTxHtml(i.operatorCert)+')':'')+'</td><td>'+(i.phi?i.phi+' d':'None')+'</td><td>'+safe+'</td><td>'+status+'</td></tr>';
   }).join('');
   var banner=active.length?'<div class="lsr-banner warn"><b>\u23F3 '+active.length+' land(s) within a pre-harvest interval.</b> Do not harvest before the safe date (Section 1).'+(missing.length?(' '+missing.length+' record(s) missing a batch number.'):'')+'</div>':'<div class="lsr-banner ok"><b>\u2713 No active pre-harvest intervals.</b> All treated lands are safe to harvest.'+(missing.length?(' Note: '+missing.length+' record(s) missing a batch number.'):'')+'</div>';
   var html='<h1>Spray Program &amp; Pre-Harvest Interval Audit</h1>'+
@@ -15516,7 +15559,7 @@ function _pfWhatIfCropHTML(c){
   var yMin=Math.max(0.2,Math.round(yld0r*0.4*10)/10), yMax=Math.round(yld0r*1.6*10)/10;
   var iMin=Math.round(input0*0.4/50)*50, iMax=Math.round(input0*1.6/50)*50;
   return '<div class="pf-sub"><div class="pf-subt"><span data-t="pf.h.testwi">Test size, price, yield or cost</span> \u2014 '+esc(c.crop)+'</div>'+'<div class="pf-sl size"><div class="pf-sllab"><span>Hectares planted <span class="pf-szbadge">SIZE</span></span><span class="pf-slval"><span id="vPfHa">'+(c.area||0)+'</span><small> ha</small></span></div>'+_pfSlider('pfHa',0,Math.max(10,Math.round((c.area||0)*2)),(c.area>=100?5:1),(c.area||0),'pfWhatIfCrop')+'<div class="pf-slends"><span>0</span><span>now '+(c.area||0)+' ha</span><span>'+Math.max(10,Math.round((c.area||0)*2))+'</span></div></div>'+
-    '<div class="pf-sl"><div class="pf-sllab"><span>Price</span><span class="pf-slval"><span id="vPfPr">'+fmt(price0)+'</span><small>/ton</small></span></div>'+_pfSlider('pfPr',pMin,pMax,10,price0,'pfWhatIfCrop')+'<div class="pf-slends"><span>'+fmt(pMin)+'</span><span>SAFEX today</span><span>'+fmt(pMax)+'</span></div></div>'+
+    '<div class="pf-sl"><div class="pf-sllab"><span>Price</span><span class="pf-slval"><span id="vPfPr">'+fmt(price0)+'</span><small>/ton</small></span></div>'+_pfSlider('pfPr',pMin,pMax,10,price0,'pfWhatIfCrop')+'<div class="pf-slends"><span>'+fmt(pMin)+'</span><span>your plan price</span><span>'+fmt(pMax)+'</span></div></div>'+
     '<div class="pf-sl"><div class="pf-sllab"><span>Yield</span><span class="pf-slval"><span id="vPfYl">'+yld0r.toFixed(1)+'</span><small> t/ha</small></span></div>'+_pfSlider('pfYl',yMin,yMax,0.1,yld0r.toFixed(1),'pfWhatIfCrop')+'<div class="pf-slends"><span>'+yMin.toFixed(1)+'</span><span>your average</span><span>'+yMax.toFixed(1)+'</span></div></div>'+
     '<div class="pf-costsep"></div>'+
     '<div id="pf-cc-single"><div class="pf-sl"><div class="pf-sllab"><span>Input cost <small style="color:var(--t4)">seed, fert, chem, fuel</small></span><span class="pf-slval"><span id="vPfIn">'+fmt(input0)+'</span><small>/ha</small></span></div>'+_pfSlider('pfIn',iMin,iMax,50,input0,'pfWhatIfCrop')+'<div class="pf-slends"><span>'+fmt(iMin)+'</span><span>your budget</span><span>'+fmt(iMax)+'</span></div></div></div>'+
@@ -16358,7 +16401,7 @@ function renderProfit(){
         '<span onclick="nav(\'orchards\')" style="color:var(--gm);font-weight:800;cursor:pointer;text-decoration:underline">Set your block costs \u2192</span></div>'+
         '</div></div></div>';
     }
-    html+='<div class="pf-card"><div class="pf-ct">Which orchard block pays best?</div><div class="pf-cw">Money back per hectare \u2014 after packing, levy and agent \u2014 for your fruit, berry &amp; veg blocks.</div>';
+    html+='<div class="pf-card"><div class="pf-ct">Which orchard block pays best?</div><div class="pf-cw">Gross margin per hectare \u2014 after packing, levy, agent and growing costs \u2014 for your fruit, berry &amp; veg blocks.</div>';
     so.forEach(function(o){ var pctb=Math.max(4,Math.round(Math.abs(o.gmHa)/omax*100)); var col=o.gmHa<0?'#C0392B':(o.gmHa>=omax*0.66?'#40916C':(o.gmHa>=omax*0.4?'#E07B2A':'#C8962C'));
       html+='<div class="pf-bar tap" onclick="orOpenBlock(\''+o.id+'\')"><div class="pf-bh"><div class="n">'+o.icon+' '+esc(o.name)+' <small style="color:var(--t4);font-weight:600;font-size:11px">\u00b7 '+o.area+' ha \u00b7 '+'<span data-t="or.cat.'+o.cat+'">'+esc(o.kind)+'</span>'+'</small></div><div class="v">'+fmt(o.gmHa)+'<small>/ha</small> \u00b7 '+_pfK(o.gm)+' <span class="pf-chev">\u203A</span></div></div><div class="pf-tk"><div class="pf-fl" style="width:'+pctb+'%;background:'+col+'"></div></div></div>';
     });
@@ -17041,6 +17084,8 @@ function _grp2(n){ n=Math.abs(n||0); var r=Math.round(n*100)/100; var i=Math.flo
    them now delegates to these three, so the names and call sites are untouched but the
    output is one format: space for thousands, comma for cents, minus outside the R.
    SA convention: R1 234 567 · R1 234 567,89 · R1,23m · -R4 200                          */
+/* Step 3: "1 day", "4 days" - one way everywhere (was "in 1 days", "3d over" beside "4 days over"). */
+function _nDays(n){ n=Math.abs(Math.round(Number(n)||0)); return n+' day'+(n===1?'':'s'); }
 function _moneyInt(n){ var v=Number(n); if(!isFinite(v)) v=0; return (v<0?'−':'')+'R'+_grpInt(v); }
 /* Whole-number percentage shares that always add to 100. Rounding each share on its own
    made a breakdown column read 101%, which a farmer checking the maths will spot.
@@ -17058,10 +17103,15 @@ function _pctShares(values, total){
 }
 window._pctShares=_pctShares;
 function _moneyCents(n){ var v=Number(n); if(!isFinite(v)) v=0; return (v<0?'−':'')+'R'+_grp2(v); }
+/* D8 (signed 24 Sep): ONE compact money style everywhere - R5,3m · R250k · R850, the minus
+   before the R. Seven formatters each had their own (R5.76M, R2,25m, R5.3m, "R 23251k");
+   they all come here now. */
 function _moneyCompact(n){
   var v=Number(n); if(!isFinite(v)) v=0;
   var s=(v<0?'−':''), a=Math.abs(v);
-  if(a>=1e6){ return s+'R'+(a/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'').replace('.',',')+'m'; }
+  /* Two decimals under 10 million, so cards that are added up on screen still add up (R4,24m − R2,87m = R1,37m;
+     one decimal made it R4,2m − R2,9m = R1,4m). Trailing zeros go: R5,3m, R2m. */
+  if(a>=1e6){ var dp=a<1e7?2:(a<1e8?1:0), m=(a/1e6).toFixed(dp); if(dp>0) m=m.replace(/\.?0+$/,''); return s+'R'+m.replace('.',',')+'m'; }
   if(a>=1000){ return s+'R'+Math.round(a/1000)+'k'; }
   return s+'R'+Math.round(a);
 }
@@ -17310,7 +17360,7 @@ rows += '<tr class="tx-month-row"><td colspan="6" style="padding:0">' +
       rows += '<tr id="txrow-income-' + ri + '" class="txrow-click' + (_sel?' tx-row-sel':'') + (_need?' tx-row-need':'') + '" onclick="openTxnDetail(' + ri + ')" style="' + bg + '">' +
         '<td class="tx-selcol" onclick="event.stopPropagation()"><input type="checkbox" class="tx-sel" data-i="' + ri + '"' + (_sel?' checked':'') + ' onchange="txSelToggle(' + ri + ', \'income\', event)"/></td>' +
         '<td style="font-size:12px;color:var(--t3);white-space:nowrap">' + esc(txDispDate(t.date)) + '</td>' +
-        '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">' + (t.desc || '') + '</div>' +
+        '<td><div data-notranslate style="font-weight:600;font-size:13px;color:var(--t1)">' + esc(t.desc || '') + '</div>' +
              '<div class="tx-source">' + (t.method || '') + clip + txLinkChip(t, _axIdx) + '</div></td>' +
         /* The category cell is a button: clicking it CHANGES the category, which is what
            a farmer wants here far more often than an explanation. */
@@ -18707,7 +18757,7 @@ var months = [];
       rows += '<tr id="txrow-expense-' + ri + '" class="txrow-click' + (_sel?' tx-row-sel':'') + (_need?' tx-row-need':'') + '" onclick="openTxnDetail(' + ri + ')" style="' + bg + '">' +
         '<td class="tx-selcol" onclick="event.stopPropagation()"><input type="checkbox" class="tx-sel" data-i="' + ri + '"' + (_sel?' checked':'') + ' onchange="txSelToggle(' + ri + ', \'expense\', event)"/></td>' +
         '<td style="font-size:12px;color:var(--t3);white-space:nowrap">' + esc(txDispDate(t.date)) + '</td>' +
-        '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">' + (t.desc || '') + '</div>' +
+        '<td><div data-notranslate style="font-weight:600;font-size:13px;color:var(--t1)">' + esc(t.desc || '') + '</div>' +
              '<div class="tx-source">' + (t.method || '') + clip + txLinkChip(t, _axIdx) + '</div></td>' +
         /* The category cell is a button: clicking it CHANGES the category, which is what
            a farmer wants here far more often than an explanation. */
@@ -19665,17 +19715,22 @@ function updateDashboardFigures() {
   var best    = bestMonth(true);
   var topExp  = topExpCat();
   var ha      = ST.farmHa || 1;
-  var profit  = cur.profit;
-  var margin  = cur.income > 0 ? (profit / cur.income * 100).toFixed(1) : '0.0';
+  var profit  = cur.profit;   /* money in less money out: the cash grid below */
+  /* S8 (step 5, A): the answer at the top - "Is my farm profitable?" - is the Profit page's profit,
+     here as in b5DashHero. It fell back to money in less money out, which counts VAT, loan capital
+     and machinery. The cash grid underneath keeps money in and out. */
+  var _hp=null, _hq=null; try{ _hp=b5ProfitPeriod({months:[month]}); _hq=b5ProfitPeriod({months:[prevMonthLabel(month)]}); }catch(e){}
+  var hProfit = _hp ? _hp.profit : profit, hIncome = _hp ? (_hp.income||0) : cur.income;
+  var margin  = hIncome > 0 ? (hProfit / hIncome * 100).toFixed(1) : '0.0';
   // Margin-health band (reuses the dotState logic): green ≥15% · amber 0–15% · red on a loss.
-  var _mh = (profit < 0) ? {word:'Loss',color:'#B42318',bg:'#FDECEA'}
+  var _mh = (hProfit < 0) ? {word:'Loss',color:'#B42318',bg:'#FDECEA'}
           : (parseFloat(margin) >= 15 ? {word:'Healthy',color:'#1B7A3E',bg:'#D8F3DC'}
                                        : {word:'Tight',color:'#B45309',bg:'#FFF3E0'});
 
   // ── Combo card — answer stripe + cashflow grid (legacy profit-sec IDs no-op gracefully) ──
   var prevPrf  = txSummary(prevMonthLabel(month));
-  var prevProf = prevPrf.income - prevPrf.expenses;
-  var profDelta = profit - prevProf;
+  var prevProf = _hq ? _hq.profit : (prevPrf.income - prevPrf.expenses);
+  var profDelta = hProfit - prevProf;
   var prevLbl   = prevMonthLabel(month).split(' ')[0];
 
 var noData = (cur.income === 0 && cur.expenses === 0);
@@ -19686,19 +19741,19 @@ var noData = (cur.income === 0 && cur.expenses === 0);
   var noCosts = (!noData && cur.income > 0 && cur.expenses === 0);
 
 var stripe = $('dash-combo-stripe');
-  if (stripe) stripe.className = 'combo-stripe' + (profit < 0 ? ' bad' : '');
+  if (stripe) stripe.className = 'combo-stripe' + (hProfit < 0 ? ' bad' : '');
 
 var badgeSvg = $('dash-combo-badge-svg');
   if (badgeSvg) {
-    badgeSvg.innerHTML = profit >= 0
+    badgeSvg.innerHTML = hProfit >= 0
       ? '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>'
       : '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>';
   }
 
-setEl('dash-combo-lbl', noData ? 'Nothing recorded yet' : (noCosts ? 'So far this month' : (profit >= 0 ? 'Yes, your farm is' : 'No — your farm made a')));
-  setEl('dash-combo-val', noData ? 'Waiting for your first entries' : (noCosts ? 'Costs not recorded yet' : (profit >= 0 ? 'Profitable' : 'Loss this month')));
+setEl('dash-combo-lbl', noData ? 'Nothing recorded yet' : (noCosts ? 'So far this month' : (hProfit >= 0 ? 'Yes, your farm is' : 'No — your farm made a')));
+  setEl('dash-combo-val', noData ? 'Waiting for your first entries' : (noCosts ? 'Costs not recorded yet' : (hProfit >= 0 ? 'Profitable' : 'Loss this month')));
 
-var dotState = (noData || noCosts) ? 'amber' : (profit < 0 ? 'red' : (parseFloat(margin) >= 15 ? 'green' : 'amber'));
+var dotState = (noData || noCosts) ? 'amber' : (hProfit < 0 ? 'red' : (parseFloat(margin) >= 15 ? 'green' : 'amber'));
   var dotEl = $('dash-combo-dot');
   if (dotEl) dotEl.className = 'tl-dot ' + dotState;
 
@@ -19709,7 +19764,7 @@ var subEl = $('dash-combo-sub');
       subText = 'Nothing here yet. Add your first sale or expense with the + button.';
     } else if (noCosts) {
       subText = fmt(cur.income) + ' of income in, and no costs yet — add this month\u2019s costs to see what you actually kept.';
-    } else if (profit >= 0) {
+    } else if (hProfit >= 0) {
       if (profDelta !== 0 && Math.abs(prevProf) > 0.01) {
         var arrow = profDelta >= 0 ? '↑ ' : '↓ ';
         subText = arrow + fmt(Math.abs(profDelta)) + ' ' +
@@ -19718,7 +19773,7 @@ var subEl = $('dash-combo-sub');
         subText = 'Profit secured this month.';
       }
     } else {
-      subText = 'You spent ' + fmt(Math.abs(profit)) + ' more than you earned this month.';
+      subText = 'A loss of ' + fmt(Math.abs(hProfit)) + ' this month, after costs, interest and the write-off.';
     }
     subEl.textContent = subText;
   }
@@ -19727,7 +19782,7 @@ var _mEl=$('dash-combo-margin');
   if(_mEl) _mEl.innerHTML = (noData || noCosts) ? '—' : (margin + '% <span style="font-size:11px;font-weight:800;padding:2px 7px;border-radius:999px;margin-left:5px;vertical-align:middle;background:'+_mh.bg+';color:'+_mh.color+'">'+_mh.word+'</span>');
   var marginChgEl = $('dash-combo-margin-chg');
   if (marginChgEl) {
-    var prevMargin = prevPrf.income > 0 ? (prevProf / prevPrf.income * 100) : null;
+    var prevMargin = (_hq && _hq.income > 0) ? (prevProf / _hq.income * 100) : (prevPrf.income > 0 ? (prevProf / prevPrf.income * 100) : null);
     if (prevMargin === null) {
       marginChgEl.textContent = 'no prior month';
       marginChgEl.className   = 'combo-ps-chg';
@@ -19836,7 +19891,8 @@ var prev       = txSummary(prevMonthLabel(month));
 
 var marginEl = $('cf-margin-detail');
   if (marginEl) {
-    marginEl.innerHTML = (noData || noCosts) ? 'shown once costs are in' : (margin + '% of money in kept');
+    /* The cash grid: how much of the money that came in is still here (net cash \u00f7 money in), not the profit margin above. */
+    marginEl.innerHTML = (noData || noCosts) ? 'shown once costs are in' : ((cur.income > 0 ? (profit / cur.income * 100).toFixed(1) : '0.0') + '% of money in kept');
     marginEl.style.color = (noData || noCosts) ? 'var(--t4)' : _mh.color;
   }
 
@@ -24692,7 +24748,7 @@ function renderAssetList() {
       '</td>' +
       /* No Category cell: the band divider above the row already names the type, so the
          pill repeated it on every row. That width goes to the asset name instead. */
-      '<td style="color:var(--t3);font-size:12px">'+(a.date||'—')+'<br><span style="font-size:11px">'+age+' yr'+(age!==1?'s':'')+' old</span></td>' +
+      '<td style="color:var(--t3);font-size:12px">'+(a.date?esc(txDispDate(a.date)):'—')+'<br><span style="font-size:11px">'+age+' yr'+(age!==1?'s':'')+' old</span></td>' +
       '<td class="r" style="font-weight:700">'+fmt(a.price||0)+'</td>' +
       /* -466: the accounts view - what the Profit page writes off, and what is left. */
       '<td class="r"><div style="font-weight:750">'+fmt(bk.value)+'</div>'+(bk.life>0?'':'<div style="font-size:11px;color:var(--t4);margin-top:3px">not written off</div>')+'</td>' +
@@ -25933,7 +25989,7 @@ function wkLabourFile(){
   var rows=ws.map(function(w){
     var hr=wkHourly(w), ok=hr>=rate-0.005;
     var pay=(w.basis==='day')?('R'+_grpInt(w.amt||0)+'/day'):(wkMoney(w.amt)+'/mo');
-    return '<tr><td>'+wkE(w.name)+(w.count?(' (\u00d7'+w.count+')'):'')+'</td><td>'+wkE(w.type)+'</td><td>'+pay+'</td><td>R'+hr.toFixed(2)+'</td><td style="color:'+(ok?'#2D6A4F':'#C0392B')+'">'+(ok?'\u2713':'\u2717')+'</td><td>'+(w.uif?'\u2713':'\u2014')+'</td><td style="color:'+(w.contract==='missing'?'#C0392B':'#2D6A4F')+'">'+(w.contract==='missing'?'missing':'on file')+'</td></tr>';
+    return '<tr><td>'+wkE(w.name)+(w.count?(' (\u00d7'+w.count+')'):'')+'</td><td>'+wkE(w.type)+'</td><td>'+pay+'</td><td>'+_moneyCents(hr)+'</td><td style="color:'+(ok?'#2D6A4F':'#C0392B')+'">'+(ok?'\u2713':'\u2717')+'</td><td>'+(w.uif?'\u2713':'\u2014')+'</td><td style="color:'+(w.contract==='missing'?'#C0392B':'#2D6A4F')+'">'+(w.contract==='missing'?'missing':'on file')+'</td></tr>';
   }).join('');
   var checks=items.filter(function(it){return !cs.untracked[it.key];}).map(function(it){
     var sym=it.status==='g'?'\u2713':(it.status==='a'?'!':'\u2717'), col=it.status==='g'?'#2D6A4F':(it.status==='a'?'#E0930E':'#C0392B');
@@ -26266,7 +26322,7 @@ function cbDoc(cfg){
   body+=cl('The parties','This agreement is between <b>'+wkE(owner)+'</b> of <b>'+wkE(farm)+'</b> (the employer) and <b>'+wkE(cfg.name)+'</b> (the employee).');
   body+=cl('The job', 'The employee is engaged as <b>'+wkE(cfg.title||'a farm worker')+'</b>. Duties: '+wkE(cfg.duties||'general farm work')+' The place of work is '+wkE(cfg.place||farm)+'. This is '+wkE((cfg.type||'permanent').toLowerCase())+' employment, starting '+(cfg.start?cbFmtDate(cfg.start):'on the agreed date')+(cfg.prob?(', with a probation period of '+wkE(cfg.prob)):'')+'.');
   body+=cl('Hours of work', 'Ordinary hours are '+cfg.hours+' per week, normally '+wkE(cfg.days||'as arranged')+', with a meal break of '+wkE(cfg.brk||'1 hour')+'.'+(cfg.ot?' Overtime is worked only by agreement (maximum 10 hours per week) and is paid at 1.5 times the normal wage, as required by law.':' No overtime is required.'));
-  body+=cl('Pay', 'The wage is <b>'+pay+'</b> (which is R'+hr.toFixed(2)+' per hour \u2014 at or above the farm-worker minimum wage of R'+rate.toFixed(2)+' per hour). Pay is on the '+wkE(cfg.payday||'agreed day')+' of each pay period, by '+wkE(cfg.method||'EFT')+'. UIF (1% from the employee and 1% from the employer) is deducted and paid over to the Fund every month.'+(cfg.b13?' A 13th cheque / December bonus is paid.':''));
+  body+=cl('Pay', 'The wage is <b>'+pay+'</b> (which is '+_moneyCents(hr)+' per hour \u2014 at or above the farm-worker minimum wage of '+_moneyCents(rate)+' per hour). Pay is on the '+wkE(cfg.payday||'agreed day')+' of each pay period, by '+wkE(cfg.method||'EFT')+'. UIF (1% from the employee and 1% from the employer) is deducted and paid over to the Fund every month.'+(cfg.b13?' A 13th cheque / December bonus is paid.':''));
   body+=cl('Leave', cfg.annual+' days\u2019 paid annual leave per year. Paid sick leave and family-responsibility leave are given in line with the Basic Conditions of Employment Act.'+(cfg.shutdown?' The farm observes a December shutdown period, taken as part of annual leave.':''));
   if(cfg.money) body+=cl('Money arrangements', 'Where the employee gives written consent, the employer may deduct agreed amounts from pay \u2014 for example towards a funeral pot, savings, or repaying an advance. No deduction is made without that written consent, and total deductions stay within the legal limit.');
   if(cfg.esta){ var hb=''; if(cfg.housing==='yes'&&cfg.houseamt>0){ var cap=Math.round(cfg.amt*0.10*100)/100; var amt=Math.min(cfg.houseamt,cap); hb=' A housing amount of R'+_grpInt(amt)+' per month is deducted, which is within the 10% legal cap.'; } else { hb=' No housing deduction is made.'; }
@@ -26634,10 +26690,10 @@ function wkPRRegister(){
       labels.forEach(function(L){ var lr=_byLabel[L]||[]; for(var i=0;i<lr.length;i++){ if(lr[i].w.id===r.w.id){ gross+=lr[i].gross; uif+=lr[i].uif; break; } } paye+=wkPayeFor(L,r.w.id); });
       var net=gross-uif-paye; tg+=gross;tu+=uif;tp+=paye;tn+=net;
       var nm=wkE(r.w.name)+(wkAboveThreshold(r.w)?' <span class="pr-flag" title="Annual pay above the tax threshold \u2014 confirm PAYE on the SARS tables">\u26a0</span>':'');
-      return '<tr><td>'+nm+'</td><td>'+wkMoney(gross)+'</td><td>'+uif.toFixed(2)+'</td><td>'+wkMoney(paye)+'</td><td>'+wkMoney(net)+'</td></tr>'; }).join('');
+      return '<tr><td>'+nm+'</td><td>'+wkMoney(gross)+'</td><td>'+wkMoney2(uif)+'</td><td>'+wkMoney(paye)+'</td><td>'+wkMoney(net)+'</td></tr>'; }).join('');
     var foot='<tr class="tot"><td>Totals</td><td>'+wkMoney(tg)+'</td><td>'+tu.toFixed(2)+'</td><td>'+wkMoney(tp)+'</td><td>'+wkMoney(tn)+'</td></tr>';
     var seas=wkSeasList(); var seasBlock='';
-    if(seas.length){ var sgt=0,sut=0; var srs=seas.map(function(w){ var g=0,u=0; labels.forEach(function(L){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var gg=days*(w.amt||0); g+=gg; u+=wkSeasUif(gg,days,w);} }); sgt+=g; sut+=u; return '<tr><td>'+wkE(w.name)+(w.count?(' \u00d7'+w.count):'')+'</td><td>'+wkMoney(g)+'</td><td>'+(u?u.toFixed(2):'\u2014')+'</td></tr>'; }).join('');
+    if(seas.length){ var sgt=0,sut=0; var srs=seas.map(function(w){ var g=0,u=0; labels.forEach(function(L){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var gg=days*(w.amt||0); g+=gg; u+=wkSeasUif(gg,days,w);} }); sgt+=g; sut+=u; return '<tr><td>'+wkE(w.name)+(w.count?(' \u00d7'+w.count):'')+'</td><td>'+wkMoney(g)+'</td><td>'+(u?wkMoney2(u):'\u2014')+'</td></tr>'; }).join('');
       seasBlock='<div class="wk-card"><div class="pr-h3">Seasonal workers <span class="pr-pill tech">paid per day</span></div><div class="pr-sub">Summed across '+n+' months</div><div class="pr-wrap"><table class="pr-tbl"><thead><tr><th>Worker</th><th>Gross</th><th>UIF</th></tr></thead><tbody>'+srs+'<tr class="tot"><td>Seasonal total</td><td>'+wkMoney(sgt)+'</td><td>'+(sut?sut.toFixed(2):'0.00')+'</td></tr></tbody></table></div></div>'; }
     return '<div class="wk-card"><div class="pr-h3">Payroll register \u2014 permanent <span class="pr-pill tech">'+n+' months</span></div><div class="pr-sub">'+wkE(wkShortMo(labels[0]))+' \u2013 '+wkE(wkShortMo(labels[n-1]))+' \u00b7 totals per worker</div>'
       +'<div class="pr-wrap"><table class="pr-tbl"><thead><tr><th>Employee</th><th>Gross</th><th>UIF 1%</th><th>PAYE</th><th>Net</th></tr></thead><tbody>'+trs+foot+'</tbody></table></div>'
@@ -26652,7 +26708,7 @@ function wkPRRegister(){
     var payeCell = paye>0 ? (wkMoney(paye)+' <span class="pr-enter" onclick="wkPRPayeEdit(\''+r.w.id+'\')">edit</span>')
       : (wkAboveThreshold(r.w) ? '<span class="pr-enter" onclick="wkPRPayeEdit(\''+r.w.id+'\')">enter \u2192</span>' : '0.00 <span class="pr-enter" onclick="wkPRPayeEdit(\''+r.w.id+'\')">+</span>');
     var nm=wkE(r.w.name)+(wkAboveThreshold(r.w)?' <span class="pr-flag" title="Annual pay above the tax threshold \u2014 confirm PAYE on the SARS tables">\u26a0</span>':'');
-    return '<tr><td>'+nm+'</td><td>'+wkMoney(r.gross)+'</td><td>'+r.uif.toFixed(2)+'</td><td>'+payeCell+'</td><td>'+(other?wkMoney(other):'\u2014')+'</td><td>'+wkMoney(net)+'</td></tr>';
+    return '<tr><td>'+nm+'</td><td>'+wkMoney(r.gross)+'</td><td>'+wkMoney2(r.uif)+'</td><td>'+payeCell+'</td><td>'+(other?wkMoney(other):'\u2014')+'</td><td>'+wkMoney(net)+'</td></tr>';
   }).join('');
   var foot='<tr class="tot"><td>Totals</td><td>'+wkMoney(tg)+'</td><td>'+tu.toFixed(2)+'</td><td>'+wkMoney(tp)+'</td><td>'+wkMoney(to)+'</td><td>'+wkMoney(tn)+'</td></tr>';
   var editBox='';
@@ -27199,7 +27255,7 @@ function astDrill(kind,key,target){
     var fy=parseInt(key,10), c=[];
     A.forEach(function(a){ var d=calcDepr(a); (d.deprSchedule||[]).forEach(function(s){ if(s.yr===fy&&s.amount>0) c.push({n:a.name,a:s.amount,r:s.rate}); }); });
     c.sort(function(x,y){return y.a-x.a;});
-    title='FY'+(''+fy).slice(-2)+' write-off \u2014 '+c.length+' asset'+(c.length!==1?'s':''); totLabel='Total FY'+(''+fy).slice(-2);
+    title=_txFyLabel(fy).replace('FY ','')+' write-off \u2014 '+c.length+' asset'+(c.length!==1?'s':''); totLabel='Total '+_txFyLabel(fy).replace('FY ','');
     c.forEach(function(x){ total+=x.a; rows+=_aiRow(x.n,fmt(x.a),x.r); });
     if(!c.length){ rows='<div class="r"><span>No depreciation this year</span><span class="amt">R0</span></div>'; }
   } else if(kind==='asset'){
@@ -27258,7 +27314,7 @@ function renderAssetInsights(){
   var dep={}; fys.forEach(function(f){dep[f]=0;});
   A.forEach(function(a){ var d=calcDepr(a); (d.deprSchedule||[]).forEach(function(s){ if(dep[s.yr]!=null) dep[s.yr]+=s.amount; }); });
   var mxD=Math.max.apply(null, fys.map(function(f){return dep[f];}).concat(1));
-  var barsB=fys.map(function(f){ return _aiBar('FY'+(''+f).slice(-2), dep[f]/mxD*100, '#40916C', dep[f]>0?astK(dep[f]):'\u2014', "astDrill('fy','"+f+"','ai-bd-b')"); }).join('');
+  var barsB=fys.map(function(f){ return _aiBar(_txFyLabel(f).replace('FY ',''), dep[f]/mxD*100, '#40916C', dep[f]>0?astK(dep[f]):'\u2014', "astDrill('fy','"+f+"','ai-bd-b')"); }).join('');
   var swB='You can claim about <b>'+astK(dep[fy0])+'</b> against tax this year'+(dep[fy0+4]<dep[fy0]?', dropping to '+astK(dep[fy0+4])+' by FY'+(''+(fy0+4)).slice(-2)+'. As that shrinks your tax bill creeps up \u2014 plan for it, or buy gear that brings fresh deductions.':'. Keep your register current so every deduction is captured.');
   var totP=0, owed=0; A.forEach(function(a){ totP+=a.price||0; owed+=(typeof assetOwed==='function')?assetOwed(a):(a.financed?(a.outstanding||0):0); });
   var netEq=totP-owed; var ownP=totP?Math.round(netEq/totP*100):100; var ownPB=Math.max(0,Math.min(100,ownP));
@@ -27307,7 +27363,7 @@ function renderAssetInsights(){
 }
 
 // ── Print asset register ──────────────────────────────────────
-function astK(v){ v=v||0; return v>=1e6?('R'+(v/1e6).toFixed(1)+'m') : v>=1e3?('R'+Math.round(v/1e3)+'k') : ('R'+Math.round(v)); }
+function astK(v){ return _moneyCompact(v||0); }   /* D8 */
 function astValCard(lbl,val,col){ return '<div style="background:var(--br2);border-radius:9px;padding:9px 11px"><div style="font-size:11px;color:var(--t3);font-weight:700">'+lbl+'</div><div style="font-size:15px;font-weight:800;color:'+(col||'var(--t1)')+'">'+val+'</div></div>'; }
 function closeAssetDetail(){ var bg=$('ast-detail-bg'); if(bg) bg.style.display='none'; }
 function openAssetDetail(idx){
@@ -27317,7 +27373,7 @@ function openAssetDetail(idx){
   var eb=$('ast-detail-edit'); if(eb) eb.onclick=function(){ closeAssetDetail(); openEditAsset(idx); };
   var body=$('ast-detail-body'); if(!body) return;
   var h='';
-  h += '<div style="font-size:12px;color:var(--t3);margin-bottom:14px">'+esc(a.cat||'')+(a.date?' \u00b7 bought '+esc(a.date):'')+(a.notes?' \u00b7 '+esc(a.notes):'')+'</div>';
+  h += '<div style="font-size:12px;color:var(--t3);margin-bottom:14px">'+esc(a.cat||'')+(a.date?' \u00b7 bought '+esc(txDispDate(a.date)):'')+(a.notes?' \u00b7 '+esc(a.notes):'')+'</div>';
   /* First thing on the card, because every figure under it means something different once
      the asset has gone: the tax value is historic, the insurance is somebody else's problem
      and the depreciation is a record rather than a forecast. */
@@ -27391,7 +27447,7 @@ function printAssetRegister() {
     '<h2>Assets</h2>'+
     '<table><tr><th>Asset</th><th>Category</th><th>Date</th><th>Purchase Price</th><th>Book Value</th><th>Depr This FY</th></tr>'+
     _regAssets.map(function(a){ var d=calcDepr(a);
-      return '<tr><td>'+esc(a.name)+'</td><td>'+esc(a.cat)+'</td><td>'+(a.date||'—')+'</td><td class="amt">'+fmt(a.price||0)+'</td><td class="amt">'+fmt(d.bookValue)+'</td><td class="amt pos">'+fmt(d.deprYear)+'</td></tr>';
+      return '<tr><td>'+esc(a.name)+'</td><td>'+esc(a.cat)+'</td><td>'+(a.date?esc(txDispDate(a.date)):'—')+'</td><td class="amt">'+fmt(a.price||0)+'</td><td class="amt">'+fmt(d.bookValue)+'</td><td class="amt pos">'+fmt(d.deprYear)+'</td></tr>';
     }).join('')+
     '<tr class="total"><td colspan="3">TOTAL</td><td class="amt">'+fmt(totalPurchase)+'</td><td class="amt">'+fmt(totalBook)+'</td><td class="amt pos">'+fmt(totalDeprYear)+'/yr</td></tr></table>'+
     '<h2>Summary</h2>'+
@@ -31974,9 +32030,9 @@ function renderHerdCards() {
     var opening=h.qty-inn+out;
     var anims=lsHerdAnimals(h.id);
     var grid='<div class="lsg">'+
-      '<div class="lsg-c"><div class="l">Buy price</div><div class="v">R '+h.buy.toLocaleString('en-ZA')+'</div></div>'+
-      '<div class="lsg-c"><div class="l">Monthly care</div><div class="v">R '+(h.feed+h.vet)+'/hd</div></div>'+
-      '<div class="lsg-c"><div class="l">Target sell</div><div class="v">R '+h.sell.toLocaleString('en-ZA')+'</div></div>'+
+      '<div class="lsg-c"><div class="l">Buy price</div><div class="v">'+_moneyInt(h.buy)+'</div></div>'+
+      '<div class="lsg-c"><div class="l">Monthly care</div><div class="v">'+_moneyInt(h.feed+h.vet)+'/hd</div></div>'+
+      '<div class="lsg-c"><div class="l">Target sell</div><div class="v">'+_moneyInt(h.sell)+'</div></div>'+
       '<div class="lsg-c"><div class="l">Market value</div><div class="v" style="color:var(--gd)">'+lsCompact(val)+'</div></div>'+
     '</div>';
     var mkt=mktPerHead?'<div class="lsmkt">Market: <strong>R'+mp.price+'/kg</strong> \u00b7 Est. <strong>R'+_grpInt(mktPerHead)+'/head</strong> \u00b7 <span style="color:'+(h.sell>mktPerHead?'var(--gl)':'var(--or)')+'">target '+(h.sell>mktPerHead?'above':'below')+' market</span></div>':'';
@@ -32059,8 +32115,8 @@ function calcROI() {
   var cost=qty*(buy+(feed+vet)*mo), rev=qty*sel, net=rev-cost;
   var roi=cost>0?((net/cost)*100).toFixed(1):0;
   var ri=$('ls-roi'); if(ri){ri.value=roi+'%';ri.style.color=parseFloat(roi)>=0?'#1B4332':'#E74C3C';}
-  var ps=$('ls-purchase-sum'); if(ps) ps.innerHTML='Purchase: R '+(qty*buy/1000).toFixed(1)+'k &middot; Monthly care: R '+(qty*(feed+vet)/1000).toFixed(1)+'k/mo';
-  var ss=$('ls-sell-sum'); if(ss) ss.innerHTML='Sale: R '+(rev/1000).toFixed(1)+'k &middot; Cost: R '+(cost/1000).toFixed(1)+'k &middot; Net: <strong style="color:'+(net>=0?'#1B4332':'#E74C3C')+'">R '+(net/1000).toFixed(1)+'k</strong>';
+  var ps=$('ls-purchase-sum'); if(ps) ps.innerHTML='Purchase: '+_moneyCompact(qty*buy)+' &middot; Monthly care: '+_moneyCompact(qty*(feed+vet))+'/mo';
+  var ss=$('ls-sell-sum'); if(ss) ss.innerHTML='Sale: '+_moneyCompact(rev)+' &middot; Cost: '+_moneyCompact(cost)+' &middot; Net: <strong style="color:'+(net>=0?'#1B4332':'#E74C3C')+'">'+_moneyCompact(net)+'</strong>';
   var type=$('roi-type')&&$('roi-type').value;
   var mp=MARKET_PRICES[animalBase(type)], hint=$('roi-market-hint');
   if(hint&&mp){
@@ -32647,7 +32703,7 @@ function _brTodayISO(){ return _brToday().toISOString().slice(0,10); }
 function _brAddDays(iso,days){ if(!iso) return ''; var d=new Date(iso+'T00:00:00'); d.setDate(d.getDate()+(days||0)); return d.toISOString().slice(0,10); }
 function _brExpectedFrom(b){ return b.start?_brAddDays(b.start, b.gestation||283):''; }
 function _brExpectedTo(b){ return b.end?_brAddDays(b.end, b.gestation||283):_brExpectedFrom(b); }
-function _brDisp(iso){ if(!iso) return '—'; try{ var d=new Date(iso+'T00:00:00'); var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var yr=(d.getFullYear()!==_brToday().getFullYear())?(' '+String(d.getFullYear()).slice(2)):''; return d.getDate()+' '+M[d.getMonth()]+yr; }catch(e){ return iso; } }
+function _brDisp(iso){ if(!iso) return '—'; try{ var d=new Date(iso+'T00:00:00'); var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var yr=(d.getFullYear()!==_brToday().getFullYear())?(' '+d.getFullYear()):''; return d.getDate()+' '+M[d.getMonth()]+yr; }catch(e){ return iso; } }
 function _brSeasonLabel(start){ try{ var d=new Date(start+'T00:00:00'); var y=d.getFullYear(); return (d.getMonth()>=6)?(y+'/'+String(y+1).slice(2)):(String(y-1)+'/'+String(y).slice(2)); }catch(e){ return 'Season'; } }
 function _brFemalesFromHerd(h){ if(!h) return 0; var bc=lsBreedingClass(h.type); var co=bc&&_lsClassObj(h,bc); if(co&&co.n) return co.n; return h.qty||0; }
 function _brFemales(b){ if(b.females!=null) return b.females; var h=(ST_LS.herd||[]).filter(function(x){return x.id===b.herd;})[0]; return _brFemalesFromHerd(h); }
@@ -33370,7 +33426,7 @@ function brDairyPanel(h,compact){
 /* ═══════════ Calving-block card — in-calf cows on a timeline (week/month toggle + tap-a-bar drill-down) ═══════════
    Derived only: each in-calf cow placed by her expected date (service + gestation, via _brCowState). No schema change. */
 var CB={};   // per-herd UI state {mode:'week'|'month', sel:bucketIndex|null}
-function _brDispD(d){ if(!d) return '—'; try{ var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var yr=(d.getFullYear()!==_brToday().getFullYear())?(' '+String(d.getFullYear()).slice(2)):''; return d.getDate()+' '+M[d.getMonth()]+yr; }catch(e){ return '—'; } }
+function _brDispD(d){ if(!d) return '—'; try{ var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var yr=(d.getFullYear()!==_brToday().getFullYear())?(' '+d.getFullYear()):''; return d.getDate()+' '+M[d.getMonth()]+yr; }catch(e){ return '—'; } }
 function _cbData(h){
   var cows=[]; _dairyCows(h).forEach(function(a){ var st=_brCowState(a,h); if(st && st.scan==='in-calf' && !st.calvedDate && st.expected){ var d=new Date(st.expected+'T00:00:00'); if(!isNaN(d.getTime())) cows.push({a:a,exp:d,served:st.servedDate||''}); } });
   if(!cows.length) return {total:0};
@@ -33381,7 +33437,7 @@ function _cbData(h){
 function _cbBuckets(cows,mode){
   var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], ty=_brToday().getFullYear(), map={};
   cows.forEach(function(c){ var d=c.exp,key,label,sortk;
-    if(mode==='month'){ key=d.getFullYear()+'-'+d.getMonth(); label=M[d.getMonth()]+((d.getFullYear()!==ty)?(' '+String(d.getFullYear()).slice(2)):''); sortk=d.getFullYear()*12+d.getMonth(); }
+    if(mode==='month'){ key=d.getFullYear()+'-'+d.getMonth(); label=M[d.getMonth()]+((d.getFullYear()!==ty)?(' '+d.getFullYear()):''); sortk=d.getFullYear()*12+d.getMonth(); }
     else { var s=new Date(d); var dow=(s.getDay()+6)%7; s.setDate(s.getDate()-dow); var e=new Date(s); e.setDate(e.getDate()+6); key=s.getFullYear()+'-'+s.getMonth()+'-'+s.getDate(); label=(s.getMonth()===e.getMonth())?(s.getDate()+'–'+e.getDate()+' '+M[s.getMonth()]):(s.getDate()+' '+M[s.getMonth()]+'–'+e.getDate()+' '+M[e.getMonth()]); sortk=s.getTime(); }
     (map[key]=map[key]||{label:label,sortk:sortk,cows:[]}).cows.push(c);
   });
@@ -34202,10 +34258,10 @@ function renderMedRegister(){
     var status= wd<=0?'<span class="tag tgr">Logged</span>':(dl<=0?'<span class="tag tg">\u2705 Safe</span>':'<span class="tag to">\u26d4 Hold until '+lsFmtDate(lsTrSafe(t))+'</span>');
     var target= t.target==='whole'?'whole herd':(t.target==='tags'?('tag '+(t.tags||[]).join(', ')):(t.head+' head'));
     var wdtxt= wd<=0?'None':('Meat '+(t.meat||0)+'d'+((t.milk||0)?' \u00b7 Milk '+t.milk+'d':''));
-    return '<tr><td><div style="font-weight:700">'+t.product+'</div>'+(t.reg?'<span class="lsreglbl">'+t.reg+'</span>':'')+'</td>'+
+    return '<tr><td><div style="font-weight:700">'+esc(t.product)+'</div>'+(t.reg?'<span class="lsreglbl">'+esc(t.reg)+'</span>':'')+'</td>'+
       '<td>'+lsHerdName(h)+'<br><span style="color:var(--t3);font-size:12px">'+target+'</span></td>'+
       '<td>'+(t.dose||'')+'<br><span style="color:var(--t3);font-size:12px">'+lsFmtDate(new Date(t.date+'T00:00:00'))+'</span></td>'+
-      '<td>'+wdtxt+'</td><td>'+(t.by||'')+'</td><td>'+status+'</td></tr>';
+      '<td>'+wdtxt+'</td><td>'+esc(t.by||'')+'</td><td>'+status+'</td></tr>';
   }).join('');
   tbl.innerHTML='<table class="lsreg"><thead><tr><th style="width:28%">Medicine</th><th>Given to</th><th>Dose \u00b7 date</th><th>Withdrawal</th><th>By</th><th>Status</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
@@ -34810,8 +34866,8 @@ function lsTrFormSave(){
   var toExp = ($('ls-tr-toexp')||{}).checked;
   if(toExp && cost>0 && typeof ST!=='undefined'){
     ST.txns=ST.txns||[];
-    ST.txns.unshift({ date:date, desc:product+' \u2014 '+lsHerdName(h), cat:'Veterinary & Animal Health', type:'expense', amt:cost, method:'', _ls:rec.id, ent:'ls:'+h.id, source:'Livestock treatment' });
-    var _lsTV=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsTV, {date:_lsTxnISO(date),amt:cost,cat:'Veterinary & Animal Health',type:'expense',desc:product+' \u2014 '+lsHerdName(h),method:'',ent:'ls:'+h.id,source:'Livestock treatment'}); } }catch(e){}
+    ST.txns.unshift({ date:date, desc:product+' \u2014 '+lsHerdName(h), cat:'Veterinary & Animal Health', type:'expense', amt:cost, method:'Bank Debit', _ls:rec.id, ent:'ls:'+h.id, source:'Livestock treatment' });
+    var _lsTV=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsTV, {date:_lsTxnISO(date),amt:cost,cat:'Veterinary & Animal Health',type:'expense',desc:product+' \u2014 '+lsHerdName(h),method:'Bank Debit',ent:'ls:'+h.id,source:'Livestock treatment'}); } }catch(e){}
   }
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
@@ -34844,7 +34900,7 @@ function renderHealthMed(){
   var spend=all.reduce(function(s,t){return s+(t.cost||0);},0);
   var kpi=$('ls-hm-kpi');
   if(kpi) kpi.innerHTML=
-    '<div class="lskpi-c"><div class="lskpi-l" data-t="pf.src.health">Health spend \u00b7 this year</div><div class="lskpi-v">R '+spend.toLocaleString('en-ZA')+'</div><div class="lskpi-s">Claim off tax (S11a)</div></div>'+
+    '<div class="lskpi-c"><div class="lskpi-l" data-t="pf.src.health">Health spend \u00b7 this year</div><div class="lskpi-v">'+_moneyInt(spend)+'</div><div class="lskpi-s">Claim off tax (S11a)</div></div>'+
     '<div class="lskpi-c"><div class="lskpi-l">Under withdrawal now</div><div class="lskpi-v" style="color:'+(active.length?'var(--rd)':'var(--gd)')+'">'+active.length+'</div><div class="lskpi-s">clears automatically</div></div>'+
     '<div class="lskpi-c"><div class="lskpi-l">Treatments logged</div><div class="lskpi-v">'+all.length+'</div><div class="lskpi-s">total on record</div></div>';
   var chips=[['all','All'],['wd','Under withdrawal'],['vaccine','Vaccinations'],['dipdose','Dips & doses'],['vet','Vet visits']];
@@ -34858,12 +34914,13 @@ function renderHealthMed(){
     var status= wd<=0?'<span class="tag tgr">Logged</span>':(dl<=0?'<span class="tag tg">\u2705 Safe</span>':'<span class="tag to">\u26d4 Hold until '+lsFmtDate(lsTrSafe(t))+'</span>');
     var target= t.target==='whole'?'whole herd':(t.target==='tags'?('tag '+(t.tags||[]).join(', ')):(t.head+' head'));
     var wdtxt= wd<=0?'None':('Meat '+(t.meat||0)+'d'+((t.milk||0)?' \u00b7 Milk '+t.milk+'d':''));
-    var sub= t.reg?'<span class="lsreglbl">'+esc(t.reg)+'</span>':'<span style="color:var(--t3);font-size:11px;display:block;margin-top:3px">Health event</span>';
+    /* Step 4: "Health event" sat under every entry without a reg number, including vaccines. */
+    var sub= t.reg?'<span class="lsreglbl">'+esc(t.reg)+'</span>':(t.kind==='event'?'':'<span style="color:var(--t3);font-size:11px;display:block;margin-top:3px">Reg. no. not recorded</span>');
     /* -467: tap a row to correct or remove it; what the farmer typed is shown as text. */
     return '<tr style="cursor:pointer" onclick="lsTrTap(\''+String(t.id).replace(/[^A-Za-z0-9_\-]/g,'')+'\')"><td><div style="font-weight:700">'+esc(t.product)+'</div>'+sub+'</td>'+
       '<td>'+esc(lsHerdName(h))+'<br><span style="color:var(--t3);font-size:12px">'+esc(target)+'</span></td>'+
       '<td>'+lsFmtDate(new Date(t.date+'T00:00:00'))+'<br><span style="color:var(--t3);font-size:12px">'+esc(t.by||'')+'</span></td>'+
-      '<td class="r"><span style="font-weight:800">R '+(t.cost||0).toLocaleString('en-ZA')+'</span><span style="font-size:11px;color:var(--gl);font-weight:700;display:block">claim off tax</span></td>'+
+      '<td class="r"><span style="font-weight:800">'+_moneyInt((t.cost||0))+'</span><span style="font-size:11px;color:var(--gl);font-weight:700;display:block">claim off tax</span></td>'+
       '<td>'+wdtxt+'</td><td>'+status+'</td></tr>';
   }).join('')+'</tbody></table>';
 }
@@ -34876,7 +34933,7 @@ function calcRegister() {
   var sarv=parseFloat($('reg-sars-val')&&$('reg-sars-val').value)||0;
   var closing=open+inf-out-sold;
   var sum=$('reg-summary');
-  if(sum) sum.innerHTML='Opening: <strong>R '+((open*sarv)).toLocaleString('en-ZA')+'</strong> &middot; Closing: <strong>'+closing+' head</strong> &middot; Closing value: <strong style="color:var(--gd)">R '+(closing*sarv).toLocaleString('en-ZA')+'</strong>';
+  if(sum) sum.innerHTML='Opening: <strong>'+_moneyInt(((open*sarv)))+'</strong> &middot; Closing: <strong>'+closing+' head</strong> &middot; Closing value: <strong style="color:var(--gd)">'+_moneyInt(closing*sarv)+'</strong>';
 }
 
 function saveRegEntry() {
@@ -34887,7 +34944,7 @@ function saveRegEntry() {
   var sold=parseInt($('reg-sold')&&$('reg-sold').value)||0;
   var sarv=parseFloat($('reg-sars-val')&&$('reg-sars-val').value)||0;
   var closing=open+inf-out-sold;
-  toast(type+' register saved. Closing: '+closing+' head, R '+((closing*sarv)/1000).toFixed(1)+'k','success');
+  toast(type+' register saved. Closing: '+closing+' head, '+_moneyCompact(closing*sarv),'success');
 }
 
 function renderHealthLog() {
@@ -34923,7 +34980,7 @@ function renderHealthLog() {
           '<span style="font-size:11px;color:var(--t4)">'+e.count+' animal'+(e.count!==1?'s':'')+'</span>' +
           '<span style="font-size:11px;color:var(--t3);margin-left:auto">'+e.date+'</span>' +
         '</div>' +
-        '<div style="font-size:13px;color:var(--t2)">'+e.desc+'</div>' +
+        '<div style="font-size:13px;color:var(--t2)">'+esc(e.desc)+'</div>' +
         (e.supplier ? '<div style="font-size:11px;color:var(--t4);margin-top:2px">'+e.supplier+'</div>' : '') +
       '</div>' +
       '<div style="text-align:right;flex-shrink:0">' +
@@ -36248,7 +36305,7 @@ var cardClass = !hasPlanned&&!hasActual ? '' : profit ? 'profit' : 'loss';
       '</div>'+
       '<div class="pm-val ' + (profit&&hasPlanned?'profit':!hasPlanned?'':'loss') + '">'+
         (hasPlanned
-          ? (profit?'':'-')+'R'+(Math.abs(plannedNet)/1000).toFixed(0)+'k'
+          ? _moneyCompact(profit?Math.abs(plannedNet):-Math.abs(plannedNet))
           : 'No data')+
       '</div>'+
       (hasPlanned
@@ -36674,7 +36731,7 @@ function plnPayLabel(c){
   var w=plnPayWhen(c);
   if(w==='store') return 'stored, sells '+(c.sellMonth ? String(c.sellMonth).split(' ')[0] : '— pick a month');
   if(w==='0')  return 'paid on delivery';
-  if(w)        return 'paid after '+w+' days';
+  if(w)        return 'paid after '+_nDays(w);
   return 'split over two months';
 }
 /* Which month the money actually arrives in, named rather than described. */
@@ -36904,12 +36961,7 @@ function plnRefreshRow(idx){
   var r=$('pln-rib-'+sfx);   if(r) r.innerHTML=plnRibbon(c);
 }
 
-function planFmtR(v){
-  var n=Math.abs(v), sign=v<0?'−R':'R';
-  if(n>=1e6) return sign+(n/1e6).toFixed(2)+'M';
-  if(n>=1000) return sign+Math.round(n/1000)+'k';
-  return sign+Math.round(n);
-}
+function planFmtR(v){ return _moneyCompact(v); }   /* D8 */
 /* Per-hectare figures are shown in full rand. Rounding them to the nearest
    thousand collapses R8 640, R9 160 and R9 300 into one "R9k" — and comparing
    lands is the entire job of that column. */
@@ -37282,14 +37334,15 @@ function updatePlanSummary() {
   var profit = ti-te, actualYTD = ai-ae;
   PLAN_WI_BASE = { income:ti, costs:te, profit:profit };
   var el;
-  el=$('ps-income'); if(el) el.textContent='R '+(ti/1000).toFixed(0)+'k';
-  el=$('ps-costs');  if(el) el.textContent='R '+(te/1000).toFixed(0)+'k';
+  /* D8: "R 23251k" was a R23-million plan printed in thousands with a space. */
+  el=$('ps-income'); if(el) el.textContent=_moneyCompact(ti);
+  el=$('ps-costs');  if(el) el.textContent=_moneyCompact(te);
   el=$('ps-profit'); if(el){
-    el.textContent=(profit>=0?'R ':'−R ')+(Math.abs(profit)/1000).toFixed(0)+'k';
+    el.textContent=_moneyCompact(profit);
     el.style.color=profit>=0?'var(--gd)':'var(--rd)';
   }
   el=$('ps-actual'); if(el){
-    el.textContent=(actualYTD>=0?'+R ':'−R ')+(Math.abs(actualYTD)/1000).toFixed(0)+'k YTD';
+    el.textContent=(actualYTD>=0?'+':'')+_moneyCompact(actualYTD)+' so far this year';
     el.style.color=actualYTD>=0?'var(--bl)':'var(--rd)';
   }
   // Scenario (excluded) crops — show a what-if line without affecting the forecast totals
@@ -38634,7 +38687,7 @@ function calcAcProfit() {
   var s=$('ac-summary');
   if(s){
     s.style.display='block';
-    s.innerHTML='Revenue: <strong>R '+(rev/1000).toFixed(0)+'k</strong> &middot; Cost: <strong>R '+(cost/1000).toFixed(0)+'k</strong> &middot; Net: <strong style="color:'+(net>=0?'var(--gd)':'var(--rd)')+'">R '+(Math.abs(net)/1000).toFixed(0)+'k</strong> &middot; ROI: <strong>'+roi+'%</strong>';
+    s.innerHTML='Revenue: <strong>'+_moneyCompact(rev)+'</strong> &middot; Cost: <strong>'+_moneyCompact(cost)+'</strong> &middot; Net: <strong style="color:'+(net>=0?'var(--gd)':'var(--rd)')+'">'+_moneyCompact(net)+'</strong> &middot; ROI: <strong>'+roi+'%</strong>';
   }
 }
 
@@ -38766,11 +38819,7 @@ var BUDGET_PATTERN_LABELS = {
 // Helper — formats Rand amounts compactly
 function bgtFmt(v) {
   if (!v && v !== 0) return 'R0';
-  var abs = Math.abs(v);
-  var sign = v < 0 ? '\u2212' : '';
-  if (abs >= 1000000) return sign + 'R' + (abs/1000000).toFixed(2) + 'M';
-  if (abs >= 1000)    return sign + 'R' + Math.round(abs/1000) + 'k';
-  return sign + 'R' + Math.round(abs);
+  return _moneyCompact(v);   /* D8 */
 }
 
 // ============================================================
@@ -38972,6 +39021,10 @@ function bgtRenderKpis(c) {
   var pctOut = c.annualOut > 0 ? Math.min(100, c.ytdOut / c.annualOut * 100) : 0;
   var tickIn  = c.annualIn  > 0 ? Math.min(100, c.expIn  / c.annualIn  * 100) : 0;
   var tickOut = c.annualOut > 0 ? Math.min(100, c.expOut / c.annualOut * 100) : 0;
+  /* Step 3: the bar stops at the end of its track; the words do not. 194% of the income target
+     read "100%", which hid the very thing the card is for. */
+  var realIn  = c.annualIn  > 0 ? c.ytdIn  / c.annualIn  * 100 : 0;
+  var realOut = c.annualOut > 0 ? c.ytdOut / c.annualOut * 100 : 0;
 
   setEl('bgt-kpi-in-v', bgtFmt(c.ytdIn));
   var t1 = $('bgt-kpi-in-t'); if (t1) t1.innerHTML = 'Year target: <b>' + (c.annualIn > 0 ? bgtFmt(c.annualIn) : '—') + '</b>';
@@ -38981,9 +39034,9 @@ function bgtRenderKpis(c) {
                       : bgtChip('warn','▲ ' + bgtFmt(-c.aheadIn) + ' behind pace'));
   var f1 = $('bgt-kpi-in-fill'); if (f1) f1.style.width = pctIn + '%';
   var k1 = $('bgt-kpi-in-tick'); if (k1) { k1.style.display = c.annualIn > 0 ? 'block' : 'none'; k1.style.left = tickIn + '%'; }
-  var _ti = $('bgt-kpi-in-t'); if (_ti && c.annualIn > 0) _ti.innerHTML = '<b>' + Math.round(pctIn) + '%</b> of ' + bgtFmt(c.annualIn) + ' this year';   /* -452 */
+  var _ti = $('bgt-kpi-in-t'); if (_ti && c.annualIn > 0) _ti.innerHTML = '<b>' + Math.round(realIn) + '%</b> of ' + bgtFmt(c.annualIn) + ' this year';   /* -452 */
   var _kk = $('bgt-kpi-in-tick'); if (_kk) _kk.title = 'Where your plan says you should be by now (' + Math.round(tickIn) + '%)';
-  setEl('bgt-kpi-in-f1', Math.round(pctIn) + '% in');
+  setEl('bgt-kpi-in-f1', Math.round(realIn) + '% in');
   setEl('bgt-kpi-in-f2', c.annualIn > 0 ? 'plan says ' + Math.round(tickIn) + '% by now' : '');
 
   setEl('bgt-kpi-out-v', bgtFmt(c.ytdOut));
@@ -38995,9 +39048,9 @@ function bgtRenderKpis(c) {
   var f2 = $('bgt-kpi-out-fill');
   if (f2) { f2.style.width = pctOut + '%'; f2.className = 'bgt-fill' + (c.ytdOut > c.annualOut && c.annualOut > 0 ? ' overb' : ''); }
   var k2 = $('bgt-kpi-out-tick'); if (k2) { k2.style.display = c.annualOut > 0 ? 'block' : 'none'; k2.style.left = tickOut + '%'; }
-  var _to = $('bgt-kpi-out-t'); if (_to && c.annualOut > 0) _to.innerHTML = '<b>' + Math.round(pctOut) + '%</b> of ' + bgtFmt(c.annualOut) + ' this year';   /* -452 */
+  var _to = $('bgt-kpi-out-t'); if (_to && c.annualOut > 0) _to.innerHTML = '<b>' + Math.round(realOut) + '%</b> of ' + bgtFmt(c.annualOut) + ' this year';   /* -452 */
   var _ko = $('bgt-kpi-out-tick'); if (_ko) _ko.title = 'Where your plan says you should be by now (' + Math.round(tickOut) + '%)';
-  setEl('bgt-kpi-out-f1', Math.round(pctOut) + '% spent');
+  setEl('bgt-kpi-out-f1', Math.round(realOut) + '% spent');
   setEl('bgt-kpi-out-f2', c.annualOut > 0 ? 'plan says ' + Math.round(tickOut) + '% by now' : '');
 
   /* -451 D1/D4/D11. Profit the year is heading for (actual so far + the working budget)
@@ -39954,9 +40007,10 @@ function bgtRenderCats() {
       var left = Math.max(0, r.target - r.act);
       var catEsc = r.cat.replace(/'/g, "\\'");
       var tgtCell = (r.resid && r.target <= 0) ? '—' : bgtFmt(r.target);
-      var leftCell = (r.resid && r.target <= 0) ? '—' : bgtFmt(left);
+      /* Step 3: an overspent line said "Left R0". It says how far over it is. */
+      var leftCell = (r.resid && r.target <= 0) ? '—' : (over ? '<span style="color:var(--rd);font-weight:700">' + bgtFmt(r.act - r.target) + ' over</span>' : bgtFmt(left));
       h += '<div class="bgt-row" onclick="bgtCatRowTap(\'' + side + '\',\'' + catEsc + '\')">' +
-        '<div class="bgt-cname"><div class="bgt-cnm">' + r.cat + '</div>' + (isIn ? '' : bgtRoleTag(r.cat)) + '</div>' +
+        '<div class="bgt-cname"><div class="bgt-cnm">' + esc(r.cat) + '</div>' + (isIn ? '' : bgtRoleTag(r.cat)) + '</div>' +
         '<div class="bgt-cbar"><div class="bgt-cfill ' + (over ? 'over' : (isIn ? 'in' : 'out')) + '" style="width:' + (r.resid ? 0 : pct) + '%"></div>' +
           (r.tickPct > 0 ? '<div class="bgt-ctick" style="left:' + r.tickPct + '%"></div>' : '') + '</div>' +
         '<div class="bgt-cnum tap" onclick="event.stopPropagation();bgtEditCat(\'' + side + '\',\'' + catEsc + '\')">' + tgtCell + '</div>' +
@@ -40839,7 +40893,7 @@ function updatePlanTabCounts() {
      tracking = acRev - acCost
    ============================================================ */
 var ST_TRACK_OPEN = null; // 'crops:White maize' etc.
-function stK(n){ n=Math.round(n||0); var a=Math.abs(n),s; if(a>=1e6) s='R'+(a/1e6).toFixed(2).replace(/\.?0+$/,'')+'m'; else if(a>=1e3) s='R'+Math.round(a/1e3)+'k'; else s='R'+a; return (n<0?'−':'')+s; }
+function stK(n){ return _moneyCompact(Math.round(n||0)); }   /* D8 */
 function stSK(n){ n=Math.round(n||0); return (n<0?'−':'+')+stK(Math.abs(n)); }
 function stEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 var ST_STATUS={ahead:{c:'#1B7A3E',bg:'#F0FAF4',l:'Ahead'},ontrack:{c:'#2D6A4F',bg:'#F0FAF4',l:'On track'},growing:{c:'#6B7280',bg:'#F3F4F6',l:'Growing'},watch:{c:'#B45309',bg:'#FFF8EC',l:'Watch'},behind:{c:'#B42318',bg:'#FEF3F2',l:'Behind'}};
@@ -42054,11 +42108,7 @@ function updatePlanCombinedBanner() {
 
   var fmtPlanK = function(v) {
     if (v === 0) return 'R0';
-    var sign = v < 0 ? '\u2212' : '+';
-    var abs  = Math.abs(v);
-    if (abs >= 1000000) return sign + 'R' + (abs/1000000).toFixed(2) + 'M';
-    if (abs >= 1000)    return sign + 'R' + Math.round(abs/1000) + 'k';
-    return sign + 'R' + abs;
+    return (v > 0 ? '+' : '') + _moneyCompact(v);   /* D8, with the + this card has always shown */
   };
   setEl('plan-cb-crops', fmtPlanK(cropProfit));
   setEl('plan-cb-orch',  fmtPlanK(orchProfit));
@@ -42074,9 +42124,7 @@ function updatePlanCombinedBanner() {
   if (liveEl) liveEl.style.color = liveProfit >= 0 ? 'var(--gd)' : 'var(--rd)';
   var totEl = $('plan-cb-total');
   if (totEl) {
-    totEl.textContent = (total < 0 ? '\u2212' : '') + 'R' +
-      (Math.abs(total) >= 1000000 ? (Math.abs(total)/1000000).toFixed(2) + 'M' :
-       Math.round(Math.abs(total)/1000) + 'k');
+    totEl.textContent = _moneyCompact(total);   /* D8 */
     totEl.style.color = total >= 0 ? 'var(--gd)' : 'var(--rd)';
   }
 }
@@ -42581,12 +42629,7 @@ function lvpBenchApplies(h){
   return (typeof animalBase==='function') ? animalBase(h.type)==='Cattle' : false;
 }
 
-function lvpMoney(v){
-  var n=Math.abs(v), sign=v<0?'−R':'R';
-  if(n>=1e6) return sign+(n/1e6).toFixed(2)+'m';
-  if(n>=1000) return sign+Math.round(n/1000)+'k';
-  return sign+Math.round(n);
-}
+function lvpMoney(v){ return _moneyCompact(v); }   /* D8 */
 function lvpR(v){ return (v<0?'−R':'R')+_grpInt(v); }
 
 /* ── write path — one object, so the Livestock tab stays in step ───────── */
@@ -44010,7 +44053,7 @@ function renderEventList() {
     return '<div class="plan-evt-row"' + doneStyle + '>' +
       '<div class="plan-evt-bar ' + (isIncome ? 'in' : 'out') + '"></div>' +
       '<div>' +
-        '<div class="plan-evt-name"><span class="plan-evt-type-chip ' + e.type + '">' + typeLabel + '</span>' + e.desc + '</div>' +
+        '<div class="plan-evt-name"><span class="plan-evt-type-chip ' + e.type + '">' + typeLabel + '</span>' + esc(e.desc) + '</div>' +
         '<div class="plan-evt-meta">' + pips + '</div>' +
       '</div>' +
       '<div class="plan-evt-month">' + e.month + '</div>' +
@@ -44296,7 +44339,8 @@ function renderTxnDetail(){
 
   var dl = '';
   dl += DT+'Category</dt>'+DD+'<span style="background:'+tagBg+';padding:2px 9px;border-radius:10px;font-size:12px;font-weight:700">'+txdEsc(t.cat||'\u2014')+'</span></dd>';
-  if(t.method) dl += DT+(inc?'Received via':'Paid with')+'</dt>'+DD+txdEsc(t.method)+'</dd>';
+  /* Step 4: "Quick Capture" is how it was entered, not how it was paid. */
+  if(t.method && t.method!=='Quick Capture') dl += DT+(inc?'Received via':'Paid with')+'</dt>'+DD+txdEsc(t.method)+'</dd>';
   if(t.source) dl += DT+(inc?'Source':'Account')+'</dt>'+DD+txdEsc(t.source)+'</dd>';
   dl += DT+(inc?'Date received':'Date paid')+'</dt>'+DD+txdEsc(txdLongDate(t.date))+'</dd>';
   dl += DT+'Repeats</dt>'+DD+txdEsc(t.recur ? (String(t.recur).charAt(0).toUpperCase()+String(t.recur).slice(1)) : 'Once-off')+'</dd>';
@@ -46057,7 +46101,7 @@ function mktTrendCard(cur, ref, refLabel, unit, good, signedPct, seedStr){
 function mktOpenDetail(type, idx){
   var body=$('mkt-detail-body'); var modal=$('mkt-detail-modal'); if(!body||!modal) return;
   var za=function(n){ return Math.round(n).toLocaleString('en-ZA'); };
-  var fmtBig=function(n){ n=Number(n); if(!isFinite(n)) n=0; var a=Math.abs(n); return a>=1e6?'R'+(n/1e6).toFixed(2)+'m':'R'+za(n/1000)+'k'; };
+  var fmtBig=function(n){ return _moneyCompact(n); };   /* D8 */
   var html='';
 
   if(type==='crop'){
@@ -48861,6 +48905,189 @@ function renderRecentIncome() {
 // ============================================================
 
 var LANG_PAIRS = [
+  /* -468: whole phrases for labels that came out half-swapped. Listed first so the exact
+     match finds these before any older word-level pair. */
+  ["· this financial year so far", "· hierdie finansiële jaar tot dusver"],
+  ["Financial year so far", "Finansiële jaar tot dusver"],
+  ["of income, this year", "van die inkomste, hierdie jaar"],
+  ["Net cash this month", "Netto kontant hierdie maand"],
+  ["Net cash · This Month", "Netto kontant · Hierdie maand"],
+  ["net cash this year", "netto kontant hierdie jaar"],
+  ["= Net cash so far — money in less money out", "= Netto kontant tot dusver — geld in minder geld uit"],
+  ["of money in kept", "van geld in behou"],
+  ["Income so far", "Inkomste tot dusver"],
+  ["Costs so far", "Koste tot dusver"],
+  ["Money in so far", "Geld in tot dusver"],
+  ["Money out so far", "Geld uit tot dusver"],
+  ["Actual so far", "Werklik tot dusver"],
+  ["· so far", "· tot dusver"],
+  ["Running costs, interest and write-off", "Lopende koste, rente en afskrywing"],
+  ["View all income", "Bekyk alle inkomste"],
+  ["View SAFEX prices →", "Bekyk SAFEX-pryse →"],
+  ["This farm year so far, money in is", "Hierdie boerderyjaar tot dusver is geld in"],
+  ["This farm year so far, money out is", "Hierdie boerderyjaar tot dusver is geld uit"],
+  ["above the same months last year.", "bo dieselfde maande verlede jaar."],
+  ["below the same months last year.", "onder dieselfde maande verlede jaar."],
+  ["vs prev", "teenoor vorige"],
+  ["Monthly Average", "Maandelikse gemiddeld"],
+  ["From profit to cash", "Van wins na kontant"],
+  ["Income (without VAT)", "Inkomste (sonder BTW)"],
+  ["Margin expanded", "Marge het gegroei"],
+  ["Margin narrowed", "Marge het gekrimp"],
+  ["review usage or supplier pricing.", "kyk na gebruik of verskaffer se pryse."],
+  ["Profit heading for", "Wins op koers vir"],
+  ["More detail", "Meer besonderhede"],
+  ["assets · as in your Lender pack", "bates · soos in jou Krediet-pak"],
+  ["Write-off this year", "Afskrywing hierdie jaar"],
+  ["in your profit, as on the Profit page", "in jou wins, soos op die Wins-bladsy"],
+  ["Tax allowances this year", "Belastingtoelaes hierdie jaar"],
+  ["Value in accounts", "Waarde in die rekeninge"],
+  ["shared costs", "gedeelde koste"],
+  ["interest", "rente"],
+  ["write-off", "afskrywing"],
+  ["Dairy cows", "Melkkoeie"],
+  ["Breeding cows", "Teelkoeie"],
+  ["Ewe flock", "Ooitrop"],
+  ["Boer goats", "Boerbokke"],
+  ["From gross margin to farm profit", "Van bruto marge na plaaswins"],
+  ["Income not linked", "Inkomste nie gekoppel nie"],
+  ["this season’s margins so far are", "hierdie seisoen se marges tot dusver is"],
+  ["and this financial year’s are", "en hierdie finansiële jaar s’n is"],
+  ["Per grazing unit,", "Per weidingseenheid,"],
+  ["Payroll report", "Loonstaatverslag"],
+  ["only with the worker’s written okay", "slegs met die werker se skriftelike toestemming"],
+  ["Unemployment Insurance · 1% + 1%", "Werkloosheidsversekering · 1% + 1%"],
+  ["Season loan", "Seisoenlening"],
+  ["season loan", "seisoenlening"],
+  ["🌱 Season loan", "🌱 Seisoenlening"],
+  ["Confirm this month’s payments", "Bevestig hierdie maand se paaiemente"],
+  ["put aside", "sit opsy"],
+  ["a month", "per maand"],
+  ["each one changes the figures above", "elkeen verander die syfers hierbo"],
+  ["estimate for", "skatting vir"],
+  ["to pay SARS by", "om SARS te betaal teen"],
+  ["period still open", "tydperk nog oop"],
+  ["paid by the 7th each month", "betaal teen die 7de van elke maand"],
+  ["± Rest of the year, from your plan", "± Res van die jaar, uit jou plan"],
+  ["Starts from the same", "Begin by dieselfde"],
+  ["This year against last", "Hierdie jaar teenoor verlede jaar"],
+  ["last year.", "verlede jaar."],
+  ["Biggest costs that come off", "Grootste koste wat afgetrek word"],
+  ["VAT registered · Provisional taxpayer · Minimum wage · Diesel logbook · Records · Skills levy", "BTW-geregistreer · Voorlopige belastingbetaler · Minimumloon · Diesellogboek · Rekords · Vaardigheidsheffing"],
+  ["Two IRP6 payments a year: 31 Aug and 26 Feb.", "Twee IRP6-betalings per jaar: 31 Aug en 26 Feb."],
+  ["Year-end stock count", "Jaareinde-voorraadtelling"],
+  ["A helper to plan with — not a filed return.", "’n Hulpmiddel om mee te beplan — nie ’n ingediende opgawe nie."],
+  ["on a medicine hold", "onder ’n medisyne-onttrekking"],
+  ["head · 3 species", "kop · 3 spesies"],
+  ["Calves & lambs weaned per female mated", "Kalwers en lammers gespeen per gedekte vroulike dier"],
+  ["empty cows flagged after scanning", "leë koeie gemerk ná skandering"],
+  ["Expected calving", "Verwagte kalwing"],
+  ["expected calving", "verwagte kalwing"],
+  ["Expected lambing", "Verwagte lamtyd"],
+  ["expected lambing", "verwagte lamtyd"],
+  ["+ New season", "+ Nuwe seisoen"],
+  ["＋ Log breeding", "＋ Teken teling aan"],
+  ["Set up / sort cows", "Stel op / sorteer koeie"],
+  ["How often your cows calve", "Hoe gereeld jou koeie kalf"],
+  ["days apart", "dae uitmekaar"],
+  ["In calf now", "Nou dragtig"],
+  ["Where your cows are right now", "Waar jou koeie nou is"],
+  ["Your next calving block", "Jou volgende kalfblok"],
+  ["cows in calf", "koeie dragtig"],
+  ["Tap a bar to see the cows in it", "Tik op ’n staaf om die koeie daarin te sien"],
+  ["Core block", "Kernblok"],
+  ["Spread-out block.", "Uitgerekte blok."],
+  ["Dry off now", "Droog nou op"],
+  ["· in calf", "· dragtig"],
+  ["Calving", "Kalwing"],
+  ["No cows empty past 100 days.", "Geen koeie leeg ná 100 dae nie."],
+  ["No active season", "Geen aktiewe seisoen nie"],
+  ["Start a new season when the bull goes in.", "Begin ’n nuwe seisoen wanneer die bul ingaan."],
+  ["Start a new season when the buck goes in.", "Begin ’n nuwe seisoen wanneer die bok ingaan."],
+  ["Start a season (bull in)", "Begin ’n seisoen (bul in)"],
+  ["Start a season (buck in)", "Begin ’n seisoen (bok in)"],
+  ["Track cows", "Volg koeie"],
+  ["Track does", "Volg ooie"],
+  ["commercial", "kommersieel"],
+  ["Livestock Treatment & Dip Register", "Vee-behandeling- en dipregister"],
+  ["Animal Diseases Act 35 of 1984 · stock remedies, Act 36 of 1947", "Wet op Dieresiektes 35 van 1984 · veemiddels, Wet 36 van 1947"],
+  ["records this season", "rekords hierdie seisoen"],
+  ["Treatments logged", "Behandelings aangeteken"],
+  ["Health event", "Gesondheidsgebeurtenis"],
+  ["Plan the season ahead — keep, sell &amp; cash", "Beplan die seisoen vorentoe — hou, verkoop &amp; kontant"],
+  ["One season", "Een seisoen"],
+  ["% of cows breed", "% van koeie teel"],
+  ["Calves losses", "Kalwerverliese"],
+  ["% young mortality", "% sterftes by kleintjies"],
+  ["weaned calves", "gespeende kalwers"],
+  ["breeding replacements", "teelvervangings"],
+  ["own slaughter — no cash", "eie slag — geen kontant"],
+  ["Breeding herd holds.", "Teeltrop bly gelyk."],
+  ["③ Breeding bulls", "③ Teelbulle"],
+  ["Replace a bull this season", "Vervang ’n bul hierdie seisoen"],
+  ["④ Sell weaners now, or hold?", "④ Verkoop speenkalwers nou, of hou aan?"],
+  ["Hold this year’s calves to finish heavier next season", "Hou hierdie jaar se kalwers aan om volgende seisoen swaarder af te rond"],
+  ["Money in your pocket — this season", "Geld in jou sak — hierdie seisoen"],
+  ["Plan several seasons ahead", "Beplan ’n paar seisoene vorentoe"],
+  ["Used this season", "Gebruik hierdie seisoen"],
+  ["Seed source", "Saadbron"],
+  ["Certified (invoice on file)", "Gesertifiseer (faktuur op lêer)"],
+  ["Training record", "Opleidingsrekord"],
+  ["Logged with detail", "Aangeteken met besonderhede"],
+  ["Bought this year", "Gekoop hierdie jaar"],
+  ["Not yet claimable", "Nog nie eisbaar nie"],
+  ["Registered products", "Geregistreerde produkte"],
+  ["✓ all clear", "✓ alles reg"],
+  ["rest below break-even", "res onder gelykbreek"],
+  ["Other fruit", "Ander vrugte"],
+  ["🍏 Other fruit", "🍏 Ander vrugte"],
+  ["Spray waiting period active", "Spuitwagtyd aktief"],
+  ["avg", "gem."],
+  ["% of the crop", "% van die oes"],
+  ["Packed price", "Verpakte prys"],
+  ["Packing & cold storage", "Verpakking & koelopberging"],
+  ["Shipping & logistics", "Versending & logistiek"],
+  ["Other costs", "Ander koste"],
+  ["This block is making money", "Hierdie blok maak geld"],
+  ["Use for all blocks of this crop", "Gebruik vir alle blokke van hierdie gewas"],
+  ["Reset to typical", "Herstel na tipies"],
+  ["top grade", "topgraad"],
+  ["export cartons", "uitvoerkartonne"],
+  ["cartons", "kartonne"],
+  ["Certificates on file", "Sertifikate op lêer"],
+  ["Expired", "Verval"],
+  ["days ago", "dae gelede"],
+  ["Valid to", "Geldig tot"],
+  ["Registered monitoring & control programme — EU quarantine pest", "Geregistreerde moniterings- en beheerprogram — EU-kwarantynplaag"],
+  ["Orchards on the CBS risk-management system", "Boorde op die CBS-risikobestuurstelsel"],
+  ["Shipping temperature regime, logged per consignment", "Versendingstemperatuur, aangeteken per besending"],
+  ["Cold-chain / airfreight records", "Koueketting- / lugvragrekords"],
+  ["Citrus Black Spot (CBS)", "Sitrus-swartvlek (CBS)"],
+  ["Spray programme on track", "Spuitprogram op koers"],
+  ["Mating disruption in · traps below threshold", "Paringsontwrigting in · lokvalle onder drempel"],
+  ["Below the limit", "Onder die limiet"],
+  ["Your legal right to use water", "Jou wettige reg om water te gebruik"],
+  ["South Africa’s ethical & environmental standard", "Suid-Afrika se etiese en omgewingstandaard"],
+  ["AMT · red meat", "AMT · rooivleis"],
+  ["Beef cattle", "Vleisbeeste"],
+  ["Dairy cattle", "Melkbeeste"],
+  ["Wool sheep (Merino)", "Wolskape (Merino)"],
+  ["Boer goats (meat)", "Boerbokke (vleis)"],
+  ["Wool", "Wol"],
+  ["planned draft", "beplande verkoopgroep"],
+  ["Beef Cows C2/C3", "Vleiskoeie C2/C3"],
+  ["— market is at", "— die mark is op"],
+  ["Farm size (hectares)", "Plaasgrootte (hektaar)"],
+  ["Income tax number (SARS)", "Inkomstebelastingnommer (SARS)"],
+  ["Simple View", "Eenvoudige aansig"],
+  ["Save settings", "Stoor instellings"],
+  ["Land, Buildings, Equipment", "Grond, geboue, toerusting"],
+  ["Payment Method", "Betaalmetode"],
+  ["Vet & Animal Health", "Veearts & dieregesondheid"],
+  ["Supplier / Payee (optional)", "Verskaffer / begunstigde (opsioneel)"],
+  ["Picking bags & field bins", "Poksakke & landkratte"],
+  ["Growing costs", "Groeikoste"],
+  ["scanned", "geskandeer"],
   /* Crop-planning rows: full phrases first, so the substring pass below
      cannot half-translate them. */
   ["🔁 Repeats every year","🔁 Herhaal elke jaar"],
@@ -50684,7 +50911,7 @@ LANG_PAIRS.push(
   ['projected year-end · goal',                 'geprojekteerde jaareinde · doelwit'],
   ['set both targets to see your goal',         'stel albei doelwitte om jou doelwit te sien'],
   ['Your season picture',                       'Jou seisoenprentjie'],
-  ['Are you where you planned to be by now?',   'Is jy waar jy teen nou beplan het om te wees?'],
+  ['Are you where you planned to be by now?',   'Is jy waar jy beplan het om nou te wees?'],
   ['The curve you planned',                     'Die kurwe wat jy beplan het'],
   ['What actually happened',                    'Wat werklik gebeur het'],
   ['Where you’re heading',                     'Waarheen jy op pad is'],
@@ -50692,7 +50919,7 @@ LANG_PAIRS.push(
   ['the green mountain is money that has come in, growing through the year. Stay on top of the grey dashed line and you are ahead of your plan. The flag is your year goal.',
    'die groen berg is geld wat ingekom het en deur die jaar groei. Bly bo-op die grys stippellyn en jy is voor op jou plan. Die vlag is jou jaardoelwit.'],
   ['the orange mountain is money spent so far. Staying below the grey dashed line is the good side — less has gone out than you planned by now.',
-   'die oranje berg is geld wat tot dusver bestee is. Om onder die grys stippellyn te bly is die goeie kant — minder het uitgegaan as wat jy teen nou beplan het.'],
+   'die oranje berg is geld wat tot dusver bestee is. Om onder die grys stippellyn te bly is die goeie kant — minder het uitgegaan as wat jy tot nou toe beplan het.'],
   ['no target is set for this side yet — tap Edit targets to add one.',
    'geen doelwit is nog vir hierdie kant gestel nie — tik Wysig doelwitte om een by te voeg.'],
   ['ahead of plan',                             'voor op plan'],
@@ -53717,7 +53944,42 @@ function _langReplace(txt, from, to){
    that came out half-swapped. Deliberately excludes of/in/is/so/al/kan/na/en, which
    are real Afrikaans words and would flag correct output as English. */
 var _LANG_EN_ONLY = /\b(the|you|your|with|from|this|that|these|those|what|how|when|which|why|for|are|will|would|have|has|had|been|they|their|there|only|just|also|more|most|than|then|into|over|under|before|about|between|every|each|some|any|not|first|next|last|need|needs|make|makes|show|shows|see|get|add|use|uses|pay|pays|owe|left|available|drawn|glance|summary)\b/i;
+/* -468: one rule for every length. A string the word pairs changed is kept only if no
+   English word is left in it; otherwise the English goes back, whole. The 45-character floor
+   let short labels through half-swapped ("Kostes so far", "Dier Diseases Act", "78% of the
+   gewas"). "English" = a word the English side of the tables uses and the Afrikaans side never
+   does, plus the words below that the tables do not happen to contain. Names (Vlei, John
+   Deere), acronyms (SARS, LAN) and words both languages share are not English here. */
+var _LANG_EN_EXTRA = 'development pricing expanded sort apart or hold claimable temperature regime consignment cold chain airfreight draft white expired ago valid payee unemployment general cattle title deed boundary policy core breed species commercial nitrogen potash logistics fresh produce market delivery collection lick feed loan fuel pack sell field far income cash kept interest write off view average auction seed planting profit review usage supplier heading page tax room row planter gross linked margins grazing worked report okay prices fertiliser accounts calving lambing treatments losses weaned holds bulls irrigated avg packed costs cartons certificates settings hectares diseases animal act now the crop cows herd heifers ewes lambs goats sheep block blocks spray sprays picked picking harvest yield season due paid owed spent money out income expenses expense running shared stock remedies remedy vaccine dose withdrawal safe sale sales bought sold worth value total totals scanned';
+var _LANG_ENW = null, _LANG_ENW_N = -1;
+function _langEnWords(){
+  if (_LANG_ENW && _LANG_ENW_N === LANG_PAIRS.length) return _LANG_ENW;
+  var en = Object.create(null), af = Object.create(null), rx = /[A-Za-zÀ-ſ]+/g;
+  var put = function(set, str){ var m = String(str||'').toLowerCase().match(rx); if (m) m.forEach(function(w){ set[w] = 1; }); };
+  for (var i = 0; i < LANG_PAIRS.length; i++){ put(en, LANG_PAIRS[i][0]); put(af, LANG_PAIRS[i][1]); }
+  try{ Object.keys(I18N).forEach(function(k){ put(en, I18N[k].en); put(af, I18N[k].af); }); }catch(e){}
+  var out = Object.create(null);
+  Object.keys(en).forEach(function(w){ if (!af[w] && w.length >= 3) out[w] = 1; });
+  _LANG_EN_EXTRA.split(' ').concat(String(_LANG_EN_ONLY.source).replace(/^\\b\(|\)\\b$/g,'').split('|')).forEach(function(w){ if (w) out[w] = 1; });
+  _LANG_ENW = out; _LANG_ENW_N = LANG_PAIRS.length;
+  return out;
+}
+/* True when the pair pass left English behind: a word of the original, unchanged, that is
+   English and not a name or an acronym. */
+function _langMixed(orig, out){
+  var en = _langEnWords(), rx = /[A-Za-zÀ-ſ]+/g, seen = Object.create(null), m;
+  (orig.match(rx) || []).forEach(function(w){ seen[w] = 1; });
+  var words = out.match(rx) || [];
+  for (var i = 0; i < words.length; i++){
+    var w = words[i];
+    if (!seen[w] || w.length < 2) continue;
+    if (w === w.toUpperCase()) continue;                         /* SARS, LAN, VAT */
+    if (en[w.toLowerCase()]) return true;
+  }
+  return false;
+}
 var _LANG_EXACT = [null, null];
+var _LANG_BACK = (typeof WeakMap === 'function') ? new WeakMap() : null;
 function _langExact(idx){
   if (_LANG_TBL_N !== LANG_PAIRS.length) { _LANG_EXACT = [null, null]; }
   if (!_LANG_EXACT[idx]) {
@@ -53756,6 +54018,15 @@ function applyLangNodes(root, fromIdx, toIdx) {
   walkTextNodes(root, function(node){
     var txt = node.nodeValue;
     if(!txt || !txt.trim()) return;
+    /* -468: the way back is exact. Two English phrases can share one Afrikaans one ("Hold
+       until" and "Hold to" both read "Hou tot"), so reversing through the table picked the
+       wrong English. A node this pass translated remembers what it said; while it still shows
+       that Afrikaans, going back puts its own English back. */
+    if (fromIdx === 1 && _LANG_BACK) {
+      var _bk = _LANG_BACK.get(node);
+      if (_bk && _bk.af === txt) { node.nodeValue = _bk.en; _LANG_BACK.delete(node); return; }
+    }
+    var _txt0 = txt;
     /* A pair that matches the WHOLE node wins outright: swap it and stop. Without
        this, shorter pairs kept scanning the freshly-translated Afrikaans and chewed
        into it — "Standard" rewrote the "Standard Bank" inside an already-translated
@@ -53765,6 +54036,7 @@ function applyLangNodes(root, fromIdx, toIdx) {
     var _hit = _exact[txt.trim()];
     if (_hit !== undefined) {
       node.nodeValue = txt.replace(txt.trim(), _hit);
+      if (fromIdx === 0 && _LANG_BACK) _LANG_BACK.set(node, {en:_txt0, af:node.nodeValue});
       return;
     }
     var _orig = txt;
@@ -53783,10 +54055,11 @@ function applyLangNodes(root, fromIdx, toIdx) {
        original back and leave it untouched until someone writes the full pair.
        Short labels and figure-carrying lines (no English left after the pass) are
        unaffected, so "R210 310 spent so far in…" still translates. */
-    if (fromIdx === 0 && txt !== _orig && _orig.length > 45 && _LANG_EN_ONLY.test(txt)) {
+    if (fromIdx === 0 && txt !== _orig && _langMixed(_orig, txt)) {
       txt = _orig;
     }
     node.nodeValue = txt;
+    if (fromIdx === 0 && txt !== _orig && _LANG_BACK) _LANG_BACK.set(node, {en:_orig, af:txt});
   });
   /* Dropdown options (item 24). SELECT/OPTION sit in SKIP_TAGS because the substring pass
      would rewrite an option's text — and code reads select.value, so filtering would break.
@@ -53812,7 +54085,8 @@ function applyLangNodes(root, fromIdx, toIdx) {
   }
   if (root.querySelectorAll) {
     root.querySelectorAll('[placeholder]').forEach(function(el){
-      var ph = el.getAttribute('placeholder');
+      var ph = el.getAttribute('placeholder'), _ph0 = ph;
+      if (fromIdx === 0){ var _pe = _langExact(0)[String(ph||'').trim()]; if (_pe !== undefined){ el.setAttribute('placeholder', _pe); return; } }
       for(var i=0; i<LANG_PAIRS.length; i++){
         var from = LANG_PAIRS[i][fromIdx];
         var to   = LANG_PAIRS[i][toIdx];
@@ -53820,6 +54094,7 @@ function applyLangNodes(root, fromIdx, toIdx) {
           ph = ph.split(from).join(to);
         }
       }
+      if (fromIdx === 0 && ph !== _ph0 && _langMixed(_ph0, ph)) ph = _ph0;
       el.setAttribute('placeholder', ph);
     });
   }
@@ -55283,6 +55558,11 @@ function printWindow(title, html) {
   setTimeout(function(){ w.print(); }, 400);
 }
 
+function _cosRows(R, cls){
+  var ks=['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].filter(function(k){ return Math.round(R.byCat[k]||0)!==0; });
+  if(!ks.length) return '<tr><td style="color:#9CA3AF" colspan="2">No cost of sales in this period</td></tr>';
+  return ks.map(function(k){ return '<tr><td>'+esc(k)+'</td><td class="'+cls+'">'+fmt(R.byCat[k]||0)+'</td></tr>'; }).join('');
+}
 function buildPLReport() {
   var R = computeRPT();
   var lbl = getPeriodLabel();
@@ -55298,9 +55578,8 @@ function buildPLReport() {
     '<tr class="total"><td>TOTAL INCOME</td><td class="amt pos">'+fmt(R.totalIncome)+'</td></tr></table>'+
     '<h2>Cost of Sales (S11a)</h2>'+
     '<table><tr><th>Category</th><th class="amt">Amount (R)</th></tr>'+
-    ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].map(function(k){
-      return '<tr><td>'+esc(k)+'</td><td class="amt">'+fmt(R.byCat[k]||0)+'</td></tr>';
-    }).join('')+
+    /* Step 3: only the lines with money on them; a period with none says so once (it printed four R0 rows). */
+    (_cosRows(R, 'amt'))+
     '<tr class="total"><td>TOTAL COS</td><td class="amt neg">'+fmt(R.totalCOS)+'</td></tr></table>'+
     '<h2>Operating Expenses</h2>'+
     '<table><tr><th>Category</th><th class="amt">Amount (R)</th></tr>'+
@@ -55554,9 +55833,7 @@ function buildPreviewPL(R, meta) {
     '</tbody></table></div>'+
     '<div class="pv-section"><h2>Cost of Sales <span style="font-weight:400;color:#9CA3AF">(S11a)</span></h2>'+
     '<table class="pv-table"><thead><tr><th>Category</th><th class="amt">Amount</th></tr></thead><tbody>'+
-    ['Seeds & Planting','Fertiliser','Crop Protection','Labour & Wages'].map(function(k){
-      return '<tr><td>'+esc(k)+'</td><td class="amt pv-neg">'+fmt(R.byCat[k]||0)+'</td></tr>';
-    }).join('')+
+    (_cosRows(R, 'amt pv-neg'))+
     '<tr class="total-neg"><td>TOTAL COS</td><td class="amt pv-neg">'+fmt(R.totalCOS)+'</td></tr>'+
     '</tbody></table></div>'+
     '<div class="pv-section"><h2>Operating Expenses</h2>'+
@@ -55739,13 +56016,15 @@ var IE_CSS =
   ".ie-tag.std{background:#EFF6FF;color:#3B82F6}.ie-tag.zero{background:#F0FAF4;color:#2D6A4F}.ie-tag.none{background:#F3F4F6;color:#6B7280}.ie-tag.exmt{background:#FFF8E6;color:#B45309}" +
   ".ie-empty{text-align:center;color:#9CA3AF;font-size:13px;padding:40px 0}";
 
-function IE_cmpRow(c, priorMap){
+function IE_cmpRow(c, priorMap, isExp){
   var prior = priorMap[c.cat] || 0;
-  return '<tr class="li"><td class="l">' + c.cat + '</td>' +
+  /* Step 3: a cost that went UP is the bad direction - it was coloured green like income. */
+  var dir = isExp ? IE_dir(prior, c.net) : IE_dir(c.net, prior);
+  return '<tr class="li"><td class="l">' + esc(c.cat) + '</td>' +
     '<td>' + IE_R(c.net) + '</td>' +
     '<td class="ie-flat">' + IE_R(prior) + '</td>' +
-    '<td class="ie-' + IE_dir(c.net, prior) + '">' + IE_Rpar(c.net - prior) + '</td>' +
-    '<td class="ie-' + IE_dir(c.net, prior) + '">' + IE_pctChg(c.net, prior) + '</td></tr>';
+    '<td class="ie-' + dir + '">' + IE_Rpar(c.net - prior) + '</td>' +
+    '<td class="ie-' + dir + '">' + IE_pctChg(c.net, prior) + '</td></tr>';
 }
 
 function IE_schedule(cats, sectionName){
@@ -55798,7 +56077,7 @@ function IE_buildDoc(forPrint){
   }
 
   var inRows  = cur.income.map(function(c){ return IE_cmpRow(c, priorInMap); }).join('');
-  var outRows = cur.expense.map(function(c){ return IE_cmpRow(c, priorOutMap); }).join('');
+  var outRows = cur.expense.map(function(c){ return IE_cmpRow(c, priorOutMap, true); }).join('');
   var vatInfo = FARM.vat;
 
   var html = '<style>' + IE_CSS + '</style><div class="ie-doc">' +
@@ -56333,6 +56612,9 @@ function capMaybeAsk(){
     var b=$('cap-ask-bg'); if(!b || b.style.display==='flex') return;      // already asking
     var am=$('ast-modal-bg'); if(am && am.style.display==='flex') return;  // mid asset entry
     var ob=$('ob-overlay'); if(ob && ob.offsetParent) return;              // still onboarding
+    /* Step 2: Quick Capture shows "Saved!" for a moment and closes itself. The question used to
+       land on top of it; ask once it has gone. */
+    var qs=$('qc-sheet'); if(qs && qs.classList.contains('open')){ setTimeout(capMaybeAsk, 2000); return; }
     var fy=(typeof getCurrentFY==='function')?getCurrentFY():0;
     var all=capCandidates(fy);
     var fresh=all.filter(function(r){ var k=capAskKey(r.t); return !CAP_SEEN[k] && !CAP_LATER[k]; });
@@ -59242,6 +59524,7 @@ function qcSetType(t) {
   if (expBtn)  expBtn.className  = 'qc-type exp' + (t === 'expense' ? ' on' : '');
   if (saveBtn) saveBtn.className = 'qc-save ' + (t === 'income' ? 'inc' : 'exp');
   if (saveBtn) saveBtn.textContent = t === 'income' ? 'Save income' : 'Save expense';
+  var _qd = $('qc-desc'); if (_qd) _qd.placeholder = (t === 'income') ? 'e.g. Maize sold' : 'e.g. Diesel for the tractor';   /* step 4 */
   if (typeof qcSyncDetailsType === 'function') qcSyncDetailsType();
 }
 
@@ -61817,7 +62100,12 @@ function aiDemoRibbon(){
       '<button style="'+gold+'" onclick="aiDemoExit()" data-t="demo.create">Create your farm →</button>'+
     '</span>';
   document.body.appendChild(bar);
-  document.body.style.paddingBottom='54px';
+  /* Step 3: room for the ribbon where the page actually scrolls - the app scrolls inside its own
+     panel, so padding the body alone left the last card of every page under the ribbon. The
+     ribbon wraps to two lines on a narrow window, so measure it rather than assume 54px. */
+  var _rp=function(){ try{ var h=Math.ceil(bar.getBoundingClientRect().height)+12; document.body.style.paddingBottom=h+'px';
+    var c=document.getElementById('content'); if(c) c.style.paddingBottom=h+'px'; }catch(e){} };
+  _rp(); window.addEventListener('resize', _rp);
 }
 /* The sample ledger was written to fill a whole month, so it carried entries
    dated to the 27th while the calendar said the 7th — a demo farm showing
@@ -63003,7 +63291,7 @@ function renderRecentlyDeleted(){
   var rows = list.length ? list.map(function(d,i){
     var ago=Math.max(0,Math.round((Date.now()-(d.deletedAt||Date.now()))/86400000));
     var sign=d.type==='income'?'+':'\u2212';
-    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--br2)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--t1)">'+esc(d.desc||'')+'</div><div style="font-size:11px;color:var(--t4)">'+esc(d.date||'')+' \u00b7 '+esc(d.cat||'')+' \u00b7 '+sign+fmt(d.amt||0)+' \u00b7 deleted '+(ago===0?'today':ago+'d ago')+'</div></div><button onclick="txnRestore('+i+')" style="border:1.5px solid #C6E3D2;background:#fff;color:#1B4332;border-radius:7px;padding:5px 10px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit">Restore</button><button onclick="txnDeleteForever('+i+')" title="Delete forever" style="border:1.5px solid var(--br);background:#fff;color:var(--t4);border-radius:7px;padding:5px 8px;font-size:11.5px;cursor:pointer;font-family:inherit">\u2715</button></div>';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--br2)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--t1)">'+esc(d.desc||'')+'</div><div style="font-size:11px;color:var(--t4)">'+esc(d.date||'')+' \u00b7 '+esc(d.cat||'')+' \u00b7 '+sign+fmt(d.amt||0)+' \u00b7 deleted '+(ago===0?'today':_nDays(ago)+' ago')+'</div></div><button onclick="txnRestore('+i+')" style="border:1.5px solid #C6E3D2;background:#fff;color:#1B4332;border-radius:7px;padding:5px 10px;font-size:11.5px;font-weight:800;cursor:pointer;font-family:inherit">Restore</button><button onclick="txnDeleteForever('+i+')" title="Delete forever" style="border:1.5px solid var(--br);background:#fff;color:var(--t4);border-radius:7px;padding:5px 8px;font-size:11.5px;cursor:pointer;font-family:inherit">\u2715</button></div>';
   }).join('') : '<div style="text-align:center;color:var(--t3);padding:22px 0">Nothing here \u2014 deleted transactions appear here for 30 days.</div>';
   card.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div style="font-size:15px;font-weight:800;color:var(--t1)">Recently deleted</div><button onclick="txToggleDeleted()" style="background:none;border:none;font-size:20px;color:var(--t4);cursor:pointer;line-height:1">\u2715</button></div><div style="font-size:11px;color:var(--t4);margin-bottom:6px">Kept for 30 days, then removed. Restored items sync back automatically.</div>'+rows;
 }
@@ -63165,6 +63453,15 @@ function syncRetryNow(){
 }
 document.addEventListener('click', function(){ var p = $('sync-pop'); if (p) p.remove(); });
 document.addEventListener('keydown', function(e){ if (e.key === 'Escape') { var p = $('sync-pop'); if (p) p.remove(); } });
+/* Step 3: Escape closes the statement preview and the document viewer too - the last two
+   panels it did not reach. The viewer sits on top, so it goes first. */
+document.addEventListener('keydown', function(e){
+  if (e.key !== 'Escape') return;
+  var pv = document.getElementById('pdfv-bg');
+  if (pv && pv.classList.contains('on')) { try{ aiPvClose(); }catch(_){ pv.classList.remove('on'); } return; }
+  var sp = document.getElementById('stmt-preview-bg');
+  if (sp && sp.style.display && sp.style.display !== 'none') { try{ closeStmtPreview(); }catch(_){} }
+});
 window.addEventListener('online',  function(){ renderSyncIndicator(); });
 window.addEventListener('offline', function(){ renderSyncIndicator(); });
 
@@ -63228,41 +63525,43 @@ var latest = 0;
 var SEASONAL_DATA = {
 
   grain: {
-    0:  { type:'warning', icon:'🌾', title:'January — Harvest & storage month',
-          body:'Maize and sorghum harvesting underway. Lock in prices now — SAFEX is often highest in Jan/Feb before northern hemisphere harvest news. Watch storage costs and moisture levels.',
+    /* Step 4: SA summer grain - planted Oct to Dec, harvested Apr to Jul. The old calendar ran
+       about six months off ("January - harvest", "May - planting", "September - pod filling"). */
+    0:  { type:'info', icon:'🌽', title:'January — Crops filling out',
+          body:'Early-planted maize is tasselling and filling grain; late plantings are still growing. Scout for stalk borer and leaf diseases, and record every spray. SAFEX prices can move hard on rain news now.',
           action:'Check market prices', actionFn:"nav('market')" },
-    1:  { type:'warning', icon:'📦', title:'February — Final harvest & year-end prep',
-          body:'Financial year ends 28 February. Ensure all income, expenses and asset purchases are recorded before year-end. Your accountant will need this month\'s data for your tax return.',
+    1:  { type:'warning', icon:'📦', title:'February — Year-end and pricing',
+          body:'Financial year ends 28 February. Ensure all income, expenses and asset purchases are recorded before year-end. With the crop’s size clearer, this is a common time to forward-sell part of it on SAFEX.',
           action:'Open tax summary', actionFn:"nav('reports');setRptType('yearly')" },
-    2:  { type:'info', icon:'🌱', title:'March — New financial year starts',
-          body:'Fresh start. Set your income budgets for the new season in Budgets, update your crop plan in Planning, and record any planting input purchases as expenses.',
+    2:  { type:'info', icon:'🌱', title:'March — New financial year',
+          body:'Fresh start. Set the new year\'s budget, and line up harvest: combine, transport and silo or buyer contracts. Crops are drying down in most areas.',
           action:'Set budget targets', actionFn:"nav('budgets')" },
-    3:  { type:'info', icon:'🚜', title:'April — Planting season approaching',
-          body:'Seed, fertiliser and chemical purchases should be recorded now as expenses. These are Section 11(a) deductions on your tax return.',
-          action:'Add expense', actionFn:"openAddExpense()" },
-    4:  { type:'success', icon:'✅', title:'May — Planting & early growth',
-          body:'Primary planting underway for most summer crops. Cash surplus from harvest months should cover June–August costs. Consider setting aside reserves now.',
-          action:'Check money flow', actionFn:"nav('cashflow')" },
-    5:  { type:'danger', icon:'⚠️', title:'June — Cash crunch month ahead',
-          body:'Income typically drops while planting costs continue. This is historically the toughest cash month on grain farms. Ensure you have 3–4 months of expenses in reserve before spending on non-essentials.',
-          action:'Check cash position', actionFn:"nav('cashflow')" },
-    6:  { type:'danger', icon:'⚠️', title:'July — Lean season continues',
-          body:'Minimal income expected this month. Labour, maintenance and fuel costs continue. If cash is tight, approach your co-op or bank about a planting season facility.',
-          action:'View money flow', actionFn:"nav('cashflow')" },
-    7:  { type:'warning', icon:'🌧️', title:'August — Watch the weather & inputs',
-          body:'Mid-season inputs like top-dressing fertiliser (LAN/urea) are applied. Record all purchases. Rain forecasts now influence SAFEX prices — check the market regularly.',
-          action:'Market prices', actionFn:"nav('market')" },
-    8:  { type:'info', icon:'🌤️', title:'September — Crop development & pricing',
-          body:'Crops are in pod/cob filling stage. Consider forward-selling some of your expected harvest on SAFEX to lock in today\'s prices and reduce risk.',
-          action:'View SAFEX prices', actionFn:"nav('market')" },
-    9:  { type:'success', icon:'🌾', title:'October — Harvest approaching',
-          body:'Early harvest for some areas. Start preparing storage, arrange transport, and confirm grain buyer pricing. Record advance payments as income when received.',
+    3:  { type:'info', icon:'🚜', title:'April — Harvest begins',
+          body:'Sunflower and soya harvests start, with early maize close behind. Record each delivery as it happens and keep silo receipts — they are your proof of sale.',
           action:'Record income', actionFn:"openAddIncome('sale')" },
-    10: { type:'success', icon:'💰', title:'November — Main harvest income',
-          body:'Biggest income months of the year. Record all sales promptly — crop sales, advance payments and co-op deliveries. Check your budget — are you on target?',
+    4:  { type:'success', icon:'🌾', title:'May — Maize harvest',
+          body:'The main maize harvest is under way. Record every delivery and advance payment. Income starts to come in — plan what goes to the production loan first.',
+          action:'Record income', actionFn:"openAddIncome('sale')" },
+    5:  { type:'success', icon:'💰', title:'June — Harvest income',
+          body:'The biggest income months of the year. Record all sales promptly, and check the season against your budget while the numbers are fresh.',
           action:'Check budget', actionFn:"nav('budgets')" },
-    11: { type:'success', icon:'📊', title:'December — Year-end check',
-          body:'Two months to financial year-end. Review your provisional tax estimate on the dashboard. Ensure all expenses are captured, especially any December purchases.',
+    6:  { type:'info', icon:'🏦', title:'July — Harvest done, loans next',
+          body:'Harvest wraps up. Settle the production loan and set aside cash for the months before the next harvest — October to March are the lean ones.',
+          action:'View money flow', actionFn:"nav('cashflow')" },
+    7:  { type:'info', icon:'🧪', title:'August — Plan next season',
+          body:'Soil samples, lime and the crop plan. Input suppliers often give early-order prices now; record deposits as expenses when paid.',
+          action:'Open planning', actionFn:"nav('planning')" },
+    8:  { type:'warning', icon:'📝', title:'September — Inputs and finance',
+          body:'Order seed and fertiliser and confirm production finance before planting. Seed, fertiliser and chemicals are Section 11(a) deductions — record each purchase.',
+          action:'Add expense', actionFn:"openAddExpense()" },
+    9:  { type:'warning', icon:'🚜', title:'October — Planting starts',
+          body:'Planting begins after the first good rains. This is the heaviest spending of the year, with no income coming in. Keep an eye on cash every week.',
+          action:'Check money flow', actionFn:"nav('cashflow')" },
+    10: { type:'danger', icon:'⚠️', title:'November — Main planting, cash at its lowest',
+          body:'Most of the crop goes in now and the bank balance is usually at its lowest. If cash is tight, speak to your co-op or bank before the account runs short, not after.',
+          action:'View money flow', actionFn:"nav('cashflow')" },
+    11: { type:'info', icon:'📊', title:'December — Planting done, year-end ahead',
+          body:'Late plantings finish and weed control continues. Two months to financial year-end: review your provisional tax and capture any December purchases.',
           action:'View tax estimate', actionFn:"nav('dashboard')" }
   },
   livestock: {
@@ -63294,7 +63593,7 @@ var SEASONAL_DATA = {
           body:'Grazing improving rapidly. Good time to sell finished animals as demand is high and prices typically firmer. Check AMT prices before selling.',
           action:'Check livestock prices', actionFn:"nav('market')" },
     9:  { type:'success', icon:'🐂', title:'October — Selling season',
-          body:'Prime selling season — autumn weaners and finished animals command best prices. Record all livestock sales and check your YTD income vs budget.',
+          body:'Spring grazing lifts condition, and finished animals sell well. Record every livestock sale and check the year\u2019s income against your budget.',
           action:'Record sale', actionFn:"openAddIncome('sale');setSaleType('Livestock')" },
     10: { type:'success', icon:'💰', title:'November — Strong demand period',
           body:'Good demand for breeding stock and slaughter animals. Check your livestock ROI in the app — are your selling prices beating what you budgeted?',
@@ -64173,12 +64472,7 @@ function renderDashSummary() {
   var lang     = ST.lang || 'en';
   var af       = lang === 'af';
 
-  function fmtR(n) {
-    n = Number(n); if (!isFinite(n)) n = 0;
-    if (n >= 1000000) return 'R' + (n/1000000).toFixed(1) + 'M';
-    if (n >= 1000)    return 'R' + (n/1000).toFixed(0) + 'k';
-    return 'R' + Math.round(n);
-  }
+  function fmtR(n) { return _moneyCompact(n); }   /* D8 */
 
 var icon, cls, headline, detail;
 
@@ -64600,6 +64894,32 @@ function txAllSelBar(){
         return c.t===want || c.t==='both';
       }).map(function(c){ return '<option>'+esc(c.n)+'</option>'; }).join('');
 }
+/* Step 2: delete the ticked rows in one go. They go to Recently deleted together (30 days),
+   exactly as one row does. A sale tied to a livestock movement is left alone: removing it
+   would leave the herd count with no sale behind it; the single-row delete asks about that. */
+async function txBulkDelete(kind){
+  var sel=TX_SEL[kind]||{}, rows=Object.keys(sel).map(function(i){ return ST.txns[+i]; }).filter(Boolean);
+  if(!rows.length) return;
+  var tied=rows.filter(function(t){ return t.moveRef && typeof _lsMoveByRef==='function' && _lsMoveByRef(t.moveRef); });
+  var go=rows.filter(function(t){ return tied.indexOf(t)<0; });
+  if(!go.length){ toast('Those are livestock sales tied to a movement — delete them one at a time so the herd can be put right.','info'); return; }
+  var msg='Delete '+go.length+' transaction'+(go.length===1?'':'s')+'? They move to Recently deleted and can be restored for 30 days.'+
+          (tied.length?('\n\n'+tied.length+' livestock sale'+(tied.length===1?' is':'s are')+' left: delete '+(tied.length===1?'it':'them')+' one at a time.'):'');
+  if(!(await appConfirm(msg))) return;
+  var batch='bulk-'+Date.now().toString(36);
+  go.forEach(function(t){
+    var i=ST.txns.indexOf(t); if(i<0) return;              /* by the row itself, never a held position */
+    try{ _txBinPush(t, batch); }catch(e){}
+    ST.txns.splice(i,1);
+    try{ txnDeleteThrough(t); }catch(e){}
+  });
+  TX_SEL[kind]={};
+  try{ dataChanged('transaction'); }catch(e){}
+  try{ saveState&&saveState(); }catch(e){}
+  try{ if(typeof txRefreshDeletedChip==='function') txRefreshDeletedChip(); }catch(e){}
+  if(kind==='all') txRender(); else if(kind==='income') filterIncomeTx(); else filterExpTx();
+  toast(go.length+' moved to Recently deleted','success');
+}
 function txAllBulkApply(){
   var sel=$('txall-bulk-cat'); var cat=sel&&sel.value; if(!cat) return;
   var ids=Object.keys(TX_SEL.all||{}); if(!ids.length) return;
@@ -64823,8 +65143,8 @@ function txRender() {
           '<span>'+escHtml(mo)+'</span>' +
           '<span class="tx-month-totals">' +
             (moInc?'In '+txFmtK(moInc)+' &nbsp;':'') +
-            (moExp?'Out '+txFmtK(moExp)+' &nbsp;':'') +
-            (moPro!=null ? 'Profit <span style="color:'+proCol+';font-weight:700">'+txFmtK(moPro)+'</span>' : '') +
+            (moExp?_rT('Out ','Uit ')+txFmtK(moExp)+' &nbsp;':'') +
+            (moPro!=null ? _rT('Profit ','Wins ')+'<span style="color:'+proCol+';font-weight:700">'+txFmtK(moPro)+'</span>' : '') +
           '</span>' +
         '</div>' +
       '</td></tr>';
@@ -64847,13 +65167,13 @@ function txRender() {
         rows += '<tr id="txall-row-'+ri+'" class="txrow-click'+(selOn?' tx-row-sel':'')+(need?' tx-row-need':'')+'" data-txidx="'+ri+'" onclick="openTxnDetail('+ri+')" style="'+(bgStyle)+';cursor:pointer">' +
           '<td class="tx-selcol" onclick="event.stopPropagation()"><input type="checkbox" class="tx-sel" data-i="'+ri+'"'+(selOn?' checked':'')+' onchange="txAllSelToggle('+ri+', event)"/></td>' +
           '<td style="font-size:12px;color:var(--t3);white-space:nowrap">'+escHtml(txDispDate(t.date))+'</td>' +
-          '<td><div style="font-weight:600;font-size:13px;color:var(--t1)">'+escHtml(t.desc||'')+'</div>' +
+          '<td><div data-notranslate style="font-weight:600;font-size:13px;color:var(--t1)">'+escHtml(t.desc||'')+'</div>' +
                '<div class="tx-source">'+escHtml(source)+txLinkChip(t)+'</div></td>' +
           '<td class="tx-catcell" onclick="event.stopPropagation(); txAllCatOpen('+ri+', this)">' +
             (need ? '<span class="tag tx-warnchip" title="Needs a look \u2014 click to choose">'+escHtml(t.cat||'None')+'<i>\u25be</i></span>'
                   : catTag(t.cat||'Uncategorised')) + '</td>' +
-          '<td style="text-align:right;font-weight:700;color:'+amtCol+'">'+amtSign+fmt(t.amt)+'</td>' +
-          '<td style="font-size:12px;color:var(--t3);white-space:nowrap">'+escHtml(t.method||'')+'</td>' +
+          '<td style="text-align:right;font-weight:700;white-space:nowrap;color:'+amtCol+'">'+amtSign+fmt(t.amt)+'</td>' +
+          '<td style="font-size:12px;color:var(--t3);white-space:nowrap">'+escHtml(t.method==='Quick Capture'?'':(t.method||''))+'</td>' +
           '<td><button class="tx-edit-btn" onclick="event.stopPropagation();txStartEdit('+ri+')">✏ Edit</button></td>' +
         '</tr>';
 
@@ -64995,7 +65315,7 @@ function txPrint() {
       '<td style="padding:7px 10px;font-size:13px">'+((typeof txDispDate==='function')?txDispDate(t.date):t.date)+'</td>'+
       '<td style="padding:7px 10px;font-size:13px">'+escTxHtml(t.desc||'')+'</td>'+
       '<td style="padding:7px 10px;font-size:13px">'+escTxHtml(t.cat||'')+'</td>'+
-      '<td style="padding:7px 10px;font-size:13px;text-align:right;font-weight:600;color:'+(t.type==='income'?'#1B4332':'#DC2626')+'">'+sign+'R '+Math.round(t.amt).toLocaleString('en-ZA')+'</td>'+
+      '<td style="padding:7px 10px;font-size:13px;text-align:right;font-weight:600;color:'+(t.type==='income'?'#1B4332':'#DC2626')+'">'+sign+_moneyInt(Math.abs(t.amt))+'</td>'+
       '<td style="padding:7px 10px;font-size:13px;color:#6B7280">'+escTxHtml(t.method||'')+'</td>'+
     '</tr>';
   }).join('');
@@ -65226,8 +65546,9 @@ function computeAIInsights(){
 
   // 4. Budget pacing (any expense cat tracking >110% of monthly budget pro-rata)
   try {
-    var dom = (new Date()).getDate();
-    var totalDays = 31;
+    var _td = (typeof APP_TODAY!=='undefined' && APP_TODAY) ? new Date(APP_TODAY) : new Date();
+    var dom = _td.getDate();
+    var totalDays = new Date(_td.getFullYear(), _td.getMonth()+1, 0).getDate();   /* step 4: the month's real length (was 31) */
     var pace = dom / totalDays;
     var mb = (ST.budgets && ST.budgets.monthlyExpenses && ST.budgets.monthlyExpenses[cm]) || 0;
     if(mb){
@@ -65238,7 +65559,7 @@ function computeAIInsights(){
           tone: 'r',
           iconShape: 'budget',
           title: _aiT('Expenses tracking ahead of budget', 'Uitgawes loop voor die begroting'),
-          desc:  fmtZAR(curOut) + ' spent so far in '+cm+'. At this pace you\u2019ll exceed ' + fmtZAR(mb) + '.',
+          desc:  fmtZAR(curOut) + ' spent so far in '+cm+'. ' + (curOut > mb ? ('That is ' + fmtZAR(curOut - mb) + ' over the ' + fmtZAR(mb) + ' budget already.') : ('At this pace you\u2019ll go over the ' + fmtZAR(mb) + ' budget.')),
           tag:   'neg', tagTxt: 'Budget'
         });
       }
@@ -65246,9 +65567,13 @@ function computeAIInsights(){
   } catch(e){}
 
   // 5. Margin trend
-  if(curIn > 0 && prvIn > 0){
-    var curMargin = (curProfit/curIn) * 100;
-    var prvMargin = (prvProfit/prvIn) * 100;
+  /* S8 (step 5, A): profit over income WITHOUT VAT, both from the Profit page. It divided by money in
+     with VAT, so September read 80.4% beside a 24.3% year margin. */
+  var _mi=function(k){ try{ var p=b5ProfitPeriod({months:[k]}); return p?(p.income||0):0; }catch(e){ return 0; } };
+  var curInX=_mi(cm), prvInX=_mi(pm);
+  if(curInX > 0 && prvInX > 0){
+    var curMargin = (curProfit/curInX) * 100;
+    var prvMargin = (prvProfit/prvInX) * 100;
     var marginChg = curMargin - prvMargin;
     if(Math.abs(marginChg) >= 3){
       out.push({
@@ -65262,21 +65587,62 @@ function computeAIInsights(){
     }
   }
 
-  // 6. Single largest transaction this month (info)
-  var bigTx = cur.slice().sort(function(a,b){return b.amt - a.amt;})[0];
-  if(bigTx && bigTx.amt >= 50000){
-    out.push({
-      score: 40,
-      tone: bigTx.type==='income'?'b':'p',
-      iconShape: bigTx.type==='income'?'sale':'note',
-      title: _aiT('Largest transaction: ', 'Grootste transaksie: ') + fmtZAR(bigTx.amt),
-      desc:  bigTx.desc + _aiT(' on ', ' op ') + bigTx.date + '.',
-      tag: 'neu', tagTxt: _aiT('For info', 'Ter inligting')
-    });
-  }
-
+  /* S8 (step 5): the third card is "what needs you most" - the most pressing of: cash running
+     short within six months; a payment or return due within 30 days; profit heading more than 10%
+     behind the budget; otherwise the tightest month in the year ahead. It replaced "largest
+     transaction", which told the farmer nothing they did not already know. */
+  var pri = aiPriorityInsight(_aiT);
   out.sort(function(a,b){ return b.score - a.score; });
+  if (pri) return out.slice(0, 2).concat([pri]);
   return out.slice(0, 3);
+}
+function aiPriorityInsight(T){
+  T = T || function(en){ return en; };
+  var K = function(n){ return _moneyCompact(n); };
+  var cf = null; try{ cf = b5CashForecast(12); }catch(e){ cf = null; }
+  var months = (cf && cf.months) || [];
+  /* 1. Cash runs short within six months. */
+  var short = months.slice(0, 6).filter(function(m){ return m.balance < 0; })[0];
+  if (short) return { score:999, tone:'r', iconShape:'alert', slot:'cash-short',
+    title: T('Cash runs short in ', 'Kontant raak op in ') + short.label,
+    desc: T('On today’s plan your bank goes to ' + K(short.balance) + ' in ' + short.label + '. Speak to your bank or co-op before then, not after.',
+            'Volgens vandag se plan gaan jou bank na ' + K(short.balance) + ' in ' + short.label + '. Praat voor die tyd met jou bank of koöperasie.'),
+    tag:'neg', tagTxt: T('Needs you', 'Vra aandag') };
+  /* 2. A payment or return due within 30 days - the soonest. */
+  var due = [];
+  try{ var tp = (typeof taxProvEstimate==='function') ? taxProvEstimate() : null;
+    if (tp && tp.ok && tp.daysAway >= 0 && tp.daysAway <= 30) due.push({ d:tp.daysAway, t:T('Provisional tax due in ', 'Voorlopige belasting betaalbaar oor ') + _nDays(tp.daysAway),
+      x:T('Put aside about ' + K(tp.provPayment) + ' for ' + tp.next.lbl + '.', 'Sit ongeveer ' + K(tp.provPayment) + ' opsy vir ' + tp.next.lbl + '.') }); }catch(e){}
+  try{ if (typeof FARM!=='undefined' && FARM.vat && typeof taxVatPosition==='function'){ var vp = taxVatPosition();
+    if (vp){ var vd = new Date(vp.to.getFullYear(), vp.to.getMonth()+1, 25), vn = _txDaysTo(vd);
+      if (vn >= 0 && vn <= 30) due.push({ d:vn, t:T('VAT return due in ', 'BTW-opgawe betaalbaar oor ') + _nDays(vn),
+        x: vp.owe >= 0 ? T('About ' + K(vp.owe) + ' to pay on your VAT201.', 'Ongeveer ' + K(vp.owe) + ' om op jou BTW201 te betaal.') : T('A refund of about ' + K(-vp.owe) + ' is due to you.', '’n Terugbetaling van ongeveer ' + K(-vp.owe) + ' kom na jou toe.') }); } } }catch(e){}
+  try{ if (typeof taxWorkerSnapshot==='function' && taxWorkerSnapshot()){ var tn = (typeof APP_TODAY!=='undefined' && APP_TODAY) ? new Date(APP_TODAY) : new Date();
+    var ed = new Date(tn.getFullYear(), tn.getMonth()+1, 7), en = _txDaysTo(ed);
+    /* A monthly return falls due every month, so it is always within 30 days: only its last week counts. */
+    if (en >= 0 && en <= 7) due.push({ d:en, t:T('Worker tax (EMP201) due in ', 'Werkersbelasting (EMP201) betaalbaar oor ') + _nDays(en), x:T('PAYE and UIF for your team, due on the 7th.', 'LBS en WVF vir jou span, betaalbaar op die 7de.') }); } }catch(e){}
+  due.sort(function(a,b){ return a.d - b.d; });
+  if (due.length) return { score:998, tone:'p', iconShape:'note', slot:'due', title:due[0].t, desc:due[0].x, tag:'neu', tagTxt:T('Coming up', 'Kom nader') };
+  /* 3. Profit heading more than 10% behind the budget. */
+  try{ var fy = getCurrentFY(), h = b5ProfitHeading(fy), g = b5BudgetGoals(fy);
+    if (g && g.profit){ var gap = h.heading - g.profit;
+      if (gap < 0 && -gap > Math.abs(g.profit) * 0.10) return { score:997, tone:'r', iconShape:'budget', slot:'budget',
+        title: T('Profit heading ', 'Wins op koers vir ') + K(-gap) + T(' behind plan', ' agter die plan'),
+        desc: T('Heading for ' + K(h.heading) + ' this year against a plan of ' + K(g.profit) + '.', 'Op koers vir ' + K(h.heading) + ' vanjaar teenoor ’n plan van ' + K(g.profit) + '.'),
+        tag:'neg', tagTxt: T('Watch', 'Hou dop') }; } }catch(e){}
+  /* 4. Otherwise: the tightest month in the year ahead. */
+  if (cf && cf.lowest){
+    var lo = cf.lowest, idx = months.indexOf(lo), out = 0, first = null;
+    for (var i = 0; i <= idx; i++){ if (months[i].net < 0){ out += -months[i].net; if (!first) first = months[i].label; } }
+    var span = (first && first !== lo.label) ? (first.split(' ')[0] + T(' to ', ' tot ') + lo.label.split(' ')[0]) : lo.label.split(' ')[0];
+    return { score:996, tone:'b', iconShape:'budget', slot:'tightest',
+      title: T('Tightest month: ', 'Stywste maand: ') + lo.label + T(' at ', ' teen ') + K(lo.balance),
+      desc: out > 0 ? T(span + ' take ' + K(out) + ' more out than comes in' + (cf.start.estimated ? ' (bank balance estimated from your records).' : '.'),
+                        span + ' vat ' + K(out) + ' meer uit as wat inkom' + (cf.start.estimated ? ' (banksaldo geskat uit jou rekords).' : '.'))
+                    : T('Your cash stays above this all year.', 'Jou kontant bly die hele jaar hierbo.'),
+      tag:'neu', tagTxt: T('Year ahead', 'Jaar vorentoe') };
+  }
+  return null;
 }
 
 function aiIconSVG(shape){
@@ -65384,7 +65750,7 @@ function computeNotifications(){
         color: 'var(--gd)', score: 80,
         title: 'Profit up ' + Math.round(c) + '% this month',
         body:  fmtZAR(pNow) + ' net profit in ' + cm + '.',
-        time:  '2 hours ago',
+        time:  'This month',
         action: function(){ nav('dashboard'); }
       });
     }
@@ -65395,7 +65761,7 @@ function computeNotifications(){
         color: 'var(--rd)', score: 90,
         title: 'Profit down ' + Math.round(d) + '% this month',
         body:  fmtZAR(pNow) + ' net profit vs ' + fmtZAR(pPrv) + ' in ' + pm + '.',
-        time:  '3 hours ago',
+        time:  'This month',
         action: function(){ nav('reports'); }
       });
     }
@@ -65416,7 +65782,7 @@ function computeNotifications(){
       color: 'var(--or)', score: 70,
       title: worst.cat + ' costs up ' + Math.round(worst.chg) + '%',
       body:  fmtZAR(worst.cs) + ' this month — review usage.',
-      time:  '5 hours ago',
+      time:  'This month',
       action: function(){ nav('expenses'); }
     });
   }
@@ -65429,7 +65795,7 @@ function computeNotifications(){
         color: 'var(--rd)', score: 95,
         title: 'Monthly expense budget exceeded',
         body:  fmtZAR(curOut) + ' against a ' + fmtZAR(mb) + ' budget.',
-        time:  '1 hour ago',
+        time:  'This month',
         action: function(){ nav('budgets'); }
       });
     }
@@ -65445,7 +65811,7 @@ function computeNotifications(){
         if(days <= 30 && days >= 0){
           n.push({
             color: '#7C3AED', score: 88,
-            title: 'Provisional tax due in ' + days + ' days',
+            title: 'Provisional tax due in ' + _nDays(days),
             body:  'Run the IT12 pre-fill export from Reports.',
             time:  'Today',
             action: function(){ nav('reports'); }
@@ -65463,7 +65829,7 @@ function computeNotifications(){
       color: 'var(--gm)', score: 50,
       title: 'New large deposit: ' + fmtZAR(bigIn.amt),
       body:  bigIn.desc + ' captured.',
-      time:  'Yesterday',
+      time:  'This month',
       action: function(){ nav('income'); }
     });
   }
@@ -65676,7 +66042,7 @@ function attnItems(){
           : _rT('Time to walk the shed while it is still there to look at',
                 'Tyd om die skuur te loop terwyl dit nog daar is om na te kyk'),
         st: _sg.due ? (_rT('due in ', 'oor ') + _sg.daysToDue + 'd')
-                    : (_sg.fresh ? (_sg.daysOver + _rT('d over', 'd verby')) : (_rT('in ', 'oor ') + _sg.days + _rT(' days', ' dae'))),
+                    : (_sg.fresh ? (_rT(_nDays(_sg.daysOver)+' over', _sg.daysOver+' dae verby')) : (_rT('in '+_nDays(_sg.days), 'oor '+_sg.days+' dae'))),
         when: _sg.closed ? -_sg.daysOver : _sg.days,
         cta: _rT('Open Tax', 'Open Belasting'),
         action: function(){ try{ nav('tax'); }catch(e){} } });
@@ -65734,12 +66100,12 @@ function attnItems(){
         tier: isLaw ? 'legal' : 'house',
         sev:  Math.max(1, Math.min(100, n.score || 60)),
         nm:   plain.nm,
-        lead: plain.lead + (m ? ' — ' + m[1] + ' days' : ''),
+        lead: plain.lead + (m ? ' — ' + _nDays(m[1]) : ''),
         /* `st` already carries the overdue count; leave the statute standing alone. */
         sub:  body.replace(/\s*·\s*tap to log it\s*$/i, '')
                   .replace(/\s*·\s*Overdue\s+\d+\s+days?\s*/i, '')
                   .replace(/\s*·\s*No check logged yet\s*/i, '').trim(),
-        st:   m ? (m[1] + ' days over') : (isLaw ? 'none logged' : (n.time || '')),
+        st:   m ? (_nDays(m[1]) + ' over') : (isLaw ? 'none logged' : (n.time || '')),
         cta:  isLaw ? 'Log it' : 'Open',
         when: when,
         action: n.action
@@ -65797,7 +66163,7 @@ function attnItems(){
              (/insur|cover|policy/i.test(nice) ? '' : ' insurance'),
         lead: 'Insurance on your ' + nice + (d < 0 ? ' ran out' : ' runs out soon'),
         sub: fmt(a.insuredValue || 0) + ' cover' + (owed > 0 ? ' · you still owe ' + fmt(owed) : ''),
-        st:  d < 0 ? ('ran out ' + Math.abs(d) + 'd ago') : ('in ' + d + ' days'),
+        st:  d < 0 ? ('ran out ' + _nDays(d) + ' ago') : ('in ' + _nDays(d)),
         cta: 'Open it', when: d,
         action: function(){ nav('assets'); if(typeof openAssetDetail === 'function') openAssetDetail(idx); }
       });
@@ -65898,7 +66264,7 @@ function attnItems(){
           out.push({tier:'money', sev:88, nm:'Provisional tax',
             lead:'Your ' + pair[1] + ' tax payment is due',
             sub: fmt(Math.round(p.provPayment)) + ' · SARS IRP6',
-            st: d === 0 ? 'today' : ('in ' + d + ' days'), cta:'Open Tax', when:d,
+            st: d === 0 ? 'today' : ('in ' + _nDays(d)), cta:'Open Tax', when:d,
             action: function(){ nav('tax'); }});
         });
       }
@@ -65913,7 +66279,7 @@ function attnItems(){
     if(un2 > 0){
       out.push({tier:'house', sev:40, nm:'Expenses to sort',
         lead: _attnPlural(un2, 'expense', 'expenses') + ' still need a category',
-        sub:'So your reports add up properly', st:un2 + ' items', cta:'Sort them', when:9999,
+        sub:'So your reports add up properly', st:un2 + (un2===1?' item':' items'), cta:'Sort them', when:9999,
         action: function(){ nav('expenses'); }});
     }
   }catch(e){}
@@ -65949,8 +66315,8 @@ function attnItems(){
       var days = Math.floor((t.getTime() - latest) / 86400000);
       if(days >= 3){
         out.push({tier:'house', sev:20, nm:'Recent records',
-          lead:'Nothing recorded in ' + days + ' days',
-          sub:'A quick update keeps your reports right', st:days + ' days',
+          lead:'Nothing recorded in ' + _nDays(days),
+          sub:'A quick update keeps your reports right', st:_nDays(days),
           cta:'Add now', when:9999,
           action: function(){ if(typeof qcOpen === 'function') qcOpen(); }});
       }
@@ -68983,7 +69349,7 @@ var OR_CUR_WF = null;
 })();
 
 function orR(n){ return _moneyInt(n); }
-function orRm(n){n=Number(n);if(!isFinite(n))n=0;n=Math.round(n);var v=Math.abs(n);if(v>=1e6)return (n<0?'\u2212R':'R')+(v/1e6).toFixed(2).replace(/0+$/,'').replace(/\.$/,'')+'m';if(v>=1e3)return (n<0?'\u2212R':'R')+Math.round(v/1e3)+'k';return (n<0?'\u2212R':'R')+v;}
+function orRm(n){ return _moneyCompact(Math.round(Number(n)||0)); }   /* D8 */
 function orR2(n){ return _moneyCents(n); }
 function orFmtDM(d){return d.getDate()+' '+OR_MON[d.getMonth()];}
 function orAddDays(d,n){var x=new Date(d.getTime());x.setDate(x.getDate()+n);return x;}
@@ -69476,10 +69842,13 @@ function orSprayMatrixHTML(){
 function orMonIdx(m){ return ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(String(m||'').slice(0,3).toLowerCase()); }
 function orDaysUntil(s){
   if(!s) return null; var dt=null, dm=false;
-  if(/^\d{4}-\d{2}-\d{2}/.test(s)){ dt=new Date(s); }
+  /* Step 3: local midnight on both sides. new Date('2026-10-01') is UTC midnight, and "now" carries
+     the time of day, so this said one day fewer than the certificate card beside it. */
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)){ dt=new Date(String(s).slice(0,10)+'T00:00:00'); }
   else { var m=String(s).trim().match(/^(\d{1,2})\s+([A-Za-z]{3,})/); if(m){ var mo=orMonIdx(m[2]); if(mo>=0){ dt=new Date(new Date().getFullYear(),mo,parseInt(m[1],10)); dm=true; } } }
   if(!dt||isNaN(dt.getTime())) return null;
-  var n=Math.round((dt-new Date())/86400000);
+  var t0=(typeof LS_TODAY!=='undefined' && LS_TODAY) ? new Date(LS_TODAY) : new Date(); t0.setHours(0,0,0,0);
+  var n=Math.round((dt-t0)/86400000);
   /* A day and month with no year ("19 Jan") was read as THIS year, so in December a
      January safe date was eleven months in the past and the block showed clear to pick
      at once. A withholding date is never half a year away either side: take the nearer
@@ -69648,7 +70017,9 @@ function orHarvestStatus(b){
   var w=orPickWindow(b), now=new Date().getMonth(), act=orActualTons(b), pct=b.tons?act/b.tons*100:0;
   if(pct>=100) return {t:'Closed', c:'done'};
   if(!w) return act>0?{t:'Picking',c:'now'}:{t:'—',c:'done'};
-  if(now>w.e) return {t:'Season done', c:'done'};
+  /* Step 4: a window that closed with nothing picked said "Season done" beside "pick not started".
+     It says what is true: no pick has been logged. */
+  if(now>w.e) return act>0 ? {t:'Season done', c:'done'} : {t:'No pick logged', c:'soon'};
   if(now<w.s) return {t:'Starts '+OR_MON[w.s], c:'soon'};
   return act>0?{t:'Picking now', c:'now'}:{t:'Ready to pick', c:'soon'};
 }
@@ -69776,7 +70147,7 @@ function orRenderWf(id){
     h+='<div class="hp-row minus"><span class="hp-lbl">Market commission</span><span class="hp-dual"><span class="hp-pct"><input id="or-lcomm" value="'+p.local.comm+'" inputmode="decimal" oninput="orRecalcWf()"><span class="s">%</span></span><span class="hp-calc">\u2212R\u00a0<span id="or-lcommR">0</span></span></span></div>';
     h+=orInLine('Transport','','or-ltrans',p.local.trans,true,'/ ton',false,true);
     h+=orInLine('Other costs','','or-lother',p.local.other,true,'/ ton',false,true);
-    h+='<div class="hp-net"><span class="l">In your pocket \u2014 local</span><span class="v">R <span id="or-lnet">0</span> <small>/ ton</small></span></div>';
+    h+='<div class="hp-net"><span class="l">In your pocket \u2014 local</span><span class="v"><span id="or-lnet">0</span> <small>/ ton</small></span></div>';
   }
   h+='<div class="or-wfres" id="or-res"><div class="or-vtop"><div class="or-verdict"><span class="or-vdot" id="or-vdot"></span><span id="or-vtext"></span></div><span class="amt" id="or-total">R 0</span></div>'+
      '<div class="or-hero"><span class="sub" id="or-herosub"></span></div>'+
@@ -69835,12 +70206,12 @@ function orRecalcWf(){
       var lfixed=(p.local?(parseFloat(p.local.trans)||0)+(parseFloat(p.local.other)||0):0);
       var lcm=p.local?(parseFloat(p.local.comm)||0):0;
       var lbe=lcm<100?lfixed/(1-lcm/100):0; var lprice=p.local?(parseFloat(p.local.price)||0):0;
-      if(lnet>=0) beEl.innerHTML='You\u2019re getting R '+orR2(lprice)+' a ton \u2014 R '+orR2(lprice-lbe)+' above your R '+orR2(lbe)+' break-even.';
-      else beEl.innerHTML='You\u2019re getting R '+orR2(lprice)+' a ton. To break even you need R '+orR2(lbe)+' \u2014 <b'+_red+'>you\u2019re R '+orR2(lbe-lprice)+' short</b> a ton.';
+      if(lnet>=0) beEl.innerHTML='You\u2019re getting '+orR2(lprice)+' a ton \u2014 '+orR2(lprice-lbe)+' above your '+orR2(lbe)+' break-even.';
+      else beEl.innerHTML='You\u2019re getting '+orR2(lprice)+' a ton. To break even you need '+orR2(lbe)+' \u2014 <b'+_red+'>you\u2019re '+orR2(lbe-lprice)+' short</b> a ton.';
     } else {
       var fixed=pack+ship+others+levy; var be=comm<100?fixed/(1-comm/100):0;
-      if(net>=0) beEl.innerHTML='You\u2019re getting R '+orR2(price)+' a '+u+' \u2014 R '+orR2(price-be)+' above your R '+orR2(be)+' break-even.';
-      else beEl.innerHTML='You\u2019re getting R '+orR2(price)+' a '+u+'. To break even you need R '+orR2(be)+' \u2014 <b'+_red+'>you\u2019re R '+orR2(be-price)+' short</b> on every '+u+'.';
+      if(net>=0) beEl.innerHTML='You\u2019re getting '+orR2(price)+' a '+u+' \u2014 '+orR2(price-be)+' above your '+orR2(be)+' break-even.';
+      else beEl.innerHTML='You\u2019re getting '+orR2(price)+' a '+u+'. To break even you need '+orR2(be)+' \u2014 <b'+_red+'>you\u2019re '+orR2(be-price)+' short</b> on every '+u+'.';
     }
   }
   orSave();
@@ -69922,7 +70293,7 @@ function orCertState(c){
   out.days=days;
   if(days<0){ out.expired=true; out.tag='red';
     out.status='Expired '+lbl+' — '+Math.abs(days)+' day'+(Math.abs(days)===1?'':'s')+' ago'; }
-  else if(days<=60){ out.tag='amber'; out.status='Expires '+lbl+' ('+days+'d)'; }
+  else if(days<=60){ out.tag='amber'; out.status='Expires '+lbl+' (in '+_nDays(days)+')'; }
   else { out.tag='green'; out.status='Valid to '+lbl; }
   return out;
 }
@@ -71686,7 +72057,7 @@ function orSaveSpray(){
   var _pe=(ST_FRUIT.phi[cat]||[]).filter(function(r){return String(r.bid)===String(b.id);})[0];
   var safe=(_pe&&_pe.d)?_pe.d:{eu:orFmtDM(orAddDays(dt,days))};
   if(cost>0 && typeof queueOrSave==='function'){
-    queueOrSave({date:orFmtDM(dt)+' '+dt.getFullYear(),desc:prod+' — '+b.name,cat:'Crop Protection',type:'expense',amt:cost,method:'Bank Debit'});
+    queueOrSave({date:orFmtDM(dt)+' '+dt.getFullYear(),desc:prod+' — '+b.name,cat:'Crop Protection',type:'expense',amt:cost,method:'Bank Debit',_os:ST_FRUIT.sprayDiary[cat][0].id});
   }
   orSave(); orRenderSpray(ST_FRUIT.market); orCloseModal();
   orToast('Spray logged \u2713 Safe to pick for EU: '+safe.eu+(cost>0?' · R'+_grpInt(Math.round(cost))+' to expenses':''));
@@ -73044,7 +73415,12 @@ var AI_REG={
 
 function _regInRange(d, from, to){
   if(!d) return false;
-  return (!from || d>=from) && (!to || d<=to);
+  /* Step 2: compare the DAY. A pump entry from the phone carries a time ("2026-09-30T14:05"),
+     which sorts after "2026-09-30" and fell outside a range ending that day; a written date
+     ("30 Sep 2026") compared as text against ISO and fell anywhere. */
+  var x=String(d); x=/^\d{4}-\d{2}-\d{2}/.test(x) ? x.slice(0,10) : ((typeof aiTxnISO==='function')?aiTxnISO(x):x);
+  if(!x) return false;
+  return (!from || x>=String(from).slice(0,10)) && (!to || x<=String(to).slice(0,10));
 }
 function _regAddDays(iso, n){
   if(!iso || !n) return '';
@@ -73329,6 +73705,12 @@ function aiFuelMachines(){
      record, so rank instead: vehicles and tractors first, then anything this farm
      has actually fuelled before, then the rest. */
   var used=(ST_FUEL && ST_FUEL.last) || {};
+  /* Step 2: a plough, planter or trailer was a row on every week's grid. Towed implements are
+     left off unless diesel has been logged against one before, or the farmer asks for all. */
+  if(!FUEL_ALL){
+    var TOWED=/\b(plough|plow|planter|harrow|disc|ripper|cultivator|seeder|drill|rake|slasher|trailer|scraper|leveller|roller|spreader|ridger|chisel)s?\b/i;
+    list=list.filter(function(a){ return used[a.id] || !TOWED.test(String(a.name||'')) || /self[- ]?propelled/i.test(String(a.name||'')+' '+String(a.notes||'')); });
+  }
   var rank=function(a){
     if(/Vehicles|Tractor/i.test(String(a.cat||''))) return 0;
     if(used[a.id]) return 1;
@@ -73378,7 +73760,8 @@ function aiFuelTank(w){
   return {inL:inL, outL:outL, left:Math.max(0,inL-outL)};
 }
 
-var FUEL_W = 0;
+var FUEL_W = 0, FUEL_ALL = false;
+function fuelShowAll(){ FUEL_ALL = !FUEL_ALL; fuelRender(); }
 function fuelOpen(offset){
   FUEL_W = (offset==null) ? 0 : offset;
   var bg=$('fuel-bg'); if(!bg) return;
@@ -73440,6 +73823,10 @@ function fuelRender(){
     '</div>'+
     (M.length ? rows :
       '<div class="fu-none">No machines in your asset register yet. Add a tractor or bakkie under Assets and it will appear here.</div>')+
+    ((function(){ var A=(typeof ST_ASSETS!=='undefined' && ST_ASSETS.assets)||[];
+       var all=A.filter(function(a){ return a && !a.sold && /Vehicles|Tractor|Machinery|Equipment/i.test(String(a.cat||'')); }).length;
+       var hid=all-M.length;
+       return (hid>0 || FUEL_ALL) ? '<button type="button" class="rc-fix" style="margin-top:6px" onclick="fuelShowAll()">'+(FUEL_ALL?'Hide towed implements':('Show '+hid+' towed implement'+(hid===1?'':'s')))+'</button>' : ''; })())+
     '<div class="fu-note" id="fu-note"></div>'+
     '<button class="ls-mv-save" style="margin-top:12px" onclick="fuelSave()">Save the week</button>'+
     (((ST_FUEL.issues||[]).length)?'<div class="fu-pdf"><button class="rc-fix" onclick="fuelClose();regOpen(\'diesel\')">Open the diesel logbook \u2192</button></div>':'');
@@ -73490,8 +73877,12 @@ function fuelSave(){
     var l=parseFloat(($('fu-l-'+a.id)||{}).value)||0; if(l<=0) return;
     var k=(($('fu-a-'+a.id)||{}).value)||'';
     ST_FUEL.last[a.id]=k;
+    /* Step 2: the week's last day - or today, while the week is still running. A Sunday still
+       to come put this week's diesel outside every report and logbook range up to today. */
+    var _td=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date();
+    var _ti=_td.getFullYear()+'-'+('0'+(_td.getMonth()+1)).slice(-2)+'-'+('0'+_td.getDate()).slice(-2);
     ST_FUEL.issues.push({ id:'fi'+Date.now().toString(36)+Math.floor(Math.random()*1e3),
-      date:w.to, asset:a.id, machine:a.name, litres:l, src:'week',
+      date:(w.to>_ti?_ti:w.to), asset:a.id, machine:a.name, litres:l, src:'week',
       activity:aiFuelActNm(k), actKey:k, qualifies:aiFuelActQ(k) });
     n++;
   });
@@ -73499,6 +73890,11 @@ function fuelSave(){
   try{ if(window.AI && AI.farm && AI.farm.active() && AI.fuel){
          AI.fuel.saveAll(ST_FUEL.issues).catch(function(e){ console.error('Backend fuel save failed:', e); }); } }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('assets'); }catch(e){}
+  /* Step 2: Reports and Tax show the rebate this feeds; they kept the old figure until a reload. */
+  try{ var _pg=document.querySelector('.pg.on'), _pid=_pg?_pg.id:'';
+       if(_pid==='pg-reports' && typeof updateRptDisplay==='function') updateRptDisplay();
+       if(_pid==='pg-transactions' && typeof txRender==='function') txRender();
+       if(_pid==='pg-tax' && typeof renderTax==='function') renderTax(); }catch(e){}
   fuelClose();
   toast(n?(n+' machine'+(n===1?'':'s')+' logged for '+w.label):'Nothing logged for '+w.label, n?'success':'info');
 }
@@ -75126,17 +75522,8 @@ function _lsRegCertsCard(){
       jump:{label:'Open the cash forecast', tone:'', go:function(){ nav('cashflow'); mfTab('forecast'); }, back:function(){ nav('dashboard'); kpiOpen('seasonCash'); }, trail:'\u2039 Back to dashboard', show:'Showing Money Flow'}
     };
   };
-  REG.seasonMargin=function(){
-    var y=ytdSummary(); var profit=y.income-y.expenses, margin=y.income>0?(profit/y.income*100):0;
-    var rows=[{nm:'Profit this season', amt:(profit<0?'\u2212':'')+fmt(Math.abs(profit)), pct:Math.max(0,Math.min(100,Math.round(margin)))},{nm:'Income this season', amt:fmt(y.income), pct:100, cls:'gold'}];
-    return {
-      label:'Profit margin', value:margin.toFixed(0)+'%', warn:(margin<15&&y.income>0), chip:'Year to date',
-      verdict: y.income<=0?{tone:'info',head:'No income yet this season',text:'Once income comes in, your margin will show here.'}:(margin>=15?{tone:'good',head:'Above the industry average',text:'You\u2019re keeping '+margin.toFixed(0)+'c of every rand \u2014 ahead of the ~15% farm average.'}:{tone:'watch',head:'Below the industry average',text:'You\u2019re keeping '+margin.toFixed(0)+'c of every rand. The typical farm keeps about 15%.'}),
-      mean:'How many cents of every rand of income you keep as profit, after costs.',
-      breakdown:{title:'How it\u2019s worked out', rows:rows, note:'Margin = profit \u00f7 income, for the year so far.'},
-      jump:{label:'See your profit picture', tone:'', go:function(){ nav('profit'); }, back:function(){ nav('dashboard'); kpiOpen('seasonMargin'); }, trail:'\u2039 Back to dashboard', show:'Showing Profit'}
-    };
-  };
+  /* S8 (step 5, A): REG.seasonMargin removed - nothing opened it, and it called cash "Profit this season". */
+
 
   // ---------- Registry: Crops overview wave ----------
   REG.cropLands=function(){
@@ -75291,7 +75678,7 @@ function _lsRegCertsCard(){
   };
 
   // ---------- Registry: Planning wave ----------
-  function _pk(v){ var s=v<0?'\u2212':''; var x=Math.abs(v); return s+(x>=1000000?'R'+(x/1000000).toFixed(2)+'M':(x>=1000?'R'+Math.round(x/1000)+'k':'R'+Math.round(x))); }
+  function _pk(v){ return _moneyCompact(v); }   /* D8 */
   function _pkpct(v,t){ t=Math.abs(t)||1; return Math.round(Math.abs(v)/t*100); }
   function _pf(){ return (typeof planComboFigures==='function')?planComboFigures():{cropProfit:0,orchProfit:0,liveProfit:0,total:0}; }
   REG.planCrops=function(){ var f=_pf(); return {
@@ -78388,7 +78775,7 @@ function rnBudgetRainLine(c){
          (rainDown > 0 ? rnT('% down on a normal year.','% minder as \'n normale jaar.')
                        : rnT('% up on a normal year.','% meer as \'n normale jaar.'));
     if (incDown != null && incDown > 0)
-      h += rnT(' Your income is ',' Jou inkomste is ') + incDown + rnT('% down.','% minder.');
+      h += rnT(' Your income is ',' Jou inkomste is ') + incDown + rnT('% behind your plan.','% agter jou plan.');   /* step 4: it was measured against the plan's pace, not last year */
     h += '</b> ' + rnMm(l12) + rnT(' mm in the last 12 months, against the ',' mm in die laaste 12 maande, teen die ') +
          rnMm(na) + rnT(' mm you would usually have.',' mm wat jy gewoonlik sou hê.') +
          ' <a class="lnk" onclick="nav(\'rainfall\')">' + rnT('See the rain year','Sien die reënjaar') + '</a>' +
