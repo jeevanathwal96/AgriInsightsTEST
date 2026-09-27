@@ -4610,6 +4610,15 @@ select.tx-fctl{padding-right:30px}
 .tx-menu-keep{padding:6px 11px;border-radius:7px;cursor:pointer;color:var(--t3);font-size:11.5px;margin-bottom:4px;border-bottom:1px solid var(--br2)}
 .tx-menu-keep:hover{background:var(--bg)}
 .tx-menu-title{padding:9px 11px 8px;border-bottom:1px solid var(--br2);margin-bottom:3px;font-size:11.5px;font-weight:800;color:var(--t1);line-height:1.3}.tx-menu-title span{display:block;font-size:11px;font-weight:500;color:var(--t4);margin-top:2px}
+.tx-menu-q{padding:8px 11px 4px;font-size:13.5px;font-weight:800;color:var(--t1)}
+.tx-menu-ans{padding:7px 11px;border-radius:8px;cursor:pointer;border:1px solid var(--br);margin:0 0 5px;background:#fff}
+.tx-menu-ans:hover{border-color:var(--gd);background:var(--bg)}
+.tx-menu-ans b{display:block;font-size:12.5px;color:var(--t1)} .tx-menu-ans span{display:block;font-size:11.5px;color:var(--t3)}
+.tx-menu-grp{margin:0 0 7px;padding:8px 11px;border-radius:8px;background:var(--bg);display:flex;flex-direction:column;gap:2px}
+.tx-menu-grp b{font-size:12.5px;color:var(--t1)} .tx-menu-grp span{font-size:11.5px;color:var(--t3)}
+.tx-menu-grp a{font-size:11.5px;color:var(--gd);font-weight:700;cursor:pointer;margin-top:2px;text-decoration:underline}
+.tx-menu-pick{padding:2px 11px 6px;font-size:11.5px;color:var(--t3)}
+.tx-menu-hint{display:block;font-size:11px;color:var(--t4)}
 .tx-menu-h{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--t4);padding:7px 11px 3px;border-top:1px solid var(--br2);margin-top:3px}
 .tx-menu-h:first-child{border-top:none;margin-top:0}
 .tx-bulk-bar{display:flex;align-items:center;gap:9px;margin-top:9px;padding:8px 11px;background:var(--gb);border:1.5px solid var(--gl);border-radius:10px;flex-wrap:wrap}
@@ -17614,7 +17623,8 @@ function _txMigrateIfNeeded(){
    QC_RULES change and every answer is worked out again, farm by farm, in the
    background. TX_LOOKS is this farm's answers, keyed by the transaction's server id.
    (02-database/txn_looks_migration.sql, 03-docs/build/needs-a-look-one-brain.md) */
-var LOOK_V = 3;   // 3: -449 taught inferCategory that a VAT payment to SARS is 'VAT paid to SARS' (it was no guess) - re-work the stored answers (27 Sep 2026)
+var LOOK_V = 4;   // 4: -471 rewrote inferCategory for SA farm money (safe bank-line rules, 27 Sep 2026) - re-work the stored answers
+                  // 3: -449 taught inferCategory that a VAT payment to SARS is 'VAT paid to SARS' (it was no guess) - re-work the stored answers (27 Sep 2026)
                  // 2: whole-word English, Afrikaans compound tails, bank fees are not tractor services (20 Sep 2026)
 var TX_LOOKS = {};              // txn uuid -> { cat: <category id|null>, v, rulesAt }
 var LOOK_RULES_AT = null;       // the farm's newest filing rule when last read
@@ -17634,13 +17644,21 @@ function _txLookCompute(t){
 
 /* The three answers the Inbox needs, from the stored value: needs a look, sure, or
    nothing to go on. Kept here so the computer and the phone read one rule. */
+function _txCatchAll(cat){
+  var c = cat == null ? '' : String(cat).trim();
+  try{ if (typeof normalizeCat === 'function') c = normalizeCat(c) || c; }catch(e){}
+  return c === 'Other Expenses' || c === 'Other Income';
+}
 function _txLookState(t){
   var st = t && t.id ? TX_LOOKS[String(t.id)] : null;
   if (!st) return null;                                    // no answer yet
   var filedId = null;
   try{ filedId = (t.cat && AI && AI._map) ? AI._map.catToId(t.cat) : null; }catch(e){}
   if (!filedId) return { need: true, cat: st.cat };        // uncategorised: always worth a look
-  if (!st.cat) return { need: false, cat: null };          // nothing to go on
+  /* -471 (d1): "Other Expenses"/"Other Income" is where a line lands when nobody knows what it
+     is. It counted in profit and VAT and was never asked about - a transfer to savings sat in
+     running costs with VAT claimed. With nothing better to offer, it is now a question. */
+  if (!st.cat) return { need: _txCatchAll(t.cat), cat: null };   // nothing to go on
   if (String(st.cat) === String(filedId)) return { need: false, cat: st.cat, sure: true };
   return { need: true, cat: st.cat };
 }
@@ -17683,11 +17701,12 @@ function _txNeedsLook(t){
   try{ guess = inferCategory(t.desc, isInc); }catch(e){ return null; }
   var filed = (t.cat == null ? '' : String(t.cat)).trim();
   if (!filed) return guess || (isInc ? 'Other Income' : 'Other Expenses');  // uncategorised: always worth a look
-  if (!guess || guess === filed) return null;
+  if (!guess) return _txCatchAll(filed) ? filed : null;   // -471: nothing to offer, filed nowhere real
+  if (guess === filed) return _txCatchAll(filed) ? filed : null;
   /* Cloud-synced data can arrive AFTER the boot migrations ran, still carrying spelling
      variants ('CropSales'). Same category, different spelling — not a finding. */
   try{ if (typeof normalizeCat==='function' && normalizeCat(t.cat) === guess) return null; }catch(e){}
-  if (guess === 'Other Expenses' || guess === 'Other Income') return null;  // a shrug, not a finding
+  if (guess === 'Other Expenses' || guess === 'Other Income') return _txCatchAll(filed) ? filed : null;   // -471: a shrug on a shrug is a question
   return guess;
 }
 
@@ -17816,6 +17835,245 @@ function _txMenuMount(anchor, html, handlers){
   document.addEventListener('keydown', _txMenuKey, true);
   return el;
 }
+/* -473: who a bank line is, in the words a farmer would use - the phone's core/payee.ts, line
+   for line, so both devices put the same lines in one question. "POS PURCHASE SENWES LTD 0943
+   4587*4411 22 SEP" is Senwes; "Card Purchase & Cashback (R300.00): Shoprite Sb000319" is Shoprite.
+   The bank's prefixes, card masks, dates, references, store codes and legal suffixes come off;
+   the businesses South African farms deal with are named as they know them; the KIND of money
+   stays where the payee alone would mislead (a reversal, a transfer to savings, cash, interest,
+   which tax SARS took, a co-op ACCOUNT). Check the phone copy when changing this one:
+   06-tools/sa-rules-471-harness.html holds the two to the same answer on every test line. */
+var TXP_KNOWN = [
+  [/\bAFGRI (FINANCE|FIN)\b/, 'Afgri Finance'], [/\bAFGRI ANIMAL FEEDS?\b/, 'Afgri Animal Feeds'],
+  [/\bAFGRI EQUIPMENT\b/, 'Afgri Equipment'], [/\bJOHN DEERE FINANC\w*/, 'John Deere Financial'],
+  [/\bNEW HOLLAND FINANC\w*/, 'New Holland Finance'], [/\bABSA VEHICLE FIN\w*/, 'Absa Vehicle Finance'],
+  [/\bSTD BANK VAF\b|\bSTANDARD BANK VAF\b/, 'Standard Bank Vehicle Finance'], [/\bSTD BANK\b|\bSTANDARD BANK\b/, 'Standard Bank'],
+  [/\bWESBANK\b/, 'Wesbank'], [/\bMFC\b/, 'MFC'],
+  [/\bSENWES\b/, 'Senwes'], [/\bVKB\b/, 'VKB'], [/\bOBARO\b/, 'Obaro'], [/\bAFGRI\b/, 'Afgri'], [/\bBKB\b/, 'BKB'],
+  [/\bKAAP ?AGRI\b/, 'Kaap Agri'], [/\bAGRIMARK\b/, 'Agrimark'], [/\bOVK\b/, 'OVK'], [/\bTWK\b/, 'TWK'], [/\bGWK\b/, 'GWK'],
+  [/\bNTK\b/, 'NTK'], [/\bNWK\b/, 'NWK'], [/\bSUIDWES\b/, 'Suidwes'], [/\bMGK\b/, 'MGK'], [/\bOVERBERG ?AGRI\b/, 'Overberg Agri'],
+  [/\bLAND ?BANK\b/, 'Land Bank'], [/\bESKOM\b/, 'Eskom'], [/\bVODA(COM)?\b/, 'Vodacom'],
+  [/\bMTN\b/, 'MTN'], [/\bTELKOM\b/, 'Telkom'], [/\bSANTAM\b/, 'Santam'], [/\bVLEISSENTRAAL\b/, 'Vleissentraal'],
+  [/\bSUNDAYS RIVER CITRUS\b/, 'Sundays River Citrus'], [/\bPANNAR\b/, 'Pannar'], [/\bJOHN DEERE\b/, 'John Deere'],
+  [/\bENGEN\b/, 'Engen'], [/\bSASOL\b/, 'Sasol'], [/\bTOTAL ?ENERGIES\b|\bTOTAL (GARAGE|SERVICE STATION|FILLING)\b/, 'TotalEnergies'],
+  [/\bSHELL\b/, 'Shell'], [/\bCALTEX\b/, 'Caltex'], [/\bASTRON\b/, 'Astron Energy'], [/\bPUMA ENERGY\b/, 'Puma Energy'],
+  [/\bCLOVER\b/, 'Clover'], [/\bCMW\b/, 'CMW'], [/\bKWV\b/, 'KWV']
+];
+var TXP_COOP = ['Senwes','VKB','Obaro','Afgri','BKB','Kaap Agri','Agrimark','OVK','TWK','GWK','NTK','NWK','Suidwes','MGK','Overberg Agri'];
+var TXP_TOWNED = ['Engen','Sasol','TotalEnergies','Shell','Caltex','Astron Energy','Puma Energy','Obaro','Senwes','VKB','Afgri','Kaap Agri','Agrimark','TWK','BKB'];
+var TXP_TOWNS = ['BETHLEHEM','KOMANI','REITZ','KROONSTAD','SENEKAL','VREDE','KIRKWOOD','HARRISMITH','PIKETBERG','LADYBRAND',
+  'LICHTENBURG','BREDASDORP','CERES','VREDENDAL','MALMESBURY','BLOEMFONTEIN','PIET RETIEF','BRITS','PAARL'];
+var TXP_PREFIX = [
+  'POS PURCHASE REFUND','POS PURCHASE','CARDHOLDER PURCHASE','CARDHOLDER REFUND','CARD PURCHASE & CASHBACK','CARD PURCHASE:?','PURCHASE',
+  'PREPAID (MOBILE )?PURCHASE:?','FNB APP PAYMENT (TO|FROM)','FNB APP TRANSFER (TO|FROM)','FNB APP BETALING (AAN|NA)',
+  'FNB APP EWALLET SEND','FNB APP','FNB OB PMT','INTERNET PMT TO','INTERNET BANKING TRANSFER (TO|FROM)','INTERNET TRF (TO|FROM)',
+  'IB PAYMENT TO','IB TRANSFER (TO|FROM)','IB BETALING( AAN| NA)?','DIGITAL PAYMENT (DT|CR)','DIGITALE? BETALING( NA| AAN)?',
+  'ACB DEBIT:? ?EXTERNAL','ACB DEBIT','ACB CREDIT','DEBIT ORDER:?','IMMEDIATE TRF (CR|DR)','IMMEDIATE PAYMENT RECEIVED:?',
+  'RECEIVED PAYMENT:?','RETURNED PAYMENT:?','REFUND:?','REVERSAL( OF)?:?','BANKING APP BILL PAYMENT','BANKING APP PAYMENT:?','BANKAPP BETALING:?',
+  'BANKING APP IMMEDIATE( PAYMENT)?:?','BANKING APP EXTERNAL PAYSHAP( PAYMENT)?:?','BANKING APP EXTERNAL( PAYMENT)?:?','BANKING APP TRANSFER( TO| FROM)?:?',
+  'BANKING APP RECEIVED( FROM)?:?','BANKING APP','EXTERNAL PAYSHAP( PAYMENT)?:?','PAYSHAP( PAYMENT)?:?','DEBICHECK DEBIT ORDER:?',
+  'REGISTERED DEBIT ORDER:?','RECURRING PAYMENT:?','SEND MONEY:?',
+  /* Wording from the -473 sweep (27 Sep 2026): Standard Bank, Nedbank, Absa (all four layouts),
+     Investec, FNB (incl. Afrikaans) and Capitec, from public statement text. */
+  'IB FUTURE-DATED PAYMENT TO', 'IB PAYMENT FROM', 'IBANK PAYMENT TO( FIRSTRAND BANK| ABSA BANK| NEDBANK| CAPITEC)?', 'IMMEDIATE PAYMENT',
+  'PAYSHAP PAYMENT RECEIVED:?', 'PAYSHAP PAYMENT FROM', 'PAYSHAP PAY BY PROXY', 'PAYSHAP (CREDIT|ACCOUNT OFF-US|EXT DEBIT SETTLEMENT)',
+  'REAL TIME TRANSFER FROM', 'DEBIT CARD PURCHASE FROM( C\\*)?', 'INT DEBIT CARD PURCHASE( U\\*)?', 'DEBIT CARD REFUND FROM( C\\*)?',
+  'DEBIT TRANSFER', 'ACCOUNT PAYMENT', 'REGISTERED DC DEBIT', 'DEBICHECK( DEBIT ORDER)?( RE-PRES)?',
+  'DIGITAL PAYMENT (DT|CR) SETTLEMENT( ABSA BANK)?', 'ACB CREDIT SETTLEMENT', 'ACB DEBIT:? ?EXTERNAL SETTLEMENT', 'POS PURCHASE SETTLEMENT',
+  'POS (INTER )?PURC( & CASH)?', 'POS CARD REFUND', 'DC TRACK (EXTERNAL|INTERNAL) SETTLEMENT', 'INT DEBIT ORDER TO SETTLEMENT',
+  'STOP ORDER TO SETTLEMENT( ABSA BANK)?', 'SCHEDULED (PAYMENT|PYMT) (TO|FROM)', 'EFT DEBIT ORDER', 'GEREELD BET NA', 'INW ONTVANGS',
+  'INETBNK (PAY|TRF) (CREDIT|DEBIT)( ABSA BANK)?', 'INET IMMEDIATE PMT REF:?( ABSA BANK)?', 'INT-BANKING PMT FRM', 'CELL PMNT FROM',
+  'PAYMENT RECEIVED:?', 'RECURRING CARD PURCHASE:?', 'BANKING APP PREPAID PURCHASE', 'OUTSTANDING CARD AUTHORISATION', 'YOCO ?\\*',
+  'BETALING ONTVANG:?','CREDIT TRANSFER','MAGTAPE (CREDIT|KREDIET)','ELECTRONIC PAYMENT RECEIVED','ELECTRONIC PAYMENT',
+  'ELEKTRONIESE BETALING( ONTVANG)?','INSTANT PAYMENT TO','PAYMENT TO','PAYMENT FROM','DEPOSIT','EFT','STOP ORDER'
+].map(function(p){ return new RegExp('^' + p + '\\s*'); });
+var TXP_FEES = /MONTHLY ACCOUNT FEE|SERVICE FEE|ADMIN(ISTRATION)? (FEE|CHARGE)|MANAGEMENT FEE|LEDGER FEE|CASH DEPOSIT FEE|NOTIFIC\w* FEE|#?BANK CHARGES?|DISHONOURED CHEQUE FEE|RETURNED DEBIT FEE|\bFEE\b/;
+var TXP_ACRO = ['FNB','SA','RSA','CMW','KWV','JHB','FS','ADT','MFC','RCL','NTK','TSB','UIF','COIDA','DSTV','RA','BP','DC','IH',
+  'NWK','MGK','OVK','VKB','GWK','TWK','BKB','SARS','RMB','SAFEX','KFC','CMA','WUA','DALRRD','CASP','RMS','OK','V&A','VAT','PAYE'];
+var TXP_MONTHS = 'JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC|MEI|OKT|DES|AUGUSTUS|SEPTEMBER|OKTOBER';
+
+function _txpTitle(t){ return t.toLowerCase().replace(/(^|\s)\S/g, function(m){ return m.toUpperCase(); }); }
+function _txpCase(words){
+  return words.map(function(w){
+    return (TXP_ACRO.indexOf(w)>=0 || /^[A-Z]$/.test(w)) ? w
+      : w.split('-').map(function(p){ return p.slice(0,1) + p.slice(1).toLowerCase(); }).join('-');
+  }).join(' ');
+}
+function _txpStrip(s){
+  var prev = '';
+  while (prev !== s){ prev = s; TXP_PREFIX.forEach(function(p){ s = s.replace(p, ''); }); }
+  return s.replace(/\s*DEBIT ORDER$/, '');
+}
+function _txpTidy(s){
+  s = _txpStrip(s);
+  s = s.replace(/\(EFFEC\w*[^)]*\)|\bVALUE DATE \w+|\bCARD NO\.?|\(CARD\s*\d*\)|\bSETTLEMENT\b/g, ' ');
+  s = s.replace(/\d{4,6}X{4,}\d{4}/g, ' ');
+  s = s.replace(/\s+ZA$/, '');
+  s = s.replace(/\(R?[\d.,\s]+\)/g, ' ');
+  s = s.replace(/\d{4}\*+\d{4}|\d{3}\*+\d{3,4}|\*+\d{3,4}/g, ' ');
+  s = s.replace(new RegExp('\\b\\d{1,2} ?(' + TXP_MONTHS + ')\\b|\\b\\d{1,2}/\\d{1,2}\\b', 'g'), ' ');
+  s = s.replace(/\b0\d{9}\b/g, ' ');
+  s = s.replace(/\b[A-Z]*\d[A-Z\d]*\b/g, ' ');
+  s = s.replace(/\b(\(?PTY\)?|LTD|LIMITED|CC|BEPERK|INV|REF|FAKT|PMT)\b/g, ' ');
+  s = s.replace(new RegExp('\\b(WAGES?|SALARY|SALARIS|LOON|LONE|LOONE|RATES|ELEC|LOAN|INS|PREM|PAYMENT|PMT|' + TXP_MONTHS + ')\\b', 'g'), ' ');
+  s = s.replace(/[:/()]/g, ' ');
+  s = s.replace(/\bCARD\s*$/, ' ');
+  var words = s.split(/\s+/).filter(function(w){ return /[A-Z]/.test(w) || w === '&'; });
+  while (words.length && words[0] === '&') words.shift();
+  while (words.length && words[words.length-1] === '&') words.pop();
+  return words;
+}
+function _txpKnown(d){
+  for (var i = 0; i < TXP_KNOWN.length; i++){
+    var re = TXP_KNOWN[i][0], name = TXP_KNOWN[i][1];
+    if (re.test(d)){
+      if (TXP_TOWNED.indexOf(name) >= 0){
+        for (var j = 0; j < TXP_TOWNS.length; j++){
+          if (new RegExp('\\b' + TXP_TOWNS[j] + '\\b').test(d)) return name + ' ' + _txpTitle(TXP_TOWNS[j]);
+        }
+      }
+      return name;
+    }
+  }
+  return null;
+}
+function _txpWho(d){
+  var k = _txpKnown(d); if (k) return k;
+  var words = _txpTidy(d);
+  if (!words.length || words.join(' ').length < 3) return '';
+  return _txpCase(words);
+}
+/* The name a farmer would give a bank line, and what kind of name it is. '' with 'keep' when
+   nothing readable is left (a line of codes): such a line is never grouped. */
+function txPayeeOf(raw){
+  var d = String(raw || '').replace(/&amp;/gi, '&').replace(/&apos;|&#39;/gi, "'").toUpperCase().replace(/#/g, ' ').replace(/\s+/g, ' ').trim();
+  var rev = /REVERS|\bUNPAID\b|DISHONOU?RED|\bRETURN(ED)?\b|\bREFUND\b|\bRD\b/.test(d);
+  var fee = TXP_FEES.test(d);
+  if (fee && !rev) return { name:'Bank charges', how:'fee' };
+  if (fee && rev) return { name:'Bank charges refunded', how:'reversal' };
+  if (/\bSARS\b|EFILING/.test(d)){
+    var inc = /REFUND|TERUGBETAAL|MAGTAPE CREDIT|ACB CREDIT|CREDIT TRANSFER|RECEIVED/.test(d), t = '';
+    if (/PENALT|BOETE/.test(d)) t = 'penalty';
+    else if (/DIESEL/.test(d)) t = 'diesel refund';
+    else if (/\bVAT|\bBTW\b|\b4\d{9}/.test(d)) t = inc ? 'VAT refund' : 'VAT';
+    else if (/\bPAYE\b|EMP201|\bUIF\b|\bSDL\b|\b7\d{9}/.test(d)) t = 'PAYE';
+    else if (/PROV|IRP6/.test(d)) t = 'provisional tax';
+    else if (/INCOME TAX|\bIT\b|ITR12|INKOMSTEBELASTING/.test(d)) t = inc ? 'income tax refund' : 'income tax';
+    return { name:('SARS ' + t).trim(), how:'sars' };
+  }
+  if (/CASH WITHDRAWAL|CASH WDL|ATM WDL|ATM CASH|AUTOBANK CASH|KONTANT ONTTREKKING|\bOTM\b|CASH ADVANCE/.test(d)) return { name:'Cash withdrawal', how:'cash' };
+  if (/CASH DEPOSIT/.test(d)) return { name:'Cash deposit', how:'cash' };
+  if (/SEND-?IMALI|E-?WALLET|CASH ?SEN[DT]|INSTANT MONEY/.test(d)){
+    var rest = _txpTidy(d.replace(/SEND-?IMALI|FNB APP EWALLET SEND|BANKING APP CASH SENT:?|E-?WALLET|CASH ?SEN[DT]:?|INSTANT MONEY/g, ' '))
+      .filter(function(w){ return w !== 'CASUAL' && w !== 'LABOUR'; });
+    return { name: rest.length ? 'Cash send · ' + _txpCase(rest) : 'Cash send', how:'cash' };
+  }
+  if (/CREDIT ?CARD|KREDIETKAART/.test(d)) return { name:'Credit card repayment', how:'transfer' };
+  if ((/\b(TRANSFER|TRF|TFR|OORPLASING)\b/.test(d) && /\b(SAVINGS?|SPAAR\w*|CALL|MONEY MARKET|CASH PLUS|JUST INVEST|CHEQUE|CURRENT|MAIN|BUSINESS|OWN|PERSONAL|PLAN)\b/.test(d))
+      || /\bOWN\b|INTER ?ACCOUNT|\bSWEEP\b|FNB APP TRANSFER|INTERNET TRF/.test(d)){
+    var from = /\b(FROM|VAN)\b/.test(d), to = /\b(TO|NA)\b|\bDR\b/.test(d);
+    var what = /SAVINGS?|SPAAR|CALL|MONEY MARKET|CASH PLUS|JUST INVEST|CHEQUE|CURRENT|MAIN|BUSINESS|PERSONAL/.exec(d);
+    var map = { SPAAR:'savings', SAVING:'savings', SAVINGS:'savings', 'JUST INVEST':'Just Invest', 'CASH PLUS':'Cash Plus', 'MONEY MARKET':'money market' };
+    var tgt = what ? (map.hasOwnProperty(what[0]) ? map[what[0]] : what[0].toLowerCase() + ' account') : 'own account';
+    if (from) return { name:'Transfer from ' + tgt, how:'transfer' };
+    if (to) return { name:'Transfer to ' + tgt, how:'transfer' };
+    return { name:'Own account transfer', how:'transfer' };
+  }
+  var bank = /\bTRANSFER TO (FNB|ABSA|NEDBANK|CAPITEC|INVESTEC|STANDARD BANK|TYMEBANK)\b/.exec(d);
+  if (bank) return { name:'Transfer to ' + (bank[1] === 'FNB' ? 'FNB' : _txpTitle(bank[1])) + ' account', how:'transfer' };
+  var w = _txpWho(d), k = _txpKnown(d);
+  if (rev){
+    var tag = /REFUND/.test(d) ? 'refund' : /UNPAID|RETURN|\bRD\b|DISHONOU?R/.test(d) ? 'returned unpaid' : 'reversed';
+    w = w.replace(/\b(Refund|Reversal|Reversed|Unpaid|Returned|Return|Rd)\b\s*/g, '').trim();
+    return { name: w ? w + ' (' + tag + ')' : 'Payment ' + tag, how:'reversal' };
+  }
+  if (/DEBIT INTEREST|INTEREST (ON )?OVERDRAFT|OVERDRAFT INTEREST|INTEREST DEBIT|INTEREST: ?OVERDRAFT|RENTE GEHEF/.test(d)) return { name:'Overdraft interest', how:'interest' };
+  if (/CREDIT INTEREST|INTEREST RECEIVED|RENTE ONTVANG|INTEREST CAPITALISED/.test(d)) return { name:'Interest earned', how:'interest' };
+  if (k){
+    var plain = k.replace(new RegExp(' (' + TXP_TOWNS.map(_txpTitle).join('|') + ')$'), '');
+    if (/\bRENTE\b|\bINTEREST\b/.test(d)) return { name: plain + ' interest', how:'known' };
+    if (/DRAWDOWN|\bADVANCE\b/.test(d) && plain !== 'Land Bank') return { name: plain + ' (loan paid in)', how:'known' };
+    if (plain === 'Land Bank' && /ADVANCE|DRAWDOWN|FINANCE|ACB CREDIT|CREDIT TRANSFER|PAYMENT FROM|RECEIVED/.test(d)) return { name:'Land Bank (money in)', how:'known' };
+    if (TXP_COOP.indexOf(plain) >= 0 && !/BRANDSTOF|DIESEL|KUNSMIS|FERTILI|SAAD|SEED|VOER|FEED|LICKS?|VET\b/.test(d)
+        && /\bREK\b|REKENING|\bACC\b|ACCOUNT|STATEMENT|KREDIE?T|PRODUKSIEKREDIET|PRODUCTION CREDIT/.test(d)) return { name: plain + ' account', how:'known' };
+    return { name:k, how:'known' };
+  }
+  var mun = /([A-Z]+) (MUN|MUNICIPALITY|MUNISIPALITEIT|LM)\b/.exec(d);
+  if (mun) return { name: _txpTitle(mun[1]) + ' Municipality', how:'known' };
+  return { name:w, how: w ? 'tidied' : 'keep' };
+}
+/* The key lines group under. Null for a line with nothing readable. Kept per row (a WeakMap,
+   never saved) and re-worked when the row's description changes. */
+var _txpRowKey = (typeof WeakMap === 'function') ? new WeakMap() : null;
+function txPayeeKey(raw){
+  var k = txPayeeOf(raw).name.toLowerCase().replace(/[^a-z0-9·]+/g, ' ').trim();
+  return k || null;
+}
+function _txRowPayeeKey(t){
+  if (!t) return null;
+  if (!_txpRowKey) return txPayeeKey(t.desc);
+  var hit = _txpRowKey.get(t);
+  if (hit && hit.d === t.desc) return hit.k;
+  var k = txPayeeKey(t.desc);
+  _txpRowKey.set(t, { d:t.desc, k:k });
+  return k;
+}
+
+/* -473: the other flagged lines from the same payee, the same way, that are also only a guess
+   of "Other" - asked once, with the line the farmer opened (as the phone does since 0a73c86).
+   Returns indices into ST.txns, the opened line first. */
+function _txLookGroup(idx){
+  var t = ST.txns[idx]; if (!t) return [idx];
+  var key = _txRowPayeeKey(t); if (!key) return [idx];
+  var out = [idx];
+  (ST.txns||[]).forEach(function(x, i){
+    if (i === idx || !x || x.type !== t.type) return;
+    var n = null; try{ n = _txNeedsLook(x); }catch(e){}
+    if (!n || !_txCatchAll(n)) return;
+    if (_txRowPayeeKey(x) === key) out.push(i);
+  });
+  return out;
+}
+/* The line the farmer said to answer on its own - only until the menu is answered or closed on
+   another line. Held as the row itself: an index can point elsewhere after a refresh. */
+var TX_GRP_ONE = null;
+function _txGroupScope(){
+  var m = TX_MENU; if (!m || !m.reopen) return;
+  TX_GRP_ONE = m.grpAll ? m.row : null;
+  m.reopen();
+}
+/* File the rest of the group; the caller files the opened line itself, which renders and saves. */
+function _txGroupFile(grp, idx, cat){
+  grp.forEach(function(i){
+    if (i === idx) return;
+    var x = ST.txns[i]; if (!x || x.cat === cat) return;
+    x.cat = cat; _txSettle(x);
+    try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(x); }catch(e){}
+  });
+}
+/* -471: the money that is not farming, apart and explained, so a farmer never has to know what
+   "Transfer to own account" means - and the everyday answers for a line the computer cannot read. */
+var TX_NOT_FARM = {
+  exp: ['Transfer to own account','Drawings','Loan Repayments','VAT paid to SARS','Income tax','SARS fines & interest'],
+  inc: ['Loans and own money in','VAT refund from SARS','Income tax refund'] };
+var TX_CAT_HINT = {
+  'Transfer to own account':'savings, call account, paying off your credit card', 'Drawings':'money you took for yourself',
+  'Loan Repayments':'Land Bank, a bank or asset-finance instalment', 'VAT paid to SARS':'your VAT201 payment',
+  'Income tax':'provisional or income tax to SARS', 'SARS fines & interest':'penalties and interest SARS charged',
+  'Loans and own money in':'a loan paid out to you, or money from your own account', 'VAT refund from SARS':'SARS paying back VAT',
+  'Income tax refund':'SARS paying back income tax', 'Interest & finance charges':'overdraft and account interest' };
+function _txHasCat(n){ return FARM_CATS.some(function(c){ return c.n===n; }); }
+function _txPlainAnswers(t){
+  var inc=(t.type==='income'), d=String(t.desc||'').toLowerCase(), out=[];
+  if(!inc){
+    out.push(['Transfer to own account','Moved to my own account','Savings, call account, or paying off my credit card']);
+    out.push(['Drawings','Something for me, not the farm','Groceries, school fees, medical aid']);
+  } else {
+    out.push(['Loans and own money in','A loan, or my own money','A loan paid out to me, or money from my own account']);
+    if(/\bsars\b|efiling/.test(d)) out.push([/\bvat\b|\bbtw\b/.test(d)?'VAT refund from SARS':'Income tax refund','Tax paid back by SARS','A refund from SARS']);
+  }
+  return out.filter(function(a){ return _txHasCat(a[0]); });
+}
 function _txCatMenu(idx, anchor, apply){
   _txMenuClose();
   var t = ST.txns[idx]; if (!t || !anchor) return;
@@ -17831,25 +18089,65 @@ function _txCatMenu(idx, anchor, apply){
   var az = all.slice().sort(function(a,b){ return a.localeCompare(b); });
   var need = null; try{ need = _txNeedsLook(t); }catch(e){}
   var h = '';
-  if (need){
+  /* -471 (d1): nothing better than "Other" to suggest - ask in plain words instead. */
+  var shrug = !!need && _txCatchAll(need);
+  var grp = shrug ? _txLookGroup(idx) : [idx];
+  if (TX_GRP_ONE && TX_GRP_ONE !== t) TX_GRP_ONE = null;
+  var grpAll = grp.length > 1 && TX_GRP_ONE !== t;
+  if (shrug){
+    h += '<div class="tx-menu-q">What was this?</div>';
+    if (grp.length > 1){
+      var nm = txPayeeOf(t.desc).name || String(t.desc||'');
+      var tot = grp.reduce(function(a, i){ return a + Math.abs(parseFloat((ST.txns[i]||{}).amt) || 0); }, 0);
+      h += '<div class="tx-menu-grp"><b data-notranslate>' + esc(grpAll
+             ? _rT(nm + ' \u00b7 ' + grp.length + ' lines like this, ' + fmt(tot), nm + ' \u00b7 ' + grp.length + ' lyne soos hierdie, ' + fmt(tot))
+             : _rT(nm + ' \u00b7 this line', nm + ' \u00b7 hierdie lyn')) + '</b>' +
+           (grpAll ? '<span>Your answer files all of them.</span>' : '') +
+           (grpAll ? '<a onclick="_txGroupScope()">Answer for this line only</a>'
+                   : '<a data-notranslate onclick="_txGroupScope()">' + esc(_rT('Answer for all ' + grp.length, 'Antwoord vir al ' + grp.length)) + '</a>') +
+           '</div>';
+    }
+    _txPlainAnswers(t).forEach(function(a){
+      h += '<div class="tx-menu-ans" onclick="TX_MENU.apply(\'' + esc(a[0]).replace(/'/g,"\\'") + '\');_txMenuClose()"><b>' + esc(a[1]) + '</b><span>' + esc(a[2]) + '</span></div>';
+    });
+    h += '<div class="tx-menu-pick">' + (isInc ? 'Farm income? Pick which below.' : 'A farm cost? Pick which below.') + '</div>';
+    h += '<div class="tx-menu-keep" onclick="TX_MENU.keep();_txMenuClose()">✓ Keep as ' + esc(t.cat||'None') + ' \u2014 stop flagging</div>';
+  }
+  else if (need){
     h += '<div class="tx-menu-sug" onclick="TX_MENU.apply(\'' + esc(need).replace(/'/g,"\\'") + '\');_txMenuClose()">'+
          '<span>Suggested</span> ' + esc(need) + '</div>';
     h += '<div class="tx-menu-keep" onclick="TX_MENU.keep();_txMenuClose()">✓ Keep as ' + esc(t.cat||'None') + ' \u2014 stop flagging</div>';
   }
   function _item(c){
-    return '<div class="tx-menu-it' + (c===t.cat?' on':'') + '" onclick="TX_MENU.apply(\'' + esc(c).replace(/'/g,"\\'") + '\');_txMenuClose()">' + esc(c) + '</div>';
+    var hint = TX_CAT_HINT[c] ? '<span class="tx-menu-hint">' + esc(TX_CAT_HINT[c]) + '</span>' : '';
+    return '<div class="tx-menu-it' + (c===t.cat?' on':'') + '" onclick="TX_MENU.apply(\'' + esc(c).replace(/'/g,"\\'") + '\');_txMenuClose()">' + esc(c) + hint + '</div>';
   }
+  /* -471 (d3): farm categories A-Z, then the money that is not farming, apart and explained. */
+  var notF = TX_NOT_FARM[isInc?'inc':'exp'].filter(function(c){ return all.indexOf(c)>=0; });
   if (most.length){
     h += '<div class="tx-menu-h">Most used</div>' + most.map(_item).join('');
-    h += '<div class="tx-menu-h">All categories</div>';
   }
-  h += az.map(_item).join('');
+  h += '<div class="tx-menu-h">' + (isInc ? 'Farm income' : 'Farm costs') + '</div>';
+  h += az.filter(function(c){ return notF.indexOf(c)<0; }).map(_item).join('');
+  if (notF.length) h += '<div class="tx-menu-h">' + (isInc ? 'Not farm income' : 'Not a farm cost') + '</div>' + notF.map(_item).join('');
   /* Plumbing lives in _txMenuMount now — this function only decides what goes inside. */
   _txMenuMount(anchor, h, {
-    apply: apply,
-    keep: function(){ var x=ST.txns[idx]; if(x){ _txSettle(x);
-                        try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(x); }catch(e){}
-                        try{saveState&&saveState();}catch(e){} }
+    row: t, grpAll: grpAll,
+    reopen: function(){ _txCatMenu(idx, anchor, apply); },
+    apply: function(cat){
+      /* -473: the rest of the group first, then the opened line through the page's own apply,
+         which saves, renders once and offers the filing rule. */
+      if (grpAll) _txGroupFile(grp, idx, cat);
+      TX_GRP_ONE = null;
+      apply(cat);
+      if (grpAll && _catWillSave(cat)){
+        try{ toast(_rT(grp.length + ' lines filed under ' + cat, grp.length + ' lyne onder ' + cat + ' ingeskryf'), 'success'); }catch(e){}
+      }
+    },
+    keep: function(){ (grpAll ? grp : [idx]).forEach(function(i){ var x=ST.txns[i]; if(x){ _txSettle(x);
+                        try{ if(typeof txnUpdateThrough==='function') txnUpdateThrough(x); }catch(e){} } });
+                      TX_GRP_ONE = null;
+                      try{saveState&&saveState();}catch(e){}
                       try{ txRender(); }catch(e){} try{ filterExpTx(); }catch(e){} try{ filterIncomeTx(); }catch(e){} }
   });
 }
@@ -18003,7 +18301,7 @@ function catRuleCoverage(term, type){
   for(var i=0;i<tx.length;i++){
     var t=tx[i]; if(!t||!t.desc) continue;
     if(type && type!=='any' && t.type!==type) continue;
-    if(_catRowDesc(t).indexOf(m)<0) continue;
+    if(!_catRuleHit(_catRowDesc(t), m)) continue;
     rows++; if(t.cat) cats[t.cat]=(cats[t.cat]||0)+1;
   }
   return {rows:rows, cats:Object.keys(cats)};
@@ -18014,6 +18312,10 @@ function catRuleCoverage(term, type){
    English both land), who it was bought from (whatever words are left), and the exact
    phrase. A candidate that covers nothing is not offered. */
 var _catWordRe={};
+/* -471: a farmer's rule matches WHOLE words. A rule for "shell" filed SHELLEY BEACH SPAR, and
+   "vkb" would catch VKBKUNSMIS as readily as VKB. Both sides are _catRuleNorm'd: lower case,
+   single spaces, so a padded search is exact and fast. */
+function _catRuleHit(hay, m){ return !!m && (' '+hay+' ').indexOf(' '+m+' ')>=0; }
 function _catWordIn(hay, word){
   var re=_catWordRe[word];
   if(!re){ re=new RegExp('(^|[^a-z0-9])'+word.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')); _catWordRe[word]=re; }
@@ -18100,7 +18402,7 @@ function catRuleMatches(match, cat, type){
   for(var i=0;i<tx.length;i++){
     var t=tx[i]; if(!t||!t.desc) continue;
     if(type && type!=='any' && t.type!==type) continue;
-    if(_catRowDesc(t).indexOf(m)<0) continue;
+    if(!_catRuleHit(_catRowDesc(t), m)) continue;
     if(t.cat===cat) continue;
     out.push(i);
   }
@@ -18124,7 +18426,7 @@ function catRuleBreadth(match, type, cat){
   for(var i=0;i<tx.length;i++){
     var t=tx[i]; if(!t||!t.desc) continue;
     if(type && type!=='any' && t.type!==type) continue;
-    if(_catRowDesc(t).indexOf(m)<0) continue;
+    if(!_catRuleHit(_catRowDesc(t), m)) continue;
     n++; if(t.cat) cats[t.cat]=(cats[t.cat]||0)+1;
     if(cat && t.cat && t.cat!==cat){
       over[t.cat]=(over[t.cat]||0)+1;
@@ -18198,7 +18500,7 @@ function catRuleTwoWay(match, madeType){
   var tx=(typeof ST!=='undefined'&&ST.txns)||[];
   for(var i=0;i<tx.length;i++){
     var t=tx[i]; if(!t||!t.desc||t.type!==other) continue;
-    if(_catRowDesc(t).indexOf(m)<0) continue;
+    if(!_catRuleHit(_catRowDesc(t), m)) continue;
     rows++; tot+=Math.abs(Number(t.amt)||0);
     if(t.cat) cats[t.cat]=(cats[t.cat]||0)+1;
   }
@@ -18278,7 +18580,7 @@ function catRuleFor(desc, type){
     var r=list[i];
     if(r.orphan) continue;                       // category is gone: shown in the list, never fired
     if(r.type && r.type!=='any' && type && r.type!==type) continue;
-    if(d.indexOf(r.match)>=0) return r.cat;
+    if(_catRuleHit(d, r.match)) return r.cat;
   }
   return null;
 }
@@ -20109,7 +20411,7 @@ var FARM_CATS = [
      resale. The First Schedule governs the STOCK ADJUSTMENT (para 3(1) closing stock at
      standard value), not the purchase. Not yet modelled: para 8 ring-fencing, which defers
      the deduction where purchases + opening stock exceed farming income + closing stock. */
-  {n:'Livestock Purchases'        , t:'exp'  , vat:'std'  , ec:'#B45309'  , ic:''         , tag:'to'   , tc:'#FFF3E8:#B45309'    , ss:'S11(a)' , sd:'Livestock purchased'},
+  {n:'Livestock Purchases'        , t:'exp'  , vat:'std'  , ec:'#B45309'  , ic:''         , tag:'to'   , tc:'#FFF3E8:#B45309'    , ss:'S11(a)' , sd:'Livestock purchased', bor:12.5},
   {n:'Irrigation & Water'         , t:'exp'  , vat:'std'  , ec:'#0891B2'  , ic:''         , tag:'tb'   , tc:'#E0F2FE:#0369A1'    , ss:'S11(a)' , sd:'Irrigation and water levies', s1:1, ord:8, cor:14, bor:15},
   {n:'Insurance'                  , t:'exp'  , vat:'std'  , ec:'#9333EA'  , ic:''         , tag:'tp'   , tc:'#F1F5F9:#374151'    , ss:'S11(a)' , sd:'Short-term insurance', s1:1, ord:10, cor:16, bor:16},
   {n:'Co-op levies'               , t:'exp'  , vat:'none' , ec:''         , ic:''         , tag:''     , tc:''                   , ss:'S11(a)' , sd:'Co-op marketing levies', sys:1},
@@ -20166,7 +20468,22 @@ var FARM_CATS = [
   {n:'Drawings'                   , t:'exp'  , vat:'none' , ec:'#94A3B8'  , ic:''         , tag:'tgr'  , tc:'#F1F5F9:#475569'    , ss:''       , sd:'', bor:19.8, ded:0, nonop:1},
   {n:'VAT paid to SARS'           , t:'exp'  , vat:'none' , ec:'#F59E0B'  , ic:''         , tag:'to'   , tc:'#FEF3C7:#92400E'    , ss:''       , sd:'', bor:19.9, ded:0, nonop:1},
   {n:'VAT refund from SARS'       , t:'inc'  , vat:'none' , ec:''         , ic:'#F59E0B'  , tag:'to'   , tc:''                   , ss:''       , sd:'', bor:6.5, notax:1, nonop:1},
-  {n:'Machinery & equipment purchases', t:'exp', vat:'std', ec:'#C2410C'  , ic:''         , tag:'to'   , tc:'#F5F3FF:#5B21B6'    , ss:''       , sd:'', bor:14.5, capx:1}
+  {n:'Machinery & equipment purchases', t:'exp', vat:'std', ec:'#C2410C'  , ic:''         , tag:'to'   , tc:'#F5F3FF:#5B21B6'    , ss:''       , sd:'', bor:14.5, capx:1},
+  /* ── -471 step 2 (27 Sep 2026): the money that had no right answer ─────────────────────
+     Tested against how SA farm money moves, some lines could not be filed correctly at all:
+       Transfer to own account — to savings, a call account, the credit card. Money leaves this
+         account and stays the farmer's: not a cost, never deductible, no VAT (ded:0, nonop:1).
+       Loans and own money in — a Land Bank or co-op production loan paid out, money back from
+         the farmer's own accounts, money put in. Not income, not taxable (notax:1, nonop:1).
+       Interest & finance charges — overdraft and account interest. A running cost and
+         deductible, but VAT-exempt (s12(a) financial services), so no input VAT is claimed.
+         Before this, "Loan Repayments" kept only the interest share of a loan in the register
+         (none at all without one), and "Other Expenses" claimed 15/115 on it.
+       Income tax refund — SARS paying back income tax. Not income (notax:1, nonop:1). */
+  {n:'Transfer to own account'    , t:'exp'  , vat:'none' , ec:'#94A3B8'  , ic:''         , tag:'tgr'  , tc:'#F1F5F9:#475569'    , ss:''       , sd:'', bor:19.85, ded:0, nonop:1},
+  {n:'Loans and own money in'     , t:'inc'  , vat:'none' , ec:''         , ic:'#64748B'  , tag:'tgr'  , tc:''                   , ss:''       , sd:'', bor:6.6, notax:1, nonop:1},
+  {n:'Interest & finance charges' , t:'exp'  , vat:'exmt' , ec:'#0F766E'  , ic:''         , tag:'tgr'  , tc:'#F1F5F9:#334155'    , ss:'S11(a)' , sd:'Interest and finance charges', s1:1, ord:12.6, cor:20.5, bor:17.5},
+  {n:'Income tax refund'          , t:'inc'  , vat:'none' , ec:''         , ic:'#DC2626'  , tag:'tr'   , tc:''                   , ss:''       , sd:'', bor:6.7, notax:1, nonop:1}
 ];
 
 /* Derivations. Membership is driven strictly by whether a field is set, so each generated
@@ -51863,6 +52180,42 @@ LANG_PAIRS.push(
   ["Fuel & Oil",                 "Brandstof & Olie"],
   ["Fertiliser",                 "Kunsmis"],
   ["Subsidies",                  "Subsidies"],
+  /* -471: the new categories, and the four from -449 that never had Afrikaans. */
+  ["Transfer to own account",    "Oordrag na eie rekening"],
+  ["What was this?",             "Wat was dit?"],
+  ["Your answer files all of them.", "Jou antwoord liasseer hulle almal."],
+  ["Answer for this line only",  "Antwoord net vir hierdie lyn"],
+  ["Moved to my own account",    "Na my eie rekening oorgeplaas"],
+  ["Savings, call account, or paying off my credit card", "Spaar- of oproeprekening, of my kredietkaart afbetaal"],
+  ["Something for me, not the farm", "Iets vir my, nie die plaas nie"],
+  ["Groceries, school fees, medical aid", "Kruideniersware, skoolfonds, mediese fonds"],
+  ["A loan, or my own money",    "’n Lening, of my eie geld"],
+  ["A loan paid out to me, or money from my own account", "’n Lening aan my uitbetaal, of geld uit my eie rekening"],
+  ["Tax paid back by SARS",      "Belasting deur SARS terugbetaal"],
+  ["A refund from SARS",         "’n Terugbetaling van SARS"],
+  ["A farm cost? Pick which below.", "’n Plaasuitgawe? Kies hieronder watter."],
+  ["Farm income? Pick which below.", "Plaasinkomste? Kies hieronder watter."],
+  ["Farm costs",                 "Plaasuitgawes"],
+  ["Farm income",                "Plaasinkomste"],
+  ["Not a farm cost",            "Nie ’n plaasuitgawe nie"],
+  ["Not farm income",            "Nie plaasinkomste nie"],
+  ["savings, call account, paying off your credit card", "spaar- of oproeprekening, jou kredietkaart afbetaal"],
+  ["money you took for yourself", "geld wat jy vir jouself geneem het"],
+  ["Land Bank, a bank or asset-finance instalment", "Landbank, ’n bank of batefinansiering-paaiement"],
+  ["your VAT201 payment",        "jou BTW201-betaling"],
+  ["provisional or income tax to SARS", "voorlopige of inkomstebelasting aan SARS"],
+  ["penalties and interest SARS charged", "boetes en rente wat SARS gehef het"],
+  ["a loan paid out to you, or money from your own account", "’n lening aan jou uitbetaal, of geld uit jou eie rekening"],
+  ["SARS paying back VAT",       "SARS wat BTW terugbetaal"],
+  ["SARS paying back income tax", "SARS wat inkomstebelasting terugbetaal"],
+  ["overdraft and account interest", "oortrekking- en rekeningrente"],
+  ["Loans and own money in",     "Lenings en eie geld in"],
+  ["Interest & finance charges", "Rente & finansieringskoste"],
+  ["Income tax refund",          "Inkomstebelasting-terugbetaling"],
+  ["Drawings",                   "Onttrekkings"],
+  ["VAT paid to SARS",           "BTW aan SARS betaal"],
+  ["VAT refund from SARS",       "BTW-terugbetaling van SARS"],
+  ["Machinery & equipment purchases", "Aankope van masjinerie & toerusting"],
   /* — settings, reports, controls — */
   ["Bankability Report", "Bankwaardigheidsverslag"],
   ["🖨 Print statement", "🖨 Druk staat"],
@@ -54805,7 +55158,7 @@ function b5Profit(fy, opt){
   var yms=b5FyYms(fy), set={}, i; for(i=0;i<12;i++) set[yms[i]]=1;
   var r={fy:fy, income:0, running:0, interest:0, depr:0, gain:0, profit:0,
          loanCapital:0, capitalLinked:0, capitalUnreg:0, nonopIn:0, nonopOut:0, tax:0, paydown:0,
-         vatIn:0, vatOut:0, cashIn:0, cashOut:0, unlinkedLoan:0, byCat:{}, byCatLbl:{}, byIncLbl:{}};
+         vatIn:0, vatOut:0, cashIn:0, cashOut:0, unlinkedLoan:0, byCat:{}, byCatLbl:{}, byIncLbl:{}, byNonop:{}};
   ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){
     if(!t) return; var d=parseDate(t.date||''); if(!d) return; var ym=b5Ym(d);
     if(!set[ym] || (opt.toYm && ym>opt.toYm)) return;
@@ -54815,13 +55168,13 @@ function b5Profit(fy, opt){
     var hk=opt.onTxn ? function(inc, cost){ opt.onTxn(d.y+'-'+String(d.m+1).padStart(2,'0')+'-'+String(d.d||1).padStart(2,'0'), inc, cost); } : null;
     if(t.type==='income'){
       r.cashIn+=g;
-      if(role==='nonop'){ r.nonopIn+=g; return; }
+      if(role==='nonop'){ r.nonopIn+=g; r.byNonop[t.cat]=(r.byNonop[t.cat]||0)+g; return; }
       r.income+=a; r.vatIn+=v; var il=_catOf(t); r.byIncLbl[il]=(r.byIncLbl[il]||0)+a; if(hk) hk(a, 0); return;
     }
     r.cashOut+=g;
     if(t.type!=='expense'){ r.paydown+=g; return; }      // account payments: cash, never a cost
     r.vatOut+=v;
-    if(role==='nonop'){ r.nonopOut+=a; return; }
+    if(role==='nonop'){ r.nonopOut+=a; r.byNonop[t.cat]=(r.byNonop[t.cat]||0)+a; return; }
     if(role==='tax'){ r.tax+=a; return; }
     if(role==='loan'){
       var it=0; try{ it=Math.min(a, _rptLoanInterest(t)||0); if(!_rptLoanInterest.resolved) r.unlinkedLoan+=a; }catch(e){}
@@ -54862,7 +55215,7 @@ function b5ProfitPeriod(info){
     if(!out){ out=p; continue; }
     Object.keys(p).forEach(function(k){
       if(typeof p[k]==='number' && k!=='fy') out[k]=(out[k]||0)+p[k];
-      else if(k==='byCat'||k==='byCatLbl'||k==='byIncLbl'){ Object.keys(p[k]).forEach(function(c){ out[k][c]=(out[k][c]||0)+p[k][c]; }); }
+      else if(k==='byCat'||k==='byCatLbl'||k==='byIncLbl'||k==='byNonop'){ Object.keys(p[k]).forEach(function(c){ out[k][c]=(out[k][c]||0)+p[k][c]; }); }
     });
   }
   return out;
@@ -54996,8 +55349,13 @@ function b5BridgeCash(fy, toYm){
     ['VAT paid on purchases', -p.vatOut],
     ['Loan capital repaid', -p.loanCapital],
     ['Assets bought', -p.capitalLinked],
-    ['Drawings and VAT paid to SARS', -p.nonopOut],
-    ['VAT refunds from SARS', p.nonopIn],
+    /* -471: own-account transfers, loans in and tax refunds are their own lines. Every rand still
+       lands in exactly one line: the first and third are what is left of the old two. */
+    ['Drawings and VAT paid to SARS', -(p.nonopOut-(p.byNonop['Transfer to own account']||0))],
+    ['Moved to your own accounts', -(p.byNonop['Transfer to own account']||0)],
+    ['VAT refunds from SARS', p.nonopIn-(p.byNonop['Loans and own money in']||0)-(p.byNonop['Income tax refund']||0)],
+    ['Loans and your own money in', (p.byNonop['Loans and own money in']||0)],
+    ['Income tax refunds', (p.byNonop['Income tax refund']||0)],
     ['Income tax paid', -p.tax],
     ['Account payments (overdraft, co-op)', -p.paydown]
   ];
@@ -55176,6 +55534,9 @@ function b5RenderCashBridge(){
     'Assets bought':'− Machinery and assets bought — written off over their life',
     'Drawings and VAT paid to SARS':'− Drawings and VAT paid to SARS',
     'VAT refunds from SARS':'+ VAT refunds from SARS',
+    'Moved to your own accounts':'− Moved to your own accounts (savings, the credit card) — still your money, not a cost',
+    'Loans and your own money in':'+ Loans and your own money in — not income',
+    'Income tax refunds':'+ Income tax paid back by SARS',
     'Income tax paid':'− Income tax paid',
     'Account payments (overdraft, co-op)':'− Account payments (overdraft, co-op)'
   };
@@ -67163,71 +67524,149 @@ var BANK_NAMES = {
 };
 
 // Category inference from description keywords
+/* -471 steps 1 and 2 (signed off 27 Sep 2026, "Making the bank-line rules safe", page 85Lu9aqo…, d1-d7): the
+   rules re-tested against how a South African farm's money moves. The old rules put the wrong
+   KIND of money into profit, tax or VAT on about 1 line in 4 of a 302-line test set: transfers
+   between the farmer's own accounts and card repayments filed as costs, loans and SARS refunds
+   as income ("rent" inside "cur-RENT"), reversals as new income, co-op account settlements as a
+   cost, overdraft interest as a loan repayment, VAAL DAM as dam building. Where the text cannot
+   say which it is - a co-op payment with no product word, cash, a transfer, a reversal, personal
+   spending - it now returns '' so the line is ASKED about, never guessed. Tags [Pn] match the
+   audit (scratchpad txnames/audit/REPORT). Checked on the owner's farm (1 557 imported lines):
+   168 change, none for the worse. The farmer's own rules still run first.
+   -473 sweep (27 Sep): 310 more lines in each bank's own wording (Nedbank, Standard Bank, Absa,
+   Investec, FNB, Capitec - public statement text, references scrubbed) found cash-back at a till
+   filed as fuel, a transfer to the farmer's own card and "Internet Pmt To Senwes" filed as admin
+   fees, Pick n Pay filed as water, and two interest wordings missed. Tagged [S1]-[S6]. */
+var _INFER_COOP = /\b(senwes|vkb|ovk|gwk|twk|nwk|suidwes|kaap ?agri|afgri|bkb|overberg ?agri|mgk|obaro|ntk|vetsak|agri ?noord|oos[- ]?vrystaat|sentraal ?suid|landbou|ko-op|koöp\w*|kooperasie|co-?op)\b/;
 function inferCategory(desc, isIncome){
-  /* A filing rule outranks the built-in matcher — that is the whole point of it. */
   try{ var _r=catRuleFor(desc, isIncome?'income':'expense'); if(_r) return _r; }catch(e){}
   var d = String(desc || '').toLowerCase();
+  var isFee = /\bfees?\b|fooi|\bcharges?\b|koste\b/.test(d);
+  /* [P1] Reversals, returned/unpaid debit orders and refunds: the money is the SAME money
+     coming back, not new income or a new cost. Never guess; the fee for it is still a fee. */
+  var isRevIn = /revers|\bunpaid\b|onbetaal|dishono|\breturn(ed)?\b|terugbetaal|terugskrywing|\brefund|\brd\b.*unpaid/.test(d);
+  var isRev = isRevIn && !isFee;   // money out: a 'RETURNED DEBIT FEE' is still a fee
+  /* [P2] Money between the farmer's own accounts, card repayments, investments. */
+  /* round 2: 'own'/'eie' is enough on its own; 'trust' only makes it a QUESTION (a family
+     trust is often a customer); any 'credit card' that is not a fee is a card repayment. */
+  var isXfer = /\b(transfer|trf|tfr|transf|oorplasing|oordrag)\b/.test(d) &&
+               /\b(savings?|spaar\w*|call|money ?market|cash ?plus|just ?invest|cheque|tjek|current|investment|notice|fixed|flexi|tax ?pot|personal|persoonlik|plan|main|business|besigheid)\b/.test(d)
+            || /\bown\b|\beie rek|inter ?-?account|interrekening|\bsweep\b|kredietkaart|\bcard payment\b/.test(d)
+            || (/credit ?card/.test(d) && !/\bfees?\b|charge|koste/.test(d))
+            || /fnb app transfer (to|from)|internet trf (to|from)/.test(d);
+  /* -471 step 2: only the plainest own-account words FILE a line as a transfer. "Current",
+     "cheque", "business", "personal", "main" also name other people's accounts, so a transfer
+     that only says those is still asked - a wrong transfer would take a real cost out of profit. */
+  /* [S1] Investec "Transfer to Card", Absa "Moneybuilder", FNB "Live Better" savings, Absa "Sweeping". */
+  if(/\btransfer to (credit )?card\b|\bsweeping\b|moneybuilder|live better/.test(d)) isXfer = true;
+  var isXferSure = isXfer && (/\b(savings?|spaar\w*|money ?market|call ?(account|acc|rek)|cash ?plus|just ?invest|tax ?pot|investment|notice|fixed deposit|flexi)\b/.test(d)
+            || /\bown\b|\beie rek|inter ?-?account|interrekening|\bsweep(ing)?\b|kredietkaart|\bcard payment\b|\btransfer to (credit )?card\b|moneybuilder|live better/.test(d)
+            || (/credit ?card/.test(d) && !/\bfees?\b|charge|koste/.test(d)));
+  var isXferMaybe = /\b(trf|tfr|transfer|oorplasing)\b/.test(d) && /\b(trust|familie|family)\b/.test(d);
   if(isIncome){
-    /* QC_RULES carried the Afrikaans and several English crop words that this matcher
-       never had, so an Afrikaans statement imported almost entirely as Other Income while
-       quick capture filed the same words correctly. Word boundaries on the short ones:
-       bare "oes" matches shoes, goes and does. */
-    if(/safex|silo|maize|wheat|sorghum|sunflower|soya|soybean|grain|crop|corn|mielies|koring|soja|sonneblom|canola|graan|cotton|katoen|gewas|\boes\b|\bsoy\b|harvest/.test(d)) return 'Crop Sales';
-    if(/citrus|lemon|suurlemoen|orange|lemoen|naartjie|valencia|navel|grape|druiwe|apple|appel|\bpear\b|berr|bessie|punnet|avocado|mango|butternut|pumpkin|pampoen|vegetable|groente|tomato|tamatie|onion|potato|aartappel|packhouse|pakhuis|fresh produce/.test(d)) return 'Fruit Sales';
-  if(/milk|melk|clover|dairy|suiwel|cream|cheese|kaas/.test(d)) return 'Milk & Dairy';
-  if(/wool|wol|shear|skeer|mohair|sybok|bkb|fibre|vesel/.test(d)) return 'Wool & Fibre';
-  if(/livestock|vee|cattle|bees|sheep|skaap|goat|bok|pig|vark|poultry|beef|lamb|\blam\b|calf|calves|weaner|speculator|feedlot|bonsmara|brahman|auction|abattoir/.test(d)) return 'Livestock Sales';
-    /* 'subsid' first: it now has its own home, and it was the odd one out in this list —
-       the rest are grants, which are a different thing to a subsidy on your books. */
+    /* [P3] SARS paying money in: a VAT refund is not income; an income-tax refund is not
+       income; anything else from SARS is asked. VAT refs start with 4 (unverified PRN format). */
+    if(/\bsars\b|efiling/.test(d)){
+      if(/\bvat\b|\bbtw\b|\b4\d{9}\b/.test(d) && !/diesel/.test(d)) return 'VAT refund from SARS';
+      if(/income tax|inkomstebelasting|\bitr12\b|\bit34\b|provisional|\birp6\b/.test(d)) return 'Income tax refund';
+      return '';
+    }
+    if(isRevIn) return '';
+    if(isXferSure) return 'Loans and own money in';
+    if(isXfer) return '';
+    if(isXferMaybe) return '';
+    if(/\bgrant\b|toekenning/.test(d)) return 'Government Grant';
+    if(/munic|munisip/.test(d)) return '';
+    /* [P4] Loans paid out to the farmer, and SAFEX margin coming back, are not income. */
+    /* Blended finance is part loan, part grant; a SAFEX margin refund needs the broker's statement: asked. */
+    if(/blended finance|\bmargin\b/.test(d)) return '';
+    if(/\bloan\b|lening|drawdown|disburse|produksiekrediet|production credit|(advance|voorskot).*(loan|lening|krediet|credit)/.test(d)) return 'Loans and own money in';   // a grain 'voorskot' is a sale payment, so it is not here
+    /* [P5] Cash deposited: sales in cash, or the owner putting money in. Ask. */
+    if(/cash deposit|kontant ?deposito|atm deposit|counter deposit/.test(d)) return '';
+    /* [P6] Insurance claims are income, but not a crop sale even when the crop is named. */
+    if(/\bclaim\b|\beis\b|versekering|insurance|santam|hollard|mutual/.test(d)) return 'Other Income';
+    /* [P7] word boundaries on the income side: CORNER, CURRENT, PARENT, LAMBERT, PIGGLY,
+       BOKAMOSO, WOLMARANSSTAD, HONEY BEES; product words added (cane, sugar, auction...). */
+    if(/safex|silo|maize|mealie|wheat|sorghum|sunflower|soya|soybean|grain|\bcrop|\bcorn\b|mielies|koring|soja|sonneblom|canola|graan|cotton|katoen|gewas|\boes\b|\bsoy\b|harvest|sugar|suiker|\bcane\b|suikerriet|timber|\bhout\b/.test(d)) return 'Crop Sales';
+    if(!/apple distribution|apple\.com|itunes|mango airlines/.test(d) && /citrus|lemon|suurlemoen|orange|lemoen|naartjie|valencia|navel|grape|druiwe|\bapples?\b|appel|\bpears?\b|berr|bessie|punnet|avocado|mango|butternut|pumpkin|pampoen|vegetable|groente|tomato|tamatie|onion|potato|aartappel|packhouse|pakhuis|fresh produce|export pool|capespan/.test(d)) return 'Fruit Sales';
+    if(/milk|melk|clover|dairy|dairies|suiwel|cheese|kaas|lactalis|parmalat/.test(d)) return 'Milk & Dairy';
+    if(/wool|\bwol\b|shear|skeer|mohair|sybok|fibre|vesel|\bcmw\b|cape wools/.test(d)) return 'Wool & Fibre';
+    if(!/honey|heuning|pollinat|\bbye\b/.test(d) && /livestock|\bvee\b|\bvee[a-z]|cattle|\bbees\b|beeste|sheep|skaap|goat|\bbokke?\b|\bpigs?\b|\bvark|poultry|beef|\blambs?\b|\blam\b|calf|calves|weaner|broiler|chicken|hoender|speculator|feedlot|bonsmara|brahman|auction|veiling|abattoir|vleissentraal|\bosse\b|koeie|kalwers|wildsveiling|\bbkb\b/.test(d)) return 'Livestock Sales';
     if(/subsid/.test(d)) return 'Subsidies';
-    if(/daff|government|grant|agriseta|coupon|voucher/.test(d)) return 'Government Grant';
-    if(/rental|rent |lease|huur|grazing lease|weidinghuur|servitude|erfdiens/.test(d)) return 'Rental Income';
-    if(/refund|rebate/.test(d)) return 'Other Income';
+    if(/daff|dalrrd|dept agric|department of agric|drought relief|droogtehulp|government|govt|grant|agriseta|coupon|voucher/.test(d)) return 'Government Grant';
+    if(/rental|\brent\b|\blease\b|huur|grazing lease|weidinghuur|servitude|erfdiens/.test(d)) return 'Rental Income';
+    /* [P8] a co-op payout with no product named: grain, wool, a dividend or a credit advance. */
+    if(_INFER_COOP.test(d) && !/dividend|bonus|interest|rente/.test(d)) return '';
     return 'Other Income';
   }
-  if(/diesel|fuel|petrol|engen|sasol|\btotal\b|bp |\bshell\b|brandstof|engine oil|motor oil|olie(?![a-z])|hydraulic oil|hydraulic|hydraulies|hidroulies/.test(d)) return 'Fuel & Oil';
-  if(/fertili|urea|lan |kcl|npk|map |dap |compost|kunsmis|\blime\b|\bkalk\b|superphosphate|superfosfaat/.test(d)) return 'Fertiliser';
-  if(/seed|seedling|hybrid|saad|saailing|kiemplant|inoculant/.test(d)) return 'Seeds & Planting';
-  if(/spray|herbicide|pesticide|round\s*up|crop protect|insecticide|fungicide|atrazine|spuit|chemical|chemikal|\bweed\b|wied|onkruid/.test(d)) return 'Crop Protection';
+  /* ── money out ── */
+  if(isRev) return '';
+  if(isXferSure) return 'Transfer to own account';
+  if(isXfer) return '';
+  if(isXferMaybe) return '';
+  if(/\bmargin\b.*safex|safex.*\bmargin\b/.test(d)) return '';
+  /* [P9] cash out of the account: casual wages or the owner's pocket. Ask. ('autobank' was an
+     Admin keyword, so every Standard Bank ATM withdrawal became an admin fee with 15% VAT.) */
+  /* [S2] cash at a till ("DEBIT CARD CASH FROM C*SASOL", Absa "POS PURC & CASH", "& CASHBACK") is
+     cash, not fuel; Standard Bank's "INSTANTMON" and Nedbank's "SASW CASH" (Saswitch ATM) too. */
+  if(!isFee && /cash withdrawal|\batm\b|autobank|kontant|\botm\b|send-?imali|e-?wallet|cash ?send|instant ?mon(ey)?(?!.*(casual|labour|wage|loon))|\bcardless\b|card cash from|\bcash from\b|purc & cash|cash ?back|\bsasw cash\b/.test(d)) return '';
+  /* [P10] personal spending that looks like a farm cost. Ask - the farmer's rule can file it. */
+  if(/netflix|\bdstv\b|multichoice|showmax|spotify|school fees|skoolfonds|medical aid|mediese fonds|discovery health|bonitas|momentum health|life cover|lewensdekking|funeral|begrafnis|retirement annuity|\bra\b|liberty life|restaurant|takeaway|coffee|life policy|lewenspolis|sanlam life|\bspur\b|steak ranch|wimpy|\bkfc\b|mcdonald|\bcaf[eé]\b/.test(d)) return '';
+  if(/\brations?\b|rantsoen/.test(d)) return 'Labour & Wages';
+  if(/woolworths|checkers|pick ?n ?pay|\bpnp\b|\bspar\b|superspar|kwikspar|shoprite|\bboxer\b|usave|food lover|butcher|slaghuis/.test(d)) return '';
+  /* [P11] interest charged is interest, not a loan repayment (whose interest share can be R0)
+     and not a SARS fine. */
+  /* [S4] Standard Bank "EXCESS INTEREST"; Nedbank prints a bare "INTEREST 27/07 - 27/08" (money out = charged). */
+  if(/debit interest|excess interest|interest (charged|on overdraft|on debit|debit|on late|on account)|overdraft interest|interest: ?overdraft|\brente\b(?!las)|^#?interest\b(?! ?(received|earned|capitali))/.test(d) && !/\bsars\b/.test(d)) return 'Interest & finance charges';
+  /* [P12] finance before dealer names: NEW HOLLAND FINANCE, WESBANK LEASE. 'instal' also
+     matched INSTALLATION, so it is spelled out. */
+  if(/financ|hire\s*purchase|huurkoop|instal+ments?\b|paaiement|wesbank|\bmfc\b|\bmfc\d|\bnedabf\b|\bvaf\b|land\s*bank|landbank|\bloan\b|lening/.test(d) && !/\bfees?\b|charge|fooi/.test(d)) return 'Loan Repayments';
+  /* [P14] fuel brands and garages - TOTAL as a word only when no hardware/fee word is present. */
+  if(/diesel|fuel|petrol|engen|sasol|totalenergies|total ?energies|caltex|astron|puma energy|\bbp\b|\bshell\b|brandstof|service station|vulstasie|filling station|forecourt|engine oil|motor oil|olie(?![a-z])|hydraulic oil|hydraulic|hydraulies|hidroulies/.test(d)
+     || (/\btotal\b/.test(d) && !/hardware|tools|fees?|charges|debits|credits|sport/.test(d))) return 'Fuel & Oil';
+  /* [P15] LAN, MAP, DAP and KCL removed - on a bank line they are shop names more often than grades. */
+  if(/fertili|\burea\b|kunsmis|compost|\blime\b|\bkalk\b|superphosphate|superfosfaat|omnia|\byara\b|kynoch|foskor|sidi parani/.test(d)) return 'Fertiliser';
+  if(/seed|seedling|hybrid|saad|saailing|kiemplant|inoculant|pannar|pioneer|corteva|dekalb|sensako|agricol/.test(d)) return 'Seeds & Planting';
+  if(/spray|herbicide|pesticide|round\s*up|crop protect|insecticide|fungicide|atrazine|spuit|chemical|chemikal|\bweed\b|wied|onkruid|adama|syngenta|\bbasf\b|nufarm|\bbayer\b|crop ?science/.test(d)) return 'Crop Protection';
   if(/dipping tank|dipvat|plunge dip/.test(d)) return 'Dipping tanks';
-  if(/borehole|boorgat|damwal|windmill|windpomp|pump plant|irrigation scheme|\bdam\b/.test(d)) return 'Dams, boreholes & irrigation';
+  /* [P16] 'dam' alone is a place (VAAL DAM, HARTIES DAM); 'road'/'pad' alone is an address
+     or a ROAD LODGE. Capital heads need a building word. */
+  if(/borehole|boorgat|damwal|dam (build|construct|scoop|wall)|damskraap|windmill|windpomp|pump plant|irrigation scheme/.test(d)) return 'Dams, boreholes & irrigation';
   if(/power line|kraglyn|transformer|eskom connection/.test(d)) return 'Power line connection';
   if(/fence|fencing|heining|draad|dropper|wire strain/.test(d)) return 'Fencing';
-  if(/\broad\b|\bpad\b|bridge|brug|causeway|gravel road|grader/.test(d)) return 'Roads & bridges';
+  if(/road (build|construct|works)|padbou|bridge|\bbrug\b|causeway|gravel road|grader/.test(d)) return 'Roads & bridges';
   if(/\bshed\b|loods|\bbarn\b|skuur|silo build|farm building|plaasgebou/.test(d)) return 'Farm buildings';
   if(/erosion|erosie|contour|kontoer|gabion/.test(d)) return 'Soil erosion works';
   if(/invasive|indringer|wattle|port jackson|bugweed|alien clearing/.test(d)) return 'Clearing invasive plants';
-  if(/\bvet\b|veterinar|vaccin|\bdip\b|dipping|dipvat|\bdose[ds]?\b|dosering|doseer|drench|deworm|medicat|antibiot|dier(?![a-z])|diere|animal health|dieregesondheid|doop|vaksine|medicine|medisyne/.test(d)) return 'Veterinary & Animal Health';
-  if(/feed|voer(?!tuig)|lick|lek(?![a-z])|\bhay\b|hooi(?![a-z])|silage|kuilvoer|grazing|weiding|pellet|\bmeal\b|concentrate|konsentraat/.test(d)) return 'Animal Feed';
-  if(/wage|loon(?![a-z])|salary|salaris|payroll|casual|labour|labor|arbeid|worker|werker|\bstaff\b|personeel|picking|pluk(?![a-z])|\bcrew\b|\bspan\b|harvest team|seasonal work/.test(d)) return 'Labour & Wages';
-  /* 'service' and 'diens' are the bank's words as often as the workshop's: SERVICE FEE,
-     OVERDRAFT SERVICE FEE and eNote Service Fee were all filed as Machinery & Repairs on
-     the live farm (found 20 Sep 2026). They only count as a repair when nothing in the
-     line says bank. 'part' is inside PARTY, which is why it is a whole word now. */
-  if(/john\s*deere|case\s*ih|new\s*holland|repair|spare|\bparts?\b|workshop|mechanic|herstel|\btractor\b|trekker|machine|masjien|onderdeel|werkswinkel/.test(d)) return 'Machinery & Repairs';
+  /* [P20] livestock bought: its own category (needs a bor so the import picker shows it). */
+  if(/vleissentraal|veiling|auction|vee ?aankoop|livestock|\bbulls?\b.*(purchase|koop)|\b(osse|koeie|kalwers|verse|ooie|ramme)\b.*(koop|purchase)/.test(d)) return 'Livestock Purchases';
+  if(/\bvet\b|veterinar|veearts|afrivet|vaccin|\bdip\b|dipping|\bdose[ds]?\b|dosering|doseer|drench|deworm|medicat|antibiot|dier(?![a-z])|diere|animal health|dieregesondheid|doop|vaksine|medicine|medisyne/.test(d)) return 'Veterinary & Animal Health';
+  if(/feed|voer(?!tuig)|lick|\bliks?\b|lek(?![a-z])|\bhay\b|hooi(?![a-z])|silage|kuilvoer|grazing|weiding|pellet|\bmeal\b|concentrate|konsentraat/.test(d)) return 'Animal Feed';
+  if(/wage|loon(?![a-z])|\blone\b|\bloone\b|salary|salaris|payroll|casual|labour|labor|arbeid|worker|werker|\bstaff\b|personeel|picking|pluk(?![a-z])|\bcrew\b|\bspan\b|harvest team|seasonal work/.test(d)) return 'Labour & Wages';
+  /* [P17] buying a machine is capital, even from a dealer whose name is a repair keyword. */
+  if(/(tractor|trekker|implement|baler|planter|stroper|combine|harvester|bakkie|pivot|spilpunt|machine\w*).*(deposit|purchase|aankoop|\bkoop\b|\bnew\b|nuwe)|(deposit|purchase|aankoop) .*(tractor|trekker)|\bpivot\b|spilpunt/.test(d)) return 'Machinery & equipment purchases';
+  if(/john\s*deere|case\s*ih|new\s*holland|massey|repair|spare|\bparts?\b|workshop|mechanic|herstel|\btractor\b|trekker|machine|masjien|onderdeel|werkswinkel/.test(d)) return 'Machinery & Repairs';
   if(/\bservice\b|diens(?![a-z])/.test(d) && !/bank|\bfee\b|fooi|account|\bacc\b|overdraft|debit order|\bsms\b|enote/.test(d)) return 'Machinery & Repairs';
-  /* ── Money paid to SARS or the municipality ──────────────────────────────────────
-     Sits ABOVE irrigation and admin on purpose: 'munic' below would otherwise swallow
-     municipal rates into Irrigation & Water, and 'licence' would land vehicle licences
-     in Admin. Only the specific phrases are taken here — a plain municipal account is
-     still water and lights, and a software licence is still admin.
-     \b on paye/uif/sdl is load-bearing: bank lines say "PAYEE" constantly.
-     Where the description says only "SARS" we return NOTHING and let the amber chip
-     ask. Guessing would be picking, unprompted, whether a farmer gets to deduct it. */
-  if(/sars.*(penalt|fine|boete)|(penalt|fine).*sars|interest on late|late payment (fee|penalt|interest)|admin penalt/.test(d)) return 'SARS fines & interest';
+  /* [P18] SARS fines only when SARS is named - a co-op's late-payment interest is deductible. */
+  if(/sars.*(penalt|fine|boete|interest)|(penalt|fine|interest).*sars/.test(d)) return 'SARS fines & interest';
   if(/provisional tax|income tax|inkomstebelasting|\bitr12\b|\bit34\b|\birp6\b/.test(d)) return 'Income tax';
-  if(/\bpaye\b|\buif\b|\bsdl\b|\bemp201\b|\bemp501\b/.test(d)) return 'PAYE & UIF';
-  if(/municipal rates|property rates|rates (and|&) taxes|eiendomsbelasting|vehicle licen[cs]e|licence disc|licensing dept|motor licen/.test(d)) return 'Rates & licences';
+  if(/\bpaye\b|\buif\b|\bsdl\b|\bemp201\b|\bemp501\b|compensation (fund|commissioner)|\bcoida\b/.test(d)) return 'PAYE & UIF';
+  if(/municipal rates|property rates|rates (and|&) taxes|\bmun\b.*\brates\b|eiendomsbelasting|vehicle licen[cs]e|licence disc|licensing dept|motor licen/.test(d)) return 'Rates & licences';
   if(/vat\s*201|vat payment|btw[- ]betaling|sars.*\bvat\b|\bvat\b.*sars/.test(d)) return 'VAT paid to SARS';
+  /* [P3] SARS reference numbers: 4xxxxxxxxx is a VAT number, 7xxxxxxxxx a PAYE number
+     (standard SARS numbering; PRN layout on real statements not verified). */
+  if(/\bsars\b/.test(d) && /\b4\d{9}/.test(d)) return 'VAT paid to SARS';
+  if(/\bsars\b/.test(d) && /\b7\d{9}/.test(d)) return 'PAYE & UIF';
   if(/sars|efiling/.test(d)) return '';
-  if(/irrigation|water|pump|electricity|eskom|munic|besproei|\bpomp\b|pipe|\bpyp\b/.test(d)) return 'Irrigation & Water';
+  if(/irrigation|water|\bwua\b|pump|electricity|eskom|munic|besproei|\bpomp\b|pipe|\bpyp\b/.test(d)) return 'Irrigation & Water';
   if(/insurance|santam|hollard|old\s*mutual|outsurance|iwyze|versekering|\bpremie\b|premium/.test(d)) return 'Insurance';
-  if(/\brent\b|rental|lease|huurgeld/.test(d)) return 'Land & Rental';
-  /* An OVERDRAFT SERVICE FEE is what the bank charges for the facility, not a repayment
-     of it - it belongs with the bank charges below (20 Sep 2026). */
-  if(/loan|land\s*bank|hire\s*purchase|finance|instal|overdraft|interest on|lening|paaiement|huurkoop|rentelas/.test(d)
-     && !/service fee|diensfooi|admin fee|maintenance fee/.test(d)) return 'Loan Repayments';
-  if(/vodacom|mtn|telkom|internet|airtime|lugtyd|phone|foon|admin|accountant|rekenmeester|auditor|ouditeur|bank charge|bankkoste|bank fee|banking fee|service fee|diensfooi|maintenance fee|statement fee|\bfee\b.*(statement|balance|enquiry|declined)|cash deposit|deposit fee|autobank|prepaid mobile|mobile purchase|licence|lisensie|legal fee/.test(d)) return 'Admin & Professional Fees';
+  if(/\brent\b|rental|\blease\b|huurgeld|\bhuur\b|grondhuur/.test(d)) return 'Land & Rental';
+  if(/overdraft/.test(d) && !/\bfees?\b|charge|fooi/.test(d)) return 'Loan Repayments';
+  /* [P19] bank fee wording the three banks actually print. */
+  if(/vodacom|mtn|telkom|internet(?! ?(pmt|payment|banking|bank|trf|transfer|pymt))|airtime|lugtyd|phone|foon|admin|accountant|rekenmeester|auditor|ouditeur|bank charge|bankkoste|bank fee|banking fee|service fee|diensfooi|maintenance fee|statement fee|account fee|management fee|notific|\bfee\b|cash deposit|deposit fee|prepaid mobile|mobile purchase|licence|lisensie|legal fee/.test(d)) return 'Admin & Professional Fees';
+  /* [P8] a payment to a co-op with no product named: an account settlement or a store buy. */
+  if(_INFER_COOP.test(d)) return '';
   return 'Other Expenses';
 }
 
@@ -68108,6 +68547,7 @@ function bankMarkPhoneTwins(rows){
   });
 }
 
+function _bankNotFarm(c){ return TX_NOT_FARM.exp.indexOf(c)>=0 || TX_NOT_FARM.inc.indexOf(c)>=0; }
 function bankRenderPreview(){
   BANK.allowAnyway = false; bankHideReadNote();
   try{ bankShowColMap(); }catch(e){}
@@ -68129,7 +68569,15 @@ function bankRenderPreview(){
          as 'Crop Sales' — silently, and with nobody having chosen it. */
       '<td><select onchange="bankSetCat('+i+',this.value)"'+(r.cat?'':' style="border-color:#B45309;color:#B45309"')+'>' +
         (r.cat?'':'<option value="" selected>— choose —</option>') +
-        cats.map(function(c){ return '<option '+(c===r.cat?'selected':'')+'>'+c+'</option>'; }).join('') +
+        /* -471: a category the matcher can return but the list leaves out (Fencing, Farm
+           buildings, Livestock Purchases...) was shown as the list's first entry, "Crop Sales",
+           while the row saved the real one. The row's own category always appears. */
+        (r.cat && cats.indexOf(r.cat)<0 ? '<option selected>'+bankEscAttr(r.cat)+'</option>' : '') +
+        /* -471 (d3): the money that is not farming sits apart, with a plain explanation. */
+        cats.filter(function(c){ return !_bankNotFarm(c); }).map(function(c){ return '<option value="'+bankEscAttr(c)+'" '+(c===r.cat?'selected':'')+'>'+c+'</option>'; }).join('') +
+        '<optgroup label="Not farm income or costs">' +
+        cats.filter(_bankNotFarm).map(function(c){ return '<option value="'+bankEscAttr(c)+'" '+(c===r.cat?'selected':'')+'>'+c+(TX_CAT_HINT[c]?' \u2014 '+TX_CAT_HINT[c]:'')+'</option>'; }).join('') +
+        '</optgroup>' +
       '</select></td>' +
       '<td class="imp-ent-cell"><input type="checkbox" class="imp-entpick" '+(r._entSel?'checked':'')+' onchange="bankEntSelToggle('+i+',this.checked)"><select class="imp-entsel'+(r._entGuess?' guess':'')+'" onchange="bankSetEnt('+i+',this.value)">'+((typeof entOptions==='function')?entOptions(r.ent||''):'<option value="">Whole farm</option>')+'</select></td>' +
       '<td class="imp-amt-cell"><div class="imp-amt">' +
