@@ -17826,6 +17826,7 @@ function _txMenuMount(anchor, html, handlers){
   el.className = 'tx-menu';
   el.innerHTML = html;
   document.body.appendChild(el);
+  _txLangIn(el);                                            // -474: the pairs existed, nothing ran them here
   var r = anchor.getBoundingClientRect();
   var top = r.bottom + 4, left = Math.min(r.left, innerWidth - 290);
   if (top + Math.min(el.offsetHeight, 380) > innerHeight - 8) top = Math.max(8, r.top - Math.min(el.offsetHeight, 380) - 4);
@@ -17961,7 +17962,7 @@ function txPayeeOf(raw){
     else if (/INCOME TAX|\bIT\b|ITR12|INKOMSTEBELASTING/.test(d)) t = inc ? 'income tax refund' : 'income tax';
     return { name:('SARS ' + t).trim(), how:'sars' };
   }
-  if (/CASH WITHDRAWAL|CASH WDL|ATM WDL|ATM CASH|AUTOBANK CASH|KONTANT ONTTREKKING|\bOTM\b|CASH ADVANCE/.test(d)) return { name:'Cash withdrawal', how:'cash' };
+  if (/CASH WITHDRAWAL|CASH WDL|ATM WDL|ATM WITHDRAWAL|ATM CASH|SASW CASH|AUTOBANK CASH|KONTANT ONTTREKKING|\bOTM\b|CASH ADVANCE/.test(d)) return { name:'Cash withdrawal', how:'cash' };
   if (/CASH DEPOSIT/.test(d)) return { name:'Cash deposit', how:'cash' };
   if (/SEND-?IMALI|E-?WALLET|CASH ?SEN[DT]|INSTANT MONEY/.test(d)){
     var rest = _txpTidy(d.replace(/SEND-?IMALI|FNB APP EWALLET SEND|BANKING APP CASH SENT:?|E-?WALLET|CASH ?SEN[DT]:?|INSTANT MONEY/g, ' '))
@@ -18022,6 +18023,31 @@ function _txRowPayeeKey(t){
 /* -473: the other flagged lines from the same payee, the same way, that are also only a guess
    of "Other" - asked once, with the line the farmer opened (as the phone does since 0a73c86).
    Returns indices into ST.txns, the opened line first. */
+/* -474: Afrikaans for text the page composes (a category name inside a sentence), and a
+   translation pass over a popover or preview that is drawn after the page was translated. */
+function _txAf(en){
+  try{ if (typeof ST === 'undefined' || ST.lang !== 'af') return en;
+       for (var q = 0; q < LANG_PAIRS.length; q++) if (LANG_PAIRS[q][0] === en) return LANG_PAIRS[q][1]; }catch(e){}
+  return en;
+}
+function _txLangIn(el){
+  try{ if (el && typeof ST !== 'undefined' && ST.lang === 'af' && typeof applyLangNodes === 'function') applyLangNodes(el, 0, 1); }catch(e){}
+}
+/* A toast with an Undo button (the grouped answer, SA3-03). The plain toast() sets textContent,
+   so this one builds its own two nodes and keeps them for six seconds. */
+function _txToastUndo(msg, undo){
+  var el = document.getElementById('toast'); if (!el){ try{ toast(msg, 'success'); }catch(e){} return; }
+  el.style.background = '#1B4332';
+  el.textContent = '\u2713 ' + msg + '  ';
+  var b = document.createElement('button');
+  b.type = 'button'; b.textContent = _rT('Undo', 'Ontdoen');
+  b.style.cssText = 'margin-left:10px;background:#fff;color:#1B4332;border:0;border-radius:6px;padding:3px 10px;font-weight:800;cursor:pointer;font:inherit';
+  b.onclick = function(){ clearTimeout(el._t); el.style.opacity = '0'; el.style.display = 'none'; try{ undo(); }catch(e){ console.error(e); } };
+  el.appendChild(b);
+  el.style.display = 'block'; el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(function(){ el.style.opacity = '0'; setTimeout(function(){ el.style.display = 'none'; }, 300); }, 6000);
+}
 function _txLookGroup(idx){
   var t = ST.txns[idx]; if (!t) return [idx];
   var key = _txRowPayeeKey(t); if (!key) return [idx];
@@ -18086,7 +18112,7 @@ function _txCatMenu(idx, anchor, apply){
      it is also in Most used. */
   var most = all.filter(function(c){ return used[c] > 0; })
     .sort(function(a,b){ return (used[b]||0)-(used[a]||0); }).slice(0,6);
-  var az = all.slice().sort(function(a,b){ return a.localeCompare(b); });
+  var az = all.slice().sort(function(a,b){ return _txAf(a).localeCompare(_txAf(b)); });   // -474: A-Z as the farmer reads it
   var need = null; try{ need = _txNeedsLook(t); }catch(e){}
   var h = '';
   /* -471 (d1): nothing better than "Other" to suggest - ask in plain words instead. */
@@ -18111,12 +18137,15 @@ function _txCatMenu(idx, anchor, apply){
       h += '<div class="tx-menu-ans" onclick="TX_MENU.apply(\'' + esc(a[0]).replace(/'/g,"\\'") + '\');_txMenuClose()"><b>' + esc(a[1]) + '</b><span>' + esc(a[2]) + '</span></div>';
     });
     h += '<div class="tx-menu-pick">' + (isInc ? 'Farm income? Pick which below.' : 'A farm cost? Pick which below.') + '</div>';
-    h += '<div class="tx-menu-keep" onclick="TX_MENU.keep();_txMenuClose()">✓ Keep as ' + esc(t.cat||'None') + ' \u2014 stop flagging</div>';
+    if (t.cat) h += '<div class="tx-menu-keep" data-notranslate onclick="TX_MENU.keep();_txMenuClose()">' +
+                    esc(_rT('\u2713 Keep as ' + t.cat + ' \u2014 stop flagging', '\u2713 Hou as ' + _txAf(t.cat) + ' \u2014 hou op merk')) + '</div>';
   }
   else if (need){
     h += '<div class="tx-menu-sug" onclick="TX_MENU.apply(\'' + esc(need).replace(/'/g,"\\'") + '\');_txMenuClose()">'+
          '<span>Suggested</span> ' + esc(need) + '</div>';
-    h += '<div class="tx-menu-keep" onclick="TX_MENU.keep();_txMenuClose()">✓ Keep as ' + esc(t.cat||'None') + ' \u2014 stop flagging</div>';
+    /* -474 (m2): a line with no category is not "kept as None" - that silenced it while tax deducted it. */
+    if (t.cat) h += '<div class="tx-menu-keep" data-notranslate onclick="TX_MENU.keep();_txMenuClose()">' +
+                    esc(_rT('\u2713 Keep as ' + t.cat + ' \u2014 stop flagging', '\u2713 Hou as ' + _txAf(t.cat) + ' \u2014 hou op merk')) + '</div>';
   }
   function _item(c){
     var hint = TX_CAT_HINT[c] ? '<span class="tx-menu-hint">' + esc(TX_CAT_HINT[c]) + '</span>' : '';
@@ -18136,12 +18165,25 @@ function _txCatMenu(idx, anchor, apply){
     reopen: function(){ _txCatMenu(idx, anchor, apply); },
     apply: function(cat){
       /* -473: the rest of the group first, then the opened line through the page's own apply,
-         which saves, renders once and offers the filing rule. */
+         which saves, renders once and offers the filing rule. -474: what each line was, so the
+         whole answer can be undone (SA3-03), as on the phone. */
+      var before = grpAll ? grp.map(function(i){ var x = ST.txns[i] || {}; return { x:x, cat:x.cat, ok:x._catOk, okCat:x._catOkCat }; }) : null;
       if (grpAll) _txGroupFile(grp, idx, cat);
       TX_GRP_ONE = null;
       apply(cat);
       if (grpAll && _catWillSave(cat)){
-        try{ toast(_rT(grp.length + ' lines filed under ' + cat, grp.length + ' lyne onder ' + cat + ' ingeskryf'), 'success'); }catch(e){}
+        _txToastUndo(_rT(grp.length + ' lines filed under ' + cat, grp.length + ' lyne onder ' + _txAf(cat) + ' ingeskryf'), function(){
+          before.forEach(function(b){
+            if (!b.x || !b.x.date) return;
+            b.x.cat = b.cat; b.x._catOk = b.ok; b.x._catOkCat = b.okCat;
+            try{ if (typeof txnUpdateThrough === 'function') txnUpdateThrough(b.x); }catch(e){}
+          });
+          try{ if (typeof dataChanged === 'function') dataChanged('transaction'); }catch(e){}
+          try{ saveState && saveState(); }catch(e){}
+          try{ txRender(); }catch(e){} try{ filterExpTx(); }catch(e){} try{ filterIncomeTx(); }catch(e){}
+          try{ if (typeof catRuleDlgDismiss === 'function' && CAT_RULE_Q) catRuleDlgDismiss(); }catch(e){}
+          try{ toast(_rT(before.length + ' lines put back', before.length + ' lyne teruggesit')); }catch(e){}
+        });
       }
     },
     keep: function(){ (grpAll ? grp : [idx]).forEach(function(i){ var x=ST.txns[i]; if(x){ _txSettle(x);
@@ -18315,6 +18357,11 @@ var _catWordRe={};
 /* -471: a farmer's rule matches WHOLE words. A rule for "shell" filed SHELLEY BEACH SPAR, and
    "vkb" would catch VKBKUNSMIS as readily as VKB. Both sides are _catRuleNorm'd: lower case,
    single spaces, so a padded search is exact and fast. */
+/* -474 (m18): -473 made rules match whole words ("shell" no longer catches SHELLEY BEACH SPAR). A
+   rule the farmer made before that keeps the match it was made with, or it would stop working
+   without a word. Rules carry the day they were made (category_rules.created_on). */
+var CAT_RULE_WORDS_FROM = '2026-09-28';
+function _catRuleLegacy(r){ return !r || !r.made || String(r.made) < CAT_RULE_WORDS_FROM; }
 function _catRuleHit(hay, m){ return !!m && (' '+hay+' ').indexOf(' '+m+' ')>=0; }
 function _catWordIn(hay, word){
   var re=_catWordRe[word];
@@ -18580,7 +18627,7 @@ function catRuleFor(desc, type){
     var r=list[i];
     if(r.orphan) continue;                       // category is gone: shown in the list, never fired
     if(r.type && r.type!=='any' && type && r.type!==type) continue;
-    if(_catRuleHit(d, r.match)) return r.cat;
+    if(_catRuleHit(d, r.match) || (_catRuleLegacy(r) && r.match && d.indexOf(r.match)>=0)) return r.cat;
   }
   return null;
 }
@@ -18889,7 +18936,7 @@ function txCatApply(idx, cat, kind){
   try{ saveState&&saveState(); }catch(e){}
   (kind==='income') ? filterIncomeTx() : filterExpTx();
   /* Warn instead of quietly losing the choice on the next refresh. */
-  if (!_catWarnIfUnsaveable(cat)) { try{ toast && toast('Moved to ' + cat + ' (was ' + from + ')'); }catch(e){} }
+  if (!_catWarnIfUnsaveable(cat)) { try{ toast && toast(_rT('Moved to ' + cat + (from ? ' (was ' + from + ')' : ''), 'Geskuif na ' + _txAf(cat) + (from ? ' (was ' + _txAf(from) + ')' : ''))); }catch(e){} }
   try{ catRuleOffer(t, from); }catch(e){}
 }
 
@@ -52183,6 +52230,23 @@ LANG_PAIRS.push(
   /* -471: the new categories, and the four from -449 that never had Afrikaans. */
   ["Transfer to own account",    "Oordrag na eie rekening"],
   ["What was this?",             "Wat was dit?"],
+  ["Why the bank moved by a different amount from your profit. Every rand is in one line.", "Waarom die bank met ’n ander bedrag as jou wins beweeg het. Elke rand is in een reël."],
+  ["Profit so far", "Wins tot dusver"],
+  ["+ Write-off on machinery and buildings — a cost in profit, no money left the bank", "+ Afskrywing op masjinerie en geboue — ’n koste in die wins, geen geld het die bank verlaat nie"],
+  ["− Gain on selling an asset", "− Wins op die verkoop van ’n bate"],
+  ["+ VAT you collected on sales", "+ BTW wat jy op verkope ingevorder het"],
+  ["− VAT you paid on purchases", "− BTW wat jy op aankope betaal het"],
+  ["− Loan capital paid back — money out, but not a cost", "− Leningskapitaal terugbetaal — geld uit, maar nie ’n koste nie"],
+  ["− Machinery and assets bought — written off over their life", "− Masjinerie en bates gekoop — oor hul leeftyd afgeskryf"],
+  ["− Drawings and VAT paid to SARS", "− Onttrekkings en BTW aan SARS betaal"],
+  ["+ VAT refunds from SARS", "+ BTW-terugbetalings van SARS"],
+  ["− Moved to your own accounts (savings, the credit card) — still your money, not a cost", "− Na jou eie rekeninge oorgeplaas (spaarrekening, die kredietkaart) — steeds jou geld, nie ’n koste nie"],
+  ["+ Loans and your own money in — not income", "+ Lenings en jou eie geld in — nie inkomste nie"],
+  ["+ Income tax paid back by SARS", "+ Inkomstebelasting deur SARS terugbetaal"],
+  ["− Income tax paid", "− Inkomstebelasting betaal"],
+  ["− Account payments (overdraft, co-op)", "− Rekeningbetalings (oortrekking, koöperasie)"],
+  ["Suggested", "Voorgestel"],
+  ["Most used", "Meeste gebruik"],
   ["Your answer files all of them.", "Jou antwoord liasseer hulle almal."],
   ["Answer for this line only",  "Antwoord net vir hierdie lyn"],
   ["Moved to my own account",    "Na my eie rekening oorgeplaas"],
@@ -65559,7 +65623,7 @@ function txAllCatApply(idx, cat){
   try{ if(typeof dataChanged==='function') dataChanged('transaction'); }catch(e){}
   try{ saveState&&saveState(); }catch(e){}
   txRender();
-  if (!_catWarnIfUnsaveable(cat)) { try{ toast&&toast('Moved to '+cat+' (was '+from+')'); }catch(e){} }
+  if (!_catWarnIfUnsaveable(cat)) { try{ toast&&toast(_rT('Moved to '+cat+(from?' (was '+from+')':''), 'Geskuif na '+_txAf(cat)+(from?' (was '+_txAf(from)+')':''))); }catch(e){} }
 }
 function txAllNeedButton(){
   var btn=$('txall-need-btn'); if(!btn) return;
@@ -68575,8 +68639,8 @@ function bankRenderPreview(){
         (r.cat && cats.indexOf(r.cat)<0 ? '<option selected>'+bankEscAttr(r.cat)+'</option>' : '') +
         /* -471 (d3): the money that is not farming sits apart, with a plain explanation. */
         cats.filter(function(c){ return !_bankNotFarm(c); }).map(function(c){ return '<option value="'+bankEscAttr(c)+'" '+(c===r.cat?'selected':'')+'>'+c+'</option>'; }).join('') +
-        '<optgroup label="Not farm income or costs">' +
-        cats.filter(_bankNotFarm).map(function(c){ return '<option value="'+bankEscAttr(c)+'" '+(c===r.cat?'selected':'')+'>'+c+(TX_CAT_HINT[c]?' \u2014 '+TX_CAT_HINT[c]:'')+'</option>'; }).join('') +
+        '<optgroup label="'+bankEscAttr(_rT('Not farm income or costs', 'Nie plaasinkomste of -uitgawes nie'))+'">' +
+        cats.filter(_bankNotFarm).map(function(c){ return '<option value="'+bankEscAttr(c)+'" data-en="'+bankEscAttr(_txAf(c)+(TX_CAT_HINT[c]?' \u2014 '+_txAf(TX_CAT_HINT[c]):''))+'" '+(c===r.cat?'selected':'')+'>'+_txAf(c)+(TX_CAT_HINT[c]?' \u2014 '+_txAf(TX_CAT_HINT[c]):'')+'</option>'; }).join('') +
         '</optgroup>' +
       '</select></td>' +
       '<td class="imp-ent-cell"><input type="checkbox" class="imp-entpick" '+(r._entSel?'checked':'')+' onchange="bankEntSelToggle('+i+',this.checked)"><select class="imp-entsel'+(r._entGuess?' guess':'')+'" onchange="bankSetEnt('+i+',this.value)">'+((typeof entOptions==='function')?entOptions(r.ent||''):'<option value="">Whole farm</option>')+'</select></td>' +
@@ -68589,6 +68653,7 @@ function bankRenderPreview(){
     /* Its own line, so the reason stays readable while the row itself is greyed out. */
     (r._phone ? '<tr class="imp-phone-row"><td></td><td colspan="'+(hasBal?6:5)+'"><span class="imp-phone-note">Already on the books from the phone: \u201c'+escTxHtml(r._phone.desc)+'\u201d, '+escTxHtml(txDispDate(r._phone.date))+'. Left out so it isn\u2019t counted twice \u2014 tick the line to add it anyway.</span></td></tr>' : '');
   }).join('');
+  _txLangIn(tbody);                                         // -474: category names in Afrikaans
   BANK._firstBad = null;
   bankRecompute();
 }
