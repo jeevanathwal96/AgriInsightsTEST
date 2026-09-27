@@ -759,6 +759,7 @@
         /* -463: the farm is this farm's now, not the demo's - the tax figures the phone reads
            may be written from here on. */
         try { window.__AI_HYDRATED_AT = Date.now(); if (typeof window.taxPlanQueue === 'function') window.taxPlanQueue(); } catch (e) {}
+        try { if (typeof window.homeMoneyQueue === 'function') window.homeMoneyQueue(); } catch (e) {}   /* -469: the phone's Home profit */
       }).catch(function (e) { console.error('Relational hydrate failed:', e); });
     }).then(function () {
       /* Signed-in users skip the app's first-run onboarding wizard — UNLESS they have

@@ -416,7 +416,8 @@
   let CAN_PROV_PAID   = false;   /* farms.prov_paid - sa-batch5-step1.sql (SA -449) */
   let CAN_BUDGET_LOCK = false;   /* farms.budget_locked - sa-batch5-step3.sql (SA -451): the bank copy lock */
   let CAN_TAX_PAID    = false;   /* farms.tax_paid - sa-tax-paid.sql (SA -457): SARS payments marked paid on the Tax home */
-  let CAN_TAX_PLAN    = false;   /* farms.tax_plan - sa-tax-plan.sql (SA -463): the Tax home's figures, for the phone */
+  let CAN_TAX_PLAN    = false;
+  let CAN_HOME_MONEY  = false;   /* farms.home_money - sa-home-money.sql (SA -469): Home's profit, for the phone */   /* farms.tax_plan - sa-tax-plan.sql (SA -463): the Tax home's figures, for the phone */
   let CAN_DEVICES       = false;   // farm_devices: "whose phone is this?"
   let CAN_ORCH_PARTS    = false;   // orchard_sprays: rate/batch/operator_cert/weather
   let CAN_INPUT_WEATHER = false;   // crop_inputs.weather
@@ -521,7 +522,7 @@
     ['orchard_sprays','rate'], ['crop_inputs','weather'], ['orchard_sprays','removed_at'], ['crop_inputs','removed_at'],
     ['orchard_harvest','removed_at'], ['livestock_treatments','removed_at'],
     ['payslips','snap'], ['payslip_sends','outcome'],
-    ['workers','payslip_whatsapp_ok'], ['farm_devices','kind'], ['workers','eti_excluded'], ['workers','med_aid_people'], ['farms','budget_cat_targets'], ['farms','prov_paid'], ['farms','budget_locked'], ['farms','tax_paid'], ['farms','tax_plan']
+    ['workers','payslip_whatsapp_ok'], ['farm_devices','kind'], ['workers','eti_excluded'], ['workers','med_aid_people'], ['farms','budget_cat_targets'], ['farms','prov_paid'], ['farms','budget_locked'], ['farms','tax_paid'], ['farms','tax_plan'], ['farms','home_money']
   ];
 
   async function probeCaps(farmId){
@@ -582,6 +583,7 @@
     CAN_BUDGET_LOCK    = keep(CAN_BUDGET_LOCK,   'farms','budget_locked');
     CAN_TAX_PAID       = keep(CAN_TAX_PAID,      'farms','tax_paid');
     CAN_TAX_PLAN       = keep(CAN_TAX_PLAN,      'farms','tax_plan');
+    CAN_HOME_MONEY     = keep(CAN_HOME_MONEY,    'farms','home_money');
     CAN_DEVICES        = keep(CAN_DEVICES,       'farm_devices','kind');
     /* The particulars a spray register prints. An un-migrated project still saves
        the spray - it just cannot carry rate, batch, certificate or the weather at
@@ -3604,7 +3606,18 @@
     }
   };
 
-  global.AI = { init: client, projectRef: PROJECT_REF, auth, farm, sync: sync, load, txn, account, budget, taxPlan, recurring, asset, loans,
+  /* -469: Home's profit, day by day, written down for the phone (farms.home_money). */
+  const homeMoney = {
+    async save(snap){
+      const fid=farm.active(); if(!fid || !CAN_HOME_MONEY || !snap) return false;
+      const r=await client().from('farms').update({ home_money: snap }).eq('id', fid).select('home_money,updated_at');
+      try { if (!r.error && (r.data || []).length) _profNoteAck(r.data[0]); } catch (e) {}
+      if(r.error){ console.warn('Home figures not saved - add farms.home_money. (' + (r.error.message || r.error) + ')'); return false; }
+      return true;
+    }
+  };
+
+  global.AI = { init: client, projectRef: PROJECT_REF, auth, farm, sync: sync, load, txn, account, budget, taxPlan, homeMoney, recurring, asset, loans,
                 coopSettlement: coopSettlement, livestock: livestock, crop: crop, orchard: orchard, plan: plan, workers: workersSave, profile: profile,
                 documents: documents, fuel: fuel, rain: rain,
                 storage: storage,

@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=74"></script>
-<script src="ai-auth.js?v=52"></script>
+<script src="ai-data.js?v=75"></script>
+<script src="ai-auth.js?v=53"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -19582,6 +19582,7 @@ function setExpPeriod(p) {
 // ============================================================
 function dataChanged(event) {
   try { if (typeof taxPlanQueue === 'function') taxPlanQueue(); } catch (e) {}   /* -463: the phone's tax figures */
+  try { if (typeof homeMoneyQueue === 'function') homeMoneyQueue(); } catch (e) {}   /* -469: the phone's Home profit */
   // Backend sync: all budget edits funnel through dataChanged('budget')
   if (event === 'budget') {
     try { if (window.AI && AI.farm && AI.farm.active()) { AI.budget.save(ST.budgets).catch(function(e){ console.error('Backend budget save failed:', e); }); } } catch (e) {}
@@ -54647,10 +54648,12 @@ function b5Profit(fy, opt){
     if(!set[ym] || (opt.toYm && ym>opt.toYm)) return;
     if((opt.fromYm && ym<opt.fromYm) || (opt.filter && !opt.filter(d))) return;   /* -460: any period, for Reports */
     var g=+t.amt||0, s=IE_split(g, t.cat), a=s.net, v=g-a, role=b5CatRole(t.cat);
+    /* -469: opt.onTxn(dayISO, income, cost) - each rand that moves profit, by its day (the phone's Home). */
+    var hk=opt.onTxn ? function(inc, cost){ opt.onTxn(d.y+'-'+String(d.m+1).padStart(2,'0')+'-'+String(d.d||1).padStart(2,'0'), inc, cost); } : null;
     if(t.type==='income'){
       r.cashIn+=g;
       if(role==='nonop'){ r.nonopIn+=g; return; }
-      r.income+=a; r.vatIn+=v; var il=_catOf(t); r.byIncLbl[il]=(r.byIncLbl[il]||0)+a; return;
+      r.income+=a; r.vatIn+=v; var il=_catOf(t); r.byIncLbl[il]=(r.byIncLbl[il]||0)+a; if(hk) hk(a, 0); return;
     }
     r.cashOut+=g;
     if(t.type!=='expense'){ r.paydown+=g; return; }      // account payments: cash, never a cost
@@ -54659,14 +54662,14 @@ function b5Profit(fy, opt){
     if(role==='tax'){ r.tax+=a; return; }
     if(role==='loan'){
       var it=0; try{ it=Math.min(a, _rptLoanInterest(t)||0); if(!_rptLoanInterest.resolved) r.unlinkedLoan+=a; }catch(e){}
-      r.interest+=it; r.loanCapital+=a-it; return;
+      r.interest+=it; r.loanCapital+=a-it; if(hk && it) hk(0, it); return;
     }
     if(role==='capital'){
       var la=null; try{ la=txLinkedAsset(t); }catch(e){}
       if(la){ r.capitalLinked+=a; return; }
       r.capitalUnreg+=a;                                   // safety net: stays a cost, flagged
     }
-    r.running+=a; var cn=t.cat; try{ cn=normalizeCat(t.cat); }catch(e){} r.byCat[cn]=(r.byCat[cn]||0)+a;
+    r.running+=a; if(hk) hk(0, a); var cn=t.cat; try{ cn=normalizeCat(t.cat); }catch(e){} r.byCat[cn]=(r.byCat[cn]||0)+a;
     var cl=_catOf(t); r.byCatLbl[cl]=(r.byCatLbl[cl]||0)+a;
   });
   var dep=b5BookDepr(fy, opt.toYm);
@@ -58265,6 +58268,72 @@ function taxPlanQueue(){
       AI.taxPlan.save(snap).then(function(ok){ if(ok) _taxPlanLast=key; }).catch(function(e){ console.warn('tax plan not saved', e); });
     }catch(e){ console.warn('tax plan', e); }
   }, 6000);
+}
+
+/* -469: the phone's Home figures (signed off 27 Sep, Home d4: "the computer's profit, farm year
+   so far"). The phone shows "Profitable" with the SAME profit as the Dashboard and the Profit page
+   - b5Profit(getCurrentFY(),{toYm:b5TodayYm()}) - so the computer writes it down, day by day,
+   in farms.home_money:
+     days[i] = [income, cost] for day i of the farm year (ex VAT, the engine's own split), up to
+               today; a transaction dated later this month counts today, as it does in b5Profit;
+               the month's write-off (less any gain on a sale) is booked on its 1st.
+     plan[k] = {ym, in, out}: the working budget per month on the same rules as b5BudgetGoals.
+   Sum of days = the profit exactly; sum of plan = the budget's profit. The phone adds what it
+   captured since `at` and draws the year and the month from these. */
+function homeMoneySnapshot(){
+  var fy=getCurrentFY(), yms=b5FyYms(fy), now=b5TodayYm();
+  var t0=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date();
+  var iso=function(y,m,d){ return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'); };
+  var from=yms[0]+'-01', today=iso(t0.getFullYear(), t0.getMonth()+1, t0.getDate());
+  var dayN=function(s){ var p=s.split('-'); return Date.UTC(+p[0], +p[1]-1, +p[2])/86400000; };
+  var n=Math.max(1, Math.min(366, dayN(today)-dayN(from)+1)), days=[], i;
+  for(i=0;i<n;i++) days.push([0,0]);
+  var at=function(s){ var k=Math.round(dayN(s)-dayN(from)); return k<0?-1:(k>=n?n-1:k); };
+  var p=b5Profit(fy,{toYm:now, onTxn:function(s, inc, cost){ var k=at(s); if(k<0) return; days[k][0]+=inc; days[k][1]+=cost; }});
+  var prevD=0, prevG=0;
+  yms.forEach(function(ym){
+    if(ym>now) return;
+    var bd=b5BookDepr(fy, ym), dm=bd.total-prevD, gm=bd.gain-prevG; prevD=bd.total; prevG=bd.gain;
+    var k=at(ym+'-01'); if(k<0) return;
+    days[k][1]+=dm-gm;
+  });
+  days=days.map(function(x){ return [Math.round(x[0]*100)/100, Math.round(x[1]*100)/100]; });
+  /* The plan, month by month, on b5BudgetGoals' own rules (interest scaled to its year total). */
+  var plan=null;
+  try{
+    var bl=b5BudgetLines(fy), g=b5BudgetGoals(fy), any=false, rows=[], rawInt=0;
+    yms.forEach(function(ym){
+      var m=bl.months[ym]||{income:{},expense:{},totalIn:0,totalOut:0}, k, inc=0, run=0, loan=0, it=0;
+      if((m.totalIn||0)||(m.totalOut||0)) any=true;
+      for(k in m.income) if(b5CatRole(k)!=='nonop') inc+=IE_split(m.income[k],k).net;
+      for(k in m.expense){ var role=b5CatRole(k); if(role==='running') run+=IE_split(m.expense[k],k).net; else if(role==='loan') loan+=m.expense[k]; }
+      ((typeof ST_LOANS!=='undefined'&&ST_LOANS.loans)||[]).forEach(function(l){ if(l.payment>0){ try{ it+=LN_intForMonth(l,ym)||0; }catch(e){} } });
+      rawInt+=it; rows.push({ym:ym, inc:inc, run:run, it:it});
+    });
+    if(any){
+      var f=rawInt>0 ? (g.interest||0)/rawInt : 0, pd=0;
+      plan=rows.map(function(r){
+        var bd=b5BookDepr(fy, r.ym).total, dm=bd-pd; pd=bd;
+        return {ym:r.ym, in:Math.round(r.inc*100)/100, out:Math.round((r.run+r.it*f+dm)*100)/100};
+      });
+    }
+  }catch(e){ plan=null; }
+  return {v:1, fy:fy, from:from, to:today, profit:Math.round(p.profit*100)/100, days:days, plan:plan};
+}
+var _homeMoneyLast=null, _homeMoneyT=null;
+function homeMoneyQueue(){
+  if(_homeMoneyT) clearTimeout(_homeMoneyT);
+  _homeMoneyT=setTimeout(function(){
+    _homeMoneyT=null;
+    try{
+      if(window.__AI_GUEST || !window.__AI_HYDRATED_AT) return;
+      if(!(window.AI && AI.homeMoney && AI.farm && AI.farm.active())) return;
+      var snap=homeMoneySnapshot(), key=JSON.stringify(snap);
+      if(key===_homeMoneyLast) return;
+      snap.at=new Date().toISOString();
+      AI.homeMoney.save(snap).then(function(ok){ if(ok) _homeMoneyLast=key; }).catch(function(e){ console.warn('home money not saved', e); });
+    }catch(e){ console.warn('home money', e); }
+  }, 6500);
 }
 
 function taxGlanceHTML(){
