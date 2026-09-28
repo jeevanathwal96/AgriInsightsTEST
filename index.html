@@ -34879,9 +34879,20 @@ function _lsIncomeIsProduce(t){
 function _lsUnmatched(){
   var from=(typeof lsFyStartISO==='function')?lsFyStartISO():'0000-01-01';
   var money=[], animals=[];
+  /* Sales recorded on the herd before the sale was tied to its movement carry no moveRef. A
+     sale whose herd, date and amount match a sold movement nobody else claims IS that
+     movement, so it is paired rather than listed - otherwise its "Take the animals out"
+     button takes the same animals out a second time. */
+  var _claimed={};
+  (ST.txns||[]).forEach(function(t){ if(t && t.moveRef) _claimed[t.moveRef]=1; });
+  var _twin=function(t){ var hid=_lsHerdIdFromEnt(t.ent), iso=_lsTxnDateISO(t.date), amt=Math.round(+t.amt||0);
+    return (ST_LS.moves||[]).filter(function(m){ if(m.reason!=='sold' || _claimed[m.id]) return false;
+      var mi=(typeof _lsMoveISO==='function')?_lsMoveISO(m):m.date;
+      return String(m.herd)===String(hid) && mi===iso && Math.round(+m.money||0)===amt; })[0]||null; };
   (ST.txns||[]).forEach(function(t,i){
     if(!_lsIsLivestockSale(t)) return;
     if(t.moveRef && _lsMoveByRef(t.moveRef)) return;   // properly paired
+    var _tw=_twin(t); if(_tw){ _claimed[_tw.id]=1; return; }   // the same sale, recorded before the link existed
     if(_lsIncomeIsProduce(t)) return;                  // milk/wool never move animals
     var iso=_lsTxnDateISO(t.date);
     if(!iso || iso<from) return;                       // only this financial year
