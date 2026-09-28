@@ -21192,7 +21192,9 @@ var farmNameEl = document.getElementById('farm-name');
    surfaces as a fault instead of surviving a fresh start in silence. */
 var FRESH_SHAPE = {
   ST:         { txns:[], deletedTxns:[], importBatches:[], coopSettlements:[], recurring:[],
-                catRules:[], stSnap:[], capIgnore:{}, bankBalance:null, bankBalanceAt:null, bankLastCheck:null, budgetExpenseTarget:0 },
+                catRules:[], stSnap:[], capIgnore:{}, bankBalance:null, bankBalanceAt:null, bankLastCheck:null, budgetExpenseTarget:0,
+                /* -475: payments the farm has marked paid are records of this farm. */
+                taxPaid:{} },
   ST_ASSETS:  { assets:[], nextId:1 },
   ST_LOANS:   { loans:[], overdrafts:[], coopAccounts:[], archived:[],
                 confirmed:{month:null,paid:{}}, nextId:1, nextOdId:1, nextCoId:1 },
@@ -32749,7 +32751,12 @@ function lsRecordMove(opts){
     var _mvRec=ST_LS.moves[0];
     if(_mvRec){ _mvRec.money=0; try{ _lsLinkTxnMove(opts.linkTxn, _mvRec); }catch(e){} }
   }
-  else if(reason==='sold' && money>0){ ST.txns=ST.txns||[]; var label=(lsHerdName(h)||'Livestock')+(cls?' ('+lsClassMeta(h.type,cls).label.toLowerCase()+')':'')+' \u00d7 '+qty; ST.txns.unshift({date:lsDispFromISO(date),desc:label,cat:'Livestock Sales',type:'income',amt:money,method:'Bank Deposit',source:'Livestock movement',ent:'ls:'+h.id}); var _lsTI=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsTI, {date:_lsTxnISO(date),amt:money,cat:'Livestock Sales',type:'income',desc:label,method:'Bank Deposit',ent:'ls:'+h.id,source:'Livestock movement'}); } }catch(e){} }
+  else if(reason==='sold' && money>0){ ST.txns=ST.txns||[]; var label=(lsHerdName(h)||'Livestock')+(cls?' ('+lsClassMeta(h.type,cls).label.toLowerCase()+')':'')+' \u00d7 '+qty; ST.txns.unshift({date:lsDispFromISO(date),desc:label,cat:'Livestock Sales',type:'income',amt:money,method:'Bank Deposit',source:'Livestock movement',ent:'ls:'+h.id}); var _lsTI=ST.txns[0];
+    /* -475: tie the sale's money to the move that took the animals out. Without the link the
+       "things don't line up" card listed the app's own sale as "no animals taken out", and its
+       button sold the same animals a second time. */
+    try{ _lsLinkTxnMove(_lsTI, ST_LS.moves[0]); }catch(e){}
+    try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsTI, {date:_lsTxnISO(date),amt:money,cat:'Livestock Sales',type:'income',desc:label,method:'Bank Deposit',ent:'ls:'+h.id,source:'Livestock movement'}); } }catch(e){} }
   if(reason==='bought' && money>0){ ST.txns=ST.txns||[]; var blabel=(lsHerdName(h)||'Livestock')+(cls?' ('+lsClassMeta(h.type,cls).label.toLowerCase()+')':'')+' \u00d7 '+qty+' (purchase)'; ST.txns.unshift({date:lsDispFromISO(date),desc:blabel,cat:'Livestock Purchases',type:'expense',amt:money,method:'Bank Debit',source:'Livestock movement',ent:'ls:'+h.id}); var _lsTB=ST.txns[0]; try{ if(window.AI&&AI.farm&&AI.farm.active()){ txnWriteThrough(_lsTB, {date:_lsTxnISO(date),amt:money,cat:'Livestock Purchases',type:'expense',desc:blabel,method:'Bank Debit',ent:'ls:'+h.id,source:'Livestock movement'}); } }catch(e){} }
   try{ saveState&&saveState(); }catch(e){}
   try{ if(typeof dataChanged==='function') dataChanged('livestock'); }catch(e){}
@@ -34429,23 +34436,23 @@ var SARS_STD = {
   'Chickens': {cls:'Poultry: Over 9 months', val:1}
 };
 function lsSarsClass(type){ var b=animalBase(type); return SARS_STD[b] || {cls:(type+' (value to agree with SARS)'), val:0}; }
-// Relative standard-value multipliers BY CLASS within a species, anchored to SARS_STD's base figure (that base is
-// the primary breeding-female class — e.g. "Cattle: Cows"). The First Schedule sets a distinct standard value per
-// classification (bulls/rams higher, calves/lambs lower), but this app previously tracked only one flat number per
-// species — so a mixed herd (cows+heifers+bulls+calves) was valued as if every head were a cow. These proportions
-// are typical, not gazetted figures — confirm the exact per-class rand values with your accountant/SARS.
-var SARS_CLASS_MULT = {
-  Cattle: {cows:1, heifers:0.75, steers:0.65, bulls:1.75, calves:0.35},
-  Sheep:  {ewes:1, rams:1.6, wethers:0.75, lambs:0.4},
-  Goats:  {does:1, bucks:1.5, kids:0.4},
-  Pigs:   {sows:1, boars:1.4, piglets:0.3}
+/* -475: the standard value of each class as FIXED by the regulations (SARS, "Standard
+   classification and standard values of livestock", Live-stock-values.pdf, read 28 Sep 2026).
+   This replaced SARS_CLASS_MULT, proportions of the cow value that were "typical, not
+   gazetted" and printed bulls at R70, calves at R14 and steers at R26 under a heading that
+   says the values are the fixed ones. The app does not record age, so heifers and steers
+   (tollies) are valued in the 1-2 year class (R14); SARS fixes R30 for 2-3 years. */
+var SARS_CLASS_VAL = {
+  Cattle: {cows:[40,'Cows'], bulls:[50,'Bulls'], heifers:[14,'Heifers (1\u20132 years)'], steers:[14,'Tollies (1\u20132 years)'], calves:[4,'Calves']},
+  Sheep:  {ewes:[6,'Ewes'], rams:[6,'Rams'], wethers:[6,'Wethers'], lambs:[2,'Weaned lambs']},
+  Goats:  {does:[4,'Fully grown'], bucks:[4,'Fully grown'], kids:[2,'Weaned kids']},
+  Pigs:   {sows:[12,'Over 6 months'], boars:[12,'Over 6 months'], piglets:[6,'Under 6 months']}
 };
 function lsSarsClassValue(type, k){
   var b=animalBase(type), base=(SARS_STD[b]||{val:0}).val;
-  var mult=(SARS_CLASS_MULT[b]||{})[k];
-  var val=(mult!=null)?Math.round(base*mult):base;
+  var v=(SARS_CLASS_VAL[b]||{})[k];
   var meta=lsClassMeta(type,k);
-  return {k:k, label:(b+': '+(meta.label||k)), val:val};
+  return {k:k, label:(b+': '+(v?v[1]:(meta.label||k))), val:(v?v[0]:base)};
 }
 // Deaths/losses THIS FY, broken out by class (only counts moves that carried a class tag).
 function _lsHerdClassDied(hm){ var out={}; hm.forEach(function(m){ if(m.reason==='died'||m.reason==='stolen'||m.reason==='missing'){ var k=m.cls||''; if(k) out[k]=(out[k]||0)+(m.qty||0); } }); return out; }
@@ -34470,13 +34477,17 @@ function _lsSarsCompute(){
       (h.classes||[]).forEach(function(c){
         if(!c.n) return;
         var scv=lsSarsClassValue(h.type,c.k);
-        var key=animalBase(h.type)+'|'+c.k;
+        /* -475: keyed on the SARS class, so does and bucks (both "Fully grown") or sows and boars
+           (both "Over 6 months") make ONE row, as on the return. */
+        var key=scv.label;
         var row=classAgg[key]||(classAgg[key]={label:scv.label,val:scv.val,head:0,died:0});
         row.head+=c.n; row.died+=(diedByCls[c.k]||0);
       });
     } else {
       var key2=animalBase(h.type)+'|_all';
-      var row2=classAgg[key2]||(classAgg[key2]={label:sc.cls,val:sc.val,head:0,died:0});
+      /* -475: a herd not split by class is valued at the species' breeding-female value; say so,
+         or it printed a second "Sheep: Ewes" row under the herd that IS split. */
+      var row2=classAgg[key2]||(classAgg[key2]={label:sc.cls+' \u00b7 herd not split by class',val:sc.val,head:0,died:0});
       row2.head+=r.closing; row2.died+=r.died;
     }
   });
@@ -34593,7 +34604,7 @@ function openSarsLivestockReport(){
     '<table><thead><tr><th>Class</th><th class="amt">Opening</th><th class="amt">Born</th><th class="amt">Bought</th><th class="amt">Sold</th><th class="amt">Died</th><th class="amt">Own use</th><th class="amt">Closing</th></tr></thead><tbody>'+recRows+'</tbody>'+
       '<tfoot><tr class="total"><td>Total head</td><td class="amt">'+T.op+'</td><td class="amt">'+T.born+'</td><td class="amt">'+T.bought+'</td><td class="amt">'+T.sold+'</td><td class="amt">'+T.died+'</td><td class="amt">'+T.own+'</td><td class="amt">'+T.close+'</td></tr></tfoot></table>'+
     '<h2>2 · Year-end valuation at SARS standard values</h2>'+
-    '<div class="lsr-lead">Fixed standard values per Government Notice R105/R1814 — not market value. Own values may be used within 20% of the standard, but bind you once chosen. Valued per classification (cows, bulls, heifers, calves etc. each priced separately) using your herd’s recorded make-up — confirm the exact per-class rand figures with your accountant.</div>'+
+    '<div class="lsr-lead">Fixed standard values per Government Notice R105/R1814 — not market value. Own values may be used within 20% of the standard, but bind you once chosen. Valued per classification from your herd’s recorded make-up. Heifers and tollies are counted in the 1–2 year class (R14); SARS fixes R30 for those aged 2–3 years.</div>'+
     '<table><thead><tr><th>Standard classification</th><th class="amt">Std value (R/head)</th><th class="amt">Number on hand</th><th class="amt">Deaths in year</th><th class="amt">Total value</th></tr></thead><tbody>'+valRows+'</tbody>'+
       '<tfoot><tr class="total"><td colspan="4">TOTAL value of livestock on hand (closing stock)</td><td class="amt">'+lsRand(T.closeV)+'</td></tr></tfoot></table>'+
     '<div class="lsr-note">Memo — economic / market value of the herd ≈ '+lsRand(T.market)+'. For your management only; it does not go on the SARS return. Opening stock value (below, section 3) uses last year’s flat per-species rate — no per-class snapshot is available from a prior year — while closing stock above is broken down by class.</div>'+
@@ -35577,8 +35588,15 @@ var form = document.querySelector('#ls-view-add');
   } else {
 
     if(!buy){toast('Please enter buy price','error');return;}
-    ST_LS.herd.push({id:lsNextHerdId(),type:type,qty:qty,buy:buy,feed:feed,vet:vet,sell:sell,months:months,notes:notes,campId:campId,camp:campNm,breed:breed||undefined});
-    if(buy>0) ST.txns.unshift({date:(new Date()).toISOString().slice(0,10),desc:qty+' '+type+' (purchase)',cat:'Livestock Purchases',type:'expense',amt:qty*buy,method:'Bank Debit',source:'Livestock'});
+    /* -475: the herd arrives through a BOUGHT movement, the same record "Record › Bought"
+       writes, so the SARS stock reconciliation counts the animals as bought rather than as
+       opening stock, and the purchase carries the herd. It used to push the herd at full size
+       with a bare transaction and no move. */
+    var _nid=lsNextHerdId();
+    ST_LS.herd.push({id:_nid,type:type,qty:0,buy:buy,feed:feed,vet:vet,sell:sell,months:months,notes:notes,campId:campId,camp:campNm,breed:breed||undefined});
+    var _ad=($('add-ls-date')&&$('add-ls-date').value)||new Date().toISOString().slice(0,10);
+    lsRecordMove({herdId:_nid, qty:qty, reason:'bought', money:Math.round(qty*buy*100)/100, date:_ad, note:'Added to the herd'});
+    var _nh0=lsHerdById(_nid); if(_nh0 && !(_nh0.qty>0)) _nh0.qty=qty;
     if(buy>0) dataChanged('transaction');
     toast(qty+' '+type+' added to your herd!','success');
     if(type==='Dairy cattle' && typeof dairySetupOpen==='function'){ try{ var _dh=ST_LS.herd[ST_LS.herd.length-1]; setTimeout(function(){ dairySetupOpen(_dh.id); }, 80); }catch(e){} }  // smooth on-ramp: sort the dairy herd right after adding it
@@ -45099,7 +45117,13 @@ function renderTxnEdit(t){
         '</div></div>' +
       '<div style="'+FLD+'"><div style="'+LB+'">Description</div><input id="txde-desc" style="'+IN+'" value="'+txdEsc(t.desc||'')+'"></div>' +
       '<div style="'+FLD+'"><div style="'+LB+'">Amount (R)</div><input id="txde-amt" type="number" style="'+IN+'" value="'+(t.amt||0)+'"></div>' +
-      '<div style="'+FLD+'"><div style="'+LB+'">Category</div><select id="txde-cat" style="'+IN+'">'+cats.map(function(c){return '<option'+(c===t.cat?' selected':'')+'>'+txdEsc(c)+'</option>';}).join('')+'</select></div>' +
+      '<div style="'+FLD+'"><div style="'+LB+'">Category</div><select id="txde-cat" style="'+IN+'">'+
+        /* -475: a line with no category opens as "Not sorted yet", not as the first category in
+           the list. With no blank option the select showed "Admin & Professional Fees", and Save
+           filed a personal Spar line as a deductible farm cost with its VAT claimed. A category
+           that is no longer in the list is kept as it is, for the same reason. */
+        (!t.cat?'<option value="" selected>Not sorted yet</option>':(cats.indexOf(t.cat)<0?'<option selected>'+txdEsc(t.cat)+'</option>':''))+
+        cats.map(function(c){return '<option'+(c===t.cat?' selected':'')+'>'+txdEsc(c)+'</option>';}).join('')+'</select></div>' +
       '<div style="'+FLD+'"><div style="'+LB+'">Date</div><input id="txde-date" type="text" style="'+IN+'" value="'+txdEsc(t.date||'')+'" placeholder="e.g. 12 May 2024"></div>' +
       '<div style="'+FLD+'"><div style="'+LB+'">'+(inc?'Received via':'Paid with')+'</div><select id="txde-method" style="'+IN+'">'+methods.map(function(m){return '<option'+(m===t.method?' selected':'')+'>'+txdEsc(m)+'</option>';}).join('')+'</select></div>' +
       '<div style="'+FLD+'"><div style="'+LB+'">For which enterprise?</div><select id="txde-ent" style="'+IN+'">'+entOptions(dr.ent||'')+'</select>'+entHintHTML()+'</div>' +
@@ -55976,7 +56000,14 @@ function computeRPT() {
   if (RPT_STATE.type === 'yearly') {
     var _fy = rptFY();
     try {
-      if (_fy === getCurrentFY()) { var _pe = taxProvEstimate(); taxAmount = _pe.ok ? Math.round(_pe.annualTax) : 0; taxNote = 'estimate for the whole year, as on the Tax page'; }
+      /* -475: the year still running shows only the profit made SO FAR, so it carries only its
+         share of the year's tax: this profit at the year's expected rate (the Tax page's
+         whole-year estimate / whole-year taxable profit). Taking the whole year's tax off a
+         part-year profit understated profit after tax - the UK twin printed a loss of £132k. */
+      if (_fy === getCurrentFY()) { var _pe = taxProvEstimate();
+        var _rate = (_pe.ok && _pe.taxableProfit > 0) ? Math.max(0, _pe.annualTax) / _pe.taxableProfit : 0;
+        taxAmount = netProfitBT > 0 ? Math.round(netProfitBT * _rate) : 0;
+        taxNote = 'on the profit so far at the year\u2019s expected rate, ' + (_rate*100).toFixed(1) + '% \u2014 ' + fmt(_pe.ok ? _pe.annualTax : 0) + ' for the whole year on the Tax page'; }
       else { var _it = _sarsIT12(_fy); taxAmount = Math.round(_it.tax || 0); taxNote = 'on the IT12 figures for the year'; }
     } catch(e) { taxAmount = null; }
   }
@@ -57079,6 +57110,17 @@ function _vatPeriod(now, cat){
 }
 function _vatCadence(cat){ return cat==='C'?'every month':(cat==='D'?'every 6 months':(cat==='E'?'once a year':'every 2 months')); }
 function _vatPeriodLabel(v){ if(!v||!v.from||!v.to) return ''; var M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; function f(d){ return d.getDate()+' '+M[d.getMonth()]+' '+d.getFullYear(); } return f(v.from)+' \u2013 '+f(v.to); }
+/* -475: the VAT period BEFORE the open one, with its own due date. On category B (periods
+   ending even months) and D the last period's return is still to pay at the end of the
+   month after it: on 28 Sep the Jul-Aug return is due Wed 30 Sep. The card printed it as
+   "paid" and the due list only knew the open period, so a payment three days away vanished. */
+function taxVatPrevPosition(){
+  if(typeof FARM==='undefined'||!FARM.vat) return null;
+  var cat=(typeof ST!=='undefined'&&ST.vatCategory)||'A', now=_txNow(), cur=_vatPeriod(now,cat);
+  var pr=_vatPeriod(new Date(cur.start.getFullYear(),cur.start.getMonth(),cur.start.getDate()-1),cat), start=pr.start, end=pr.end, out=0,inp=0;
+  (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var dd=new Date(d.y,d.m,d.d||1); if(dd<start||dd>end) return; var s=IE_split(t.amt,t.cat); if(t.type==='income') out+=s.vat; else inp+=s.vat; });
+  return {out:Math.round(out),inp:Math.round(inp),owe:Math.round(out-inp),from:start,to:end,cat:cat,due:saVat201Due(end)};
+}
 function taxVatPosition(){
   if(typeof FARM==='undefined'||!FARM.vat) return null;
   var cat=(typeof ST!=='undefined'&&ST.vatCategory)||'A', now=_txNow(), pr=_vatPeriod(now,cat), start=pr.start, end=pr.end, out=0,inp=0;
@@ -58827,7 +58869,11 @@ var SA_FILING_SEASONS = { 2025:{ nonProv:'2026-10-23', prov:'2027-01-22' } };
 function taxDueItems(prov, vat, wk, pay, now){
   var items=[];
   if(vat){ var vd=saVat201Due(vat.to);
-    items.push({d:vd, what:(vat.owe>=0?'VAT for '+_taxVpLbl(vat):'VAT refund for '+_taxVpLbl(vat)), code:'VAT201', amt:vat.owe, pay:vat.owe>0, refund:vat.owe<0}); }
+    items.push({d:vd, what:(vat.owe>=0?'VAT for '+_taxVpLbl(vat):'VAT refund for '+_taxVpLbl(vat)), code:'VAT201', amt:vat.owe, pay:vat.owe>0, refund:vat.owe<0});
+    /* -475: the last period's return while it is still due (see taxVatPrevPosition). */
+    var pv=(typeof taxVatPrevPosition==='function')?taxVatPrevPosition():null, _t0=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    if(pv && pv.owe!==0 && pv.due>=_t0){
+      items.push({d:pv.due, what:(pv.owe>=0?'VAT for '+_taxVpLbl(pv):'VAT refund for '+_taxVpLbl(pv)), code:'VAT201', amt:pv.owe, pay:pv.owe>0, refund:pv.owe<0, vp:pv}); } }
   if(wk && pay.total>0){ var ed=saEmp201Due(now.getFullYear(),now.getMonth()); if(ed<=now) ed=saEmp201Due(now.getFullYear(),now.getMonth()+1);
     var _wp={paye:Math.round(pay.paye/12), uif:Math.round(pay.uif/12), sdl:Math.round(pay.sdl/12)};
     items.push({d:ed, what:'Worker tax', code:'EMP201', amt:_wp.paye+_wp.uif+_wp.sdl, parts:_wp, pay:true, note:'every month'}); }
@@ -58854,7 +58900,10 @@ function taxPlanSnapshot(){
     items: items.map(function(it){
       var o={ code:it.code, due:_taxIso(it.d), amt:Math.round(Math.abs(it.amt)||0), nil:!!it.nil, refund:!!it.refund };
       if(it.code==='EMP201'){ var pm=new Date(it.d.getFullYear(),it.d.getMonth()-1,1); o.parts=it.parts; o.period=MF[pm.getMonth()]; }
-      if(it.code==='VAT201' && vat){ o.period=_taxVpLbl(vat); o.out=Math.round(vat.out||0); o.inp=Math.round(vat.inp||0); o.openTo=_taxIso(vat.to); if(dd && dd.claimable>0) o.diesel=Math.round(dd.claimable); }
+      /* -475: the last period's return (category B/D, still to pay) carries its own period and
+         figures; only the OPEN period has an openTo and the diesel refund still to claim. */
+      if(it.code==='VAT201' && vat){ var _v=it.vp||vat; o.period=_taxVpLbl(_v); o.out=Math.round(_v.out||0); o.inp=Math.round(_v.inp||0);
+        if(!it.vp){ o.openTo=_taxIso(vat.to); if(dd && dd.claimable>0) o.diesel=Math.round(dd.claimable); } }
       if(it.code==='IRP6'){ o.per=prov.next?prov.next.per:''; o.annual=Math.round(prov.annualTax||0); o.monthly=Math.round(prov.setAsideMonthly||0); o.months=prov.monthsToNext||0;
         if(p1 && o.per==='2nd'){ o.p1={ due:_taxIso(p1.d), paid:(p1.paid!=null?Math.round(p1.paid):null), assumed:Math.round(p1.assumed||0) }; } }
       if(it.paid) o.paid={ amt:Math.round(it.paid.amt||0), date:it.paid.date, src:it.paid.src };
@@ -59000,7 +59049,7 @@ function taxGlanceHTML(){
     o+='</div><button class="txh-btn" onclick="taxAccountantPack()">Share with your accountant</button></div>';
     /* the tiles: the next three dates, paid ones included until their date passes */
     var up=items.filter(function(it){ return it.d>=new Date(now.getFullYear(),now.getMonth(),now.getDate()); }).slice(0,3);
-    var sub=function(it){ if(it.code==='VAT201') return _vp(vat)+' period'; if(it.code==='EMP201'){ var pm=new Date(it.d.getFullYear(),it.d.getMonth()-1,1); return MF[pm.getMonth()]+' pay · PAYE, UIF, SDL'; } return (prov.next?prov.next.per:'')+' payment for this tax year'; };
+    var sub=function(it){ if(it.code==='VAT201') return (it.vp?_vp(it.vp):_vp(vat))+' period';   /* -475: the last period's return names its own months */ if(it.code==='EMP201'){ var pm=new Date(it.d.getFullYear(),it.d.getMonth()-1,1); return MF[pm.getMonth()]+' pay · PAYE, UIF, SDL'; } return (prov.next?prov.next.per:'')+' payment for this tax year'; };
     var pill=function(it){ if(it.paid) return '<span class="t2-pl paid">✓ Paid '+it.paid.label+'</span>'; if(it.nil) return '<span class="t2-pl">File only</span>'; if(it.refund) return '<span class="t2-pl">SARS pays you</span>'; return it===f1?'<span class="t2-pl nx">Next · '+_when(it.d)+'</span>':'<span class="t2-pl">'+_when(it.d).replace(/^in /,'In ')+'</span>'; };
     o+='<div class="txh-tiles2">'+up.map(function(it){ var ix=items.indexOf(it);
       return '<button type="button" class="txh-t2'+(it===f1?' next':'')+(it.paid?' paid':'')+'" onclick="txhOpen('+ix+')">'+
@@ -59088,7 +59137,11 @@ function taxGlanceHTML(){
   if(vat){
     /* -459: last period as one row, lined up with the others - the "Before:" line wrapped mid-figure. */
     var _lq=trend.length>1?trend[trend.length-2]:null;
-    var prevRow=_lq?'<div class="r"><span>Last period ('+_lq.label.replace(/ \d{4}$/,'')+')</span><b'+(_lq.net<0?' class="in"':'')+'>'+(_lq.net<0?fmt(-_lq.net)+' back':fmt(_lq.net)+' paid')+'</b></div>':'';
+    /* -475: "paid" only once its due date has passed or it is marked paid; before that it is
+       still to pay (category B and D - see taxVatPrevPosition). */
+    var _pv=(typeof taxVatPrevPosition==='function')?taxVatPrevPosition():null, _n0=_txNow(), _t0=new Date(_n0.getFullYear(),_n0.getMonth(),_n0.getDate());
+    var _pvOpen=!!(_pv && _pv.due>=_t0 && !((ST.taxPaid||{})['VAT201:'+_taxIso(_pv.due)]));
+    var prevRow=_lq?'<div class="r"><span>Last period ('+_lq.label.replace(/ \d{4}$/,'')+')</span><b'+(_lq.net<0?' class="in"':'')+'>'+(_lq.net<0?fmt(-_lq.net)+' back':fmt(_lq.net)+(_pvOpen?' due '+_shortDate(_pv.due):' paid'))+'</b></div>':'';
     h+='<div class="txh-c"><div class="l">'+_ic('vat')+'VAT · '+_vp(vat)+'</div><div class="v'+(vat.owe<0?' in':'')+'">'+fmt(Math.abs(vat.owe))+'</div><div class="u">'+(vat.owe>=0?'to pay SARS':'SARS pays you')+' by '+_shortDate(new Date(vat.to.getFullYear(),vat.to.getMonth()+1,25))+' · period still open</div><div class="rows">'+
       '<div class="r"><span>VAT on your sales</span><b>'+fmt(vat.out)+'</b></div>'+
       '<div class="r"><span>VAT on your costs</span><b>'+(vat.inp>0?'−':'')+fmt(vat.inp)+'</b></div>'+
@@ -68028,16 +68081,28 @@ function parseBankCSV(text, override){
      wildly, and leave the rows visible so the farmer can correct the dates by hand. */
   var _needYear = out.filter(function(r){ return r._noYear; });
   if(_needYear.length){
-    var _years = (String(text).match(/\b(19|20)\d{2}\b/g)||[]).map(Number).filter(function(y){ return y>=1990 && y<=2100; });
-    var _base = _years.length ? Math.min.apply(null,_years)
-              : ((typeof getCurrentFY==='function') ? getCurrentFY() : new Date().getFullYear());
-    var _y = _base, _prevM = null;
+    /* -475: only a year written AS PART OF A DATE counts ("01/09/2026", "2026-09-01",
+       "1 Sep 2026", "September 2026"), and only a recent one. Any four-digit number used to
+       count, so a "-2000.00" amount dated every line of an FNB statement in the year 2000 -
+       while the statement still read "balances" and the lines fell out of every farm year. */
+    var _txt = String(text), _years = [], _mm, _nowY = new Date().getFullYear();
+    var _reD = [/\b\d{1,2}[\/\-. ](?:\d{1,2}|[A-Za-z]{3,9})[\/\-. ]((?:19|20)\d{2})\b/g,
+                /\b((?:19|20)\d{2})[\/\-.]\d{1,2}[\/\-.]\d{1,2}\b/g,
+                /\b[A-Za-z]{3,9}\.?\s+((?:19|20)\d{2})\b/g];
+    _reD.forEach(function(re){ while((_mm = re.exec(_txt))){ var _yy = +_mm[1]; if(_yy >= _nowY-7 && _yy <= _nowY+1) _years.push(_yy); } });
+    var _fromFile = _years.length > 0;
+    var _base = _fromFile ? Math.min.apply(null,_years) : _nowY;
+    var _walk = function(base){ var y = base, prevM = null, lastD = null;
+      out.forEach(function(r){ if(!r._noYear) return; if(prevM != null && r._noYear.m < prevM) y++; prevM = r._noYear.m;
+        r._yr = y; lastD = new Date(y, r._noYear.m, r._noYear.d); });
+      return lastD; };
+    var _last = _walk(_base);
+    /* With no year in the file, the statement is the most recent one that fits: never later than today. */
+    if(!_fromFile && _last && _last > new Date()) _walk(_base-1);
     for(var _k=0;_k<out.length;_k++){
       var _r = out[_k]; if(!_r._noYear) continue;
-      if(_prevM != null && _r._noYear.m < _prevM) _y++;
-      _prevM = _r._noYear.m;
-      _r.date = dateToTxFormat({d:_r._noYear.d, m:_r._noYear.m, y:_y});
-      delete _r._noYear;
+      _r.date = dateToTxFormat({d:_r._noYear.d, m:_r._noYear.m, y:_r._yr});
+      delete _r._noYear; delete _r._yr;
     }
   }
 
