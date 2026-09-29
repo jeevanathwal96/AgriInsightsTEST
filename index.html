@@ -17313,6 +17313,7 @@ function expByCat() {
 // ============================================================
 // ── Income / Expense filters ──────────────────────────────────
 function filterIncomeTx() {
+  _ieSyncFy('income');
   try{ _txMigrateIfNeeded(); }catch(e){}
   var q   = ($('inc-search')      && $('inc-search').value.toLowerCase())      || '';
   var cat = ($('inc-cat-filter')  && $('inc-cat-filter').value)                || '';
@@ -19052,6 +19053,7 @@ function _txFilterSummary(kind, shown, shownTotal, allInPeriod){
 }
 
 function filterExpTx() {
+  _ieSyncFy('expense');
   try{ _txMigrateIfNeeded(); }catch(e){}
   var q   = ($('exp-search')     && $('exp-search').value.toLowerCase())     || '';
   var cat = ($('exp-cat-filter') && $('exp-cat-filter').value)               || '';
@@ -19209,6 +19211,10 @@ var parts = (curMonth||'May 2024').split(' ');
 }
 
 function updateIncPage() {
+  /* -477: 'fy' is the farmer's choice; ST.incPeriod is the month count the page, chart and lists
+     read. Keep it in step with the farm year (as UK does), or a count saved months ago labels a
+     year-to-date figure "Last 6 Months". */
+  if (((ST.incPeriodSel || 'fy') === 'fy') && typeof _txFyMonths === 'function') ST.incPeriod = String(_txFyMonths());
   var p  = ST.incPeriod || '6';
   var n  = parseInt(p);
   var R  = txSummaryPeriod(n);
@@ -19300,6 +19306,10 @@ function expAddFarmSize() {
   setTimeout(function(){ var e = $('set-ha'); if (e) { try { e.scrollIntoView({block:'center'}); } catch(_){} e.focus(); } }, 400);
 }
 function updateExpPage() {
+  /* -477: 'fy' is the farmer's choice; ST.expPeriod is the month count the page, chart and lists
+     read. Keep it in step with the farm year (as UK does), or a count saved months ago labels a
+     year-to-date figure "Last 6 Months". */
+  if (((ST.expPeriodSel || 'fy') === 'fy') && typeof _txFyMonths === 'function') ST.expPeriod = String(_txFyMonths());
   var p  = ST.expPeriod || '6';
   var n  = parseInt(p);
   var R  = txSummaryPeriod(n);
@@ -47457,6 +47467,8 @@ function setPeriod(p) {
    on every screen. Industry standard for a VAT-registered business (FRS 102 23.4; FreeAgent,
    Xero): the profit side excludes VAT, and loan capital and drawings are never a cost. */
 function _ieZeroP(){ return {income:0,running:0,interest:0,depr:0,gain:0,profit:0,loanCapital:0,capitalLinked:0,capitalUnreg:0,nonopIn:0,nonopOut:0,tax:0,paydown:0,vatIn:0,vatOut:0,cashIn:0,cashOut:0,byCatLbl:{},byIncLbl:{}}; }
+/* -477: with "This financial year" picked, the stored month count follows the farm year (UK does the same). */
+function _ieSyncFy(kind){ try{ var inc=(kind==='income'); if(((inc?ST.incPeriodSel:ST.expPeriodSel)||'fy')==='fy' && typeof _txFyMonths==='function') ST[inc?'incPeriod':'expPeriod']=String(_txFyMonths()); }catch(e){} }
 function ieIsFy(kind){ try{ return ((kind==='income'?ST.incPeriodSel:ST.expPeriodSel)||'fy')==='fy'; }catch(e){ return false; } }
 function ieEngine(n, fyMode){
   try{
@@ -47798,6 +47810,7 @@ function initDashChart() {
 // ── Income charts ─────────────────────────────────────────────
 function initIncomeCharts() {
   var c=$('incomeChart');
+  _ieSyncFy('income');
   if (c) {
     destroyChart('inc');
     var p = ST.incPeriod || '6';
@@ -47817,6 +47830,7 @@ function initIncomeCharts() {
 // ── Expense charts ────────────────────────────────────────────
 function initExpCharts() {
   var c=$('expChart');
+  _ieSyncFy('expense');
   if (c) {
     destroyChart('exp');
     var p = ST.expPeriod || '6';
