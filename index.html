@@ -5608,6 +5608,7 @@ select.he-cell.he-warn{border-color:#e6b45f;background-color:#fff7ea;color:#8a5a
 .crop-citem .ch{display:flex;align-items:center;gap:10px}
 .crop-citem .cstat{width:11px;height:11px;border-radius:50%;flex:none}
 .crop-citem .cstat.g{background:#16a34a}.crop-citem .cstat.a{background:#d97706}.crop-citem .cstat.r{background:var(--rd)}
+.cr-sdot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;margin-right:6px;background:#16a34a}.cr-sdot.a{background:#d97706}.cr-sdot.r{background:var(--rd)}
 .crop-citem .ct{font-size:13.5px;font-weight:800;flex:1}
 .crop-citem .cact{font-size:11px;font-weight:700;color:var(--gl)}
 .crop-citem .law{font-size:11px;color:var(--t4);font-weight:700;text-transform:uppercase;letter-spacing:.03em;margin-top:1px}
@@ -7071,6 +7072,10 @@ table.rn-t td.dim{color:var(--t4)}
             <span data-t="ob.consent.text">I have read and accept the <b onclick="event.preventDefault();aiPolicyOpen('privacy')">Privacy Policy</b> and <b onclick="event.preventDefault();aiPolicyOpen('terms')">Terms of Use</b>. I understand how my farm’s information is stored, and that where I record worker details I remain responsible for them under POPIA.</span>
           </label>
           <div class="ob-consent-warn" id="ob-consent-warn" data-t="ob.consent.warn">Please accept to continue.</div>
+          <label class="ob-consent-row" for="ob-marketing-chk" style="margin-top:10px">
+            <input type="checkbox" id="ob-marketing-chk"/>
+            <span data-t="ob.marketing.text">Send me news and offers from AgriInsights by email (optional). I can stop them at any time.</span>
+          </label>
         </div>
 
         <div class="ob-actions">
@@ -8684,7 +8689,7 @@ table.rn-t td.dim{color:var(--t4)}
             <option value="s12b">Farming equipment — fast write-off (50% / 30% / 20%)</option>
             <option value="s11e">Standard wear &amp; tear (even amount each year)</option>
             <option value="renew">Solar / renewable — accelerated write-off</option>
-            <option value="s12u">Farm development — dams, fences, roads (Sec 12U)</option>
+            <option value="s12u">Farm development — dams, fences, roads (First Schedule para 12)</option>
             <option value="none">Doesn't lose value (land, shares, policies)</option>
           </select>
         </div>
@@ -8696,6 +8701,10 @@ table.rn-t td.dim{color:var(--t4)}
       <div style="border-top:1px solid var(--br);margin:4px 0 12px;padding-top:13px">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13px;margin:0">
           <input type="checkbox" id="ast-financed" onchange="astToggleFinance()" style="width:auto;margin:0"/> This asset is financed (loan / instalment sale)
+        </label>
+        <label id="ast-leased-row" style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:13px;margin:10px 0 0">
+          <input type="checkbox" id="ast-leased" onchange="astToggleLease()" style="width:auto;margin:0"/> Leased — you hand it back
+          <span id="ast-lease-i" title="It isn’t yours, so it has no value here and no write-off: s12B needs you to own it or buy it on an instalment sale. It stays in the register for its service, insurance and hand-back dates, is left out of your lender pack, and the rentals are running costs (s11(a)) — record them as expenses." style="font-size:12px;color:var(--t3);cursor:help;font-weight:700">&#9432;</span>
         </label>
         <div id="ast-finance-fields" style="display:none;margin-top:10px">
           <div class="fg2" style="margin-bottom:10px">
@@ -12428,11 +12437,18 @@ function cropComplianceDefs(){
   var chemStatus = (missingBatch>0||withinPHI>0||!c.sdsRegister||!c.containerDisposal)?'a':'g';
   var anyGMO=ST_CROP.lands.some(function(l){return l.gmo && cropPlanted(l);});
   var anyIrr=ST_CROP.lands.some(function(l){return l.irrigated;});
+  /* B5-C03 (-482): a record that is not there is "Not recorded yet" and counts as to do - never a tick. */
+  var NR='Not recorded yet', noInputs=!(ST_CROP.inputs||[]).some(function(i){ return i && i.product && i.kind!=='fertiliser' && i.kind!=='seed'; });
+  var opsKnown=(c.operatorsTotal!=null && c.operatorsTotal!=='' && Number(c.operatorsTotal)>0 && c.operatorsTrained!=null && c.operatorsTrained!=='');
+  if(noInputs) chemStatus='a';
   // Each item: id, t(title), law, auto(relevance auto-on), status, desc, kv(display rows), fields(editable inputs)
-  return [
-    {id:'chem', t:'Agrochemical use & records', law:'Act 36 of 1947 \u00b7 Agricultural Remedies', auto:true, status:chemStatus,
-     desc:'All sprays must use registered products at label rate, applied by a competent operator, with records kept. PHI observed before harvest.',
-     kv:[['Registered products', ST_CROP.inputs.length+' logged'],['PHI observed', withinPHI?(withinPHI+' land within PHI'):'\u2713 all clear'],['Missing batch no.', missingBatch?(missingBatch+' record'):'\u2713 none'],['SDS register', c.sdsRegister?'\u2713 kept':'\u26a0 none'],['Empty containers', c.containerDisposal?'\u2713 triple-rinsed/disposed':'\u26a0 record it'],['Operators (from OHS)', c.operatorsTrained>=c.operatorsTotal?'\u2713 certified':'\u26a0 check']],
+  var defs=[
+    /* B5-C04 (-482): Act 36 is the label law - it puts no record duty on a farmer spraying his own land. The record
+       is asked for by the export standard (GLOBALG.A.P. FV 32.02.01, kept 3 years for export) and, where a pest
+       control operator sprays for the farm, by the PCO regulations (GN R98 of 2011 reg 13). Label kept. */
+    {id:'chem', t:'Agrochemical use & records', law:'Act 36 of 1947 (label use) \u00b7 records: export standard or PCO', auto:true, status:chemStatus,
+     desc:'Use only registered products, for the use and at the rate on the label (Act 36). The spray record is what your export standard asks for, and what a pest control operator must keep when one sprays for you. PHI observed before harvest.',
+     kv:[['Registered products', noInputs?NR:(ST_CROP.inputs.length+' logged')],['PHI observed', noInputs?NR:(withinPHI?(withinPHI+' land within PHI'):'\u2713 all clear')],['Missing batch no.', noInputs?NR:(missingBatch?(missingBatch+' record'):'\u2713 none')],['SDS register', c.sdsRegister?'\u2713 kept':'\u26a0 none'],['Empty containers', c.containerDisposal?'\u2713 triple-rinsed/disposed':'\u26a0 record it'],['Operators (from OHS)', !opsKnown?NR:(c.operatorsTrained>=c.operatorsTotal?'\u2713 certified':'\u26a0 check')]],
      fields:[{k:'sdsRegister',label:'Safety Data Sheet (SDS) register kept?',type:'bool'},{k:'containerDisposal',label:'Empty containers triple-rinsed & disposal recorded?',type:'bool'}],
      keep:['Registered product (L-number) used at label rate','Date, land, batch & applicator per application','Pre-harvest interval observed before harvest','SDS for every product in the chemical store','Empty-container triple-rinse & disposal record'],
      note:'Spray records (product, rate, batch, PHI) are logged on the Inputs & Spray tab \u2014 they flow into this automatically. Operator training is managed under Worker safety.'},
@@ -12444,9 +12460,9 @@ function cropComplianceDefs(){
      desc: anyGMO ? 'For Bt crops a non-Bt refuge must be planted per the seed-licence stewardship terms, and the permit/agreement kept on file.' : 'No GMO/Bt cultivars planted this season.',
      kv: anyGMO ? [['Bt crop(s)', ST_CROP.lands.filter(function(l){return l.gmo&&cropPlanted(l);}).map(function(l){return l.crop;}).join(', ')||'\u2014'],['Refuge recorded', c.gmoRefugeLogged?'\u2713 logged':'\u26a0 not logged'],['Refuge %', c.gmoRefugePct||'per seed licence'],['Stewardship doc', c.gmoStewardshipDoc?'\u2713 on file':'\u26a0 missing']] : [['Bt cultivars','none']],
      fields:[{k:'gmoRefugeLogged',label:'Refuge area planted & recorded?',type:'bool'},{k:'gmoRefugePct',label:'Refuge planted (%)',type:'text',ph:'e.g. 5% or 20% per licence'},{k:'gmoStewardshipDoc',label:'Stewardship / permit doc on file?',type:'bool'}], keep:['Seed licence / stewardship agreement','Refuge area planted (% per licence)','Bt cultivar & land record']},
-    {id:'invasive', t:'Alien & invasive plant control', law:'CARA 43/1983 \u00b7 NEMBA 10/2004', auto:true, status: c.invasiveOutstanding ? 'a':'g',
+    {id:'invasive', t:'Alien & invasive plant control', law:'CARA 43/1983 \u00b7 NEMBA 10/2004', auto:true, status: (c.invasiveOutstanding || !(c.invasiveRegister || c.invasiveLastAction)) ? 'a':'g',
      desc:'Declared weeds and invasive species on the property must be controlled and recorded. Land owners carry a duty of care.',
-     kv:[['Control register', c.invasiveRegister?'\u2713 kept':'\u26a0 none'],['Last action', c.invasiveLastAction||'\u2014'],['Outstanding', c.invasiveOutstanding||'\u2713 none']],
+     kv:[['Control register', c.invasiveRegister?'\u2713 kept':'\u26a0 none'],['Last action', c.invasiveLastAction||NR],['Outstanding', c.invasiveOutstanding||((c.invasiveRegister||c.invasiveLastAction)?'\u2713 none':NR)]],
      fields:[{k:'invasiveRegister',label:'Control register kept?',type:'bool'},{k:'invasiveLastAction',label:'Last control action',type:'text',ph:'e.g. Pompom weed \u00b7 Feb 2025'},{k:'invasiveOutstanding',label:'Outstanding action (blank if none)',type:'text',ph:'e.g. Koppie firebreak'}], keep:['Control register (species, date, method)','Map / area of infestation','Follow-up actions outstanding']},
     {id:'seed', t:'Certified seed & cultivar rights', law:'Plant Improvement & PBR Acts', auto:true, status: c.seedCertified ? 'g':'a',
      desc:'Seed source and cultivar are recorded; any retained/farm-saved seed and royalties are tracked for protected cultivars.',
@@ -12456,9 +12472,9 @@ function cropComplianceDefs(){
      desc:'Cultivation must not cause erosion; conservation measures (contours, minimum till, cover) recorded per land.',
      kv:[['Practice', c.soilPractice||'\u2014'],['Soil test', c.soilTest||'\u2014']],
      fields:[{k:'soilPractice',label:'Conservation practice',type:'text',ph:'e.g. Min-till + contours'},{k:'soilTest',label:'Latest soil test',type:'text',ph:'e.g. Vlakte \u00b7 Aug 2024'}], keep:['Conservation practice per land (contours, min-till, cover)','Soil test results','Any erosion-control directive from the department']},
-    {id:'ohs', t:'Worker safety & PPE', law:'OHS Act 85 of 1993', auto:true, status: (c.operatorsTrained>=c.operatorsTotal && c.ppeIssued && c.firstAidKit) ? 'g':'a',
+    {id:'ohs', t:'Worker safety & PPE', law:'OHS Act 85 of 1993', auto:true, status: (opsKnown && c.operatorsTrained>=c.operatorsTotal && c.ppeIssued && c.firstAidKit) ? 'g':'a',
      desc:'Workers are trained and issued PPE; the chemical store, first-aid and spill response meet safety requirements. This is the single place to record worker training.',
-     kv:[['Operators trained', c.operatorsTrained+' of '+c.operatorsTotal],['Training record', c.workerTraining||'\u2014'],['PPE issued', c.ppeIssued?'\u2713 logged':'\u26a0 none'],['First-aid / spill kit', c.firstAidKit?'\u2713 in place':'\u26a0 check']],
+     kv:[['Operators trained', opsKnown?(c.operatorsTrained+' of '+c.operatorsTotal):NR],['Training record', c.workerTraining||NR],['PPE issued', c.ppeIssued?'\u2713 logged':'\u26a0 none'],['First-aid / spill kit', c.firstAidKit?'\u2713 in place':'\u26a0 check']],
      fields:[{k:'operatorsTrained',label:'Operators trained',type:'number'},{k:'operatorsTotal',label:'Operators total',type:'number'},{k:'workerTraining',label:'Training record (who / when)',type:'text',ph:'e.g. 2 operators P2 \u00b7 May 2024'},{k:'ppeIssued',label:'PPE issued & recorded?',type:'bool'},{k:'firstAidKit',label:'First-aid & spill kit in place?',type:'bool'}],
      keep:['Worker induction & training dates','PPE issue register','First-aid kit & spill response','Safe chemical store & handling']},
     /* This used to be a typed litre count and a "logbook kept?" tick-box, which
@@ -12475,10 +12491,35 @@ function cropComplianceDefs(){
      fields:[{k:'dieselLitres',label:'Litres logged on paper, outside the app (optional)',type:'number'},{k:'dieselLogbook',label:'Paper logbook kept as well?',type:'bool'}], keep:['Eligible vs non-eligible diesel split','Per-activity logbook (date, machine, litres)','Purchase invoices for the claim period']},
     {id:'export', t:'Export / GlobalGAP readiness', law:'Optional \u00b7 market access', auto:false, status: c.exportReady ? 'g':'a',
      desc:'For crops sold to export buyers: traceability, spray records and MRL compliance are export-ready from the spray program.',
-     kv:[['Spray records', missingBatch?'\u26a0 '+missingBatch+' incomplete':'\u2713 complete'],['Scheme', c.exportScheme||'\u2014'],['Traceability','Land \u2192 batch \u2192 delivery']],
+     kv:[['Spray records', noInputs?NR:(missingBatch?'\u26a0 '+missingBatch+' incomplete':'\u2713 complete')],['Scheme', c.exportScheme||NR],['Traceability','Land \u2192 batch \u2192 delivery']],
      fields:[{k:'exportScheme',label:'Certification scheme',type:'text',ph:'e.g. GlobalGAP, SIZA'},{k:'exportReady',label:'Records export-ready?',type:'bool'}], keep:['Valid scheme certificate (with expiry)','Full traceability: land \u2192 batch \u2192 delivery','MRL / residue compliance from spray records']}
   ];
+  /* B5-C01 / D3 (-482): ONE status per item, worked out from its records AND its dates - the ring, the
+     count, the list, the item window and the audit pack all read it. Overdue = red, due or not yet
+     recorded = to do (amber), up to date only when the record is complete and nothing is due. A check
+     that does not apply (no irrigated land, no Bt crop) has no due date. */
+  var notApplies={ water:!anyIrr, gmo:!anyGMO };
+  defs.forEach(function(it){
+    it.recStatus=it.status;
+    it.due=notApplies[it.id] ? {state:'none', label:'', days:0, source:'check'} : (it.id==='diesel' ? cropDieselDue() : cropComplianceCombinedDue(it.id));
+    it.status = it.due.state==='over' ? 'r' : ((it.due.state==='soon' || it.recStatus!=='g') ? 'a' : 'g');
+  });
+  return defs;
 }
+/* D3: the diesel record IS the fuel log. Its "last check" is the latest diesel logged to a machine (or a
+   check logged by hand, whichever is later); a paper logbook counted in the fuel record stands on its own. */
+function cropDieselDue(){
+  var base=cropComplianceCombinedDue('diesel'), months=cropComplianceCadence('diesel');
+  if(!months) return base;
+  var last=null; cropComplianceLog('diesel').forEach(function(e){ if(e.date && (!last || e.date>last)) last=e.date; });
+  (((typeof ST_FUEL!=='undefined')&&ST_FUEL.issues)||[]).forEach(function(i){ if(i && i.date && (!last || String(i.date)>last)) last=String(i.date).slice(0,10); });
+  if(!last){ return (_dslC().logged>0) ? {state:'none', label:'', days:0, source:'check'} : base; }
+  var next=cropAddMonths(new Date(last+'T00:00:00'), months), days=Math.round((next-LS_TODAY)/86400000);
+  var state=days<0?'over':(days<=14?'soon':'ok'), M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var chk={state:state, days:days, source:'check', label: state==='over'?('Overdue '+Math.abs(days)+' day'+(Math.abs(days)===1?'':'s')):(state==='soon'?('Due in '+days+' day'+(days===1?'':'s')):('\u2713 Done \u00b7 next '+M[next.getMonth()]+' '+next.getFullYear()))};
+  var rank={over:3,soon:2,ok:1,none:0}; return (base.source==='doc' && rank[base.state]>rank[chk.state]) ? base : chk;
+}
+function cropComplianceStatusWord(st){ return st==='r'?'Overdue':(st==='a'?'To do':'Up to date'); }
 // Only the areas the farmer has chosen to track
 function cropComplianceTrackedIds(){
   var t=(ST_CROP.compliance && ST_CROP.compliance.tracked) || {};
@@ -12511,7 +12552,7 @@ function cropComplianceDue(id){
   return {state:state, next:next, last:last, days:days, label:label};
 }
 function cropComplianceDueList(){
-  return cropComplianceTrackedIds().map(function(it){ var d=cropComplianceCombinedDue(it.id); return {id:it.id, t:it.t, law:it.law, due:d}; })
+  return cropComplianceTrackedIds().map(function(it){ return {id:it.id, t:it.t, law:it.law, due:it.due}; })
     .filter(function(x){ return x.due.state==='over' || x.due.state==='soon'; })
     .sort(function(a,b){ return a.due.days-b.due.days; });
 }
@@ -14056,9 +14097,9 @@ function cropRenderCompliance(){
      that can drift. The card stays (data is preserved) but points to its canonical home. */
   var xmap={ ohs:{go:"nav('workers')", lbl:'Managed in Workers'}, diesel:{go:"nav('tax')", lbl:'Managed in Tax'} };
   var itemObjs=tracked.map(function(it){
-    var due=cropComplianceCombinedDue(it.id);
-    var dot = (due.state==='over') ? 'r' : ((due.state==='soon'||it.status==='a') ? 'a' : 'g');
-    var rank = (due.state==='over') ? 0 : (due.state==='soon' ? 1 : (it.status==='a' ? 2 : 3));
+    var due=it.due;
+    var dot = it.status;
+    var rank = (it.status==='r') ? 0 : (due.state==='soon' ? 1 : (it.status==='a' ? 2 : 3));
     var dueBadge = '';
     if(due.state==='over') dueBadge='<span class="due over" style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:var(--rp);color:var(--rd)">\uD83D\uDD34 '+due.label+'</span>';
     else if(due.state==='soon') dueBadge='<span class="due soon" style="font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;background:var(--ap);color:var(--am)">\uD83D\uDFE1 '+due.label+'</span>';
@@ -14143,9 +14184,9 @@ function cropSaveCompliance(){
 function cropRenderComplianceModal(){
   var it=cropComplianceDefById(CROP_COMPLY_ID); if(!it) return;
   var c=ST_CROP.compliance;
-  var combined=cropComplianceCombinedDue(it.id);
-  var statusTxt = it.status==='g' ? '\u2713 On track' : '\u26a0 Needs attention';
-  var statusCol = it.status==='g' ? 'var(--gd)' : 'var(--am,#B45309)';
+  var combined=it.due;
+  var statusTxt = '<span class="cr-sdot '+it.status+'"></span>'+cropComplianceStatusWord(it.status);
+  var statusCol = it.status==='g' ? 'var(--gd)' : (it.status==='r' ? 'var(--rd)' : 'var(--am,#B45309)');
 
   // ---- status + due box ----
   var dueBox='';
@@ -14787,32 +14828,64 @@ function orPhiOverrides(){
   ((typeof ST_FRUIT!=='undefined'&&ST_FRUIT.harvest)||[]).forEach(function(h){ var s=String((h&&h.s)||''); if(s.indexOf(PHI_OVERRIDE_TAG)>=0){ var b=orBlockById(h.bid); out.push({date:h.dateISO, block:b?b.name:'?', note:s.slice(s.indexOf(PHI_OVERRIDE_TAG))}); } });
   return out;
 }
+/* The spray register's columns, used by the printed page AND the CSV so the two can never differ (B5-C14). */
+function cropInputAI(i){ if(i && i.active) return String(i.active); var m=String((i&&i.product)||'').match(/\(([^)]+)\)/); return m?m[1].trim():''; }
+function cropSprayCols(NR){
+  var E=function(v){ return escTxHtml(v==null?'':String(v)); }, orNR=function(v){ return (v==null||String(v).trim()==='')?NR:String(v); };
+  var nrH=function(v){ var t=orNR(v); return t===NR?'<span style="color:#9ca3af">'+NR+'</span>':E(t); };
+  var chem=function(i){ return i.kind!=='fertiliser' && i.kind!=='seed'; };
+  return [
+    {h:'Date', html:function(i){ return cropDispDate(i.date); }, csv:function(i){ return i.date; }},
+    {h:'Land', html:function(i,l){ return E(l?l.name:'?'); }, csv:function(i,l){ return l?l.name:''; }},
+    {h:'Area (ha)', amt:true, html:function(i,l){ return (l&&l.area)?E(l.area):'\u2014'; }, csv:function(i,l){ return (l&&l.area)||''; }},
+    {h:'Crop', html:function(i,l){ return E((l&&l.crop)||''); }, csv:function(i,l){ return (l&&l.crop)||''; }},
+    {h:'Product', html:function(i){ return E(i.product); }, csv:function(i){ return i.product||''; }},
+    {h:'Active ingredient', html:function(i){ return chem(i)?nrH(cropInputAI(i)):'\u2014'; }, csv:function(i){ return chem(i)?orNR(cropInputAI(i)):''; }},
+    {h:'Reg (L-no.)', html:function(i){ return E(i.reg||'\u2014'); }, csv:function(i){ return i.reg||''; }},
+    {h:'Type', html:function(i){ var meta=cropInputKindMeta(i.kind); return '<span class="lsr-pill '+meta[1].replace('p-','lsr-')+'">'+meta[0]+'</span>'; }, csv:function(i){ return cropInputKindMeta(i.kind)[0]; }},
+    {h:'Target', html:function(i){ return chem(i)?nrH(i.targetFor):'\u2014'; }, csv:function(i){ return chem(i)?orNR(i.targetFor):''; }},
+    {h:'Rate', html:function(i){ return E(i.rate||''); }, csv:function(i){ return i.rate||''; }},
+    {h:'Water (L/ha)', html:function(i){ return chem(i)?nrH(i.water):'\u2014'; }, csv:function(i){ return chem(i)?orNR(i.water):''; }},
+    {h:'Equipment', html:function(i){ return chem(i)?nrH(i.equipment):'\u2014'; }, csv:function(i){ return chem(i)?orNR(i.equipment):''; }},
+    {h:'Weather', html:function(i){ return chem(i)?nrH(i.weather):'\u2014'; }, csv:function(i){ return chem(i)?orNR(i.weather):''; }},
+    {h:'Batch', html:function(i){ return chem(i)?(i.batch?E(i.batch):'<span class="lsr-miss">missing</span>'):(E(i.batch||'\u2014')); }, csv:function(i){ return i.batch||''; }},
+    {h:'Applied by', html:function(i){ return E(i.by||''); }, csv:function(i){ return i.by||''; }},
+    {h:'Cert', html:function(i){ return E(i.operatorCert||''); }, csv:function(i){ return i.operatorCert||''; }},
+    {h:'PHI (days)', amt:true, html:function(i){ return i.phi?(i.phi+' d'):'\u2014'; }, csv:function(i){ return i.phi||0; }},
+    {h:'Safe from', html:function(i){ return cropInputActive(i)?('\u23F3 '+cropDispDate(cropLocalISO(cropInputSafe(i)))):(i.phi?'cleared':'\u2014'); }, csv:function(i){ return cropInputActive(i)?cropLocalISO(cropInputSafe(i)):'cleared'; }},
+    {h:'Status', html:function(i){ return cropInputActive(i)?'<span class="lsr-wd">\u23F3 within PHI</span>':'<span class="lsr-ok">\u2713 clear</span>'; }, csv:function(i){ return cropInputActive(i)?'within PHI':'clear'; }}
+  ];
+}
 function openCropSprayReport(){
   var all=ST_CROP.inputs.slice().sort(function(a,b){return a.date<b.date?1:-1;});
   var active=cropActivePHI();
   var missing=all.filter(function(i){return i.product && i.kind!=='fertiliser' && i.kind!=='seed' && !i.batch;});
   var awRows=active.length?active.map(function(i){var l=cropLandById(i.land);return '<tr><td>'+escTxHtml(l?l.name:'?')+'</td><td>'+escTxHtml(i.product)+'</td><td>'+cropDispDate(i.date)+'</td><td class="amt">'+i.phi+' d</td><td class="lsr-wd">\u23F3 '+cropDispDate(cropLocalISO(cropInputSafe(i)))+'</td></tr>';}).join(''):'<tr><td colspan="5" style="color:#16a34a;font-weight:700">\u2713 No land is inside a pre-harvest interval.</td></tr>';
+  /* B5-C14 (-482): ONE column set for the printed register and the CSV - what GLOBALG.A.P. FV 32.02.01 asks a
+     spray record to hold: where and how much land, the product AND its active ingredient, the target, the rate,
+     the water volume, the equipment, the weather, the batch and who applied it. Active ingredient comes from the
+     product name where it is written in brackets; equipment and water volume have no field to record them yet
+     (see the -482 notes), so they read "not recorded" rather than being left out. */
+  var NR='not recorded';
+  var cols=cropSprayCols(NR);
   var regRows=all.map(function(i){
-    var l=cropLandById(i.land); var meta=cropInputKindMeta(i.kind);
-    var batch=(i.kind==='fertiliser'||i.kind==='seed')?(i.batch||'\u2014'):(i.batch?escTxHtml(i.batch):'<span class="lsr-miss">missing</span>');
-    var safe=cropInputActive(i)?('\u23F3 '+cropDispDate(cropLocalISO(cropInputSafe(i)))):(i.phi?'cleared':'\u2014');
-    var status=cropInputActive(i)?'<span class="lsr-wd">\u23F3 within PHI</span>':'<span class="lsr-ok">\u2713 clear</span>';
-    return '<tr><td>'+cropDispDate(i.date)+'</td><td>'+escTxHtml(l?l.name:'?')+'</td><td>'+escTxHtml(i.product)+'<br><span style="color:#9ca3af;font-size:11px">'+(i.kind==='seed'?'Plant Improvement Act 53/1976':'Act 36/1947')+' \u00b7 '+escTxHtml(i.reg||'\u2014')+'</span></td><td><span class="lsr-pill '+meta[1].replace('p-','lsr-')+'">'+meta[0]+'</span></td><td>'+escTxHtml(i.rate||'')+'</td><td>'+batch+'</td><td>'+escTxHtml(i.by||'')+(i.operatorCert?' ('+escTxHtml(i.operatorCert)+')':'')+'</td><td>'+(i.phi?i.phi+' d':'None')+'</td><td>'+safe+'</td><td>'+status+'</td></tr>';
+    var l=cropLandById(i.land);
+    return '<tr>'+cols.map(function(c){ return '<td'+(c.amt?' class="amt"':'')+'>'+c.html(i,l)+'</td>'; }).join('')+'</tr>';
   }).join('');
   var banner=active.length?'<div class="lsr-banner warn"><b>\u23F3 '+active.length+' land(s) within a pre-harvest interval.</b> Do not harvest before the safe date (Section 1).'+(missing.length?(' '+missing.length+' record(s) missing a batch number.'):'')+'</div>':'<div class="lsr-banner ok"><b>\u2713 No active pre-harvest intervals.</b> All treated lands are safe to harvest.'+(missing.length?(' Note: '+missing.length+' record(s) missing a batch number.'):'')+'</div>';
   var html='<h1>Spray Program &amp; Pre-Harvest Interval Audit</h1>'+
     '<div class="lsr-meta">'+escTxHtml(FARM.name||'Farm')+' \u00b7 season '+cropReportSeason()+' \u00b7 Act 36/1947 \u00b7 figures to '+lsFmtDate(LS_TODAY)+'</div>'+banner+
     '<h2>1 \u00b7 Lands within a pre-harvest interval</h2><table><thead><tr><th>Land</th><th>Product</th><th>Applied</th><th class="amt">PHI</th><th>Safe from</th></tr></thead><tbody>'+awRows+'</tbody></table>'+
-    '<h2>2 \u00b7 Full application register</h2><table><thead><tr><th>Date</th><th>Land</th><th>Product \u00b7 reg</th><th>Type</th><th>Rate</th><th>Batch</th><th>By</th><th>PHI</th><th>Safe from</th><th>Status</th></tr></thead><tbody>'+regRows+'</tbody></table>'+
+    '<h2>2 \u00b7 Full application register</h2><div style="overflow-x:auto"><table class="crop-spray-reg" style="font-size:10.5px"><thead><tr>'+cols.map(function(c){ return '<th'+(c.amt?' class="amt"':'')+'>'+c.h+'</th>'; }).join('')+'</tr></thead><tbody>'+regRows+'</tbody></table></div>'+
     /* D7: harvests the farmer recorded inside a harvest interval, from the note on each. */
     (function(){ var ov=cropPhiOverrides(); if(!ov.length) return '';
       return '<h2>Harvests recorded inside a harvest interval</h2><table><thead><tr><th>Date</th><th>Land</th><th>Note</th></tr></thead><tbody>'+
         ov.map(function(o){ return '<tr><td>'+cropDispDate(o.date)+'</td><td>'+escTxHtml(o.land)+'</td><td class="lsr-wd">'+escTxHtml(o.note)+'</td></tr>'; }).join('')+'</tbody></table>'; })()+
     '<div class="lsr-note">A line is flagged if it is missing a batch number or (for a scheduled product) the registration/applicator. Use of an unregistered product, or harvesting before the safe date, is a residue-compliance risk for export (MRL) and GlobalGAP.</div>'+
-    '<h2>3 \u00b7 Records to keep</h2><ul class="lsr-keep"><li>Registered product (Act 36 / L-number) used at label rate.</li><li>Date, land, batch and applicator for every application.</li><li>Pre-harvest interval observed before harvest/delivery.</li><li>Operator training and PPE for restricted products.</li></ul>'+
+    '<h2>3 \u00b7 Records to keep</h2><ul class="lsr-keep"><li>Registered product (Act 36 / L-number) used at label rate.</li><li>Date, land and area, target, active ingredient, rate, water volume, equipment, weather, batch and applicator for every application.</li><li>Pre-harvest interval observed before harvest/delivery.</li><li>Operator training and PPE for restricted products.</li></ul>'+
     '<div class="lsr-disc"><b>Not agronomic or legal advice.</b> Confirm registration, rates and PHIs against the current product label. Final responsibility rests with the farm.</div>';
-  var csv=lsCsvRow(['Spray Program & PHI Audit',FARM.name||'Farm','Season',cropReportSeason()])+lsCsvRow([])+lsCsvRow(['Date','Land','Product','Reg','Type','Rate','Batch','By','Cert','PHI (d)','Safe from','Status']);
-  all.forEach(function(i){var l=cropLandById(i.land);csv+=lsCsvRow([i.date,l?l.name:'',i.product,i.reg||'',cropInputKindMeta(i.kind)[0],i.rate||'',i.batch||'',i.by||'',i.operatorCert||'',i.phi||0,cropInputActive(i)?cropLocalISO(cropInputSafe(i)):'cleared',cropInputActive(i)?'within PHI':'clear']);});
+  var csv=lsCsvRow(['Spray Program & PHI Audit',FARM.name||'Farm','Season',cropReportSeason()])+lsCsvRow([])+lsCsvRow(cols.map(function(c){ return c.h; }));
+  all.forEach(function(i){var l=cropLandById(i.land);csv+=lsCsvRow(cols.map(function(c){ return c.csv(i,l); }));});
   lsShowReport('Spray program & PHI audit','linear-gradient(135deg,#9a3d6e,#7C2D5A)',html,csv,'crop-spray-phi-audit.csv');
 }
 
@@ -14904,7 +14977,7 @@ async function openCropComplianceReport(){
     secs+
     '<div class="lsr-disc"><b>Not legal advice.</b> A status summary compiled from your records for inspectors, buyers, your co-op or bank. Exact thresholds (refuge %, water limits, diesel rate) must be verified against current regulations.</div>';
   var csv=lsCsvRow(['Crop Compliance Audit Pack',FARM.name||'Farm','Season',cropReportSeason(),'Score',sc.ok+'/'+sc.total])+lsCsvRow([])+lsCsvRow(['Area','Law','Status','Detail']);
-  cropComplianceItems().forEach(function(it){csv+=lsCsvRow([it.t,it.law,it.status==='g'?'OK':(it.status==='a'?'Attention':'Action'),it.kv.map(function(p){return p[0]+': '+p[1];}).join(' | ')]);});
+  cropComplianceItems().forEach(function(it){csv+=lsCsvRow([it.t,it.law,cropComplianceStatusWord(it.status),it.kv.map(function(p){return p[0]+': '+p[1];}).join(' | ')]);});
   csv+=lsCsvRow([])+lsCsvRow(['Check & test log']);
   csv+=lsCsvRow(['Area','Date','Check','Note','Files']);
   cropComplianceItems().forEach(function(it){ cropComplianceLog(it.id).forEach(function(e){ csv+=lsCsvRow([it.t,e.date,e.what||'',e.note||'',(e.photos||[]).map(function(x){return x.name;}).join('; ')]); }); });
@@ -16976,7 +17049,7 @@ recurring: [
   },
   charts: {},
   txns: [
-    {date:'08 May 2024',desc:'DAFF diesel rebate refund',cat:'Government Grant',type:'income',amt:18200,method:'Bank Deposit'},
+    {date:'08 May 2024',desc:'SARS diesel refund (VAT201)',cat:'VAT refund from SARS',type:'income',amt:18200,method:'Bank Deposit'},
     {date:'06 May 2024',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21200,method:'Bank Debit',ent:'ls:4'},
     {date:'15 May 2024',desc:'Milk delivery — Clover collection',cat:'Milk & Dairy',type:'income',amt:86508,moneyOnly:true,method:'Bank Deposit',ent:'ls:4'},
     {date:'10 May 2024',desc:'Weaner calves — Karan Beef',cat:'Livestock Sales',type:'income',amt:126166,method:'Bank Deposit',ent:'ls:1'},
@@ -17060,7 +17133,7 @@ recurring: [
     {date:'01 Dec 2023',desc:'Phone & internet (Vodacom)',cat:'Admin & Professional Fees',type:'expense',amt:1850,method:'Debit Order'},
     {date:'27 Dec 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:12650,method:'Fuel Card'},
     {date:'25 Dec 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:48880,method:'EFT'},
-    {date:'08 Nov 2023',desc:'DAFF diesel rebate refund',cat:'Government Grant',type:'income',amt:18200,method:'Bank Deposit'},
+    {date:'08 Nov 2023',desc:'SARS diesel refund (VAT201)',cat:'VAT refund from SARS',type:'income',amt:18200,method:'Bank Deposit'},
     {date:'06 Nov 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21800,method:'Bank Debit',ent:'ls:4'},
     {date:'15 Nov 2023',desc:'Milk delivery — Clover collection',cat:'Milk & Dairy',type:'income',amt:89392,moneyOnly:true,method:'Bank Deposit',ent:'ls:4'},
     {date:'21 Nov 2023',desc:'Orchard spray programme',cat:'Crop Protection',type:'expense',amt:20020,method:'Bank Debit',ent:'or:f2'},
@@ -17152,7 +17225,7 @@ recurring: [
     {date:'01 Jun 2023',desc:'Phone & internet (Vodacom)',cat:'Admin & Professional Fees',type:'expense',amt:1850,method:'Debit Order'},
     {date:'27 Jun 2023',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:12650,method:'Fuel Card'},
     {date:'25 Jun 2023',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:36660,method:'EFT'},
-    {date:'08 May 2023',desc:'DAFF diesel rebate refund',cat:'Government Grant',type:'income',amt:18200,method:'Bank Deposit'},
+    {date:'08 May 2023',desc:'SARS diesel refund (VAT201)',cat:'VAT refund from SARS',type:'income',amt:18200,method:'Bank Deposit'},
     {date:'06 May 2023',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:21800,method:'Bank Debit',ent:'ls:4'},
     {date:'15 May 2023',desc:'Milk delivery — Clover collection',cat:'Milk & Dairy',type:'income',amt:82770,moneyOnly:true,method:'Bank Deposit',ent:'ls:4'},
     {date:'10 May 2023',desc:'Weaner calves — Karan Beef',cat:'Livestock Sales',type:'income',amt:120360,method:'Bank Deposit',ent:'ls:1'},
@@ -17236,7 +17309,7 @@ recurring: [
     {date:'01 Dec 2022',desc:'Phone & internet (Vodacom)',cat:'Admin & Professional Fees',type:'expense',amt:1850,method:'Debit Order'},
     {date:'27 Dec 2022',desc:'Sasol fuel card — farm vehicles',cat:'Fuel & Oil',type:'expense',amt:8464,method:'Fuel Card'},
     {date:'25 Dec 2022',desc:'Permanent staff salaries (3)',cat:'Labour & Wages',type:'expense',amt:50440,method:'EFT'},
-    {date:'08 Nov 2022',desc:'DAFF diesel rebate refund',cat:'Government Grant',type:'income',amt:18200,method:'Bank Deposit'},
+    {date:'08 Nov 2022',desc:'SARS diesel refund (VAT201)',cat:'VAT refund from SARS',type:'income',amt:18200,method:'Bank Deposit'},
     {date:'06 Nov 2022',desc:'Dairy meal & concentrate',cat:'Animal Feed',type:'expense',amt:18200,method:'Bank Debit',ent:'ls:4'},
     {date:'15 Nov 2022',desc:'Milk delivery — Clover collection',cat:'Milk & Dairy',type:'income',amt:85440,moneyOnly:true,method:'Bank Deposit',ent:'ls:4'},
     {date:'21 Nov 2022',desc:'Orchard spray programme',cat:'Crop Protection',type:'expense',amt:20680,method:'Bank Debit',ent:'or:f2'},
@@ -21286,13 +21359,15 @@ function syncSettingsHeader(){
       cl.textContent = c&&c.acceptedAt
         /* Lower-case "accepted" here on purpose: the chip's capitalised "Accepted" is a
            LANG_PAIRS key, and replacement is case-sensitive, so this line cannot collide. */
-        ? ('Version '+c.policyVersion+' accepted on '+new Date(c.acceptedAt).toLocaleDateString('en-ZA'))
+        ? ('Version '+c.policyVersion+' accepted on '+new Date(c.acceptedAt).toLocaleDateString('en-ZA')
+           + ((typeof aiConsentStale==='function' && aiConsentStale(c)) ? ' · version '+AI_POLICY_VERSION+' not yet accepted' : '')
+           + ' · news and offers by email: '+(c.marketing?'yes':'no'))
         : 'Not yet accepted on this farm.'; }
     /* The chip lives in its OWN element on purpose: the line above is written with textContent,
        which would strip any markup put inside it. An unaccepted farm is a live compliance gap,
        so it gets a chip on the card title rather than muted grey text further down. */
     var ch=$('set-consent-chip');
-    if(ch) ch.innerHTML = (c&&c.acceptedAt)
+    if(ch) ch.innerHTML = (c&&c.acceptedAt&&!(typeof aiConsentStale==='function'&&aiConsentStale(c)))
       ? '<span class="set-consent-chip yes">Accepted</span>'
       : '<span class="set-consent-chip no">Not accepted</span>';
   }catch(e){}
@@ -25049,15 +25124,40 @@ var ASSET_TAX_MAP = {
   'Vehicles & Tractors':   {type:'s12b', life:5,  note:'Tractors & farm vehicles use the Section 12B 50/30/20 accelerated allowance. A private bakkie or car would instead use Section 11(e) wear-and-tear.'},
   'Machinery & Equipment': {type:'s12b', life:5,  note:'Most farming machinery & implements qualify for the Section 12B 50/30/20 accelerated allowance.'},
   'Renewable Energy':      {type:'renew',life:1,  note:'Solar, battery & generator plant can qualify for an accelerated (often 100% in year one) allowance \u2014 confirm the exact rate for your system with your accountant.'},
-  'Capital Development':   {type:'s12u', life:10, note:'Dams, boreholes, fences, roads & soil-conservation works are deductible farm development (Section 12U / First Schedule). The timing depends on your farming income \u2014 your accountant confirms it.'},
+  'Capital Development':   {type:'s12u', life:10, note:'Dams, boreholes, fences, roads & soil-conservation works are farm development, deducted in the year they are built (First Schedule para 12). The timing depends on your farming income \u2014 your accountant confirms it.'},
   'Irrigation & Water':    {type:'s12b', life:5,  note:'Irrigation equipment qualifies for the Section 12B 50/30/20 allowance.'},
   'Storage & Silos':       {type:'s12b', life:5,  note:'Silos & storage equipment typically qualify for Section 12B. A fixed storage building may use Section 11(e) instead.'},
   'Tools & Implements':    {type:'s12b', life:5,  note:'Farming tools & implements generally qualify for the Section 12B allowance.'},
   'Financial Assets':      {type:'none', life:0,  note:'Financial assets such as shares or policies do not depreciate.'},
   'Other':                 {type:'s11e', life:5,  note:'Defaulting to Section 11(e) wear-and-tear over 5 years. Adjust the treatment if your accountant advises otherwise.'}
 };
-var ASSET_TREAT_LABEL = {s12b:'fast farming write-off (50/30/20)', s11e:'standard wear & tear', s12u:'farm development allowance (Section 12U)', renew:'solar / renewable allowance', none:'no write-off'};
-var ASSET_TREAT_BADGE = {s12b:'S12B', s11e:'S11(e)', s12u:'S12U', renew:'Solar/RE'};
+var ASSET_TREAT_LABEL = {s12b:'fast farming write-off (50/30/20)', s11e:'standard wear & tear', s12u:'farm development (First Schedule para 12)', renew:'solar / renewable allowance', none:'no write-off', lease:'leased \u2014 no write-off, the rentals are running costs'};
+var ASSET_TREAT_BADGE = {s12b:'S12B', s11e:'S11(e)', s12u:'Para 12', renew:'Solar/RE', lease:'Leased'};
+/* B5-C09 / D4 (-482): a leased machine ("you hand it back") stays in the register, with no value, no
+   allowance and no write-off, and out of the lender pack. Stored as its tax treatment (depr_type 'lease'),
+   so it needs no new column; its price is 0 because the farm does not own it. */
+function astLeased(a){ return !!(a && a.deprType==='lease'); }
+/* B5-C10 (-482): the farm year an asset was bought in (the same year-end rule calcDepr uses). Farm
+   development (para 12) is deducted in that year only, so it is shown in that year only. */
+function astBoughtFY(a){
+  var p=String((a&&a.date)||'').split('-'), y=parseInt(p[0],10), m=parseInt(p[1]||'1',10)-1; if(!y) return null;
+  var fs=(window.ST && ST.fyStartMonth) ? (ST.fyStartMonth-1) : 2; return (m>=fs)?y:y-1;
+}
+function astFyLabel(fy){ return fy+'/'+String((fy+1)%100).padStart(2,'0'); }
+/* s12B: which of the three years this is, and its rate - "Year 1: R200 000 (50%)", never "/yr". */
+function astS12bYear(a, d){
+  if(!a || a.deprType!=='s12b' || !d || !d.deprSchedule) return null;
+  var fy=getCurrentFY(); for(var i=0;i<d.deprSchedule.length;i++){ if(d.deprSchedule[i].yr===fy) return {n:i+1, rate:d.deprSchedule[i].rate, amount:d.deprSchedule[i].amount}; }
+  return null;
+}
+function astToggleLease(){
+  var on=!!($('ast-leased')&&$('ast-leased').checked);
+  var fc=$('ast-financed'); if(fc && on){ fc.checked=false; astToggleFinance(); }
+  var fr=fc?fc.closest('label'):null; if(fr) fr.style.display=on?'none':'flex';
+  var dr=$('ast-depr-row'); if(dr) dr.style.display=on?'none':'';
+  var pr=$('ast-price'); if(pr){ pr.disabled=on; if(on) pr.value=''; pr.placeholder=on?'Not yours \u2014 no value':'0'; }
+  var dp=$('ast-depr-preview'); if(dp && on) dp.style.display='none';
+}
 
 // ── Sub-type working lives (physical/economic, NOT tax) + keyword inference ──
 var ASSET_SUBTYPES = {
@@ -25146,6 +25246,7 @@ function astSubtypeChanged(){ astSubtypeEdited=true; var chip=$('ast-subtype-chi
 function calcDepr(asset) {
   var price = asset.price || 0;
   var date  = asset.date || '';
+  if (asset.deprType === 'lease') return {bookValue:0, deprYear:0, deprTotal:0, deprSchedule:[]};
   if (!date || asset.deprType === 'none') return {bookValue:price, deprYear:0, deprTotal:0, deprSchedule:[]};
 
 var purchaseYear = parseInt(date.split('-')[0]) || 2020;
@@ -25350,7 +25451,7 @@ function updateAssetSummary() {
        is claimed at full cost in the year it was built, under para 12 — spreading it
        over its life here invented an annual deduction the tax engine never claims, and
        made this tile disagree with Tax & SARS by exactly that amount. */
-    if (a.deprType === 's12u') devCost += a.price || 0;
+    if (a.deprType === 's12u'){ if (astBoughtFY(a) === getCurrentFY()) devCost += a.price || 0; }
     else totalDeprYear += d.deprYear;
   });
   /* -466: the headline is the asset value the Lender pack uses (the insured value where the
@@ -25367,7 +25468,7 @@ function updateAssetSummary() {
   try{ astRenderUnreg(); }catch(e){}
   /* Farm development still has to be visible — it is real money, just claimed once. */
   setEl('ast-depr-sub', devCost > 0
-    ? ('plus ' + fmt(devCost) + ' farm development, claimed in its build year')
+    ? ('plus ' + fmt(devCost) + ' farm development this year (para 12)')
     : 'on your SARS return');
 }
 
@@ -25455,8 +25556,10 @@ function renderAssetList() {
       '</td>' +
       '<td class="r">' +
         (a.deprType === 's12u'
-          /* Farm development is claimed once, at cost, in its build year — never per year. */
-          ? '<span style="color:var(--t3);font-size:12px">In build year</span>'
+          /* Farm development is deducted once, at cost, in the year it was built (para 12) — never per year. */
+          ? (astBoughtFY(a)===getCurrentFY() ? '<div style="font-weight:700;color:var(--gl)">'+fmt(a.price||0)+'</div><div style="font-size:11px;color:var(--t3)">this year</div>'
+                                            : '<span style="color:var(--t3);font-size:12px">Deducted '+(astBoughtFY(a)!=null?astFyLabel(astBoughtFY(a)):'in its year')+'</span>')
+          : astS12bYear(a,d) && d.deprYear > 0 ? (function(y){ return '<div style="font-weight:700;color:var(--gl)">Year '+y.n+': '+fmt(d.deprYear)+' ('+y.rate+')</div>'; })(astS12bYear(a,d))
           : d.deprYear > 0 ? '<div style="font-weight:700;color:var(--gl)">'+fmt(d.deprYear)+'/yr</div>'
           : _astFullyClaimed(a, d) ? '<span style="color:var(--t3);font-size:12px">Nothing left</span>'
           : '<span style="color:var(--t4)">—</span>') +
@@ -25613,6 +25716,7 @@ function openAddAsset() {
   ['ast-lender','ast-outstanding','ast-instalment','ast-rate','ast-insured','ast-insurer','ast-renewal'].forEach(function(id){ var e=$(id); if(e){ e.value=''; e.readOnly=false; } });
   var fc=$('ast-financed'); if(fc){ fc.checked=false; fc.disabled=false; }
   var ff=$('ast-finance-fields'); if(ff) ff.style.display='none';
+  var lsc=$('ast-leased'); if(lsc){ lsc.checked=false; astToggleLease(); }
   var gc=$('ast-gone'); if(gc) gc.checked=false;
   ['ast-gone-date','ast-gone-proceeds'].forEach(function(id){ var e=$(id); if(e) e.value=''; });
   var gr=$('ast-gone-reason'); if(gr) gr.value='sold';
@@ -25672,6 +25776,7 @@ function openEditAsset(idx) {
   astPopulateSubtypes(); if(a.subtype){ var _ss=$('ast-subtype'); if(_ss) _ss.value=a.subtype; astSubtypeEdited=true; var _sc=$('ast-subtype-chip'); if(_sc) _sc.style.display='none'; astSubtypeNote(); } else { astSubtypeEdited=false; astInferAndSelectSubtype(); }
   astShowTreatNote(); astCalcNet();
   astTreatChanged();
+  var _lsc=$('ast-leased'); if(_lsc){ _lsc.checked=astLeased(a); astToggleLease(); }
   var bg = $('ast-modal-bg'); if(bg) bg.style.display = 'flex';
 }
 function closeAddAsset() {
@@ -25827,7 +25932,7 @@ function astGonePreview(){
        '<div style="color:var(--t3);margin-top:4px">It went for more than its tax value, so the write-offs you already claimed are recouped under section 8(4)(a). This is added to your farming income for the year.</div>';
   } else if(r.scrapping>0){
     h+='<div style="border-top:1px solid var(--gp);margin-top:7px;padding-top:7px;display:flex;justify-content:space-between;gap:12px"><span style="font-weight:700;color:var(--gd)">You may still claim</span><b style="color:var(--gd)">'+fmt(r.scrapping)+'</b></div>'+
-       '<div style="color:var(--t3);margin-top:4px">It went for less than its tax value, so the balance is unclaimed. Section 11(o) lets you deduct it \u2014 but it is an <b>election</b> you make on the return, not automatic. Confirm it with your accountant.</div>';
+       '<div style="color:var(--t3);margin-top:4px">It went for less than its tax value, so the balance is unclaimed. The <b>scrapping allowance</b> (section 11(o)) lets you deduct it \u2014 you claim it on the return, it is not automatic. Confirm it with your accountant.</div>';
   } else if(r.scrappingBlocked){
     h+='<div style="border-top:1px solid var(--gp);margin-top:7px;padding-top:7px;color:var(--t3)">It went for less than its tax value, but section 11(o) is not available on an asset written off over more than ten years, so there is no scrapping allowance to claim.</div>';
   } else if(r.note){
@@ -25998,11 +26103,13 @@ function saveAsset() {
   var notes = $('ast-notes') && $('ast-notes').value.trim();
   if(!name)  { toast('Please enter an asset name','error'); return; }
   if(!cat)   { toast('Please select a category','error');   return; }
-  if(!price) { toast('Please enter the purchase price','error'); return; }
+  var _leased = !!($('ast-leased') && $('ast-leased').checked);
+  if(_leased){ price=0; dtype='lease'; }
+  if(!price && !_leased) { toast('Please enter the purchase price','error'); return; }
 
   var subtype = ($('ast-subtype')&&$('ast-subtype').value)||'';
   var entry = {id:astNextId(ST_ASSETS), name:name, cat:cat, date:date, price:price, deprType:dtype, life:life, notes:notes, subtype:subtype};
-  var financed = $('ast-financed') && $('ast-financed').checked;
+  var financed = !_leased && $('ast-financed') && $('ast-financed').checked;
   entry.financed = !!financed;
   if(financed){
     entry.lender = ($('ast-lender')&&$('ast-lender').value.trim())||'';
@@ -26123,6 +26230,11 @@ function wkInitials(n){ n=(n||'').trim(); if(!n) return '+'; var p=n.split(/\s+/
 function wkColor(i){ var c=['#2D6A4F','#40916C','#C8962C','#7C3AED','#E0930E','#0E7490']; return c[i%c.length]; }
 function wkHourly(w){ if(!w||!w.amt) return 0; if(w.basis==='day'){ return (w.hoursDay? w.amt/w.hoursDay : 0); } var hw=(w.hoursWeek||ST_WORK.hoursWeek||STATUTORY.hoursWeek.value); var hm=hw*52/12; return hm? w.amt/hm : 0; }
 function wkList(){ return (ST_WORK.workers||[]); }
+/* D5 (-482): the legal minimum is never lowered. ST_WORK.nmwRate is now only a HIGHER farm minimum,
+   checked on top; an old or lower typed rate can no longer hide underpayment. */
+function wkLegalMin(){ return STATUTORY.nmwRate.value; }
+function wkFarmMin(){ var f=Number((typeof ST_WORK!=='undefined'&&ST_WORK&&ST_WORK.nmwRate)||0); return f>wkLegalMin()+0.004?f:0; }
+function wkWageFloor(){ return wkFarmMin()||wkLegalMin(); }
 
 var _wkSaving=false, _wkAgain=false;
 function wkSync(){
@@ -26156,7 +26268,7 @@ function renderWkOverview(){ wkSync();
   var permTotal = perm.reduce(function(a,w){ return a+(w.amt||0); },0);
   var seasEst = seas.reduce(function(a,w){ return a+((w.amt||0)*8*(w.count||1)); },0); // ~8 days x crew, demo estimate
   var heads = permCount + seasCount;
-  var rate = ST_WORK.nmwRate||STATUTORY.nmwRate.value;
+  var rate = wkWageFloor();
   var below = ws.filter(function(w){ return wkHourly(w) > 0 && wkHourly(w) < rate - 0.005; });
   var owe = ws.reduce(function(a,w){ return a+((w.adv&&w.adv.owing)||0); },0);
   var hold = ws.reduce(function(a,w){ return a+((w.fund&&w.fund.on&&w.fund.where==='hold')?(w.fund.balance||0):0); },0);
@@ -26226,15 +26338,32 @@ function wkMonthLabel(){ var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_T
    reports used to build these once from the CURRENT month and then add that same figure
    once per month in the range, inflating gross/UIF/SDL on EMP201 submissions. Omitting the
    argument keeps the previous current-month behaviour, so existing callers are unchanged. */
+/* B5-F11 / D12 (-482): a worker's first month, when they start after the 1st, is paid for the days
+   worked - BCEA s35: the hours ordinarily worked x the hourly rate, a month being 4 1/3 weeks (the
+   same 52/12 wkHourly uses). Working days Monday to Friday from the start date; hours a day =
+   the worker's week / 5. The days can be changed on the pay run (they stay on this device until
+   the run is posted; the kept payslip carries them after that). A last month needs an end date,
+   which the worker record does not have yet (see the -482 notes). */
+function wkPartMonth(w, label){
+  if(!w || w.basis!=='month' || !w.start || !(w.amt>0)) return null;
+  var st=new Date(String(w.start).slice(0,10)+'T00:00:00'); if(isNaN(st.getTime())) return null;
+  var end=_saLabelEnd(label); if(st.getFullYear()!==end.getFullYear() || st.getMonth()!==end.getMonth() || st.getDate()===1) return null;
+  var auto=0; for(var d=new Date(st); d<=end; d.setDate(d.getDate()+1)){ var wd=d.getDay(); if(wd>=1 && wd<=5) auto++; }
+  var ov=(((ST_WORK.extra||{})[label])||{})[w.id], days=(ov && ov.days!=null && ov.days!=='') ? Math.max(0,Number(ov.days)||0) : auto;
+  var hw=(w.hoursWeek||ST_WORK.hoursWeek||STATUTORY.hoursWeek.value), hpd=hw/5, hours=Math.round(days*hpd*100)/100, hourly=wkHourly(w);
+  var pay=Math.min(w.amt, Math.round(hours*hourly*100)/100);
+  return { from:String(w.start).slice(0,10), days:days, autoDays:auto, edited:days!==auto, hours:hours, hourly:hourly, pay:pay };
+}
 function wkPayRows(labelOverride){
-  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
+  var rate=wkWageFloor();
   var label=labelOverride||((typeof wkMonthLabel==='function')?wkMonthLabel():'');
   /* A posted month is what was paid: its kept payslips, never today's records. */
   var kept=wkKeptRows(label); if(kept) return kept;
   var bonusMap=(ST_WORK.bonus&&ST_WORK.bonus[label])||{};
   var extraMap=(ST_WORK.extra&&ST_WORK.extra[label])||{};
   return wkList().filter(function(w){ return w.basis==='month'; }).map(function(w){
-    var base=w.amt||0;
+    var part=wkPartMonth(w, label);
+    var base=part?part.pay:(w.amt||0);
     var bonus=Math.round((bonusMap[w.id]||0)*100)/100;
     var ex=extraMap[w.id]||{}; var hourly=wkHourly(w);
     var sunMult=(w.worksSundays)?STATUTORY.sundayMult.value:STATUTORY.sundayMultDefault.value;  // BCEA s16: 2x unless they ordinarily work Sundays
@@ -26247,7 +26376,7 @@ function wkPayRows(labelOverride){
        the tax threshold was shown too much. */
     var paye=(typeof wkPayeFor==='function')?(wkPayeFor(label,w.id,gross)||0):0;
     var savings=(w.fund&&w.fund.on&&w.fund.freq==='month')?(w.fund.perPay||0):0;
-    return { w:w, base:base, bonus:bonus, premium:premium, sun:(ex.sun||0), ph:(ex.ph||0), gross:gross, uif:uif, advRepay:advRepay, savings:savings, paye:paye, net:gross-uif-paye-advRepay-savings, ok:hourly>=rate-0.005 };
+    return { w:w, base:base, part:part, bonus:bonus, premium:premium, sun:(ex.sun||0), ph:(ex.ph||0), gross:gross, uif:uif, advRepay:advRepay, savings:savings, paye:paye, net:gross-uif-paye-advRepay-savings, ok:hourly>=rate-0.005 };
   });
 }
 /* ---- Kept payslips (signed off 19 Sep 2026, decisions d1-d5 = A) -----------------
@@ -26274,7 +26403,7 @@ function wkKeptRows(label){
     if(p.label!==label || p.seasonal || p.status!=='issued' || !p.snap || !p.snap.row) return;
     var w=wkFind(p.wid) || { id:p.wid, name:(p.snap.worker&&p.snap.worker.name)||'', basis:'month' };
     var r=p.snap.row; out.push({ w:w, base:r.base, bonus:r.bonus, premium:r.premium, sun:r.sun, ph:r.ph, gross:r.gross, uif:r.uif,
-      advRepay:r.advRepay, savings:r.savings, paye:r.paye, net:r.net, ok:r.ok!==false, kept:p });
+      advRepay:r.advRepay, savings:r.savings, paye:r.paye, net:r.net, ok:r.ok!==false, part:r.part||null, kept:p });
   });
   return out.length ? out : null;
 }
@@ -26322,7 +26451,7 @@ function wkSlipSnap(w, label, row, seasonal){
     earn:d.earn, ded:d.ded, gross:d.gross, totDed:d.totDed, net:d.net, uifEmployer:d.uifEmployer,
     leave:w.leave?{ annual:(w.leave.annual!=null?w.leave.annual:null), sick:(w.leave.sick!=null?w.leave.sick:null) }:null,
     advOwing:owing,
-    row:row?{ base:row.base, bonus:row.bonus, premium:row.premium, sun:row.sun, ph:row.ph, gross:row.gross, uif:row.uif,
+    row:row?{ base:row.base, part:row.part||null, bonus:row.bonus, premium:row.premium, sun:row.sun, ph:row.ph, gross:row.gross, uif:row.uif,
               advRepay:row.advRepay, savings:row.savings, paye:row.paye, net:row.net, ok:row.ok }:null };
 }
 /* Keep one payslip per worker for a run being posted. Built in full BEFORE any is added,
@@ -26348,7 +26477,7 @@ function wkSetWorksSun(wid, on){ var w=(typeof wkFind==='function')?wkFind(wid):
 function wkSetExtra(wid, field, val){
   var label=wkMonthLabel(); var v=Math.max(0, parseFloat(val)||0);
   if(field==='bonus'){ ST_WORK.bonus=ST_WORK.bonus||{}; ST_WORK.bonus[label]=ST_WORK.bonus[label]||{}; ST_WORK.bonus[label][wid]=v; }
-  else { ST_WORK.extra=ST_WORK.extra||{}; ST_WORK.extra[label]=ST_WORK.extra[label]||{}; var e=ST_WORK.extra[label][wid]=ST_WORK.extra[label][wid]||{}; e[field]=v; }
+  else { ST_WORK.extra=ST_WORK.extra||{}; ST_WORK.extra[label]=ST_WORK.extra[label]||{}; var e=ST_WORK.extra[label][wid]=ST_WORK.extra[label][wid]||{}; if(field==='days' && String(val).trim()==='') delete e.days; else e[field]=v; }
   ST_WORK._extrasOpen=true;
   if(typeof saveState==='function') saveState();
   renderWkPayroll();
@@ -26369,7 +26498,7 @@ function renderWkPayroll(){ wkSync();
   var totNet=rows.reduce(function(a,r){return a+r.net;},0);
   var trs=rows.map(function(r){
     var off=r.uif+(r.paye||0)+r.advRepay+r.savings;
-    var sub=['UIF '+Math.round(r.uif)]; if(r.paye) sub.push('PAYE '+Math.round(r.paye)); if(r.bonus) sub.push('bonus '+Math.round(r.bonus)); if(r.premium) sub.push('extra '+Math.round(r.premium)); if(r.advRepay) sub.push('adv '+Math.round(r.advRepay)); if(r.savings) sub.push('save '+Math.round(r.savings));
+    var sub=['UIF '+Math.round(r.uif)]; if(r.part) sub.unshift('from '+_wkD(r.part.from)+' \u00b7 '+r.part.days+' day'+(r.part.days===1?'':'s')); if(r.paye) sub.push('PAYE '+Math.round(r.paye)); if(r.bonus) sub.push('bonus '+Math.round(r.bonus)); if(r.premium) sub.push('extra '+Math.round(r.premium)); if(r.advRepay) sub.push('adv '+Math.round(r.advRepay)); if(r.savings) sub.push('save '+Math.round(r.savings));
     var fn=r.w.name.split(/\s+/); var nm=wkE(fn[0]+' '+((fn[1]||'').charAt(0))+(fn[1]?'.':''));
     return '<tr onclick="wkPayslip(\''+r.w.id+'\')"><td>'+nm+'<div class="sm">'+sub.join(' \u00b7 ')+'</div></td><td>'+wkMoney2(r.gross)+'</td><td>\u2212'+wkMoney2(off)+'</td><td class="net">'+wkMoney2(r.net)+'</td><td class="nmwok">'+(r.ok?'\u2713':'\u26a0')+'</td>'+(_anyKept?('<td style="text-align:right">'+(r.kept?wkSlipPill(r.kept):'')+'</td>'):'')+'</tr>';
   }).join('');
@@ -26383,7 +26512,7 @@ function renderWkPayroll(){ wkSync();
         : '<div style="font-size:11px;color:var(--t3);margin-top:8px;line-height:1.5">'+esc(rnT('Posted before AgriInsights kept payslips, so these are worked out again from today\u2019s records and may differ from what was paid.','Geboek voordat AgriInsights betaalstrokies gehou het, dus word dit weer uit vandag se rekords uitgewerk en kan dit verskil van wat betaal is.'))+'</div>'))
     : '<div class="wk-act"><button class="sec" onclick="wkPayslip(\''+(rows[0]?rows[0].w.id:'')+'\')">\ud83d\udcc4 Payslips</button><button class="pri" onclick="wkPostPayRun()">Add to my farm costs \u2192</button></div>';
   var history=(ST_WORK.payRuns||[]).map(function(r){
-    return '<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--br2);font-size:12.5px"><span style="min-width:0"><b>'+wkE(r.label)+'</b> \u00b7 '+wkE(r.kind||'')+'</span><span style="font-weight:800;margin-left:auto">'+wkMoney(r.net)+'</span><button onclick="wkUndoPayRun(\''+r.id+'\')" style="border:1.5px solid var(--br2);background:#fff;color:var(--t3);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;font-family:inherit;cursor:pointer">Undo</button></div>';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--br2);font-size:12.5px"><span style="min-width:0"><b>'+wkE(r.label)+'</b> \u00b7 '+wkE(r.kind||'')+'</span><span class="wk-run-net" style="margin-left:auto;text-align:right;font-variant-numeric:tabular-nums"><span style="font-size:10.5px;color:var(--t4);font-weight:700">Net paid</span><br><b>'+wkMoney(r.net)+'</b></span><span class="wk-run-cost" style="text-align:right;font-variant-numeric:tabular-nums;min-width:86px"><span style="font-size:10.5px;color:var(--t4);font-weight:700">Cost to farm</span><br><b>'+(wkRunCost(r)!=null?wkMoney(wkRunCost(r)):'\u2014')+'</b></span><button onclick="wkUndoPayRun(\''+r.id+'\')" style="border:1.5px solid var(--br2);background:#fff;color:var(--t3);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;font-family:inherit;cursor:pointer">Undo</button></div>';
   }).join('');
   var _exOpen=!!ST_WORK._extrasOpen;
   var _ein='width:54px;padding:5px 6px;font-size:11px;border:1.5px solid var(--br2);border-radius:7px;font-family:inherit;text-align:right';
@@ -26393,6 +26522,7 @@ function renderWkPayroll(){ wkSync();
       +'<span style="font-size:11px;color:var(--t4);font-weight:800">SUN hrs <input type="number" value="'+(ex.sun||'')+'" placeholder="0" onchange="wkSetExtra(\''+w.id+'\',\'sun\',this.value)" style="'+_ein+'"></span>'
       +'<label style="font-size:11px;color:var(--t4);font-weight:800;display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="Tick only if this worker normally works Sundays \u2014 then Sunday hours load at 1.5\u00d7. If not (the usual case for farm workers), the law requires 2\u00d7."><input type="checkbox" '+(w.worksSundays?'checked':'')+' onchange="wkSetWorksSun(\''+w.id+'\',this.checked)" style="margin:0;cursor:pointer"> usual Sun?</label>'
       +'<span style="font-size:11px;color:var(--t4);font-weight:800">PH hrs <input type="number" value="'+(ex.ph||'')+'" placeholder="0" onchange="wkSetExtra(\''+w.id+'\',\'ph\',this.value)" style="'+_ein+'"></span>'
+      +(r.part?('<span style="font-size:11px;color:var(--t4);font-weight:800" title="First month: paid for the working days from '+_wkD(r.part.from)+' (BCEA s35). Change it if they worked a different number of days.">DAYS <input type="number" id="wk-part-days-'+w.id+'" value="'+r.part.days+'" placeholder="'+r.part.autoDays+'" onchange="wkSetExtra(\''+w.id+'\',\'days\',this.value)" style="'+_ein+'"></span>'):'')
       +'</div></div>'; }).join('');
   var _extrasCard=rows.length?('<div class="wk-card" id="wk-extras-card" style="margin-top:0"><div onclick="wkToggleExtras()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:800">Bonuses &amp; Sunday / holiday pay</div><div style="font-size:11px;color:var(--t3)">13th cheque \u00b7 Sunday at 2\u00d7 (1.5\u00d7 if they usually work Sundays) \u00b7 public holiday at 2\u00d7</div></div><span style="color:var(--t4);font-size:18px">'+(_exOpen?'\u2212':'+')+'</span></div>'+(_exOpen?('<div style="margin-top:10px">'+_exRows+'<div style="font-size:11px;color:var(--t4);margin-top:8px;line-height:1.5">Added to this month\u2019s pay and shown on the payslip. Rates follow BCEA \u2014 a bonus is taxable, so set PAYE in the payroll report if needed.</div></div>'):'')+'</div>'):'';
   box.innerHTML =
@@ -26401,7 +26531,7 @@ function renderWkPayroll(){ wkSync();
     + (rows.length
         ? '<table class="wk-ptbl" id="wk-pay-table"><thead><tr><th>Worker</th><th>Pay</th><th>Off</th><th>In hand</th><th>Min?</th>'+(_anyKept?'<th>Payslip</th>':'')+'</tr></thead><tbody>'+trs+'</tbody>'
           + '<tfoot><tr><td>Totals</td><td>'+wkMoney2(totGross)+'</td><td>\u2212'+wkMoney2(totUIF+totPAYE+totAdv+totSav)+'</td><td>'+wkMoney2(totNet)+'</td><td></td>'+(_anyKept?'<td></td>':'')+'</tr></tfoot></table>'
-          + '<div style="font-size:11px;color:var(--t3);margin-top:10px;line-height:1.5">UIF to pay over: <b>'+wkMoney(totUIF*2)+'</b> (worker + you).'+(totAdv?(' Advances repaid: '+wkMoney(totAdv)+'.'):'')+(totSav?(' Into savings: '+wkMoney(totSav)+'.'):'')+' The cost added to your books is the wages plus your UIF share.</div>'
+          + '<div style="font-size:11px;color:var(--t3);margin-top:10px;line-height:1.5">UIF to pay over: <b>'+wkMoney(totUIF*2)+'</b> (worker + you).'+(totAdv?(' Advances repaid: '+wkMoney(totAdv)+'.'):'')+(totSav?(' Into savings: '+wkMoney(totSav)+'.'):'')+' The cost added to your books is the wages plus your UIF share'+(wkSdlFor(totGross)?(' and the skills levy ('+wkMoney(wkSdlFor(totGross))+')'):'')+': <b>'+wkMoney(totGross+totUIF+wkSdlFor(totGross))+'</b>.</div>'
           + action
         : '<div style="font-size:12px;color:var(--t3)">No monthly-paid workers yet \u2014 add one on the Workers tab.</div>')
     + '</div>'
@@ -26428,7 +26558,8 @@ function wkPostPayRun(){
     if(w.fund && w.fund.on && w.fund.where==='hold' && r.savings>0){ w.fund.balance=(w.fund.balance||0)+r.savings; wkLedgerAdd(w,'savings-in',r.savings,label); rec.savings=r.savings; }
     if(rec.advRepay||rec.savings) applied.push(rec);
   });
-  var cost=Math.round((totGross+totUIF)*100)/100;   // employment cost = gross + employer UIF (1%)
+  var sdl=wkSdlFor(totGross);                        // B5-F12: + skills levy when it applies, the EMP201's own sum
+  var cost=Math.round((totGross+totUIF+sdl)*100)/100;   // employment cost = gross + employer UIF (1%) + SDL
   if(typeof ST!=='undefined' && ST.txns){
     ST.txns.unshift({ date:wkTodayStr(), desc:'Wages \u2014 '+label, cat:'Labour & Wages', type:'expense', amt:cost, method:'Bank', source:'Payroll', payRunId:runId });
     var _wkPRTx=ST.txns[0];
@@ -26495,11 +26626,13 @@ function wkPostSeasonal(){
   if(wkSeasonalPosted(label)){ if(typeof toast==='function') toast('Seasonal pay already posted for '+label+'.','info'); return; }
   var sg=0,su=0,totDays=0,buckets={}; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(label,w.id); if(days>0){ var g=days*(w.amt||0); var u=wkSeasUif(g,days,w); sg+=g; su+=u; totDays+=days; var key=w.activity||''; var b=buckets[key]||(buckets[key]={gross:0,uif:0}); b.gross+=g; b.uif+=u; } });
   if(sg<=0){ if(typeof toast==='function') toast('Enter days worked first.','info'); return; }
-  var cost=Math.round((sg+su)*100)/100;   // gross + employer UIF (1%)
+  var _sdlS=wkSdlFor(sg), _sdlLeft=_sdlS, _bk=Object.keys(buckets);   // B5-F12: skills levy split over the jobs, the pennies on the last
+  _bk.forEach(function(k,i){ var b=buckets[k]; b.sdl=(i===_bk.length-1)?_sdlLeft:Math.round(_sdlS*(b.gross/sg)*100)/100; _sdlLeft=Math.round((_sdlLeft-b.sdl)*100)/100; });
+  var cost=Math.round((sg+su+_sdlS)*100)/100;   // gross + employer UIF (1%) + SDL
   var runId='pr'+Date.now();
   var _sw=wkSeasList().filter(function(w){ return wkSeasDaysFor(label,w.id)>0; });
   var _skept=wkKeepSlips(runId, label, _sw, null, true);
-  if(typeof ST!=='undefined' && ST.txns){ for(var _k in buckets){ if(!buckets.hasOwnProperty(_k)) continue; var _b=buckets[_k]; var _c=Math.round((_b.gross+_b.uif)*100)/100; var _sd='Seasonal wages \u2014 '+label+(_k?(' \u00b7 '+wkActLabel(_k)):''); ST.txns.unshift({ date:wkTodayStr(), desc:_sd, cat:'Labour & Wages', type:'expense', amt:_c, method:'Bank', source:'Payroll', ent:_k||undefined, payRunId:runId }); var _wkSTx=ST.txns[0]; (function(_e,_amt,_desc,_ent){ try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_e, {date:wkTodayStr(),amt:_amt,cat:'Labour & Wages',type:'expense',desc:_desc,method:'Bank',source:'Payroll',ent:_ent}); } }catch(er){} })(_wkSTx,_c,_sd,(_k||('payrun:'+runId))); } }
+  if(typeof ST!=='undefined' && ST.txns){ for(var _k in buckets){ if(!buckets.hasOwnProperty(_k)) continue; var _b=buckets[_k]; var _c=Math.round((_b.gross+_b.uif+(_b.sdl||0))*100)/100; var _sd='Seasonal wages \u2014 '+label+(_k?(' \u00b7 '+wkActLabel(_k)):''); ST.txns.unshift({ date:wkTodayStr(), desc:_sd, cat:'Labour & Wages', type:'expense', amt:_c, method:'Bank', source:'Payroll', ent:_k||undefined, payRunId:runId }); var _wkSTx=ST.txns[0]; (function(_e,_amt,_desc,_ent){ try{ if(window.AI && AI.farm && AI.farm.active()){ txnWriteThrough(_e, {date:wkTodayStr(),amt:_amt,cat:'Labour & Wages',type:'expense',desc:_desc,method:'Bank',source:'Payroll',ent:_ent}); } }catch(er){} })(_wkSTx,_c,_sd,(_k||('payrun:'+runId))); } }
   ST_WORK.payRuns.unshift({ id:runId, label:label, kind:'Seasonal \u00b7 '+totDays+' days', seasonal:true, net:Math.round(sg-su), gross:Math.round(sg), uif:Math.round(su*2), date:wkTodayStr() });
   try { if(typeof dataChanged==='function') dataChanged('transaction'); } catch(e){}
   if(typeof saveState==='function') saveState();
@@ -26511,7 +26644,7 @@ function wkSeasPostRow(label){
   if(wkSeasonalPosted(label)) return '<div style="margin-top:11px;font-size:12px;font-weight:800;color:var(--gm);background:var(--gp);border-radius:10px;padding:11px 13px;display:flex;align-items:center;gap:8px"><span>\u2713</span> Paid \u2014 posted to Labour &amp; Wages</div>';
   var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(label,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w);} });
   if(sg<=0) return '';
-  var cost=Math.round((sg+su)*100)/100;
+  var cost=Math.round((sg+su+wkSdlFor(sg))*100)/100;
   return '<button onclick="wkPostSeasonal()" style="width:100%;margin-top:11px;border:none;background:var(--gd);color:#fff;border-radius:11px;padding:13px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer">Pay seasonal workers \u2014 post '+wkMoney(cost)+' to expenses</button>';
 }
 function wkPayslip(id){
@@ -26530,7 +26663,8 @@ function wkPayslip(id){
   box.innerHTML='<div onclick="renderWkPayroll()" style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--gm);cursor:pointer;margin-bottom:12px">\u2039 Back to pay run</div>'
     + '<div class="wk-slip"><div class="sh"><div class="t">'+wkE(farm)+'</div><div class="s">Payslip \u00b7 '+wkE(w.name)+' \u00b7 '+wkE(label)+'</div></div><div class="sb">'
     + '<div class="wk-srow head"><span>What they earned</span><span></span></div>'
-    + '<div class="wk-srow"><span>Pay for the month</span><span>'+wkMoney2(r.base!=null?r.base:r.gross)+'</span></div>'
+    + (r.part ? ('<div class="wk-srow"><span>Part month from '+_wkD(r.part.from)+': '+r.part.days+' working day'+(r.part.days===1?'':'s')+', '+r.part.hours+' h at '+wkMoney2(r.part.hourly)+' (BCEA s35)</span><span>'+wkMoney2(r.base)+'</span></div>')
+              : ('<div class="wk-srow"><span>Pay for the month</span><span>'+wkMoney2(r.base!=null?r.base:r.gross)+'</span></div>'))
     + ((r.bonus)?('<div class="wk-srow"><span>Bonus / 13th cheque</span><span>'+wkMoney2(r.bonus)+'</span></div>'):'')
     + ((r.premium)?('<div class="wk-srow"><span>Sunday / public-holiday pay</span><span>'+wkMoney2(r.premium)+'</span></div>'):'')
     + '<div class="wk-srow tot"><span>Total earned</span><span>'+wkMoney2(r.gross)+'</span></div>'
@@ -26595,8 +26729,126 @@ function wkSdlRegister(val){ var cs=wkComplianceState(); cs.sdlRegistered=!!val;
 function wkCoidaDue(){ var cs=wkComplianceState(); if(!cs.coidaFiled) return null; var iso=cs.coida&&cs.coida.iso; var base=iso?new Date(iso):((typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date()); return new Date(base.getFullYear()+1,4,31); }
 function wkCoidaDueStr(){ var d=wkCoidaDue(); if(!d) return ''; return d.toLocaleDateString('en-ZA',{day:'numeric',month:'long',year:'numeric'}); }
 function wkComplianceBanner(){ var cs=wkComplianceState(); if(!cs.coidaFiled) return ''; var due=wkCoidaDue(); if(!due) return ''; var today=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_TODAY:new Date(); var days=Math.round((due-today)/86400000); if(days>42) return ''; var overdue=days<0; var weeks=Math.max(1,Math.round(days/7)); var when=overdue?'is overdue (was due '+wkCoidaDueStr()+')':('due in '+(days<=10?(days+' day'+(days===1?'':'s')):(weeks+' week'+(weeks===1?'':'s')))+' (by '+wkCoidaDueStr()+')'); var bg=overdue?'var(--rp)':'var(--ap)',bd=overdue?'#f3c6c0':'#f5e3a8',col=overdue?'var(--rd)':'#854F0B'; return '<div style="display:flex;align-items:center;gap:10px;background:'+bg+';border:1px solid '+bd+';border-radius:12px;padding:11px 13px;font-size:12px;color:'+col+';font-weight:700;margin-bottom:12px"><span style="font-size:16px">\u23f0</span><div>COIDA Return of Earnings '+when+'</div></div>'; }
+/* ---- B5-C12 / D10 (-482): the statutory worker items the list was missing ----
+   Each reads what the app already holds (the SA ID number gives the date of birth, the
+   worker list gives the head count, the spray records give who sprayed) and asks only for
+   the date and the document. Status comes from those dates and records (D3). */
+function wkHeadCount(){ return wkList().reduce(function(a,w){ return a+(w.count||1); },0); }
+function _wkToday(){ return (typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); }
+function _wkD(iso){ if(!iso) return ''; var d=new Date(String(iso).slice(0,10)+'T00:00:00'); if(isNaN(d.getTime())) return String(iso);
+  return d.getDate()+' '+['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()]+' '+d.getFullYear(); }
+function _wkNorm(t){ return String(t||'').toLowerCase().replace(/[^a-zÀ-ɏ ]+/g,' ').replace(/\s+/g,' ').trim(); }
+/* Spray and chemical records in the last 12 months that name this worker as the person who applied it. */
+function wkSprayedBy(w){
+  var nm=_wkNorm(w&&w.name); if(!nm || nm.indexOf(' ')<0) return [];
+  var cut=new Date(_wkToday().getTime()-365*86400000), out=[];
+  function recent(iso){ var d=new Date(String(iso||'').slice(0,10)+'T00:00:00'); return !isNaN(d.getTime()) && d>=cut; }
+  try{ (ST_CROP.inputs||[]).forEach(function(i){ if(i && i.kind!=='seed' && i.kind!=='fertiliser' && recent(i.date) && _wkNorm(i.by).indexOf(nm)>=0) out.push({date:i.date, what:i.product||''}); }); }catch(e){}
+  try{ var sd=(ST_FRUIT&&ST_FRUIT.sprayDiary)||{}; Object.keys(sd).forEach(function(c){ (sd[c]||[]).forEach(function(x){ if(recent(x.dateISO||x.date) && (_wkNorm(x.by).indexOf(nm)>=0 || _wkNorm(x.s).indexOf(nm)>=0)) out.push({date:x.dateISO||x.date, what:x.product||x.t||''}); }); }); }catch(e){}
+  return out;
+}
+function wkAges(){
+  var today=_wkToday();
+  return wkList().map(function(w){ return { w:w, age:(typeof saAgeOn==='function')?saAgeOn(w,today):null, dob:(typeof saIdDob==='function')?saIdDob(w.idNo):null }; });
+}
+function wkStatutoryItems(ws, cs, names){
+  var items=[], head=wkHeadCount(), today=_wkToday(), todayIso=today.toISOString().slice(0,10);
+  var ages=wkAges(), noId=ages.filter(function(a){ return a.age==null; }).map(function(a){ return a.w; });
+  var u15=ages.filter(function(a){ return a.age!=null && a.age<15; }).map(function(a){ return a.w; });
+  var minors=ages.filter(function(a){ return a.age!=null && a.age<18; }).map(function(a){ return a.w; });
+  var chem=minors.filter(function(w){ return wkSprayedBy(w).length>0; });
+  var long=minors.filter(function(w){ return (w.hoursWeek||0)>35; });
+  items.push({ key:'age', name:'No worker under 15', law:'Basic Conditions of Employment Act · s43', optional:false,
+    status: u15.length?'r':(noId.length?'a':'g'), pill: u15.length?(u15.length+' under 15'):(noId.length?(noId.length+' without an ID'):'Sorted'),
+    desc: u15.length ? ('<b>'+names(u15)+'</b> '+(u15.length>1?'are':'is')+' under 15 by their ID number — the law does not allow them to work.')
+        : (noId.length ? ('Age comes from the SA ID number. Add it for <b>'+names(noId)+'</b>.') : 'Everyone is 15 or older, worked out from their ID numbers.') });
+  var mr=cs.minorsReg||{};
+  items.push({ key:'minors', name:'Workers under 18', law:'Sectoral Determination 13 · cl 25', optional:false,
+    status: (chem.length||long.length)?'r':(minors.length?(mr.on?'g':'a'):(noId.length?'a':'g')),
+    pill: chem.length?(chem.length+' on sprays'):(long.length?(long.length+' over 35 h'):(minors.length?(mr.on?'Register kept':'Start the register'):(noId.length?(noId.length===ws.length?'Ages unknown':(noId.length+' ages unknown')):'None'))),
+    desc: chem.length ? ('<b>'+names(chem)+'</b> '+(chem.length>1?'are':'is')+' under 18 and named on a spray record in the last 12 months — no chemical work under 18.')
+        : long.length ? ('<b>'+names(long)+'</b> '+(long.length>1?'are':'is')+' under 18 and down for more than 35 hours a week.')
+        : minors.length ? ((mr.on?('Register kept since '+_wkD(mr.on)+' for '):'Keep a register — name, date of birth and address — for ')+'<b>'+names(minors)+'</b>. Kept 3 years.')
+        : noId.length ? ((ws.length-noId.length ? ('No worker under 18 among the '+(ws.length-noId.length)+' with an ID number; ') : '')+'the age of <b>'+names(noId)+'</b> is not known until their ID number is added.')
+        : 'No worker under 18, worked out from their ID numbers.' });
+  var fa=cs.firstAid||{}, needBox=head>5, needAider=head>10, aiders=Math.ceil(head/50);
+  var certOut=!!(fa.certTo && fa.certTo<todayIso);
+  var faStatus=!needBox?'g':(!fa.box?'a':(!needAider?'g':(!fa.aider||!fa.certTo)?'a':(certOut?'r':'g')));
+  items.push({ key:'firstaid', name:'First-aid box and first aider', law:'OHS Act · General Safety Regulations reg 3', optional:false,
+    status:faStatus, pill: !needBox?'Not required':(faStatus==='g'?'Sorted':(certOut?'Certificate ran out':(!fa.box?'Note the box':'Name a first aider'))),
+    desc: !needBox ? (head+' worker'+(head===1?'':'s')+' — a first-aid box is needed from 6 workers, a trained first aider from 11.')
+        : ('A first-aid box for '+head+' workers'+(fa.box?(' (checked '+_wkD(fa.box)+')'):' — not noted yet')+(needAider?('; '+(aiders>1?(aiders+' first aiders'):'a first aider')+' with a valid certificate'+(fa.aider?(': <b>'+wkE(fa.aider)+'</b>'+(fa.certTo?(certOut?(', certificate ran out '+_wkD(fa.certTo)):(', valid to '+_wkD(fa.certTo))):', certificate date not noted')):' — not named yet')):'')+'.') });
+  var ir=cs.incidentReg||{};
+  items.push({ key:'incident', name:'Incident register', law:'OHS Act · General Administrative Regulations reg 9', optional:false,
+    status: !ws.length?'g':(ir.since?'g':'a'), pill: !ws.length?'No workers':(ir.since?'Kept':'Start one'),
+    desc: ir.since ? ('Kept since '+_wkD(ir.since)+(ir.last?(' · last entry '+_wkD(ir.last)):' · no entries')+'. Every injury needing more than first aid goes in; kept 3 years.')
+        : 'Record every injury that needs more than first aid, look into it within 7 days, and keep the register 3 years.' });
+  var rt=cs.rights||{};
+  items.push({ key:'rights', name:'Workers’ rights on the wall', law:'Basic Conditions of Employment Act · s30', optional:false,
+    status: !ws.length?'g':(rt.on?'g':'a'), pill: !ws.length?'No workers':(rt.on?'Up':'Put it up'),
+    desc: rt.on ? ('The summary of workers’ rights and Sectoral Determination 13 up since '+_wkD(rt.on)+(rt.langs?(' · '+wkE(rt.langs)):'')+'.')
+        : 'Put up the summary of workers’ rights and a copy of Sectoral Determination 13 where workers can read them, in the languages they speak.' });
+  var sr=cs.safetyRep||{}, needRep=head>20, reps=Math.ceil(head/50);
+  items.push({ key:'safetyrep', name:'Health and safety representative', law:'OHS Act · s17', optional:false,
+    status: !needRep?'g':((sr.name&&sr.on)?'g':'a'), pill: !needRep?'Not required':((sr.name&&sr.on)?'Appointed':'Appoint one'),
+    desc: !needRep ? (head+' worker'+(head===1?'':'s')+' — a safety representative is needed once there are more than 20.')
+        : ((sr.name&&sr.on) ? ('<b>'+wkE(sr.name)+'</b> appointed in writing on '+_wkD(sr.on)+(reps>1?(' · '+reps+' needed for '+head+' workers'):'')+'.') : ('More than 20 workers ('+head+') — appoint '+(reps>1?(reps+' representatives'):'a representative')+' in writing.')) });
+  return items;
+}
+function _wkCompDate(id,val){ return '<input type="date" id="'+id+'" value="'+wkE(val||'')+'">'; }
+function _wkCompSave(key, fn){ var cs=wkComplianceState(); fn(cs); if(typeof saveState==='function') saveState(); if(typeof toast==='function') toast('Saved.','success'); if(typeof renderWkOverview==='function') renderWkOverview(); wkCompOpen(key); }
+function _wkV(id){ return (($(id)||{}).value||'').trim(); }
+function _wkCompHead(t,law){ return '<div style="font-size:15px;font-weight:800">'+t+'</div><div style="font-size:11px;color:var(--t4);margin-bottom:10px">'+law+'</div>'; }
+function wkCompAge(){
+  var rows=wkAges().map(function(a){ var r=a.age==null?'<span class="wk-tag2 a">no ID</span><button class="wk-mini pri" onclick="wkOpenDetail(\''+a.w.id+'\')">Add ID</button>'
+      :(a.age<15?'<span class="wk-tag2 r">'+a.age+'</span>':('<b>'+a.age+'</b>'+(a.age<18?'<span class="wk-tag2 a">under 18</span>':'<span class="wk-tag2 g">✓</span>')));
+    return '<div class="wk-wrow"><div><div class="nm">'+wkE(a.w.name)+'</div><div class="s">'+(a.dob?('Born '+_wkD(a.dob.getFullYear()+'-'+String(a.dob.getMonth()+1).padStart(2,'0')+'-'+String(a.dob.getDate()).padStart(2,'0'))):'Age unknown')+'</div></div><div class="right">'+r+'</div></div>'; }).join('')||'<div style="font-size:12px;color:var(--t3)">No workers.</div>';
+  return '<div class="wk-card">'+_wkCompHead('No worker under 15','BCEA · s43')+'<div class="wk-what">No one under 15 may work on the farm. Each age comes from the date of birth in the SA ID number — keep a copy of the ID, never the original.</div>'+rows+wkDocBlock('age','ID copies')+'</div>';
+}
+function wkCompMinors(){
+  var cs=wkComplianceState(), mr=cs.minorsReg||{};
+  var m=wkAges().filter(function(a){ return a.age!=null && a.age<18; });
+  var rows=m.map(function(a){ var sp=wkSprayedBy(a.w); return '<div class="wk-wrow"><div><div class="nm">'+wkE(a.w.name)+'</div><div class="s">Age '+a.age+' · '+(a.w.hoursWeek||0)+' h/week'+(sp.length?(' · on '+sp.length+' spray record'+(sp.length>1?'s':'')):'')+'</div></div><div class="right">'+((sp.length||(a.w.hoursWeek||0)>35)?'<span class="wk-tag2 r">fix</span>':'<span class="wk-tag2 g">✓</span>')+'</div></div>'; }).join('')||'<div style="font-size:12px;color:var(--t3)">No worker under 18 by ID number.</div>';
+  return '<div class="wk-card">'+_wkCompHead('Workers under 18','Sectoral Determination 13 · cl 25')
+    +'<div class="wk-what">A worker aged 15 to 17 may work at most 35 hours a week, not between 18:00 and 06:00, and never with chemicals. Keep a register of their name, date of birth and address for 3 years.</div>'+rows
+    +'<label class="wk-fl">Register kept since</label>'+_wkCompDate('wk-mr-on',mr.on)
+    +'<div class="wk-act"><button class="pri" onclick="_wkCompSave(\'minors\',function(c){ c.minorsReg={on:_wkV(\'wk-mr-on\')}; })">Save</button></div>'+wkDocBlock('minors','the under-18 register')+'</div>';
+}
+function wkCompFirstAid(){
+  var cs=wkComplianceState(), fa=cs.firstAid||{}, head=wkHeadCount();
+  return '<div class="wk-card">'+_wkCompHead('First-aid box and first aider','OHS Act · General Safety Regulations reg 3')
+    +'<div class="wk-what">More than 5 workers: a stocked first-aid box. More than 10: someone with a valid first-aid certificate on hand, one for every 50 workers, and a notice saying where the box is and who the first aider is. You have <b>'+head+'</b>.</div>'
+    +'<label class="wk-fl">First-aid box checked and stocked on</label>'+_wkCompDate('wk-fa-box',fa.box)
+    +'<label class="wk-fl">First aider</label><input type="text" id="wk-fa-aider" value="'+wkE(fa.aider||'')+'" placeholder="Name">'
+    +'<label class="wk-fl">Certificate valid until</label>'+_wkCompDate('wk-fa-cert',fa.certTo)
+    +'<div class="wk-act"><button class="pri" onclick="_wkCompSave(\'firstaid\',function(c){ c.firstAid={box:_wkV(\'wk-fa-box\'),aider:_wkV(\'wk-fa-aider\'),certTo:_wkV(\'wk-fa-cert\')}; })">Save</button></div>'+wkDocBlock('firstaid','the first-aid certificate')+'</div>';
+}
+function wkCompIncident(){
+  var cs=wkComplianceState(), ir=cs.incidentReg||{};
+  return '<div class="wk-card">'+_wkCompHead('Incident register','OHS Act · General Administrative Regulations reg 9')
+    +'<div class="wk-what">Write down every injury that needs more than first aid, look into it within 7 days, and keep the register 3 years. A death or serious injury is also reported to the Department of Employment and Labour; an injury on duty goes to the Compensation Fund within 7 days.</div>'
+    +'<label class="wk-fl">Register kept since</label>'+_wkCompDate('wk-ir-since',ir.since)
+    +'<label class="wk-fl">Last entry (leave empty if none)</label>'+_wkCompDate('wk-ir-last',ir.last)
+    +'<div class="wk-act"><button class="pri" onclick="_wkCompSave(\'incident\',function(c){ c.incidentReg={since:_wkV(\'wk-ir-since\'),last:_wkV(\'wk-ir-last\')}; })">Save</button></div>'+wkDocBlock('incident','the incident register')+'</div>';
+}
+function wkCompRights(){
+  var cs=wkComplianceState(), rt=cs.rights||{};
+  return '<div class="wk-card">'+_wkCompHead('Workers’ rights on the wall','BCEA · s30 · Sectoral Determination 13')
+    +'<div class="wk-what">The summary of workers’ rights (form BCEA 3) and a copy of Sectoral Determination 13, where workers can read them, in the languages spoken on the farm.</div>'
+    +'<label class="wk-fl">Put up on</label>'+_wkCompDate('wk-rt-on',rt.on)
+    +'<label class="wk-fl">Languages</label><input type="text" id="wk-rt-langs" value="'+wkE(rt.langs||'')+'" placeholder="e.g. English, isiZulu">'
+    +'<div class="wk-act"><button class="pri" onclick="_wkCompSave(\'rights\',function(c){ c.rights={on:_wkV(\'wk-rt-on\'),langs:_wkV(\'wk-rt-langs\')}; })">Save</button></div>'+wkDocBlock('rights','a photo of the notice')+'</div>';
+}
+function wkCompSafetyRep(){
+  var cs=wkComplianceState(), sr=cs.safetyRep||{}, head=wkHeadCount();
+  return '<div class="wk-card">'+_wkCompHead('Health and safety representative','OHS Act · s17')
+    +'<div class="wk-what">More than 20 workers: appoint a health and safety representative in writing, one for every 50 workers. You have <b>'+head+'</b>.</div>'
+    +'<label class="wk-fl">Representative</label><input type="text" id="wk-sr-name" value="'+wkE(sr.name||'')+'" placeholder="Name">'
+    +'<label class="wk-fl">Appointed in writing on</label>'+_wkCompDate('wk-sr-on',sr.on)
+    +'<div class="wk-act"><button class="pri" onclick="_wkCompSave(\'safetyrep\',function(c){ c.safetyRep={name:_wkV(\'wk-sr-name\'),on:_wkV(\'wk-sr-on\')}; })">Save</button></div>'+wkDocBlock('safetyrep','the letter of appointment')+'</div>';
+}
 function computeWkCompliance(){
-  var ws=wkList(), rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
+  var ws=wkList(), rate=wkWageFloor();
   var below=ws.filter(function(w){ return wkHourly(w)>0 && wkHourly(w)<rate-0.005; });
   var noUif=ws.filter(function(w){ return !w.uif && !(w.uifNo&&w.uifNo.length) && !w.uifExempt; });
   var noContract=ws.filter(function(w){ return w.contract==='missing'; });
@@ -26611,7 +26863,7 @@ function computeWkCompliance(){
   var items=[];
   items.push({ key:'nmw', name:'Paying at least the minimum', law:'National Minimum Wage Act', optional:false,
     status: below.length?'r':'g', pill: below.length?(below.length+' below'):'Sorted',
-    desc: below.length ? ('<b>'+names(below)+'</b> '+(below.length>1?'are':'is')+' under R'+rate.toFixed(2)+'/hour \u2014 bump up.') : ('Everyone earns at least <b>R'+rate.toFixed(2)+' an hour</b> \u2014 the farm-worker minimum. Re-checked whenever a wage changes.'),
+    desc: below.length ? ('<b>'+names(below)+'</b> '+(below.length>1?'are':'is')+' under R'+rate.toFixed(2)+'/hour'+(wkFarmMin()?' (your farm minimum)':'')+' \u2014 bump up.') : ('Everyone earns at least <b>R'+rate.toFixed(2)+' an hour</b> \u2014 '+(wkFarmMin()?('your farm minimum, above the legal R'+wkLegalMin().toFixed(2)):'the legal minimum')+'. Re-checked whenever a wage changes.'),
     keep:'Rate looked up, not guessed: R'+rate.toFixed(2)+'/hr \u00b7 a 45-hour week \u2248 R'+_grpInt(Math.round(rate*45*52/12))+' a month.' });
   items.push({ key:'deduct', name:'Money you take off a wage', law:'Basic Conditions of Employment Act', optional:false,
     status: noConsent.length?'a':'g', pill: noConsent.length?('confirm '+noConsent.length):'Sorted',
@@ -26628,8 +26880,14 @@ function computeWkCompliance(){
   items.push({ key:'contract', name:'A signed contract for everyone', law:'Basic Conditions of Employment Act \u00b7 s29', optional:false,
     status: noContract.length?'r':'g', pill: noContract.length?(noContract.length+' to fix'):'Sorted',
     desc: noContract.length ? ('No contract on file for <b>'+names(noContract)+'</b>.') : 'Every worker has a signed agreement on file.' });
-  items.push({ key:'payslip', name:'A payslip every payday', law:'Basic Conditions of Employment Act \u00b7 s33', optional:true, status: thisMonthRun?'g':'a', pill: thisMonthRun?'Sorted':'None this month',
-    desc: thisMonthRun ? 'A compliant payslip is made for every worker, every pay run, and kept on record.' : ('No pay run for '+wkMonthLabel()+' yet \u2014 run payroll to produce this month\u2019s payslips.') });
+  /* B5-C12 (-482): a farm payslip (SD13 cl 6) also carries the employer's reference and each worker's UIF contribution;
+     a registered worker with no UIF number, or no employer reference in Settings, leaves the slip short. */
+  var slipNoUifNo=ws.filter(function(w){ return w.uif && !String(w.uifNo||'').trim(); }), slipNoRef=!String((typeof ST!=='undefined'&&ST.payeRef)||'').trim();
+  var slipShort=slipNoUifNo.length>0 || slipNoRef;
+  items.push({ key:'payslip', name:'A payslip every payday', law:'Basic Conditions of Employment Act \u00b7 s33 \u00b7 Sectoral Determination 13', optional:true, status: (thisMonthRun&&!slipShort)?'g':'a', pill: !thisMonthRun?'None this month':(slipShort?'Details missing':'Sorted'),
+    desc: !thisMonthRun ? ('No pay run for '+wkMonthLabel()+' yet \u2014 run payroll to produce this month\u2019s payslips.')
+        : slipShort ? ('Each payslip needs '+(slipNoRef?'your PAYE reference (Settings)':'')+(slipNoRef&&slipNoUifNo.length?' and ':'')+(slipNoUifNo.length?('the UIF number for <b>'+names(slipNoUifNo)+'</b>'):'')+'.')
+        : 'Every slip shows the pay, each deduction, the UIF contribution and the Sunday and public-holiday hours, and is kept on record.' });
   items.push({ key:'coida', name:'Workmen\u2019s comp (COIDA)', law:'Compensation for Injuries & Diseases Act', optional:true, coida:true,
     status: cs.coidaFiled?'g':'a', pill: cs.coidaFiled?'Filed':'Due',
     desc: cs.coidaFiled ? 'This year\u2019s Return of Earnings is marked as filed.' : 'The once-a-year return covering workers hurt on the job. We total the wages so the figure\u2019s ready.' });
@@ -26637,6 +26895,7 @@ function computeWkCompliance(){
     desc: sdlApplies ? (cs.sdlRegistered ? ('Your wage bill (~'+wkMoney(annual)+') is over R500 000 \u2014 SDL applies and you\u2019re marked registered.') : ('Your wage bill (~'+wkMoney(annual)+') is over R500 000, so SDL applies \u2014 register with SARS, then mark it done.')) : ('Your annual wage bill (~'+wkMoney(annual)+') is under R500 000, so this doesn\u2019t apply yet \u2014 we\u2019ll flag the month it does.') });
   items.push({ key:'esta', name:'Workers living on the farm', law:'Extension of Security of Tenure Act (ESTA)', optional:true, status:'g', pill: onFarm.length?(onFarm.length+' housed'):'None',
     desc: onFarm.length ? (onFarm.length+' worker'+(onFarm.length>1?'s live':' lives')+' on the farm. Tenure rights and the 10% housing-deduction cap are looked after.') : 'No one lives on the farm, so the housing/tenure rules don\u2019t apply.' });
+  wkStatutoryItems(ws, cs, names).forEach(function(it){ items.push(it); });
   return items;
 }
 function renderWkCompliance(){ wkSync();
@@ -26668,7 +26927,7 @@ function wkShowTrack(){ var e=$('wk-cp-track'); if(e) e.classList.toggle('on'); 
 function wkTrackToggle(key){ var cs=wkComplianceState(); cs.untracked[key]=!cs.untracked[key]; if(typeof saveState==='function') saveState(); renderWkCompliance(); var e=$('wk-cp-track'); if(e) e.classList.add('on'); }
 function wkCoidaToggle(){ var cs=wkComplianceState(); cs.coidaFiled=!cs.coidaFiled; if(typeof saveState==='function') saveState(); renderWkOverview(); renderWkCompliance(); }
 function wkLabourFile(){
-  var ws=wkList(), rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
+  var ws=wkList(), rate=wkWageFloor();
   var farm=(typeof ST!=='undefined'&&ST.farmName)?ST.farmName:'Your farm';
   var cs=wkComplianceState(), items=computeWkCompliance();
   var rows=ws.map(function(w){
@@ -26699,7 +26958,8 @@ function wkLabourFile(){
 // ---- Compliance item workflows ----
 function wkCompOpen(key){
   var box=$('wkp-cp'); if(!box) return;
-  var fns={ nmw:wkCompNmw, deduct:wkCompDed, hours:wkCompHours, leave:wkCompLeave, uif:wkCompUif, contract:wkCompContract, payslip:wkCompPayslip, coida:wkCompCoida, sdl:wkCompSdl, esta:wkCompEsta };
+  var fns={ nmw:wkCompNmw, deduct:wkCompDed, hours:wkCompHours, leave:wkCompLeave, uif:wkCompUif, contract:wkCompContract, payslip:wkCompPayslip, coida:wkCompCoida, sdl:wkCompSdl, esta:wkCompEsta,
+    age:wkCompAge, minors:wkCompMinors, firstaid:wkCompFirstAid, incident:wkCompIncident, rights:wkCompRights, safetyrep:wkCompSafetyRep };
   var fn=fns[key]; if(!fn){ renderWkCompliance(); return; }
   box.innerHTML='<div onclick="renderWkCompliance()" style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--gm);cursor:pointer;margin-bottom:12px">\u2039 Back to compliance</div>'+fn();
   var c=$('content'); if(c) c.scrollTop=0;
@@ -26717,15 +26977,20 @@ function wkAddDoc(item,name,worker){ var cs=wkComplianceState(); cs.docs.unshift
 function wkAttachSave(key){ var nm=(($('wk-attach-name-'+key)||{}).value||'').trim(); if(!nm){ if(typeof toast==='function') toast('Name the document first.','error'); return; } wkAddDoc(key,nm,''); if(typeof toast==='function') toast('Document recorded.','success'); wkCompOpen(key); }
 
 function wkCompNmw(){
-  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
+  var rate=wkWageFloor();
   var rows=wkList().map(function(w){ var hr=wkHourly(w), ok=hr>=rate-0.005; var pay=(w.basis==='day')?('R'+_grpInt(w.amt||0)+'/day'):(wkMoney(w.amt)+'/mo');
     return '<div class="wk-wrow"><div><div class="nm">'+wkE(w.name)+'</div><div class="s">'+pay+'</div></div><div class="right"><b>R'+hr.toFixed(2)+'/hr</b>'+(ok?'<span class="wk-tag2 g">\u2713</span>':'<span class="wk-tag2 r">low</span><button class="wk-mini pri" onclick="wkOpenDetail(\''+w.id+'\')">Fix</button>')+'</div></div>'; }).join('');
   return '<div class="wk-card"><div style="font-size:15px;font-weight:800">Paying at least the minimum</div><div style="font-size:11px;color:var(--t4);margin-bottom:10px">National Minimum Wage Act</div>'
     +'<div class="wk-what">Every worker must earn at least <b>R'+rate.toFixed(2)+' an hour</b>. We work out each one\u2019s hourly rate and flag anyone short.</div>'+rows
-    +'<label class="wk-fl">The minimum-wage rate \u2014 look up &amp; update each March</label><div class="wk-ipre"><span class="r">R</span><input type="number" id="wk-rate" value="'+rate+'" step="0.01"></div>'
-    +'<div class="wk-act"><button class="pri" onclick="wkSaveRate()">Save rate</button></div></div>';
+    +'<div class="wk-wrow"><div><div class="nm">Legal minimum</div><div class="s">National Minimum Wage from '+_wkD(STATUTORY.nmwRate.effectiveFrom)+'</div></div><div class="right"><b>R'+wkLegalMin().toFixed(2)+'/hr</b></div></div>'
+    +'<label class="wk-fl">Farm minimum (optional, above the legal minimum)</label><div class="wk-ipre"><span class="r">R</span><input type="number" id="wk-rate" value="'+(wkFarmMin()?wkFarmMin():'')+'" step="0.01" placeholder="'+wkLegalMin().toFixed(2)+'"></div>'
+    +'<div class="wk-act"><button class="pri" onclick="wkSaveRate()">Save farm minimum</button></div></div>';
 }
-function wkSaveRate(){ var v=parseFloat(($('wk-rate')||{}).value)||0; if(v>0){ ST_WORK.nmwRate=v; if(typeof saveState==='function') saveState(); if(typeof toast==='function') toast('Minimum wage set to R'+v.toFixed(2)+'/hr.','success'); } renderWkOverview(); renderWkCompliance(); wkCompOpen('nmw'); }
+function wkSaveRate(){ var raw=(($('wk-rate')||{}).value||'').trim(), v=parseFloat(raw)||0, legal=wkLegalMin();
+  if(raw && v>0 && v<legal-0.004){ if(typeof toast==='function') toast('The legal minimum is R'+legal.toFixed(2)+' an hour \u2014 a farm minimum can only be higher.','error'); return; }
+  ST_WORK.nmwRate=(v>legal+0.004)?v:legal; if(typeof saveState==='function') saveState();
+  if(typeof toast==='function') toast(v>legal+0.004?('Farm minimum set to R'+v.toFixed(2)+'/hr.'):('Checking against the legal minimum, R'+legal.toFixed(2)+'/hr.'),'success');
+  renderWkOverview(); renderWkCompliance(); wkCompOpen('nmw'); }
 
 function wkCompDed(){
   var arr=wkList().filter(function(w){ return (w.adv&&w.adv.owing)||(w.fund&&w.fund.on); });
@@ -26970,7 +27235,7 @@ function wkContractBuilder(id){
 
 function cbNmw(){
   var amt=parseFloat(cbVal('cb-amt'))||0, basis=cbSegVal('cb-basis')||'month', hours=parseFloat(cbVal('cb-hours'))||45;
-  var hr=wkHourly({basis:basis, amt:amt, hoursWeek:hours}); var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value; var ok=hr>=rate-0.005;
+  var hr=wkHourly({basis:basis, amt:amt, hoursWeek:hours}); var rate=wkWageFloor(); var ok=hr>=rate-0.005;
   var el=$('cb-nmwl'); if(!el) return;
   el.className='cb-nmw '+(ok?'ok':'bad');
   el.innerHTML='<span>'+(ok?'\u2713':'\u26a0')+'</span><span>That\u2019s <b>R'+hr.toFixed(2)+'/hour</b> \u2014 '+(ok?'meets':'<b>below</b>')+' the farm-worker minimum (R'+rate.toFixed(2)+').</span>';
@@ -26998,7 +27263,7 @@ function cbReadConfig(id){
 function cbDoc(cfg){
   var farm=(typeof ST!=='undefined'&&ST.farmName)?ST.farmName:'the farm';
   var owner=(typeof ST!=='undefined'&&ST.ownerName)?ST.ownerName:'the employer';
-  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
+  var rate=wkWageFloor();
   var hr=wkHourly({basis:cfg.basis,amt:cfg.amt,hoursWeek:cfg.hours});
   var pay=(cfg.basis==='day')?('R'+_grpInt(cfg.amt||0)+' per day'):('R'+_grpInt(cfg.amt||0)+' per month');
   var n=0; function cl(t,b){ n++; return '<h2>'+n+'. '+t+'</h2><p>'+b+'</p>'; }
@@ -27175,7 +27440,7 @@ function saEtiFor(label, w, gross){
   if(n>24){ out.why='All 24 qualifying months used'; return out; }
   var hours=(w.basis==='day')?(wkSeasDaysFor(label,w.id)||0)*(w.hoursDay||8):((w.hoursWeek||45)*52/12);
   if(!(hours>0)||!(gross>0)){ out.why='No pay this month'; return out; }
-  var rate=(ST_WORK.nmwRate||STATUTORY.nmwRate.value); if(gross/hours < rate-0.005){ out.why='Paid below the minimum wage'; return out; }
+  var rate=wkWageFloor(); if(gross/hours < rate-0.005){ out.why='Paid below the minimum wage'; return out; }
   var R=(hours<160)?gross*160/hours:gross;
   if(R>=7500){ out.why='Pay of R7,500 or more'; return out; }
   var e=(R<2500)?0.6*R:((R<5500)?1500:(1500-0.75*(R-5500)));
@@ -27197,6 +27462,20 @@ function wkAboveThreshold(w){ wkPayState(); return w.basis==='month' && (w.amt*1
 /* SDL is levied on the FULL payroll (wkPRMonthTotals charges it on gross + seasGross), so the
    R500k threshold has to use the same base. Testing permanent base pay alone told a farm with
    R450k permanent + R300k seasonal it was "under R500k/yr" when it is in fact liable. */
+/* B5-F12 (-482): the skills levy on a pay run's gross - the ONE sum the posted cost and the EMP201 both use
+   (1% of the whole payroll once it passes R500 000 a year; whole rand, as the EMP201 has always shown it). */
+function wkSdlFor(gross){ return (wkSdlApplies() && gross>0) ? Math.round(gross*STATUTORY.sdlRate.value) : 0; }
+/* The cost a pay run put in the books, and what the workers were paid. Read from the posted entry, so an older
+   run shows what it actually posted; worked out the same way when that entry is gone. */
+function wkRunCost(run){
+  var c=0, found=false;
+  try{ (ST.txns||[]).forEach(function(t){ if(wkRunTxn(t, run)){ c+=Number(t.amt)||0; found=true; } }); }catch(e){}
+  if(found) return Math.round(c*100)/100;
+  /* No entry left in the books: the run's own gross and UIF (the farm's half). SDL is not added here - it
+     would be today's test, not the run's. A run saved with its take-home only has no cost to show. */
+  if(run.gross>0) return Math.round((run.gross+(run.uif||0)/2)*100)/100;
+  return null;
+}
 function wkSdlApplies(){
   var g=wkList().filter(function(w){return w.basis==='month';}).reduce(function(a,w){return a+(w.amt||0);},0);
   var s=0;
@@ -27335,8 +27614,8 @@ function wkPRMonthTotals(){
 
 function wkPRSummary(){
   var t=wkPRMonthTotals(); var single=t.single;
-  var cost=t.gross+t.uif+t.seasGross+t.seasUif;
-  var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*STATUTORY.sdlRate.value):0;
+  var sdl=wkSdlFor(t.gross)+wkSdlFor(t.seasGross);
+  var cost=t.gross+t.uif+t.seasGross+t.seasUif+sdl;   // B5-F12: the posted cost - wages, your UIF share and the skills levy
   var sarsTot=t.payeDue+(t.uif+t.seasUif)*2+sdl;   // PAYE less the Employment Tax Incentive
   function kpi(l,v,sub){ return '<div class="pr-kpi"><div class="l">'+l+'</div><div class="v">'+v+'</div><div class="s">'+sub+'</div></div>'; }
   var take=t.net+ (t.seasGross-t.seasUif);
@@ -27344,7 +27623,7 @@ function wkPRSummary(){
   return '<div class="pr-kpis">'
       +kpi('Wage bill (gross)', wkMoney(t.gross+t.seasGross), t.rows.length+' permanent'+(t.seasGross?' + seasonal':''))
       +kpi('Take-home paid', wkMoney(take), 'after UIF, PAYE &amp; deductions')
-      +kpi('Cost to you', wkMoney(cost), 'incl. your UIF share')
+      +kpi('Cost to you', wkMoney(cost), 'incl. your UIF share'+(sdl?' and SDL':''))
       +kpi('To pay SARS &amp; funds', wkMoney(sarsTot), perLbl)
     +'</div>'
     +'<div class="wk-card"><div class="pr-h3">Where the wages went</div><div class="pr-sub">'+wkE(t.label)+(single?'':(' \u00b7 '+t.n+' months'))+'</div><div class="pr-flow">'
@@ -27354,7 +27633,7 @@ function wkPRSummary(){
       +(t.adv?'<div class="r"><span class="pr-neg">\u2212 Advances repaid</span><span class="pr-neg">\u2212 '+wkMoney(t.adv)+'</span></div>':'')
       +(t.sav?'<div class="r"><span class="pr-neg">\u2212 Funeral &amp; savings</span><span class="pr-neg">\u2212 '+wkMoney(t.sav)+'</span></div>':'')
       +'<div class="r tot"><span>Take-home pay</span><span>'+wkMoney(take)+'</span></div>'
-    +'</div><div style="font-size:11.5px;color:var(--t3);margin-top:12px;background:var(--gb);border-radius:9px;padding:10px 12px;line-height:1.5">On top of wages, your UIF share is <b>'+wkMoney(t.uif+t.seasUif)+'</b>, so the full cost to the farm is <b>'+wkMoney(cost)+'</b> \u2014 the figure on your expenses.</div></div>'
+    +'</div><div style="font-size:11.5px;color:var(--t3);margin-top:12px;background:var(--gb);border-radius:9px;padding:10px 12px;line-height:1.5">On top of wages, your UIF share is <b>'+wkMoney(t.uif+t.seasUif)+'</b>'+(sdl?(' and the skills levy <b>'+wkMoney(sdl)+'</b>'):'')+', so the full cost to the farm is <b>'+wkMoney(cost)+'</b> \u2014 the figure on your expenses.</div></div>'
     +'<div class="wk-card pr-sars"><div class="pr-h3">'+(single?'What to pay over this month':'What to pay over \u2014 period total')+'</div><div class="pr-sub">'+(single?'The EMP201 figures':('Across '+t.n+' months \u2014 filed as '+t.n+' monthly EMP201s'))+'</div><div class="pr-flow">'
       +'<div class="r"><span>PAYE</span><span>'+wkMoney(t.payeAll)+'</span></div>'
       +(t.eti>0?'<div class="r"><span>\u2212 Employment Tax Incentive</span><span>\u2212 '+wkMoney(Math.min(t.eti,t.payeAll))+'</span></div>':'')
@@ -27426,7 +27705,7 @@ function wkPRStatutory(){
     return '<div class="wk-card pr-sars" style="padding:13px 15px"><div class="pr-h3">One EMP201 per month</div><div class="pr-sub">'+labels.length+' monthly returns \u2014 they don\u2019t combine. UI-19 works the same way.</div></div>'
       + blocks + coidaCard;
   }
-  var t=wkPRMonthTotals(); var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*STATUTORY.sdlRate.value):0;
+  var t=wkPRMonthTotals(); var sdl=wkSdlFor(t.gross)+wkSdlFor(t.seasGross);
   var uif2=(t.uif+t.seasUif)*2; var sarsTot=t.payeDue+uif2+sdl;
   var u19=wkList().map(function(w){
     var rem=(w.basis==='day')? (wkSeasDaysFor(t.label,w.id)*(w.amt||0)) : (w.amt||0);
@@ -27471,7 +27750,7 @@ function renderWkDetail(id){
   for(var i=0;i<ws.length;i++){ if(ws[i].id===id){ w=ws[i]; idx=i; break; } }
   if(!w){ box.innerHTML=''; return; }
   w.ledger = w.ledger || [];
-  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value; var ok=wkHourly(w)>=rate-0.005;
+  var rate=wkWageFloor(); var ok=wkHourly(w)>=rate-0.005;
   var wage = (w.basis==='day') ? ('R'+_grpInt(w.amt||0)+'/day') : (wkMoney(w.amt)+'/mo');
 
   var boxes='';
@@ -27734,7 +28013,7 @@ function wkNmw(){
   var amt=parseFloat(($('awf-amt')||{}).value)||0;
   var hrs=parseFloat(($('awf-hours')||{}).value)||0;
   var basis=wkSegVal('awf-basis')||'month';
-  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
+  var rate=wkWageFloor();
   if(!amt){ line.className='wk-nmw neutral'; line.innerHTML='<span class="e">&#8987;</span><span>Enter a wage and we&rsquo;ll check it against the minimum.</span>'; return; }
   var h = basis==='month' ? (hrs? amt/(hrs*52/12):0) : (hrs? amt/hrs:0);
   var hr=h.toFixed(2);
@@ -27853,7 +28132,7 @@ function wkSaveWorker(){
   if(!amt){ if(typeof toast==='function') toast('Please enter what you pay them.','error'); return; }
   var basis=wkSegVal('awf-basis')||'month';
   var hrs=parseFloat(($('awf-hours')||{}).value)||45;
-  var rate=ST_WORK.nmwRate||STATUTORY.nmwRate.value;
+  var rate=wkWageFloor();
   var h = basis==='month' ? amt/(hrs*52/12) : amt/hrs;
   if(h < rate-0.005){ if(typeof toast==='function') toast('That\u2019s below the R'+rate.toFixed(2)+' minimum wage \u2014 bump it up first.','error'); return; }
   var contractSel=wkSegVal('awf-contract');
@@ -28075,13 +28354,16 @@ function openAssetDetail(idx){
          _ge+'</div>';
   }
   h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:16px">';
+  if(astLeased(a)){ h += astValCard('Leased', 'Not yours', 'var(--t1)'); h += astValCard('Tax value', 'None \u2014 rentals are costs', 'var(--bl)'); }
+  else {
   h += astValCard('Purchase price', fmt(a.price||0), 'var(--t1)');
   h += astValCard(_gd?'Tax value when it left':'Tax value', fmt(_gd?_gd.taxValue:d.bookValue), 'var(--bl)');
+  }
   /* Neither card can be true of an asset that has gone: there is nothing left to replace,
      and "what you own" is nil however much finance is still recorded against it. The
      finance block further down stays, because that debt may well still be real. */
   if(repl && !_gd) h += astValCard('Insured / replacement', fmt(repl), 'var(--gd)');
-  var _afc=assetFinance(a); if(_afc && !_gd) h += astValCard('What you own (after debt)', fmt(Math.max(0,(repl||a.price||0)-_afc.owed)), 'var(--gd)');
+  var _afc=assetFinance(a); if(_afc && !_gd && !astLeased(a)) h += astValCard('What you own (after debt)', fmt(Math.max(0,(repl||a.price||0)-_afc.owed)), 'var(--gd)');
   h += '</div>';
   // #8 depreciation forecast
   if(d.deprSchedule && d.deprSchedule.length && a.deprType!=='none'){
@@ -28104,11 +28386,14 @@ function openAssetDetail(idx){
   // #5 insurance
   if(!_gd && (repl || a.insurer || a.renewalDate)){
     var under = repl>0 && repl < (a.price||0);
-    h += '<div style="border:1px solid '+(under?'#f4c7c2':'var(--br)')+';background:'+(under?'var(--rp)':'#fff')+';border-radius:10px;padding:11px 13px;margin-bottom:12px">';
-    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="font-size:12px;font-weight:700">&#x1F6E1;&#xFE0F; Insurance</span>'+(repl?(under?'<span style="font-size:11px;font-weight:800;background:var(--rd);color:#fff;border-radius:20px;padding:2px 8px">UNDER-INSURED</span>':'<span style="font-size:11px;font-weight:800;background:var(--gp);color:var(--gd);border-radius:20px;padding:2px 8px">Adequately insured</span>'):'')+'</div>';
+    /* B5-C02 / D3 (-482): a renewal date that has passed means the cover ran out - no "Adequately insured" over it. */
+    var _rnD=a.renewalDate?new Date(String(a.renewalDate).slice(0,10)+'T00:00:00'):null, _tdy=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); _tdy.setHours(0,0,0,0);
+    var lapsed = !!(_rnD && !isNaN(_rnD.getTime()) && _rnD<_tdy);
+    h += '<div class="ast-ins" style="border:1px solid '+((under||lapsed)?'#f4c7c2':'var(--br)')+';background:'+((under||lapsed)?'var(--rp)':'#fff')+';border-radius:10px;padding:11px 13px;margin-bottom:12px">';
+    h += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="font-size:12px;font-weight:700">&#x1F6E1;&#xFE0F; Insurance</span>'+(lapsed?'<span class="ast-ins-pill" style="font-size:11px;font-weight:800;background:var(--rd);color:#fff;border-radius:20px;padding:2px 8px">Cover ran out</span>':(repl?(under?'<span class="ast-ins-pill" style="font-size:11px;font-weight:800;background:var(--rd);color:#fff;border-radius:20px;padding:2px 8px">UNDER-INSURED</span>':'<span class="ast-ins-pill" style="font-size:11px;font-weight:800;background:var(--gp);color:var(--gd);border-radius:20px;padding:2px 8px">Adequately insured</span>'):''))+'</div>';
     if(a.insurer) h += '<div style="font-size:12px;color:var(--t3)">Insurer: '+esc(a.insurer)+'</div>';
     if(under) h += '<div style="font-size:11.5px;color:#b3261e;font-weight:600;margin-top:3px">Sum insured ('+fmt(repl)+') is below the purchase price ('+fmt(a.price||0)+') \u2014 you may not be able to replace it.</div>';
-    if(a.renewalDate){ var dd=Math.ceil((new Date(a.renewalDate)-new Date())/86400000); var rtxt = dd<0?'Renewal overdue':(dd<=45?('Renews in '+dd+' day'+(dd!==1?'s':'')):('Renews '+esc(a.renewalDate))); h += '<div style="font-size:11.5px;color:'+(dd<=45?'var(--or)':'var(--t3)')+';font-weight:'+(dd<=45?'700':'400')+';margin-top:3px">'+rtxt+'</div>'; }
+    if(a.renewalDate){ var dd=Math.round((_rnD-_tdy)/86400000); var rtxt = dd<0?('Ran out '+_wkD(a.renewalDate)+' \u2014 '+Math.abs(dd)+' day'+(Math.abs(dd)!==1?'s':'')+' ago'):(dd<=45?('Renews in '+dd+' day'+(dd!==1?'s':'')+' ('+_wkD(a.renewalDate)+')'):('Renews '+_wkD(a.renewalDate))); h += '<div style="font-size:11.5px;color:'+(dd<0?'var(--rd)':(dd<=45?'var(--or)':'var(--t3)'))+';font-weight:'+(dd<=45?'700':'400')+';margin-top:3px">'+rtxt+'</div>'; }
     h += '</div>';
   }
   // #6 documents
@@ -28159,6 +28444,7 @@ function astLenderData(){
   ST_ASSETS.assets.forEach(function(a){
     var owed=(typeof assetOwed==='function')?assetOwed(a):(a.financed?(a.outstanding||0):0);
     if(typeof astGone==='function' && astGone(a)){ goneOwed+=owed; return; }
+    if(astLeased(a)) return;   /* D4: a leased machine is not the farm's to pledge */
     var val=a.insuredValue||a.price||0;
     if(!byCat[a.cat]){ byCat[a.cat]={val:0,owed:0}; order.push(a.cat); }
     byCat[a.cat].val+=val; byCat[a.cat].owed+=owed;
@@ -28362,9 +28648,10 @@ var ST_WORK = {
   payslips: [],
   payslipSends: [],
   payRuns: [
-    { id:'pr-apr', label:'April 2026', kind:'4 permanent', net:26082, date:'2026-04-25' },
-    { id:'pr-hg',  label:'Seasonal workers', kind:'week of 16 Mar', net:13543, date:'2026-03-20' },
-    { id:'pr-mar', label:'March 2026', kind:'4 permanent', net:25110, date:'2026-03-25' }
+    /* -482 (B5-F10): gross and UIF (worker + farm) added, so the list's "Cost to farm" has what it was paid from. */
+    { id:'pr-apr', label:'April 2026', kind:'4 permanent', net:26082, gross:26345, uif:527, date:'2026-04-25' },
+    { id:'pr-hg',  label:'Seasonal workers', kind:'week of 16 Mar', net:13543, gross:13680, uif:274, date:'2026-03-20' },
+    { id:'pr-mar', label:'March 2026', kind:'4 permanent', net:25110, gross:25364, uif:507, date:'2026-03-25' }
   ]
 };
 
@@ -52908,7 +53195,7 @@ LANG_PAIRS.push(
   ["In the ground","In die grond"],
   /* POPIA s23 export + s24 deletion request. Whole sentences only — this is legal-adjacent
      copy, and the substring pass turns "records" into "rekords" mid-English otherwise. */
-  ["SARS requires you to keep your financial records for five years. Deleting your account does not end that duty — it only removes your copy. Download your data first.","SARS vereis dat jy jou finansiële rekords vyf jaar lank hou. Om jou rekening te skrap beëindig nie daardie plig nie — dit verwyder net jou kopie. Laai eers jou data af."],
+  ["Keeping your records is your duty, not ours. Keep your download: tax records 5 years from the date you submit each return (SARS), worker records 3 years (labour law). We delete your farm within 30 days and keep only our billing records.","Om jou rekords te hou is jou plig, nie ons s’n nie. Hou jou aflaai: belastingrekords 5 jaar vanaf die datum waarop jy elke opgawe indien (SARS), werkerrekords 3 jaar (arbeidswetgewing). Ons skrap jou plaas binne 30 dae en hou net ons faktuurrekords."],
   ["Your workers’ records go too. If you still employ them you remain their responsible party under POPIA, and you will need those records somewhere else.","Jou werkers se rekords gaan ook weg. As jy hulle steeds in diens het, bly jy onder POPIA hulle verantwoordelike party, en jy sal daardie rekords êrens anders nodig hê."],
   ["Erases your farm from AgriInsights and from our servers, on every device you use. We will confirm with you first, and this cannot be undone.","Vee jou plaas uit AgriInsights en van ons bedieners af, op elke toestel wat jy gebruik. Ons sal eers by jou bevestig, en dit kan nie ongedaan gemaak word nie."],
   ["This starts a request to erase your account and every record below, on every device.","Dit begin ’n versoek om jou rekening en elke rekord hieronder uit te vee, op elke toestel."],
@@ -53338,8 +53625,8 @@ LANG_PAIRS.push(
    "As jy BTW-geregistreer is, deel ons die 15% uit jou verkope en koste en hou by wat jy skuld of terugeis op jou BTW201. Indien nie, laat ons jou bedrae presies soos ingevoer. Die meeste kleiner boere registreer eers sodra omset R2,3 miljoen verbysteek."],
   ["These are the published DoE prices, not what you paid. Your own fuel bill is at the top of this tab — including how much of it can go on a diesel-refund claim.",
    "Dit is die gepubliseerde DoE-pryse, nie wat jy betaal het nie. Jou eie brandstofrekening is bo-aan hierdie oortjie — insluitend hoeveel daarvan op ’n dieselterugbetaling-eis kan gaan."],
-  ["Export a CSV, download a PDF, or snap a clear photo of your statement, then drop it here. We read it right on your device — your data never leaves your phone.",
-   "Voer ’n CSV uit, laai ’n PDF af, of neem ’n duidelike foto van jou staat, en los dit hier. Ons lees dit reg op jou toestel — jou data verlaat nooit jou foon nie."],
+  ["Export a CSV, download a PDF, or snap a clear photo of your statement, then drop it here. The file is read on this computer; the lines you import are saved to your farm account.",
+   "Voer ’n CSV uit, laai ’n PDF af, of neem ’n duidelike foto van jou staat, en los dit hier. Die lêer word op hierdie rekenaar gelees; die lyne wat jy invoer, word in jou plaasrekening gestoor."],
   [". I understand how my farm’s information is stored, and that where I record worker details I remain responsible for them under POPIA.",
    ". Ek verstaan hoe my plaas se inligting gestoor word, en dat waar ek werkerbesonderhede aanteken, ek steeds daarvoor verantwoordelik bly onder POPIA."],
   ["Link each to the crop or herd it belongs to, so your enterprise breakdown is exact. We’ve suggested where we can — just check them.",
@@ -53456,8 +53743,8 @@ LANG_PAIRS.push(
    "1% van hulle af, 1% van jou — elke betaaldag uitgewerk."],
   ["Ranked by what's at stake · tap any line to fix it",
    "Gerangskik volgens wat op die spel is · tik enige lyn om dit reg te maak"],
-  ["Farm development — dams, fences, roads (Sec 12U)",
-   "Plaasontwikkeling — damme, heinings, paaie (Art 12U)"],
+  ["Farm development — dams, fences, roads (First Schedule para 12)",
+   "Plaasontwikkeling — damme, heinings, paaie (Eerste Bylae para 12)"],
   ["Your changes could not be saved on this device.",
    "Jou veranderinge kon nie op hierdie toestel gestoor word nie."],
   ["This asset is financed (loan / instalment sale)",
@@ -54777,6 +55064,7 @@ LANG_PAIRS.push(
   /* Last two real strings. Both carry live figures, so the exact-string pairs I wrote
      earlier only ever matched the demo farm's numbers — static fragments instead. */
   ["farm development, claimed in its build year", "plaasontwikkeling, geëis in sy bloujaar"],
+  ["farm development this year (para 12)", "plaasontwikkeling hierdie jaar (para 12)"],
   ["average. Worth checking tree health or yield.", "gemiddeld. Werd om boomgesondheid of opbrengs na te gaan."],
   ["/ha vs",  "/ha teenoor"],
   /* Caught by eye on the Workers screenshot — the node diff missed them because the
@@ -55403,6 +55691,7 @@ I18N['demo.watch']={en:"▶ Watch demo",af:"▶ Kyk demo"};
 I18N['demo.restart']={en:"↺ Restart demo",af:"↺ Herbegin demo"};
 I18N['demo.create']={en:"Create your farm →",af:"Skep jou plaas →"};
 I18N['ob.consent.warn']={en:"Please accept to continue.",af:"Aanvaar asseblief om voort te gaan."};
+I18N['ob.marketing.text']={en:"Send me news and offers from AgriInsights by email (optional). I can stop them at any time.",af:"Stuur vir my nuus en aanbiedinge van AgriInsights per e-pos (opsioneel). Ek kan dit enige tyd stop."};
 /* Demo-data nudge. Keyed, not paired: the substring engine would happily find
    "demo data" inside other copy, and these strings must round-trip exactly. */
 I18N['demo.nudge.title']={en:"You\u2019re exploring with demo data",af:"Jy verken met demo-data"};
@@ -56134,7 +56423,7 @@ function b5AssetLife(a){
 function b5BookDepr(fy, toYm){
   var yms=b5FyYms(fy), first=yms[0], last=toYm && toYm<yms[11] ? toYm : yms[11], out={total:0, gain:0, rows:[]};
   ((typeof ST_ASSETS!=='undefined'&&ST_ASSETS.assets)||[]).forEach(function(a){
-    var price=+a.price||0, life=b5AssetLife(a); if(!(price>0)) return;
+    var price=+a.price||0, life=b5AssetLife(a); if(!(price>0) || astLeased(a)) return;
     var pd=parseDate(a.date||''); if(!pd) return;
     var start=b5Ym(pd), per=life>0 ? price/(life*12) : 0, lastLife=life>0 ? b5YmAdd(start, life*12-1) : null;
     var dd=a.disposalDate ? parseDate(a.disposalDate) : null, disp=dd ? b5Ym(dd) : null;
@@ -56158,6 +56447,7 @@ function b5BookDepr(fy, toYm){
 function b5AssetBook(a, fy){
   fy=(fy==null)?getCurrentFY():fy;
   var price=+a.price||0, life=b5AssetLife(a), pd=parseDate(a.date||''), out={price:price, life:life, value:price, year:0};
+  if(astLeased(a)) return {price:0, life:0, value:0, year:0};
   if(!(price>0) || !pd || !(life>0)) return out;
   var start=b5Ym(pd), per=price/(life*12), lastLife=b5YmAdd(start, life*12-1), yms=b5FyYms(fy);
   var dd=a.disposalDate ? parseDate(a.disposalDate) : null, disp=dd ? b5Ym(dd) : null;
@@ -58180,7 +58470,7 @@ function taxVatPosition(){
 // Workers/BCEA snapshot — min-wage check is exact; UIF/PAYE stay on the payroll screen (not re-totalled here).
 function taxWorkerSnapshot(){
   var ws=(typeof wkList==='function')?wkList():[]; if(!ws.length) return null;
-  var rate=(ST_WORK&&ST_WORK.nmwRate)||STATUTORY.nmwRate.value;
+  var rate=wkWageFloor();
   return {count:ws.length, allOk:ws.every(function(w){ return wkHourly(w)>=rate-0.005; }), sdl:(typeof wkSdlApplies==='function'&&wkSdlApplies()), rate:rate};
 }
 function taxAccountantPack(){ if(typeof previewSARSExport==='function') previewSARSExport(_txResolveFy()); }
@@ -60397,7 +60687,8 @@ function taxGlanceHTML(){
     /* -452: the full card only when the count is due (or the farmer opens it); the rest of the
        year it is one line, so it is there without taking the screen. */
     if(_wfy != null) h += saStockCardHTML(_wfy);
-    else if(window.SA_STOCK_OPEN) h += saStockCardHTML(_sfy) + '<div style="text-align:right;margin:-6px 0 12px"><a href="javascript:void 0" onclick="SA_STOCK_OPEN=false;renderTax()" style="font-size:12px;color:var(--t3)">Hide until the year end</a></div>';
+    /* B5-C13 (-482): the strip names THIS year, so "Open now" opens this year's count. */
+    else if(window.SA_STOCK_OPEN) h += saStockCardHTML(_cfy) + '<div style="text-align:right;margin:-6px 0 12px"><a href="javascript:void 0" onclick="SA_STOCK_OPEN=false;renderTax()" style="font-size:12px;color:var(--t3)">Hide until the year end</a></div>';
     else h += saStockStripHTML(_cfy);
     /* -433 Paragraph 8, for the same year the stock count is about. Returns '' unless it
        actually does something, so a farm that never buys livestock never sees it. */
@@ -60459,7 +60750,7 @@ function taxGlanceHTML(){
         else if(prov.next && prov.next.per === '2nd' && p1 && rec)
           h += '<div class="td-note">You recorded <b>'+fmt(p1.paid)+'</b> paid on '+d2(p1.d)+'. Change it here, or <span class="td-lk" onclick="saSetProvPaid1('+c.fy+',\'\');renderTax();txhOpen('+i+')">clear it</span> to go back to what your books show:<label for="txh-p1">Paid on '+d2(p1.d)+'</label><input id="txh-p1" type="number" inputmode="decimal" value="'+Math.round(p1.paid||0)+'" onchange="saSetProvPaid1('+c.fy+',this.value);renderTax();txhOpen('+i+')"></div>';
         h += '<div class="td-sec"><div class="td-sh">Getting ready for it</div>'+row('Set aside each month', fmt(prov.setAsideMonthly))+row('Months until it’s due', String(prov.monthsToNext || ''))+'</div>';
-        h += '<p class="td-p" style="font-size:12.5px;color:#5F6368;margin-top:10px">SARS adds 20% if this estimate ends up below '+(prov.penaltyRule === '80' ? '80%' : '90%')+' of your final tax for the year, so update it if profit climbs. <span class="td-lk" onclick="txhClose();taxTab(\'whatif\')">Try the What-if</span></p>';
+        h += '<p class="td-p" style="font-size:12.5px;color:#5F6368;margin-top:10px">'+(prov.penaltyRule === '80' ? 'SARS adds 20% if this estimate ends up below 80% of your final taxable income for the year' : 'SARS adds 20% if this estimate ends up below 90% of your final taxable income for the year and below last year\u2019s assessed taxable income')+', so update it if profit climbs. <span class="td-lk" onclick="txhClose();taxTab(\'whatif\')">Try the What-if</span></p>';
       }
       h += howPay('IRP6', it.nil);
       acts = '<button class="td-b1" onclick="txhClose();var e=document.getElementById(\'txh-how\');if(e)e.scrollIntoView({behavior:\'smooth\'})">See the working</button>';
@@ -64076,40 +64367,79 @@ window.appSignOut = appSignOut;
    accepted version is stored per farm so you can prove what was agreed.
    ============================================================ */
 var AI_POLICY_VERSION = '1.1-draft';
-var AI_POLICY_PLACEHOLDER = '<div class="aipol-note"><b>Draft — to be completed before the pilot.</b> Replace every [bracketed] item and have the wording checked by an attorney. Confirm where the database is hosted: if it is outside South Africa, section 72 of POPIA applies and must be disclosed here.</div>';
+/* B5-C11 / D6 (-482): every fact only the owner can supply lives HERE, once. Filling this object in
+   (and moving AI_POLICY_VERSION off "-draft") is the whole edit; the notice, the terms, the privacy
+   email and the draft banner all read from it. A value still in [brackets] is a gap: the banner
+   stays up and the batch-5a harness's pilot gate fails until none is left. */
+var LEGAL_FACTS = {
+  entityName:     '[REGISTERED BUSINESS NAME]',
+  entityRegNo:    '[CIPC REGISTRATION NUMBER]',
+  entityAddress:  '[REGISTERED ADDRESS]',
+  infoOfficer:    '[INFORMATION OFFICER NAME]',
+  infoOfficerTel: '[INFORMATION OFFICER PHONE]',
+  privacyEmail:   '[PRIVACY EMAIL]',
+  ioRegNo:        '[INFORMATION REGULATOR REGISTRATION NUMBER]',
+  hosting:        '[HOSTING PROVIDER AND REGION]',
+  transferBasis:  '[SECTION 72 BASIS IF THE DATA IS HOSTED OUTSIDE SOUTH AFRICA, OR "NOT APPLICABLE"]',
+  emailService:   '[EMAIL DELIVERY SERVICE]',
+  weatherService: '[WEATHER DATA SERVICE]',
+  paiaManual:     '[WHERE THE PAIA MANUAL IS PUBLISHED]',
+  marketing:      '[DO WE SEND NEWS OR OFFERS: YES OR NO]',
+  reviewedBy:     '[ATTORNEY WHO REVIEWED THE TEXT, AND THE DATE]'
+};
+/* The gaps a pilot build must not ship with: every bracketed fact, and a "-draft" version. */
+function aiLegalGaps(){
+  var g=[];
+  Object.keys(LEGAL_FACTS).forEach(function(k){ var v=String(LEGAL_FACTS[k]==null?'':LEGAL_FACTS[k]).trim(); if(!v || /^\[.*\]$/.test(v)) g.push(k); });
+  if(/-draft/i.test(String(AI_POLICY_VERSION))) g.push('version');
+  return g;
+}
+function _lf(k){ var v=String(LEGAL_FACTS[k]==null?'':LEGAL_FACTS[k]); return (typeof esc==='function')?esc(v):v.replace(/[&<>"]/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function aiPolicyDraftBanner(){
+  var g=aiLegalGaps(); if(!g.length) return '';
+  return '<div class="aipol-note" id="aipol-draft"><b>Draft — to be completed before the pilot.</b> '+g.length+' item'+(g.length===1?'':'s')+' still to fill in (every [bracketed] item), then an attorney’s review, then version 1.1 — and everyone accepts again.</div>';
+}
+/* Kept for anything that still reads the old name. */
+var AI_POLICY_PLACEHOLDER = '';
 function aiPolicyPrivacyHTML(){
-  return AI_POLICY_PLACEHOLDER+
-  '<h4>Who looks after your information</h4><p>AgriInsights is operated by <b>[REGISTERED BUSINESS NAME]</b> ([REGISTRATION NUMBER]), [ADDRESS]. Our Information Officer is <b>[NAME]</b>, reachable at <b>[EMAIL]</b>. We process personal information in line with the Protection of Personal Information Act 4 of 2013 (POPIA).</p>'+
+  return aiPolicyDraftBanner()+
+  '<h4>Who looks after your information</h4><p>AgriInsights is operated by <b>'+_lf('entityName')+'</b> ('+_lf('entityRegNo')+'), '+_lf('entityAddress')+'. Our Information Officer is <b>'+_lf('infoOfficer')+'</b>, reachable at <b>'+_lf('privacyEmail')+'</b> or '+_lf('infoOfficerTel')+', registered with the Information Regulator under '+_lf('ioRegNo')+'. We process personal information in line with the Protection of Personal Information Act 4 of 2013 (POPIA).</p>'+
   '<h4>What we collect</h4><ul>'+
   '<li><b>About you:</b> your name, email address, farm name, province, farm size and tax details you enter.</li>'+'<li><b>Where your farm is:</b> if you use Rainfall, the town you choose and its coordinates. This is the place you pick, not your device&rsquo;s location — we never track where you are. You can change or clear it in Settings, and the rest of the app works without it.</li>'+
   '<li><b>Your farm records:</b> income, expenses, crops, livestock, orchards, assets, loans and the documents you upload.</li>'+
-  '<li><b>About your workers:</b> if you use the Workers section — names, pay, UIF details, contracts, leave and deductions.</li>'+
+  '<li><b>About your workers:</b> if you use the Workers section — names, dates of birth, pay, UIF details, contracts, leave and deductions.</li>'+
   '<li><b>Technical:</b> sign-in records and basic device information needed to keep your account secure.</li></ul>'+
-  '<h4>Why we process it</h4><p>To provide the service: to calculate your profit, cash flow, budgets and tax estimates, to produce your reports and compliance records, and to keep your data safe and synced across your devices. We do not sell your information, and we do not use your farm data for advertising.</p>'+
-  '<h4>Your workers’ information — an important point</h4><p>Where you record worker details, <b>you</b> remain the responsible party under POPIA and we act as your operator: we process that information only on your instruction, and only to run the service for you. You are responsible for telling your workers what you record and why, and for having a lawful basis to record it. We can generate a worker notice to help you do this.</p>'+
-  '<h4>Who we share it with</h4><p>Only with service providers needed to run AgriInsights — our hosting and database provider, email delivery, and — if you use Rainfall — a weather data service, which receives only your farm&rsquo;s coordinates in order to return rainfall for that spot. No name, no farm records and nothing about you goes with it. They process it under contract and may not use it for their own purposes. We share information with SARS or another authority only where the law requires it, or where you choose to export or send a report yourself.</p>'+
-  '<h4>Where it is stored</h4><p>Your data is stored in our hosted database at <b>[HOSTING PROVIDER AND COUNTRY/REGION]</b>. [If this is outside South Africa, state the section 72 basis for the transfer here.]</p>'+
-  '<h4>How long we keep it</h4><p>We keep your farm records for as long as your account is active, and afterwards for as long as the law requires — financial records generally for five years, in line with SARS requirements. You can ask us to delete your account and data at any time; we will delete what we are not legally required to keep.</p>'+
+  '<h4>Why we process it, and on what basis</h4><ul>'+
+  '<li><b>To run the service you signed up for</b> — your profit, cash flow, budgets, tax estimates, reports and compliance records, kept safe and in step across your devices. Basis: our agreement with you (POPIA section 11(1)(b)).</li>'+
+  '<li><b>Your workers’ records</b> — you keep them because labour and tax law require it (the Basic Conditions of Employment Act, Sectoral Determination 13, UIF and the Tax Administration Act). We hold them for you as your operator (see below).</li>'+
+  '<li><b>News and offers</b> — only if you tick the separate box for it. Basis: your consent (section 69), which you can withdraw at any time. Whether we send any: '+_lf('marketing')+'.</li></ul>'+
+  '<p>We do not sell your information, and we do not use your farm data for advertising.</p>'+
+  '<h4>Your workers’ information — an important point</h4><p>Where you record worker details, <b>you</b> remain the responsible party under POPIA and we act as your operator: we process that information only on your instruction, and only to run the service for you. You are responsible for telling your workers what you record and why. We can generate a worker notice to help you do this.</p>'+
+  '<h4>Who we share it with</h4><p>Only with service providers needed to run AgriInsights: our hosting and database provider (<b>'+_lf('hosting')+'</b>), our email delivery service (<b>'+_lf('emailService')+'</b>) and — if you use Rainfall — a weather data service (<b>'+_lf('weatherService')+'</b>), which receives only your farm&rsquo;s coordinates in order to return rainfall for that spot. No name, no farm records and nothing about you goes with it. They process it under contract and may not use it for their own purposes. We share information with SARS or another authority only where the law requires it, or where you choose to export or send a report yourself.</p>'+
+  '<h4>Where it is stored</h4><p>Your data is stored in our hosted database at <b>'+_lf('hosting')+'</b>. Transfer outside South Africa: '+_lf('transferBasis')+'.</p>'+
+  '<h4>How long we keep it</h4><p>We keep your farm records while your account is open. When you close it, you can first download everything (Settings › Download all my data). We then delete your farm records, and your workers’ records with them, within 30 days, and keep only our own billing records.</p>'+
+  '<p>Keeping your tax and employment records is your duty, not ours, so keep your download for as long as the law asks you to: tax records <b>5 years from the date you submit each return</b> (SARS, longer while an audit or objection is open); the diesel refund logbook <b>5 years</b>; worker particulars, payslips, time records and the register of workers under 18 <b>3 years</b> (Basic Conditions of Employment Act and Sectoral Determination 13); the incident register <b>3 years</b>.</p>'+
   '<h4>How we protect it</h4><p>Your data is encrypted in transit. Access is restricted to your own account by database-level security rules, so no other farm can read your records. Access to production systems is limited to authorised personnel.</p>'+
-  '<h4>Your rights</h4><p>You may ask us to confirm what we hold about you, to correct or delete it, or to object to processing. You may also complain to the Information Regulator (South Africa): <b>complaints.IR@justice.gov.za</b>. To exercise any of these, contact <b>[EMAIL]</b>.</p>'+
+  '<h4>Your rights</h4><p>You may ask us to confirm what we hold about you, to correct or delete it, or to object to processing. Our PAIA manual, which explains how to ask for records, is at '+_lf('paiaManual')+'. To exercise any of these rights, contact <b>'+_lf('privacyEmail')+'</b>. You may also complain to the Information Regulator (South Africa): <b>complaints.IR@justice.gov.za</b>, inforegulator.org.za.</p>'+
   '<h4>Giving us your information</h4><p>Providing your farm details is voluntary, but without them the app cannot calculate your figures or produce your reports.</p>'+
   '<h4>Changes</h4><p>If we change this policy materially we will ask you to accept the new version when you next sign in. Version '+AI_POLICY_VERSION+'.</p>';
 }
 function aiPolicyTermsHTML(){
-  return AI_POLICY_PLACEHOLDER+
-  '<h4>The agreement</h4><p>These terms are between you and <b>[REGISTERED BUSINESS NAME]</b> ([REGISTRATION NUMBER]) for your use of AgriInsights. By accepting them you confirm you are authorised to act for the farm you set up.</p>'+
+  return aiPolicyDraftBanner()+
+  '<h4>The agreement</h4><p>These terms are between you and <b>'+_lf('entityName')+'</b> ('+_lf('entityRegNo')+'), '+_lf('entityAddress')+', for your use of AgriInsights. By accepting them you confirm you are authorised to act for the farm you set up.</p>'+
   '<h4>Pilot software</h4><p>AgriInsights is currently provided as a <b>pilot</b>. Features may change, and figures may be adjusted as we improve the calculations. Please tell us about anything that looks wrong.</p>'+
   '<h4>Your data is yours</h4><p>You keep ownership of everything you record. You can export it at any time, and you can ask us to delete it. We use it only to provide the service to you.</p>'+
   '<h4>Guidance, not professional advice</h4><p>AgriInsights helps you organise your records and estimate figures such as tax, budgets and margins. These are <b>estimates to help you plan</b> — they are not accounting, tax, legal or financial advice, and they do not replace your accountant. Confirm any figure with your accountant before you file it or rely on it for a decision. Compliance features help you keep records; they do not guarantee that an audit or inspection will pass.</p>'+
   '<h4>Your responsibilities</h4><ul>'+
   '<li>Keep your sign-in details secure and do not share your account.</li>'+
   '<li>Make sure what you record is accurate — your reports are only as good as the figures you enter.</li>'+
-  '<li>Where you record worker information, comply with POPIA and labour law, including telling your workers what you keep and why.</li></ul>'+
-  '<h4>Processing worker information on your behalf</h4><p>Where you record information about other people, you are the responsible party and we are your operator under section 21 of POPIA. We will process that information only on your documented instruction, keep it confidential, apply the security measures described in our Privacy Policy, and notify you without undue delay if we become aware of a security compromise affecting it.</p>'+
+  '<li>Where you record worker information, comply with POPIA and labour law, including telling your workers what you keep and why.</li>'+
+  '<li>Keep your own copies of your tax and employment records for as long as the law asks you to (see the Privacy Policy, “How long we keep it”).</li></ul>'+
+  '<h4>Processing worker information on your behalf</h4><p>Where you record information about other people, you are the responsible party and we are your operator under sections 20 and 21 of POPIA. We will process that information only on your documented instruction, keep it confidential, apply the security measures described in our Privacy Policy, and notify you immediately if we have reason to believe it has been accessed or acquired by anyone not authorised to do so.</p>'+
   '<h4>Availability</h4><p>We aim to keep the service available and your data backed up, but we cannot promise uninterrupted access during the pilot. Keep your own copies of anything critical — you can export your records at any time.</p>'+
   '<h4>Limits</h4><p>To the extent the law allows, we are not liable for indirect or consequential loss, or for decisions taken on the basis of estimates produced by the app. Nothing here limits liability that cannot lawfully be limited.</p>'+
-  '<h4>Ending it</h4><p>You may stop using AgriInsights at any time and ask for your data to be deleted. We may suspend an account that is used unlawfully.</p>'+
-  '<h4>Governing law</h4><p>These terms are governed by the laws of the Republic of South Africa. Version '+AI_POLICY_VERSION+'.</p>';
+  '<h4>Ending it</h4><p>You may stop using AgriInsights at any time. Download your records first; we delete your farm within 30 days of closing it, as the Privacy Policy says. We may suspend an account that is used unlawfully.</p>'+
+  '<h4>Governing law</h4><p>These terms are governed by the laws of the Republic of South Africa. Reviewed by '+_lf('reviewedBy')+'. Version '+AI_POLICY_VERSION+'.</p>';
 }
 function aiPolicyOpen(which){
   var bg=document.getElementById('aipol-bg');
@@ -64138,11 +64468,45 @@ function obConsentOk(){
     return false;
   }
   try{
-    if(window.ST) ST.consent={ policyVersion:AI_POLICY_VERSION, acceptedAt:new Date().toISOString() };
+    /* B5-C11 (-482): marketing is its own, unticked opt-in (POPIA s69) — never part of accepting the terms.
+       Kept with the consent record on this device; it has no database column yet (see the -482 notes). */
+    var mk=document.getElementById('ob-marketing-chk');
+    if(window.ST) ST.consent={ policyVersion:AI_POLICY_VERSION, acceptedAt:new Date().toISOString(), marketing:!!(mk&&mk.checked), marketingAt:(mk&&mk.checked)?new Date().toISOString():null };
   }catch(e){}
   return true;
 }
 window.aiPolicyOpen=aiPolicyOpen; window.aiPolicyClose=aiPolicyClose;
+/* B5-C11 / D6 (-482): the notice promises "we will ask you to accept the new version when you next
+   sign in". An accepted version that is not the current one is stale: the farmer is asked again,
+   and the marketing choice (its own opt-in) is carried over unchanged. Never in the guest demo. */
+function aiConsentStale(c){
+  c = (c===undefined) ? ((window.ST&&ST.consent)||null) : c;
+  return !!(c && c.policyVersion && String(c.policyVersion)!==String(AI_POLICY_VERSION));
+}
+var _aiReaskOpen=false;
+function aiConsentReask(){
+  if(window.__AI_GUEST || _aiReaskOpen || !aiConsentStale()) return Promise.resolve(false);
+  _aiReaskOpen=true;
+  var old=ST.consent;
+  return appConfirm('Our Privacy Policy and Terms of Use have changed since you accepted version '+old.policyVersion+'. Please read version '+AI_POLICY_VERSION+' and accept it to keep using AgriInsights.',
+      {okLabel:'Accept', cancelLabel:'Read them first', title:'Updated privacy policy and terms', danger:false})
+    .then(function(ok){
+      _aiReaskOpen=false;
+      if(!ok){ aiPolicyOpen('privacy'); return false; }
+      ST.consent={ policyVersion:AI_POLICY_VERSION, acceptedAt:new Date().toISOString(), marketing:!!old.marketing, marketingAt:old.marketingAt||null };
+      try{ saveState(); }catch(e){}
+      try{ if(typeof syncSettingsHeader==='function') syncSettingsHeader(); }catch(e){}
+      return true;
+    });
+}
+window.aiConsentStale=aiConsentStale; window.aiConsentReask=aiConsentReask;
+(function(){
+  /* Once this farm's records have loaded from the server (a signed-in account), check once. */
+  var n=0, t=setInterval(function(){
+    n++; if(window.__AI_GUEST || n>90){ clearInterval(t); return; }
+    if(window.__AI_HYDRATED_AT){ clearInterval(t); try{ aiConsentReask(); }catch(e){} }
+  }, 2000);
+})();
 
 /* ============================================================================
    POPIA s23 — "Download all my data"  |  POPIA s24 — account deletion request
@@ -64347,8 +64711,8 @@ function aiExportRun(){
 /* ---------------------------------------------------------------- s24 ----- */
 
 /* Only shown when a real address has been filled in — never leak "[EMAIL]". */
-var AI_PRIVACY_EMAIL = '[EMAIL]';
-function aiPrivacyEmail(){ var e=String(AI_PRIVACY_EMAIL||''); return (e && e.charAt(0)!=='[') ? e : ''; }
+var AI_PRIVACY_EMAIL = (typeof LEGAL_FACTS!=='undefined' && LEGAL_FACTS.privacyEmail) || '[EMAIL]';
+function aiPrivacyEmail(){ var e=String(((typeof LEGAL_FACTS!=='undefined'&&LEGAL_FACTS.privacyEmail)||AI_PRIVACY_EMAIL)||''); return (e && e.charAt(0)!=='[') ? e : ''; }
 
 function aiDeleteOpen(){
   var bg=document.getElementById('aidel-bg');
@@ -64370,7 +64734,7 @@ function aiDeleteOpen(){
     '<div class="aidl-bd">'+
     (already
       ? '<div class="aidl-note ok"><b>You have already asked us to delete this account.</b> Requested on '+esc(String(already.requestedAt||'').slice(0,10))+'. We will be in touch. Nothing has been erased yet — tell us if you have changed your mind.</div>'
-      : '<div class="aidl-note bad"><b>SARS requires you to keep your financial records for five years.</b> Deleting your account does not end that duty — it only removes your copy. Download your data first.</div>'+
+      : '<div class="aidl-note bad"><b>Keeping your records is your duty, not ours.</b> Keep your download: tax records 5 years from the date you submit each return (SARS), worker records 3 years (labour law). We delete your farm within 30 days and keep only our billing records.</div>'+
         '<div class="aidl-inv">'+inv+'</div>'+
         '<div class="aidl-note warn">Your workers’ records go too. If you still employ them you remain their responsible party under POPIA, and you will need those records somewhere else.</div>'+
         /* The farm name moved into the placeholder so the label is a fixed sentence the
@@ -68523,7 +68887,7 @@ function wkPRPrint(){
   }
   var empSec;
   if(single){
-    var sdl=wkSdlApplies()?Math.round((t.gross+t.seasGross)*STATUTORY.sdlRate.value):0; var uif2=(t.uif+t.seasUif)*2; var tot=t.payeDue+uif2+sdl;
+    var sdl=wkSdlFor(t.gross)+wkSdlFor(t.seasGross); var uif2=(t.uif+t.seasUif)*2; var tot=t.payeDue+uif2+sdl;
     empSec='<div class="kv"><span>PAYE</span><span>R'+t.payeAll.toFixed(2)+'</span></div>'+(t.eti>0?'<div class="kv"><span>Less Employment Tax Incentive</span><span>(R'+Math.min(t.eti,t.payeAll).toFixed(2)+')</span></div>':'')+'<div class="kv"><span>SDL</span><span>R'+sdl.toFixed(2)+'</span></div><div class="kv"><span>UIF (1% + 1%)</span><span>R'+uif2.toFixed(2)+'</span></div><div class="kv"><span><b>Total payable to SARS</b></span><span><b>R'+tot.toFixed(2)+'</b></span></div>';
   } else {
     var er=labels.map(function(L){ var paye=0,uif=0,gross=0; rows.forEach(function(r){ paye+=wkPayeFor(L,r.w.id); uif+=r.uif; gross+=r.gross; }); var sg=0,su=0; wkSeasList().forEach(function(w){ var days=wkSeasDaysFor(L,w.id); if(days>0){ var g=days*(w.amt||0); sg+=g; su+=wkSeasUif(g,days,w); paye+=wkPayeFor(L,w.id,g);} }); var sdl=wkSdlApplies()?Math.round((gross+sg)*STATUTORY.sdlRate.value):0; var uif2=(uif+su)*2; var eti=wkEtiMonth(L), payeGross=paye; paye=Math.max(0,paye-eti); var tot=paye+uif2+sdl; return '<tr><td>'+wkE(L)+'</td><td>'+paye.toFixed(2)+'</td><td>'+sdl.toFixed(2)+'</td><td>'+uif2.toFixed(2)+'</td><td>'+tot.toFixed(2)+'</td></tr>'; }).join('');
@@ -72236,7 +72600,18 @@ function orComplyEnsure(){
    have no expiry and keep whatever the farmer set. */
 function orCertState(c){
   var out={status:(c&&c.status)||'', tag:(c&&c.statusTag)||'gray', expired:false, days:null};
-  if(!c || c.type!=='cert' || !c.expiry) return out;
+  if(!c) return out;
+  /* B5-C02 / D3 (-482): the diesel logbook's status is the fuel record itself (the same litres the
+     Crops tracker and the VAT201 refund read), never a typed "Up to date". */
+  if(typeof ST_FRUIT!=='undefined' && ST_FRUIT.comply && c===ST_FRUIT.comply.diesel){
+    var f=(typeof _dslC==='function')?_dslC():{logged:0,bought:0,unlogged:0}, L=function(n){ return Math.round(n).toLocaleString('en-ZA')+' \u2113'; };
+    if(f.logged>0){ out.tag=(f.unlogged>0)?'amber':'green'; out.status=L(f.logged)+' logged to a machine'+(f.unlogged>0?(' \u00b7 '+L(f.unlogged)+' not yet'):''); }
+    else if(f.bought>0){ out.tag='amber'; out.status=L(f.bought)+' bought \u00b7 none logged to a machine'; }
+    else { out.tag='gray'; out.status='Not recorded yet'; }
+    out.fromRecord=true; return out;
+  }
+  /* A licence or an operator certificate runs on its date too (D3); a typed "Valid" or "Trained" is only a note. */
+  if(!(c.type==='cert' || c.type==='record') || !c.expiry){ if(c.type==='record'){ out.tag='gray'; out.status='Not recorded yet'; } return out; }
   var d=new Date(String(c.expiry)+'T00:00:00');
   if(isNaN(d.getTime())) return out;
   var today=(typeof LS_TODAY!=='undefined' && LS_TODAY) ? LS_TODAY : new Date();
@@ -72798,8 +73173,7 @@ function auditCtx(opts){
     sprays:sprays,
     hasSprayRec:function(b){ return sprays.some(function(x){ return String(x.bid)===String(b.id); }); },
     workers:(typeof ST_WORK!=='undefined' && ST_WORK.workers)?ST_WORK.workers:[],
-    nmwRate:(typeof ST_WORK!=='undefined' && ST_WORK.nmwRate) ? ST_WORK.nmwRate
-            : ((typeof STATUTORY!=='undefined' && STATUTORY.nmwRate)?STATUTORY.nmwRate.value:0),
+    nmwRate:(typeof wkWageFloor==='function') ? wkWageFloor() : ((typeof STATUTORY!=='undefined' && STATUTORY.nmwRate)?STATUTORY.nmwRate.value:0),
     today:(typeof LS_TODAY!=='undefined' && LS_TODAY)?LS_TODAY:new Date()
   };
 }
@@ -73890,12 +74264,17 @@ function orSetExpiry(v){ if(OR_MODAL_CTX.type==='comply'){ ST_FRUIT.comply[OR_MO
 function orOpenComply(key){
   orComplyEnsure(); OR_MODAL_CTX={type:'comply',key:key}; var c=ST_FRUIT.comply[key];
   var h='<div class="or-mhd"><div class="or-mic">'+c.ic+'</div><div><div class="or-mt">'+c.title+'</div><div class="or-ms">'+orComplyTags(c)+c.what+'</div></div><button class="or-mx" onclick="orCloseModal()">\u00d7</button></div><div class="or-mbd">';
+  var _ost=orCertState(c), _isDsl=(c===ST_FRUIT.comply.diesel);
   if(c.type==='cert'||(c.type==='record'&&c.expiry!==undefined)){
-    h+='<div class="or-mlbl">Status</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="or-tag '+c.statusTag+'">'+c.status+'</span>';
-    if(c.expiry!==undefined&&c.expiry!=='') h+='<label style="font-size:12px;color:var(--t3)">Expiry / renewal date <input type="date" class="or-mdate" value="'+c.expiry+'" onchange="orSetExpiry(this.value)"></label>';
+    h+='<div class="or-mlbl">Status</div><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><span class="or-tag '+_ost.tag+'">'+_ost.status+'</span>';
+    if(c.expiry!==undefined&&(c.expiry!==''||c.type==='record')&&!_isDsl) h+='<label style="font-size:12px;color:var(--t3)">Expiry / renewal date <input type="date" class="or-mdate" value="'+c.expiry+'" onchange="orSetExpiry(this.value)"></label>';
     h+='</div>';
   }
-  if(c.log){ h+='<div class="or-mlbl">Latest</div><div class="or-mlog">'+c.log+'</div>'; }
+  /* D3: one water licence - the Crops tracker's authorised and used volumes when they are there. */
+  var _cc=(typeof ST_CROP!=='undefined'&&ST_CROP.compliance)||{};
+  if(c===ST_FRUIT.comply.water && _cc.waterAuthorised>0){ h+='<div class="or-mlbl">Latest</div><div class="or-mlog">'+Math.round(_cc.waterUsed||0).toLocaleString('en-ZA')+' of '+Math.round(_cc.waterAuthorised).toLocaleString('en-ZA')+' m\u00b3 used this season (Crops \u203a Compliance)</div>'; }
+  else if(_isDsl){ h+='<div class="or-mlbl">Where it comes from</div><div class="or-mlog">Diesel logged to a machine in Tax &amp; SARS \u203a diesel refund.</div>'; }
+  else if(c.log){ h+='<div class="or-mlbl">Latest</div><div class="or-mlog">'+c.log+'</div>'; }
   if(c.type==='pest'||c.type==='control'){
     if(!c.checks) c.checks=[];
     h+='<div class="or-mlbl">Log a new entry</div>'+
@@ -76116,7 +76495,8 @@ function aiPaySlipData(id, label){
     for(var i=0;i<rows.length;i++){ if(rows[i].w.id===id){ r=rows[i]; break; } }
     if(!r) return null;
     gross=r.gross;
-    earn.push({d:'Ordinary wage \u2014 monthly', r:'', q:'1', a:r.base});
+    if(r.part) earn.push({d:'Ordinary wage \u2014 part month from '+_wkD(r.part.from)+': '+r.part.days+' working day'+(r.part.days===1?'':'s')+', '+r.part.hours+' h (BCEA s35)', r:aiPayMoney(r.part.hourly)+'/h', q:String(r.part.hours), a:r.base});
+    else earn.push({d:'Ordinary wage \u2014 monthly', r:'', q:'1', a:r.base});
     if(r.bonus)   earn.push({d:'Bonus / 13th cheque', r:'', q:'', a:r.bonus});
     if(r.premium) earn.push({d:'Sunday / public-holiday pay', r:'',
                              q:((r.sun?r.sun+' h Sun':'')+(r.ph?((r.sun?' + ':'')+r.ph+' h PH'):'')), a:r.premium});
@@ -76846,7 +77226,7 @@ function _lsRegCertsCard(){
       <!-- Step 2: Upload -->
       <div class="imp-step-content" id="bank-imp-st2">
         <div class="imp-step-h">Upload <span id="bank-st2-name">your</span> CSV, PDF or photo</div>
-        <div class="imp-step-hs">Export a CSV, download a PDF, or snap a clear photo of your statement, then drop it here. We read it right on your device — your data never leaves your phone.</div>
+        <div class="imp-step-hs">Export a CSV, download a PDF, or snap a clear photo of your statement, then drop it here. The file is read on this computer; the lines you import are saved to your farm account.</div>
         <label class="imp-upload" for="bank-file-input">
           <input type="file" id="bank-file-input" accept=".csv,.txt,.pdf,image/*" multiple style="display:none" onchange="bankFileChosen(this)"/>
           <div class="imp-upload-ic">📄</div>
@@ -77840,7 +78220,7 @@ function _lsRegCertsCard(){
     var permTotal=perm.reduce(function(a,w){return a+(w.amt||0);},0);
     var seasEst=seas.reduce(function(a,w){return a+((w.amt||0)*8);},0);
     var heads=perm.length+seas.reduce(function(a,w){return a+(w.count||1);},0);
-    var rate=(typeof ST_WORK!=='undefined'&&ST_WORK.nmwRate)||STATUTORY.nmwRate.value;
+    var rate=wkWageFloor();
     var below=ws.filter(function(w){return wkHourly(w)>0 && wkHourly(w)<rate-0.005;});
     var owe=ws.reduce(function(a,w){return a+((w.adv&&w.adv.owing)||0);},0);
     var contractsOk=ws.filter(function(w){return w.contract!=='missing';}).length;
@@ -81015,20 +81395,23 @@ function rnShareText(){
       var dim = new Date(t0.getFullYear(), t0.getMonth()+1, 0).getDate();
       frac = Math.min(1, Math.max(0, t0.getDate() / dim));
     }
-    var ytd = 0, ytdNorm = 0;
+    /* B5-C15 (-482): this text goes to other people. A "usually" figure is said only when the long-term
+       average is really there - a missing average is not 0 mm. */
+    var _hasN = function(v){ return v != null && v !== '' && isFinite(v); };
+    var nArr = (s.normal || []), ytd = 0, ytdNorm = 0, ytdHasN = true;
     for (var j=0;j<=last;j++){
       if (s.mm[j] == null) continue;
       ytd += s.mm[j];
-      ytdNorm += (s.normal[j]||0) * ((j === last && part) ? frac : 1);
+      if (!_hasN(nArr[j])) ytdHasN = false; else ytdNorm += nArr[j] * ((j === last && part) ? frac : 1);
     }
+    var mHasN = _hasN(nArr[last]);
     var nl = '\n';
     var t = '🌧 *' + (ST.farmName || rnT('My farm','My plaas')) + ' · ' + s.labels[last] + '*' + nl +
       (part ? rnT('So far this month: ','Tot dusver hierdie maand: ')
             : rnT('That month: ','Daardie maand: ')) + '*' + rnMm(s.mm[last]) + ' mm*' +
-      rnT(' · usually ',' · gewoonlik ') + rnMm((s.normal[last]||0) * frac) +
-      (part ? rnT(' mm by now',' mm teen nou') : ' mm') + nl +
+      (mHasN ? (rnT(' · usually ',' · gewoonlik ') + rnMm(nArr[last] * frac) + (part ? rnT(' mm by now',' mm teen nou') : ' mm')) : '') + nl +
       rnT('This rain year so far: ','Hierdie reënjaar tot dusver: ') + '*' + rnMm(ytd) + ' mm*' +
-      rnT(' · usually ',' · gewoonlik ') + rnMm(ytdNorm) + rnT(' mm by now',' mm teen nou') + nl;
+      (ytdHasN ? (rnT(' · usually ',' · gewoonlik ') + rnMm(ytdNorm) + rnT(' mm by now',' mm teen nou')) : '') + nl;
     var l12 = rnLast12(), na = rnNormalAnnual();
     if (l12 != null && na > 0)
       t += rnT('Last 12 months: ','Laaste 12 maande: ') + '*' + rnMm(l12) + ' mm*' + ' · ' +
