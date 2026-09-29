@@ -395,6 +395,7 @@
   let CAN_FARM_STOCK    = false;   // farms.stock_counts (stock_counts_migration.sql)
   let CAN_FARM_BANK_AT  = false;   // farms.bank_balance_at (bank_balance_at_migration.sql)
   let CAN_FARM_VAT_CAT  = false;   // farms.vat_category (vat_category_migration.sql)
+  let CAN_FARM_VAT_EFP  = false;   // farms.vat_efiling_pay (vat_efiling_pay_migration.sql, -477 D6)
   let CAN_FARM_PARTNERS = false;   // farms.partners (farms_partners_migration.sql)
   let _bankSeen = null;            // the balance the server last gave us
   /* Filing rules. Without the table they stay on the device, which is how the UK build
@@ -513,7 +514,7 @@
     ['farms','consent_version'], ['farms','bank_balance'], ['farms','rain_lat'],
     ['farms','rain_not_kept'], ['farms','rain_plant_days'], ['farms','rain_fill_sat'],
     ['farms','rain_derived'], ['farms','stock_counts'], ['farms','bank_balance_at'],
-    ['farms','vat_category'], ['farms','partners'],
+    ['farms','vat_category'], ['farms','vat_efiling_pay'], ['farms','partners'],
     ['orchard_block_docs','path'], ['orchard_harvest','att'],
     ['orchard_compliance_checks','check_iso'], ['orchard_blocks','markets'],
     ['plan_events','in_forecast'], ['pay_runs','source'],
@@ -559,6 +560,7 @@
     CAN_FARM_STOCK     = keep(CAN_FARM_STOCK,    'farms','stock_counts');
     CAN_FARM_BANK_AT   = keep(CAN_FARM_BANK_AT,  'farms','bank_balance_at');
     CAN_FARM_VAT_CAT   = keep(CAN_FARM_VAT_CAT,  'farms','vat_category');
+    CAN_FARM_VAT_EFP   = keep(CAN_FARM_VAT_EFP,  'farms','vat_efiling_pay');
     CAN_FARM_PARTNERS  = keep(CAN_FARM_PARTNERS, 'farms','partners');
     CAN_CAT_RULES      = keep(CAN_CAT_RULES,     'category_rules','match_text');
     CAN_LOOKS          = keep(CAN_LOOKS,         'transaction_looks','look_v');
@@ -2739,7 +2741,7 @@
   var _PROF_COL_TO_KEY = {
     name: 'farmName', owner_name: 'ownerName', province: 'province', region: 'region',
     farm_ha: 'farmHa', farm_type: 'farmType', fy_start_month: 'fyStartMonth', lang: 'lang',
-    vat_registered: 'vatRegistered', vat_category: 'vatCategory', tax_number: 'taxNumber',
+    vat_registered: 'vatRegistered', vat_category: 'vatCategory', vat_efiling_pay: 'vatEfilingPay', tax_number: 'taxNumber',
     utr: 'taxNumber', vat_number: 'vatNumber', entity_type: 'entityType', partners: 'partners',
     farm_address: 'farmAddr', paye_ref: 'payeRef', stock_mark: 'stockMark',
     stock_mark_type: 'stockMarkType', herd_mark: 'stockMark',
@@ -2827,6 +2829,8 @@
     /* The category decides the VAT201 due date. It lived only on this device until
        vat_category_migration.sql, so a phone quietly assumed A. */
     if(r.vat_category!=null)   p.vatCategory=String(r.vat_category);
+    /* -477 D6: files AND pays the VAT201 on eFiling - the only case SARS gives the last business day. */
+    if(r.vat_efiling_pay!=null) p.vatEfilingPay=!!r.vat_efiling_pay;
     if(r.tax_number!=null) p.taxNumber=r.tax_number;
     if(r.vat_number!=null) p.vatNumber=r.vat_number;
     if(r.entity_type!=null) p.entityType=r.entity_type;
@@ -2852,7 +2856,7 @@
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_STOCK?'stock_counts,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+(CAN_FARM_PARTNERS?'partners,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref,updated_at').eq('id',farmId).single();
+    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_STOCK?'stock_counts,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+(CAN_FARM_VAT_EFP?'vat_efiling_pay,':'')+(CAN_FARM_PARTNERS?'partners,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref,updated_at').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -2875,6 +2879,7 @@
       if(st.lang) core.lang=st.lang;
       if(st.vatRegistered!=null) extra.vat_registered=!!st.vatRegistered;
       if(CAN_FARM_VAT_CAT && st.vatCategory) extra.vat_category=String(st.vatCategory);
+      if(CAN_FARM_VAT_EFP && st.vatEfilingPay!=null) extra.vat_efiling_pay=!!st.vatEfilingPay;
       if(st.taxNumber) extra.tax_number=st.taxNumber;
       if(st.vatNumber) extra.vat_number=st.vatNumber;
       if(st.entityType) extra.entity_type=st.entityType;
