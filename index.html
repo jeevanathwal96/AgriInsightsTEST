@@ -5385,7 +5385,8 @@ select.he-cell.he-warn{border-color:#e6b45f;background-color:#fff7ea;color:#8a5a
 .dz-seg{display:flex;gap:6px;background:#ecefe9;border-radius:11px;padding:5px;margin:8px 0 14px}
 .dz-seg div{flex:1;text-align:center;font-size:12.5px;font-weight:800;color:var(--t3);padding:10px 4px;border-radius:8px;cursor:pointer}
 .dz-seg div.on{background:#fff;color:var(--ink)}
-.dz-shint{font-size:11px;color:var(--t4);margin:-4px 0 12px}
+.dz-shint{font-size:11px;color:var(--t4);margin:8px 2px 16px}
+.bb-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end}.bb-row2 label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dz-selall{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.dz-selall label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;color:var(--t2);cursor:pointer}.dz-selall .rm{font-size:11px;color:var(--t4);font-weight:700}
 .dz-list{border:1px solid var(--br);border-radius:12px;overflow:hidden;max-height:44vh;overflow-y:auto}
 .dz-row{display:flex;align-items:center;gap:11px;padding:10px 12px;border-bottom:1px solid var(--br2);cursor:pointer}.dz-row:last-child{border-bottom:0}.dz-row.sel{background:#f7fbf8}
@@ -34174,7 +34175,7 @@ function _bbUntagged(h){ var cows=_dairyCows(h), fem=_brFemalesFromHerd(h); var 
 function _brBirthHtml(){
   var h=lsHerdById(BR_BIRTH.herdId); if(!h) return ''; var term=_brTerm(h.type); var today=BR_BIRTH.date||_brTodayISO();
   var top='<div class="lshmv-top"><div class="ttl"><span class="dic">'+term.bornIcon+'</span><div><h3>Record '+term.ev.toLowerCase()+'</h3><small>'+esc(lsHerdName(h))+'</small></div></div><button class="lshmv-x" onclick="dzClose()">×</button></div>';
-  var dateFld='<div class="ls-tr-fld"><label>Date</label><input id="bb-date" type="date" value="'+today+'" onchange="_bbSnap()"></div>';
+  var dateFld='<div class="ls-tr-fld" style="margin-top:14px"><label>Date</label><input id="bb-date" type="date" value="'+today+'" onchange="_bbSnap()"></div>';
   var deadFld='<div class="ls-tr-fld"><label>Born dead</label><input id="bb-still" type="number" min="0" value="'+(BR_BIRTH.headStill||0)+'" onchange="_bbSnap()"></div>';
   var body, foot;
   if(BR_BIRTH.tracked){
@@ -34184,15 +34185,15 @@ function _brBirthHtml(){
     var selN=cows.filter(function(a){ var c=BR_BIRTH.sel[a.id]; return c&&c.on; }).length;
     var selall='<div class="dz-selall"><label><span class="cbx'+(allOn?' on':'')+'" onclick="bbSelAll('+(allOn?'false':'true')+')">'+(allOn?'✓':'')+'</span> Select all '+cows.length+'</label><span class="rm">'+selN+' selected</span></div>';
     var rows=cows.map(function(a){ var c=BR_BIRTH.sel[a.id]||{}; var sel=!!c.on; var st=_brCowState(a,h); var n=Math.max(1,c.young||1);
-      return '<div class="dz-row'+(sel?' sel':'')+'"><div style="flex:1;display:flex;align-items:center;gap:11px;cursor:pointer;min-width:0" onclick="bbSel(\''+esc(a.id)+'\')"><span class="cbx">'+(sel?'✓':'')+'</span><span class="ctag">'+esc(a.tag)+'</span><div class="nm"><b>'+esc(a.name||a.tag)+'</b><span>'+_dzlCowSub(a,st)+'</span></div></div>'+
+      return '<div class="dz-row'+(sel?' sel':'')+'"><div style="flex:1;display:flex;align-items:center;gap:11px;cursor:pointer;min-width:0" onclick="bbSel(\''+esc(a.id)+'\')"><span class="cbx">'+(sel?'✓':'')+'</span><span class="ctag">'+esc(a.tag)+'</span><div class="nm"><b>'+esc(a.name||a.tag)+'</b>'+(function(t){ return (t&&t!=='—')?'<span>'+t+'</span>':''; })(_dzlCowSub(a,st))+'</div></div>'+
         '<div class="bb-step"><button onclick="bbStep(\''+esc(a.id)+'\',-1)">−</button><span class="sv">'+n+'</span><button onclick="bbStep(\''+esc(a.id)+'\',1)">+</button></div></div>'; }).join('');
     var unt=_bbUntagged(h), oth=parseInt(BR_BIRTH.headOth,10)||0;
-    var othRow=unt>0?('<div class="ls-tr-fld"><label>Live '+term.young+' from '+term.fem+' not tagged <span style="font-weight:600;color:var(--t4)">('+unt+' not tagged)</span></label><input id="bb-oth" type="number" min="0" value="'+esc(BR_BIRTH.headOth)+'" placeholder="0" onchange="_bbSnap();_bbRefresh()"></div>'):'';
+    var othRow=unt>0?('<div class="ls-tr-fld"><label title="'+unt+' '+term.fem+' without a tag">Born alive · untagged</label><input id="bb-oth" type="number" min="0" value="'+esc(BR_BIRTH.headOth)+'" placeholder="0" onchange="_bbSnap();_bbRefresh()"></div>'):'';
     body=dateFld+selall+'<div class="dz-list">'+rows+'</div><div class="dz-shint">Tick who '+term.verb+'d — use the +/− if one had twins.</div>'+
-      '<div class="ls-tr-row2">'+othRow+deadFld+'</div>';
-    foot='<div class="lshmv-act"><button onclick="dzClose()">Cancel</button><button class="pri" onclick="brBirthSave()">Log '+term.ev.toLowerCase()+' · '+(youngN+oth)+' →</button></div>';
+      '<div class="ls-tr-row2 bb-row2">'+othRow+deadFld+'</div>';
+    foot='<div class="lshmv-act"><button onclick="dzClose()">Cancel</button><button class="pri" onclick="brBirthSave()">Log '+term.ev.toLowerCase()+((youngN+oth)>0?' · '+(youngN+oth):'')+' →</button></div>';
   } else {
-    body=dateFld+'<div class="ls-tr-row2"><div class="ls-tr-fld"><label>Live '+term.young+'</label><input id="bb-live" type="number" value="'+esc(BR_BIRTH.headLive)+'" placeholder="0" onchange="_bbSnap()"></div>'+deadFld+'</div>'+
+    body=dateFld+'<div class="ls-tr-row2 bb-row2"><div class="ls-tr-fld"><label>Born alive</label><input id="bb-live" type="number" value="'+esc(BR_BIRTH.headLive)+'" placeholder="0" onchange="_bbSnap()"></div>'+deadFld+'</div>'+
       '<div class="br-src">Live '+term.young+' are added to your herd count and stock register automatically. You can record more than once as '+term.young+' drop.</div>';
     foot='<div class="lshmv-act"><button onclick="dzClose()">Cancel</button><button class="pri" onclick="brBirthSave()">Save '+term.ev.toLowerCase()+'</button></div>';
   }
