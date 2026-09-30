@@ -31,7 +31,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=76"></script>
+<script src="ai-data.js?v=77"></script>
 <script src="ai-auth.js?v=53"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -10354,9 +10354,11 @@ table.rn-t td.dim{color:var(--t4)}
         <!-- Registered stock mark. Without it a removal certificate cannot legally
              identify the animals, so it is captured once here rather than at the
              loading pen. Animal Identification Act 6 of 2002. -->
+        <!-- -485 (5a F12): the employer's two payroll references side by side, both printed on payslips;
+             the farm address moves down beside the silo differential, so no row is left half empty. -->
         <div class="fg2" style="margin-top:12px">
-          <div><label>Farm address <span style="color:var(--t4);font-weight:600">&mdash; printed on payslips</span></label><input id="set-addr" value="" placeholder="e.g. R44, Wellington, 7655"/></div>
           <div><label>PAYE reference <span style="color:var(--t4);font-weight:600">&mdash; optional</span></label><input id="set-payeref" value="" placeholder="e.g. 7040/123/45/6"/></div>
+          <div><label>UIF reference <span style="color:var(--t4);font-weight:600">&mdash; optional</span></label><input id="set-uifref" value="" placeholder="e.g. U123456789"/></div>
           <div><label>Registered stock mark</label><input id="set-mark" value="" placeholder="e.g. DKB"/></div>
           <div><label>How it is applied</label><input id="set-mark-type" value="" placeholder="e.g. Tattoo, left ear"/></div>
         </div>
@@ -10365,7 +10367,7 @@ table.rn-t td.dim{color:var(--t4)}
         <div class="fg2" style="margin-top:12px">
           <div><label>Transport differential to your silo (R/t) <span class="set-ihint"><button type="button" class="set-i" onclick="setPop(this,event)" aria-label="Why we ask">i</button><span class="set-pop"><b>SAFEX prices are Randfontein prices.</b> Your silo pays that less the transport differential the JSE publishes for it, often R90 to R415 a ton. Where a land has no price of its own and the SAFEX price stands in, this comes off.</span></span></label>
             <input id="set-silodiff" type="number" min="0" step="1" value="" placeholder="e.g. 180" onchange="cropSetSiloDiff(this.value)"/></div>
-          <div></div>
+          <div><label>Farm address <span style="color:var(--t4);font-weight:600">&mdash; printed on payslips</span></label><input id="set-addr" value="" placeholder="e.g. R44, Wellington, 7655"/></div>
         </div>
       </div>
       <!-- Tax & VAT -->
@@ -13962,6 +13964,7 @@ function cropInputEditFill(id){
   set('ci-product',x.product); set('ci-reg',x.reg); set('ci-kind',x.kind); set('ci-rate',x.rate); set('ci-batch',x.batch);
   set('ci-by',x.by); set('ci-cert',x.operatorCert); set('ci-for',x.targetFor); set('ci-phi',x.phi);
   set('ci-date',x.date); set('ci-weather',x.weather);
+  set('ci-active',x.active||''); set('ci-water',(x.water!=null&&x.water!=='')?x.water:''); set('ci-equip',x.equipment||'');
   var c=$('ci-cost'); if(c){ c.value=''; c.disabled=true; c.placeholder=fixT('change it in Transactions','verander dit in Transaksies'); }
   var card=$('crop-comply-card');
   var t=card && card.firstElementChild && card.firstElementChild.firstElementChild; if(t) t.textContent=fixT('Correct this application','Stel hierdie toediening reg');
@@ -13975,7 +13978,8 @@ function cropInputEditSave(id){
   var product=v('ci-product'); if(!product){ toast(fixT('What did you apply?','Wat het jy toegedien?'),'error'); CROP_INPUT_EDIT=id; return; }
   var nv={ product:product, reg:v('ci-reg'), kind:v('ci-kind')||x.kind, rate:v('ci-rate'), batch:v('ci-batch'),
            by:v('ci-by')||x.by, operatorCert:v('ci-cert'), targetFor:v('ci-for'), phi:parseInt(v('ci-phi'),10)||0,
-           date:v('ci-date')||x.date, weather:v('ci-weather') };
+           date:v('ci-date')||x.date, weather:v('ci-weather'),
+           active:v('ci-active'), water:(v('ci-water')===''?'':Number(v('ci-water').replace(',','.'))), equipment:v('ci-equip') };
   var n=0; Object.keys(nv).forEach(function(k){ n+=fixLog(x,k,x[k]==null?'':x[k],nv[k]); });
   if(!n){ cropCloseModal(); toast(fixT('Nothing changed.','Niks het verander nie.'),'info'); return; }
   Object.keys(nv).forEach(function(k){ x[k]=nv[k]; });
@@ -13989,6 +13993,7 @@ function aiRegChanges(from, to, lang, kind){
           meat:['Meat withdrawal (days)','Vleisonttrekking (dae)'], milk:['Milk withdrawal (days)','Melkonttrekking (dae)'], reason:['Reason','Rede'], forx:['Target','Teiken'], targetFor:['Target','Teiken'], dateISO:['Date','Datum'], date:['Date','Datum'],
           phi:['Wait (days)','Wagtyd (dae)'], bid:['Block','Blok'], reg:['Reg no.','Reg.nr.'], rate:['Rate','Tempo'], batch:['Batch','Lotnr.'],
           by:['Applied by','Toegedien deur'], cert:['Licence','Lisensie'], operatorCert:['Licence','Lisensie'], weather:['Weather','Weer'],
+          active:['Active ingredient','Aktiewe bestanddeel'], water:['Water (L/ha)','Water (L/ha)'], equipment:['Equipment','Toerusting'],
           kind:['Type','Soort'], att:['Attachment','Aanhangsel']};
   var L=function(en,af){ return lang==='af' ? af : en; };
   var when=function(iso){ var d=new Date(iso); if(isNaN(d)) return String(iso||'');
@@ -14590,7 +14595,12 @@ function cropLogInput(editId){
     '<div style="display:flex;gap:10px;margin-bottom:4px"><div style="flex:1">'+lbl('Date applied')+'<input id="ci-date" type="date" value="'+today+'" style="'+inpCss+'"></div>'+
       /* GlobalG.A.P. v6 made weather at application a Major Must (32.02.02); it was
          only a Minor in v5.2, which is why nothing ever asked. */
-      '<div style="flex:1">'+lbl('Weather',true)+'<input id="ci-weather" placeholder="e.g. still, 18\u00b0C" style="'+inpCss+'"></div></div>'+
+      '<div style="flex:1">'+lbl('Weather',true)+'<input id="ci-weather" placeholder="e.g. still, 18°C" style="'+inpCss+'"></div></div>'+
+    /* -485 (5a C14): the rest of what a spray record holds (GLOBALG.A.P. FV 32.02.01) - the
+       active ingredient, the water volume and the equipment. Synced on crop_inputs. */
+    '<div style="margin:12px 0 12px">'+lbl('Active ingredient',true)+'<input id="ci-active" placeholder="on the label, e.g. lambda-cyhalothrin" style="'+inpCss+'"></div>'+
+    '<div style="display:flex;gap:10px;margin-bottom:4px"><div style="flex:1">'+lbl('Water (L/ha)',true)+'<input id="ci-water" type="number" inputmode="decimal" min="0" placeholder="e.g. 200" style="'+inpCss+'"></div>'+
+      '<div style="flex:1">'+lbl('Equipment',true)+'<input id="ci-equip" placeholder="e.g. boom sprayer" style="'+inpCss+'"></div></div>'+
     '<div style="background:#eef4ec;border:1px solid #cfe3d4;border-radius:9px;padding:9px 11px;font-size:11px;color:#3a5a45;line-height:1.5;margin-top:12px">The wait time sets the <b>safe-to-harvest date</b> automatically \u2014 and this one entry becomes your SARS cost line and your Act 36 spray record.</div>';
   var footer='<button class="crop-formbtn" style="flex:1" onclick="cropInputFormSave()">Save application</button>'+
     '<button onclick="cropCloseModal()" style="width:110px;border:1px solid var(--br);border-radius:10px;background:#fff;color:var(--t3);font-size:13.5px;font-weight:600;font-family:inherit;cursor:pointer">Cancel</button>';
@@ -14611,7 +14621,11 @@ async function cropInputFormSave(){
   var reg=(($('ci-reg')||{}).value||'').trim(), rate=(($('ci-rate')||{}).value||'').trim(),
       batch=(($('ci-batch')||{}).value||'').trim(), by=(($('ci-by')||{}).value||'').trim()||(FARM.owner||''),
       cert=(($('ci-cert')||{}).value||'').trim(),
-      weather=(($('ci-weather')||{}).value||'').trim();
+      weather=(($('ci-weather')||{}).value||'').trim(),
+      active=(($('ci-active')||{}).value||'').trim(), water=(($('ci-water')||{}).value||'').trim(),
+      equipment=(($('ci-equip')||{}).value||'').trim();
+  if(water!=='' && !(Number(water.replace(',','.'))>=0)){ txFieldErr($('ci-water'), 'Enter the litres of water per hectare, like 200'); return; }
+  txFieldErr($('ci-water'), '');
   /* B4-13: an application dated before a land's planting date asks once - a burn-down or a
      pre-plant fertiliser is normal practice, so it is a question, never a block. */
   var _pre=landIds.map(cropLandById).filter(function(l){ return l && l.planted && String(date)<String(l.planted).slice(0,10) && kind!=='seed'; });
@@ -14629,7 +14643,8 @@ async function cropInputFormSave(){
   landIds.forEach(function(lid){
     var l=cropLandById(lid); if(!l) return; n++;
     ST_CROP.inputs.unshift({ id:cropNextId(ST_CROP.inputs.concat(ST_CROP.removed||[]),'ci'), land:l.id, date:date, product:product,
-      reg:reg, kind:kind, rate:rate, batch:batch, by:by, operatorCert:cert, targetFor:forVal, phi:phi, costPerHa:cost, weather:weather });
+      reg:reg, kind:kind, rate:rate, batch:batch, by:by, operatorCert:cert, targetFor:forVal, phi:phi, costPerHa:cost, weather:weather,
+      active:active, water:(water===''?'':Number(water.replace(',','.'))), equipment:equipment });
     var total = cost * (l.area||0);
     if(total>0){
       totalAll+=total;
@@ -21575,6 +21590,8 @@ if (name)  { ST.farmName = name;  FARM.name  = name; }
   var payeEl = document.getElementById('set-payeref');
   if (addrEl) ST.farmAddr = addrEl.value.trim();
   if (payeEl) ST.payeRef  = payeEl.value.trim();
+  var uifEl = document.getElementById('set-uifref');   /* -485: farms.uif_ref */
+  if (uifEl) ST.uifRef = uifEl.value.trim();
   var markEl = document.getElementById('set-mark');
   var markTEl = document.getElementById('set-mark-type');
   if (markEl)  ST.stockMark     = markEl.value.trim();
@@ -21713,12 +21730,15 @@ var FRESH_CONFIG = {
                'incPeriod','incPeriodSel','expPeriod','expPeriodSel','txPeriodSel','saleType',
                'saleFreq','expType','expFreq','showDemoBtn','showTourBtn','showTargetBar',
                'showExpBar','demoData','demoNudgeHidden','consent','ieTileMode',
+               /* -485: the employer's UIF reference (cleared with the sample identity below) and the
+                  Market price alerts - both farm settings, synced on the farm row */
+               'uifRef','priceAlerts',
                /* screen state, not records: the form's "enterprise picked by hand" flags and the
                   Transactions "needs a look" filter (-483) */
                '_aeEntManual','_aiEntManual','txNeedOnly','incNeedOnly','expNeedOnly'],
   ST_ASSETS:  [],
   ST_LOANS:   ['activeTab'],
-  ST_WORK:    ['activeTab','nmwRate','hoursWeek','taxThreshold','payRepPeriod'],
+  ST_WORK:    ['activeTab','nmwRate','hoursWeek','taxThreshold','payRepPeriod','contractTemplate','contractRates'],
   ST_LS:      ['filterHealth'],
   ST_FRUIT:   ['activeTab','market','comply','buyerSchemes'],
   ST_CROP:    ['activeTab','filter','complyView','cropTypes','prices'],
@@ -21791,7 +21811,7 @@ function clearAllToFresh(opts) {
       if ('farmEnterprise' in ST) ST.farmEnterprise = null;
       /* -483 B5-F24: the UK list (-384) plus the SA keys. The sample farm's address, PAYE
          reference and stock mark went to the new farm; each now reads "not set yet". */
-      ['farmAddr','payeRef','stockMark','stockMarkType','taxResidence','cashBasis','fyYearEnd'].forEach(function(k){ delete ST[k]; });
+      ['farmAddr','payeRef','uifRef','stockMark','stockMarkType','taxResidence','cashBasis','fyYearEnd'].forEach(function(k){ delete ST[k]; });
     }
     if (typeof FARM !== 'undefined' && !keepIdentity) {
       FARM.name = ''; FARM.owner = ''; FARM.ha = 0;
@@ -22065,6 +22085,7 @@ function nav(id) {
     var so=$('set-owner');  if(so) so.value = ST.ownerName  || '';
     var sa=$('set-addr');     if(sa) sa.value = ST.farmAddr || '';
     var sp2=$('set-payeref'); if(sp2) sp2.value = ST.payeRef || '';
+    var su2=$('set-uifref'); if(su2) su2.value = ST.uifRef || '';
     var sm=$('set-mark');      if(sm) sm.value = ST.stockMark     || '';
     var smt=$('set-mark-type');if(smt) smt.value = ST.stockMarkType || '';
     var sh=$('set-ha');     if(sh) sh.value = ST.farmHa     || '';
@@ -26700,18 +26721,38 @@ function wkMonthLabel(){ var d=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?APP_T
    worked - BCEA s35: the hours ordinarily worked x the hourly rate, a month being 4 1/3 weeks (the
    same 52/12 wkHourly uses). Working days Monday to Friday from the start date; hours a day =
    the worker's week / 5. The days can be changed on the pay run (they stay on this device until
-   the run is posted; the kept payslip carries them after that). A last month needs an end date,
-   which the worker record does not have yet (see the -482 notes). */
+   the run is posted; the kept payslip carries them after that). -485: the days sync
+   (payroll_entries.part_days) and a LAST month is paid the same way, from the 1st to the
+   leaving date (workers.end_date, w.end). A worker who starts and leaves in one month is paid
+   from the start to the leaving date. */
+function _wkIsoDate(s){ var d=new Date(String(s||'').slice(0,10)+'T00:00:00'); return isNaN(d.getTime())?null:d; }
 function wkPartMonth(w, label){
-  if(!w || w.basis!=='month' || !w.start || !(w.amt>0)) return null;
-  var st=new Date(String(w.start).slice(0,10)+'T00:00:00'); if(isNaN(st.getTime())) return null;
-  var end=_saLabelEnd(label); if(st.getFullYear()!==end.getFullYear() || st.getMonth()!==end.getMonth() || st.getDate()===1) return null;
-  var auto=0; for(var d=new Date(st); d<=end; d.setDate(d.getDate()+1)){ var wd=d.getDay(); if(wd>=1 && wd<=5) auto++; }
+  if(!w || w.basis!=='month' || !(w.amt>0)) return null;
+  var end=_saLabelEnd(label), first=new Date(end.getFullYear(), end.getMonth(), 1);
+  var st=w.start?_wkIsoDate(w.start):null, lv=w.end?_wkIsoDate(w.end):null;
+  var inS=!!(st && st.getFullYear()===end.getFullYear() && st.getMonth()===end.getMonth() && st.getDate()!==1);
+  var inE=!!(lv && lv.getFullYear()===end.getFullYear() && lv.getMonth()===end.getMonth() && lv.getDate()!==end.getDate());
+  if(!inS && !inE) return null;
+  var a=inS?st:first, b=inE?lv:end; if(b<a) return null;
+  var auto=0; for(var d=new Date(a); d<=b; d.setDate(d.getDate()+1)){ var wd=d.getDay(); if(wd>=1 && wd<=5) auto++; }
   var ov=(((ST_WORK.extra||{})[label])||{})[w.id], days=(ov && ov.days!=null && ov.days!=='') ? Math.max(0,Number(ov.days)||0) : auto;
   var hw=(w.hoursWeek||ST_WORK.hoursWeek||STATUTORY.hoursWeek.value), hpd=hw/5, hours=Math.round(days*hpd*100)/100, hourly=wkHourly(w);
   var pay=Math.min(w.amt, Math.round(hours*hourly*100)/100);
-  return { from:String(w.start).slice(0,10), days:days, autoDays:auto, edited:days!==auto, hours:hours, hourly:hourly, pay:pay };
+  var p2=function(n){ return (n<10?'0':'')+n; }, iso=function(x){ return x.getFullYear()+'-'+p2(x.getMonth()+1)+'-'+p2(x.getDate()); };
+  var out={ from:iso(a), days:days, autoDays:auto, edited:days!==auto, hours:hours, hourly:hourly, pay:pay };
+  if(inE) out.to=iso(b);
+  if(!inS) out.fromFirst=true;
+  return out;
 }
+/* The words for a part month, the same on the pay run, the payslip, its PDF and the kept copy:
+   "from 23 Sep", "to 17 Oct" (a last month), or "23 Sep to 26 Sep" (both in one month). */
+function wkPartSpan(part){ if(!part) return '';
+  if(part.to && part.fromFirst) return 'to '+_wkD(part.to);
+  if(part.to) return _wkD(part.from)+' to '+_wkD(part.to);
+  return 'from '+_wkD(part.from); }
+/* A monthly worker has left once the pay month is after the month of their leaving date. */
+function wkLeftBefore(w, label){ var lv=w&&w.end?_wkIsoDate(w.end):null; if(!lv) return false; var end=_saLabelEnd(label);
+  return (end.getFullYear()*12+end.getMonth()) > (lv.getFullYear()*12+lv.getMonth()); }
 function wkPayRows(labelOverride){
   var rate=wkWageFloor();
   var label=labelOverride||((typeof wkMonthLabel==='function')?wkMonthLabel():'');
@@ -26719,7 +26760,7 @@ function wkPayRows(labelOverride){
   var kept=wkKeptRows(label); if(kept) return kept;
   var bonusMap=(ST_WORK.bonus&&ST_WORK.bonus[label])||{};
   var extraMap=(ST_WORK.extra&&ST_WORK.extra[label])||{};
-  return wkList().filter(function(w){ return w.basis==='month'; }).map(function(w){
+  return wkList().filter(function(w){ return w.basis==='month' && !wkLeftBefore(w, label); }).map(function(w){
     var part=wkPartMonth(w, label);
     var base=part?part.pay:(w.amt||0);
     var bonus=Math.round((bonusMap[w.id]||0)*100)/100;
@@ -26804,8 +26845,8 @@ function wkSlipSnap(w, label, row, seasonal){
   var d=aiPaySlipData(w.id, label); if(!d) return null;
   var owing=(w.adv&&w.adv.owing>0)?Math.max(0, Math.round(((w.adv.owing||0)-((row&&row.advRepay)||0))*100)/100):null;
   return { v:1, lang:(w.slipLang==='af')?'af':'en', kept:wkIsoToday(), label:label, seasonal:!!seasonal,
-    farm:{ name:(ST.farmName||''), addr:[ST.farmAddr, ST.province].filter(Boolean).join(', '), payeRef:(ST.payeRef||'') },
-    worker:{ id:String(w.id), name:w.name||'', occ:(w.role||'').split('·')[0].trim(), idNo:w.idNo||'', start:w.start||'' },
+    farm:{ name:(ST.farmName||''), addr:[ST.farmAddr, ST.province].filter(Boolean).join(', '), payeRef:(ST.payeRef||''), uifRef:(ST.uifRef||'') },
+    worker:{ id:String(w.id), name:w.name||'', occ:(w.role||'').split('·')[0].trim(), idNo:w.idNo||'', start:w.start||'', end:w.end||'' },
     earn:d.earn, ded:d.ded, gross:d.gross, totDed:d.totDed, net:d.net, uifEmployer:d.uifEmployer,
     leave:w.leave?{ annual:(w.leave.annual!=null?w.leave.annual:null), sick:(w.leave.sick!=null?w.leave.sick:null) }:null,
     advOwing:owing,
@@ -26856,7 +26897,7 @@ function renderWkPayroll(){ wkSync();
   var totNet=rows.reduce(function(a,r){return a+r.net;},0);
   var trs=rows.map(function(r){
     var off=r.uif+(r.paye||0)+r.advRepay+r.savings;
-    var sub=['UIF '+Math.round(r.uif)]; if(r.part) sub.unshift('from '+_wkD(r.part.from)+' \u00b7 '+r.part.days+' day'+(r.part.days===1?'':'s')); if(r.paye) sub.push('PAYE '+Math.round(r.paye)); if(r.bonus) sub.push('bonus '+Math.round(r.bonus)); if(r.premium) sub.push('extra '+Math.round(r.premium)); if(r.advRepay) sub.push('adv '+Math.round(r.advRepay)); if(r.savings) sub.push('save '+Math.round(r.savings));
+    var sub=['UIF '+Math.round(r.uif)]; if(r.part) sub.unshift(wkPartSpan(r.part)+' · '+r.part.days+' day'+(r.part.days===1?'':'s')); if(r.paye) sub.push('PAYE '+Math.round(r.paye)); if(r.bonus) sub.push('bonus '+Math.round(r.bonus)); if(r.premium) sub.push('extra '+Math.round(r.premium)); if(r.advRepay) sub.push('adv '+Math.round(r.advRepay)); if(r.savings) sub.push('save '+Math.round(r.savings));
     var fn=r.w.name.split(/\s+/); var nm=wkE(fn[0]+' '+((fn[1]||'').charAt(0))+(fn[1]?'.':''));
     return '<tr onclick="wkPayslip(\''+r.w.id+'\')"><td>'+nm+'<div class="sm">'+sub.join(' \u00b7 ')+'</div></td><td>'+wkMoney2(r.gross)+'</td><td>\u2212'+wkMoney2(off)+'</td><td class="net">'+wkMoney2(r.net)+'</td><td class="nmwok">'+(r.ok?'\u2713':'\u26a0')+'</td>'+(_anyKept?('<td style="text-align:right">'+(r.kept?wkSlipPill(r.kept):'')+'</td>'):'')+'</tr>';
   }).join('');
@@ -26880,7 +26921,7 @@ function renderWkPayroll(){ wkSync();
       +'<span style="font-size:11px;color:var(--t4);font-weight:800">SUN hrs <input type="number" value="'+(ex.sun||'')+'" placeholder="0" onchange="wkSetExtra(\''+w.id+'\',\'sun\',this.value)" style="'+_ein+'"></span>'
       +'<label style="font-size:11px;color:var(--t4);font-weight:800;display:inline-flex;align-items:center;gap:3px;cursor:pointer" title="Tick only if this worker normally works Sundays \u2014 then Sunday hours load at 1.5\u00d7. If not (the usual case for farm workers), the law requires 2\u00d7."><input type="checkbox" '+(w.worksSundays?'checked':'')+' onchange="wkSetWorksSun(\''+w.id+'\',this.checked)" style="margin:0;cursor:pointer"> usual Sun?</label>'
       +'<span style="font-size:11px;color:var(--t4);font-weight:800">PH hrs <input type="number" value="'+(ex.ph||'')+'" placeholder="0" onchange="wkSetExtra(\''+w.id+'\',\'ph\',this.value)" style="'+_ein+'"></span>'
-      +(r.part?('<span style="font-size:11px;color:var(--t4);font-weight:800" title="First month: paid for the working days from '+_wkD(r.part.from)+' (BCEA s35). Change it if they worked a different number of days.">DAYS <input type="number" id="wk-part-days-'+w.id+'" value="'+r.part.days+'" placeholder="'+r.part.autoDays+'" onchange="wkSetExtra(\''+w.id+'\',\'days\',this.value)" style="'+_ein+'"></span>'):'')
+      +(r.part?('<span style="font-size:11px;color:var(--t4);font-weight:800" title="'+(r.part.to?'Last month':'First month')+': paid for the working days '+wkPartSpan(r.part)+' (BCEA s35). Change it if they worked a different number of days.">DAYS <input type="number" id="wk-part-days-'+w.id+'" value="'+r.part.days+'" placeholder="'+r.part.autoDays+'" onchange="wkSetExtra(\''+w.id+'\',\'days\',this.value)" style="'+_ein+'"></span>'):'')
       +'</div></div>'; }).join('');
   var _extrasCard=rows.length?('<div class="wk-card" id="wk-extras-card" style="margin-top:0"><div onclick="wkToggleExtras()" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:13px;font-weight:800">Bonuses &amp; Sunday / holiday pay</div><div style="font-size:11px;color:var(--t3)">13th cheque \u00b7 Sunday at 2\u00d7 (1.5\u00d7 if they usually work Sundays) \u00b7 public holiday at 2\u00d7</div></div><span style="color:var(--t4);font-size:18px">'+(_exOpen?'\u2212':'+')+'</span></div>'+(_exOpen?('<div style="margin-top:10px">'+_exRows+'<div style="font-size:11px;color:var(--t4);margin-top:8px;line-height:1.5">Added to this month\u2019s pay and shown on the payslip. Rates follow BCEA \u2014 a bonus is taxable, so set PAYE in the payroll report if needed.</div></div>'):'')+'</div>'):'';
   box.innerHTML =
@@ -27019,9 +27060,14 @@ function wkPayslip(id){
   var totOff=r.uif+(r.paye||0)+r.advRepay+r.savings;
   var pot=(!r.kept&&w.fund&&w.fund.on&&w.fund.where==='hold'&&r.savings)?('<div style="font-size:11px;color:var(--t4);margin-top:9px;line-height:1.5">Savings pot would be '+wkMoney2((w.fund.balance||0)+r.savings)+' after this run.</div>'):'';
   box.innerHTML='<div onclick="renderWkPayroll()" style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--gm);cursor:pointer;margin-bottom:12px">\u2039 Back to pay run</div>'
-    + '<div class="wk-slip"><div class="sh"><div class="t">'+wkE(farm)+'</div><div class="s">Payslip \u00b7 '+wkE(w.name)+' \u00b7 '+wkE(label)+'</div></div><div class="sb">'
+    + '<div class="wk-slip"><div class="sh"><div class="t">'+wkE(farm)+'</div><div class="s">Payslip · '+wkE(w.name)+' · '+wkE(label)+'</div>'
+    /* -485: the employer's references, as the PDF prints them. */
+    + (function(){ var F=(r.kept&&r.kept.snap&&r.kept.snap.farm)||{ payeRef:ST.payeRef||'', uifRef:ST.uifRef||'' };
+        var bits=[F.payeRef?('PAYE ref '+wkE(F.payeRef)):'', F.uifRef?('UIF ref '+wkE(F.uifRef)):''].filter(Boolean);
+        return bits.length?('<div class="s">'+bits.join(' · ')+'</div>'):''; })()
+    + '</div><div class="sb">'
     + '<div class="wk-srow head"><span>What they earned</span><span></span></div>'
-    + (r.part ? ('<div class="wk-srow"><span>Part month from '+_wkD(r.part.from)+': '+r.part.days+' working day'+(r.part.days===1?'':'s')+', '+r.part.hours+' h at '+wkMoney2(r.part.hourly)+' (BCEA s35)</span><span>'+wkMoney2(r.base)+'</span></div>')
+    + (r.part ? ('<div class="wk-srow"><span>Part month '+wkPartSpan(r.part)+': '+r.part.days+' working day'+(r.part.days===1?'':'s')+', '+r.part.hours+' h at '+wkMoney2(r.part.hourly)+' (BCEA s35)</span><span>'+wkMoney2(r.base)+'</span></div>')
               : ('<div class="wk-srow"><span>Pay for the month</span><span>'+wkMoney2(r.base!=null?r.base:r.gross)+'</span></div>'))
     + ((r.bonus)?('<div class="wk-srow"><span>Bonus / 13th cheque</span><span>'+wkMoney2(r.bonus)+'</span></div>'):'')
     + ((r.premium)?('<div class="wk-srow"><span>Sunday / public-holiday pay</span><span>'+wkMoney2(r.premium)+'</span></div>'):'')
@@ -27808,6 +27854,16 @@ function saEtiFor(label, w, gross){
   return out;
 }
 function wkToggleSoleEmp(id){ var w=wkFind(id); if(!w) return; w.soleEmployer=!w.soleEmployer; if(typeof wkSync==='function') wkSync(); else if(typeof saveState==='function') saveState(); try{ wkOpenDetail(id); }catch(e){} }
+/* -485: set or clear a worker's leaving date. Not before the start date. */
+function wkHasLeft(w){ var t=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(); var p=function(n){ return (n<10?'0':'')+n; };
+  return !!(w && w.end && String(w.end).slice(0,10) < (t.getFullYear()+'-'+p(t.getMonth()+1)+'-'+p(t.getDate()))); }
+function wkSetEnd(id,v){ var w=wkFind(id); if(!w) return; v=String(v||'').trim();
+  if(v && !/^\d{4}-\d{2}-\d{2}$/.test(v)){ toast('Pick the leaving date from the calendar.','error'); return; }
+  if(v && w.start && v < String(w.start).slice(0,10)){ toast('The leaving date is before '+String(w.name||'').split(' ')[0]+' started ('+dispDate(w.start)+').','error'); try{ wkOpenDetail(id); }catch(e){} return; }
+  if(v) w.end=v; else delete w.end;
+  if(typeof wkSync==='function') wkSync(); if(typeof saveState==='function') saveState();
+  try{ renderWkPayroll(); }catch(e){} try{ wkOpenDetail(id); }catch(e){}
+  if(v) toast(String(w.name||'').split(' ')[0]+(wkHasLeft(w)?' left on ':' leaves on ')+dispDate(v)+' — the last month is paid for the days worked.','success'); }
 function wkSetMedAid(id,v){ var w=wkFind(id); if(!w) return; w.medAidPeople=Math.max(0,Math.min(12,parseInt(v,10)||0)); if(typeof wkSync==='function') wkSync(); else if(typeof saveState==='function') saveState(); try{ wkOpenDetail(id); }catch(e){} }
 function wkToggleEtiExcl(id){ var w=wkFind(id); if(!w) return; w.etiExcluded=!w.etiExcluded; if(typeof wkSync==='function') wkSync(); else if(typeof saveState==='function') saveState(); try{ wkOpenDetail(id); }catch(e){} }
 function wkEtiMonth(label){
@@ -28151,7 +28207,7 @@ function renderWkDetail(id){
 
   box.innerHTML='<div onclick="wkTab(\'wk\')" style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--gm);cursor:pointer;margin-bottom:12px">&lsaquo; Back to workers</div>'
     +'<div class="wk-card">'
-    +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px"><div class="wk-av" style="background:'+wkColor(idx)+';width:48px;height:48px">'+wkE(wkInitials(w.name))+'</div><div><div style="font-size:16px;font-weight:800">'+wkE(w.name)+'</div><div style="font-size:11.5px;color:var(--t3)">'+wkE(w.role)+(w.start?(' &middot; since '+wkE(dispDate(w.start))):'')+'</div></div></div>'
+    +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px"><div class="wk-av" style="background:'+wkColor(idx)+';width:48px;height:48px">'+wkE(wkInitials(w.name))+'</div><div><div style="font-size:16px;font-weight:800">'+wkE(w.name)+'</div><div style="font-size:11.5px;color:var(--t3)">'+wkE(w.role)+(w.start?(' &middot; since '+wkE(dispDate(w.start))):'')+(w.end?(' &middot; '+(wkHasLeft(w)?'left ':'leaving ')+wkE(dispDate(w.end))):'')+'</div></div></div>'
     +'<div class="wk-detail-grid" style="margin-top:0">'
     +'<div class="wk-dbox"><div class="l">Pay</div><div class="v">'+wage+'</div></div>'
     +'<div class="wk-dbox"><div class="l">Minimum wage</div><div class="v" style="color:'+(ok?'var(--gm)':'var(--rd)')+'">'+(ok?'&#10003; above':'&#9888; below')+'</div></div>'
@@ -28164,6 +28220,9 @@ function renderWkDetail(id){
           +'<div style="font-size:10.5px;margin-top:3px"><span onclick="wkToggleEtiExcl(\''+w.id+'\')" style="color:var(--gm);font-weight:700;cursor:pointer">'+(w.etiExcluded?'Not family \u2014 include again':'Family member? Leave out')+'</span></div></div></div>'; })()
     +'<div class="wk-dbox"><div class="l">Contract</div><div class="v">'+(w.contract==='missing'?'<span style="color:var(--rd)">to do</span>':'&#10003; on file')+'</div></div>'
     +'<div class="wk-dbox"><div class="l">Works on</div><div class="v">'+wkE(wkActLabel(w.activity))+'</div></div>'
+    /* -485 (5a F11 / D12): the leaving date. The last month is paid for the days worked, and the
+       worker drops off the pay run after that month. Synced on workers.end_date. */
+    +'<div class="wk-dbox"><div class="l">Leaving date</div><div class="v"><input type="date" id="wk-end-'+w.id+'" value="'+wkE(w.end||'')+'"'+(w.start?(' min="'+wkE(String(w.start).slice(0,10))+'"'):'')+' onchange="wkSetEnd(\''+w.id+'\',this.value)" aria-label="Leaving date" style="font-size:12px;padding:2px 4px;max-width:100%"></div></div>'
     +'<div class="wk-dbox"><div class="l">'+esc(rnT('Cellphone \u00b7 for payslips','Selfoon \u00b7 vir betaalstrokies'))+'</div><div class="v">'+(w.phone?wkE(w.phone):'<span style="color:var(--t4)">'+esc(rnT('none yet','nog geen'))+'</span>')+'</div></div>'
     +'<div class="wk-dbox"><div class="l">'+esc(rnT('Payslips on WhatsApp','Betaalstrokies op WhatsApp'))+'</div><div class="v">'+(w.waOk?('&#10003; '+esc(rnT('agreed','ingestem'))+(w.waOn?(' '+esc(wkShortDate(w.waOn))):'')):'<span style="color:var(--t4)">'+esc(rnT('not yet','nog nie'))+'</span>')+'</div></div>'
     +'</div>'
@@ -48472,8 +48531,16 @@ function mktAlertsPersist(){
 function mktAlertsRestore(){
   try{ if(ST && Array.isArray(ST.priceAlerts)) ST_ALERTS=ST.priceAlerts; }catch(e){}
 }
+/* -485: the alerts now also come from the farm row (farms.price_alerts), which the load puts on
+   ST.priceAlerts after this page has drawn - so the list and the bell re-read it once the farm's
+   records are in, and on every draw of the list. */
+function mktAlertsFromFarm(){
+  var before=ST_ALERTS; mktAlertsRestore();
+  if(ST_ALERTS!==before){ try{ renderAlerts(); }catch(e){} try{ checkAlerts(); }catch(e){} try{ if(typeof renderNotifications==='function') renderNotifications(); }catch(e){} }
+}
 
 function renderAlerts() {
+  mktAlertsRestore();
   var list=$('alert-list'), empty=$('alert-empty');
   if(!list) return;
   if(!ST_ALERTS.length){
@@ -65003,7 +65070,7 @@ function obConsentOk(){
   }
   try{
     /* B5-C11 (-482): marketing is its own, unticked opt-in (POPIA s69) — never part of accepting the terms.
-       Kept with the consent record on this device; it has no database column yet (see the -482 notes). */
+       Kept with the consent record; -485 syncs it on farms.marketing_optin / marketing_optin_at. */
     var mk=document.getElementById('ob-marketing-chk');
     if(window.ST) ST.consent={ policyVersion:AI_POLICY_VERSION, acceptedAt:new Date().toISOString(), marketing:!!(mk&&mk.checked), marketingAt:(mk&&mk.checked)?new Date().toISOString():null };
   }catch(e){}
@@ -65034,6 +65101,26 @@ function aiConsentReask(){
     });
 }
 window.aiConsentStale=aiConsentStale; window.aiConsentReask=aiConsentReask;
+/* -485: after the first load of a signed-in farm - the price alerts that came with the farm row
+   go on screen, and values that lived only on this device before their column existed (orchard
+   spacing, price alerts, a news-and-offers "yes"; window.__AI_MIG485, filled by ai-data.js once per
+   farm) are sent. The load
+   itself never writes; this waits until saving is open again. */
+function aiFollowupAfterLoad(){
+  try{ mktAlertsFromFarm(); }catch(e){}
+  var m=window.__AI_MIG485; if(!m) return false;
+  window.__AI_MIG485=null;
+  try{ if(m.spacing && typeof orSave==='function') orSave(); }catch(e){}
+  try{ if((m.alerts || m.marketing) && typeof saveState==='function') saveState(); }catch(e){}
+  return true;
+}
+window.aiFollowupAfterLoad=aiFollowupAfterLoad;
+(function(){
+  var n=0, t=setInterval(function(){
+    n++; if(window.__AI_GUEST || n>90){ clearInterval(t); return; }
+    if(window.__AI_HYDRATED_AT && (!window.AI || !AI.sync || !AI.sync.isOpen || AI.sync.isOpen())){ clearInterval(t); aiFollowupAfterLoad(); }
+  }, 2000);
+})();
 (function(){
   /* Once this farm's records have loaded from the server (a signed-in account), check once. */
   var n=0, t=setInterval(function(){
@@ -75080,6 +75167,8 @@ function orOpenBlock(id){
   var b=orBlockById(id); if(!b) return; OR_MODAL_CTX={type:'block',key:id};
   var rt=b.root?(' on '+b.root):'';
   var sub=(b.cat==='veg')?(b.cultivar+' · planted '+b.plant):(b.cultivar+rt+' · planted '+b.plant+' · '+b.age+' yr'+(b.age===1?'':'s')+' old');
+  /* -485 (5b F14): the row x tree spacing, synced on orchard_blocks.spacing. */
+  if(b.space && b.cat!=='veg') sub+=' · spaced '+esc(b.space);
   var h='<div class="or-mhd"><div class="or-mic">'+b.icon+'</div><div><div class="or-mt">'+b.name+' <span class="or-tag '+b.statusTag+'" style="margin-left:4px">'+b.status+'</span></div><div class="or-ms">'+sub+(b.cover?' · under '+b.cover:'')+'</div></div><button class="or-mx" onclick="orCloseModal()">\u00d7</button></div><div class="or-mbd">';
   h+='<div class="or-mstat">';
   var m=orBlockMargin(b);
@@ -77256,7 +77345,7 @@ function aiPaySlipData(id, label){
   /* A kept payslip is the record: printed from what was frozen when the run was posted. */
   var kept=(typeof wkSlipFor==='function')?wkSlipFor(label, id):null;
   if(kept && kept.snap && kept.snap.v){ var S=kept.snap;
-    return { w:{ id:S.worker.id, name:S.worker.name, role:S.worker.occ, idNo:S.worker.idNo, start:S.worker.start,
+    return { w:{ id:S.worker.id, name:S.worker.name, role:S.worker.occ, idNo:S.worker.idNo, start:S.worker.start, end:S.worker.end||'',
                  leave:S.leave||null, adv:(S.advOwing!=null&&S.advOwing>0)?{owing:S.advOwing}:null },
              label:S.label, earn:S.earn||[], ded:S.ded||[], gross:S.gross, totDed:S.totDed, net:S.net, uifEmployer:S.uifEmployer,
              farm:S.farm||null, lang:S.lang||'en', kept:kept }; }
@@ -77267,7 +77356,7 @@ function aiPaySlipData(id, label){
     for(var i=0;i<rows.length;i++){ if(rows[i].w.id===id){ r=rows[i]; break; } }
     if(!r) return null;
     gross=r.gross;
-    if(r.part) earn.push({d:'Ordinary wage \u2014 part month from '+_wkD(r.part.from)+': '+r.part.days+' working day'+(r.part.days===1?'':'s')+', '+r.part.hours+' h (BCEA s35)', r:aiPayMoney(r.part.hourly)+'/h', q:String(r.part.hours), a:r.base});
+    if(r.part) earn.push({d:'Ordinary wage — part month '+wkPartSpan(r.part)+': '+r.part.days+' working day'+(r.part.days===1?'':'s')+', '+r.part.hours+' h (BCEA s35)', r:aiPayMoney(r.part.hourly)+'/h', q:String(r.part.hours), a:r.base});
     else earn.push({d:'Ordinary wage \u2014 monthly', r:'', q:'1', a:r.base});
     if(r.bonus)   earn.push({d:'Bonus / 13th cheque', r:'', q:'', a:r.bonus});
     if(r.premium) earn.push({d:'Sunday / public-holiday pay', r:'',
@@ -77303,7 +77392,7 @@ function aiPaySlipBuild(id, label, opts){
   var d=aiPaySlipData(id,label);
   if(!d) return Promise.reject(new Error('No pay data for this worker in '+(label||'this period')));
   var lang=(opts.lang||d.lang||ST.lang)==='af'?'af':'en';
-  var F=d.farm||{ name:(ST.farmName||''), addr:[ST.farmAddr, ST.province].filter(Boolean).join(', '), payeRef:(ST.payeRef||'') };
+  var F=d.farm||{ name:(ST.farmName||''), addr:[ST.farmAddr, ST.province].filter(Boolean).join(', '), payeRef:(ST.payeRef||''), uifRef:(ST.uifRef||'') };
   return Promise.all([aiPdfReady(), aiDocLogo()]).then(function(both){
     var jsPDF=both[0], logo=both[1], L=AI_PAY_L[lang];
     var doc=aiDocNew(jsPDF,{unit:'mm',format:'a4',orientation:'portrait',compress:(opts.compress!==false)});
@@ -77317,7 +77406,7 @@ function aiPaySlipBuild(id, label, opts){
     doc.setFont('helvetica','normal'); doc.setFontSize(8);
     /* s33 wants the employer's ADDRESS, not just the name. */
     var addr=F.addr||'';
-    var sub=[addr, F.payeRef?('PAYE ref '+F.payeRef):''].filter(Boolean).join('  \u00b7  ');
+    var sub=[addr, F.payeRef?('PAYE ref '+F.payeRef):'', F.uifRef?('UIF ref '+F.uifRef):''].filter(Boolean).join('  ·  ');
     doc.text(aiAnsi(sub||'\u2014'), tx, 19.5);
 
     doc.setTextColor(AI_DOC.INK[0],AI_DOC.INK[1],AI_DOC.INK[2]);
@@ -77341,7 +77430,8 @@ function aiPaySlipBuild(id, label, opts){
     };
     kv(L.emp, w.name, M, y);            kv(L.occ, (w.role||'').split('\u00b7')[0].trim(), col2, y); y+=15;
     kv(L.idn, w.idNo, M, y);            kv(L.empno, String(w.id||'').toUpperCase(), col2, y); y+=15;
-    kv(L.eng, w.start?aiRcDate(w.start):'', M, y); kv(L.per, d.label, col2, y); y+=17;
+    /* -485: a worker who has left shows the leaving date beside the start. */
+    kv(L.eng, w.start?(aiRcDate(w.start)+(w.end?(' – '+aiRcDate(w.end)):'')):'', M, y); kv(L.per, d.label, col2, y); y+=17;
 
     var g=aiDocGeo(false);
     var tbl=function(title, cols, rows, yy){

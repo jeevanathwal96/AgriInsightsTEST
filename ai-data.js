@@ -431,6 +431,16 @@
   let CAN_HARV_FIX      = false;   // orchard_harvest:      the same four (-467, pick_treatment_corrections.sql)
   let CAN_TREAT_FIX     = false;   // livestock_treatments: the same four
   let CAN_ASSET_DISPOSAL = false;
+  /* -485 pilot follow-up (pilot_followup_columns_sa.sql, run 30 Sep 2026). Each is gated like
+     every other late column: with the flag false the field stays on this device, as before. */
+  let CAN_WKR_END       = false;   // workers.end_date: the leaving date (last-month part pay)
+  let CAN_PE_PARTDAYS   = false;   // payroll_entries.part_days: a changed part-month day count
+  let CAN_ORCH_SPACING  = false;   // orchard_blocks.spacing: row x tree, e.g. "4 m × 2 m"
+  let CAN_FARM_ALERTS   = false;   // farms.price_alerts: Market price alerts on every device
+  let CAN_WKS_EXTRA     = false;   // worker_settings.contract_extra: the contract builder's switches (JSON)
+  let CAN_FARM_MKT      = false;   // farms.marketing_optin + marketing_optin_at: the news-and-offers opt-in
+  let CAN_FARM_UIFREF   = false;   // farms.uif_ref: the employer's UIF reference, printed on payslips
+  let CAN_INPUT_PARTS   = false;   // crop_inputs.water_l_ha + equipment + active_ingredient
   /* "It's a running cost, stop asking." Its own column rather than reusing cat_confirmed:
      that answer is about the CATEGORY being right, this one is about the cost not being
      capital, and a farmer can mean one without the other. */
@@ -523,7 +533,10 @@
     ['orchard_sprays','rate'], ['crop_inputs','weather'], ['orchard_sprays','removed_at'], ['crop_inputs','removed_at'],
     ['orchard_harvest','removed_at'], ['livestock_treatments','removed_at'],
     ['payslips','snap'], ['payslip_sends','outcome'],
-    ['workers','payslip_whatsapp_ok'], ['farm_devices','kind'], ['workers','eti_excluded'], ['workers','med_aid_people'], ['farms','budget_cat_targets'], ['farms','prov_paid'], ['farms','budget_locked'], ['farms','tax_paid'], ['farms','tax_plan'], ['farms','home_money']
+    ['workers','payslip_whatsapp_ok'], ['farm_devices','kind'], ['workers','eti_excluded'], ['workers','med_aid_people'], ['farms','budget_cat_targets'], ['farms','prov_paid'], ['farms','budget_locked'], ['farms','tax_paid'], ['farms','tax_plan'], ['farms','home_money'],
+    ['workers','end_date'], ['payroll_entries','part_days'], ['orchard_blocks','spacing'], ['farms','price_alerts'],
+    ['worker_settings','contract_extra'], ['farms','marketing_optin'], ['farms','marketing_optin_at'], ['farms','uif_ref'],
+    ['crop_inputs','water_l_ha'], ['crop_inputs','equipment'], ['crop_inputs','active_ingredient']
   ];
 
   async function probeCaps(farmId){
@@ -597,10 +610,32 @@
     CAN_INPUT_FIX      = keep(CAN_INPUT_FIX,     'crop_inputs','removed_at');
     CAN_HARV_FIX       = keep(CAN_HARV_FIX,      'orchard_harvest','removed_at');
     CAN_TREAT_FIX      = keep(CAN_TREAT_FIX,     'livestock_treatments','removed_at');
+    /* -485: the pilot follow-up columns. Two-column fields turn on only when BOTH are known. */
+    CAN_WKR_END        = keep(CAN_WKR_END,       'workers','end_date');
+    CAN_PE_PARTDAYS    = keep(CAN_PE_PARTDAYS,   'payroll_entries','part_days');
+    CAN_ORCH_SPACING   = keep(CAN_ORCH_SPACING,  'orchard_blocks','spacing');
+    CAN_FARM_ALERTS    = keep(CAN_FARM_ALERTS,   'farms','price_alerts');
+    CAN_WKS_EXTRA      = keep(CAN_WKS_EXTRA,     'worker_settings','contract_extra');
+    if(('farms.marketing_optin' in _colCache) && ('farms.marketing_optin_at' in _colCache))
+      CAN_FARM_MKT     = has('farms','marketing_optin') && has('farms','marketing_optin_at');
+    CAN_FARM_UIFREF    = keep(CAN_FARM_UIFREF,   'farms','uif_ref');
+    if(('crop_inputs.water_l_ha' in _colCache) && ('crop_inputs.equipment' in _colCache) && ('crop_inputs.active_ingredient' in _colCache))
+      CAN_INPUT_PARTS  = has('crop_inputs','water_l_ha') && has('crop_inputs','equipment') && has('crop_inputs','active_ingredient');
   }
   /* A harness needs to drive a second load and a bad line; the app never calls these. */
   probeCaps.reset = function(){ _colCache = Object.create(null); _colRpcDead = false; };
   probeCaps.seen  = function(){ return _colCache; };
+  /* -485: a value that lived only on this device moves to its new column ONCE per farm, on the
+     first load after the column exists. Remembered on this device, so a value cleared on another
+     device later is never brought back from here. What moved is left in window.__AI_MIG485 for the
+     app to send after the load (the load itself never writes). */
+  function _migOnce(what){
+    var fid = farm.active(); if(!fid) return false;
+    var k = 'ai_mig485_' + what + '_' + fid;
+    try{ if(localStorage.getItem(k)) return false; localStorage.setItem(k, new Date().toISOString()); }catch(e){ return false; }
+    return true;
+  }
+  function _migNote(what, n){ try{ var m = global.__AI_MIG485 = global.__AI_MIG485 || {}; m[what] = (m[what] || 0) + n; }catch(e){} }
   /* ================== ROW MEMORY - two-device safety (Phase 0) ==================
      What this device actually LOADED from the server, per table.
 
@@ -2130,10 +2165,18 @@
   function cevFromDb(r){ var e={ id:r.local_id, land:_numIf(r.land_local_id), kind:r.kind||'', date:r.event_date||'', note:r.note||'' }; if(r.tons!=null) e.tons=Number(r.tons); if(r.yield_val!=null) e.yield=Number(r.yield_val); if(r.cert) e.cert=r.cert; return e; }
   function cinToDb(i,fid){ var row = { farm_id:fid, local_id:String(i.id), land_local_id:(i.land!=null)?String(i.land):null, input_date:i.date||null, product:i.product||null, reg:i.reg||null, kind:i.kind||null, rate:i.rate||null, batch:i.batch||null, by_who:i.by||null, operator_cert:i.operatorCert||null, target_for:i.targetFor||null, phi:(i.phi!=null)?parseInt(i.phi,10):null, cost_per_ha:(i.costPerHa!=null)?Number(i.costPerHa):null };
     if(CAN_INPUT_WEATHER) row.weather = i.weather || null;
+    /* -485 (5a C14): the water volume, the equipment and the active ingredient a spray register
+       prints. water_l_ha is numeric: anything that is not a clean number goes as null. */
+    if(CAN_INPUT_PARTS){
+      var _wl = (i.water!=null && String(i.water).trim()!=='') ? Number(String(i.water).replace(',', '.')) : null;
+      row.water_l_ha = (_wl!=null && isFinite(_wl)) ? _wl : null;
+      row.equipment = i.equipment || null; row.active_ingredient = i.active || null;
+    }
     if(CAN_INPUT_FIX) _fixCols(row, i);
     return row; }
   function cinFromDb(r){ return { id:r.local_id, land:_numIf(r.land_local_id), date:r.input_date||'', product:r.product||'', reg:r.reg||'', kind:r.kind||'', rate:r.rate||'', batch:r.batch||'', by:r.by_who||'', operatorCert:r.operator_cert||'', targetFor:r.target_for||'', phi:Number(r.phi)||0, costPerHa:Number(r.cost_per_ha)||0,
     weather:r.weather||'',
+    water:(r.water_l_ha!=null)?Number(r.water_l_ha):'', equipment:r.equipment||'', active:r.active_ingredient||'',
     removed:r.removed_at?{at:r.removed_at, reason:r.removed_reason||'', by:r.removed_by||''}:undefined,
     changes:(Array.isArray(r.changes)&&r.changes.length)?r.changes:undefined }; }
 
@@ -2256,9 +2299,14 @@
     /* Not cosmetic: orBlockMarkets() GUESSES when this is missing, and the guess picks
        which pre-harvest interval governs safe-to-pick. */
     if(CAN_ORCH_MARKETS) row.markets = (b.markets && b.markets.length) ? b.markets : null;
+    /* -485 (5b F14): row x tree spacing, as the farmer typed it ("4 m × 2 m"). */
+    if(CAN_ORCH_SPACING) row.spacing = b.space || null;
     return row; }
+  /* "4 m × 2 m" -> {row:4, tree:2}; anything else -> null. */
+  function _obSpacing(s){ var m=String(s||'').replace(/,/g,'.').match(/(\d+(?:\.\d+)?)\s*m?\s*(?:x|×|\*|by|\/)\s*(\d+(?:\.\d+)?)/i); return m ? { row:parseFloat(m[1]), tree:parseFloat(m[2]) } : null; }
   function obFromDb(r){ var b={ id:r.local_id, cat:r.cat||'', icon:r.icon||'', name:r.name||'', cultivar:r.cultivar||'', status:r.status||'', statusTag:r.status_tag||'' };
     if(r.root!=null) b.root=r.root; if(r.plant!=null) b.plant=_numIf(r.plant); if(r.age!=null) b.age=Number(r.age); if(r.ha!=null) b.ha=Number(r.ha); if(r.trees!=null) b.trees=Number(r.trees); if(r.tons!=null) b.tons=Number(r.tons); if(r.exp!=null) b.exp=Number(r.exp); if(r.carton_kg!=null) b.cartonKg=Number(r.carton_kg); if(r.margin!=null) b.margin=Number(r.margin); if(r.estab!=null) b.estab=r.estab; if(r.estab_yr!=null) b.estabYr=Number(r.estab_yr); if(r.writeoff!=null) b.writeoff=Number(r.writeoff); if(r.per_unit!=null) b.perUnit=Number(r.per_unit); if(r.unit_word!=null) b.unitWord=r.unit_word; if(r.curve!=null) b.curve=r.curve; if(r.cover!=null) b.cover=r.cover; if(r.plan!=null) b.plan=!!r.plan; if(r.grade!=null) b.grade=Number(r.grade); if(r.unit!=null) b.unit=r.unit; if(r.days!=null) b.days=Number(r.days); if(r.pick_from!=null) b.pickFrom=r.pick_from; if(r.cycle!=null) b.cycle=r.cycle; if(r.removed!=null) b.removed=!!r.removed;
+    if(r.spacing){ b.space=String(r.spacing); var _sp=_obSpacing(r.spacing); if(_sp){ b.spaceRow=_sp.row; b.spaceTree=_sp.tree; } }
     return b; }
   // compliance item: persist full item (queryable) ; load overlays user fields onto app defaults
   function ociToDb(key,c,fid){ c=c||{}; return { farm_id:fid, item_key:String(key), kind:c.type||null, icon:c.ic||null, title:c.title||null, what:c.what||null, status:c.status||null, status_tag:c.statusTag||null, expiry:c.expiry||null, cropcat:c.cropcat||null, log:(c.log!=null)?String(c.log):null }; }
@@ -2312,6 +2360,18 @@
     var blocks=(bl.data||[]).map(function(r){ var b=obFromDb(r); b.docs=docsByBlock[b.id]||[];
       if(r.markets && r.markets.length) b.markets=r.markets;
       return b; });
+    /* -485: spacing typed before the column existed lived only on this device. Carried onto the
+       server's copy of the same block once, then sent by the app's next orchard save. */
+    if(CAN_ORCH_SPACING && _migOnce('spacing')){
+      var _locB = (global.ST_FRUIT && Array.isArray(global.ST_FRUIT.blocks)) ? global.ST_FRUIT.blocks : [], _carried = 0;
+      blocks.forEach(function(b){
+        if(b.space) return;
+        var lb = _locB.filter(function(x){ return x && String(x.id) === String(b.id); })[0];
+        var sp = lb && (lb.space || lb.spacing);
+        if(sp){ b.space = String(sp); var _p = _obSpacing(sp); if(_p){ b.spaceRow = _p.row; b.spaceTree = _p.tree; } _carried++; }
+      });
+      if(_carried) _migNote('spacing', _carried);
+    }
     var othByBlock={}; (po.data||[]).forEach(function(o){ (othByBlock[o.block_local_id]=othByBlock[o.block_local_id]||[]).push({label:o.label||'',amt:Number(o.amt)||0}); });
     var pricing={}; (pr.data||[]).forEach(function(r){ pricing[r.block_local_id]=opFromDb(r,othByBlock[r.block_local_id]||[]); });
     /* A removed spray is held apart from the diary, so the safe-to-pick grid, the register
@@ -2432,7 +2492,14 @@
   function planEvtToDb(e,fid,i){ var row = { farm_id:fid, herd_local_id:(e.herdId!=null)?String(e.herdId):null, species:e.species||null, animal:e.animal||null, icon:e.icon||null, descr:e.desc||null, type:e.type||null, month:e.month||null, qty:(e.qty!=null&&e.qty!=='')?Number(e.qty):null, unit:e.unit||null, price:(e.price!=null&&e.price!=='')?Number(e.price):null, recur:e.recur||null, notes:e.notes||null, use_market:!!e.useMarket, done:!!e.done, sort_idx:i };
     if(CAN_PLANEVT_FC) row.in_forecast = (e.inForecast===false) ? false : true;
     return row; }
-  function planEvtFromDb(r){ return { herdId:_numIf(r.herd_local_id), species:r.species||'', animal:r.animal||'', icon:r.icon||'', desc:r.descr||'', type:r.type||'sell', month:r.month||'', qty:Number(r.qty)||0, unit:r.unit||'head', price:Number(r.price)||0, recur:r.recur||'annual', notes:r.notes||'', useMarket:!!r.use_market, done:!!r.done, inForecast:(r.in_forecast===false)?false:true }; }
+  /* in_forecast: false = "not confirmed yet" (a herd plan's lines stay out of the forecast until the
+     herd is bought). null is a row written before the column existed, and those were in the forecast,
+     so null reads as true. -485: the herd plan's own marker (_hp) has no column; its lines are known
+     by their "Plan: " name and "From Herd/flock Plan" note, so the marker is put back here - without
+     it, confirming or deleting a planned herd after a reload could not find its lines. */
+  function planEvtFromDb(r){ var e = { herdId:_numIf(r.herd_local_id), species:r.species||'', animal:r.animal||'', icon:r.icon||'', desc:r.descr||'', type:r.type||'sell', month:r.month||'', qty:Number(r.qty)||0, unit:r.unit||'head', price:Number(r.price)||0, recur:r.recur||'annual', notes:r.notes||'', useMarket:!!r.use_market, done:!!r.done, inForecast:(r.in_forecast===false)?false:true };
+    if(/^Plan: /.test(e.desc) && /From (Herd|flock) Plan/i.test(e.notes)) e._hp = true;
+    return e; }
   /* Tables whose load dropped repeated copies: the caller saves once after the first
      load so the server loses them too, instead of waiting for the farmer's next edit. */
   load.healed = function(){ var o={}; Object.keys(_HEALED).forEach(function(k){ o[k]=_HEALED[k]; }); return o; };
@@ -2518,6 +2585,8 @@
     /* A family member / connected person: the one ETI condition the app cannot work out. */
     if(CAN_WKR_ETI){ row.eti_excluded=!!w.etiExcluded; }
     if(CAN_WKR_MED){ row.med_aid_people=Math.max(0,parseInt(w.medAidPeople,10)||0); row.sole_employer=!!w.soleEmployer; }
+    /* -485 (5a F11 / D12): the leaving date. A date column, so only a clean YYYY-MM-DD goes. */
+    if(CAN_WKR_END){ row.end_date=(/^\d{4}-\d{2}-\d{2}$/.test(String(w.end||'')))?String(w.end):null; }
     return row; }
   function wkrFromDb(r){ var w={ id:r.local_id, name:r.name||'', role:r.role||'', type:r.worker_type||'',
     start:r.start_date||'', onFarm:!!r.on_farm, idNo:r.id_no||'', basis:r.basis||'month',
@@ -2530,19 +2599,31 @@
     if(r.phone) w.phone=r.phone;
     if(r.payslip_whatsapp_ok){ w.waOk=true; if(r.payslip_whatsapp_on) w.waOn=r.payslip_whatsapp_on; }
     if(r.payslip_lang) w.slipLang=r.payslip_lang;
+    if(r.end_date) w.end=String(r.end_date).slice(0,10);
     if(r.leave_annual!=null||r.leave_sick!=null||r.leave_family!=null){ w.leave={annual:Number(r.leave_annual)||0,sick:Number(r.leave_sick)||0,family:(r.leave_family!=null)?Number(r.leave_family):3}; }
     if(r.housing_deduction!=null) w.housing={deduction:Number(r.housing_deduction)};
     if(r.adv_owing!=null||r.adv_per_pay!=null||r.adv_reason||r.adv_consent!=null){ w.adv={owing:Number(r.adv_owing)||0,perPay:Number(r.adv_per_pay)||0,reason:r.adv_reason||'',consent:!!r.adv_consent}; } else { w.adv=null; }
     if(r.fund_on!=null||r.fund_balance!=null||r.fund_per_pay!=null){ w.fund={on:!!r.fund_on,where:r.fund_where||'hold',scheme:r.fund_scheme||'',freq:r.fund_freq||'month',perPay:Number(r.fund_per_pay)||0,balance:Number(r.fund_balance)||0,consent:!!r.fund_consent}; } else { w.fund=null; }
     return w; }
-  function wkSettToDb(stw, fid){ var ct=stw.contractTemplate||{}; return { farm_id:fid,
+  function wkSettToDb(stw, fid){ var ct=stw.contractTemplate||{}; var o={ farm_id:fid,
     nmw_rate:(stw.nmwRate!=null)?Number(stw.nmwRate):null,
     hours_week:(stw.hoursWeek!=null)?parseInt(stw.hoursWeek,10):null,
     tax_threshold:(stw.taxThreshold!=null)?parseInt(stw.taxThreshold,10):null,
     sdl_registered:!!(stw.compliance&&stw.compliance.sdlRegistered),
     contract_brk:ct.brk||null, contract_days:ct.days||null, contract_payday:ct.payday||null,
-    contract_method:ct.method||null, contract_prob:ct.prob||null }; }   // contract_extra deferred (object map)
+    contract_method:ct.method||null, contract_prob:ct.prob||null };
+    /* -485 (5a C05): the contract builder's switches (overtime, 13th cheque, the conduct clauses ...)
+       as JSON, the same {rates, extra} shape the UK writes. SA keeps no per-worker contract rates, so
+       `rates` is only carried through when another device put some there. */
+    if(CAN_WKS_EXTRA) o.contract_extra=JSON.stringify({ rates:(stw.contractRates&&typeof stw.contractRates==='object')?stw.contractRates:{}, extra:(ct.extra&&typeof ct.extra==='object')?ct.extra:null });
+    return o; }
   function wkSettApply(stw, r){ if(!r) return;
+    if(r.contract_extra){
+      try{ var cx=(typeof r.contract_extra==='string')?JSON.parse(r.contract_extra):r.contract_extra;
+        if(cx && cx.rates && typeof cx.rates==='object' && Object.keys(cx.rates).length) stw.contractRates=cx.rates;
+        if(cx && cx.extra && typeof cx.extra==='object'){ stw.contractTemplate=stw.contractTemplate||{}; stw.contractTemplate.extra=cx.extra; }
+      }catch(e){}
+    }
     if(r.nmw_rate!=null) stw.nmwRate=Number(r.nmw_rate);
     if(r.hours_week!=null) stw.hoursWeek=Number(r.hours_week);
     if(r.tax_threshold!=null) stw.taxThreshold=Number(r.tax_threshold);
@@ -2556,7 +2637,12 @@
     function ensure(L,wid){ var k=L+'\u0000'+wid; var r=by[k]; if(!r){ r=by[k]={ farm_id:fid, period_label:L, worker_local_id:String(wid), paye:0, bonus:0, sunday:0, holiday:0, seasonal_days:0 }; } return r; }
     var P=stw.paye||{}; Object.keys(P).forEach(function(L){ var m=P[L]||{}; Object.keys(m).forEach(function(wid){ ensure(L,wid).paye=Number(m[wid])||0; }); });
     var B=stw.bonus||{}; Object.keys(B).forEach(function(L){ var m=B[L]||{}; Object.keys(m).forEach(function(wid){ ensure(L,wid).bonus=Number(m[wid])||0; }); });
-    var E=stw.extra||{}; Object.keys(E).forEach(function(L){ var m=E[L]||{}; Object.keys(m).forEach(function(wid){ var e=m[wid]||{}; var r=ensure(L,wid); r.sunday=Number(e.sun)||0; r.holiday=Number(e.ph)||0; }); });
+    var E=stw.extra||{}; Object.keys(E).forEach(function(L){ var m=E[L]||{}; Object.keys(m).forEach(function(wid){ var e=m[wid]||{}; var r=ensure(L,wid); r.sunday=Number(e.sun)||0; r.holiday=Number(e.ph)||0;
+      /* -485 (5a F11): a part-month day count the farmer changed; null = the month as worked out. */
+      if(CAN_PE_PARTDAYS) r.part_days=(e.days!=null && e.days!=='' && isFinite(Number(e.days))) ? Math.max(0, Math.round(Number(e.days))) : null; }); });
+    /* Every row carries the column once it exists, so a row without an override says null rather
+       than leaving another device's figure in place. */
+    if(CAN_PE_PARTDAYS) Object.keys(by).forEach(function(k){ if(!('part_days' in by[k])) by[k].part_days=null; });
     var S=stw.seasonal||{}; Object.keys(S).forEach(function(L){ var m=S[L]||{}; Object.keys(m).forEach(function(wid){ ensure(L,wid).seasonal_days=Number(m[wid])||0; }); });
     return Object.keys(by).map(function(k){ return by[k]; }); }
   function wkPayrollToMaps(rows){ var paye={},bonus={},extra={},seasonal={};
@@ -2564,6 +2650,7 @@
       if(r.paye){ (paye[L]=paye[L]||{})[wid]=Number(r.paye); }
       if(r.bonus){ (bonus[L]=bonus[L]||{})[wid]=Number(r.bonus); }
       if(r.sunday||r.holiday){ var e=(extra[L]=extra[L]||{})[wid]=(extra[L][wid]||{}); if(r.sunday)e.sun=Number(r.sunday); if(r.holiday)e.ph=Number(r.holiday); }
+      if(r.part_days!=null){ var e2=(extra[L]=extra[L]||{})[wid]=(extra[L][wid]||{}); e2.days=Number(r.part_days); }
       if(r.seasonal_days){ (seasonal[L]=seasonal[L]||{})[wid]=Number(r.seasonal_days); } });
     return { paye:paye, bonus:bonus, extra:extra, seasonal:seasonal }; }
   function payRunToDb(r, fid){ var row = { farm_id:fid, local_id:String(r.id), label:r.label||null, kind:r.kind||null, net:(r.net!=null)?Number(r.net):null, gross:(r.gross!=null)?Number(r.gross):null, uif:(r.uif!=null)?Number(r.uif):null, run_date:r.date||null, seasonal:!!r.seasonal };
@@ -2746,7 +2833,8 @@
     farm_address: 'farmAddr', paye_ref: 'payeRef', stock_mark: 'stockMark',
     stock_mark_type: 'stockMarkType', herd_mark: 'stockMark',
     bank_balance: 'bankBalance', bank_balance_at: 'bankBalanceAt',
-    season_start_month: 'seasonStartMonth', budget_expense_target: 'budgetExpenseTarget'
+    season_start_month: 'seasonStartMonth', budget_expense_target: 'budgetExpenseTarget',
+    uif_ref: 'uifRef', price_alerts: 'priceAlerts'
   };
   function _profAdopt(st, mine){
     var ack = _profAckGet();
@@ -2757,7 +2845,7 @@
       if(!key) return;                                  // rain, crop prices and the like live elsewhere
       var v = ack[col];
       if(v === undefined) return;
-      if(col === 'partners'){ try{ v = (typeof v === 'string') ? JSON.parse(v) : v; }catch(e){ return; } }
+      if(col === 'partners' || col === 'price_alerts'){ try{ v = (typeof v === 'string') ? JSON.parse(v) : v; }catch(e){ return; } }
       st[key] = v;
     });
     /* Settings may be on screen with the OLD value still in its inputs - and Save settings reads the
@@ -2853,10 +2941,42 @@
     if(r.crop_prices!=null)           p._cropPrices=r.crop_prices;
     if(r.crop_types!=null)            p._cropTypes=r.crop_types;
     if(r.plan_hedge!=null)            p._planHedge=r.plan_hedge;
+    /* -485 (5a F12): the employer's UIF reference, printed on payslips. */
+    if(r.uif_ref!=null)               p.uifRef=r.uif_ref;
+    /* -485 (B4-17): Market price alerts. The first load after the column exists also keeps the
+       alerts this device held on its own (set before they synced), once; the app then sends the
+       joined list with its next settings save. */
+    if(r.price_alerts!==undefined && CAN_FARM_ALERTS){
+      var _pa = r.price_alerts;
+      try{ if(typeof _pa === 'string') _pa = JSON.parse(_pa); }catch(e){ _pa = null; }
+      var _srvA = Array.isArray(_pa) ? _pa.slice() : [];
+      if(_migOnce('alerts')){
+        var _locA = (global.ST && Array.isArray(global.ST.priceAlerts)) ? global.ST.priceAlerts : [];
+        var _ak = function(a){ return [a && a.commodity, a && a.direction, Number(a && a.price)].join('|'); };
+        var _n0 = _srvA.length;
+        _locA.forEach(function(a){ if(a && !_srvA.some(function(b){ return _ak(b) === _ak(a); })) _srvA.push(a); });
+        if(_srvA.length > _n0) _migNote('alerts', _srvA.length - _n0);
+      }
+      p.priceAlerts = _srvA;
+    }
+    /* -485 (5a note): the accepted notice version, read back so a second device (or a cleared
+       cache) is not asked to accept again what the farm already accepted. The marketing opt-in
+       rides with it once its columns exist; until then this device's own answer is kept. */
+    if(r.consent_version){
+      var _lc = (global.ST && global.ST.consent) || null;
+      p.consent = { policyVersion:String(r.consent_version), acceptedAt:r.consent_accepted_at||null,
+                    marketing: (r.marketing_optin!==undefined) ? !!r.marketing_optin : !!(_lc && _lc.marketing),
+                    marketingAt: (r.marketing_optin!==undefined) ? (r.marketing_optin ? (r.marketing_optin_at||null) : null) : ((_lc && _lc.marketingAt) || null) };
+      /* A "yes" given before the columns existed lived only on this device; the new column starts
+         at false with no date. Kept once (the settings save then sends it), never over a dated answer. */
+      if(r.marketing_optin===false && !r.marketing_optin_at && _lc && _lc.marketing && CAN_FARM_MKT && _migOnce('marketing')){
+        p.consent.marketing = true; p.consent.marketingAt = _lc.marketingAt || null; _migNote('marketing', 1);
+      }
+    }
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_STOCK?'stock_counts,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+(CAN_FARM_VAT_EFP?'vat_efiling_pay,':'')+(CAN_FARM_PARTNERS?'partners,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref,updated_at').eq('id',farmId).single();
+    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_STOCK?'stock_counts,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+(CAN_FARM_VAT_EFP?'vat_efiling_pay,':'')+(CAN_FARM_PARTNERS?'partners,':'')+(CAN_FARM_CONSENT?'consent_version,consent_accepted_at,':'')+(CAN_FARM_MKT?'marketing_optin,marketing_optin_at,':'')+(CAN_FARM_UIFREF?'uif_ref,':'')+(CAN_FARM_ALERTS?'price_alerts,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref,updated_at').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -2899,6 +3019,18 @@
         cons.consent_version    = st.consent.policyVersion;
         cons.consent_accepted_at= st.consent.acceptedAt || new Date().toISOString();
       }
+      /* -485 (5a C11): the news-and-offers opt-in is its own answer (POPIA s69), kept with the
+         consent record. Sent only from a device that holds a consent record, so a device that
+         never asked cannot switch another device's "yes" off. */
+      if(CAN_FARM_MKT && st.consent && st.consent.policyVersion){
+        cons.marketing_optin    = !!st.consent.marketing;
+        cons.marketing_optin_at = st.consent.marketing ? (st.consent.marketingAt || null) : null;
+      }
+      /* -485: the employer's UIF reference and the Market price alerts. Own statement, own gate,
+         on the same rule as every other optional column. */
+      var fu={};
+      if(CAN_FARM_UIFREF && st.uifRef!=null) fu.uif_ref = String(st.uifRef).trim() || null;
+      if(CAN_FARM_ALERTS && Array.isArray(st.priceAlerts)) fu.price_alerts = st.priceAlerts;
       /* The seven that used to live only in localStorage. Read from their own globals
          rather than from st, because only the three scalars are on ST — crop prices,
          crop types, forward selling and the lender-pack inputs belong to ST_CROP,
@@ -3007,7 +3139,7 @@
          load. */
       var stockc={};
       if(CAN_FARM_STOCK && st.stockCounts && typeof st.stockCounts==='object') stockc.stock_counts=st.stockCounts;
-      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink,p:rainr,d:raind,t:stockc}); if(snap===_profSnap) return;
+      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink,p:rainr,d:raind,t:stockc,f:fu}); if(snap===_profSnap) return;
       /* Only what differs from the row the server last confirmed. */
       var groups = [
         { all: core,  fatal: true },
@@ -3016,7 +3148,8 @@
         { all: cons,  warn: 'Profile: POPIA consent not recorded \u2014 run the consent migration in Supabase.' },
         { all: rainr, warn: 'Profile: planting rule / satellite fill not saved \u2014 run rainfall_farm_settings.sql.' },
         { all: raind, warn: 'Profile: derived rain values (frost / season / veld) not saved \u2014 run rain_derived_migration.sql.' },
-        { all: stockc, warn: 'Profile: year-end stock count not saved \u2014 run stock_counts_migration.sql.' },
+        { all: stockc, warn: 'Profile: year-end stock count not saved — run stock_counts_migration.sql.' },
+        { all: fu,    warn: 'Profile: UIF reference / price alerts not saved — run pilot_followup_columns_sa.sql.' },
         { all: raink, warn: 'Profile: rain-book gaps not saved \u2014 run rainfall_not_kept.sql.' },
         { all: rainc, warn: 'Profile: rainfall location not saved \u2014 run rainfall_schema.sql.' }
       ];
