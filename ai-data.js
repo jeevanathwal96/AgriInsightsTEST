@@ -421,6 +421,8 @@
   let CAN_HOME_MONEY  = false;   /* farms.home_money - sa-home-money.sql (SA -469): Home's profit, for the phone */   /* farms.tax_plan - sa-tax-plan.sql (SA -463): the Tax home's figures, for the phone */
   let CAN_DEVICES       = false;   // farm_devices: "whose phone is this?"
   let CAN_ORCH_PARTS    = false;   // orchard_sprays: rate/batch/operator_cert/weather
+  let CAN_ORCH_PARTS2   = false;   // -487 SF-14: orchard_sprays.water_l_ha + equipment + active_ingredient (b6b_columns_sa.sql)
+  let CAN_HARV_PAY      = false;   // -487: orchard_harvest.payment (jsonb) - a pick's payment and the bank line it is matched to
   let CAN_INPUT_WEATHER = false;   // crop_inputs.weather
   /* Correcting and removing a spray or input (spray_corrections.sql, signed off 23 Sep).
      One flag a table: the script alters each table in its own statement, so a half-run
@@ -536,7 +538,8 @@
     ['workers','payslip_whatsapp_ok'], ['farm_devices','kind'], ['workers','eti_excluded'], ['workers','med_aid_people'], ['farms','budget_cat_targets'], ['farms','prov_paid'], ['farms','budget_locked'], ['farms','tax_paid'], ['farms','tax_plan'], ['farms','home_money'],
     ['workers','end_date'], ['payroll_entries','part_days'], ['orchard_blocks','spacing'], ['farms','price_alerts'],
     ['worker_settings','contract_extra'], ['farms','marketing_optin'], ['farms','marketing_optin_at'], ['farms','uif_ref'],
-    ['crop_inputs','water_l_ha'], ['crop_inputs','equipment'], ['crop_inputs','active_ingredient']
+    ['crop_inputs','water_l_ha'], ['crop_inputs','equipment'], ['crop_inputs','active_ingredient'],
+    ['orchard_sprays','water_l_ha'], ['orchard_sprays','equipment'], ['orchard_sprays','active_ingredient'], ['orchard_harvest','payment']
   ];
 
   async function probeCaps(farmId){
@@ -621,6 +624,10 @@
     CAN_FARM_UIFREF    = keep(CAN_FARM_UIFREF,   'farms','uif_ref');
     if(('crop_inputs.water_l_ha' in _colCache) && ('crop_inputs.equipment' in _colCache) && ('crop_inputs.active_ingredient' in _colCache))
       CAN_INPUT_PARTS  = has('crop_inputs','water_l_ha') && has('crop_inputs','equipment') && has('crop_inputs','active_ingredient');
+    /* -487: the orchard spray particulars (three together) and a pick's payment link. */
+    if(('orchard_sprays.water_l_ha' in _colCache) && ('orchard_sprays.equipment' in _colCache) && ('orchard_sprays.active_ingredient' in _colCache))
+      CAN_ORCH_PARTS2  = has('orchard_sprays','water_l_ha') && has('orchard_sprays','equipment') && has('orchard_sprays','active_ingredient');
+    CAN_HARV_PAY       = keep(CAN_HARV_PAY,      'orchard_harvest','payment');
   }
   /* A harness needs to drive a second load and a bad line; the app never calls these. */
   probeCaps.reset = function(){ _colCache = Object.create(null); _colRpcDead = false; };
@@ -2321,10 +2328,17 @@
       row.rate = s.rate || null; row.batch = s.batch || null;
       row.operator_cert = s.cert || null; row.weather = s.weather || null;
     }
+    /* -487 SF-14: the water volume, the equipment and the active ingredient (as crop_inputs since -485). */
+    if(CAN_ORCH_PARTS2){
+      var _owl = (s.water!=null && s.water!=='') ? Number(String(s.water).replace(',','.')) : null;
+      row.water_l_ha = (_owl!=null && isFinite(_owl)) ? _owl : null;
+      row.equipment = s.equipment || null; row.active_ingredient = s.active || null;
+    }
     if(CAN_ORCH_FIX) _fixCols(row, s);
     return row; }
   function osFromDb(r){ return { id:r.local_id, ic:r.icon||'\uD83E\uDDEA', t:r.title||'', s:r.sub||'', phi:{eu:Number(r.phi_eu)||0,uk:Number(r.phi_uk)||0,us:Number(r.phi_us)||0,local:Number(r.phi_local)||0}, bid:r.block_local_id||'', product:r.product||'', reg:r.reg||'', forx:r.target_for||'', by:r.applied_by||'', dateISO:r.spray_date||'', cropcat:r.cropcat||'', att:r.att||undefined,
     rate:r.rate||'', batch:r.batch||'', cert:r.operator_cert||'', weather:r.weather||'',
+    water:(r.water_l_ha!=null)?Number(r.water_l_ha):'', equipment:r.equipment||'', active:r.active_ingredient||'',
     removed:r.removed_at?{at:r.removed_at, reason:r.removed_reason||'', by:r.removed_by||''}:undefined,
     changes:(Array.isArray(r.changes)&&r.changes.length)?r.changes:undefined }; }
   function ohToDb(h,fid){ var row = { farm_id:fid, local_id:String(h.id), cropcat:h.cat||null, block_local_id:(h.bid!=null&&h.bid!=='')?String(h.bid):null, bins:_n(h.bins), tons:_n(h.tons!=null?h.tons:h.tn), cartons:_n(h.cartons), top_grade_pct:_n(h.grade), sold_to:h.to||null, amount:_n(h.money), pick_date:h.dateISO||null, title:h.t||null, sub:h.s||null, revenue:h.r||null, icon:h.ic||null };
@@ -2332,8 +2346,16 @@
        Storage; without this the pointer died here and the file was orphaned. */
     if(CAN_ORCH_ATT) row.att = h.att || null;
     if(CAN_HARV_FIX) _fixCols(row, h);
+    /* -487: the pick's payment - paid or not, when, how much, and WHICH bank line (paidKey) it is matched to, so
+       another device never offers that bank line for a second pick. It lived on one device only. */
+    if(CAN_HARV_PAY) row.payment = _ohPay(h);
     return row; }
-  function ohFromDb(r){ return _fixRead({ id:r.local_id, ic:r.icon||'\uD83C\uDF4A', t:r.title||'', s:r.sub||'', r:r.revenue||'\u2014', cat:r.cropcat||'', bid:r.block_local_id||'', tn:Number(r.tons)||0, tons:Number(r.tons)||0, cartons:Number(r.cartons)||0, to:r.sold_to||'', money:Number(r.amount)||0, dateISO:r.pick_date||'', att:r.att||undefined }, r); }
+  function _ohPay(h){ if(!h || (h.paid==null && !h.paidKey && !h.remitBatch)) return null;
+    return { paid:(h.paid==null)?null:!!h.paid, on:h.paidISO||null, amt:(h.paidAmt!=null&&h.paidAmt!=='')?Number(h.paidAmt):null, key:h.paidKey||null, by:h.paidBy||null, batch:h.paidBatch||null, remit:h.remitBatch||null }; }
+  function _ohPayRead(h, p){ if(!p || typeof p!=='object') return h;
+    if(p.paid!=null) h.paid=!!p.paid; if(p.on) h.paidISO=p.on; if(p.amt!=null) h.paidAmt=Number(p.amt); if(p.key) h.paidKey=p.key;
+    if(p.by) h.paidBy=p.by; if(p.batch) h.paidBatch=p.batch; if(p.remit) h.remitBatch=p.remit; return h; }
+  function ohFromDb(r){ return _ohPayRead(_fixRead({ id:r.local_id, ic:r.icon||'\uD83C\uDF4A', t:r.title||'', s:r.sub||'', r:r.revenue||'\u2014', cat:r.cropcat||'', bid:r.block_local_id||'', tn:Number(r.tons)||0, tons:Number(r.tons)||0, cartons:Number(r.cartons)||0, to:r.sold_to||'', money:Number(r.amount)||0, dateISO:r.pick_date||'', att:r.att||undefined }, r), r.payment); }
 
   load.orchard = async function(farmId){
     farmId = farmId || farm.active();
@@ -2378,6 +2400,22 @@
        and every other reader of sprayDiary are right without knowing removal exists. */
     var sprayDiary={}, removedSprays=[]; (sp.data||[]).forEach(function(r){ var s=osFromDb(r); if(r.removed_at){ removedSprays.push(s); return; } (sprayDiary[s.cropcat]=sprayDiary[s.cropcat]||[]).push(s); });
     var harvest=[], removedHarvest=[]; (hv.data||[]).forEach(function(r){ (r.removed_at?removedHarvest:harvest).push(ohFromDb(r)); });
+    /* -487: a pick's payment and an orchard spray's particulars kept on this device before their columns existed are
+       carried onto the server's copy of the same row once, then sent by the app's next orchard save. */
+    if(CAN_HARV_PAY && _migOnce('pickpay')){
+      var _locH = (global.ST_FRUIT && Array.isArray(global.ST_FRUIT.harvest)) ? global.ST_FRUIT.harvest : [], _cH = 0;
+      harvest.forEach(function(h){ if(h.paidKey || h.paidISO) return;
+        var lh = _locH.filter(function(x){ return x && String(x.id) === String(h.id); })[0];
+        if(lh && (lh.paidKey || lh.paidISO || lh.paid!=null)){ ['paid','paidISO','paidAmt','paidKey','paidBy','paidBatch','remitBatch'].forEach(function(k){ if(lh[k]!=null) h[k]=lh[k]; }); _cH++; } });
+      if(_cH) _migNote('pickpay', _cH);
+    }
+    if(CAN_ORCH_PARTS2 && _migOnce('orchsprayparts')){
+      var _locS = (global.ST_FRUIT && global.ST_FRUIT.sprayDiary) || {}, _byId = {}, _cS = 0;
+      Object.keys(_locS).forEach(function(c){ (_locS[c]||[]).forEach(function(x){ if(x && x.id) _byId[String(x.id)] = x; }); });
+      Object.keys(sprayDiary).forEach(function(c){ (sprayDiary[c]||[]).forEach(function(s){ var lx=_byId[String(s.id)]; if(!lx) return;
+        var any=false; ['water','equipment','active'].forEach(function(k){ if((s[k]==null||s[k]==='') && lx[k]!=null && lx[k]!==''){ s[k]=lx[k]; any=true; } }); if(any) _cS++; }); });
+      if(_cS) _migNote('orchsprayparts', _cS);
+    }
     // compliance: per-key user fields + children, to overlay onto app defaults in ai-auth
     var cDocs={}, cChecks={}, cReads={};
     (cd.data||[]).forEach(function(d){ (cDocs[d.item_key]=cDocs[d.item_key]||[]).push({name:d.name||'',kind:d.kind||'',added:d.added||'',id:d.local_id||undefined,path:d.path||undefined}); });
