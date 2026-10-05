@@ -422,6 +422,7 @@
   let CAN_DEVICES       = false;   // farm_devices: "whose phone is this?"
   let CAN_ORCH_PARTS    = false;   // orchard_sprays: rate/batch/operator_cert/weather
   let CAN_ORCH_PARTS2   = false;   // -487 SF-14: orchard_sprays.water_l_ha + equipment + active_ingredient (b6b_columns_sa.sql)
+  let CAN_ASSET_TAXFACTS = false;   // -488: assets.tax_facts (jsonb) - the facts a building or solar plant's tax rule turns on
   let CAN_HARV_PAY      = false;   // -487: orchard_harvest.payment (jsonb) - a pick's payment and the bank line it is matched to
   let CAN_INPUT_WEATHER = false;   // crop_inputs.weather
   /* Correcting and removing a spray or input (spray_corrections.sql, signed off 23 Sep).
@@ -539,7 +540,8 @@
     ['workers','end_date'], ['payroll_entries','part_days'], ['orchard_blocks','spacing'], ['farms','price_alerts'],
     ['worker_settings','contract_extra'], ['farms','marketing_optin'], ['farms','marketing_optin_at'], ['farms','uif_ref'],
     ['crop_inputs','water_l_ha'], ['crop_inputs','equipment'], ['crop_inputs','active_ingredient'],
-    ['orchard_sprays','water_l_ha'], ['orchard_sprays','equipment'], ['orchard_sprays','active_ingredient'], ['orchard_harvest','payment']
+    ['orchard_sprays','water_l_ha'], ['orchard_sprays','equipment'], ['orchard_sprays','active_ingredient'], ['orchard_harvest','payment'],
+    ['assets','tax_facts']
   ];
 
   async function probeCaps(farmId){
@@ -628,6 +630,7 @@
     if(('orchard_sprays.water_l_ha' in _colCache) && ('orchard_sprays.equipment' in _colCache) && ('orchard_sprays.active_ingredient' in _colCache))
       CAN_ORCH_PARTS2  = has('orchard_sprays','water_l_ha') && has('orchard_sprays','equipment') && has('orchard_sprays','active_ingredient');
     CAN_HARV_PAY       = keep(CAN_HARV_PAY,      'orchard_harvest','payment');
+    CAN_ASSET_TAXFACTS = keep(CAN_ASSET_TAXFACTS, 'assets','tax_facts');
   }
   /* A harness needs to drive a second load and a bad line; the app never calls these. */
   probeCaps.reset = function(){ _colCache = Object.create(null); _colRpcDead = false; };
@@ -1433,6 +1436,10 @@
   };
 
   // ---- ASSETS --------------------------------------------------------------
+  /* -488: the facts the building and solar rules turn on, one jsonb (assets.tax_facts). */
+  var _TF_KEYS = ['s13Units','s13SelfCont','s13LowCost','s13Solely','renewKind','renewNew','renewBatt'];
+  function _assetTaxFacts(a){ var o={}, any=false; _TF_KEYS.forEach(function(k){ if(a[k]!=null && a[k]!==''){ o[k]=a[k]; any=true; } }); return any ? o : null; }
+  function _assetTaxFactsRead(a, o){ _TF_KEYS.forEach(function(k){ if(o[k]!=null) a[k]=o[k]; }); }
   function assetToDb(a) {
     const row = {
       /* The device's own number for this asset, written down so it survives the round
@@ -1462,6 +1469,8 @@
     /* Written even when the asset is NOT disposed — the nulls are what clear a disposal
        the farmer has undone. Sending them only when set would leave a sale recorded on
        every other device forever. */
+    /* -488 (tax research): worker housing (s13sex) and solar (s12BA / s12B) facts. Written null when there are none. */
+    if (CAN_ASSET_TAXFACTS) row.tax_facts = _assetTaxFacts(a);
     if (CAN_ASSET_DISPOSAL) {
       row.disposal_date     = a.disposalDate || null;
       row.disposal_proceeds = (a.disposalProceeds != null && a.disposalProceeds !== '') ? Number(a.disposalProceeds) : null;
@@ -1482,6 +1491,7 @@
     if (r.insurer) a.insurer = r.insurer;
     if (r.renewal_date) a.renewalDate = r.renewal_date;
     if (r.no_payment === true) a._noPayment = true;      // only when true, as above
+    if (r.tax_facts && typeof r.tax_facts === 'object') _assetTaxFactsRead(a, r.tax_facts);   /* -488 */
     if (r.disposal_date) {
       a.disposalDate     = r.disposal_date;
       a.disposalProceeds = Number(r.disposal_proceeds) || 0;
