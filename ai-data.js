@@ -755,7 +755,12 @@
     return rows;
   }
   /* Sign-out, or a switch to another farm. Another farm's rows are not ours. */
-  function _srvForget(){ _SRV=Object.create(null); }
+  function _srvForget(){ _SRV=Object.create(null); _BGT_SEEN=null; }
+  /* -489 F10: the budget as the server holds it - loaded with financeCore, moved on by every budget write that lands.
+     budget.save sends only what differs from it: a burst of edits used to upsert every month row and update the farm
+     row 2-4 times, once per keystroke. null = never loaded on this device (everything is sent, as before). */
+  var _BGT_SEEN = null;
+  function _bgtRowKey(y, m, side){ return y + '|' + m + '|' + side; }
 
   /* Server bookkeeping, not content - never part of the changed/unchanged test. */
   var _SRV_SKIP={ updated_at:1, created_at:1, id:1 };
@@ -1197,6 +1202,17 @@
         if (r.side === 'income') bObj.monthlyIncome[lbl] = Number(r.amount);
         else bObj.monthlyExpenses[lbl] = Number(r.amount);
       });
+      /* -489 F10: what the server holds now */
+      try {
+        var _sr = {}; (bud.data || []).forEach(function (r) { _sr[_bgtRowKey(r.period_year, r.period_month, r.side)] = Number(r.amount) || 0; });
+        var _fd = fst.data || {};
+        _BGT_SEEN = { rows: _sr, farm: {
+          pat: JSON.stringify([_fd.budget_income_pattern || null, _fd.budget_expense_pattern || null, _fd.budget_current_month || null]),
+          cat: CAN_BUDGET_CATTGT ? JSON.stringify(_js(_fd.budget_cat_targets)) : undefined,
+          prov: CAN_PROV_PAID ? JSON.stringify(_js(_fd.prov_paid)) : undefined,
+          lock: CAN_BUDGET_LOCK ? JSON.stringify(_js(_fd.budget_locked)) : undefined,
+          tax: CAN_TAX_PAID ? JSON.stringify(_js(_fd.tax_paid)) : undefined } };
+      } catch (e) { _BGT_SEEN = null; }
 
       return {
         accounts:   acc.data || [],
@@ -1337,10 +1353,19 @@
         var ym = labelToYM(lbl);
         if (ym.month && ym.year) rows.push({ farm_id: fid, period_year: ym.year, period_month: ym.month, side: 'expense', amount: Number(b.monthlyExpenses[lbl]) || 0 });
       });
-      if (rows.length) {
-        var r1 = await client().from('budget_months').upsert(rows, { onConflict: 'farm_id,period_year,period_month,side' });
+      /* -489 F10: only the rows that differ from the server's copy (all of them when it was never loaded here). */
+      var seen = _BGT_SEEN || (_BGT_SEEN = { rows: {}, farm: {}, fresh: true });
+      var _same = function (a, b) { return a != null && b != null && Math.abs(Number(a) - Number(b)) < 0.005; };
+      var send = rows.filter(function (r) { return !_same(seen.rows[_bgtRowKey(r.period_year, r.period_month, r.side)], r.amount); });
+      budget._last = { rows: send.length, of: rows.length, farm: [] };   /* read by the harness */
+      if (send.length) {
+        var r1 = await client().from('budget_months').upsert(send, { onConflict: 'farm_id,period_year,period_month,side' });
         if (r1.error) throw r1.error;
+        send.forEach(function (r) { seen.rows[_bgtRowKey(r.period_year, r.period_month, r.side)] = r.amount; });
       }
+      var _f = seen.farm, _j = function (v) { try { return JSON.stringify(v == null ? null : v); } catch (e) { return null; } };
+      var _pat = JSON.stringify([b.incomePattern || null, b.expensePattern || null, b.currentMonth || null]);
+      if (_f.pat === _pat) return _bgtRest(b, fid, seen);
       /* This write moves the farm row's version, which is what every Settings save
          carries to prove it is not stale (-406). Live-tested 16 Sep 2026: writing the
          same three values back still moved it, in both apps. So read the new version
@@ -1352,34 +1377,48 @@
         budget_current_month: b.currentMonth || null
       }).eq('id', fid).select('budget_income_pattern,budget_expense_pattern,budget_current_month,updated_at');
       if (r2.error) throw r2.error;
+      _f.pat = _pat; budget._last.farm.push('patterns');
       try { if ((r2.data || []).length) _profNoteAck(r2.data[0]); } catch (e) {}
+      return _bgtRest(b, fid, seen);
+    }
+  };
+  /* -489 F10: the farm-row columns the budget carries, each in its own statement behind its own probe (as before), and
+     each only when it differs from the server's copy. */
+  async function _bgtRest(b, fid, seen) {
+      var _f = seen.farm, _j = function (v) { try { return JSON.stringify(v == null ? null : v); } catch (e) { return null; } };
+      var _last = budget._last || (budget._last = { farm: [] });
+      {
       /* Own statements behind own probes: a database without the columns yet still saves
          the month figures rather than losing the whole budget to one missing field. */
-      if (CAN_BUDGET_CATTGT && b.catTargets) {
+      if (CAN_BUDGET_CATTGT && b.catTargets && _f.cat !== _j(b.catTargets)) {
         var r3 = await client().from('farms').update({ budget_cat_targets: b.catTargets }).eq('id', fid).select('budget_cat_targets,updated_at');
         try { if (!r3.error && (r3.data || []).length) _profNoteAck(r3.data[0]); } catch (e) {}
         if (r3.error) console.warn('Budgets: category targets not saved - add farms.budget_cat_targets. (' + (r3.error.message || r3.error) + ')');
+        else { _f.cat = _j(b.catTargets); _last.farm.push('cat'); }
       }
-      if (CAN_PROV_PAID && global.ST && global.ST.provPaid && typeof global.ST.provPaid === 'object') {
+      if (CAN_PROV_PAID && global.ST && global.ST.provPaid && typeof global.ST.provPaid === 'object' && _f.prov !== _j(global.ST.provPaid)) {
         var r4 = await client().from('farms').update({ prov_paid: global.ST.provPaid }).eq('id', fid).select('prov_paid,updated_at');
         try { if (!r4.error && (r4.data || []).length) _profNoteAck(r4.data[0]); } catch (e) {}
         if (r4.error) console.warn('Budgets: provisional payment not saved - add farms.prov_paid. (' + (r4.error.message || r4.error) + ')');
+        else { _f.prov = _j(global.ST.provPaid); _last.farm.push('prov'); }
       }
       /* -451 D1: which financial years are locked as the bank copy. */
-      if (CAN_BUDGET_LOCK && b.locked && typeof b.locked === 'object') {
+      if (CAN_BUDGET_LOCK && b.locked && typeof b.locked === 'object' && _f.lock !== _j(b.locked)) {
         var r5 = await client().from('farms').update({ budget_locked: b.locked }).eq('id', fid).select('budget_locked,updated_at');
         try { if (!r5.error && (r5.data || []).length) _profNoteAck(r5.data[0]); } catch (e) {}
         if (r5.error) console.warn('Budgets: lock not saved - add farms.budget_locked. (' + (r5.error.message || r5.error) + ')');
+        else { _f.lock = _j(b.locked); _last.farm.push('lock'); }
       }
       /* -457: the SARS payments the farmer has marked paid on the Tax home. */
-      if (CAN_TAX_PAID && global.ST && global.ST.taxPaid && typeof global.ST.taxPaid === 'object') {
+      if (CAN_TAX_PAID && global.ST && global.ST.taxPaid && typeof global.ST.taxPaid === 'object' && _f.tax !== _j(global.ST.taxPaid)) {
         var r6 = await client().from('farms').update({ tax_paid: global.ST.taxPaid }).eq('id', fid).select('tax_paid,updated_at');
         try { if (!r6.error && (r6.data || []).length) _profNoteAck(r6.data[0]); } catch (e) {}
         if (r6.error) console.warn('Tax: payments marked paid not saved - add farms.tax_paid. (' + (r6.error.message || r6.error) + ')');
+        else { _f.tax = _j(global.ST.taxPaid); _last.farm.push('tax'); }
       }
       return true;
-    }
-  };
+      }
+  }
   const recurring = {
     /* The bill keeps the name this device gave it (it was minted and then thrown away),
        so sending it again after a failure updates that row instead of adding a second
@@ -3542,7 +3581,7 @@
     if(farm.active()){
       var u = _unsentRead();
       if(opId) u.ops = u.ops.filter(function(x){ return x.id !== opId; });
-      else if(L.running === 0 && L.waiting === 0) delete u.areas[area];
+      else if(L.running === 0 && L.waiting === 0 && !L.soon) delete u.areas[area];   /* -489 F10: nor while a debounced save is still to start */
       _unsentWrite(u);
       var opsLeft = u.ops.some(function(x){ return x.area === area; });
       if(L.err && !L.external && (opId ? (L.err.op === 'remove' && !opsLeft) : L.err.op === 'save')) _syncClear(L);
@@ -3658,6 +3697,32 @@
      only ever leave one row. Budgets save the whole object, like the other saveAll lanes.
      Health records join the livestock lane, whose load is already guarded. */
   _syncWrap('budget',    'budget',    budget,      'save');
+  /* -489 F10: a burst of budget edits is ONE save. The area is marked unsent at once (so an edit made just before the app
+     closes is sent by the next open, and the next load keeps it - ai-auth.js), the save goes through the budget lane
+     after BGT_SOON_MS of quiet, and a save already waiting in the lane for its turn takes the later edits with it (it
+     reads the live budget when it starts) - saves stay in order, one after another, and never pile up. */
+  var BGT_SOON_MS = 400, _BS = { t: null, pend: null, res: [] };
+  function _bgtFire(){
+    _BS.t = null; var L = _laneOf('budget'); L.soon = Math.max(0, (L.soon || 0) - 1);
+    var waiters = _BS.res.splice(0), p = _BS.pend;
+    if(!p){
+      p = _queue('budget', function(){ _BS.pend = null; return _syncRawCall('budget.save', budget, [global.ST && global.ST.budgets]); });
+      _BS.pend = p;
+      p.then(function(){ if(_BS.pend === p) _BS.pend = null; }, function(){ if(_BS.pend === p) _BS.pend = null; });
+    }
+    waiters.forEach(function(w){ p.then(w[0], w[1]); });
+  }
+  budget.saveSoon = function(){
+    if(!farm.active() || !(global.ST && global.ST.budgets)) return Promise.resolve(true);
+    var L = _laneOf('budget');
+    try{ var u = _unsentRead(); if(!u.areas.budget){ u.areas.budget = true; _unsentWrite(u); } }catch(e){}
+    if(!_BS.t) L.soon = (L.soon || 0) + 1;
+    clearTimeout(_BS.t);
+    _syncEmit();
+    return new Promise(function(res, rej){ _BS.res.push([res, rej]); _BS.t = setTimeout(_bgtFire, BGT_SOON_MS); });
+  };
+  budget.flushSoon = function(){ if(_BS.t){ clearTimeout(_BS.t); _bgtFire(); } };
+  try{ global.addEventListener('pagehide', function(){ budget.flushSoon(); }); }catch(e){}
   _syncWrap('assets',    'asset',     asset,       'add',    true);
   _syncWrap('assets',    'asset',     asset,       'update', true);
   _syncWrap('assets',    'asset',     asset,       'remove', true);

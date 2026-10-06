@@ -31,8 +31,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 <!-- AgriInsights backend: Supabase client + data service (load order matters) -->
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=79"></script>
-<script src="ai-auth.js?v=53"></script>
+<script src="ai-data.js?v=80"></script>
+<script src="ai-auth.js?v=54"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -18084,7 +18084,13 @@ window._sdot=_sdot;
 /* A transaction with no category (common after a bank import) used to be grouped under the
    object key "null", which then rendered as a breakdown row literally labelled "null" —
    R44 971 of real money on one test account. Group under a readable label instead. */
-function _catOf(t){ var c = t && t.cat; return (c === null || c === undefined || c === '') ? 'Uncategorised' : c; }
+/* -489 F7: ONE key for a line's category, everywhere money is added up by category: a line with no category is
+   'Uncategorised' (it was 'Other' on Budgets, 'Uncategorised' here and '' / undefined in the profit and budget
+   engines - three keys for one rand, so the totals by category never matched the Budgets page); any other name
+   is its one canonical spelling (normalizeCat). */
+var TX_UNCAT = 'Uncategorised';
+function txCatKey(t){ var c = (t && typeof t === 'object') ? t.cat : t; if (c === null || c === undefined || String(c).trim() === '') return TX_UNCAT; try { if (typeof normalizeCat === 'function') return normalizeCat(c); } catch(e){} return c; }
+function _catOf(t){ return txCatKey(t); }
 window._catOf = _catOf;
 /* fmt() carries the sign: _grpInt stays absolute (34 callers deliberately pass Math.abs and
    render direction themselves), so only the raw-value callers gain the minus they were losing.
@@ -20930,13 +20936,21 @@ function setExpPeriod(p) {
 // re-render naturally when the user navigates to them — nav() already handles
 // that via its switch statement.
 // ============================================================
+/* -489 F10: the one way a budget change goes to the server - debounced and merged in the budget lane (AI.budget.saveSoon:
+   marked unsent at once, one save per burst, only the rows that changed). */
+function bgtQueueSave(){
+  try { if (window.AI && AI.farm && AI.farm.active() && AI.budget && typeof ST !== 'undefined' && ST.budgets) {
+    var p = AI.budget.saveSoon ? AI.budget.saveSoon() : AI.budget.save(ST.budgets);
+    if (p && p.catch) p.catch(function(e){ console.error('Backend budget save failed:', e); });
+    return p;
+  } } catch (e) {}
+  return null;
+}
 function dataChanged(event) {
   try { if (typeof taxPlanQueue === 'function') taxPlanQueue(); } catch (e) {}   /* -463: the phone's tax figures */
   try { if (typeof homeMoneyQueue === 'function') homeMoneyQueue(); } catch (e) {}   /* -469: the phone's Home profit */
   // Backend sync: all budget edits funnel through dataChanged('budget')
-  if (event === 'budget') {
-    try { if (window.AI && AI.farm && AI.farm.active()) { AI.budget.save(ST.budgets).catch(function(e){ console.error('Backend budget save failed:', e); }); } } catch (e) {}
-  }
+  if (event === 'budget') bgtQueueSave();   /* -489 F10: one save per burst of edits, through the budget lane */
   // Identify the currently visible page
   var pg     = document.querySelector('.pg.on');
   var pageId = pg ? pg.id.replace('pg-', '') : '';
@@ -21631,8 +21645,30 @@ function _catMergeTarget(cat, type){
   var m = CAT_MERGES[cat]; if (!m) return null;
   return (type === 'income' && m.income) ? m.income : m.to;
 }
+/* -489 F8: a budget target follows its category when the category is merged or respelled - a target on 'Veterinary',
+   'Admin' or 'Other' was left on a name no line carries any more, so it judged nothing and its money was lost from
+   the category it went to. Added to the target already there. The figures do not change, only the name they sit
+   under, so a year locked for the bank is moved too (its totals stay exactly the bank's). */
+function migrateCatTargets(){
+  var n = 0;
+  try{
+    var ct = (typeof ST !== 'undefined' && ST.budgets) ? ST.budgets.catTargets : null; if (!ct || typeof ct !== 'object') return 0;
+    ['income','expense'].forEach(function(side){
+      var o = ct[side]; if (!o || typeof o !== 'object') return;
+      Object.keys(o).forEach(function(k){
+        var to = _catMergeTarget(k, side) || normalizeCat(k);
+        if (!to || to === k) return;
+        var v = +o[k] || 0; delete o[k];
+        o[to] = Math.round(((+o[to]) || 0) + v); n++;
+      });
+    });
+  }catch(e){}
+  if (n){ try{ saveState && saveState(); }catch(e){} try{ if (typeof bgtQueueSave === 'function') bgtQueueSave(); }catch(e){} }
+  return n;
+}
 function migrateCatMerges(){
   var n = 0;
+  try{ migrateCatTargets(); }catch(e){}   /* -489 F8 */
   try{
     (ST.txns || []).forEach(function(t){
       if (!t || t._premerge) return;
@@ -22264,6 +22300,18 @@ var FRESH_CONFIG = {
   ST_FUEL:    [],
   ST_RAIN:    ['mode','rule','fillFromSat']
 };
+/* -489 F5: the budget object is a frame with records in it. RECORDS go back to the value given here (null = the key
+   goes); SETTINGS stay. freshResidue() reports a budget key in neither list, so the next key added cannot survive a
+   fresh start by being forgotten. */
+var BUDGET_FRESH = {
+  records: { monthlyIncome:{}, monthlyExpenses:{}, catTargets:{income:{}, expense:{}}, locked:{}, driftDismissSig:null, lastStatus:null },
+  config:  ['incomePattern','expensePattern','currentMonth']
+};
+function bgtFreshen(b){
+  if (!b || typeof b !== 'object') return b;
+  Object.keys(BUDGET_FRESH.records).forEach(function(k){ var v = BUDGET_FRESH.records[k]; if (v === null) delete b[k]; else b[k] = _freshCopy(v); });
+  return b;
+}
 function _freshCopy(v){
   if (v === null || typeof v !== 'object') return v;
   try { return JSON.parse(JSON.stringify(v)); } catch(e){ return Array.isArray(v) ? [] : {}; }
@@ -22288,6 +22336,17 @@ function freshResidue(){
       out.push({ module:mod, key:k, why:'unclassified - add to FRESH_SHAPE (record) or FRESH_CONFIG (setting)' });
     });
   });
+  /* -489 F5: inside the budget frame too */
+  try { if (typeof ST !== 'undefined' && ST.budgets) Object.keys(ST.budgets).forEach(function(k){
+    var R = BUDGET_FRESH.records;
+    if (Object.prototype.hasOwnProperty.call(R, k)) {
+      if (R[k] === null) { out.push({ module:'ST.budgets', key:k, why:'record not cleared', holds:String(JSON.stringify(ST.budgets[k])).slice(0,80) }); return; }
+      if (JSON.stringify(ST.budgets[k]) !== JSON.stringify(R[k])) out.push({ module:'ST.budgets', key:k, why:'record not cleared', holds:String(JSON.stringify(ST.budgets[k])).slice(0,80) });
+      return;
+    }
+    if (BUDGET_FRESH.config.indexOf(k) >= 0) return;
+    out.push({ module:'ST.budgets', key:k, why:'unclassified - add to BUDGET_FRESH (record or config)' });
+  }); } catch(e){}
   return out;
 }
 // Empty every data-bearing module in memory (the records the farmer sees), leaving
@@ -22306,7 +22365,9 @@ function clearAllToFresh(opts) {
       });
     });
     // The budget keeps its spread pattern and its current month; only the figures go.
-    if (typeof ST !== 'undefined' && ST.budgets) { ST.budgets.monthlyIncome = {}; ST.budgets.monthlyExpenses = {}; }
+    /* -489 F5: off the declaration (BUDGET_FRESH), not a hand-list - the category targets and the bank-copy lock
+       survived "Start fresh" (the last farm's targets judged the new one, and its year stayed locked). */
+    if (typeof ST !== 'undefined' && ST.budgets) bgtFreshen(ST.budgets);
     // The plan keeps its twelve rows; each one goes back to zero.
     if (typeof ST_PLAN !== 'undefined' && Array.isArray(ST_PLAN.months)) {
       ST_PLAN.months.forEach(function(m){ if(!m) return; m.income=0; m.expenses=0; m.activity=''; m.actIncome=0; m.actExpenses=0; m.events=[]; });
@@ -22377,7 +22438,12 @@ async function startFresh() {
     var fid = (window.AI && AI.farm && AI.farm.active) ? AI.farm.active() : null;
     if (fid && AI.farm.clearData) {
       try { toast('Clearing your data\u2026', 'info'); } catch(e){}
-      AI.farm.clearData(fid).then(finish).catch(function(e){
+      /* -489 F5: clear_farm_data empties every table with a farm_id but keeps the farms row, and the category targets,
+         the bank-copy lock and the SARS payments marked paid live ON that row (budget_cat_targets, budget_locked,
+         tax_paid, prov_paid). The budget save carries them, so send the fresh budget once the tables are clear - through
+         the save lane, so a dropped connection keeps it unsent and the next open sends it. */
+      var _bgtFresh = function(){ try { if (AI.budget && ST.budgets) return Promise.race([AI.budget.save(ST.budgets), new Promise(function(r){ setTimeout(r, 8000); })]).catch(function(){}); } catch(e){} return Promise.resolve(); };
+      AI.farm.clearData(fid).then(_bgtFresh).then(finish).catch(function(e){
         console.error('backend clear failed', e);
         try { toast('Cleared on this device. Some online data may sync back \u2014 check your connection.', 'info'); } catch(_){}
         finish();
@@ -23346,7 +23412,10 @@ function entList(){
     });
   }catch(e){}
   try{ ((typeof ST_FRUIT!=='undefined'&&ST_FRUIT&&ST_FRUIT.blocks)||[]).forEach(function(b){
-    if(b && !b.plan && !b.removed) out.push({code:'or:'+b.id, label:(b.name||'Block'), kind:'orchard', icon:(b.icon||'\uD83C\uDF4A')});
+    /* -489 F13: a young block (plan:true = planted, not bearing yet - "Not bearing", "Just replanted") is an enterprise
+       that is being paid for: its trees, sprays and water are ITS costs. Left off this list, every line tagged to it read
+       "(removed)" and the Profit page counted it as a shared cost (SA demo: Nuweland, 104 lines). */
+    if(b && !b.removed) out.push({code:'or:'+b.id, label:(b.name||'Block'), kind:'orchard', icon:(b.icon||'\uD83C\uDF4A')});
   }); }catch(e){}
   return out;
 }
@@ -39162,16 +39231,18 @@ function recomputePlan() {
      matches, so it is left alone - no flag to store, the figure itself says who set it. The
      first pass after opening only takes note: a plan that moved between sessions still shows
      as the drift banner, where the farmer chooses. */
-  if(_s4m && !(typeof bgtIsLocked==='function' && bgtIsLocked(_s4fy))){
+  if(_s4m && (typeof bgtCanWrite!=='function' || bgtCanWrite(_s4fy, true))){   /* -489 F1: the one guard, quietly (it runs on every recompute) */
     var _s4prev=(PLAN_PUSHED && PLAN_PUSHED.fy===_s4fy)?PLAN_PUSHED:null, _s4now={fy:_s4fy,inc:{},exp:{}}, _s4flow=0;
     function _s4same(a,b){ return Math.abs((Number(a)||0)-(Number(b)||0))<1; }
     ST_PLAN.months.forEach(function(m){
       if(!m.label || _s4m.indexOf(m.label)<0) return;
       var pi=Math.round(m.income||0), pe=Math.round(m.expenses||0), bi=ST.budgets.monthlyIncome[m.label], be=ST.budgets.monthlyExpenses[m.label];
       _s4now.inc[m.label]=pi; _s4now.exp[m.label]=pe;
-      if(m.income   > 0 && !(bi > 0)) ST.budgets.monthlyIncome[m.label]   = m.income;
+      /* -489 F3: "empty" = never set (no figure at all), not "not above zero": a month the farmer set to R0 stays R0.
+         Planning still fills only the months nobody has set (one way). */
+      if(m.income   > 0 && bi == null) ST.budgets.monthlyIncome[m.label]   = m.income;
       else if(_s4prev && _s4prev.inc[m.label]!=null && !_s4same(pi,_s4prev.inc[m.label]) && _s4same(bi,_s4prev.inc[m.label])){ ST.budgets.monthlyIncome[m.label]=pi; _s4flow++; }
-      if(m.expenses > 0 && !(be > 0)) ST.budgets.monthlyExpenses[m.label] = m.expenses;
+      if(m.expenses > 0 && be == null) ST.budgets.monthlyExpenses[m.label] = m.expenses;
       else if(_s4prev && _s4prev.exp[m.label]!=null && !_s4same(pe,_s4prev.exp[m.label]) && _s4same(be,_s4prev.exp[m.label])){ ST.budgets.monthlyExpenses[m.label]=pe; _s4flow++; }
     });
     PLAN_PUSHED=_s4now;
@@ -42599,6 +42670,22 @@ function bgtRenderDrift(c) {
 /* Has the farmer locked this financial year's budget as the bank copy? Always false until
    budget versions arrive (batch 5 step 3); every writer asks it now so none is missed then. */
 function bgtIsLocked(fy){ try{ return !!(ST.budgets && ST.budgets.locked && ST.budgets.locked[String(fy)]); }catch(e){ return false; } }
+/* -489 F1: THE guard. Every writer of the year's budget (month figures, category targets, the spread pattern, the
+   annual totals, the one-month targets) calls this BEFORE it changes anything, so a writer added later cannot forget
+   the bank copy: only Planning's three paths asked bgtIsLocked() and the month editor, the category targets, the
+   pattern chips, the annual inputs, the Money Flow targets and "Use last year" all wrote straight through a lock.
+   Locked: nothing changes and ONE toast says how to unlock (a writer that runs twice in one tap still says it once).
+   quiet: refuse without the toast (a background writer, or the second side of one edit). */
+var _BGT_LOCK_TOAST_AT = 0;
+function bgtLockedMsg(){ return _rT('This year’s budget is locked for the bank — unlock it on the Budgets page to change it.', 'Hierdie jaar se begroting is vir die bank gesluit — ontsluit dit op die Begrotings-blad om dit te verander.'); }
+function bgtCanWrite(fy, quiet){
+  if (fy == null) { try { fy = getCurrentFY(); } catch(e) { return true; } }
+  if (!bgtIsLocked(fy)) return true;
+  if (!quiet) { var _n = Date.now(); if (_n - _BGT_LOCK_TOAST_AT > 1500) { _BGT_LOCK_TOAST_AT = _n; try { toast(bgtLockedMsg(), 'info'); } catch(e){} } }
+  return false;
+}
+/* The financial year a month label ("Nov 2026") belongs to - the lock is per farm year. */
+function bgtFyOfLabel(L){ try { var p = String(L||'').split(' '), mi = MONTH_LABELS_SHORT.indexOf(p[0]), y = parseInt(p[1],10); if (mi < 0 || !y) return getCurrentFY(); return _taxFyOf({y:y, m:mi, d:1}); } catch(e) { return getCurrentFY(); } }
 /* The plan into this financial year's budget, one side or both (-449). Months the plan
    covers take the plan figure; months it does not cover KEEP what the farmer had. Both
    buttons used to zero the whole year first - and the plan window is a season, so the
@@ -42606,6 +42693,7 @@ function bgtIsLocked(fy){ try{ return !!(ST.budgets && ST.budgets.locked && ST.b
    ran recomputePlan, whose step 4 refilled the zeroed months, before adding the plan again:
    every planned month came out DOUBLE. Returns the labels left as they were. */
 function bgtPlanIntoMonths(sides){
+  if (!bgtCanWrite(getCurrentFY(), true)) return [];   /* -489 F1: its callers ask (and say so) first; this is the belt */
   try { if (typeof recomputePlan === 'function') recomputePlan(); } catch(e) {}
   var fyMonths = getFYMonths(getCurrentFY()), byLbl = {}, kept = [];
   ((typeof ST_PLAN!=='undefined' && ST_PLAN && ST_PLAN.months) || []).forEach(function(pm){ if (pm && pm.label) byLbl[pm.label] = pm; });
@@ -42619,13 +42707,14 @@ function bgtPlanIntoMonths(sides){
 }
 function _bgtKeptNote(kept){ if (!kept.length) return ''; var a=kept[0].split(' ')[0], b=kept[kept.length-1].split(' ')[0]; return ' ' + (kept.length===1 ? a : a + '–' + b) + ' ' + (kept.length===1?'is':'are') + ' outside this season’s plan, so your figures there were kept.'; }
 async function bgtApplyPlan(skipConfirm) {
+  if (!bgtCanWrite(getCurrentFY())) return;   /* -489 F1: before the question, not after it */
   var c = BGT_LAST || bgtCompute();
   if (skipConfirm !== true && (c.annualIn > 0 || c.annualOut > 0)) {
     var ok = await appConfirm('This will replace your income target and spending budget with the figures from your Planning page.\n\nMonth-by-month tweaks you have made will be lost.\n\nContinue?');
     if (!ok) return;
   }
   if (typeof ST_PLAN === 'undefined' || !ST_PLAN || !ST_PLAN.months) return;
-  if (bgtIsLocked(getCurrentFY())) { toast('This year’s budget is locked for the bank — unlock it on the Budgets page to change it.', 'info'); return; }
+  if (!bgtCanWrite(getCurrentFY())) return;
   var kept = bgtPlanIntoMonths(['in','out']);
   ST.budgets.incomePattern = 'custom'; ST.budgets.expensePattern = 'custom';
   delete ST.budgets.driftDismissSig;
@@ -42682,6 +42771,7 @@ function bgtRenderFirstRun(c) {
 }
 
 function bgtUseLastYear() {
+  if (!bgtCanWrite(getCurrentFY())) return;   /* -489 F1 */
   var c = BGT_LAST || bgtCompute();
   var ly = bgtLastYearTotals(c); if (!ly) return;
   c.fyMonths.forEach(function(m) {
@@ -42709,6 +42799,7 @@ function bgtToggleSetup(forceOpen) {
 // this just spreads it across the months, confirms, and closes the editor —
 // whichever box you confirm, both boxes' figures are already persisted.
 function bgtSaveTargetBox(side) {
+  if (!bgtCanWrite(getCurrentFY())) { BGT_EDIT_OPEN[side] = false; var _p0 = $('bgt-setup-panel'); if (_p0) _p0.classList.remove('open'); try { renderBudgetsPage(); } catch(e){} return; }   /* -489 F1 */
   var inp = side === 'in' ? $('bgt-annual-input') : $('bgt-annual-exp-input');
   var val = inp ? (parseFloat(inp.value) || 0) : 0;
   var pat = side === 'in' ? (ST.budgets.incomePattern || 'harvest') : (ST.budgets.expensePattern || 'planting');
@@ -42843,7 +42934,10 @@ function bgtSheetTxns() { bgtCloseMonth(); nav('transactions'); }
 // year total slightly); otherwise the annual total simply moves.
 function bgtApplyMonthChange(target, fyMonths, i, val, keepTotal, todayIdx) {
   var m = fyMonths[i], old = target[m]||0, delta = val - old;
-  if (!delta) return false;
+  /* -489 F3: a month typed to the figure it already shows is still the farmer's own figure from now on
+     (a month never set has no key, and Planning fills only those) - typing R0 over an empty month sets it. */
+  if (!delta) { if (target[m] == null && val === 0) { if (!bgtCanWrite(bgtFyOfLabel(m), true)) return false; target[m] = 0; return true; } return false; }
+  if (!bgtCanWrite(bgtFyOfLabel(m), true)) return false;   /* -489 F1: bgtSaveMonth has already said so */
   /* "Keep the year total" clamps each later month at zero, so a large edit can run out of
      room and silently change the annual total (a R1.2m budget could become R1.3m with no
      warning). We can't spread what isn't there — but we can say so instead of hiding it. */
@@ -42861,13 +42955,15 @@ function bgtApplyMonthChange(target, fyMonths, i, val, keepTotal, todayIdx) {
       if (sum > 0) {
         idxs.forEach(function(k) {
           var mk = fyMonths[k];
+          if (target[mk] == null) return;   /* -489 F3: a month never set has no share, and stays never set */
           target[mk] = Math.max(0, Math.round((target[mk]||0) + remaining * ((target[mk]||0) / sum)));
         });
       } else {
         var each = Math.round(remaining / idxs.length);
         idxs.forEach(function(k) {
-          var mk = fyMonths[k];
-          target[mk] = Math.max(0, (target[mk]||0) + each);
+          var mk = fyMonths[k], v = Math.max(0, (target[mk]||0) + each);
+          if (target[mk] == null && v === 0) return;   /* -489 F3 */
+          target[mk] = v;
         });
       }
     }
@@ -42886,6 +42982,7 @@ function bgtApplyMonthChange(target, fyMonths, i, val, keepTotal, todayIdx) {
 function bgtSaveMonth() {
   if (BGT_SHEET_I < 0) { bgtCloseMonth(); return; }
   var c = BGT_LAST || bgtCompute();
+  if (!bgtCanWrite(c.fy != null ? c.fy : getCurrentFY())) { bgtCloseMonth(); return; }   /* -489 F1 */
   var i = BGT_SHEET_I;
   var keep = (document.querySelector('input[name="bgt-rebal"]:checked')||{}).value !== 'grow';
   var vIn  = parseFloat(($('bgt-sheet-in-in') ||{}).value) || 0;
@@ -42901,7 +42998,7 @@ function bgtSaveMonth() {
 // ── Phase 2: category envelopes — cards are the switch, problems come to you ──
 var BGT_MODE_USER = false;  // set once the farmer taps a card; auto-pick stands down
 
-var BGT_INCOME_CATS  = ['Crop Sales','Fruit Sales','Livestock Sales','Milk & Dairy','Wool & Fibre','Government Grant','Agritourism','Rental Income','Other'];
+var BGT_INCOME_CATS  = ['Crop Sales','Fruit Sales','Livestock Sales','Milk & Dairy','Wool & Fibre','Government Grant','Agritourism','Rental Income','Other Income'];   /* -489 F8: 'Other' income lines are merged into 'Other Income' (CAT_MERGES) */
 var BGT_EXPENSE_CATS = ['Seeds & Planting','Fertiliser','Crop Protection','Veterinary & Animal Health','Animal Feed','Livestock Purchases','Fuel & Oil','Labour & Wages','Machinery & Repairs','Irrigation & Water','Land & Rental','Insurance','Admin & Professional Fees','Loan Repayments','Co-op levies','Co-op storage & handling','Co-op transport','Other Expenses'];
 // Lumpy categories are judged against their whole season, never the month —
 // the fertiliser lump in Oct or the wool cheque in Aug must not cry wolf.
@@ -42932,7 +43029,7 @@ function bgtLastYearCatMix(side, c) {
     var d = parseDate(t.date); if (!d) return;
     if (!map[MONTH_LABELS_SHORT[d.m] + ' ' + d.y]) return;
     if ((side === 'income') !== (t.type === 'income')) return;
-    var cat = t.cat || 'Other';
+    var cat = txCatKey(t);   /* -489 F7 */
     out[cat] = (out[cat]||0) + (t.amt||0); total += t.amt||0;
   });
   return {mix:out, total:total};
@@ -42971,7 +43068,7 @@ function bgtCatActuals(c) {
   ST.txns.forEach(function(t) {
     var d = parseDate(t.date); if (!d) return;
     if (!idx[MONTH_LABELS_SHORT[d.m] + ' ' + d.y]) return;
-    var cat = t.cat || 'Other';
+    var cat = txCatKey(t);   /* -489 F7: the engines' key ('Other' here, '' there) */
     if (t.type === 'income') inb[cat] = (inb[cat]||0) + (t.amt||0);
     else outb[cat] = (outb[cat]||0) + (t.amt||0);
   });
@@ -43767,6 +43864,7 @@ function bgtCatRowTap(side, cat) {
 }
 
 async function bgtEditCat(side, cat) {
+  if (!bgtCanWrite(getCurrentFY())) return;   /* -489 F1: before the prompt */
   var c = BGT_LAST || bgtCompute();
   var cur = bgtCatTargets(side, c)[cat] || 0;
   var input = await appPrompt(side === 'income' ? 'Income target' : 'Spending budget', Math.round(cur), {sub:cat + ' — for the whole year', prefix:'R'});
@@ -43776,6 +43874,7 @@ async function bgtEditCat(side, cat) {
 }
 
 function bgtCatSet(side, cat, val, c) {
+  if (!bgtCanWrite((c && c.fy != null) ? c.fy : getCurrentFY())) return false;   /* -489 F1 */
   // The first edit adopts the derived set, so changing one number
   // doesn't silently zero all the other categories.
   var store = bgtCatStore(side), has = false, k;
@@ -43783,9 +43882,11 @@ function bgtCatSet(side, cat, val, c) {
   if (!has) { var eff = bgtCatTargets(side, c); for (k in eff) store[k] = eff[k]; }
   store[cat] = Math.round(val);
   dataChanged('budget');
+  return true;
 }
 
 function bgtAddCat() {
+  if (!bgtCanWrite(getCurrentFY())) return;   /* -489 F1 */
   var c = BGT_LAST || bgtCompute();
   var side = BGT_MODE === 'in' ? 'income' : 'expense';
   var all = side === 'income' ? BGT_INCOME_CATS : BGT_EXPENSE_CATS;
@@ -43803,7 +43904,7 @@ function bgtAddCatSave() {
   var cat = sel && sel.value, val = parseFloat(amt && amt.value) || 0;
   bgtAddCatClose();
   if (!cat || val <= 0) return;
-  bgtCatSet(BGT_MODE === 'in' ? 'income' : 'expense', cat, val, BGT_LAST || bgtCompute());
+  if (bgtCatSet(BGT_MODE === 'in' ? 'income' : 'expense', cat, val, BGT_LAST || bgtCompute()) === false) return;   /* -489 F1 */
   toast('Category budget added', 'success');
 }
 
@@ -43877,6 +43978,7 @@ function renderBudgetPatternChips(containerId, patternKeys, side, activePattern)
 }
 
 function setBudgetPattern(side, key) {
+  if (!bgtCanWrite(getCurrentFY())) return;   /* -489 F1: the chip is part of the bank copy too */
   if (side === 'out') ST.budgets.expensePattern = key;
   else                ST.budgets.incomePattern  = key;
   if (key === 'custom') { renderBudgetsPage(); return; }
@@ -43946,6 +44048,7 @@ function renderPlanHelperText(side, ft) {
 
 async function pullPlanToBudgets(side) {
   var fy       = getCurrentFY();
+  if (!bgtCanWrite(fy)) return;   /* -489 F1: before the question, not after it */
   var fyMonths = getFYMonths(fy);
 
   var target = side === 'in' ? ST.budgets.monthlyIncome : ST.budgets.monthlyExpenses;
@@ -43960,7 +44063,7 @@ async function pullPlanToBudgets(side) {
     if (!ok) return;
   }
 
-  if (bgtIsLocked(fy)) { toast('This year’s budget is locked for the bank — unlock it on the Budgets page to change it.', 'info'); return; }
+  if (!bgtCanWrite(fy)) return;
   var kept = bgtPlanIntoMonths([side === 'in' ? 'in' : 'out']);
 
   var sum = fyMonths.reduce(function(s,m){ return s + (target[m] || 0); }, 0);
@@ -43972,6 +44075,7 @@ async function pullPlanToBudgets(side) {
 }
 
 function updateAnnualBudget() {
+  if (!bgtCanWrite(getCurrentFY())) return;   /* -489 F1 */
   var inp = $('bgt-annual-input');
   var annual = parseFloat(inp && inp.value) || 0;
   if (!annual) return;
@@ -43979,6 +44083,7 @@ function updateAnnualBudget() {
 }
 
 function updateAnnualExpenseBudget() {
+  if (!bgtCanWrite(getCurrentFY())) return;   /* -489 F1 */
   var inp = $('bgt-annual-exp-input');
   var annual = parseFloat(inp && inp.value) || 0;
   if (!annual) return;
@@ -43993,6 +44098,7 @@ function applyBudgetPattern(side) {
                               : (ST.budgets.expensePattern || 'planting');
   if (!annual) return;
   if (pattern === 'custom') { renderBudgetsPage(); return; }
+  if (!bgtCanWrite(getCurrentFY())) return;   /* -489 F1 */
 
   var rates  = side === 'in' ? (BUDGET_INCOME_PATTERNS[pattern]  || BUDGET_INCOME_PATTERNS.harvest)
                              : (BUDGET_EXPENSE_PATTERNS[pattern] || BUDGET_EXPENSE_PATTERNS.planting);
@@ -48451,6 +48557,7 @@ function onSetFarmEnterprise(value) {
 }
 
 async function pushPlanToBudgets() {
+  if (typeof bgtCanWrite === 'function' && !bgtCanWrite(getCurrentFY())) return;   /* -489 F1: before the question */
   // Detect existing manual budgets so we can warn before overwriting
   var fyMonths = getFYMonths(getCurrentFY());
   var hasIncomeTargets  = fyMonths.some(function(m){ return (ST.budgets.monthlyIncome[m]   || 0) > 0; });
@@ -48464,7 +48571,7 @@ async function pushPlanToBudgets() {
     if (!ok) return;
   }
 
-  if (typeof bgtIsLocked === 'function' && bgtIsLocked(getCurrentFY())) { toast('This year’s budget is locked for the bank — unlock it on the Budgets page to change it.', 'info'); return; }
+  if (typeof bgtCanWrite === 'function' && !bgtCanWrite(getCurrentFY())) return;
   /* This financial year only, and the shared rule (-449): it wrote every plan month, so the
      season's tail landed in next year's budget. */
   var kept = bgtPlanIntoMonths(['in','out']);
@@ -49963,6 +50070,7 @@ function getBudgetTarget() {
 }
 
 function setBudgetMonthTarget(month, amount) {
+  if (!bgtCanWrite(bgtFyOfLabel(month))) return false;   /* -489 F1 */
   ST.budgets.monthlyIncome[month] = amount;
   if (month === ST.budgets.currentMonth) renderTargetBar();
 }
@@ -50111,6 +50219,7 @@ function saveIncomeTarget() {
   var inp = $('target-input-edit') || $('target-input-new');
   var val = parseFloat(inp && inp.value) || 0;
   if (val <= 0) { toast('Please enter an amount greater than 0', 'error'); return; }
+  if (!bgtCanWrite(bgtFyOfLabel(ST.budgets.currentMonth))) return;   /* -489 F1 */
   ST.budgets.monthlyIncome[ST.budgets.currentMonth] = val;
   dataChanged('budget');
   toast('Target saved for ' + ST.budgets.currentMonth + ': R' + _grpInt(val), 'success');
@@ -50270,6 +50379,7 @@ function saveExpTarget() {
   var inp = $('exp-target-input-edit') || $('exp-target-input-new');
   var val = parseFloat(inp && inp.value) || 0;
   if (val <= 0) { toast('Please enter an amount greater than 0', 'error'); return; }
+  if (!bgtCanWrite(getCurrentFY())) return;   /* -489 F1 */
   ST.budgetExpenseTarget = val;
   dataChanged('budget');
   toast('Expense limit set: R' + _grpInt(val), 'success');
@@ -52235,6 +52345,10 @@ function buildCfForecast(numMonths) {
 var balance;
   if (typeof ST.bankBalance === 'number' && !isNaN(ST.bankBalance)) {
     balance = ST.bankBalance; // anchor to the farmer's real current balance
+    /* -489 F11: the typed balance is as on its date - what has come in and gone out since then is in the bank by now
+       (b5CashNow, the figure Home and the Tax page start from). Money Flow started from the typed figure itself, so a
+       balance typed on the 1st left the month's money out of every month after it. */
+    try { if (typeof b5CashNow === 'function') balance = b5CashNow().bal; } catch(e) {}
   } else {
     balance = 0;
     ST.txns.forEach(function(t) {
@@ -52276,8 +52390,12 @@ var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec
   var cm = MN[parts[0]] !== undefined ? MN[parts[0]] : 4;
   var cy = parseInt(parts[1], 10) || 2024;
 
-  var months = [];
-  for (var i = 1; i <= numMonths; i++) {
+  var months = [], curRest = null;
+  /* -489 F11: i = 0 is the month we are in. It is not a row (it has partly happened); what is still to come in it is
+     added to the starting balance ONCE - this month's figure less what has already come in / gone out this month, never
+     below 0, and no more than its share of the days left (b5RestOfMonth, the rule the year-end bank and "heading for"
+     use). It was left out: the projection jumped from today's balance straight to next month. */
+  for (var i = 0; i <= numMonths; i++) {
     var ofs  = cm + i;
     var mIdx = ((ofs % 12) + 12) % 12;
     var yr   = cy + Math.floor(ofs / 12);
@@ -52339,6 +52457,14 @@ var inc, exp;
 
     var fin = (typeof _cfFinanceFor==='function') ? _cfFinanceFor(yr, mIdx, i) : {inc:0,exp:0,lines:[]};
     inc += fin.inc; exp += fin.exp;
+    if (i === 0) {
+      var _mtd = b5MonthSoFar(yr, mIdx), _fr = b5DaysLeftFrac();
+      var _ri = b5RestOfMonth(inc, _mtd.inc, _fr), _ro = b5RestOfMonth(exp, _mtd.out, _fr);
+      curRest = { label: label, budgetIn: Math.round(inc), budgetOut: Math.round(exp), soFarIn: Math.round(_mtd.inc), soFarOut: Math.round(_mtd.out),
+                  inc: Math.round(_ri), out: Math.round(_ro), net: Math.round(_ri - _ro), daysLeft: Math.round(_fr * 1000) / 1000 };
+      balance += curRest.net;
+      continue;
+    }
     balance += inc - exp;
 
     // Itemised cash lines for this month's drill-down / breakdown — crop + recurring + every finance/tax stream.
@@ -52360,7 +52486,20 @@ var inc, exp;
       balance: balance, source: src
     });
   }
+  months.curRest = curRest;   /* -489 F11: the rest of this month, already in every balance above */
   return months;
+}
+/* -489 F11: the part of this month's budgeted money still to come: the month's figure less what has already moved in it,
+   never below 0, and no more than its share of the days left. ONE rule for the year-end bank (b5CashYear, through the
+   working budget), "heading for", Money Flow and Home - none of them may count this month twice, or not at all. */
+function b5RestOfMonth(planned, done, frac){ planned=+planned||0; if(!(planned>0)) return 0; return Math.min(planned*(frac==null?1:frac), Math.max(0, planned-(+done||0))); }
+function b5DaysLeftFrac(){ var td=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(), dim=new Date(td.getFullYear(), td.getMonth()+1, 0).getDate(); return Math.max(0, (dim-td.getDate())/dim); }
+/* Money in / out so far this calendar month (to today), as banked. */
+function b5MonthSoFar(yr, mIdx){
+  var td=(typeof APP_TODAY!=='undefined'&&APP_TODAY)?new Date(APP_TODAY):new Date(), o={inc:0, out:0};
+  ((typeof ST!=='undefined'&&ST.txns)||[]).forEach(function(t){ if(!t) return; var d=parseDate(t.date||''); if(!d || d.y!==yr || d.m!==mIdx) return;
+    if(new Date(d.y, d.m, d.d||1)>td) return; if(t.type==='income') o.inc+=(+t.amt||0); else if(t.type==='expense') o.out+=(+t.amt||0); });
+  return o;
 }
 
 function initCfChart() {  }
@@ -58689,7 +58828,7 @@ function b5Profit(fy, opt){
     if(P.part==='finInt'){ r.interest+=a; r.finInt=(r.finInt||0)+a; if(hk) hk(0, a); return; }   /* -488 m10: one interest figure */
     if(P.part==='capitalLinked'){ r.capitalLinked+=a; return; }
     if(P.unreg) r.capitalUnreg+=a;                         // safety net: stays a cost, flagged
-    r.running+=a; if(hk) hk(0, a); var cn=t.cat; try{ cn=normalizeCat(t.cat); }catch(e){} r.byCat[cn]=(r.byCat[cn]||0)+a;
+    r.running+=a; if(hk) hk(0, a); var cn=txCatKey(t); r.byCat[cn]=(r.byCat[cn]||0)+a;
     var cl=_catOf(t); r.byCatLbl[cl]=(r.byCatLbl[cl]||0)+a;
   });
   var dep=b5BookDepr(fy, opt.toYm);
@@ -58751,7 +58890,7 @@ function b5ProfitPeriod(info){
 function b5BudgetLines(fy){
   var yms=b5FyYms(fy), out={source:'none', months:{}};
   function mixFrom(obj){ var t=0,k,m={}; for(k in obj) if((obj[k]||0)>0) t+=obj[k]; if(!(t>0)) return null; for(k in obj) if((obj[k]||0)>0) m[k]=obj[k]/t; return m; }
-  function actualMix(f, type){ var o={}; ((ST&&ST.txns)||[]).forEach(function(t){ if(!t||t.type!==type) return; var d=parseDate(t.date||''); if(!d||_taxFyOf(d)!==f) return; var c=t.cat; try{ c=normalizeCat(t.cat); }catch(e){} o[c]=(o[c]||0)+(+t.amt||0); }); return o; }
+  function actualMix(f, type){ var o={}; ((ST&&ST.txns)||[]).forEach(function(t){ if(!t||t.type!==type) return; var d=parseDate(t.date||''); if(!d||_taxFyOf(d)!==f) return; var c=txCatKey(t); o[c]=(o[c]||0)+(+t.amt||0); }); return o; }
   var ct=(ST.budgets&&ST.budgets.catTargets)||{};
   var em=mixFrom(ct.expense||{}), im=mixFrom(ct.income||{});
   if(em) out.source='targets';
@@ -58804,7 +58943,7 @@ function b5WorkingBudget(fy){
     var d=parseDate(t.date||''); if(!d) return; var _fyT=_taxFyOf(d); if(_fyT!==fy && _fyT!==fy-1) return; var ym=b5Ym(d); if(ym>now) return;
     var role=b5CatRole(t.cat); if(role!=='running') return;
     if(_payeSettled(t, _pmW)) return;   /* -488: PAYE/UIF paid over after a pay run is not a running cost (b5Profit's rule) */
-    var c=t.cat; try{ c=normalizeCat(t.cat); }catch(e){} var a=IE_split(+t.amt||0, t.cat, t).net;
+    var c=txCatKey(t); var a=IE_split(+t.amt||0, t.cat, t).net;   /* -489 F7 */
     /* -488 (the UK -397 rule): tagged spending is the enterprise's own; only UNTAGGED spending can be an overhead */
     var _tg=!!(t.ent && /^(crop:|or:|ls:)/.test(String(t.ent)));
     /* last farm year's months: only for the plan gap when this year has under three months of its own (below) */
@@ -58873,7 +59012,7 @@ function b5WorkingBudget(fy){
     });
     if(_cur){
       var pin=row.prodIncome+row.otherIncome, pco=row.prodCost+row.overheads;
-      var rin=Math.min(pin*_frac, Math.max(0, pin-(ain[ym]||0))), rco=Math.min(pco*_frac, Math.max(0, pco-(run[ym]||0)));
+      var rin=b5RestOfMonth(pin, ain[ym]||0, _frac), rco=b5RestOfMonth(pco, run[ym]||0, _frac);   /* -489 F11: the one rule */
       var ki=pin>0?rin/pin:0, kc=pco>0?rco/pco:0;
       row.prodIncome*=ki; row.otherIncome*=ki; row.prodCost*=kc; row.overheads*=kc;
       row.interest*=_frac; row.loanCapital*=_frac;   /* the part of this month's payment still to come */
@@ -58920,13 +59059,14 @@ function b5CashNow(){
 function b5CashForecast(n){
   n=n||12; var now=b5CashNow(), f=null;
   try{ f=buildCfForecast(n); }catch(e){ f=null; }
-  var months=[], bal=now.bal, low=null;
+  var months=[], bal=now.bal, low=null, rest=(f && f.curRest) ? f.curRest : null;
+  if(rest) bal+=rest.net;   /* -489 F11: what is still to come this month (was left out - today's cash jumped straight to next month) */
   (Array.isArray(f) ? f : ((f&&f.months)||[])).forEach(function(m){
     var net=(m.income||0)-(m.expenses||0);
     bal+=net; var row={label:m.label, net:Math.round(net), balance:Math.round(bal)};
     months.push(row); if(!low || row.balance<low.balance) low=row;
   });
-  return { start:now, months:months, lowest:low };
+  return { start:now, months:months, lowest:low, restOfMonth:rest };
 }
 /* ── The bridges ──────────────────────────────────────────────────────────────────── */
 /* Profit -> the money that moved through the bank in the same months. Exact: every rand in
@@ -59161,7 +59301,7 @@ function bgtRoleTag(cat){
   return '<span class="bgt-rtag" title="'+esc(tip)+'">'+esc(txt)+'</span>';
 }
 /* D1: lock this financial year's budget as the copy the bank has. The plan keeps moving
-   underneath (the working budget); every budget writer already asks bgtIsLocked(). */
+   underneath (the working budget); every budget writer asks bgtCanWrite() (-489 F1: it was not true - see bgtCanWrite). */
 async function bgtLockToggle(){
   var fy=String(getCurrentFY()); ST.budgets.locked=ST.budgets.locked||{};
   if(ST.budgets.locked[fy]){
@@ -59682,7 +59822,7 @@ function computeRPT() {
   var cf = {sales:0, otherIn:0, refunds:0, running:0, loans:0, bought:0, taxPaid:0, vatPaid:0, own:0, transfers:0, accounts:0, rowsIn:[], rowsOut:[]};
   ST.txns.forEach(function(t){
     var d = parseDate(t.date); if (!d || !rptInPeriod(d, info) || b5Ym(d) > b5TodayYm()) return;
-    var g = +t.amt || 0, role = b5CatRole(t.cat), nc = t.cat; try{ nc = normalizeCat(t.cat); }catch(e){}
+    var g = +t.amt || 0, role = b5CatRole(t.cat), nc = txCatKey(t);   /* -489 F7 */
     (t.type === 'income' ? cf.rowsIn : cf.rowsOut).push({t:t, k:d.y*10000+(d.m+1)*100+(d.d||0)});
     if (t.type === 'income') { if (role === 'nonop'){ if (nc === 'VAT refund from SARS' || nc === 'Income tax refund') cf.refunds += g; else cf.otherIn += g; } else cf.sales += g; return; }
     if (t.type !== 'expense') { cf.accounts += g; return; }
@@ -60783,7 +60923,7 @@ function saProvFreeze1(fy, amt, now){
     if(_provFreezeT) clearTimeout(_provFreezeT);
     _provFreezeT=setTimeout(function(){ _provFreezeT=null;
       try{ if(typeof saveState==='function') saveState(); }catch(e){}
-      try{ if(!window.__AI_GUEST && window.__AI_HYDRATED_AT && window.AI && AI.farm && AI.farm.active() && AI.budget && ST.budgets) AI.budget.save(ST.budgets).catch(function(){}); }catch(e){}
+      try{ if(!window.__AI_GUEST && window.__AI_HYDRATED_AT && window.AI && AI.farm && AI.farm.active() && AI.budget && ST.budgets) bgtQueueSave(); }catch(e){}   /* -489 F10 */
     }, 1500);
   }catch(e){}
 }
@@ -60811,7 +60951,7 @@ function saRecordProvPaid1(fy){
 function saSetProvPaid1(fy, v){
   ST.provPaid=(ST.provPaid&&typeof ST.provPaid==='object')?ST.provPaid:{};
   if(v===''||v==null) delete ST.provPaid[String(fy)]; else ST.provPaid[String(fy)]=Math.max(0,Math.round(Number(v)||0));
-  try{ if(window.AI && AI.farm && AI.farm.active() && AI.budget && ST.budgets) AI.budget.save(ST.budgets).catch(function(){}); }catch(e){}   // -449: saved with the budget settings
+  try{ if(window.AI && AI.farm && AI.farm.active() && AI.budget && ST.budgets) bgtQueueSave(); }catch(e){}   /* -489 F10 */   // -449: saved with the budget settings
   try{ if(typeof saveState==='function') saveState(); }catch(e){}
   try{ if(typeof renderTax==='function') renderTax(); }catch(e){}
 }
@@ -61593,8 +61733,7 @@ function _taxFySplit(fy){
        category CODES ('IncomeTax', 'SARSfines&interest'), so keying on t.cat put those
        unspaced strings straight into a sentence a farmer reads. Two spellings of the
        same category would also have totalled as two separate lines. */
-    var k=taxCatKind(t.cat), cn=t.cat;
-    try{ if(typeof normalizeCat==='function') cn=normalizeCat(t.cat); }catch(e){}
+    var k=taxCatKind(t.cat), cn=txCatKey(t);   /* -489 F7 */
     if(k==='nonded'){ o.nonDed+=a; o.nonDedByCat[cn]=(o.nonDedByCat[cn]||0)+a; }
     /* A machinery purchase is capital: on the register it is claimed as wear and tear,
        off it nothing is claimable yet — held back (capUnreg) and flagged, never deducted
@@ -62778,7 +62917,7 @@ var TAX_ALL_DATES=false, TAX_TXH=null;
 function taxSetPaid(key, rec){
   ST.taxPaid=(ST.taxPaid&&typeof ST.taxPaid==='object')?ST.taxPaid:{};
   if(rec) ST.taxPaid[key]={amt:Math.max(0,Math.round(Number(rec.amt)||0)), date:rec.date||''}; else delete ST.taxPaid[key];
-  try{ if(window.AI && AI.farm && AI.farm.active() && AI.budget && ST.budgets) AI.budget.save(ST.budgets).catch(function(){}); }catch(e){}   // saved with the budget settings, as prov_paid is
+  try{ if(window.AI && AI.farm && AI.farm.active() && AI.budget && ST.budgets) bgtQueueSave(); }catch(e){}   /* -489 F10 */   // saved with the budget settings, as prov_paid is
   try{ if(typeof saveState==='function') saveState(); }catch(e){}
   try{ if(typeof renderTax==='function') renderTax(); }catch(e){}
 }
@@ -64003,7 +64142,7 @@ function vat201Figures(from, to){
   var o={from:from, to:to, pos:_taxVatPos(from,to), dz:aiDieselForPeriod(from,to),
          sStd:{incl:0,vat:0,cats:{}}, sZero:{amt:0,cats:{}}, sOther:{amt:0,cats:{}}, cStd:{incl:0,vat:0,cats:{}}, lines:[]};
   (ST.txns||[]).forEach(function(t){ var d=parseDate(t.date); if(!d) return; var dd=new Date(d.y,d.m,d.d||1); if(dd<from||dd>to) return;
-    var s=IE_split(+t.amt||0, t.cat, t), a=+t.amt||0, c=String(t.cat||'Other');
+    var s=IE_split(+t.amt||0, t.cat, t), a=+t.amt||0, c=txCatKey(t);   /* -489 F7 */
     if(t.type==='income'){
       if(s.t==='std'){ o.sStd.incl+=a; o.sStd.vat+=s.vat; var x=o.sStd.cats[c]||(o.sStd.cats[c]={incl:0,vat:0,n:0}); x.incl+=a; x.vat+=s.vat; x.n++; }
       else if(s.t==='zero'){ o.sZero.amt+=a; var z=o.sZero.cats[c]||(o.sZero.cats[c]={incl:0,vat:0,n:0}); z.incl+=a; z.n++; }
@@ -67294,7 +67433,7 @@ function d8DemoBudget(){
      the plan is scaled to: last farm year's lines ran at last year's prices (diesel ~25% cheaper), so the overheads budgeted
      were below what this year's own records show. */
   var _yd=demoYesterday(), _cur=_yd.getFullYear()*12+_yd.getMonth();
-  ((ST&&ST.txns)||[]).forEach(function(t){ if(!t) return; var d=parseDate(t.date||''); if(!d) return; var _k=d.y*12+d.m; if(_k<_cur-11 || _k>_cur) return; var a=+t.amt||0, c=t.cat||'Other Expenses';
+  ((ST&&ST.txns)||[]).forEach(function(t){ if(!t) return; var d=parseDate(t.date||''); if(!d) return; var _k=d.y*12+d.m; if(_k<_cur-11 || _k>_cur) return; var a=+t.amt||0, c=txCatKey(t);   /* -489 F7 */
     var g=(t.ent && /^(crop|or|ls):/.test(t.ent)) ? t.ent.split(':')[0] : null, role=b5CatRole(c);
     if(g){ if(t.type==='expense' && role==='running') tagEx[c]=(tagEx[c]||0)+a; else if(t.type==='income' && role!=='nonop') tagIn[g][c]=(tagIn[g][c]||0)+a; return; }
     /* -488: a repayment tagged to its loan (loan:comb) is the farm's money out like any other */
@@ -67354,7 +67493,7 @@ function d8KeepBudgetByMonth(){
   var fy=getCurrentFY(), MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   ['monthlyIncome','monthlyExpenses'].forEach(function(k){ var src=ST.budgets[k]||{}, best={}, out={};
     Object.keys(src).forEach(function(L){ var p=String(L).split(' '), y=+p[1]; if(MO.indexOf(p[0])<0 || !y) return; if(!best[p[0]] || y>best[p[0]].y) best[p[0]]={y:y, v:src[L]}; });
-    getFYMonths(fy).forEach(function(L){ var mo=String(L).split(' ')[0]; out[L]=(src[L]!=null) ? src[L] : (best[mo] ? best[mo].v : 0); });
+    getFYMonths(fy).forEach(function(L){ var mo=String(L).split(' ')[0]; if(src[L]!=null) out[L]=src[L]; else if(best[mo]) out[L]=best[mo].v; });   /* -489 F3: a month with no figure stays never set (was 0, which now means "set to R0") */
     ST.budgets[k]=out; });
 }
 /* -488 (owner, 5 Oct: first "bring the plan down to the records", then "make it realistic, then match"). The demo's plan
