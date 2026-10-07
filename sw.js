@@ -1,6 +1,8 @@
 /* AgriInsights — PWA service worker
  * Strategy:
- *   - HTML / navigation  -> network-first (fresh on every online reload; cached fallback offline)
+ *   - HTML / navigation  -> network-first, revalidated (304 when nothing changed); after 3 s without an
+ *                           answer the cached copy is served and the late answer refreshes the cache;
+ *                           cached fallback offline (-490, B9 D4)
  *   - Supabase / cross-origin -> network-only, NEVER cached (data + auth must be live)
  *   - same-origin static -> stale-while-revalidate (instant load, refreshed in background)
  *   - old caches purged on activate (keyed by APP_VERSION)
@@ -11,20 +13,23 @@
  */
 'use strict';
 
-var APP_VERSION = '2026-10-06-489';
-var CACHE = 'agriinsights-' + APP_VERSION;
+var APP_VERSION = '2026-10-07-490';
+var BUILD = 'e7c6efe9f7';   /* dist build (build-dist.mjs): the hashed scripts below */
+var CACHE = 'agriinsights-' + APP_VERSION + '-' + BUILD;
 
 /* App shell precached on install. The ?v=-suffixed JS is intentionally left to
  * runtime caching so the existing ?v= cache-busting keeps working untouched. */
 var PRECACHE = [
   './',
+  './app.c435eeb8eb7b.js',
+  './kpi-detail.782a21000ef0.js',
   './index.html',
   './manifest.webmanifest',
   './fonts.css',
   './vendor/chart.umd.js',
   './vendor/supabase.js',
   './vendor/jspdf.umd.min.js?v=218',
-  './img/hero-farmland.jpg?v=217',
+  './img/hero-farmland.webp?v=490',
   './img/logomark.png?v=225',
   './icon-192.png',
   './icon-512.png',
@@ -56,17 +61,30 @@ self.addEventListener('activate', function (e) {
   );
 });
 
-/* Build an HTML request that bypasses the browser's HTTP cache. GitHub Pages serves
-   index.html with cache-control: max-age=600, so a plain fetch() inside a network-first
-   handler can still be answered from cache and a fresh deploy goes unseen for ten
-   minutes. cache:'reload' forces a real trip to the origin. Falls back to the original
-   request if the Request constructor rejects the option. */
+/* Build an HTML request that always asks the origin. GitHub Pages serves index.html with
+   cache-control: max-age=600, so a plain fetch() inside a network-first handler can still be
+   answered from cache and a fresh deploy goes unseen for ten minutes. cache:'no-cache' always
+   revalidates - and when nothing has changed the origin answers 304 with no body, so a return visit
+   no longer downloads the whole 1.85 MB page (-490, B9 item 1: cache:'reload' sent no If-None-Match;
+   the slow-line warm load spent 9.8 s on it). Falls back to the original request if the Request
+   constructor rejects the option (a navigate request cannot be rebuilt with options). */
 function _freshHTML(req){
-  try { return new Request(req, {cache: 'reload'}); }
+  try { return new Request(req, {cache: 'no-cache'}); }
   catch (e) {
-    try { return new Request(req.url, {cache: 'reload', credentials: 'same-origin'}); }
+    try { return new Request(req.url, {cache: 'no-cache', credentials: 'same-origin'}); }
     catch (e2) { return req; }
   }
+}
+/* -490 (D4): a stalled rural line must not hold the farmer on a blank page. After HTML_WAIT_MS the copy
+   this device already has is shown; the network answer, when it comes, still refreshes the cache, and if
+   it is a newer page every open window is told so (the page shows "New version ready · Reload"). */
+var HTML_WAIT_MS = 3000;
+function _cachedShell(){ return caches.match('./index.html').then(function (m) { return m || caches.match('./'); }); }
+function _verOf(res){ try { return res.headers.get('etag') || res.headers.get('last-modified') || ''; } catch (e) { return ''; } }
+function _tellNewer(){
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
+    cs.forEach(function (c) { try { c.postMessage({ type: 'ai-sw-newer', v: APP_VERSION }); } catch (e) {} });
+  });
 }
 
 self.addEventListener('fetch', function (e) {
@@ -87,17 +105,33 @@ self.addEventListener('fetch', function (e) {
   // 2) HTML / navigation: network-first so a normal reload always gets the latest
   //    deploy when online; fall back to the cached shell when offline.
   if (isHTML) {
-    e.respondWith(
-      fetch(_freshHTML(req)).then(function (res) {
-        var copy = res.clone();
-        caches.open(CACHE).then(function (c) { c.put('./index.html', copy); });
-        return res;
-      }).catch(function () {
-        return caches.match('./index.html').then(function (m) {
-          return m || caches.match('./');
+    var net = fetch(_freshHTML(req));
+    /* The answer refreshes the cache whenever it comes, even after the cached copy was shown. */
+    var fill = net.then(function (res) {
+      if (!res || !res.ok) return res;
+      var copy = res.clone();
+      return caches.open(CACHE).then(function (c) { return c.put('./index.html', copy); }).then(function () { return res; }, function () { return res; });
+    });
+    var shown = null;                                   // the cached copy, when that is what the page got
+    /* Kept alive until the answer is in the cache - and, if the page was given the older copy, until it is told. */
+    e.waitUntil(fill.then(function (res) {
+      if (shown && res && res.ok && _verOf(res) !== _verOf(shown)) return _tellNewer();
+    }).catch(function () {}));
+    e.respondWith(new Promise(function (resolve) {
+      var done = false;
+      var timer = setTimeout(function () {
+        _cachedShell().then(function (m) {
+          if (done || !m) return;                       // nothing cached yet: keep waiting for the network
+          done = true; shown = m; resolve(m);
         });
-      })
-    );
+      }, HTML_WAIT_MS);
+      net.then(function (res) {                          // after fill's clone (registered first): the page never waits for the cache write
+        if (done) return; done = true; clearTimeout(timer); resolve(res);
+      }, function () {
+        if (done) return; clearTimeout(timer);
+        _cachedShell().then(function (m) { if (done) return; done = true; resolve(m || Response.error()); });
+      });
+    }));
     return;
   }
 

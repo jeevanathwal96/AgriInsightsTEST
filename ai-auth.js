@@ -44,6 +44,7 @@
       '#ai-auth .langsw button{width:auto;margin:0;padding:3px 9px;font-size:11px;font-weight:700;border-radius:7px;' +
         'background:transparent;color:#6b716a;border:1px solid #dfe3da;}' +
       '#ai-auth .langsw button.on{background:' + FOREST + ';color:#fff;border-color:' + FOREST + ';}' +
+      '@keyframes aiOpenSpin{to{transform:rotate(360deg)}}' +
       '#ai-signout{position:fixed;bottom:14px;left:14px;z-index:99998;background:' + FOREST +
         ';color:#fff;border:0;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;' +
         'font-family:"Plus Jakarta Sans",sans-serif;cursor:pointer;opacity:.85;}';
@@ -104,6 +105,12 @@
           '</div>' +
           '<button id="ai-resend" class="ghost">Resend the email</button>' +
           '<button id="ai-inbox-back" class="ghost" style="margin-top:8px">Already confirmed? Sign in</button>' +
+        '</div>' +
+        /* -490 (B9 D2): a signed-in farmer is never shown the sign-in form while their farm loads. */
+        '<div id="ai-pane-open" style="display:none;text-align:center;padding:14px 0 4px">' +
+          '<div style="width:26px;height:26px;margin:0 auto 12px;border:3px solid #cfe3d6;border-top-color:' + FOREST + ';border-radius:50%;animation:aiOpenSpin .8s linear infinite"></div>' +
+          '<div id="ai-open-t" style="font-size:17px;font-weight:800;color:' + FOREST + '">Opening your farm\u2026</div>' +
+          '<div id="ai-open-s" style="font-size:12.5px;color:#6b716a;margin-top:4px">Getting your latest figures</div>' +
         '</div>' +
         '<div class="msg" id="ai-msg"></div>' +
         '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #dfe3da;text-align:center">' +
@@ -178,7 +185,8 @@
           resetTitle:'Check your email', resetBody1:'We sent a password-reset link to ', resetBody2:'. Open it to choose a new password.',
           resetSent:'Reset link sent — check your inbox.', mismatch:'Those two passwords are not the same.',
           savingPass:'Saving your new password…', passSaved:'Password changed — signing you in…',
-          recoverExpired:'That reset link has expired. Ask for a new one.' },
+          recoverExpired:'That reset link has expired. Ask for a new one.',
+          opening:'Opening your farm\u2026', openingSub:'Getting your latest figures' },
     af: { subIn:'Teken in by jou plaas', subUp:'Begin jou plaas se rekords', subInbox:'Nog een stap',
           tabIn:'Teken in', tabUp:'Skep rekening', signin:'Teken in', signup:'Skep my rekening',
           lblEmail:'E-pos', lblPass:'Wagwoord', lblNewPass:'Kies ’n wagwoord',
@@ -198,7 +206,8 @@
           resetTitle:'Kyk in jou e-pos', resetBody1:'Ons het ’n skakel gestuur na ', resetBody2:'. Maak dit oop om ’n nuwe wagwoord te kies.',
           resetSent:'Terugstelskakel gestuur — kyk in jou inpos.', mismatch:'Daardie twee wagwoorde stem nie ooreen nie.',
           savingPass:'Besig om jou nuwe wagwoord te stoor…', passSaved:'Wagwoord verander — jy word ingeteken…',
-          recoverExpired:'Daardie skakel het verval. Vra ’n nuwe een aan.' }
+          recoverExpired:'Daardie skakel het verval. Vra ’n nuwe een aan.',
+          opening:'Maak jou plaas oop\u2026', openingSub:'Ons haal jou nuutste syfers' }
   };
   /* Messages are remembered by KEY, not by the text already on screen: switching
      language with a message showing ("Email sent — check your inbox.") otherwise
@@ -234,6 +243,7 @@
     _txt('ai-su-hint', t.hint); _txt('ai-demo-q', t.demoQ); _txt('ai-demo', t.demo);
     _txt('ai-inbox-title', INBOX_KIND === 'reset' ? t.resetTitle : t.inboxTitle);
     _txt('ai-resend', t.resend); _txt('ai-inbox-back', t.back);
+    _txt('ai-open-t', t.opening); _txt('ai-open-s', t.openingSub);
     _ph('ai-email', t.phEmail); _ph('ai-pass', t.phPass);
     _ph('ai-su-email', t.phEmail); _ph('ai-su-pass', t.phNewPass);
     var labs = document.querySelectorAll('#ai-pane-in label, #ai-pane-up label');
@@ -261,13 +271,15 @@
     show('ai-pane-inbox',   m === 'inbox');
     show('ai-pane-reset',   m === 'reset');
     show('ai-pane-newpass', m === 'newpass');
+    show('ai-pane-open',    m === 'opening');
+    show('ai-sub',          m !== 'opening');
     /* Tabs only make sense while choosing between signing in and signing up. Mid-
        confirmation, mid-reset, or on the new-password screen they are a way to lose
        your place. */
     show('ai-tabs',       m === 'signin' || m === 'signup');
     /* Nor should "look around the demo" sit under a half-finished password reset. */
     var demoBox = document.getElementById('ai-demo-q');
-    if (demoBox && demoBox.parentNode) demoBox.parentNode.style.display = (m === 'newpass') ? 'none' : '';
+    if (demoBox && demoBox.parentNode) demoBox.parentNode.style.display = (m === 'newpass' || m === 'opening') ? 'none' : '';
     var ti = document.getElementById('ai-tab-in'), tu = document.getElementById('ai-tab-up');
     if (ti) ti.className = 'tab' + (m === 'signin' ? ' on' : '');
     if (tu) tu.className = 'tab' + (m === 'signup' ? ' on' : '');
@@ -376,8 +388,17 @@
 
   // ---- offline session: reveal the cached app instead of trapping on login ----
   function _isOfflineErr(e){ var raw=(e&&e.message)?e.message:String(e||''); return (navigator.onLine===false) || /failed to fetch|networkerror|load failed|fetch|timeout|offline/i.test(raw); }
-  function _hasPersistedSession(){ try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k && /^sb-.*-auth-token$/.test(k) && localStorage.getItem(k)) return true; } }catch(e){} return false; }
+  /* -490: THIS project's session only (sb-<ref>-auth-token). Both apps share one host, so "any sb-*
+     token" was satisfied by the other app's account (memory: shared-origin token, -412). The scan stays
+     only for a build with no project ref. */
+  function _hasPersistedSession(){
+    try{ var ref = (window.AI && window.AI.projectRef) || null; if (ref) return !!localStorage.getItem('sb-' + ref + '-auth-token'); }catch(e){}
+    try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(k && /^sb-.*-auth-token$/.test(k) && localStorage.getItem(k)) return true; } }catch(e){} return false; }
   function _offlineReveal(){
+    /* -490: offline is its own path (edits are kept on this device, as before) - never view only. */
+    try { _boot.want = false; _boot.failed = true; if (typeof window.aiViewOnly === 'function') window.aiViewOnly(false); } catch (e) {}
+    /* -490 item 6: the first draws held behind the card run now (and any later one draws at once). */
+    try { if (typeof window.aiRunDeferredRenders === 'function') window.aiRunDeferredRenders(); } catch (e) {}
     // The app's own boot (bootAgriInsights -> loadState) already populated ST from this
     // device's localStorage, so the user has their last-synced data. Reveal it; the topbar
     // sync indicator shows the offline state and the outbox/relational flush runs on reconnect.
@@ -394,11 +415,73 @@
      and the farmer would never get to type a new password. */
   var RECOVERY = /(^|[#&])type=recovery/.test(window.location.hash || '');
 
+  /* ── -490 (B9 D2): this computer's copy straight away, view only, until the server's copy lands ──
+     Shown only when ALL hold: a session under THIS project's token key; the saved copy is stamped with
+     the same account id and the same active farm (saveState writes the stamps in the same write as the
+     records); the copy was actually read (STATE_LOADED_FROM_DISK); not a password-reset link. Anything
+     else - missing, another account or farm, unreadable - shows "Opening your farm…" and waits as before,
+     never the sign-in form. While shown, the app is VIEW ONLY (aiViewOnly: one guard for every writer).
+     The save lanes, the unsent-edits rule (F2: an area with something unsent keeps this computer's copy)
+     and the two-device guards are not touched: hydrate runs exactly as before, catch-up first, AI.sync
+     opens at its end, and the screen it is on is redrawn in place. */
+  var _boot = { mode: null, want: false, revealed: false, done: false, failed: false };
+  function _savedStamp(){
+    try {
+      var raw = localStorage.getItem(window.SAVE_KEY || 'agri_state_v1'); if (!raw) return null;
+      var m = /^\{"uid":("(?:[^"\\]|\\.)*"|null),"farm":("(?:[^"\\]|\\.)*"|null),/.exec(raw.slice(0, 400));
+      if (!m) return null;                               /* saved before -490: whose it is is not on it */
+      return { uid: JSON.parse(m[1]), farm: JSON.parse(m[2]) };
+    } catch (e) { return null; }
+  }
+  function _revealMatch(){
+    if (RECOVERY || window.__AI_GUEST) return false;
+    var uid = _sessionUid(), fid = (window.AI && AI.farm) ? AI.farm.active() : null, s = _savedStamp();
+    return !!(uid && fid && s && s.uid === uid && s.farm === fid);
+  }
+  function _reveal(){
+    if (_boot.revealed || _boot.done || _boot.failed) return false;
+    _boot.revealed = true;
+    try { if (typeof window.aiViewOnly === 'function') window.aiViewOnly(true); } catch (e) {}
+    /* The setup wizard is up at boot until a load says the farm is set up (hydrate's end hides it). This
+       computer's copy already says so: a farm that finished setup has firstRun false - hide it now, as hydrate will. */
+    try { if (window.ST && window.ST.firstRun === false) { var _ob = document.getElementById('ob-overlay'); if (_ob) _ob.style.display = 'none'; } } catch (e) {}
+    hideOverlay();
+    return true;
+  }
+  /* Put the card back (in "Opening your farm…") when what was shown turns out not to be this farm's. */
+  function _unreveal(mode){
+    if (_boot.revealed) {
+      _boot.revealed = false;
+      var o = document.getElementById('ai-auth'); if (o) o.style.display = 'flex';
+    }
+    setMode(mode || 'opening');
+    try { if (typeof window.aiViewOnly === 'function') window.aiViewOnly(false); } catch (e) {}
+  }
+  /* index.html's load handler, after it drew this computer's copy. */
+  window.aiBootDone = function (loadedFromDisk) {
+    if (!_boot.want || _boot.done || _boot.failed) return false;
+    if (!loadedFromDisk || !_revealMatch()) { _boot.want = false; return false; }
+    return _reveal();
+  };
+  window.aiBootState = function () { return JSON.parse(JSON.stringify(_boot)); };   /* the harness */
+  function _bootFinished(){
+    _boot.done = true; if (_boot.revealed) { _boot.wasRevealed = true; _boot.revealed = false; }   /* later loads (tab return) behave as before */
+    try { if (typeof window.aiViewOnly === 'function') window.aiViewOnly(false); } catch (e) {}
+  }
   var _entering = false;
   function enterApp(){
     if (_entering) return Promise.resolve();
     _entering = true;
-    return hydrate().then(hideOverlay).then(function(){ _liveEnsure(); }).catch(function (e) { _entering = false; throw e; });
+    return hydrate().then(function(){ _bootFinished(); }).then(hideOverlay).then(function(){ _liveEnsure(); }).catch(function (e) {
+      _entering = false;
+      if (!(_isOfflineErr(e) && _hasPersistedSession())) {
+        /* A genuine failure: back to the card, signed-in or not, as before (never a half-loaded farm). */
+        _boot.failed = true; _unreveal('signin');
+      } else {
+        _boot.failed = true; try { if (typeof window.aiViewOnly === 'function') window.aiViewOnly(false); } catch (_) {}
+      }
+      throw e;
+    });
   }
 
   // ---- sign in -------------------------------------------------------------
@@ -480,8 +563,48 @@
     });
   }
 
+  /* -490 (B9 item 4): the early reads. area -> { fid, p } where p settles to the loader's answer or its error. */
+  var _early = null;
+  var _EARLY = {
+    assets:    function (f) { return AI.load.assets(f); },
+    loans:     function (f) { return AI.load.loans(f); },
+    livestock: function (f) { return AI.load.livestock(f); },
+    crops:     function (f) { return AI.load.crops(f); },
+    orchard:   function (f) { return AI.load.orchard(f); },
+    plan:      function (f) { return AI.load.plan(f); },
+    workers:   function (f) { return AI.load.workers(f); },
+    settings:  function (f) { return AI.load.profile(f); },
+    coop:      function (f) { return AI.load.coopSettlements(f); },
+    fuel:      function (f) { return AI.load.fuel(f); },
+    documents: function (f) { return AI.load.documents(f); },
+    rules:     function (f) { return AI.load.rules(f); },
+    rain:      function (f) { return AI.load.rainfall ? AI.load.rainfall(f) : Promise.resolve(null); }
+  };
+  function _unsentNow(){ try { return (window.AI && AI.sync && AI.sync.unsentAreas) ? AI.sync.unsentAreas() : null; } catch (e) { return null; } }
+  function _earlyStart(fid, isNew){
+    var E = { fid: fid, at: {}, marked: null, used: {} };
+    if (isNew || !fid || !(window.AI && AI.load && AI.load.capsReady)) return E;
+    var u = _unsentNow(); if (!u) return E;           /* cannot tell what is unsent: read everything after the catch-up, as before */
+    var caps = AI.load.capsReady();
+    Object.keys(_EARLY).forEach(function (a) {
+      if (u[a]) return;                                  /* unsent here: read after the catch-up sends it */
+      var p = caps.then(function () { return _EARLY[a](fid); });
+      E.at[a] = p.then(function (v) { return { ok: true, v: v }; }, function (e) { return { ok: false, e: e }; });
+    });
+    return E;
+  }
+  /* The marks just before the catch-up: an early read of an area the catch-up is about to send is stale. */
+  function _earlyMarks(){ if (_early) _early.marked = _unsentNow(); }
+  function _earlyGet(area, loader){
+    var E = _early, x = E && E.at[area];
+    if (!x || E.used[area] || E.fid !== (window.AI && AI.farm ? AI.farm.active() : null) || !E.marked || E.marked[area]) return loader();
+    E.used[area] = true;
+    return x.then(function (r) { if (r.ok) return r.v; throw r.e; });
+  }
+  function _dataBump(why){ try { if (typeof window.aiDataBump === 'function') window.aiDataBump(why); } catch (e) {} }
   function hydrate(opts) {
     opts = opts || {};
+    _early = null;
     var isNewFarm = false, needOnboarding = false, activeRow = null;
     /* Deciding "this is a brand-new user" is the single most destructive call in the
        sign-in path: get it wrong and the farmer is handed an empty farm while their
@@ -536,13 +659,24 @@
         sameF = (localStorage.getItem('ai_state_farm') === fid);
       } catch(e){}
       if (isNewFarm || !sameU || !sameF) {
+        if (_boot.revealed) _unreveal('opening');   /* -490: what was shown is not this farm's */
         /* Unsent changes on this device belong to another account or farm: never send them. */
         try { if (window.AI && AI.sync) AI.sync.discardUnsent(); } catch(e){}
         try { if (typeof window.aiAccountReset === 'function') window.aiAccountReset(); } catch(e){}
       }
       try { localStorage.setItem('ai_state_uid', uid || ''); localStorage.setItem('ai_state_farm', fid || ''); } catch(e){}
-      return AI.load.financeCore(fid);
+      var _fc = AI.load.financeCore(fid);
+      /* -490 (B9 item 4): the asset, loan and relational reads start now, with financeCore, for every
+         area with nothing unsent on this device - they waited for financeCore, the catch-up and the
+         asset/loan step in turn. Orders kept: a read whose columns come from the CAN_* flags waits for
+         the column probe (capsReady - every early read waits for it); an area WITH something unsent is
+         read only after the catch-up has sent it (the -404 rule: push, then read), and so is any area
+         that became unsent before the catch-up ran; every apply below happens where it always did, with
+         its own isUnsent guard. Skipped for a brand-new farm (nothing to read). */
+      _early = _earlyStart(fid, isNewFarm);
+      return _fc;
     }).then(function (core) {
+      _dataBump('sync');   /* -490 item 7: every server apply empties the derived-figure caches */
       // Replace the app's working data with the farm's real data.
       if (window.ST) { ST.txns = (window.preservePendingTxns ? window.preservePendingTxns(core.txns || []) : (core.txns || [])); if (!(window.AI && AI.sync && AI.sync.isUnsent('recurring'))) ST.recurring = core.recurring || []; /* -489 F2: a budget edit this device has not sent yet (the budget lane is marked unsent) is the farmer's latest:
          keep it - the catch-up below sends it - instead of loading the server's older copy over it, which the catch-up
@@ -574,10 +708,12 @@
          copy already in memory: it pushed that back, cleared the marks, and the change left unsent
          when the app closed was gone. Traced live on 16 Sep 2026 - loans fetched at 1.9s, catch-up
          at 2.0s holding only the server's row. */
+      _earlyMarks();   /* what the catch-up is about to send: those early reads are thrown away */
       return (AI.sync ? AI.sync.catchUp() : Promise.resolve()).then(function () { return Promise.all([
-        AI.load.assets(AI.farm.active()),
-        AI.load.loans(AI.farm.active())
+        _earlyGet('assets', function () { return AI.load.assets(AI.farm.active()); }),
+        _earlyGet('loans', function () { return AI.load.loans(AI.farm.active()); })
       ]); }).then(function (res) {
+        _dataBump('sync');
         var assets = res[0], loanData = res[1];
         try {
           /* Never load over assets this device has not managed to send yet (-411):
@@ -640,25 +776,26 @@
       /* Send what this device never got to send BEFORE loading over it. After financeCore,
          so the column probes have run and a settings catch-up sends every column. */
       return Promise.all([
-        AI.load.livestock(fid).catch(function (e) { console.error('livestock load', e); return null; }),
-        AI.load.crops(fid).catch(function (e) { console.error('crops load', e); return null; }),
-        AI.load.orchard(fid).catch(function (e) { console.error('orchard load', e); return null; }),
-        AI.load.plan(fid).catch(function (e) { console.error('plan load', e); return null; }),
-        AI.load.workers(fid).catch(function (e) { console.error('workers load', e); return null; }),
-        AI.load.profile(fid).catch(function (e) { console.error('profile load', e); return null; }),
-        AI.load.coopSettlements(fid).catch(function (e) { console.error('coop load', e); return null; }),
+        _earlyGet('livestock', function () { return AI.load.livestock(fid); }).catch(function (e) { console.error('livestock load', e); return null; }),
+        _earlyGet('crops', function () { return AI.load.crops(fid); }).catch(function (e) { console.error('crops load', e); return null; }),
+        _earlyGet('orchard', function () { return AI.load.orchard(fid); }).catch(function (e) { console.error('orchard load', e); return null; }),
+        _earlyGet('plan', function () { return AI.load.plan(fid); }).catch(function (e) { console.error('plan load', e); return null; }),
+        _earlyGet('workers', function () { return AI.load.workers(fid); }).catch(function (e) { console.error('workers load', e); return null; }),
+        _earlyGet('settings', function () { return AI.load.profile(fid); }).catch(function (e) { console.error('profile load', e); return null; }),
+        _earlyGet('coop', function () { return AI.load.coopSettlements(fid); }).catch(function (e) { console.error('coop load', e); return null; }),
         /* Both of these have existed since the module sweep and neither was ever called.
            AI.fuel.saveAll and AI.documents.saveAll push rows up on every save, so the data
            was on the server the whole time — it just had no way back, and a farmer on a new
            device saw an empty fuel log and no removal certificates. The certificates are the
            worse half: those are statutory documents. */
-        AI.load.fuel(fid).catch(function (e) { console.error('fuel load', e); return null; }),
-        AI.load.documents(fid).catch(function (e) { console.error('documents load', e); return null; }),
-        AI.load.rules(fid).catch(function (e) { console.error('rules load', e); return null; }),
+        _earlyGet('fuel', function () { return AI.load.fuel(fid); }).catch(function (e) { console.error('fuel load', e); return null; }),
+        _earlyGet('documents', function () { return AI.load.documents(fid); }).catch(function (e) { console.error('documents load', e); return null; }),
+        _earlyGet('rules', function () { return AI.load.rules(fid); }).catch(function (e) { console.error('rules load', e); return null; }),
         /* The rain book, so a farmer on a new device does not open an empty one.
            Never fatal: the tables may not exist yet on an older project. */
-        (AI.load.rainfall ? AI.load.rainfall(fid).catch(function () { return null; }) : Promise.resolve(null))
+        (AI.load.rainfall ? _earlyGet('rain', function () { return AI.load.rainfall(fid); }).catch(function () { return null; }) : Promise.resolve(null))
       ]).then(function (r) {
+        _dataBump('sync');
         var ls = r[0], cr = r[1], orc = r[2], pl = r[3], wk = r[4], pf = r[5], coop = r[6],
             fu = r[7], dc = r[8], rl = r[9], rn = r[10];
         /* Never load over an area that still has something unsent on this device. */
@@ -781,7 +918,10 @@
         }
       } catch (e) {}
       try {
-        if (typeof nav === 'function') nav(opts.silent && window.CURRENT_PAGE ? window.CURRENT_PAGE : 'dashboard');
+        /* -490 (B9 item 6): the first draws held behind the card run now - the Dashboard itself is drawn by nav. */
+        try { if (typeof window.aiRunDeferredRenders === 'function') window.aiRunDeferredRenders({ dash: true }); } catch (e) {}
+        /* -490 (D2): the farmer has been looking at this computer's copy - redraw the screen they are on, in place. */
+        if (typeof nav === 'function') nav((opts.silent || _boot.revealed) && window.CURRENT_PAGE ? window.CURRENT_PAGE : 'dashboard');
         else if (typeof updateDashboardFigures === 'function') updateDashboardFigures();
       } catch (e) {}
       try {
@@ -801,6 +941,15 @@
   // ---- boot: wait for DOM + AI, then check for an existing session ---------
   function start() {
     if (!window.AI) { msg('Backend not loaded (check ai-data.js).', 'err'); return; }
+    /* -490 (B9 D2 + item 6): decided now, before the first paint and before the app's load handler. */
+    try {
+      if (window.__AI_GUEST) { _boot.mode = 'guest'; }
+      else if (_sessionUid() && !RECOVERY) {
+        _boot.mode = _revealMatch() ? 'reveal' : 'opening'; _boot.want = (_boot.mode === 'reveal');
+        setMode('opening');
+      } else { _boot.mode = 'landing'; }
+      window.__AI_BOOT = _boot.mode;
+    } catch (e) {}
     // Run AFTER the app's own boot has populated ST (setTimeout defers past it).
     setTimeout(function () {
       // Guest demo mode (?demo=1 / ai_guest flag): no login, no backend. Hide the sign-in
@@ -837,16 +986,18 @@
         if (session) {
           enterApp().catch(function (e) {
             if (_isOfflineErr(e) && _hasPersistedSession()) { _offlineReveal(); }
-            // else: a genuine error — overlay stays for sign-in
+            // else: a genuine error — overlay stays for sign-in (enterApp put the form back)
           });
         } else if (_hasPersistedSession() && navigator.onLine === false) {
           // getSession couldn't confirm offline, but a cached token exists
           _offlineReveal();
+        } else {
+          // no session (the saved one could not be refreshed) — the sign-in form, as before
+          _boot.want = false; _boot.failed = true; _unreveal('signin');
         }
-        // else: no session — overlay stays visible for sign-in
       }).catch(function (e) {
         if (_hasPersistedSession() && _isOfflineErr(e)) { _offlineReveal(); }
-        // else: overlay stays visible
+        else { _boot.want = false; _boot.failed = true; _unreveal('signin'); }   // overlay stays visible, on the form
       });
     }, 0);
   }

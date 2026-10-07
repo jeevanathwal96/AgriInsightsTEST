@@ -1148,40 +1148,102 @@
   // ---- 6. LOAD FINANCE CORE ------------------------------------------------
   /* PostgREST caps every select at `max-rows` (1000 on Supabase) — a farm with more rows
      than that silently loaded only the first 1000, understating every total, report and tax
-     figure with no warning. selectAll() pages through with .range() until a short page comes
-     back. buildQuery must return a FRESH builder each call (a builder can't be re-awaited).
-     Returns the same {data, error} shape as a normal select, so call sites barely change. */
+     figure with no warning. buildQuery must return a FRESH builder each call (a builder can't
+     be re-awaited). Returns the same {data, error} shape as a normal select, so call sites
+     barely change.
+     -490 (B9 D1, one rule for both apps): the read stops on the EXACT total, whatever the
+     project's "Max rows" setting is. The first page asks for the count (Prefer: count=exact ->
+     Content-Range), and the read ends when fetched = total. A short page alone never ends it:
+     with Max rows below the page size every page is "short", and stopping there lost rows
+     silently. The next page starts after the rows actually received (not after pageSize), so
+     a cap below, equal to or above the page size reads every row; the remaining pages are
+     asked for together once the first page shows what one page holds. Without a count (an
+     older client or a stand-in) the read goes on until an empty page - slower, never short. */
   async function selectAll(buildQuery, pageSize) {
     pageSize = pageSize || 1000;
-    let out = [], from = 0;
-    for (;;) {
+    let out = [];
+    const q0 = buildQuery();
+    try { if (q0 && q0.headers && typeof q0.headers.append === 'function') q0.headers.append('Prefer', 'count=exact'); } catch (e) {}
+    const r0 = await q0.range(0, pageSize - 1);
+    if (r0.error) return { data: null, error: r0.error };
+    const first = r0.data || [];
+    out = out.concat(first);
+    const total = (typeof r0.count === 'number' && isFinite(r0.count)) ? r0.count : null;
+    if (total != null) {
+      if (out.length >= total || !first.length) return { data: out, error: null };
+      /* One page holds first.length rows on this project: ask for the rest at once. */
+      const per = first.length, starts = [];
+      for (let f = out.length; f < total; f += per) starts.push(f);
+      const pages = await Promise.all(starts.map(function (f) { return buildQuery().range(f, f + per - 1); }));
+      for (let i = 0; i < pages.length; i++) {
+        if (pages[i].error) return { data: null, error: pages[i].error };
+        const rows = pages[i].data || [];
+        out = out.concat(rows);
+        /* A page that came back shorter than asked (rows removed while reading, or a cap that
+           varies): read on, one page at a time from where the rows stop, until the total. */
+        if (rows.length < Math.min(per, total - starts[i])) {
+          let from = starts[i] + rows.length;
+          out = out.slice(0, from);
+          for (let n = 0; n < 100000; n++) {
+            if (out.length >= total) break;
+            const r = await buildQuery().range(from, from + pageSize - 1);
+            if (r.error) return { data: null, error: r.error };
+            const more = r.data || [];
+            if (!more.length || (first.length && JSON.stringify(more[0]) === JSON.stringify(first[0]))) break;
+            out = out.concat(more); from += more.length;
+          }
+          break;
+        }
+      }
+      return { data: out, error: null };
+    }
+    /* No count: page on from the rows received until an empty page. A server (or stand-in) that
+       ignores range() sends page one again - that ends the read too, instead of looping for ever. */
+    let from = out.length;
+    if (!first.length) return { data: out, error: null };
+    const same = function (a, b) { try { return JSON.stringify(a) === JSON.stringify(b); } catch (e) { return false; } };
+    for (let n = 0; n < 100000; n++) {
       const r = await buildQuery().range(from, from + pageSize - 1);
       if (r.error) return { data: null, error: r.error };
       const rows = r.data || [];
-      out = out.concat(rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
+      if (!rows.length || same(rows[0], first[0])) break;
+      out = out.concat(rows); from += rows.length;
     }
     return { data: out, error: null };
   }
 
+  /* -490 (B9 item 4): the column probe of the load in progress, so a read whose column list is
+     built from the CAN_* flags (the farms row, the profile, payslips) can wait for it - and every
+     other read can start without it. */
+  let _capsP = null;
+  const _noop = function () {};
   const load = {
+    capsReady() { return _capsP ? _capsP.then(_noop, _noop) : Promise.resolve(); },
     async financeCore(farmId) {
       if (!farmId) throw new Error('No active farm');
-      await loadCats(farmId);
-      await probeCaps(farmId);          // learn once whether cat_confirmed exists
+      /* -490 (B9 item 4): the categories, the column probe, the import records and the four list
+         reads go out together - none of them needs another's answer. Two orders are kept:
+           · the farms row's column list is built from CAN_* flags, so it waits for the probe;
+           · rows are MAPPED (dbToApp, category ids -> names) only after the categories are in.
+         It was categories -> probe -> imports -> reads, one after another (4 round trips). */
+      const catsP = loadCats(farmId);
+      _capsP = probeCaps(farmId);          // learn once whether cat_confirmed exists
       /* The import panel's records. Never fatal: a farm with no imports, or a database
          without the table, must still load its transactions. */
-      let impBatches = [];
-      try { impBatches = await importBatch.list(farmId); } catch (e) { impBatches = []; }
+      const impP = importBatch.list(farmId).catch(function () { return []; });
+      const accP = selectAll(() => client().from('accounts').select('*').eq('farm_id', farmId).order('name'));
+      const txnP = selectAll(() => client().from('transactions').select('*').eq('farm_id', farmId).order('txn_date', { ascending: false }));
+      /* Promise.resolve: a query builder sends its request each time it is awaited - once only. */
+      const budP = Promise.resolve(client().from('budget_months').select('*').eq('farm_id', farmId));
+      const recP = Promise.resolve(client().from('recurring').select('*').eq('farm_id', farmId).order('name'));
+      [catsP, accP, txnP, budP, recP].forEach(function (p) { Promise.resolve(p).catch(_noop); });   // awaited below; no stray rejection
+      await _capsP;
+      const fstP = Promise.resolve(client().from('farms').select('budget_income_pattern,budget_expense_pattern,budget_current_month' + (CAN_BUDGET_CATTGT ? ',budget_cat_targets' : '') + (CAN_PROV_PAID ? ',prov_paid' : '') + (CAN_BUDGET_LOCK ? ',budget_locked' : '') + (CAN_TAX_PAID ? ',tax_paid' : '')).eq('id', farmId).single());
+      fstP.catch(_noop);
+      await catsP;
+      let impBatches = await impP;
 
-      const [acc, txn, bud, rec, fst] = await Promise.all([
-        selectAll(() => client().from('accounts').select('*').eq('farm_id', farmId).order('name')),
-        selectAll(() => client().from('transactions').select('*').eq('farm_id', farmId).order('txn_date', { ascending: false })),
-        client().from('budget_months').select('*').eq('farm_id', farmId),
-        client().from('recurring').select('*').eq('farm_id', farmId).order('name'),
-        client().from('farms').select('budget_income_pattern,budget_expense_pattern,budget_current_month' + (CAN_BUDGET_CATTGT ? ',budget_cat_targets' : '') + (CAN_PROV_PAID ? ',prov_paid' : '') + (CAN_BUDGET_LOCK ? ',budget_locked' : '') + (CAN_TAX_PAID ? ',tax_paid' : '')).eq('id', farmId).single()
-      ]);
+      const [acc, txn, bud, rec, fst] = await Promise.all([accP, txnP, budP, recP, fstP]);
       for (const r of [acc, txn, bud, rec]) if (r.error) throw r.error;
       _srvNote('accounts', acc.data);      _srvNote('transactions', txn.data);
       _srvNote('budget_months', bud.data); _srvNote('recurring', rec.data);
@@ -1825,6 +1887,9 @@
 
   load.livestock = async function(farmId){
     farmId = farmId || farm.active();
+    /* -490 (B9 item 4): breeding is read with the rest, not after it (it was a second round trip). Still
+       resilient: a project without the table loads everything else. */
+    const bdP = selectAll(() => client().from('livestock_breedings').select('*').eq('farm_id',farmId).order('created_at')).catch(function(){ return null; });
     const [cp,hd,hc,bm,mv,tr,an,he] = await Promise.all([
       selectAll(() => client().from('livestock_camps').select('*').eq('farm_id',farmId).order('created_at')),
       selectAll(() => client().from('herds').select('*').eq('farm_id',farmId).order('created_at')),
@@ -1870,7 +1935,7 @@
     // Breeding — queried separately & resiliently: a farm whose Supabase hasn't run the
     // livestock_breeding migration must still load all its other livestock data.
     var breedings=[];
-    try{ var bd=await selectAll(() => client().from('livestock_breedings').select('*').eq('farm_id',farmId).order('created_at')); if(!bd.error) breedings=(bd.data||[]).map(breedingFromDb); }
+    try{ var bd=await bdP; if(bd && !bd.error) breedings=(bd.data||[]).map(breedingFromDb); }
     catch(e){ /* table not migrated yet — ignore */ }
     return { camps:(cp.data||[]).map(campFromDb), herds:herds, benchmarks:benchmarks,
              moves:(mv.data||[]).map(moveFromDb),
@@ -2772,6 +2837,13 @@
        selectAll() was written for on transactions — and it matters more here,
        because these rows feed the SARS submission. worker_settings is one row a
        farm and is left as a plain select. */
+    /* -490 (B9 item 4): the kept payslips are read with the rest (CAN_PAYSLIPS is known - the probe ran
+       before any relational load), not after the first eight answers. */
+    const psP = CAN_PAYSLIPS ? Promise.all([
+        selectAll(() => client().from('payslips').select('*').eq('farm_id',farmId).order('created_at')),
+        selectAll(() => client().from('payslip_sends').select('*').eq('farm_id',farmId).order('sent_at'))
+      ]) : null;
+    if (psP) psP.catch(function(){});
     const [wk,st,lg,lv,dc,pe,pr,pa] = await Promise.all([
       selectAll(() => client().from('workers').select('*').eq('farm_id',farmId).order('created_at')),
       client().from('worker_settings').select('*').eq('farm_id',farmId),
@@ -2786,11 +2858,8 @@
     /* Kept payslips and what the phone sent. Only when the tables exist; otherwise the
        result carries neither and the device keeps what it holds. */
     var ps=null, sd=null;
-    if(CAN_PAYSLIPS){
-      const [a,b] = await Promise.all([
-        selectAll(() => client().from('payslips').select('*').eq('farm_id',farmId).order('created_at')),
-        selectAll(() => client().from('payslip_sends').select('*').eq('farm_id',farmId).order('sent_at'))
-      ]);
+    if(psP){
+      const [a,b] = await psP;
       if(a&&a.error) throw a.error; if(b&&b.error) throw b.error;
       ps=(a.data||[]).map(payslipFromDb); sd=(b.data||[]).map(payslipSendFromDb);
     }
@@ -3795,6 +3864,8 @@
       });
     },
     isUnsent(area){ var u = _unsentRead(); return !!u.areas[area] || u.ops.some(function(x){ return x.area === area; }); },
+    /* -490: every area with something unsent (areas and remove ops), for the early reads and the update bar. */
+    unsentAreas(){ var u = _unsentRead(), o = {}; Object.keys(u.areas || {}).forEach(function(a){ if(u.areas[a]) o[a] = true; }); (u.ops || []).forEach(function(x){ if(x && x.area) o[x.area] = true; }); return o; },
     /* Send what an earlier session never got to send. Runs before hydrate loads anything. */
     /* The app has loaded its own copy from this device: saves may go now. */
     localReady(){ _localReady = true; _localWaiters.splice(0).forEach(function(f){ try{ f(); }catch(e){} }); _syncEmit(); },
