@@ -13,16 +13,17 @@
  */
 'use strict';
 
-var APP_VERSION = '2026-10-07-490';
-var BUILD = 'e7c6efe9f7';   /* dist build (build-dist.mjs): the hashed scripts below */
+var APP_VERSION = '2026-10-17-491';
+var BUILD = '6de20712c0';   /* dist build (build-dist.mjs): the hashed scripts below */
 var CACHE = 'agriinsights-' + APP_VERSION + '-' + BUILD;
 
 /* App shell precached on install. The ?v=-suffixed JS is intentionally left to
  * runtime caching so the existing ?v= cache-busting keeps working untouched. */
 var PRECACHE = [
   './',
-  './app.c435eeb8eb7b.js',
-  './kpi-detail.782a21000ef0.js',
+  './app.b58034d24ad5.js',
+  './bg-grid.a83fa0ec7d39.js',
+  './kpi-detail.77782a5c0d4e.js',
   './index.html',
   './manifest.webmanifest',
   './fonts.css',
@@ -81,11 +82,22 @@ function _freshHTML(req){
 var HTML_WAIT_MS = 3000;
 function _cachedShell(){ return caches.match('./index.html').then(function (m) { return m || caches.match('./'); }); }
 function _verOf(res){ try { return res.headers.get('etag') || res.headers.get('last-modified') || ''; } catch (e) { return ''; } }
-function _tellNewer(){
+/* -491 (UK B11F item 3): the "newer page" message carries that page's own release (its <meta name="ai-build">), and the page
+   asks which release this worker is, so the bar shows only when there really is another version. */
+function _buildOf(res){
+  try { return res.clone().text().then(function (t) { var m = String(t).match(/<meta name="ai-build" content="([^"]+)"/); return m ? m[1] : null; }).catch(function () { return null; }); }
+  catch (e) { return Promise.resolve(null); }
+}
+function _tellNewer(build){
   return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (cs) {
-    cs.forEach(function (c) { try { c.postMessage({ type: 'ai-sw-newer', v: APP_VERSION }); } catch (e) {} });
+    cs.forEach(function (c) { try { c.postMessage({ type: 'ai-sw-newer', v: APP_VERSION, build: build || null }); } catch (e) {} });
   });
 }
+self.addEventListener('message', function (e) {
+  if (!e.data || e.data.type !== 'ai-version?') return;
+  var m = { type: 'ai-version', v: APP_VERSION };
+  if (e.ports && e.ports[0]) e.ports[0].postMessage(m); else if (e.source) e.source.postMessage(m);
+});
 
 self.addEventListener('fetch', function (e) {
   var req = e.request;
@@ -115,7 +127,7 @@ self.addEventListener('fetch', function (e) {
     var shown = null;                                   // the cached copy, when that is what the page got
     /* Kept alive until the answer is in the cache - and, if the page was given the older copy, until it is told. */
     e.waitUntil(fill.then(function (res) {
-      if (shown && res && res.ok && _verOf(res) !== _verOf(shown)) return _tellNewer();
+      if (shown && res && res.ok && _verOf(res) !== _verOf(shown)) return _buildOf(res).then(function (b) { return _tellNewer(b); });
     }).catch(function () {}));
     e.respondWith(new Promise(function (resolve) {
       var done = false;

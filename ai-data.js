@@ -416,6 +416,8 @@
   let CAN_BUDGET_CATTGT = false; /* farms.budget_cat_targets - sa-batch5-step1.sql (SA -449) */
   let CAN_PROV_PAID   = false;   /* farms.prov_paid - sa-batch5-step1.sql (SA -449) */
   let CAN_BUDGET_LOCK = false;   /* farms.budget_locked - sa-batch5-step3.sql (SA -451): the bank copy lock */
+  let CAN_BUDGET_CELLS = false;  /* budget_cells - 02-database/sa-budget-grid.sql (SA -491): the Spreadsheet's cells */
+  let CAN_BUDGET_SCEN  = false;  /* budget_scenarios - the same file: one live budget a year */
   let CAN_TAX_PAID    = false;   /* farms.tax_paid - sa-tax-paid.sql (SA -457): SARS payments marked paid on the Tax home */
   let CAN_TAX_PLAN    = false;
   let CAN_HOME_MONEY  = false;   /* farms.home_money - sa-home-money.sql (SA -469): Home's profit, for the phone */   /* farms.tax_plan - sa-tax-plan.sql (SA -463): the Tax home's figures, for the phone */
@@ -541,7 +543,8 @@
     ['worker_settings','contract_extra'], ['farms','marketing_optin'], ['farms','marketing_optin_at'], ['farms','uif_ref'],
     ['crop_inputs','water_l_ha'], ['crop_inputs','equipment'], ['crop_inputs','active_ingredient'],
     ['orchard_sprays','water_l_ha'], ['orchard_sprays','equipment'], ['orchard_sprays','active_ingredient'], ['orchard_harvest','payment'],
-    ['assets','tax_facts']
+    ['assets','tax_facts'],
+    ['budget_cells','ent_code'], ['budget_scenarios','is_live']   /* -491 (sa-budget-grid.sql) */
   ];
 
   async function probeCaps(farmId){
@@ -601,6 +604,8 @@
     CAN_BUDGET_CATTGT  = keep(CAN_BUDGET_CATTGT, 'farms','budget_cat_targets');
     CAN_PROV_PAID      = keep(CAN_PROV_PAID,     'farms','prov_paid');
     CAN_BUDGET_LOCK    = keep(CAN_BUDGET_LOCK,   'farms','budget_locked');
+    CAN_BUDGET_CELLS   = keep(CAN_BUDGET_CELLS,  'budget_cells','ent_code');      /* -491 */
+    CAN_BUDGET_SCEN    = keep(CAN_BUDGET_SCEN,   'budget_scenarios','is_live');   /* -491 */
     CAN_TAX_PAID       = keep(CAN_TAX_PAID,      'farms','tax_paid');
     CAN_TAX_PLAN       = keep(CAN_TAX_PLAN,      'farms','tax_plan');
     CAN_HOME_MONEY     = keep(CAN_HOME_MONEY,    'farms','home_money');
@@ -685,7 +690,8 @@
     orchard_compliance_items: ['item_key'],
     crop_compliance_areas:    ['area_key'],
     payroll_entries:          ['period_label','worker_local_id'],
-    budget_months:            ['period_year','period_month','side']
+    budget_months:            ['period_year','period_month','side'],
+    budget_cells:             ['scenario_local_id','period_year','period_month','side','category','ent_code']   /* -491 */
   };
   function _srvKey(table,row){
     if(!row || typeof row!=='object') return null;
@@ -901,6 +907,12 @@
   /* Server primary keys this device loaded - the scope for a replace-all child
      table, whose rows are positional and have no identity of their own. */
   function _srvIds(table){ var t=_SRV[table]; return t ? t.ids.slice() : null; }
+  /* -491: the rows this device loaded (or wrote) that its copy no longer holds - a keyed prune, never replace-all */
+  function _srvGoneIds(table, keepKeys, filter){
+    var t=_SRV[table]; if(!t) return null; var out=[];
+    Object.keys(t.rows).forEach(function(k){ var r=t.rows[k]; if(!r || r.id==null) return; if(filter && !filter(r)) return; if(!keepKeys[k]) out.push(r.id); });
+    return out;
+  }
   /* Rows THIS device wrote belong in its row memory too. The memory was only ever filled
      by a load, so a row added and then removed in the same session was never in it: the
      prune skipped it, the server kept it, and it came back on the next load - proven on
@@ -1240,11 +1252,28 @@
       await _capsP;
       const fstP = Promise.resolve(client().from('farms').select('budget_income_pattern,budget_expense_pattern,budget_current_month' + (CAN_BUDGET_CATTGT ? ',budget_cat_targets' : '') + (CAN_PROV_PAID ? ',prov_paid' : '') + (CAN_BUDGET_LOCK ? ',budget_locked' : '') + (CAN_TAX_PAID ? ',tax_paid' : '')).eq('id', farmId).single());
       fstP.catch(_noop);
+      /* -491: the Spreadsheet - one live budget a year (budget_scenarios) and its cells (budget_cells: category x enterprise x
+         month), read with the PAGED reader, this tax year and the two before. Never fatal: without the tables (or on a bad
+         moment) bObj.grid stays unset and the device keeps its own copy (ai-auth's hydrate, whitelist 3). */
+      let gridP = Promise.resolve(null);
+      if (CAN_BUDGET_CELLS && CAN_BUDGET_SCEN) {
+        gridP = (async function () {
+          try {
+            var _fyNow = (typeof global.bgtFY === 'function') ? global.bgtFY() : new Date().getFullYear();
+            const [gs, gc] = await Promise.all([
+              Promise.resolve(client().from('budget_scenarios').select('*').eq('farm_id', farmId)),
+              selectAll(() => client().from('budget_cells').select('*').eq('farm_id', farmId).gte('period_year', _fyNow - 2).order('id'))
+            ]);
+            return (!gs.error && !gc.error) ? { scen: gs.data || [], rows: gc.data || [] } : null;
+          } catch (e) { return null; }
+        })();
+      }
       await catsP;
       let impBatches = await impP;
 
-      const [acc, txn, bud, rec, fst] = await Promise.all([accP, txnP, budP, recP, fstP]);
+      const [acc, txn, bud, rec, fst, grid] = await Promise.all([accP, txnP, budP, recP, fstP, gridP]);
       for (const r of [acc, txn, bud, rec]) if (r.error) throw r.error;
+      if (grid) { _srvNote('budget_scenarios', grid.scen); _srvNote('budget_cells', grid.rows); }   /* -491 */
       _srvNote('accounts', acc.data);      _srvNote('transactions', txn.data);
       _srvNote('budget_months', bud.data); _srvNote('recurring', rec.data);
 
@@ -1259,6 +1288,7 @@
       var provPaid = (fst.data && fst.data.prov_paid != null) ? _js(fst.data.prov_paid) : null;
       if (fst.data && fst.data.budget_locked != null) bObj.locked = _js(fst.data.budget_locked) || {};   /* -451 */
       var taxPaid = (fst.data && fst.data.tax_paid != null) ? _js(fst.data.tax_paid) : null;   /* -457 */
+      if (grid) { try { bObj.grid = gridFromDb(grid.scen, grid.rows); } catch (e) {} }   /* -491: whitelist 1 of 3 */
       (bud.data || []).forEach(function (r) {
         var lbl = ymToLabel(r.period_year, r.period_month);
         if (r.side === 'income') bObj.monthlyIncome[lbl] = Number(r.amount);
@@ -1401,11 +1431,71 @@
   var MON_ABBR = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function labelToYM(label){ var p = String(label||'').trim().split(/\s+/); var m = MON_ABBR.indexOf(p[0]); return { month: m>0?m:null, year: parseInt(p[1],10) || null }; }
   function ymToLabel(y,m){ return MON_ABBR[m] + ' ' + y; }
+  /* -491: the Spreadsheet to and from its rows. Only the farmer's own grid is stored (src 'farm'); a seed is today's budget
+     split on the device and never sent. A cell row is kept while it holds money, a note or a formula. */
+  function gridFromDb(scen, rows){
+    var g = { v: 1, scen: {} };
+    (scen || []).forEach(function (r) { if (!r || !r.local_id) return; g.scen[r.local_id] = { fy: +r.fy, name: r.name || 'Budget', live: !!r.is_live, sort: +r.sort_idx || 0, src: 'farm', cells: { income: {}, expense: {} }, fml: {}, notes: {} }; });
+    (rows || []).forEach(function (r) {
+      var s = g.scen[r.scenario_local_id]; if (!s || (r.side !== 'income' && r.side !== 'expense')) return;
+      var L = ymToLabel(r.period_year, r.period_month), ent = r.ent_code || 'none', key = r.side + '|' + r.category + '|' + ent + '|' + L, v = Number(r.amount) || 0;
+      if (ent !== '*' && v) { var c = s.cells[r.side][r.category] || (s.cells[r.side][r.category] = {}); (c[ent] || (c[ent] = {}))[L] = v; }
+      if (r.note) s.notes[key] = r.note; if (r.formula) s.fml[key] = r.formula;
+    });
+    return g;
+  }
+  function gridToDb(g, fid){
+    var scen = [], cells = [];
+    Object.keys((g && g.scen) || {}).forEach(function (id) {
+      var s = g.scen[id]; if (!s || s.src !== 'farm') return;
+      scen.push({ farm_id: fid, local_id: id, fy: +s.fy, name: s.name || 'Budget', is_live: !!s.live, sort_idx: Math.max(0, Math.round(+s.sort || 0)) });
+      var seen = {};
+      var add = function (side, cat, ent, L) { var key = side + '|' + cat + '|' + ent + '|' + L; if (seen[key]) return; seen[key] = 1; var ym = labelToYM(L); if (!ym.month || !ym.year) return;
+        var amt = (ent === '*') ? 0 : (Number((((s.cells[side] || {})[cat] || {})[ent] || {})[L]) || 0), note = (s.notes || {})[key] || null, f = (s.fml || {})[key] || null;
+        if (!amt && !note && !f) return;
+        cells.push({ farm_id: fid, scenario_local_id: id, period_year: ym.year, period_month: ym.month, side: side, category: cat, ent_code: ent, amount: amt, note: note, formula: f }); };
+      ['income', 'expense'].forEach(function (side) { var cs = (s.cells && s.cells[side]) || {}; Object.keys(cs).forEach(function (cat) { Object.keys(cs[cat]).forEach(function (ent) { Object.keys(cs[cat][ent]).forEach(function (L) { add(side, cat, ent, L); }); }); }); });
+      [s.fml || {}, s.notes || {}].forEach(function (m) { Object.keys(m).forEach(function (key) { var p = key.split('|'); add(p[0], p[1], p[2], p.slice(3).join('|')); }); });
+    });
+    return { scen: scen, cells: cells };
+  }
+  /* Only rows that differ from the server's copy as this device knows it (row memory); everything when it knows none. */
+  function _gridChanged(table, rows){ var t = _SRV[table]; if (!t) return rows; return rows.filter(function (r) { var k = _srvKey(table, r); return !(k != null && t.rows[k] && _srvSame(t.rows[k], r)); }); }
+  /* -491: whitelist 2 of 3 - the Spreadsheet first, in this order: the scenarios, the cells that changed (through client()'s
+     _srvPrep/_srvWatch: an unchanged row keeps its edit time, so another device's newer edit stands), then a KEYED prune of
+     the cells this device loaded and the farmer has since cleared (never replace-all: cells have an identity), and only
+     then the month totals (budget_months, which the phone reads), the live budget's column sums. */
+  async function _gridSave(b, fid){
+    var last = budget._grid = { scen: 0, cells: 0, gone: 0 };
+    if (!(CAN_BUDGET_CELLS && CAN_BUDGET_SCEN && b.grid && b.grid.scen)) return last;
+    var gd = gridToDb(b.grid, fid), keep = {};
+    gd.cells.forEach(function (r) { var k = _srvKey('budget_cells', r); if (k != null) keep[k] = 1; });
+    var sUp = _gridChanged('budget_scenarios', gd.scen);
+    var sOff = sUp.filter(function (r) { return !r.is_live; }), sOn = sUp.filter(function (r) { return r.is_live; });   /* one live a year: clear, then set */
+    if (sOff.length) { var g0 = await client().from('budget_scenarios').upsert(sOff, { onConflict: 'farm_id,local_id' }); if (g0.error) throw g0.error; }
+    if (sOn.length) { var g1 = await client().from('budget_scenarios').upsert(sOn, { onConflict: 'farm_id,local_id' }); if (g1.error) throw g1.error; }
+    last.scen = sUp.length;
+    var cUp = _gridChanged('budget_cells', gd.cells);
+    for (var ci = 0; ci < cUp.length; ci += 500) {
+      var g2 = await client().from('budget_cells').upsert(cUp.slice(ci, ci + 500), { onConflict: 'farm_id,scenario_local_id,period_year,period_month,side,category,ent_code' });
+      if (g2.error) throw g2.error;
+    }
+    last.cells = cUp.length;
+    var gone = _srvGoneIds('budget_cells', keep);
+    for (var gi = 0; gone && gi < gone.length; gi += 200) {
+      var part = gone.slice(gi, gi + 200), g3 = await client().from('budget_cells').delete().eq('farm_id', fid).in('id', part);
+      if (g3.error) throw g3.error;
+      _srvForgetRows('budget_cells', 'id', part);
+    }
+    last.gone = gone ? gone.length : 0;
+    return last;
+  }
   const budget = {
     // Persist the whole budget object: per-month income/expense targets + settings
     async save(b) {
       if (!b) return;
       var fid = farm.active();
+      await _gridSave(b, fid);   /* -491: the Spreadsheet first; budget_months stays the live totals and is written last */
       var rows = [];
       Object.keys(b.monthlyIncome || {}).forEach(function (lbl) {
         var ym = labelToYM(lbl);
@@ -3954,6 +4044,11 @@
                    these. */
                 __probeCaps: probeCaps, __client: client,
                 /* 06-tools/sa-doubling-harness.html: the copy collapse and the row key (-448). */
-                __collapseRepeats: _collapseRepeats, __rowKey: _rowKey };
+                __collapseRepeats: _collapseRepeats, __rowKey: _rowKey,
+                /* -491: 06-tools/sa-grid-491-harness.html - the Spreadsheet's whitelists, probe flags and keyed prune */
+                _grid: { fromDb: gridFromDb, toDb: gridToDb, goneIds: _srvGoneIds, changed: _gridChanged, note: _srvNote, capCols: CAP_COLS,
+                         caps: function(){ return { CAN_BUDGET_CELLS: CAN_BUDGET_CELLS, CAN_BUDGET_SCEN: CAN_BUDGET_SCEN }; },
+                         setCaps: function(on){ CAN_BUDGET_CELLS = !!on; CAN_BUDGET_SCEN = !!on; },
+                         mem: function(t){ var x = _SRV[t]; return x ? Object.keys(x.rows).length : null; }, probeCol: _probeCol } };
 
 })(window);
