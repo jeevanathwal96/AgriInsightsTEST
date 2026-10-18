@@ -418,6 +418,7 @@
   let CAN_BUDGET_LOCK = false;   /* farms.budget_locked - sa-batch5-step3.sql (SA -451): the bank copy lock */
   let CAN_BUDGET_CELLS = false;  /* budget_cells - 02-database/sa-budget-grid.sql (SA -491): the Spreadsheet's cells */
   let CAN_BUDGET_SCEN  = false;  /* budget_scenarios - the same file: one live budget a year */
+  let CAN_BUDGET_YP    = false;  /* budget_scenarios.yp - 02-database/sa-budget-grid-b.sql (SA -492): Yield x price per budget */
   let CAN_TAX_PAID    = false;   /* farms.tax_paid - sa-tax-paid.sql (SA -457): SARS payments marked paid on the Tax home */
   let CAN_TAX_PLAN    = false;
   let CAN_HOME_MONEY  = false;   /* farms.home_money - sa-home-money.sql (SA -469): Home's profit, for the phone */   /* farms.tax_plan - sa-tax-plan.sql (SA -463): the Tax home's figures, for the phone */
@@ -544,7 +545,8 @@
     ['crop_inputs','water_l_ha'], ['crop_inputs','equipment'], ['crop_inputs','active_ingredient'],
     ['orchard_sprays','water_l_ha'], ['orchard_sprays','equipment'], ['orchard_sprays','active_ingredient'], ['orchard_harvest','payment'],
     ['assets','tax_facts'],
-    ['budget_cells','ent_code'], ['budget_scenarios','is_live']   /* -491 (sa-budget-grid.sql) */
+    ['budget_cells','ent_code'], ['budget_scenarios','is_live'],   /* -491 (sa-budget-grid.sql) */
+    ['budget_scenarios','yp']   /* -492 (sa-budget-grid-b.sql) */
   ];
 
   async function probeCaps(farmId){
@@ -606,6 +608,7 @@
     CAN_BUDGET_LOCK    = keep(CAN_BUDGET_LOCK,   'farms','budget_locked');
     CAN_BUDGET_CELLS   = keep(CAN_BUDGET_CELLS,  'budget_cells','ent_code');      /* -491 */
     CAN_BUDGET_SCEN    = keep(CAN_BUDGET_SCEN,   'budget_scenarios','is_live');   /* -491 */
+    CAN_BUDGET_YP      = keep(CAN_BUDGET_YP,     'budget_scenarios','yp');        /* -492 */
     CAN_TAX_PAID       = keep(CAN_TAX_PAID,      'farms','tax_paid');
     CAN_TAX_PLAN       = keep(CAN_TAX_PLAN,      'farms','tax_plan');
     CAN_HOME_MONEY     = keep(CAN_HOME_MONEY,    'farms','home_money');
@@ -1435,7 +1438,7 @@
      split on the device and never sent. A cell row is kept while it holds money, a note or a formula. */
   function gridFromDb(scen, rows){
     var g = { v: 1, scen: {} };
-    (scen || []).forEach(function (r) { if (!r || !r.local_id) return; g.scen[r.local_id] = { fy: +r.fy, name: r.name || 'Budget', live: !!r.is_live, sort: +r.sort_idx || 0, src: 'farm', cells: { income: {}, expense: {} }, fml: {}, notes: {} }; });
+    (scen || []).forEach(function (r) { if (!r || !r.local_id) return; var yp = (function (v) { try { return (typeof v === "string") ? JSON.parse(v) : v; } catch (e) { return null; } })(r.yp); g.scen[r.local_id] = { fy: +r.fy, name: r.name || 'Budget', live: !!r.is_live, sort: +r.sort_idx || 0, src: 'farm', cells: { income: {}, expense: {} }, fml: {}, notes: {}, yp: (yp && typeof yp === 'object' && !Array.isArray(yp)) ? yp : {} }; if (!('yp' in r)) g.scen[r.local_id]._noYp = true; });   /* -492: yp */
     (rows || []).forEach(function (r) {
       var s = g.scen[r.scenario_local_id]; if (!s || (r.side !== 'income' && r.side !== 'expense')) return;
       var L = ymToLabel(r.period_year, r.period_month), ent = r.ent_code || 'none', key = r.side + '|' + r.category + '|' + ent + '|' + L, v = Number(r.amount) || 0;
@@ -1448,7 +1451,9 @@
     var scen = [], cells = [];
     Object.keys((g && g.scen) || {}).forEach(function (id) {
       var s = g.scen[id]; if (!s || s.src !== 'farm') return;
-      scen.push({ farm_id: fid, local_id: id, fy: +s.fy, name: s.name || 'Budget', is_live: !!s.live, sort_idx: Math.max(0, Math.round(+s.sort || 0)) });
+      var _sr = { farm_id: fid, local_id: id, fy: +s.fy, name: s.name || 'Budget', is_live: !!s.live, sort_idx: Math.max(0, Math.round(+s.sort || 0)) };
+      if (CAN_BUDGET_YP) _sr.yp = (s.yp && typeof s.yp === 'object') ? s.yp : {};   /* -492: Yield x price, kept with its budget */
+      scen.push(_sr);
       var seen = {};
       var add = function (side, cat, ent, L) { var key = side + '|' + cat + '|' + ent + '|' + L; if (seen[key]) return; seen[key] = 1; var ym = labelToYM(L); if (!ym.month || !ym.year) return;
         var amt = (ent === '*') ? 0 : (Number((((s.cells[side] || {})[cat] || {})[ent] || {})[L]) || 0), note = (s.notes || {})[key] || null, f = (s.fml || {})[key] || null;
@@ -4047,8 +4052,8 @@
                 __collapseRepeats: _collapseRepeats, __rowKey: _rowKey,
                 /* -491: 06-tools/sa-grid-491-harness.html - the Spreadsheet's whitelists, probe flags and keyed prune */
                 _grid: { fromDb: gridFromDb, toDb: gridToDb, goneIds: _srvGoneIds, changed: _gridChanged, note: _srvNote, capCols: CAP_COLS,
-                         caps: function(){ return { CAN_BUDGET_CELLS: CAN_BUDGET_CELLS, CAN_BUDGET_SCEN: CAN_BUDGET_SCEN }; },
-                         setCaps: function(on){ CAN_BUDGET_CELLS = !!on; CAN_BUDGET_SCEN = !!on; },
+                         caps: function(){ return { CAN_BUDGET_CELLS: CAN_BUDGET_CELLS, CAN_BUDGET_SCEN: CAN_BUDGET_SCEN, CAN_BUDGET_YP: CAN_BUDGET_YP }; },
+                         setCaps: function(on, yp){ CAN_BUDGET_CELLS = !!on; CAN_BUDGET_SCEN = !!on; CAN_BUDGET_YP = (yp === undefined) ? !!on : !!yp; },
                          mem: function(t){ var x = _SRV[t]; return x ? Object.keys(x.rows).length : null; }, probeCol: _probeCol } };
 
 })(window);
