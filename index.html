@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="ai-build" content="2026-10-17-492"/>
+<meta name="ai-build" content="2026-10-18-493"/>
 <title>AgriInsights — Making Farm Finances Simple</title>
 <meta name="description" content="AgriInsights — making farm finances simple for South African farmers. Track expenses, plan crops, manage SARS records and stay profitable across English and Afrikaans."/>
 <meta name="theme-color" content="#1B4332"/>
@@ -30,8 +30,8 @@
 <script defer src="vendor/chart.umd.js"></script>
 
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=83"></script>
-<script src="ai-auth.js?v=57"></script>
+<script src="ai-data.js?v=84"></script>
+<script src="ai-auth.js?v=58"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -6499,6 +6499,34 @@ table.bg-cmpv tr.key td{background:var(--netbg)} table.bg-cmpv td.neg{color:var(
 .bg-drop b{color:var(--t1)}
 .bg-confirm{margin-top:14px;padding:12px 14px;border-radius:12px;background:var(--ti-w);border:1px solid var(--ti-b);font-size:13px;color:var(--ti-ct);font-weight:600}
 table.bg-g button.bytag{border:0;cursor:pointer;font-family:inherit;line-height:inherit}
+.bg-r1 .bg-book{display:flex;align-items:center;padding:0;border:0;gap:2px}
+.bg-fbx{width:26px;height:38px;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;color:var(--t4);font-size:15px;font-weight:700;cursor:help;font-family:inherit;background:none;border:0;padding:0}
+.bg-fbx:hover,.bg-fbx:focus-visible,.bg-fbx[aria-expanded="true"]{color:var(--gm);background:var(--gb)}
+.bg-r1 .bg-fb button{align-items:flex-start;text-align:left;padding-left:12px;padding-right:12px}
+.bg-r1 .bg-fb button small{display:block;font-size:10px;font-weight:600;color:var(--t4);margin-top:0}
+.bg-r1 .bg-fb button.on small{color:var(--gm)}
+.bg-r1 .bg-fb button.on{font-weight:800}
+.bg-r2 .bg-apb{white-space:nowrap}
+.bg-r2 .bg-apb.pri{font-weight:800;color:var(--gd)}
+.fc-chips{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;min-width:0;flex:0 1 auto;overflow:hidden}
+.fc-chips .bg-chip{max-width:300px;overflow:hidden;text-overflow:ellipsis;display:inline-block;line-height:18px;white-space:nowrap}
+.fc-chips .bg-chip>i{vertical-align:-1px;margin-right:6px}
+.fc-chip{cursor:pointer;border:0;font-family:inherit}
+.bg-g td.c.you{box-shadow:inset 2px 0 0 #7C5CBF}
+.bg-g td.c.you.fch{background-image:linear-gradient(225deg,#D97706 0 5px,transparent 5px)}
+.fc-note{position:fixed;left:50%;bottom:76px;transform:translateX(-50%);z-index:460;display:flex;gap:12px;align-items:center;background:#1F2937;color:#fff;border-radius:10px;padding:10px 14px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:calc(100vw - 32px);flex-wrap:wrap}
+.fc-note .bg-lnk{color:#C7E8D2}.fc-note .bg-x{background:none;border:0;color:#fff;font-size:18px;cursor:pointer}
+.fc-hist{width:100%;border-collapse:collapse;font-size:12.5px}.fc-hist td,.fc-hist th{padding:6px 8px;border-bottom:1px solid var(--br2);text-align:left}
+.fc-aplist{margin:0;padding-left:18px;font-size:12.5px}
+.fc-tag{font-weight:600}
+#bg-sheet-view .bg-fc-explain{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:9px 18px;margin:-1px 0 0;border-top:1px solid var(--br2);border-bottom:1px solid var(--br2)}
+#bg-sheet-view .bg-fc-explain[hidden]{display:none}
+.bg-fc-explain>div{font-size:12.5px;color:var(--t2);background:var(--bg);border:1px solid var(--br2);border-radius:10px;padding:8px 10px}
+.bg-fc-explain b{color:var(--t1)}
+.fc-nudge{display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 14px;padding:12px 16px;border-radius:12px;background:var(--gb);border:1px solid var(--gp)}
+.fc-nudge>div:first-child{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--t2)}.fc-nudge b{color:var(--t1);font-size:14px}.fc-nudge-a{display:flex;gap:8px}
+@media (max-width:1499px){ .bg-r1 .bg-fb button small{display:none} }
+@media (max-width:760px){ #bg-sheet-view .bg-fc-explain{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -8062,6 +8090,8 @@ table.bg-g button.bytag{border:0;cursor:pointer;font-family:inherit;line-height:
       </div>
       
       <div class="bg-r1" id="bg-r1">
+        
+        <div class="bg-book" id="bg-book" hidden><div class="bg-seg bg-fb" role="radiogroup" aria-label="Forecast or budget"><button type="button" role="radio" data-book="f" class="on" aria-checked="true">Forecast<small>where you&#8217;ll end up</small></button><button type="button" role="radio" data-book="b" aria-checked="false">Budget<small>what you aim for</small></button></div><button type="button" class="bg-fbx" id="bg-fbx-btn" title="What&#8217;s the difference?" aria-label="What&#8217;s the difference between the forecast and the budget?" aria-controls="bg-fc-explain" aria-expanded="false" onclick="var e=document.getElementById('bg-fc-explain');if(e){e.hidden=!e.hidden;this.setAttribute('aria-expanded',e.hidden?'false':'true');}">&#9432;</button></div>
         <button class="bg-fpick" id="bg-f-btn" type="button" aria-haspopup="listbox"><span class="fl">Show</span><span>Whole farm</span><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="bg-seg" id="bg-per-seg" role="radiogroup" aria-label="Columns"><button type="button" role="radio" data-per="m" class="on" aria-checked="true">Months</button><button type="button" role="radio" data-per="q" aria-checked="false">Quarters</button><button type="button" role="radio" data-per="y" aria-checked="false">Year</button></div>
         <div class="bg-vwrap">
@@ -8101,6 +8131,8 @@ table.bg-g button.bytag{border:0;cursor:pointer;font-family:inherit;line-height:
       <div class="bg-r2" id="bg-r2">
         <button class="bg-chkb" id="bg-chk" type="button" hidden></button>
         <span class="bg-apr" id="bg-apr" hidden></span>
+        <button class="bg-lnk" type="button" id="bg-hist-btn" data-fc="hist" hidden>What changed</button>
+        <span class="fc-chips" id="fc-chips"></span>
         <span class="bg-vnow" id="bg-vnow"></span>
       <div class="bg-ctx" id="bg-ctx" hidden>
         <div class="bg-ctx-l" id="bg-ctx-l"></div>
@@ -8118,6 +8150,7 @@ table.bg-g button.bytag{border:0;cursor:pointer;font-family:inherit;line-height:
       </div>
       </div>
       <div class="bg-lockbar" id="bg-lockbar" hidden></div>
+      <div class="bg-fc-explain" id="bg-fc-explain" hidden></div>
       
       <div class="bg-scenbar" hidden><div class="bg-scen" id="bg-scen" role="tablist" aria-label="Budgets"></div></div>
       <div class="bg-scen-banner" id="bg-scen-banner" hidden></div>
@@ -10808,7 +10841,7 @@ table.bg-g button.bytag{border:0;cursor:pointer;font-family:inherit;line-height:
 
 </div>
 </div>
-<script src="app.64cccc5534ef.js" charset="utf-8"></script>
+<script src="app.56d21c8d12ed.js" charset="utf-8"></script>
 
 
 <div class="imp-bg" id="imp-hub-bg">
@@ -11384,7 +11417,7 @@ table.bg-g button.bytag{border:0;cursor:pointer;font-family:inherit;line-height:
 </style>
 <div class="kdt-modal" id="kpi-modal" onclick="if(event.target===this)kpiClose()"><div class="kdt-card" id="kpi-card"></div></div>
 <div id="kpi-trail"></div>
-<script id="bg-grid-js" src="bg-grid.522895f1aea4.js" charset="utf-8"></script>
+<script id="bg-grid-js" src="bg-grid.7c16c8be4641.js" charset="utf-8"></script>
 
 <script id="kpi-detail-js" src="kpi-detail.77782a5c0d4e.js" charset="utf-8"></script>
 

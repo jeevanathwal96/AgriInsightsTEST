@@ -419,6 +419,7 @@
   let CAN_BUDGET_CELLS = false;  /* budget_cells - 02-database/sa-budget-grid.sql (SA -491): the Spreadsheet's cells */
   let CAN_BUDGET_SCEN  = false;  /* budget_scenarios - the same file: one live budget a year */
   let CAN_BUDGET_YP    = false;  /* budget_scenarios.yp - 02-database/sa-budget-grid-b.sql (SA -492): Yield x price per budget */
+  let CAN_BUDGET_FC    = false;  /* budget_scenarios.kind/history + budget_cells.src - 02-database/sa-b8e-forecast.sql (SA -493) */
   let CAN_TAX_PAID    = false;   /* farms.tax_paid - sa-tax-paid.sql (SA -457): SARS payments marked paid on the Tax home */
   let CAN_TAX_PLAN    = false;
   let CAN_HOME_MONEY  = false;   /* farms.home_money - sa-home-money.sql (SA -469): Home's profit, for the phone */   /* farms.tax_plan - sa-tax-plan.sql (SA -463): the Tax home's figures, for the phone */
@@ -546,7 +547,8 @@
     ['orchard_sprays','water_l_ha'], ['orchard_sprays','equipment'], ['orchard_sprays','active_ingredient'], ['orchard_harvest','payment'],
     ['assets','tax_facts'],
     ['budget_cells','ent_code'], ['budget_scenarios','is_live'],   /* -491 (sa-budget-grid.sql) */
-    ['budget_scenarios','yp']   /* -492 (sa-budget-grid-b.sql) */
+    ['budget_scenarios','yp'],   /* -492 (sa-budget-grid-b.sql) */
+    ['budget_scenarios','kind'], ['budget_cells','src']   /* -493 (sa-b8e-forecast.sql) */
   ];
 
   async function probeCaps(farmId){
@@ -609,6 +611,7 @@
     CAN_BUDGET_CELLS   = keep(CAN_BUDGET_CELLS,  'budget_cells','ent_code');      /* -491 */
     CAN_BUDGET_SCEN    = keep(CAN_BUDGET_SCEN,   'budget_scenarios','is_live');   /* -491 */
     CAN_BUDGET_YP      = keep(CAN_BUDGET_YP,     'budget_scenarios','yp');        /* -492 */
+    CAN_BUDGET_FC      = keep(CAN_BUDGET_FC,     'budget_scenarios','kind') && keep(CAN_BUDGET_FC, 'budget_cells','src');   /* -493: both or neither */
     CAN_TAX_PAID       = keep(CAN_TAX_PAID,      'farms','tax_paid');
     CAN_TAX_PLAN       = keep(CAN_TAX_PLAN,      'farms','tax_plan');
     CAN_HOME_MONEY     = keep(CAN_HOME_MONEY,    'farms','home_money');
@@ -1438,12 +1441,18 @@
      split on the device and never sent. A cell row is kept while it holds money, a note or a formula. */
   function gridFromDb(scen, rows){
     var g = { v: 1, scen: {} };
-    (scen || []).forEach(function (r) { if (!r || !r.local_id) return; var yp = (function (v) { try { return (typeof v === "string") ? JSON.parse(v) : v; } catch (e) { return null; } })(r.yp); g.scen[r.local_id] = { fy: +r.fy, name: r.name || 'Budget', live: !!r.is_live, sort: +r.sort_idx || 0, src: 'farm', cells: { income: {}, expense: {} }, fml: {}, notes: {}, yp: (yp && typeof yp === 'object' && !Array.isArray(yp)) ? yp : {} }; if (!('yp' in r)) g.scen[r.local_id]._noYp = true; });   /* -492: yp */
+    (scen || []).forEach(function (r) { if (!r || !r.local_id) return; var yp = (function (v) { try { return (typeof v === "string") ? JSON.parse(v) : v; } catch (e) { return null; } })(r.yp); g.scen[r.local_id] = { fy: +r.fy, name: r.name || 'Budget', live: !!r.is_live, sort: +r.sort_idx || 0, src: 'farm', cells: { income: {}, expense: {} }, fml: {}, notes: {}, yp: (yp && typeof yp === 'object' && !Array.isArray(yp)) ? yp : {} }; if (!('yp' in r)) g.scen[r.local_id]._noYp = true;
+      /* -493: the forecast ('fc-<fy>', kind 'forecast'): never live; its What changed, Planning's figures under the farmer's own
+         (pv), the link (lk: prices, the stored season) and day 1 (d1) come back from history */
+      if (r.kind === 'forecast' && /^fc-\d+$/.test(r.local_id)) { var _h = (function (v) { try { return (typeof v === 'string') ? JSON.parse(v) : v; } catch (e) { return null; } })(r.history) || {}, _s = g.scen[r.local_id];
+        _s.kind = 'forecast'; _s.live = false; _s.name = 'Forecast'; _s.org = {}; _s.pv = (_h.pv && typeof _h.pv === 'object') ? _h.pv : {}; _s.hist = Array.isArray(_h.hist) ? _h.hist : []; _s.lk = (_h.lk && typeof _h.lk === 'object') ? _h.lk : {}; _s.bt = (_h.bt && typeof _h.bt === 'object') ? _h.bt : { income: {}, expense: {} }; if (_h.d1) _s.d1 = 1; if (r.approved_at) _s.approvedAt = r.approved_at; }
+    });   /* -492: yp */
     (rows || []).forEach(function (r) {
       var s = g.scen[r.scenario_local_id]; if (!s || (r.side !== 'income' && r.side !== 'expense')) return;
       var L = ymToLabel(r.period_year, r.period_month), ent = r.ent_code || 'none', key = r.side + '|' + r.category + '|' + ent + '|' + L, v = Number(r.amount) || 0;
       if (ent !== '*' && v) { var c = s.cells[r.side][r.category] || (s.cells[r.side][r.category] = {}); (c[ent] || (c[ent] = {}))[L] = v; }
       if (r.note) s.notes[key] = r.note; if (r.formula) s.fml[key] = r.formula;
+      if (s.kind === 'forecast' && (r.src === 'plan' || r.src === 'you')) s.org[key] = r.src;   /* -493: the cell's origin */
     });
     return g;
   }
@@ -1451,14 +1460,20 @@
     var scen = [], cells = [];
     Object.keys((g && g.scen) || {}).forEach(function (id) {
       var s = g.scen[id]; if (!s || s.src !== 'farm') return;
-      var _sr = { farm_id: fid, local_id: id, fy: +s.fy, name: s.name || 'Budget', is_live: !!s.live, sort_idx: Math.max(0, Math.round(+s.sort || 0)) };
+      var _isFc = (s.kind === 'forecast' && /^fc-\d+$/.test(id)); if (_isFc && !CAN_BUDGET_FC) return;   /* -493: no columns yet - the device keeps it */
+      var _sr = { farm_id: fid, local_id: id, fy: +s.fy, name: s.name || 'Budget', is_live: _isFc ? false : !!s.live, sort_idx: Math.max(0, Math.round(+s.sort || 0)) };
+      if (CAN_BUDGET_FC) { _sr.kind = (s.live && !_isFc) ? 'budget' : 'forecast';
+        _sr.history = _isFc ? { hist: (s.hist || []).slice(-200), pv: s.pv || {}, lk: s.lk || {}, bt: s.bt || {}, d1: s.d1 ? 1 : 0 } : {};
+        _sr.approved_at = _isFc ? (s.approvedAt || null) : null; }
       if (CAN_BUDGET_YP) _sr.yp = (s.yp && typeof s.yp === 'object') ? s.yp : {};   /* -492: Yield x price, kept with its budget */
       scen.push(_sr);
       var seen = {};
       var add = function (side, cat, ent, L) { var key = side + '|' + cat + '|' + ent + '|' + L; if (seen[key]) return; seen[key] = 1; var ym = labelToYM(L); if (!ym.month || !ym.year) return;
         var amt = (ent === '*') ? 0 : (Number((((s.cells[side] || {})[cat] || {})[ent] || {})[L]) || 0), note = (s.notes || {})[key] || null, f = (s.fml || {})[key] || null;
-        if (!amt && !note && !f) return;
-        cells.push({ farm_id: fid, scenario_local_id: id, period_year: ym.year, period_month: ym.month, side: side, category: cat, ent_code: ent, amount: amt, note: note, formula: f }); };
+        if (!amt && !note && !f && !(s.kind === 'forecast' && s.org && s.org[key] === 'you')) return;
+        var _row = { farm_id: fid, scenario_local_id: id, period_year: ym.year, period_month: ym.month, side: side, category: cat, ent_code: ent, amount: amt, note: note, formula: f };
+        if (CAN_BUDGET_FC) { var _o = (s.kind === 'forecast' && s.org) ? (s.org[key] || null) : null; if (_o === 'plan' && s.relink && s.relink[key]) _o = 'relink'; _row.src = _o; }   /* -493: 'relink' = the farmer put it back on Planning (the trigger stores 'plan') */
+        cells.push(_row); };
       ['income', 'expense'].forEach(function (side) { var cs = (s.cells && s.cells[side]) || {}; Object.keys(cs).forEach(function (cat) { Object.keys(cs[cat]).forEach(function (ent) { Object.keys(cs[cat][ent]).forEach(function (L) { add(side, cat, ent, L); }); }); }); });
       [s.fml || {}, s.notes || {}].forEach(function (m) { Object.keys(m).forEach(function (key) { var p = key.split('|'); add(p[0], p[1], p[2], p.slice(3).join('|')); }); });
     });
@@ -1486,6 +1501,7 @@
       if (g2.error) throw g2.error;
     }
     last.cells = cUp.length;
+    try { Object.keys(b.grid.scen).forEach(function (id) { var x = b.grid.scen[id]; if (x && x.relink) delete x.relink; }); } catch (e) {}   /* -493 */
     var gone = _srvGoneIds('budget_cells', keep);
     for (var gi = 0; gone && gi < gone.length; gi += 200) {
       var part = gone.slice(gi, gi + 200), g3 = await client().from('budget_cells').delete().eq('farm_id', fid).in('id', part);
@@ -4052,8 +4068,8 @@
                 __collapseRepeats: _collapseRepeats, __rowKey: _rowKey,
                 /* -491: 06-tools/sa-grid-491-harness.html - the Spreadsheet's whitelists, probe flags and keyed prune */
                 _grid: { fromDb: gridFromDb, toDb: gridToDb, goneIds: _srvGoneIds, changed: _gridChanged, note: _srvNote, capCols: CAP_COLS,
-                         caps: function(){ return { CAN_BUDGET_CELLS: CAN_BUDGET_CELLS, CAN_BUDGET_SCEN: CAN_BUDGET_SCEN, CAN_BUDGET_YP: CAN_BUDGET_YP }; },
-                         setCaps: function(on, yp){ CAN_BUDGET_CELLS = !!on; CAN_BUDGET_SCEN = !!on; CAN_BUDGET_YP = (yp === undefined) ? !!on : !!yp; },
+                         caps: function(){ return { CAN_BUDGET_CELLS: CAN_BUDGET_CELLS, CAN_BUDGET_SCEN: CAN_BUDGET_SCEN, CAN_BUDGET_YP: CAN_BUDGET_YP, CAN_BUDGET_FC: CAN_BUDGET_FC }; },
+                         setCaps: function(on, yp, fc){ CAN_BUDGET_CELLS = !!on; CAN_BUDGET_SCEN = !!on; CAN_BUDGET_YP = (yp === undefined) ? !!on : !!yp; CAN_BUDGET_FC = (fc === undefined) ? !!on : !!fc; },
                          mem: function(t){ var x = _SRV[t]; return x ? Object.keys(x.rows).length : null; }, probeCol: _probeCol } };
 
 })(window);
