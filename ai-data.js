@@ -420,6 +420,13 @@
   let CAN_BUDGET_SCEN  = false;  /* budget_scenarios - the same file: one live budget a year */
   let CAN_BUDGET_YP    = false;  /* budget_scenarios.yp - 02-database/sa-budget-grid-b.sql (SA -492): Yield x price per budget */
   let CAN_BUDGET_FC    = false;  /* budget_scenarios.kind/history + budget_cells.src - 02-database/sa-b8e-forecast.sql (SA -493) */
+  /* -495 (B10, 02-database/sa-b10-bmb.sql): Planning's own fields and Build my budget's answers. Each its own jsonb column,
+     each its own flag: an absent column keeps today's behaviour (the field stays on this device, as before). */
+  let CAN_HERD_PLAN     = false;  /* herds.plan: the herd's Planning fields (p*, wool and milk pay timing) and its answers */
+  let CAN_PLANCROP_PLAN = false;  /* plan_crops.plan: payWhen / paySplit / sellMonth / poolPay / canePay / c2 and the answers */
+  let CAN_ORCH_PAY      = false;  /* orchard_blocks.pay: the block's pool, pay weeks, pick slots and planner fields (NOT .plan: a boolean) */
+  let CAN_COOP_TERMS    = false;  /* coop_accounts.terms: production-credit draw and settle months */
+  let CAN_FARM_BMB      = false;  /* farms.bmb_flags: the farm's answers, dismissals and builds (every device) */
   let CAN_TAX_PAID    = false;   /* farms.tax_paid - sa-tax-paid.sql (SA -457): SARS payments marked paid on the Tax home */
   let CAN_TAX_PLAN    = false;
   let CAN_HOME_MONEY  = false;   /* farms.home_money - sa-home-money.sql (SA -469): Home's profit, for the phone */   /* farms.tax_plan - sa-tax-plan.sql (SA -463): the Tax home's figures, for the phone */
@@ -485,7 +492,7 @@
       if(!r.error) return true;
       const code = String((r.error && r.error.code) || '');
       const msg  = String((r.error && r.error.message) || '');
-      if(code === '42703' || code === 'PGRST204') return false;
+      if(code === '42703' || code === 'PGRST204' || code === 'PGRST205') return false;   /* -495: PGRST205 too */
       if(/does not exist|Could not find the/i.test(msg) && /column/i.test(msg)) return false;
       return null;
     }catch(e){ return null; }
@@ -548,7 +555,8 @@
     ['assets','tax_facts'],
     ['budget_cells','ent_code'], ['budget_scenarios','is_live'],   /* -491 (sa-budget-grid.sql) */
     ['budget_scenarios','yp'],   /* -492 (sa-budget-grid-b.sql) */
-    ['budget_scenarios','kind'], ['budget_cells','src']   /* -493 (sa-b8e-forecast.sql) */
+    ['budget_scenarios','kind'], ['budget_cells','src'],   /* -493 (sa-b8e-forecast.sql) */
+    ['herds','plan'], ['plan_crops','plan'], ['orchard_blocks','pay'], ['coop_accounts','terms'], ['farms','bmb_flags']   /* -495 (sa-b10-bmb.sql) */
   ];
 
   async function probeCaps(farmId){
@@ -615,6 +623,11 @@
     CAN_TAX_PAID       = keep(CAN_TAX_PAID,      'farms','tax_paid');
     CAN_TAX_PLAN       = keep(CAN_TAX_PLAN,      'farms','tax_plan');
     CAN_HOME_MONEY     = keep(CAN_HOME_MONEY,    'farms','home_money');
+    CAN_HERD_PLAN      = keep(CAN_HERD_PLAN,     'herds','plan');            /* -495 */
+    CAN_PLANCROP_PLAN  = keep(CAN_PLANCROP_PLAN, 'plan_crops','plan');       /* -495 */
+    CAN_ORCH_PAY       = keep(CAN_ORCH_PAY,      'orchard_blocks','pay');    /* -495 */
+    CAN_COOP_TERMS     = keep(CAN_COOP_TERMS,    'coop_accounts','terms');   /* -495 */
+    CAN_FARM_BMB       = keep(CAN_FARM_BMB,      'farms','bmb_flags');       /* -495 */
     CAN_DEVICES        = keep(CAN_DEVICES,       'farm_devices','kind');
     /* The particulars a spray register prints. An un-migrated project still saves
        the spray - it just cannot carry rate, batch, certificate or the weather at
@@ -657,6 +670,50 @@
     return true;
   }
   function _migNote(what, n){ try{ var m = global.__AI_MIG485 = global.__AI_MIG485 || {}; m[what] = (m[what] || 0) + n; }catch(e){} }
+  /* -495 (B10 item 7, the persistence fix - the class): Planning's own fields on a herd, a plan line, an orchard block and a
+     co-op account. Until -495 obToDb / herdToDb / planCropToDb / coopToDb dropped every one of them and the hydrate replaced the
+     lists, so a reload or a second device lost the farmer's pay timing (and the herd planner, the block planner). Each now rides
+     in ONE jsonb column. With the column: the server's copy is the truth, except that on the FIRST load after the release each
+     device carries onto the server copy any field the server does not have yet (_bmbCarry, once per device and farm - so no
+     duplicate and nothing overwritten: idempotent), and the app saves that area once (global.__AI_BMB_PUSH, sent by ai-auth).
+     Without the column: exactly as before, and the hydrate keeps this device's fields (ai-auth _bmbKeepLocal). */
+  var _BMB_HERD_KEYS  = ['woolShape', 'milkPay'];
+  var _BMB_CROP_KEYS  = ['payWhen', 'paySplit', 'sellMonth', 'poolPay', 'canePay', 'c2'];
+  var _BMB_BLOCK_KEYS = ['planPool', 'planPayWeeks', 'planPickStart', 'planPickEnd', 'planCost', 'planMatureTons', 'altBearing', 'altPhase', 'juicePct', 'channel', 'payBmb'];
+  var _BMB_COOP_KEYS  = ['terms'];
+  function _bmbJ(v){ if(typeof v === 'string'){ try{ v = JSON.parse(v); }catch(e){ return null; } } return (v && typeof v === 'object') ? v : null; }
+  function _bmbCl(v){ return (v == null || typeof v !== 'object') ? v : JSON.parse(JSON.stringify(v)); }
+  function _herdPlanOut(h){ var o = { p: {} }; if(!h) return null;
+    Object.keys(h).forEach(function(k){ if(/^p[A-Z]/.test(k) && h[k] !== undefined) o.p[k] = _bmbCl(h[k]); });
+    _BMB_HERD_KEYS.forEach(function(k){ if(h[k] != null) o[k] = _bmbCl(h[k]); });
+    if(h.plan && typeof h.plan === 'object'){ ['bmb', 'bmbNext'].forEach(function(k){ if(h.plan[k]) o[k] = _bmbCl(h.plan[k]); }); }
+    return (Object.keys(o.p).length || Object.keys(o).length > 1) ? o : null; }   /* nothing to keep: null (an unchanged row stays unchanged for the row memory) */
+  function _herdPlanIn(h, v){ v = _bmbJ(v); if(!v) return h;
+    if(v.p && typeof v.p === 'object') Object.keys(v.p).forEach(function(k){ if(/^p[A-Z]/.test(k)) h[k] = v.p[k]; });
+    _BMB_HERD_KEYS.forEach(function(k){ if(v[k] != null) h[k] = v[k]; });
+    if(v.bmb || v.bmbNext){ h.plan = {}; if(v.bmb) h.plan.bmb = v.bmb; if(v.bmbNext) h.plan.bmbNext = v.bmbNext; }
+    return h; }
+  function _cropPlanOut(c){ var o = {}; if(!c) return null;
+    _BMB_CROP_KEYS.forEach(function(k){ if(c[k] != null && c[k] !== '') o[k] = _bmbCl(c[k]); });
+    if(c.plan && typeof c.plan === 'object'){ ['bmb', 'bmbNext'].forEach(function(k){ if(c.plan[k]) o[k] = _bmbCl(c.plan[k]); }); }
+    return Object.keys(o).length ? o : null; }
+  function _cropPlanIn(c, v){ v = _bmbJ(v); if(!v) return c;
+    _BMB_CROP_KEYS.forEach(function(k){ if(v[k] != null) c[k] = v[k]; });
+    if(v.bmb || v.bmbNext){ c.plan = {}; if(v.bmb) c.plan.bmb = v.bmb; if(v.bmbNext) c.plan.bmbNext = v.bmbNext; }
+    return c; }
+  /* the block's planner fields. The pick slots keep their rule (0-11 INSIDE the plan window, -485 L22968): stored as they are. */
+  function _blockPayOut(b){ var o = {}; if(!b) return null; var M = { planPool: 'pool', planPayWeeks: 'payWeeks', planPickStart: 'pickStart', planPickEnd: 'pickEnd', payBmb: 'bmb' };
+    _BMB_BLOCK_KEYS.forEach(function(k){ if(b[k] != null && b[k] !== '') o[M[k] || k] = _bmbCl(b[k]); }); return Object.keys(o).length ? o : null; }
+  function _blockPayIn(b, v){ v = _bmbJ(v); if(!v) return b; var M = { pool: 'planPool', payWeeks: 'planPayWeeks', pickStart: 'planPickStart', pickEnd: 'planPickEnd', bmb: 'payBmb' };
+    Object.keys(v).forEach(function(k){ var app = M[k] || k; if(_BMB_BLOCK_KEYS.indexOf(app) >= 0 && v[k] != null) b[app] = v[k]; }); return b; }
+  /* the one-time carry: a field this device holds and the server copy does not get onto the server copy (never over one it has) */
+  function _bmbCarry(srv, loc, keyOf, keys){ var n = 0, byK = Object.create(null); (loc || []).forEach(function(x){ if(x) byK[keyOf(x)] = x; });
+    (srv || []).forEach(function(x){ var l = x && byK[keyOf(x)]; if(!l) return;
+      Object.keys(l).forEach(function(k){ var want = (keys === 'herd') ? (/^p[A-Z]/.test(k) || k === 'plan' || _BMB_HERD_KEYS.indexOf(k) >= 0) : (keys.indexOf(k) >= 0);
+        if(!want || l[k] == null || x[k] != null) return; x[k] = _bmbCl(l[k]); n++; }); });
+    return n; }
+  function _bmbPushNote(area, n){ if(!n) return; try{ var m = global.__AI_BMB_PUSH = global.__AI_BMB_PUSH || {}; m[area] = (m[area] || 0) + n; }catch(e){} }
+  function _plKey(c){ return (c.linkId ? 'L' + c.linkId : '') + '|' + (c.crop || '') + '|' + (c.field || '') + '|' + (c.plant || ''); }
   /* ================== ROW MEMORY - two-device safety (Phase 0) ==================
      What this device actually LOADED from the server, per table.
 
@@ -1348,6 +1405,7 @@
       (l.data || []).forEach(function (r) { var m = loanFromDb(r); if (r.archived) { m._kind = 'loan'; m.archived = true; out.archived.push(m); } else out.loans.push(m); });
       (o.data || []).forEach(function (r) { var m = odFromDb(r); if (r.archived) { m._kind = 'overdraft'; m.archived = true; out.archived.push(m); } else out.overdrafts.push(m); });
       (c.data || []).forEach(function (r) { var m = coopFromDb(r); if (r.archived) { m._kind = 'coop'; m.archived = true; out.archived.push(m); } else out.coopAccounts.push(m); });
+      if (CAN_COOP_TERMS && _migOnce('bmbpay_coop')) _bmbPushNote('loans', _bmbCarry(out.coopAccounts, global.ST_LOANS && global.ST_LOANS.coopAccounts, function (x) { return String(x.id); }, _BMB_COOP_KEYS));   /* -495: once */
       // Reconstruct the monthly paid-marks (ST_LOANS.confirmed) from the loan rows.
       var confMonth = null, confPaid = {};
       (l.data || []).forEach(function (r) { if (r.confirmed_off != null && r.confirmed_month) { confMonth = r.confirmed_month; confPaid[r.local_id] = Number(r.confirmed_off); } });
@@ -1787,13 +1845,15 @@
       prime: Number(r.prime) || 0, margin: Number(r.margin) || 0, flatRate: Number(r.flat_rate) || 0,
       fundsFor: r.funds_for || undefined };
   }
-  function coopToDb(o) {
+  function coopToDb(o) { var row = _coopToDbBase(o); if (CAN_COOP_TERMS) row.terms = (o.terms && typeof o.terms === 'object') ? o.terms : null; return row; }   /* -495 */
+  function _coopToDbBase(o) {
     return { local_id: o.id, icon: o.icon || null, name: o.name || null, coop: o.coop || null,
       lender: o.lender || null, credit_limit: Number(o.limit) || 0, used: Number(o.used) || 0,
       rate_mode: o.rateMode || 'prime', prime: Number(o.prime) || 0, margin: Number(o.margin) || 0,
       flat_rate: Number(o.flatRate) || 0, funds_for: o.fundsFor || null, archived: !!o.archived };
   }
-  function coopFromDb(r) {
+  function coopFromDb(r) { var m = _coopFromDbBase(r); var t = _bmbJ(r.terms); if (t && Object.keys(t).length) m.terms = t; return m; }   /* -495 */
+  function _coopFromDbBase(r) {
     return { id: r.local_id, icon: r.icon || '\uD83C\uDF3E', name: r.name || '', coop: r.coop || '',
       lender: r.lender || r.coop || '', limit: Number(r.credit_limit) || 0, used: Number(r.used) || 0,
       rateMode: r.rate_mode || 'prime', prime: Number(r.prime) || 0, margin: Number(r.margin) || 0,
@@ -1937,7 +1997,8 @@
   function _inList(keep){ return '('+keep.map(function(k){return '"'+String(k).replace(/"/g,'')+'"';}).join(',')+')'; }
   function campToDb(c,fid){ return { farm_id:fid, local_id:String(c.id), name:c.name||null, ha:(c.ha!=null&&c.ha!=='')?Number(c.ha):null, since:c.since||null, notes:c.notes||null }; }
   function campFromDb(r){ return { id:r.local_id, name:r.name||'', ha:(r.ha!=null)?Number(r.ha):0, since:r.since||'', notes:r.notes||'' }; }
-  function herdToDb(h,fid){ return { farm_id:fid, local_id:String(h.id), type:h.type||null, name:h.name||null, breed:h.breed||null,
+  function herdToDb(h,fid){ var row=_herdToDbBase(h,fid); if(CAN_HERD_PLAN) row.plan=_herdPlanOut(h); return row; }   /* -495 */
+  function _herdToDbBase(h,fid){ return { farm_id:fid, local_id:String(h.id), type:h.type||null, name:h.name||null, breed:h.breed||null,
     camp:h.camp||null, camp_id:h.campId||null, track:!!h.track, planned:!!h.planned, qty:(h.qty!=null)?parseInt(h.qty,10):0,
     buy:(h.buy!=null&&h.buy!=='')?Number(h.buy):null, feed:(h.feed!=null&&h.feed!=='')?Number(h.feed):null,
     vet:(h.vet!=null&&h.vet!=='')?Number(h.vet):null, sell:(h.sell!=null&&h.sell!=='')?Number(h.sell):null,
@@ -1955,6 +2016,7 @@
     if(r.plan_head!=null) h.planHead=Number(r.plan_head);
     if(r.plan_month) h.planMonth=r.plan_month;
     if(r.plan_classes){ try{ h.planClasses=(typeof r.plan_classes==='string'?JSON.parse(r.plan_classes):r.plan_classes); }catch(e){} }
+    if(r.plan!=null) _herdPlanIn(h, r.plan);   /* -495 */
     return h; }
   function classRows(h,fid){ return (h.classes||[]).map(function(c){ return { farm_id:fid, herd_local_id:String(h.id), class_key:c.k, count:(c.n!=null)?parseInt(c.n,10):0, class_value:(c.v!=null)?Number(c.v):0 }; }); }
   // 3a-ii — moves / treatments / animals (set-sync, append-only) + health (per-row)
@@ -2019,6 +2081,7 @@
     var byHerd={};
     (hc.data||[]).forEach(function(r){ (byHerd[r.herd_local_id]=byHerd[r.herd_local_id]||[]).push({k:r.class_key,n:Number(r.count)||0,v:Number(r.class_value)||0}); });
     var herds=(hd.data||[]).map(function(r){ var h=herdFromDb(r); var cs=byHerd[r.local_id]; if(cs&&cs.length) h.classes=cs; return h; });
+    if(CAN_HERD_PLAN && _migOnce('bmbpay_herds')) _bmbPushNote('livestock', _bmbCarry(herds, global.ST_LS && global.ST_LS.herd, function(x){ return String(x.id); }, 'herd'));   /* -495: once */
     var benchmarks={}; (bm.data||[]).forEach(function(r){ benchmarks[r.bench_key]=Number(r.bench_value); });
     /* Moves recorded since this herd's counts were last written - from the phone at
        a gate, or from another desktop. Fold them in so the number on screen is the
@@ -2533,12 +2596,14 @@
     if(CAN_ORCH_MARKETS) row.markets = (b.markets && b.markets.length) ? b.markets : null;
     /* -485 (5b F14): row x tree spacing, as the farmer typed it ("4 m × 2 m"). */
     if(CAN_ORCH_SPACING) row.spacing = b.space || null;
+    if(CAN_ORCH_PAY) row.pay = _blockPayOut(b);   /* -495: the block's planner fields (pool, pay weeks, pick slots...) */
     return row; }
   /* "4 m × 2 m" -> {row:4, tree:2}; anything else -> null. */
   function _obSpacing(s){ var m=String(s||'').replace(/,/g,'.').match(/(\d+(?:\.\d+)?)\s*m?\s*(?:x|×|\*|by|\/)\s*(\d+(?:\.\d+)?)/i); return m ? { row:parseFloat(m[1]), tree:parseFloat(m[2]) } : null; }
   function obFromDb(r){ var b={ id:r.local_id, cat:r.cat||'', icon:r.icon||'', name:r.name||'', cultivar:r.cultivar||'', status:r.status||'', statusTag:r.status_tag||'' };
     if(r.root!=null) b.root=r.root; if(r.plant!=null) b.plant=_numIf(r.plant); if(r.age!=null) b.age=Number(r.age); if(r.ha!=null) b.ha=Number(r.ha); if(r.trees!=null) b.trees=Number(r.trees); if(r.tons!=null) b.tons=Number(r.tons); if(r.exp!=null) b.exp=Number(r.exp); if(r.carton_kg!=null) b.cartonKg=Number(r.carton_kg); if(r.margin!=null) b.margin=Number(r.margin); if(r.estab!=null) b.estab=r.estab; if(r.estab_yr!=null) b.estabYr=Number(r.estab_yr); if(r.writeoff!=null) b.writeoff=Number(r.writeoff); if(r.per_unit!=null) b.perUnit=Number(r.per_unit); if(r.unit_word!=null) b.unitWord=r.unit_word; if(r.curve!=null) b.curve=r.curve; if(r.cover!=null) b.cover=r.cover; if(r.plan!=null) b.plan=!!r.plan; if(r.grade!=null) b.grade=Number(r.grade); if(r.unit!=null) b.unit=r.unit; if(r.days!=null) b.days=Number(r.days); if(r.pick_from!=null) b.pickFrom=r.pick_from; if(r.cycle!=null) b.cycle=r.cycle; if(r.removed!=null) b.removed=!!r.removed;
     if(r.spacing){ b.space=String(r.spacing); var _sp=_obSpacing(r.spacing); if(_sp){ b.spaceRow=_sp.row; b.spaceTree=_sp.tree; } }
+    if(r.pay!=null) _blockPayIn(b, r.pay);   /* -495 */
     return b; }
   // compliance item: persist full item (queryable) ; load overlays user fields onto app defaults
   function ociToDb(key,c,fid){ c=c||{}; return { farm_id:fid, item_key:String(key), kind:c.type||null, icon:c.ic||null, title:c.title||null, what:c.what||null, status:c.status||null, status_tag:c.statusTag||null, expiry:c.expiry||null, cropcat:c.cropcat||null, log:(c.log!=null)?String(c.log):null }; }
@@ -2609,6 +2674,7 @@
       return b; });
     /* -485: spacing typed before the column existed lived only on this device. Carried onto the
        server's copy of the same block once, then sent by the app's next orchard save. */
+    if(CAN_ORCH_PAY && _migOnce('bmbpay_blocks')) _bmbPushNote('orchard', _bmbCarry(blocks, global.ST_FRUIT && global.ST_FRUIT.blocks, function(x){ return String(x.id); }, _BMB_BLOCK_KEYS));   /* -495: once */
     if(CAN_ORCH_SPACING && _migOnce('spacing')){
       var _locB = (global.ST_FRUIT && Array.isArray(global.ST_FRUIT.blocks)) ? global.ST_FRUIT.blocks : [], _carried = 0;
       blocks.forEach(function(b){
@@ -2750,8 +2816,9 @@
   // ST_PLAN.crops[] : forecast lines (linked to a crop land via link_id, or manual).
   // ST_PLAN.events[]: livestock events; herd_local_id is a soft ref to a herd, same
   // pattern as livestock_moves/treatments. UI state (view/tab/months) is transient.
-  function planCropToDb(c,fid,i){ return { farm_id:fid, crop:c.crop||null, field:c.field||null, ha:(c.ha!=null&&c.ha!=='')?Number(c.ha):null, plant:c.plant||null, harvest:c.harvest||null, yield_val:(c.yield!=null&&c.yield!=='')?Number(c.yield):null, price:(c.price!=null&&c.price!=='')?Number(c.price):null, input_cost:(c.inputCost!=null&&c.inputCost!=='')?Number(c.inputCost):null, other_cost:(c.otherCost!=null&&c.otherCost!=='')?Number(c.otherCost):null, repeat:c.repeat||null, link_id:c.linkId||null, in_forecast:(c.inForecast===false)?false:true, sort_idx:i }; }
-  function planCropFromDb(r){ var c={ crop:r.crop||'', field:r.field||'', ha:Number(r.ha)||0, plant:r.plant||'', harvest:r.harvest||'', yield:Number(r.yield_val)||0, price:Number(r.price)||0, inputCost:Number(r.input_cost)||0, otherCost:Number(r.other_cost)||0, repeat:r.repeat||'none' }; if(r.link_id) c.linkId=r.link_id; if(r.in_forecast===false) c.inForecast=false; return c; }
+  function planCropToDb(c,fid,i){ var row=_planCropToDbBase(c,fid,i); if(CAN_PLANCROP_PLAN) row.plan=_cropPlanOut(c); return row; }   /* -495 */
+  function _planCropToDbBase(c,fid,i){ return { farm_id:fid, crop:c.crop||null, field:c.field||null, ha:(c.ha!=null&&c.ha!=='')?Number(c.ha):null, plant:c.plant||null, harvest:c.harvest||null, yield_val:(c.yield!=null&&c.yield!=='')?Number(c.yield):null, price:(c.price!=null&&c.price!=='')?Number(c.price):null, input_cost:(c.inputCost!=null&&c.inputCost!=='')?Number(c.inputCost):null, other_cost:(c.otherCost!=null&&c.otherCost!=='')?Number(c.otherCost):null, repeat:c.repeat||null, link_id:c.linkId||null, in_forecast:(c.inForecast===false)?false:true, sort_idx:i }; }
+  function planCropFromDb(r){ var c={ crop:r.crop||'', field:r.field||'', ha:Number(r.ha)||0, plant:r.plant||'', harvest:r.harvest||'', yield:Number(r.yield_val)||0, price:Number(r.price)||0, inputCost:Number(r.input_cost)||0, otherCost:Number(r.other_cost)||0, repeat:r.repeat||'none' }; if(r.link_id) c.linkId=r.link_id; if(r.in_forecast===false) c.inForecast=false; if(r.plan!=null) _cropPlanIn(c, r.plan); return c; }
   function planEvtToDb(e,fid,i){ var row = { farm_id:fid, herd_local_id:(e.herdId!=null)?String(e.herdId):null, species:e.species||null, animal:e.animal||null, icon:e.icon||null, descr:e.desc||null, type:e.type||null, month:e.month||null, qty:(e.qty!=null&&e.qty!=='')?Number(e.qty):null, unit:e.unit||null, price:(e.price!=null&&e.price!=='')?Number(e.price):null, recur:e.recur||null, notes:e.notes||null, use_market:!!e.useMarket, done:!!e.done, sort_idx:i };
     if(CAN_PLANEVT_FC) row.in_forecast = (e.inForecast===false) ? false : true;
     return row; }
@@ -2787,6 +2854,7 @@
        being the one the field has been updating. */
     var seenLink=Object.create(null), crops=cropRows.map(planCropFromDb).filter(function(c){
       if(!c.linkId) return true; if(seenLink[c.linkId]) return false; seenLink[c.linkId]=1; return true; });
+    if(CAN_PLANCROP_PLAN && _migOnce('bmbpay_plancrops')) _bmbPushNote('plan', _bmbCarry(crops, global.ST_PLAN && global.ST_PLAN.crops, _plKey, _BMB_CROP_KEYS.concat(['plan'])));   /* -495: once */
     return { crops:crops, events:evtRows.map(planEvtFromDb) };
   };
   var _planSnap=null;
@@ -3101,7 +3169,7 @@
     stock_mark_type: 'stockMarkType', herd_mark: 'stockMark',
     bank_balance: 'bankBalance', bank_balance_at: 'bankBalanceAt',
     season_start_month: 'seasonStartMonth', budget_expense_target: 'budgetExpenseTarget',
-    uif_ref: 'uifRef', price_alerts: 'priceAlerts'
+    uif_ref: 'uifRef', price_alerts: 'priceAlerts', bmb_flags: 'bmbFlags'   /* -495 */
   };
   function _profAdopt(st, mine){
     var ack = _profAckGet();
@@ -3112,7 +3180,7 @@
       if(!key) return;                                  // rain, crop prices and the like live elsewhere
       var v = ack[col];
       if(v === undefined) return;
-      if(col === 'partners' || col === 'price_alerts'){ try{ v = (typeof v === 'string') ? JSON.parse(v) : v; }catch(e){ return; } }
+      if(col === 'partners' || col === 'price_alerts' || col === 'bmb_flags'){ try{ v = (typeof v === 'string') ? JSON.parse(v) : v; }catch(e){ return; } }
       st[key] = v;
     });
     /* Settings may be on screen with the OLD value still in its inputs - and Save settings reads the
@@ -3190,6 +3258,7 @@
     if(r.vat_number!=null) p.vatNumber=r.vat_number;
     if(r.entity_type!=null) p.entityType=r.entity_type;
     if(r.partners!=null){ try{ p.partners=(typeof r.partners==='string')?JSON.parse(r.partners):r.partners; }catch(e){ p.partners=[]; } }
+    if(r.bmb_flags!=null){ var _bf=_bmbJ(r.bmb_flags); if(_bf) p.bmbFlags=_bf; }   /* -495: Build my budget's answers and flags, every device */
     if(r.farm_address!=null) p.farmAddr=r.farm_address;
     if(r.paye_ref!=null) p.payeRef=r.paye_ref;
     if(r.stock_mark!=null) p.stockMark=r.stock_mark;
@@ -3243,7 +3312,7 @@
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_STOCK?'stock_counts,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+(CAN_FARM_VAT_EFP?'vat_efiling_pay,':'')+(CAN_FARM_PARTNERS?'partners,':'')+(CAN_FARM_CONSENT?'consent_version,consent_accepted_at,':'')+(CAN_FARM_MKT?'marketing_optin,marketing_optin_at,':'')+(CAN_FARM_UIFREF?'uif_ref,':'')+(CAN_FARM_ALERTS?'price_alerts,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref,updated_at').eq('id',farmId).single();
+    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_STOCK?'stock_counts,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+(CAN_FARM_VAT_EFP?'vat_efiling_pay,':'')+(CAN_FARM_PARTNERS?'partners,':'')+(CAN_FARM_CONSENT?'consent_version,consent_accepted_at,':'')+(CAN_FARM_MKT?'marketing_optin,marketing_optin_at,':'')+(CAN_FARM_UIFREF?'uif_ref,':'')+(CAN_FARM_ALERTS?'price_alerts,':'')+(CAN_FARM_BMB?'bmb_flags,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref,updated_at').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -3406,7 +3475,10 @@
          load. */
       var stockc={};
       if(CAN_FARM_STOCK && st.stockCounts && typeof st.stockCounts==='object') stockc.stock_counts=st.stockCounts;
-      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink,p:rainr,d:raind,t:stockc,f:fu}); if(snap===_profSnap) return;
+      /* -495: Build my budget's answers, dismissals and builds. Own statement, own gate (a missing column must not sink the rest). */
+      var bmbc={};
+      if(CAN_FARM_BMB && st.bmbFlags && typeof st.bmbFlags==='object') bmbc.bmb_flags=st.bmbFlags;
+      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink,p:rainr,d:raind,t:stockc,f:fu,b:bmbc}); if(snap===_profSnap) return;
       /* Only what differs from the row the server last confirmed. */
       var groups = [
         { all: core,  fatal: true },
@@ -3417,6 +3489,7 @@
         { all: raind, warn: 'Profile: derived rain values (frost / season / veld) not saved \u2014 run rain_derived_migration.sql.' },
         { all: stockc, warn: 'Profile: year-end stock count not saved — run stock_counts_migration.sql.' },
         { all: fu,    warn: 'Profile: UIF reference / price alerts not saved — run pilot_followup_columns_sa.sql.' },
+        { all: bmbc,  warn: 'Profile: Build my budget answers not saved — run sa-b10-bmb.sql.' },
         { all: raink, warn: 'Profile: rain-book gaps not saved \u2014 run rainfall_not_kept.sql.' },
         { all: rainc, warn: 'Profile: rainfall location not saved \u2014 run rainfall_schema.sql.' }
       ];
@@ -4070,6 +4143,15 @@
                 _grid: { fromDb: gridFromDb, toDb: gridToDb, goneIds: _srvGoneIds, changed: _gridChanged, note: _srvNote, capCols: CAP_COLS,
                          caps: function(){ return { CAN_BUDGET_CELLS: CAN_BUDGET_CELLS, CAN_BUDGET_SCEN: CAN_BUDGET_SCEN, CAN_BUDGET_YP: CAN_BUDGET_YP, CAN_BUDGET_FC: CAN_BUDGET_FC }; },
                          setCaps: function(on, yp, fc){ CAN_BUDGET_CELLS = !!on; CAN_BUDGET_SCEN = !!on; CAN_BUDGET_YP = (yp === undefined) ? !!on : !!yp; CAN_BUDGET_FC = (fc === undefined) ? !!on : !!fc; },
-                         mem: function(t){ var x = _SRV[t]; return x ? Object.keys(x.rows).length : null; }, probeCol: _probeCol } };
+                         mem: function(t){ var x = _SRV[t]; return x ? Object.keys(x.rows).length : null; }, probeCol: _probeCol },
+                /* -495: 06-tools/sa-bmb-495-harness.html - the five jsonb whitelists, their probes and the one-time carry */
+                _b495: { herdToDb: herdToDb, herdFromDb: herdFromDb, cropToDb: planCropToDb, cropFromDb: planCropFromDb, obToDb: obToDb, obFromDb: obFromDb,
+                         coopToDb: coopToDb, coopFromDb: coopFromDb, profileFromDb: profileFromDb, adoptMap: _PROF_COL_TO_KEY, capCols: CAP_COLS, carry: _bmbCarry, plKey: _plKey,
+                         keys: { herd: _BMB_HERD_KEYS, crop: _BMB_CROP_KEYS, block: _BMB_BLOCK_KEYS, coop: _BMB_COOP_KEYS },
+                         caps: function(){ return { CAN_HERD_PLAN: CAN_HERD_PLAN, CAN_PLANCROP_PLAN: CAN_PLANCROP_PLAN, CAN_ORCH_PAY: CAN_ORCH_PAY, CAN_COOP_TERMS: CAN_COOP_TERMS, CAN_FARM_BMB: CAN_FARM_BMB }; },
+                         setCaps: function(on){ CAN_HERD_PLAN = !!on; CAN_PLANCROP_PLAN = !!on; CAN_ORCH_PAY = !!on; CAN_COOP_TERMS = !!on; CAN_FARM_BMB = !!on; } },
+                /* -495: what the hydrate needs to know (an absent column keeps this device's fields) */
+                bmbCaps: function(){ return { herds: CAN_HERD_PLAN, plan: CAN_PLANCROP_PLAN, orchard: CAN_ORCH_PAY, coop: CAN_COOP_TERMS, farm: CAN_FARM_BMB }; },
+                bmbKeys: { herd: _BMB_HERD_KEYS, crop: _BMB_CROP_KEYS, block: _BMB_BLOCK_KEYS, coop: _BMB_COOP_KEYS, plKey: _plKey } };
 
 })(window);

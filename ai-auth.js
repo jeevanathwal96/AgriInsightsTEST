@@ -8,6 +8,41 @@
 (function () {
   'use strict';
 
+  /* -495 (B10 item 7, the persistence fix): the herds, blocks, plan lines and co-op accounts arrive whole from the server. A
+     server that has no column for Planning's own fields yet (sa-b10-bmb.sql not run) sends none of them, so replacing the
+     list would wipe the farmer's pay timing on this device: those fields are kept from this device instead. With the column
+     the server's copy is the truth (ai-data carried this device's fields onto it once, on the first load after the release). */
+  function _bmbKeepLocal(incoming, local, area) {
+    try {
+      if (!Array.isArray(incoming) || !Array.isArray(local) || !local.length) return 0;
+      var caps = (window.AI && AI.bmbCaps) ? AI.bmbCaps() : {}, K = (window.AI && AI.bmbKeys) || null; if (!K || caps[area]) return 0;
+      var keyOf = (area === 'plan') ? K.plKey : function (x) { return String(x.id); };
+      var want = function (k) {
+        if (area === 'herds') return /^p[A-Z]/.test(k) || k === 'plan' || K.herd.indexOf(k) >= 0;
+        if (area === 'plan') return K.crop.indexOf(k) >= 0 || k === 'plan';
+        if (area === 'orchard') return K.block.indexOf(k) >= 0;
+        return K.coop.indexOf(k) >= 0; };
+      var byK = {}, n = 0; local.forEach(function (x) { if (x) byK[keyOf(x)] = x; });
+      incoming.forEach(function (x) { var l = x && byK[keyOf(x)]; if (!l) return;
+        Object.keys(l).forEach(function (k) { if (!want(k) || l[k] == null || x[k] != null) return; x[k] = JSON.parse(JSON.stringify(l[k])); n++; }); });
+      return n;
+    } catch (e) { return 0; }
+  }
+  /* the one-time push: an area whose server copy took this device's fields is saved once, now */
+  function _bmbPushNow(only) {
+    try {
+      var m = window.__AI_BMB_PUSH; if (!m || window.__AI_GUEST || !(window.AI && AI.farm && AI.farm.active())) return;
+      Object.keys(m).forEach(function (area) { if (only && area !== only) return; if (only == null && area === 'loans') return;
+        var p = null;
+        if (area === 'livestock' && AI.livestock && window.ST_LS) p = AI.livestock.saveAll(ST_LS);
+        else if (area === 'orchard' && AI.orchard && window.ST_FRUIT) p = AI.orchard.saveAll(ST_FRUIT);
+        else if (area === 'plan' && AI.plan && window.ST_PLAN) p = AI.plan.saveAll(ST_PLAN);
+        else if (area === 'loans' && AI.loans && window.ST_LOANS) p = AI.loans.saveAll(ST_LOANS);
+        delete m[area]; if (p && p.catch) p.catch(function (e) { console.error('Planning fields: one-time push failed (' + area + ')', e); }); });
+    } catch (e) {}
+  }
+  window.__aiBmbKeepLocal = _bmbKeepLocal; window.__aiBmbPushNow = _bmbPushNow;   /* -495: 06-tools/sa-bmb-495-harness.html */
+
   var FOREST = '#1F4D2C', GOLD = '#C8962C', CREAM = '#F7F6F1', INK = '#1A2622';
 
   // ---- styles + overlay injected on DOM ready ------------------------------
@@ -747,7 +782,7 @@
           if (window.ST_LOANS && loanData && !(window.AI && AI.sync && AI.sync.isUnsent('loans'))) {
             ST_LOANS.loans = loanData.loans || [];
             ST_LOANS.overdrafts = loanData.overdrafts || [];
-            ST_LOANS.coopAccounts = loanData.coopAccounts || [];
+            _bmbKeepLocal(loanData.coopAccounts, ST_LOANS.coopAccounts, 'coop'); ST_LOANS.coopAccounts = loanData.coopAccounts || [];   /* -495 */
             ST_LOANS.archived = loanData.archived || [];
             // Monthly paid-marks (Item 3): restore so a confirmed month survives reload + new device.
             if (loanData.confirmed) ST_LOANS.confirmed = loanData.confirmed;
@@ -765,6 +800,7 @@
             }
           }
         } catch (e) { console.error('Loan hydrate failed:', e); }
+        _bmbPushNow('loans');   /* -495 */
       }).catch(function (e) { console.error('Asset/loan load failed:', e); });
     }).then(function () {
       // Cross-device persistence: load every relational module from the backend so a
@@ -800,10 +836,10 @@
             fu = r[7], dc = r[8], rl = r[9], rn = r[10];
         /* Never load over an area that still has something unsent on this device. */
         var _unsent = function (a) { try { return !!(AI.sync && AI.sync.isUnsent(a)); } catch (e) { return false; } };
-        try { if (window.ST_LS && ls && !_unsent('livestock')) { var _lsHas = ((ls.herds&&ls.herds.length)||(ls.camps&&ls.camps.length)||(ls.animals&&ls.animals.length)); var _lsLoc = ((ST_LS.herd&&ST_LS.herd.length)||(ST_LS.camps&&ST_LS.camps.length)); if (_lsHas || !_lsLoc) { ST_LS.camps = ls.camps || []; ST_LS.herd = ls.herds || []; if (ls.benchmarks) ST_LS.benchmarks = ls.benchmarks; ST_LS.moves = ls.moves || []; ST_LS.treatments = ls.treatments || []; ST_LS.removedTreatments = ls.removedTreatments || []; ST_LS.animals = ls.animals || []; ST_LS.health = ls.health || []; ST_LS.breedings = ls.breedings || []; /* Herds whose stored count did not yet include a move recorded elsewhere - the phone at a gate, or another desktop. load.livestock has already folded those moves in, so the figure on screen is the one the ledger supports; this is what the farmer gets told about it, on the Dashboard. */ ST_LS._stockRecon = (ls.stockRecon && ls.stockRecon.length) ? ls.stockRecon : null; } } } catch (e) { console.error('livestock apply', e); }
+        try { if (window.ST_LS && ls && !_unsent('livestock')) { var _lsHas = ((ls.herds&&ls.herds.length)||(ls.camps&&ls.camps.length)||(ls.animals&&ls.animals.length)); var _lsLoc = ((ST_LS.herd&&ST_LS.herd.length)||(ST_LS.camps&&ST_LS.camps.length)); if (_lsHas || !_lsLoc) { ST_LS.camps = ls.camps || []; _bmbKeepLocal(ls.herds, ST_LS.herd, 'herds'); ST_LS.herd = ls.herds || []; if (ls.benchmarks) ST_LS.benchmarks = ls.benchmarks; ST_LS.moves = ls.moves || []; ST_LS.treatments = ls.treatments || []; ST_LS.removedTreatments = ls.removedTreatments || []; ST_LS.animals = ls.animals || []; ST_LS.health = ls.health || []; ST_LS.breedings = ls.breedings || []; /* Herds whose stored count did not yet include a move recorded elsewhere - the phone at a gate, or another desktop. load.livestock has already folded those moves in, so the figure on screen is the one the ledger supports; this is what the farmer gets told about it, on the Dashboard. */ ST_LS._stockRecon = (ls.stockRecon && ls.stockRecon.length) ? ls.stockRecon : null; } } } catch (e) { console.error('livestock apply', e); }
         try { if (window.ST_CROP && cr && !_unsent('crops')) { var _crHas = ((cr.lands&&cr.lands.length)||(cr.events&&cr.events.length)||(cr.inputs&&cr.inputs.length)); var _crLoc = ((ST_CROP.lands&&ST_CROP.lands.length)||(ST_CROP.events&&ST_CROP.events.length)); if (_crHas || !_crLoc) { ST_CROP.lands = cr.lands || []; ST_CROP.events = cr.events || []; ST_CROP.inputs = cr.inputs || []; ST_CROP.removed = cr.removed || []; if (cr.season) ST_CROP.season = cr.season; if (cr.compliance) ST_CROP.compliance = cr.compliance; } } } catch (e) { console.error('crops apply', e); }
-        try { if (window.ST_FRUIT && orc && !_unsent('orchard')) { var _orcHas = (orc.blocks && orc.blocks.length); var _locHas = (ST_FRUIT.blocks && ST_FRUIT.blocks.length); if (_orcHas || !_locHas) { ST_FRUIT.blocks = orc.blocks || []; ST_FRUIT.pricing = orc.pricing || {}; ST_FRUIT.sprayDiary = orc.sprayDiary || {}; ST_FRUIT.removedSprays = orc.removedSprays || []; ST_FRUIT.harvest = orc.harvest || []; ST_FRUIT.removedHarvest = orc.removedHarvest || []; if (orc.comply) ST_FRUIT.comply = orc.comply; try{ if(window.orComplyEnsure) orComplyEnsure(); }catch(_){} if (orc.market) ST_FRUIT.market = orc.market; if (typeof window.orRebuildPhi === 'function') { try { window.orRebuildPhi(); } catch (_) {} } } } } catch (e) { console.error('orchard apply', e); }
-        try { if (window.ST_PLAN && !_unsent('plan')) { var _plHas = (pl && ((pl.crops&&pl.crops.length)||(pl.events&&pl.events.length))); var _plLoc = ((ST_PLAN.crops&&ST_PLAN.crops.length)||(ST_PLAN.events&&ST_PLAN.events.length)); if (pl && (_plHas || !_plLoc)) { ST_PLAN.crops = pl.crops || []; ST_PLAN.events = pl.events || []; ST_PLAN.fromBackend = true; if (typeof window.planSyncToCurrentYear === 'function') { try { window.planSyncToCurrentYear(); } catch (_) {} } } else if (!pl && typeof window.cropInitialPlanSync === 'function') { try { window.cropInitialPlanSync(true); } catch (_) {} } } } catch (e) { console.error('plan apply', e); }
+        try { if (window.ST_FRUIT && orc && !_unsent('orchard')) { var _orcHas = (orc.blocks && orc.blocks.length); var _locHas = (ST_FRUIT.blocks && ST_FRUIT.blocks.length); if (_orcHas || !_locHas) { _bmbKeepLocal(orc.blocks, ST_FRUIT.blocks, 'orchard'); ST_FRUIT.blocks = orc.blocks || []; ST_FRUIT.pricing = orc.pricing || {}; ST_FRUIT.sprayDiary = orc.sprayDiary || {}; ST_FRUIT.removedSprays = orc.removedSprays || []; ST_FRUIT.harvest = orc.harvest || []; ST_FRUIT.removedHarvest = orc.removedHarvest || []; if (orc.comply) ST_FRUIT.comply = orc.comply; try{ if(window.orComplyEnsure) orComplyEnsure(); }catch(_){} if (orc.market) ST_FRUIT.market = orc.market; if (typeof window.orRebuildPhi === 'function') { try { window.orRebuildPhi(); } catch (_) {} } } } } catch (e) { console.error('orchard apply', e); }
+        try { if (window.ST_PLAN && !_unsent('plan')) { var _plHas = (pl && ((pl.crops&&pl.crops.length)||(pl.events&&pl.events.length))); var _plLoc = ((ST_PLAN.crops&&ST_PLAN.crops.length)||(ST_PLAN.events&&ST_PLAN.events.length)); if (pl && (_plHas || !_plLoc)) { _bmbKeepLocal(pl.crops, ST_PLAN.crops, 'plan'); ST_PLAN.crops = pl.crops || []; ST_PLAN.events = pl.events || []; ST_PLAN.fromBackend = true; if (typeof window.planSyncToCurrentYear === 'function') { try { window.planSyncToCurrentYear(); } catch (_) {} } } else if (!pl && typeof window.cropInitialPlanSync === 'function') { try { window.cropInitialPlanSync(true); } catch (_) {} } } } catch (e) { console.error('plan apply', e); }
         /* Where the farm is, how it tracks rain and its own long-term figure ride
            on the farm row, so a second device knows them before any reading arrives. */
         try {
@@ -890,6 +926,7 @@
             if (pf._planHedge  && window.ST_PLAN)    ST_PLAN.hedge     = pf._planHedge;
           }
         } catch (e) { console.error('settings apply', e); }
+        _bmbPushNow();   /* -495: the one-time push of Planning's own fields */
         /* Filing rules. null means the table is not there, so the device keeps its own —
            only an actual array replaces them. Repointed through CAT_MERGES afterwards so a
            rule aimed at a renamed category still fires instead of silently doing nothing. */
