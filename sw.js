@@ -7,23 +7,24 @@
  *   - same-origin static -> stale-while-revalidate (instant load, refreshed in background)
  *   - old caches purged on activate (keyed by APP_VERSION)
  *
+ *   - -497: only the app page ("./", "./index.html", any ?query) is the shell; every other page has its own cache entry
  * DEPLOY: bump APP_VERSION on every release so clients drop the old cache and
  * pick up new shell assets. Paths are relative to the SW scope, so this works
  * unchanged on both the TEST (/AgriInsightsTEST/) and LIVE (/AgriInsights/) repos.
  */
 'use strict';
 
-var APP_VERSION = '2026-10-19-496';
-var BUILD = '03dc4f6092';   /* dist build (build-dist.mjs): the hashed scripts below */
+var APP_VERSION = '2026-10-20-497';
+var BUILD = '0c0d81a62a';   /* dist build (build-dist.mjs): the hashed scripts below */
 var CACHE = 'agriinsights-' + APP_VERSION + '-' + BUILD;
 
 /* App shell precached on install. The ?v=-suffixed JS is intentionally left to
  * runtime caching so the existing ?v= cache-busting keeps working untouched. */
 var PRECACHE = [
   './',
-  './app.b02e26263761.js',
-  './bg-grid.d9c0854ca5ec.js',
-  './bmb.1ae631913021.js',
+  './app.45fe7af29b1c.js',
+  './bg-grid.0fc7c40653f9.js',
+  './bmb.0479afbcf2c0.js',
   './kpi-detail.b43b58c0f01f.js',
   './index.html',
   './manifest.webmanifest',
@@ -82,6 +83,12 @@ function _freshHTML(req){
    it is a newer page every open window is told so (the page shows "New version ready · Reload"). */
 var HTML_WAIT_MS = 3000;
 function _cachedShell(){ return caches.match('./index.html').then(function (m) { return m || caches.match('./'); }); }
+/* -497: is this the app page itself - the scope's own folder ("./") or "./index.html", with any ?query (?demo=1) - resolved
+   against this worker's scope, never a hard-coded path. Only that page is the shell. */
+function _scopeURL(){ try { return new URL((self.registration && self.registration.scope) || './', self.location.href); } catch (e) { return new URL('./', self.location.href); } }
+function _isAppPage(url){ var sc = _scopeURL(); if (url.origin !== sc.origin) return false; return url.pathname === sc.pathname || url.pathname === sc.pathname + 'index.html'; }
+/* any other page: its own URL is its cache key (the query kept, the #hash never sent) */
+function _ownKey(url){ return url.origin + url.pathname + url.search; }
 function _verOf(res){ try { return res.headers.get('etag') || res.headers.get('last-modified') || ''; } catch (e) { return ''; } }
 /* -491 (UK B11F item 3): the "newer page" message carries that page's own release (its <meta name="ai-build">), and the page
    asks which release this worker is, so the bar shows only when there really is another version. */
@@ -115,7 +122,24 @@ self.addEventListener('fetch', function (e) {
   var isHTML = req.mode === 'navigate' ||
                (req.headers.get('accept') || '').indexOf('text/html') !== -1;
 
-  // 2) HTML / navigation: network-first so a normal reload always gets the latest
+  // 2b) -497: any other same-origin page (privacy.html, ...): network-first, cached under its own URL, offline its own copy or a
+  //     network error - it never touches the app shell and the app shell never stands in for it.
+  if (isHTML && !_isAppPage(url)) {
+    var key = _ownKey(url), netO = fetch(_freshHTML(req));
+    e.waitUntil(netO.then(function (res) {
+      if (!res || !res.ok || res.type !== 'basic') return;
+      var cp = res.clone(); return caches.open(CACHE).then(function (c) { return c.put(key, cp); });
+    }).catch(function () {}));
+    e.respondWith(new Promise(function (resolve) {
+      var done = false;
+      var timer = setTimeout(function () { caches.match(key).then(function (m) { if (done || !m) return; done = true; resolve(m); }); }, HTML_WAIT_MS);
+      netO.then(function (res) { if (done) return; done = true; clearTimeout(timer); resolve(res); },
+                function () { if (done) return; clearTimeout(timer); caches.match(key).then(function (m) { if (done) return; done = true; resolve(m || Response.error()); }); });
+    }));
+    return;
+  }
+
+  // 2) HTML / navigation of the app page itself: network-first so a normal reload always gets the latest
   //    deploy when online; fall back to the cached shell when offline.
   if (isHTML) {
     var net = fetch(_freshHTML(req));
