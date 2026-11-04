@@ -1707,7 +1707,7 @@
 
   // ---- ASSETS --------------------------------------------------------------
   /* -488: the facts the building and solar rules turn on, one jsonb (assets.tax_facts). */
-  var _TF_KEYS = ['s13Units','s13SelfCont','s13LowCost','s13Solely','renewKind','renewNew','renewBatt'];
+  var _TF_KEYS = ['s13Units','s13SelfCont','s13LowCost','s13Solely','renewKind','renewNew','renewBatt','vehUse'];   /* -507 Q1: vehUse in the same jsonb, no new column */
   function _assetTaxFacts(a){ var o={}, any=false; _TF_KEYS.forEach(function(k){ if(a[k]!=null && a[k]!==''){ o[k]=a[k]; any=true; } }); return any ? o : null; }
   function _assetTaxFactsRead(a, o){ _TF_KEYS.forEach(function(k){ if(o[k]!=null) a[k]=o[k]; }); }
   function assetToDb(a) {
