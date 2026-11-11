@@ -14,18 +14,18 @@
  */
 'use strict';
 
-var APP_VERSION = '2026-11-10-510b';
-var BUILD = 'ccd27502e1';   /* dist build (build-dist.mjs): the hashed scripts below */
+var APP_VERSION = '2026-11-10-511';
+var BUILD = '7406c32bfa';   /* dist build (build-dist.mjs): the hashed scripts below */
 var CACHE = 'agriinsights-' + APP_VERSION + '-' + BUILD;
 
 /* App shell precached on install. The ?v=-suffixed JS is intentionally left to
  * runtime caching so the existing ?v= cache-busting keeps working untouched. */
 var PRECACHE = [
   './',
-  './app.fc70192aa520.js',
+  './app.e85dca9e3e96.js',
   './bg-grid.d55599cabe10.js',
   './bmb.e787474dd539.js',
-  './kpi-detail.2fc64740d50f.js',
+  './kpi-detail.6ed233c0ac9a.js',
   './index.html',
   './manifest.webmanifest',
   './fonts.css',
