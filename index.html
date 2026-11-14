@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="ai-build" content="2026-11-14-513d"/>
+<meta name="ai-build" content="2026-11-14-513e"/>
 <title>AgriInsights — Making Farm Finances Simple</title>
 <meta name="description" content="AgriInsights — making farm finances simple for South African farmers. Track expenses, plan crops, manage SARS records and stay profitable across English and Afrikaans."/>
 <meta name="theme-color" content="#1B4332"/>
@@ -3205,6 +3205,25 @@ body.ai-guest .content{padding-bottom:176px;scroll-padding-bottom:176px}
 .ob-consent.warn .ob-consent-warn{display:block}
 .aipol-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100000;display:none;align-items:center;justify-content:center;padding:20px}
 .aipol-bg.on{display:flex}
+#ob-overlay [role="radio"]:focus-visible,#ob-overlay [role="checkbox"]:focus-visible,#ob-overlay [role="button"]:focus-visible,#ob-overlay button:focus-visible,#ob-overlay input[type="checkbox"]:focus-visible,.aicg-card button:focus-visible{outline:3px solid #2D6A4F!important;outline-offset:2px!important}
+#ob-overlay .ob-h1:focus,#ob-overlay .ob-congrats-h:focus,.aicg-h:focus{outline:none}
+.aicg-bg{position:fixed;inset:0;z-index:99995;background:rgba(17,24,39,.45);display:none;align-items:center;justify-content:center;padding:20px 16px;overflow-y:auto}
+.aicg-bg.on{display:flex}
+body.aicg-open .aidl-bg{z-index:100001}
+.aicg-card{background:#fff;border-radius:18px;width:600px;max-width:100%;padding:30px 30px 24px;box-shadow:0 24px 64px rgba(0,0,0,.28);font-family:inherit;color:#374151;margin:auto}
+.aicg-eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#2D6A4F}
+.aicg-h{font-size:24px;font-weight:800;color:#12271B;margin:6px 0 16px;letter-spacing:-.3px;line-height:1.25}
+.aicg-what{display:flex;gap:11px;align-items:flex-start;background:#F4F7F3;border:1px solid #E1E8DF;border-radius:12px;padding:14px 16px;font-size:14.5px;line-height:1.55;color:#374151}
+.aicg-what b{color:#12271B}
+.aicg-p{font-size:14.5px;line-height:1.6;color:#374151;margin:16px 0 10px}
+.aicg-links{display:flex;flex-wrap:wrap;gap:6px 22px}
+.aicg-link{display:inline-flex;align-items:center;gap:7px;background:none;border:0;padding:2px 0;font:inherit;font-size:14.5px;font-weight:700;color:#1B4332;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.aicg-dl{display:inline;padding:0;font-size:inherit}
+.aicg-sep{border-top:1px solid #E5E7EB;margin:16px 0 14px}
+.aicg-note{font-size:13.5px;color:#4B5563;line-height:1.55}
+.aicg-acts{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}
+.aicg-out{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:10px;border:1.5px solid #D1D5DB;background:#fff;color:#1B4332;font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.aicg-ok{padding:13px 26px;border-radius:10px;border:0;background:#1B4332;color:#fff;font:inherit;font-size:15.5px;font-weight:700;cursor:pointer;box-shadow:0 6px 16px rgba(27,67,50,.25)}
 .aipol-card{background:#fff;border-radius:16px;width:660px;max-width:96vw;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 .aipol-hd{padding:16px 20px;border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;gap:10px}
 .aipol-body{padding:18px 22px;overflow-y:auto;font-size:13px;line-height:1.65;color:var(--t2)}
@@ -6817,7 +6836,7 @@ table.bmb-pay td .bmb-bench{margin-top:2px}
   </div>
 </div>
 
-<div id="ob-overlay">
+<div id="ob-overlay" role="dialog" aria-modal="true" aria-label="Set up your farm">
   <div class="ob-shell">
 
     
@@ -6903,24 +6922,24 @@ table.bmb-pay td .bmb-bench{margin-top:2px}
         <div class="ob-p">This appears on your reports and statements. You can change it anytime in Settings.</div>
 
         <div class="ob-field">
-          <label class="ob-label">Farm name</label>
-          <input id="ob-farm" class="ob-input" type="text" placeholder="e.g. Doringkloof Boerdery" autocomplete="off"/>
+          <label class="ob-label" for="ob-farm">Farm name</label>
+          <input id="ob-farm" aria-describedby="ob-farm-err" class="ob-input" type="text" placeholder="e.g. Doringkloof Boerdery" autocomplete="off"/>
           <div class="ob-err" id="ob-farm-err" role="alert"></div>
         </div>
         <div class="ob-row">
           <div class="ob-field">
-            <label class="ob-label">Your full name</label>
-            <input id="ob-owner" class="ob-input" type="text" placeholder="e.g. Jaco van der Merwe" autocomplete="off"/>
+            <label class="ob-label" for="ob-owner">Your full name</label>
+            <input id="ob-owner" aria-describedby="ob-owner-err" class="ob-input" type="text" placeholder="e.g. Jaco van der Merwe" autocomplete="off"/>
             <div class="ob-err" id="ob-owner-err" role="alert"></div>
           </div>
           <div class="ob-field">
-            <label class="ob-label">Farm size <span>(optional)</span></label>
-            <input id="ob-ha" class="ob-input" type="number" min="0" step="any" placeholder="hectares" inputmode="decimal"/>
+            <label class="ob-label" for="ob-ha">Farm size <span>(optional)</span></label>
+            <input id="ob-ha" aria-describedby="ob-ha-err" class="ob-input" type="number" min="0" step="any" placeholder="hectares" inputmode="decimal"/>
             <div class="ob-err" id="ob-ha-err" role="alert"></div>
           </div>
         </div>
         <div class="ob-field">
-          <label class="ob-label">Province</label>
+          <label class="ob-label" for="ob-province">Province</label>
           <select id="ob-province" class="ob-select">
             <option value="">Select your province</option>
             <option>North West</option>
@@ -6935,7 +6954,7 @@ table.bmb-pay td .bmb-bench{margin-top:2px}
           </select>
         </div>
         <div class="ob-field">
-          <label class="ob-label">Financial year start</label>
+          <label class="ob-label" for="ob-fystart">Financial year start</label>
           <select id="ob-fystart" class="ob-select">
             <option value="3" selected>March (SA standard for farming)</option>
             <option value="1">January</option>
@@ -6943,7 +6962,7 @@ table.bmb-pay td .bmb-bench{margin-top:2px}
           </select>
         </div>
         <div class="ob-field">
-          <label class="ob-label">Business type (for tax)</label>
+          <label class="ob-label" for="ob-entity">Business type (for tax)</label>
           <select id="ob-entity" class="ob-select">
             <option value="sole" selected>Sole proprietor (taxed in your own name)</option>
             <option value="company">Company / (Pty) Ltd</option>
@@ -6955,8 +6974,9 @@ table.bmb-pay td .bmb-bench{margin-top:2px}
         </div>
 
         <div class="ob-field" id="ob-vat-field">
-          <label class="ob-label" style="display:flex;align-items:center;gap:7px">Are you registered for VAT?<span onclick="obVatInfo('ob-vat-why')" role="button" aria-label="Why we ask about VAT" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#D8F3DC;color:#1B4332;font-size:12px;font-weight:800;cursor:pointer;text-transform:none">i</span></label>
+          <label class="ob-label" id="ob-vat-lbl" style="display:flex;align-items:center;gap:7px">Are you registered for VAT?<span onclick="obVatInfo('ob-vat-why')" role="button" aria-label="Why we ask about VAT" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#D8F3DC;color:#1B4332;font-size:12px;font-weight:800;cursor:pointer;text-transform:none">i</span></label>
           <div id="ob-vat-why" style="display:none;background:#EEF6FF;border:1px solid #CFE3F7;border-radius:10px;padding:11px 12px;margin-bottom:10px;font-size:12px;line-height:1.55;color:#1E3A5F"><b>Why we ask.</b> If you’re VAT-registered, we split the 15% out of your sales and costs and track what you owe or reclaim on your VAT201. If not, we leave your amounts exactly as entered. Most smaller farmers only register once turnover passes R2,3 million.</div>
+          <div id="ob-vat-group">
           <div class="ob-fu-opt on" id="ob-vat-no" onclick="obPickVat(false, event)">
             <div class="ob-fu-radio"></div>
             <div class="ob-fu-tx"><b>No — not registered</b><small>Turnover under R2,3m, or not yet registered.</small></div>
@@ -6967,8 +6987,9 @@ table.bmb-pay td .bmb-bench{margin-top:2px}
             <div class="ob-fu-tx"><b>Yes — I charge 15% VAT</b><small>SARS-registered; you file a VAT201.</small></div>
             <div class="ob-fu-e">✅</div>
           </div>
+          </div>
           <div id="ob-vatcat-wrap" style="display:none;margin-top:12px">
-            <label class="ob-label" style="display:flex;align-items:center;gap:7px">How often you file VAT<span onclick="obVatInfo('ob-vatcat-info')" role="button" aria-label="Explain the VAT categories" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#D8F3DC;color:#1B4332;font-size:12px;font-weight:800;cursor:pointer;text-transform:none">i</span></label>
+            <label class="ob-label" for="ob-vatcat" style="display:flex;align-items:center;gap:7px">How often you file VAT<span onclick="obVatInfo('ob-vatcat-info')" role="button" aria-label="Explain the VAT categories" style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:#D8F3DC;color:#1B4332;font-size:12px;font-weight:800;cursor:pointer;text-transform:none">i</span></label>
             <select id="ob-vatcat" class="ob-select">
               <option value="A">Every 2 months — Category A</option>
               <option value="B">Every 2 months — Category B</option>
@@ -7092,7 +7113,7 @@ table.bmb-pay td .bmb-bench{margin-top:2px}
             <input type="checkbox" id="ob-consent-chk" onchange="obConsentToggle()"/>
             <span data-t="ob.consent.text">I have read and accept the <b onclick="event.preventDefault();aiPolicyOpen('privacy')">Privacy Policy</b> and <b onclick="event.preventDefault();aiPolicyOpen('terms')">Terms of Use</b>. I understand how my farm’s information is stored, and that where I record worker details I remain responsible for them under POPIA.</span>
           </label>
-          <div class="ob-consent-warn" id="ob-consent-warn" data-t="ob.consent.warn">Please accept to continue.</div>
+          <div class="ob-consent-warn" id="ob-consent-warn" role="alert" data-t="ob.consent.warn">Please accept to continue.</div>
           <label class="ob-consent-row" for="ob-marketing-chk" style="margin-top:10px">
             <input type="checkbox" id="ob-marketing-chk"/>
             <span data-t="ob.marketing.text">Send me news and offers from AgriInsights by email (optional). I can stop them at any time.</span>
@@ -11089,7 +11110,7 @@ table.bmb-pay td .bmb-bench{margin-top:2px}
 
 </div>
 </div>
-<script src="app.204aeb541948.js" charset="utf-8"></script>
+<script src="app.3fbf4b5ac31a.js" charset="utf-8"></script>
 
 
 <div class="imp-bg" id="imp-hub-bg">

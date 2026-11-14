@@ -79,6 +79,9 @@
       '#ai-auth .langsw button{width:auto;margin:0;padding:3px 9px;font-size:11px;font-weight:700;border-radius:7px;' +
         'background:transparent;color:#6b716a;border:1px solid #dfe3da;}' +
       '#ai-auth .langsw button.on{background:' + FOREST + ';color:#fff;border-color:' + FOREST + ';}' +
+      /* -513e F5: Forgot password? is a real button (the keyboard could not reach the span); a visible focus ring */
+      '#ai-auth button.ai-link{width:auto;margin:0;padding:2px 0;background:none;border:0;color:' + FOREST + ';font-weight:700;text-decoration:underline;cursor:pointer;font-size:12.5px;}' +
+      '#ai-auth .card button:focus-visible{outline:3px solid #2D6A4F !important;outline-offset:2px !important;}' +
       '@keyframes aiOpenSpin{to{transform:rotate(360deg)}}' +
       '#ai-signout{position:fixed;bottom:14px;left:14px;z-index:99998;background:' + FOREST +
         ';color:#fff;border:0;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;' +
@@ -88,9 +91,9 @@
     var o = document.createElement('div');
     o.id = 'ai-auth';
     o.innerHTML =
-      '<div class="card">' +
-        '<div class="langsw"><button id="ai-lang-en" class="on">EN</button><button id="ai-lang-af">AF</button></div>' +
-        '<h1>AgriInsights</h1>' +
+      '<div class="card" role="dialog" aria-modal="true" aria-labelledby="ai-h1">' +
+        '<div class="langsw"><button id="ai-lang-en" class="on" aria-label="English">EN</button><button id="ai-lang-af" aria-label="Afrikaans">AF</button></div>' +
+        '<h1 id="ai-h1">AgriInsights</h1>' +
         '<p class="sub" id="ai-sub">Sign in to your farm</p>' +
         '<div class="tabs" id="ai-tabs">' +
           '<button class="tab on" id="ai-tab-in">Sign in</button>' +
@@ -102,7 +105,7 @@
           '<input id="ai-email" type="email" autocomplete="username" placeholder="you@farm.co.za"/>' +
           '<label for="ai-pass">Password</label>' +
           '<input id="ai-pass" type="password" autocomplete="current-password" placeholder="Your password"/>' +
-          '<div style="text-align:right;margin-top:8px"><span id="ai-forgot" style="color:' + FOREST + ';font-weight:700;text-decoration:underline;cursor:pointer;font-size:12.5px">Forgot password?</span></div>' +
+          '<div style="text-align:right;margin-top:8px"><button type="button" id="ai-forgot" class="ai-link">Forgot password?</button></div>' +
           '<button id="ai-signin">Sign in</button>' +
         '</div>' +
         /* ── forgot password: ask for the address, then reuse the inbox screen ── */
@@ -147,7 +150,7 @@
           '<div id="ai-open-t" style="font-size:17px;font-weight:800;color:' + FOREST + '">Opening your farm\u2026</div>' +
           '<div id="ai-open-s" style="font-size:12.5px;color:#6b716a;margin-top:4px">Getting your latest figures</div>' +
         '</div>' +
-        '<div class="msg" id="ai-msg"></div>' +
+        '<div class="msg" id="ai-msg" role="alert" aria-live="assertive"></div>' +
         '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #dfe3da;text-align:center">' +
           '<div style="font-size:12px;color:#6b716a;margin-bottom:9px" id="ai-demo-q">Just want to look around first?</div>' +
           '<button id="ai-demo" style="background:' + GOLD + ';color:#12271b;font-weight:800;margin-top:0">🌱 Explore the demo</button>' +
@@ -179,12 +182,14 @@
     /* The demo's "Create your farm →" leaves a flag so the farmer lands where they
        were heading — the sign-up form — instead of a sign-in card with no way on. */
     try {
-      if (localStorage.getItem('ai_auth_mode') === 'signup') { setMode('signup'); }
+      if (localStorage.getItem('ai_auth_mode') === 'signup') { setMode('signup'); WANT_SIGNUP = true; }   /* -513e F4: kept until the card is shown */
       localStorage.removeItem('ai_auth_mode');
     } catch (e) {}
     var demoBtn = document.getElementById('ai-demo');
     if (demoBtn) demoBtn.addEventListener('click', function () {
       try { localStorage.setItem('ai_guest', '1'); } catch (e) {}
+      /* -513e F7: the language chosen on this card carries into the sample farm */
+      try { var _al = localStorage.getItem('ai_auth_lang'); if (_al === 'af' || _al === 'en') localStorage.setItem('ai_demo_lang', _al); } catch (e) {}
       location.href = location.pathname + '?demo=1';
     });
   }
@@ -221,7 +226,7 @@
           resetSent:'Reset link sent — check your inbox.', mismatch:'Those two passwords are not the same.',
           savingPass:'Saving your new password…', passSaved:'Password changed — signing you in…',
           recoverExpired:'That reset link has expired. Ask for a new one.',
-          opening:'Opening your farm\u2026', openingSub:'Getting your latest figures' },
+          opening:'Opening your farm\u2026', openingSub:'Getting your latest figures', signingIn:'Signing in\u2026' },
     af: { subIn:'Teken in by jou plaas', subUp:'Begin jou plaas se rekords', subInbox:'Nog een stap',
           tabIn:'Teken in', tabUp:'Skep rekening', signin:'Teken in', signup:'Skep my rekening',
           lblEmail:'E-pos', lblPass:'Wagwoord', lblNewPass:'Kies ’n wagwoord',
@@ -242,7 +247,7 @@
           resetSent:'Terugstelskakel gestuur — kyk in jou inpos.', mismatch:'Daardie twee wagwoorde stem nie ooreen nie.',
           savingPass:'Besig om jou nuwe wagwoord te stoor…', passSaved:'Wagwoord verander — jy word ingeteken…',
           recoverExpired:'Daardie skakel het verval. Vra ’n nuwe een aan.',
-          opening:'Maak jou plaas oop\u2026', openingSub:'Ons haal jou nuutste syfers' }
+          opening:'Maak jou plaas oop\u2026', openingSub:'Ons haal jou nuutste syfers', signingIn:'Besig om in te teken\u2026' }
   };
   /* Messages are remembered by KEY, not by the text already on screen: switching
      language with a message showing ("Email sent — check your inbox.") otherwise
@@ -297,7 +302,7 @@
   function _esc(s){ return String(s || '').replace(/[&<>"]/g, function(c){
     return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
 
-  var AUTH_MODE = 'signin', AUTH_EMAIL = '', INBOX_KIND = 'signup';
+  var AUTH_MODE = 'signin', AUTH_EMAIL = '', INBOX_KIND = 'signup', WANT_SIGNUP = false;
   function setMode(m){
     AUTH_MODE = m;
     var show = function(id, on){ var el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
@@ -485,6 +490,10 @@
   }
   /* Put the card back (in "Opening your farm…") when what was shown turns out not to be this farm's. */
   function _unreveal(mode){
+    /* -513e F4: the demo's "Create your farm →" asked for Create account; the boot's "no session -> sign in"
+       came a moment later and switched it back to Sign in. The farmer's own ask wins, once. */
+    if (mode === 'signin' && WANT_SIGNUP) mode = 'signup';
+    WANT_SIGNUP = false;
     if (_boot.revealed) {
       _boot.revealed = false;
       var o = document.getElementById('ai-auth'); if (o) o.style.display = 'flex';
@@ -527,7 +536,7 @@
     var email = (document.getElementById('ai-email').value || '').trim();
     var pass = document.getElementById('ai-pass').value || '';
     if (!email || !pass) { msgK('needBoth', 'err'); return; }
-    btn.disabled = true; msg('Signing in…', 'ok');
+    btn.disabled = true; msgK('signingIn', 'ok');   /* -513e F7 */
     AI.auth.signIn(email, pass)
       .then(function () { return enterApp(); })
       .catch(function (e) {
@@ -892,7 +901,10 @@
             /* Skip the underscore keys: those carry ST_CROP / ST_PLAN / ST_LOANAPP data and
                are applied to their own objects below. Copying them here would park a second,
                stale copy on ST and write it to localStorage on every save. */
+            var _lang0 = ST.lang;
             Object.keys(pf).forEach(function (k) { if (k.charAt(0) !== '_' && pf[k] != null) ST[k] = pf[k]; });
+            /* -513e F7: the farm's language (farms.lang) is the farmer's - show the app in it */
+            try { if ((pf.lang === 'af' || pf.lang === 'en') && pf.lang !== _lang0 && typeof window.applyLang === 'function') { ST.lang = _lang0; window.applyLang(pf.lang); } } catch (e) {}
             if (window.FARM) {
               if (pf.farmName   != null) FARM.name  = pf.farmName;
               if (pf.ownerName  != null) FARM.owner = pf.ownerName;
