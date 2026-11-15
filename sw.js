@@ -14,18 +14,20 @@
  */
 'use strict';
 
-var APP_VERSION = '2026-11-14-513e';
-var BUILD = '6dcb2c5389';   /* dist build (build-dist.mjs): the hashed scripts below */
+var APP_VERSION = '2026-11-15-514';
+var BUILD = '4c904b33df';   /* dist build (build-dist.mjs): the hashed scripts below */
 var CACHE = 'agriinsights-' + APP_VERSION + '-' + BUILD;
 
 /* App shell precached on install. The ?v=-suffixed JS is intentionally left to
  * runtime caching so the existing ?v= cache-busting keeps working untouched. */
 var PRECACHE = [
   './',
-  './app.3fbf4b5ac31a.js',
+  './app.8caf278d269f.js',
   './bg-grid.e975f666c214.js',
   './bmb.930ff70dca2a.js',
   './kpi-detail.ea39f6dbbb74.js',
+  './ob5-str.961abfe6bdbf.js',
+  './ob5.0272263c9698.js',
   './index.html',
   './manifest.webmanifest',
   './fonts.css',
@@ -34,6 +36,9 @@ var PRECACHE = [
   './vendor/jspdf.umd.min.js?v=218',
   './img/hero-farmland.webp?v=490',
   './img/logomark.png?v=225',
+  './img/ob5/proof-sa.jpg',   /* -514 the welcome's proof picture */
+  './img/ob5/proof-sa-af.jpg',   /* C6: in Afrikaans */
+  './img/ob5/contours.svg',
   './icon-192.png',
   './icon-512.png',
   './maskable-512.png',

@@ -46,128 +46,162 @@
   var FOREST = '#1F4D2C', GOLD = '#C8962C', CREAM = '#F7F6F1', INK = '#1A2622';
 
   // ---- styles + overlay injected on DOM ready ------------------------------
+  /* -514 O1 / O2 (owner sign-off 14-15 Nov 2026): the welcome is a split screen - the promise, a real AgriInsights
+     screen as proof and three trust lines on the left (SA: POPIA only); the card on the right with "Create your farm"
+     first for a new visitor, Sign in second, the gold "Explore a sample farm", and the EN / AF switch that carries
+     through. "Check your email" shows the address with "Wrong address? Change it", Open Gmail / Open Outlook and a
+     30-second resend. Every id the sign-in code uses is kept, so sign-in, sign-up, reset, the demo and the -513e
+     behaviour are unchanged underneath. Wording: the signed-off prototype strings (AUTH_W, EN + AF). */
+  var AUTH_W = {"c.or":["or","of"],"c.privacy":["Privacy policy","Privaatheidsbeleid"],"c.terms":["Terms of use","Gebruiksvoorwaardes"],"w.promise1":["Every rand on your farm,","Elke rand op jou plaas,"],"w.promise2":["clear in minutes.","duidelik binne minute."],"w.sub":["See each month whether the farm is making money, where it goes, and what is due to SARS. Without the paperwork.","Sien elke maand of die plaas geld maak, waarheen dit gaan, en wat aan SARS betaal moet word. Sonder die papierwerk."],"w.samplePill":["Sample farm","Voorbeeldplaas"],"w.chipK":["Is my farm profitable?","Is my plaas winsgewend?"],"w.chipV":["Yes · 27,1% margin","Ja · 27,1% marge"],"w.healthy":["Healthy","Gesond"],"w.proofCap":["The real app, showing the Doringkloof sample farm","Die regte program, met die Doringkloof-voorbeeldplaas"],"w.t1b":["Made for SA farms","Gemaak vir SA-plase"],"w.t1s":["VAT201, provisional tax and rand built in","BTW201, voorlopige belasting en rand ingebou"],"w.t2b":["Your data is yours","Jou data is joune"],"w.t2s":["Protected under POPIA","Beskerm onder POPIA"],"w.t3b":["On your phone too","Ook op jou foon"],"w.t3s":["Works where the signal is weak","Werk waar die sein swak is"],"w.tabCreate":["Create your farm","Skep jou plaas"],"w.tabSignin":["Sign in","Teken in"],"w.createH":["Create your farm","Skep jou plaas"],"w.createP":["Set up your farm within minutes.","Stel jou plaas binne minute op."],"w.changeP":["Type the right address. We’ll send the link there instead.","Tik die regte adres. Ons stuur die skakel eerder soontoe."],"w.email":["Email","E-pos"],"w.password":["Password","Wagwoord"],"w.phEmail":["you@farm.co.za","jy@plaas.co.za"],"w.show":["Show","Wys"],"w.hide":["Hide","Versteek"],"w.showPass":["Show password","Wys wagwoord"],"w.hidePass":["Hide password","Versteek wagwoord"],"w.passHint":["At least 8 characters","Minstens 8 karakters"],"w.createBtn":["Create your farm","Skep jou plaas"],"w.sampleBtn":["Explore a sample farm","Verken ’n voorbeeldplaas"],"w.sampleSub":["No account needed. Nothing is saved.","Geen rekening nodig nie. Niks word gestoor nie."],"w.fine":["You read and accept our {privacy} and {terms} during setup.","Jy lees en aanvaar ons {privacy} en {terms} tydens die opstelling."],"w.creating":["Creating your account…","Besig om jou rekening te skep…"],"w.needBoth":["Enter your email and password.","Voer jou e-pos en wagwoord in."],"w.emailEmpty":["Enter your email address.","Voer jou e-posadres in."],"w.passEmpty":["Enter a password.","Voer ’n wagwoord in."],"w.badEmail":["That doesn’t look like an email address. Check for a missing .co.za or .com.","Dit lyk nie soos ’n e-posadres nie. Kyk of .co.za of .com kort."],"w.emailLong":["That email address is too long. Check it.","Daardie e-posadres is te lank. Kyk dit na."],"w.shortPass":["Too short. Use at least 8 characters.","Te kort. Gebruik ten minste 8 karakters."],"w.longPass":["Use 128 characters or fewer.","Gebruik 128 karakters of minder."],"w.exists":["There is already a farm with this email.","Daar is reeds ’n plaas met hierdie e-pos."],"w.existsLink":["Sign in instead","Teken eerder in"],"w.signinH":["Welcome back","Welkom terug"],"w.signinP":["Sign in to your farm","Teken in by jou plaas"],"w.phPass":["Your password","Jou wagwoord"],"w.forgot":["Forgot password?","Wagwoord vergeet?"],"w.signinBtn":["Sign in","Teken in"],"w.signing":["Signing in…","Besig om in te teken…"],"w.noMatch":["That email and password don’t match. Check them, or reset your password.","Daardie e-pos en wagwoord pas nie. Kyk hulle na, of stel jou wagwoord terug."],"w.needSignin":["Sign in to carry on.","Teken in om voort te gaan."],"w.signedOut":["You’re signed out. Your records are safe.","Jy is uitgeteken. Jou rekords is veilig."],"w.resetH":["Reset your password","Stel jou wagwoord terug"],"w.resetHint":["We’ll email you a link to choose a new password.","Ons stuur vir jou ’n skakel om ’n nuwe wagwoord te kies."],"w.resetBtn":["Email me a reset link","Stuur vir my ’n terugstelskakel"],"w.resetBack":["Back to sign in","Terug na teken in"],"w.resetSentH":["Check your email","Kyk in jou e-pos"],"w.resetSentP":["If there’s a farm with {email}, we’ve sent it a link to choose a new password.","As daar ’n plaas met {email} is, het ons ’n skakel gestuur om ’n nuwe wagwoord te kies."],"w.newPassH":["Choose a new password","Kies ’n nuwe wagwoord"],"w.newPass":["New password","Nuwe wagwoord"],"w.newPass2":["Type it again","Tik dit weer"],"w.savePass":["Save new password","Stoor nuwe wagwoord"],"w.mismatch":["Those two passwords are not the same.","Daardie twee wagwoorde stem nie ooreen nie."],"w.savingPass":["Saving your new password…","Besig om jou nuwe wagwoord te stoor…"],"w.passSaved":["Password changed. Signing you in…","Wagwoord verander. Jy word ingeteken…"],"w.resetExpired":["That reset link has expired. Ask for a new one.","Daardie skakel het verval. Vra ’n nuwe een aan."],"e.promise1":["One quick check,","Een vinnige kontrole,"],"e.promise2":["then your farm.","dan jou plaas."],"e.n1":["Account created","Rekening geskep"],"e.n2":["Confirm your email","Bevestig jou e-pos"],"e.n2s":["So only you can get into your farm’s records.","Sodat net jy by jou plaas se rekords kan kom."],"e.n3":["Tell us about your farm","Vertel ons van jou plaas"],"e.n3s":["About two minutes. Then you are in.","Omtrent twee minute. Dan is jy in."],"e.h":["Check your email","Kyk in jou e-pos"],"e.p":["We sent a link to confirm it is you. Open it on this computer or your phone.","Ons het ’n skakel gestuur om te bevestig dat dit jy is. Maak dit op hierdie rekenaar of jou foon oop."],"e.wrong":["Wrong address?","Verkeerde adres?"],"e.changeIt":["Change it","Verander dit"],"e.gmail":["Open Gmail","Maak Gmail oop"],"e.outlook":["Open Outlook","Maak Outlook oop"],"e.spam":["Nothing there? Look in spam or junk.","Niks daar nie? Kyk in jou gemorspos."],"e.resend":["Send it again","Stuur die e-pos weer"],"e.resendIn":["in {t}","oor {t}"],"e.resent":["Sent again. Check your inbox.","Weer gestuur. Kyk in jou inpos."],"e.already":["Already confirmed? Sign in","Reeds bevestig? Teken in"],"e.confirmed":["Email confirmed. Let’s set up your farm.","E-pos bevestig. Kom ons stel jou plaas op."],"e.notYet":["Confirm your email first. We sent the link to {email}.","Bevestig eers jou e-pos. Ons het die skakel na {email} gestuur."]};
+  function W(k, v){ var e = AUTH_W[k]; if (!e) return k; var s = (AUTH_LANG === 'af' && e[1]) ? e[1] : e[0];
+    if (v) s = s.replace(/\{(\w+)\}/g, function(m, n){ return (n in v) ? v[n] : m; }); return s; }
+  var WI = {
+    arrow: '<svg class="i" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+    check: '<svg class="i" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>',
+    eye: '<svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+    compass: '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>',
+    trend: '<svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px;stroke-width:2.4"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>',
+    pin: '<svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    shield: '<svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>',
+    phone: '<svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><rect x="6" y="2" width="12" height="20" rx="2.5"/><line x1="11" y1="18" x2="13" y2="18"/></svg>',
+    mail: '<svg class="i" viewBox="0 0 24 24" style="color:#2D6A4F"><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="22 6 12 13 2 6"/></svg>',
+    ext: '<svg class="i" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>'
+  };
+  function _known(){ try { return localStorage.getItem('ai_ob5_known') === '1'; } catch (e) { return false; } }
+  function _landingMode(){ return _known() ? 'signin' : 'signup'; }   /* O1: "Create your farm" first for a new visitor */
+  function _pwField(id, auto, ph){
+    return '<div class="inwrap"><input class="inp" id="' + id + '" type="password" autocomplete="' + auto + '" placeholder="' + ph + '" maxlength="300">' +
+      '<button type="button" class="side" data-pw="' + id + '" aria-pressed="false">' + WI.eye + '<span></span></button></div>';
+  }
+  /* The welcome's pictures never hold up the page's load event (the app's own boot, the guest sandbox's seed and a
+     signed-in farmer's return all wait for it): they are set for a visitor at once, for everyone else after load. */
+  function _wImgs(){
+    var o = document.getElementById('ai-auth'); if (!o || o.classList.contains('imgs')) return;
+    o.classList.add('imgs');
+    Array.prototype.forEach.call(o.querySelectorAll('img[data-src]'), function(i){ i.src = i.getAttribute('data-src'); });
+  }
   function injectUI() {
     var css = document.createElement('style');
     css.textContent =
-      '#ai-auth{position:fixed;inset:0;z-index:99999;background:' + FOREST +
-        ';display:flex;align-items:center;justify-content:center;' +
-        'font-family:"Plus Jakarta Sans",system-ui,sans-serif;}' +
-      '#ai-auth .card{background:' + CREAM + ';width:340px;max-width:90vw;border-radius:18px;' +
-        'padding:30px 26px;box-shadow:0 20px 60px rgba(0,0,0,.35);}' +
-      '#ai-auth h1{margin:0 0 4px;font-size:22px;color:' + FOREST + ';font-weight:800;}' +
-      '#ai-auth p.sub{margin:0 0 20px;font-size:13px;color:#6b716a;}' +
-      '#ai-auth label{display:block;font-size:12px;font-weight:600;color:' + INK +
-        ';margin:12px 0 5px;}' +
-      '#ai-auth input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #cdd2c9;' +
-        'border-radius:10px;font-size:15px;font-family:inherit;}' +
-      '#ai-auth input:focus{outline:none;border-color:' + FOREST + ';}' +
-      '#ai-auth button{width:100%;margin-top:18px;padding:12px;border:0;border-radius:10px;' +
-        'background:' + FOREST + ';color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;}' +
-      '#ai-auth button:disabled{opacity:.6;cursor:default;}' +
-      '#ai-auth .msg{margin-top:14px;font-size:13px;min-height:18px;}' +
-      '#ai-auth .msg.err{color:#a6432a;}#ai-auth .msg.ok{color:' + FOREST + ';}' +
-      /* ── sign-up additions (Phase 1). Same visual language as the card above. ── */
-      '#ai-auth .tabs{display:flex;gap:4px;background:#eceee6;border-radius:12px;padding:4px;margin:0 0 4px;}' +
-      '#ai-auth .tab{flex:1;text-align:center;padding:9px 6px;border-radius:9px;font-size:13.5px;font-weight:700;' +
-        'color:#6b716a;cursor:pointer;border:0;background:transparent;font-family:inherit;margin:0;width:auto;}' +
-      '#ai-auth .tab.on{background:#fff;color:' + FOREST + ';box-shadow:0 1px 3px rgba(0,0,0,.10);}' +
-      '#ai-auth .hint{font-size:11.5px;color:#6b716a;margin-top:6px;line-height:1.4;}' +
-      '#ai-auth .ghost{background:transparent;color:' + FOREST + ';border:1.5px solid #cdd2c9;font-weight:700;}' +
-      '#ai-auth .inbox{text-align:center;}' +
-      '#ai-auth .inbox .big{font-size:34px;line-height:1;margin-bottom:10px;}' +
-      '#ai-auth .langsw{display:flex;gap:4px;justify-content:flex-end;margin-bottom:2px;}' +
-      '#ai-auth .langsw button{width:auto;margin:0;padding:3px 9px;font-size:11px;font-weight:700;border-radius:7px;' +
-        'background:transparent;color:#6b716a;border:1px solid #dfe3da;}' +
-      '#ai-auth .langsw button.on{background:' + FOREST + ';color:#fff;border-color:' + FOREST + ';}' +
-      /* -513e F5: Forgot password? is a real button (the keyboard could not reach the span); a visible focus ring */
-      '#ai-auth button.ai-link{width:auto;margin:0;padding:2px 0;background:none;border:0;color:' + FOREST + ';font-weight:700;text-decoration:underline;cursor:pointer;font-size:12.5px;}' +
-      '#ai-auth .card button:focus-visible{outline:3px solid #2D6A4F !important;outline-offset:2px !important;}' +
+      '#ai-auth{position:fixed;inset:0;z-index:99999;display:flex;font-family:"Plus Jakarta Sans",system-ui,sans-serif}' +
+      '#ai-auth>.wl{flex:1;min-width:0}' +
+      '#ai-auth .card{background:none;border:0;box-shadow:none;padding:0;width:auto;max-width:none;border-radius:0}' +
+      '#ai-auth .msg{margin-top:14px;font-size:13.5px;min-height:0;line-height:1.5}#ai-auth .msg:empty{display:none}' +
+      '#ai-auth .msg.err{color:#A32D2D}#ai-auth .msg.ok{color:' + FOREST + '}' +
+      '#ai-auth.imgs .proof-img{background:url(img/ob5/proof-sa.jpg) 0 0/100% auto no-repeat}#ai-auth.imgs.af .proof-img{background-image:url(img/ob5/proof-sa-af.jpg)}#ai-auth .proof-img{background-color:#EEF2EC}' +   /* C6: the Afrikaans card shows the app in Afrikaans */
+      '#ai-auth:not(.imgs) .wl-left::before{background-image:none}' +
+      '#ai-auth .inbox-pic{display:block;margin:0 auto;width:120px;height:96px}' +
+      '#ai-auth .resend .cd{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:#6B7280;background:#ECEAE2;border-radius:20px;padding:3px 10px;margin-left:4px}' +
+      '#ai-auth #ai-resend{margin-top:10px}' +
+      '#ai-auth .forgot{text-align:right;margin-top:10px}' +
+      '#ai-auth .wl-form :focus-visible,#ai-auth .wl-top :focus-visible{outline:3px solid #2D6A4F !important;outline-offset:2px !important}' +
+      '#ai-auth .wl-left :focus-visible{outline:3px solid #95D5B2 !important;outline-offset:2px !important}' +
+      '#ai-auth .fine .lnk{font-size:12.5px;font-weight:700}' +
+      '#ai-auth .btn:disabled{opacity:.65;cursor:default}' +
       '@keyframes aiOpenSpin{to{transform:rotate(360deg)}}' +
       '#ai-signout{position:fixed;bottom:14px;left:14px;z-index:99998;background:' + FOREST +
         ';color:#fff;border:0;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;' +
         'font-family:"Plus Jakarta Sans",sans-serif;cursor:pointer;opacity:.85;}';
     document.head.appendChild(css);
 
-    var o = document.createElement('div');
-    o.id = 'ai-auth';
-    o.innerHTML =
-      '<div class="card" role="dialog" aria-modal="true" aria-labelledby="ai-h1">' +
-        '<div class="langsw"><button id="ai-lang-en" class="on" aria-label="English">EN</button><button id="ai-lang-af" aria-label="Afrikaans">AF</button></div>' +
-        '<h1 id="ai-h1">AgriInsights</h1>' +
-        '<p class="sub" id="ai-sub">Sign in to your farm</p>' +
-        '<div class="tabs" id="ai-tabs">' +
-          '<button class="tab on" id="ai-tab-in">Sign in</button>' +
-          '<button class="tab" id="ai-tab-up">Create account</button>' +
+    var left =
+      '<section class="wl-left" id="ai-left" aria-label="AgriInsights">' +
+        '<div class="brandrow"><div class="bm"><img data-src="img/logomark.png?v=225" alt=""></div><div class="bn">Agri<span>Insights</span></div></div>' +
+        '<div id="ai-left-main" style="display:flex;flex-direction:column;flex:1;min-height:0">' +
+          '<h1 class="promise"><span id="ai-w-p1"></span> <em id="ai-w-p2"></em></h1>' +
+          '<p class="promise-sub" id="ai-w-sub"></p>' +
+          '<figure class="proof"><div class="proof-frame"><div class="proof-bar"><img data-src="img/logomark.png?v=225" alt="">Doringkloof Boerdery<span class="pill" id="ai-w-pill"></span></div>' +
+            '<div class="proof-img" role="img" id="ai-w-img"></div></div>' +
+            '<div class="proof-chip"><div class="ic">' + WI.trend + '</div><div><div class="k" id="ai-w-chipk"></div><div class="v"><span id="ai-w-chipv" style="all:unset"></span><span id="ai-w-healthy"></span></div></div></div></figure>' +
+          '<figcaption class="proof-cap" id="ai-w-cap"></figcaption>' +
         '</div>' +
-        /* ── sign-in pane (unchanged fields + ids, so nothing downstream breaks) ── */
-        '<div id="ai-pane-in">' +
-          '<label for="ai-email">Email</label>' +
-          '<input id="ai-email" type="email" autocomplete="username" placeholder="you@farm.co.za"/>' +
-          '<label for="ai-pass">Password</label>' +
-          '<input id="ai-pass" type="password" autocomplete="current-password" placeholder="Your password"/>' +
-          '<div style="text-align:right;margin-top:8px"><button type="button" id="ai-forgot" class="ai-link">Forgot password?</button></div>' +
-          '<button id="ai-signin">Sign in</button>' +
-        '</div>' +
-        /* ── forgot password: ask for the address, then reuse the inbox screen ── */
-        '<div id="ai-pane-reset" style="display:none">' +
-          '<label for="ai-rs-email">Email</label>' +
-          '<input id="ai-rs-email" type="email" autocomplete="username" placeholder="you@farm.co.za"/>' +
-          '<div class="hint" id="ai-rs-hint">We’ll email you a link to choose a new password.</div>' +
-          '<button id="ai-reset">Email me a reset link</button>' +
-          '<button id="ai-reset-back" class="ghost" style="margin-top:8px">← Back to sign in</button>' +
-        '</div>' +
-        /* ── the screen the reset link lands on: choose a new password ── */
-        '<div id="ai-pane-newpass" style="display:none">' +
-          '<label for="ai-np-pass">New password</label>' +
-          '<input id="ai-np-pass" type="password" autocomplete="new-password" placeholder="At least 8 characters"/>' +
-          '<label for="ai-np-pass2">Type it again</label>' +
-          '<input id="ai-np-pass2" type="password" autocomplete="new-password" placeholder="At least 8 characters"/>' +
-          '<button id="ai-savepass">Save new password</button>' +
-        '</div>' +
-        /* ── create-account pane. Two fields only: the 5-step wizard already collects
-              the farm details, and asking twice doubles the work for the farmer. ── */
-        '<div id="ai-pane-up" style="display:none">' +
-          '<label for="ai-su-email">Email</label>' +
-          '<input id="ai-su-email" type="email" autocomplete="username" placeholder="you@farm.co.za"/>' +
-          '<label for="ai-su-pass">Choose a password</label>' +
-          '<input id="ai-su-pass" type="password" autocomplete="new-password" placeholder="At least 8 characters"/>' +
-          '<div class="hint" id="ai-su-hint">You’ll use this to sign in on any device — your phone, the farm office, anywhere.</div>' +
-          '<button id="ai-signup">Create my account</button>' +
-        '</div>' +
-        /* ── "check your email" pane: shown because email confirmation is ON ── */
-        '<div id="ai-pane-inbox" style="display:none">' +
-          '<div class="inbox">' +
-            '<div class="big">📬</div>' +
-            '<div id="ai-inbox-title" style="font-size:18px;font-weight:800;color:' + FOREST + ';margin-bottom:6px">Check your email</div>' +
-            '<div id="ai-inbox-body" style="font-size:13px;color:#6b716a;line-height:1.5">We sent a confirmation link to <b id="ai-inbox-email"></b>. Tap it and you’re in.</div>' +
+        '<div id="ai-left-inbox" style="display:none;margin:auto 0"><h1 class="promise" style="font-size:40px;margin-top:0"><span id="ai-e-p1"></span> <em id="ai-e-p2"></em></h1>' +
+          '<ol class="next3" style="list-style:none"><li class="n3 done"><div class="c">' + WI.check.replace('class="i"', 'class="i" style="width:16px;height:16px;stroke-width:3"') + '</div><div><b id="ai-e-n1"></b><span id="ai-e-n1s"></span></div></li>' +
+          '<li class="n3 on" aria-current="step"><div class="c">2</div><div><b id="ai-e-n2"></b><span id="ai-e-n2s"></span></div></li>' +
+          '<li class="n3"><div class="c">3</div><div><b id="ai-e-n3"></b><span id="ai-e-n3s"></span></div></li></ol></div>' +
+        '<div class="trust"><div class="tr"><div class="ti">' + WI.pin + '</div><b id="ai-w-t1b"></b><span id="ai-w-t1s"></span></div>' +
+          '<div class="tr"><div class="ti">' + WI.shield + '</div><b id="ai-w-t2b"></b><span id="ai-w-t2s"></span></div>' +
+          '<div class="tr"><div class="ti">' + WI.phone + '</div><b id="ai-w-t3b"></b><span id="ai-w-t3s"></span></div></div>' +
+      '</section>';
+    var right =
+      '<section class="wl-right">' +
+        '<div class="wl-top"><div class="langsw" role="group" aria-label="Language / Taal"><button type="button" id="ai-lang-en" lang="en" aria-pressed="true">English</button><button type="button" id="ai-lang-af" lang="af" aria-pressed="false">Afrikaans</button></div></div>' +
+        '<div class="wl-form card" role="dialog" aria-modal="true" aria-labelledby="ai-h1">' +
+          '<div class="seg" role="tablist" id="ai-tabs">' +
+            '<button type="button" role="tab" class="tab" id="ai-tab-up" aria-selected="false">Create your farm</button>' +
+            '<button type="button" role="tab" class="tab on" id="ai-tab-in" aria-selected="true">Sign in</button>' +
           '</div>' +
-          '<button id="ai-resend" class="ghost">Resend the email</button>' +
-          '<button id="ai-inbox-back" class="ghost" style="margin-top:8px">Already confirmed? Sign in</button>' +
+          '<h2 class="wl-h" id="ai-h1" tabindex="-1">AgriInsights</h2>' +
+          '<p class="wl-p sub" id="ai-sub">Sign in to your farm</p>' +
+          /* sign-in pane (ids unchanged) */
+          '<div id="ai-pane-in">' +
+            '<div class="f" style="margin-top:22px"><label class="fl" for="ai-email">Email</label><input class="inp" id="ai-email" type="email" autocomplete="username" spellcheck="false" placeholder="you@farm.co.za" maxlength="400"/></div>' +
+            '<div class="f" style="margin-top:18px"><label class="fl" for="ai-pass">Password</label>' + _pwField('ai-pass', 'current-password', 'Your password') + '</div>' +
+            '<div class="forgot"><button type="button" id="ai-forgot" class="lnk" style="font-size:13.5px">Forgot password?</button></div>' +
+            '<button id="ai-signin" class="btn btn-pri full" style="margin-top:16px;height:54px">Sign in</button>' +
+          '</div>' +
+          /* forgot password */
+          '<div id="ai-pane-reset" style="display:none">' +
+            '<div class="f" style="margin-top:22px"><label class="fl" for="ai-rs-email">Email</label><input class="inp" id="ai-rs-email" type="email" autocomplete="username" spellcheck="false" placeholder="you@farm.co.za" maxlength="400"/></div>' +
+            '<div class="fh" id="ai-rs-hint">We’ll email you a link to choose a new password.</div>' +
+            '<button id="ai-reset" class="btn btn-pri full" style="margin-top:20px;height:54px">Email me a reset link</button>' +
+            '<p style="margin-top:20px"><button type="button" id="ai-reset-back" class="lnk">Back to sign in</button></p>' +
+          '</div>' +
+          /* the reset link lands here */
+          '<div id="ai-pane-newpass" style="display:none">' +
+            '<div class="f" style="margin-top:22px"><label class="fl" for="ai-np-pass">New password</label>' + _pwField('ai-np-pass', 'new-password', 'At least 8 characters') + '</div>' +
+            '<div class="f" style="margin-top:18px"><label class="fl" for="ai-np-pass2">Type it again</label>' + _pwField('ai-np-pass2', 'new-password', 'At least 8 characters') + '</div>' +
+            '<button id="ai-savepass" class="btn btn-pri full" style="margin-top:20px;height:54px">Save new password</button>' +
+          '</div>' +
+          /* create your farm: two fields only */
+          '<div id="ai-pane-up" style="display:none">' +
+            '<div class="f" style="margin-top:22px"><label class="fl" for="ai-su-email">Email</label><input class="inp" id="ai-su-email" type="email" autocomplete="email" spellcheck="false" placeholder="you@farm.co.za" maxlength="400"/></div>' +
+            '<div class="f" style="margin-top:18px"><label class="fl" for="ai-su-pass">Password</label>' + _pwField('ai-su-pass', 'new-password', '') +
+              '<div class="fh" id="ai-su-hintrow">' + WI.check + '<span id="ai-su-hint">At least 8 characters</span></div></div>' +
+            '<button id="ai-signup" class="btn btn-pri full" style="margin-top:22px;height:54px">Create your farm</button>' +
+          '</div>' +
+          /* check your email (O2) */
+          '<div id="ai-pane-inbox" style="display:none">' +
+            '<svg class="inbox-pic" viewBox="0 0 120 96" fill="none" aria-hidden="true"><rect x="10" y="22" width="100" height="66" rx="10" fill="#fff" stroke="#1B4332" stroke-width="2.5"/><path d="M12 28l48 34 48-34" stroke="#1B4332" stroke-width="2.5" stroke-linejoin="round"/><rect x="30" y="6" width="60" height="44" rx="6" fill="#D8F3DC" stroke="#2D6A4F" stroke-width="2"/><path d="M44 26l10 9 20-18" stroke="#1B4332" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 86l36-26M108 86L72 60" stroke="#1B4332" stroke-width="2.5"/></svg>' +
+            '<h3 class="wl-h" id="ai-inbox-title" style="text-align:center;margin-top:18px;font-size:26px">Check your email</h3>' +
+            '<p class="wl-p" id="ai-inbox-body" style="text-align:center"></p>' +
+            '<div class="addr">' + WI.mail + '<div style="min-width:0"><div class="em" id="ai-inbox-email" style="overflow-wrap:anywhere;font-weight:400"></div><div id="ai-inbox-wrongrow" style="font-size:13px;color:#6B7280;margin-top:2px"><span id="ai-inbox-wrong">Wrong address?</span> <button type="button" class="lnk" id="ai-inbox-change" style="font-size:13px">Change it</button></div></div></div>' +
+            '<div class="mailbtns"><button type="button" class="btn btn-sec" style="height:50px" id="ai-inbox-gmail">' + WI.ext + '<span>Open Gmail</span></button><button type="button" class="btn btn-sec" style="height:50px" id="ai-inbox-outlook">' + WI.ext + '<span>Open Outlook</span></button></div>' +
+            '<div class="resend"><span id="ai-inbox-spam">Nothing there? Look in spam or junk.</span><br><button type="button" id="ai-resend" class="lnk">Send it again</button><span id="ai-resend-cd"></span></div>' +
+            '<p style="margin-top:18px;text-align:center"><button type="button" id="ai-inbox-back" class="lnk" style="font-size:13.5px">Already confirmed? Sign in</button></p>' +
+          '</div>' +
+          /* -490 (B9 D2): a signed-in farmer is never shown the sign-in form while their farm loads */
+          '<div id="ai-pane-open" style="display:none;text-align:center;padding:14px 0 4px">' +
+            '<div style="width:26px;height:26px;margin:0 auto 12px;border:3px solid #cfe3d6;border-top-color:' + FOREST + ';border-radius:50%;animation:aiOpenSpin .8s linear infinite"></div>' +
+            '<div id="ai-open-t" style="font-size:17px;font-weight:800;color:' + FOREST + '">Opening your farm…</div>' +
+            '<div id="ai-open-s" style="font-size:12.5px;color:#6b716a;margin-top:4px">Getting your latest figures</div>' +
+          '</div>' +
+          '<div class="msg" id="ai-msg" role="alert" aria-live="assertive"></div>' +
+          '<div id="ai-demo-wrap"><span id="ai-demo-q" hidden></span><div class="or" id="ai-or">or</div>' +
+            '<button id="ai-demo" class="btn btn-gold full" style="height:52px">' + WI.compass + '<span id="ai-demo-l">Explore a sample farm</span></button>' +
+            '<div class="gold-sub" id="ai-demo-sub">No account needed. Nothing is saved.</div></div>' +
         '</div>' +
-        /* -490 (B9 D2): a signed-in farmer is never shown the sign-in form while their farm loads. */
-        '<div id="ai-pane-open" style="display:none;text-align:center;padding:14px 0 4px">' +
-          '<div style="width:26px;height:26px;margin:0 auto 12px;border:3px solid #cfe3d6;border-top-color:' + FOREST + ';border-radius:50%;animation:aiOpenSpin .8s linear infinite"></div>' +
-          '<div id="ai-open-t" style="font-size:17px;font-weight:800;color:' + FOREST + '">Opening your farm\u2026</div>' +
-          '<div id="ai-open-s" style="font-size:12.5px;color:#6b716a;margin-top:4px">Getting your latest figures</div>' +
-        '</div>' +
-        '<div class="msg" id="ai-msg" role="alert" aria-live="assertive"></div>' +
-        '<div style="margin-top:16px;padding-top:14px;border-top:1px solid #dfe3da;text-align:center">' +
-          '<div style="font-size:12px;color:#6b716a;margin-bottom:9px" id="ai-demo-q">Just want to look around first?</div>' +
-          '<button id="ai-demo" style="background:' + GOLD + ';color:#12271b;font-weight:800;margin-top:0">🌱 Explore the demo</button>' +
-        '</div>' +
-      '</div>';
+        '<div class="wl-foot"><span class="fine" id="ai-fine" style="text-align:left;max-width:300px"></span></div>' +
+      '</section>';
+    var o = document.createElement('div');
+    o.id = 'ai-auth'; o.className = 'ob5 aiw';
+    o.innerHTML = '<div class="wl">' + left + right + '</div>';
     document.body.appendChild(o);
 
     document.getElementById('ai-signin').addEventListener('click', doSignIn);
-    document.getElementById('ai-pass').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') doSignIn();
-    });
+    document.getElementById('ai-pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSignIn(); });
+    document.getElementById('ai-email').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSignIn(); });
     document.getElementById('ai-signup').addEventListener('click', doSignUp);
-    document.getElementById('ai-su-pass').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') doSignUp();
-    });
+    document.getElementById('ai-su-pass').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSignUp(); });
+    document.getElementById('ai-su-email').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSignUp(); });
     document.getElementById('ai-tab-in').addEventListener('click', function(){ setMode('signin'); });
     document.getElementById('ai-tab-up').addEventListener('click', function(){ setMode('signup'); });
+    /* arrows move between the two tabs (both stay in the Tab order) */
+    document.getElementById('ai-tabs').addEventListener('keydown', function(e){
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; e.preventDefault();
+      var to = (AUTH_MODE === 'signup') ? 'signin' : 'signup'; setMode(to);
+      var b = document.getElementById(to === 'signup' ? 'ai-tab-up' : 'ai-tab-in'); if (b) b.focus();
+    });
     document.getElementById('ai-inbox-back').addEventListener('click', function(){ setMode('signin'); });
     document.getElementById('ai-resend').addEventListener('click', doResend);
     document.getElementById('ai-forgot').addEventListener('click', function(){ setMode('reset'); });
@@ -178,7 +212,25 @@
     document.getElementById('ai-np-pass2').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSavePassword(); });
     document.getElementById('ai-lang-en').addEventListener('click', function(){ setAuthLang('en'); });
     document.getElementById('ai-lang-af').addEventListener('click', function(){ setAuthLang('af'); });
+    /* show / hide the password */
+    Array.prototype.forEach.call(o.querySelectorAll('[data-pw]'), function(b){ b.addEventListener('click', function(){
+      var i = document.getElementById(b.getAttribute('data-pw')); if (!i) return;
+      var show = i.type === 'password'; i.type = show ? 'text' : 'password'; b.setAttribute('aria-pressed', show ? 'true' : 'false'); applyAuthLang(); i.focus();
+    }); });
+    /* O2: wrong address -> Create your farm with the address filled in; the new submit sends a fresh link */
+    document.getElementById('ai-inbox-change').addEventListener('click', function(){
+      var se = document.getElementById('ai-su-email'); if (se) se.value = AUTH_EMAIL || se.value;
+      setMode('signup'); _wChange = true; applyAuthLang(); if (se) { se.focus(); try { se.select(); } catch (e) {} }
+    });
+    document.getElementById('ai-inbox-gmail').addEventListener('click', function(){ try { var w = window.open('https://mail.google.com/', '_blank'); if (w) w.opener = null; } catch (e) {} });
+    document.getElementById('ai-inbox-outlook').addEventListener('click', function(){ try { var w = window.open('https://outlook.live.com/mail/', '_blank'); if (w) w.opener = null; } catch (e) {} });
+    document.getElementById('ai-fine').addEventListener('click', function(e){
+      var b = e.target && e.target.closest ? e.target.closest('[data-pol]') : null; if (!b) return;
+      try { if (typeof window.aiPolicyOpen === 'function') window.aiPolicyOpen(b.getAttribute('data-pol')); } catch (e2) {}
+    });
+    setMode(_landingMode());
     applyAuthLang();
+    if (document.readyState === 'complete') _wImgs(); else window.addEventListener('load', function(){ setTimeout(_wImgs, 0); });
     /* The demo's "Create your farm →" leaves a flag so the farmer lands where they
        were heading — the sign-up form — instead of a sign-in card with no way on. */
     try {
@@ -192,6 +244,66 @@
       try { var _al = localStorage.getItem('ai_auth_lang'); if (_al === 'af' || _al === 'en') localStorage.setItem('ai_demo_lang', _al); } catch (e) {}
       location.href = location.pathname + '?demo=1';
     });
+  }
+  var _wChange = false, _wResendTimer = null, _wResendAt = 0;
+  /* O2: resend is offered 30 seconds after the email went (the server's own limit still applies on top) */
+  function _wResendTick(){
+    var b = document.getElementById('ai-resend'), cd = document.getElementById('ai-resend-cd'); if (!b || !cd) return;
+    var s = Math.ceil((_wResendAt - Date.now()) / 1000);
+    if (s > 0) { b.disabled = true; cd.innerHTML = ' <span class="cd">' + _esc(W('e.resendIn', { t: '0:' + (s < 10 ? '0' : '') + s })) + '</span>'; }
+    else { b.disabled = false; cd.innerHTML = ''; if (_wResendTimer) { clearInterval(_wResendTimer); _wResendTimer = null; } }
+  }
+  function _wResendStart(){ _wResendAt = Math.max(_wResendAt, Date.now() + 30000); if (_wResendTimer) clearInterval(_wResendTimer); _wResendTimer = setInterval(_wResendTick, 1000); _wResendTick(); }
+  /* the welcome's own words, in the card's language (called from applyAuthLang) */
+  function _wApply(){
+    var _s = function(id, v){ var el = document.getElementById(id); if (el) el.textContent = v; };
+    _s('ai-w-p1', W('w.promise1')); _s('ai-w-p2', W('w.promise2')); _s('ai-w-sub', W('w.sub')); _s('ai-w-pill', W('w.samplePill'));
+    _s('ai-w-chipk', W('w.chipK')); _s('ai-w-chipv', W('w.chipV')); _s('ai-w-healthy', W('w.healthy')); _s('ai-w-cap', W('w.proofCap'));
+    var img = document.getElementById('ai-w-img'); if (img) img.setAttribute('aria-label', W('w.proofCap'));
+    _s('ai-w-t1b', W('w.t1b')); _s('ai-w-t1s', W('w.t1s')); _s('ai-w-t2b', W('w.t2b')); _s('ai-w-t2s', W('w.t2s')); _s('ai-w-t3b', W('w.t3b')); _s('ai-w-t3s', W('w.t3s'));
+    _s('ai-e-p1', W('e.promise1')); _s('ai-e-p2', W('e.promise2')); _s('ai-e-n1', W('e.n1')); _s('ai-e-n1s', AUTH_EMAIL || '');
+    _s('ai-e-n2', W('e.n2')); _s('ai-e-n2s', W('e.n2s')); _s('ai-e-n3', W('e.n3')); _s('ai-e-n3s', W('e.n3s'));
+    var m = AUTH_MODE;
+    _s('ai-tab-up', W('w.tabCreate')); _s('ai-tab-in', W('w.tabSignin'));
+    _s('ai-h1', m === 'signup' ? W('w.createH') : m === 'signin' ? W('w.signinH') : m === 'reset' ? W('w.resetH') : m === 'newpass' ? W('w.newPassH') : 'AgriInsights');
+    _s('ai-sub', m === 'signup' ? W(_wChange ? 'w.changeP' : 'w.createP') : m === 'signin' ? W('w.signinP') : m === 'reset' ? W('w.resetHint') : '');
+    var lab = function(id, k){ var l = document.querySelector('label[for="' + id + '"]'); if (l) l.textContent = W(k); };
+    lab('ai-email', 'w.email'); lab('ai-pass', 'w.password'); lab('ai-su-email', 'w.email'); lab('ai-su-pass', 'w.password'); lab('ai-rs-email', 'w.email');
+    lab('ai-np-pass', 'w.newPass'); lab('ai-np-pass2', 'w.newPass2');
+    _s('ai-su-hint', W('w.passHint')); _s('ai-signup', W('w.createBtn')); _s('ai-signin', W('w.signinBtn')); _s('ai-forgot', W('w.forgot'));
+    var su = document.getElementById('ai-signup'); if (su) su.innerHTML = '<span class="bl">' + _esc(W('w.createBtn')) + '</span>' + WI.arrow;
+    var si = document.getElementById('ai-signin'); if (si) si.innerHTML = '<span class="bl">' + _esc(W('w.signinBtn')) + '</span>' + WI.arrow;
+    _s('ai-rs-hint', W('w.resetHint')); _s('ai-reset-back', W('w.resetBack')); _s('ai-savepass', W('w.savePass'));
+    var rs = document.getElementById('ai-reset'); if (rs) rs.innerHTML = '<span class="bl">' + _esc(W('w.resetBtn')) + '</span>' + WI.arrow;
+    _s('ai-or', W('c.or')); _s('ai-demo-l', W('w.sampleBtn')); _s('ai-demo-sub', W('w.sampleSub'));
+    Array.prototype.forEach.call(document.querySelectorAll('#ai-auth [data-pw]'), function(b){
+      var on = b.getAttribute('aria-pressed') === 'true'; var sp = b.querySelector('span'); if (sp) sp.textContent = W(on ? 'w.hide' : 'w.show');
+      b.setAttribute('aria-label', W(on ? 'w.hidePass' : 'w.showPass'));
+    });
+    var ph = function(id, v){ var el = document.getElementById(id); if (el) el.placeholder = v; };
+    ph('ai-email', W('w.phEmail')); ph('ai-su-email', W('w.phEmail')); ph('ai-rs-email', W('w.phEmail')); ph('ai-pass', W('w.phPass')); ph('ai-su-pass', '');
+    var fine = document.getElementById('ai-fine');
+    if (fine) fine.innerHTML = _esc(W('w.fine')).replace('{privacy}', '<button type="button" class="lnk" data-pol="privacy">' + _esc(W('c.privacy')) + '</button>').replace('{terms}', '<button type="button" class="lnk" data-pol="terms">' + _esc(W('c.terms')) + '</button>');
+    if (fine) fine.parentNode.style.visibility = (m === 'signup') ? '' : 'hidden';
+    /* O2 */
+    var reset = (INBOX_KIND === 'reset');
+    _s('ai-inbox-title', reset ? W('w.resetSentH') : W('e.h'));
+    _s('ai-inbox-body', reset ? W('w.resetSentP', { email: AUTH_EMAIL || '' }) : W('e.p'));
+    _s('ai-inbox-email', AUTH_EMAIL || ''); _s('ai-inbox-wrong', W('e.wrong')); _s('ai-inbox-change', W('e.changeIt'));
+    var wr = document.getElementById('ai-inbox-wrongrow'); if (wr) wr.style.display = reset ? 'none' : '';
+    var g = document.querySelector('#ai-inbox-gmail span'); if (g) g.textContent = W('e.gmail');
+    var ol = document.querySelector('#ai-inbox-outlook span'); if (ol) ol.textContent = W('e.outlook');
+    _s('ai-inbox-spam', W('e.spam')); _s('ai-resend', W('e.resend')); _s('ai-inbox-back', W('e.already'));
+    _wResendTick();
+    var inboxLeft = (m === 'inbox' && !reset);
+    var lm = document.getElementById('ai-left-main'), li = document.getElementById('ai-left-inbox');
+    if (lm) lm.style.display = inboxLeft ? 'none' : 'flex'; if (li) li.style.display = inboxLeft ? '' : 'none';
+    var en = document.getElementById('ai-lang-en'), af = document.getElementById('ai-lang-af');
+    if (en) en.setAttribute('aria-pressed', AUTH_LANG === 'en' ? 'true' : 'false'); if (af) af.setAttribute('aria-pressed', AUTH_LANG === 'af' ? 'true' : 'false');
+    var ti = document.getElementById('ai-tab-in'), tu = document.getElementById('ai-tab-up');
+    if (ti) ti.setAttribute('aria-selected', m === 'signin' ? 'true' : 'false'); if (tu) tu.setAttribute('aria-selected', m === 'signup' ? 'true' : 'false');
+    try { document.documentElement.lang = AUTH_LANG; } catch (e) {}
+    var _aa = document.getElementById('ai-auth'); if (_aa) _aa.classList.toggle('af', AUTH_LANG === 'af');
   }
 
   function msg(text, kind) {
@@ -280,7 +392,7 @@
     if (npL.length >= 2) { npL[0].textContent = t.lblNew; npL[1].textContent = t.lblNew2; }
     _txt('ai-tab-in', t.tabIn); _txt('ai-tab-up', t.tabUp);
     _txt('ai-signin', t.signin); _txt('ai-signup', t.signup);
-    _txt('ai-su-hint', t.hint); _txt('ai-demo-q', t.demoQ); _txt('ai-demo', t.demo);
+    _txt('ai-demo-q', t.demoQ);   /* -514: the gold button and the hint are written by _wApply */
     _txt('ai-inbox-title', INBOX_KIND === 'reset' ? t.resetTitle : t.inboxTitle);
     _txt('ai-resend', t.resend); _txt('ai-inbox-back', t.back);
     _txt('ai-open-t', t.opening); _txt('ai-open-s', t.openingSub);
@@ -289,13 +401,10 @@
     var labs = document.querySelectorAll('#ai-pane-in label, #ai-pane-up label');
     if (labs.length >= 4) { labs[0].textContent = t.lblEmail; labs[1].textContent = t.lblPass;
                             labs[2].textContent = t.lblEmail; labs[3].textContent = t.lblNewPass; }
-    var b = document.getElementById('ai-inbox-body');
-    if (b) b.innerHTML = (INBOX_KIND === 'reset' ? t.resetBody1 : t.inboxBody1) +
-                         '<b id="ai-inbox-email">' + _esc(AUTH_EMAIL) + '</b>' +
-                         (INBOX_KIND === 'reset' ? t.resetBody2 : t.inboxBody2);
     var en = document.getElementById('ai-lang-en'), af = document.getElementById('ai-lang-af');
     if (en) en.className = (AUTH_LANG === 'en') ? 'on' : '';
     if (af) af.className = (AUTH_LANG === 'af') ? 'on' : '';
+    try { _wApply(); } catch (e) {}   /* -514 O1/O2 */
     if (MSG_KEY && t[MSG_KEY]) { var mEl = document.getElementById('ai-msg');
       if (mEl) { mEl.textContent = t[MSG_KEY]; mEl.className = 'msg ' + MSG_KIND; } }
   }
@@ -304,6 +413,7 @@
 
   var AUTH_MODE = 'signin', AUTH_EMAIL = '', INBOX_KIND = 'signup', WANT_SIGNUP = false;
   function setMode(m){
+    if (m !== 'signup') _wChange = false;
     AUTH_MODE = m;
     var show = function(id, on){ var el = document.getElementById(id); if (el) el.style.display = on ? '' : 'none'; };
     show('ai-pane-in',      m === 'signin');
@@ -312,14 +422,16 @@
     show('ai-pane-reset',   m === 'reset');
     show('ai-pane-newpass', m === 'newpass');
     show('ai-pane-open',    m === 'opening');
-    show('ai-sub',          m !== 'opening');
+    show('ai-sub',          m !== 'opening' && m !== 'inbox');
+    show('ai-h1',           m !== 'opening' && m !== 'inbox');   /* -514: the inbox pane has its own heading */
     /* Tabs only make sense while choosing between signing in and signing up. Mid-
        confirmation, mid-reset, or on the new-password screen they are a way to lose
        your place. */
     show('ai-tabs',       m === 'signin' || m === 'signup');
     /* Nor should "look around the demo" sit under a half-finished password reset. */
     var demoBox = document.getElementById('ai-demo-q');
-    if (demoBox && demoBox.parentNode) demoBox.parentNode.style.display = (m === 'newpass' || m === 'opening') ? 'none' : '';
+    if (demoBox && demoBox.parentNode) demoBox.parentNode.style.display = (m === 'newpass' || m === 'opening' || m === 'inbox' || m === 'reset') ? 'none' : '';
+    if (m === 'inbox') _wResendStart();   /* -514 O2: resend after 30 seconds */
     var ti = document.getElementById('ai-tab-in'), tu = document.getElementById('ai-tab-up');
     if (ti) ti.className = 'tab' + (m === 'signin' ? ' on' : '');
     if (tu) tu.className = 'tab' + (m === 'signup' ? ' on' : '');
@@ -408,15 +520,10 @@
       : AI.auth.resendConfirm(AUTH_EMAIL);
     again.then(function () {
       msgK(INBOX_KIND === 'reset' ? 'resetSent' : 'resent', 'ok');
-      RESEND_AT = Date.now() + 60000;             // Supabase rate-limits these server-side too
-      var tick = function () {
-        var s = Math.ceil((RESEND_AT - Date.now()) / 1000);
-        if (s > 0) { btn.textContent = T().resend + ' (' + s + ')'; }
-        else { btn.textContent = T().resend; btn.disabled = false; clearInterval(RESEND_TIMER); RESEND_TIMER = null; }
-      };
-      tick(); if (RESEND_TIMER) clearInterval(RESEND_TIMER); RESEND_TIMER = setInterval(tick, 1000);
+      RESEND_AT = Date.now() + 30000;             /* -514 O2: offered again after 30 s (Supabase still rate-limits server-side) */
+      _wResendAt = RESEND_AT; _wResendStart();
     }).catch(function (e) {
-      btn.disabled = false;
+      btn.disabled = false; _wResendTick();
       msg((e && e.message) ? e.message : 'Could not send the email.', 'err');
     });
   }
@@ -515,6 +622,7 @@
   var _entering = false;
   function enterApp(){
     if (_entering) return Promise.resolve();
+    try { localStorage.setItem('ai_ob5_known', '1'); } catch (e) {}   /* -514: this computer has a farmer - the card opens on Sign in next time */
     _entering = true;
     return hydrate().then(function(){ _bootFinished(); }).then(hideOverlay).then(function(){ _liveEnsure(); }).catch(function (e) {
       _entering = false;
@@ -996,7 +1104,7 @@
       else if (_sessionUid() && !RECOVERY) {
         _boot.mode = _revealMatch() ? 'reveal' : 'opening'; _boot.want = (_boot.mode === 'reveal');
         setMode('opening');
-      } else { _boot.mode = 'landing'; }
+      } else { _boot.mode = 'landing'; try { _wImgs(); } catch (e) {} }   /* -514: a visitor sees the welcome's pictures at once */
       window.__AI_BOOT = _boot.mode;
     } catch (e) {}
     // Run AFTER the app's own boot has populated ST (setTimeout defers past it).
@@ -1042,11 +1150,11 @@
           _offlineReveal();
         } else {
           // no session (the saved one could not be refreshed) — the sign-in form, as before
-          _boot.want = false; _boot.failed = true; _unreveal('signin');
+          _boot.want = false; _boot.failed = true; _unreveal(_landingMode());   /* -514 O1: a new visitor lands on Create your farm */
         }
       }).catch(function (e) {
         if (_hasPersistedSession() && _isOfflineErr(e)) { _offlineReveal(); }
-        else { _boot.want = false; _boot.failed = true; _unreveal('signin'); }   // overlay stays visible, on the form
+        else { _boot.want = false; _boot.failed = true; _unreveal(_landingMode()); }   // overlay stays visible, on the form (-514: Create your farm for a new visitor)
       });
     }, 0);
   }

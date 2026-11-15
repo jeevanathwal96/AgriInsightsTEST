@@ -427,6 +427,7 @@
   let CAN_ORCH_PAY      = false;  /* orchard_blocks.pay: the block's pool, pay weeks, pick slots and planner fields (NOT .plan: a boolean) */
   let CAN_COOP_TERMS    = false;  /* coop_accounts.terms: production-credit draw and settle months */
   let CAN_FARM_BMB      = false;  /* farms.bmb_flags: the farm's answers, dismissals and builds (every device) */
+  let CAN_FARM_ONB      = false;  /* -514 farms.onboarding: the onboarding record (version stamp, what you farm, checklist progress) */
   let CAN_TAX_PAID    = false;   /* farms.tax_paid - sa-tax-paid.sql (SA -457): SARS payments marked paid on the Tax home */
   let CAN_TAX_PLAN    = false;
   let CAN_HOME_MONEY  = false;   /* farms.home_money - sa-home-money.sql (SA -469): Home's profit, for the phone */   /* farms.tax_plan - sa-tax-plan.sql (SA -463): the Tax home's figures, for the phone */
@@ -556,7 +557,8 @@
     ['budget_cells','ent_code'], ['budget_scenarios','is_live'],   /* -491 (sa-budget-grid.sql) */
     ['budget_scenarios','yp'],   /* -492 (sa-budget-grid-b.sql) */
     ['budget_scenarios','kind'], ['budget_cells','src'],   /* -493 (sa-b8e-forecast.sql) */
-    ['herds','plan'], ['plan_crops','plan'], ['orchard_blocks','pay'], ['coop_accounts','terms'], ['farms','bmb_flags']   /* -495 (sa-b10-bmb.sql) */
+    ['herds','plan'], ['plan_crops','plan'], ['orchard_blocks','pay'], ['coop_accounts','terms'], ['farms','bmb_flags'],   /* -495 (sa-b10-bmb.sql) */
+    ['farms','onboarding']   /* -514 (OWNER-SQL.sql): the onboarding record - version stamp, what you farm, the checklist */
   ];
 
   async function probeCaps(farmId){
@@ -628,6 +630,7 @@
     CAN_ORCH_PAY       = keep(CAN_ORCH_PAY,      'orchard_blocks','pay');    /* -495 */
     CAN_COOP_TERMS     = keep(CAN_COOP_TERMS,    'coop_accounts','terms');   /* -495 */
     CAN_FARM_BMB       = keep(CAN_FARM_BMB,      'farms','bmb_flags');       /* -495 */
+    CAN_FARM_ONB       = keep(CAN_FARM_ONB,      'farms','onboarding');      /* -514 */
     CAN_DEVICES        = keep(CAN_DEVICES,       'farm_devices','kind');
     /* The particulars a spray register prints. An un-migrated project still saves
        the spray - it just cannot carry rate, batch, certificate or the weather at
@@ -3169,7 +3172,8 @@
     stock_mark_type: 'stockMarkType', herd_mark: 'stockMark',
     bank_balance: 'bankBalance', bank_balance_at: 'bankBalanceAt',
     season_start_month: 'seasonStartMonth', budget_expense_target: 'budgetExpenseTarget',
-    uif_ref: 'uifRef', price_alerts: 'priceAlerts', bmb_flags: 'bmbFlags'   /* -495 */
+    uif_ref: 'uifRef', price_alerts: 'priceAlerts', bmb_flags: 'bmbFlags',   /* -495 */
+    onboarding: 'ob5'   /* -514 */
   };
   function _profAdopt(st, mine){
     var ack = _profAckGet();
@@ -3180,7 +3184,7 @@
       if(!key) return;                                  // rain, crop prices and the like live elsewhere
       var v = ack[col];
       if(v === undefined) return;
-      if(col === 'partners' || col === 'price_alerts' || col === 'bmb_flags'){ try{ v = (typeof v === 'string') ? JSON.parse(v) : v; }catch(e){ return; } }
+      if(col === 'partners' || col === 'price_alerts' || col === 'bmb_flags' || col === 'onboarding'){ try{ v = (typeof v === 'string') ? JSON.parse(v) : v; }catch(e){ return; } }
       st[key] = v;
     });
     /* Settings may be on screen with the OLD value still in its inputs - and Save settings reads the
@@ -3259,6 +3263,7 @@
     if(r.entity_type!=null) p.entityType=r.entity_type;
     if(r.partners!=null){ try{ p.partners=(typeof r.partners==='string')?JSON.parse(r.partners):r.partners; }catch(e){ p.partners=[]; } }
     if(r.bmb_flags!=null){ var _bf=_bmbJ(r.bmb_flags); if(_bf) p.bmbFlags=_bf; }   /* -495: Build my budget's answers and flags, every device */
+    if(r.onboarding!=null){ try{ var _ob=(typeof r.onboarding==='string')?JSON.parse(r.onboarding):r.onboarding; if(_ob && typeof _ob==='object') p.ob5=_ob; }catch(e){} }   /* -514 (no version stamp = a farm from before -514 that picked Close corporation in Settings: never the checklist) */
     if(r.farm_address!=null) p.farmAddr=r.farm_address;
     if(r.paye_ref!=null) p.payeRef=r.paye_ref;
     if(r.stock_mark!=null) p.stockMark=r.stock_mark;
@@ -3312,7 +3317,7 @@
     return p; }
   load.profile = async function(farmId){
     farmId=farmId||farm.active();
-    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_STOCK?'stock_counts,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+(CAN_FARM_VAT_EFP?'vat_efiling_pay,':'')+(CAN_FARM_PARTNERS?'partners,':'')+(CAN_FARM_CONSENT?'consent_version,consent_accepted_at,':'')+(CAN_FARM_MKT?'marketing_optin,marketing_optin_at,':'')+(CAN_FARM_UIFREF?'uif_ref,':'')+(CAN_FARM_ALERTS?'price_alerts,':'')+(CAN_FARM_BMB?'bmb_flags,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref,updated_at').eq('id',farmId).single();
+    const r=await client().from('farms').select((CAN_FARM_SETTINGS?'bank_balance,season_start_month,budget_expense_target,loan_app,crop_prices,crop_types,plan_hedge,':'')+(CAN_FARM_RAIN?'rain_lat,rain_lon,rain_town,rain_year_start,rain_mode,rain_normal_override,':'')+(CAN_FARM_RAIN_NK?'rain_not_kept,':'')+(CAN_FARM_RAIN_RULE?'rain_plant_mm,rain_plant_days,rain_fill_sat,':'')+(CAN_FARM_RAIN_DRV?'rain_derived,':'')+(CAN_FARM_STOCK?'stock_counts,':'')+(CAN_FARM_BANK_AT?'bank_balance_at,':'')+(CAN_FARM_VAT_CAT?'vat_category,':'')+(CAN_FARM_VAT_EFP?'vat_efiling_pay,':'')+(CAN_FARM_PARTNERS?'partners,':'')+(CAN_FARM_CONSENT?'consent_version,consent_accepted_at,':'')+(CAN_FARM_MKT?'marketing_optin,marketing_optin_at,':'')+(CAN_FARM_UIFREF?'uif_ref,':'')+(CAN_FARM_ALERTS?'price_alerts,':'')+(CAN_FARM_BMB?'bmb_flags,':'')+(CAN_FARM_ONB?'onboarding,':'')+'name,owner_name,province,farm_ha,farm_type,fy_start_month,lang,vat_registered,tax_number,vat_number,entity_type,stock_mark,stock_mark_type,farm_address,paye_ref,updated_at').eq('id',farmId).single();
     if(r.error) throw r.error;
     return profileFromDb(r.data);
   };
@@ -3329,7 +3334,7 @@
       if(st.farmName) core.name=st.farmName;
       if(st.ownerName) core.owner_name=st.ownerName;
       if(st.province) core.province=st.province;
-      if(st.farmHa!=null && st.farmHa!=='') core.farm_ha=Number(st.farmHa);
+      if(st.farmHa!=null && st.farmHa!=='' && Number(st.farmHa)>0) core.farm_ha=Number(st.farmHa);   /* -514 R9: a blank farm size stays blank - never 0 over a farm that has none */
       if(st.farmType) core.farm_type=st.farmType;
       if(st.fyStartMonth!=null) core.fy_start_month=parseInt(st.fyStartMonth,10);
       if(st.lang) core.lang=st.lang;
@@ -3478,7 +3483,10 @@
       /* -495: Build my budget's answers, dismissals and builds. Own statement, own gate (a missing column must not sink the rest). */
       var bmbc={};
       if(CAN_FARM_BMB && st.bmbFlags && typeof st.bmbFlags==='object') bmbc.bmb_flags=st.bmbFlags;
-      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink,p:rainr,d:raind,t:stockc,f:fu,b:bmbc}); if(snap===_profSnap) return;
+      /* -514: the onboarding record. Own statement, own gate; without the column it stays on this device (OWNER-SQL.sql). */
+      var onbc={};
+      if(CAN_FARM_ONB && st.ob5 && typeof st.ob5==='object') onbc.onboarding=st.ob5;
+      var snap=JSON.stringify({c:core,e:extra,k:cons,s:sett,r:rainc,n:raink,p:rainr,d:raind,t:stockc,f:fu,b:bmbc,o:onbc}); if(snap===_profSnap) return;
       /* Only what differs from the row the server last confirmed. */
       var groups = [
         { all: core,  fatal: true },
@@ -3490,6 +3498,7 @@
         { all: stockc, warn: 'Profile: year-end stock count not saved — run stock_counts_migration.sql.' },
         { all: fu,    warn: 'Profile: UIF reference / price alerts not saved — run pilot_followup_columns_sa.sql.' },
         { all: bmbc,  warn: 'Profile: Build my budget answers not saved — run sa-b10-bmb.sql.' },
+        { all: onbc,  warn: 'Profile: onboarding checklist not saved — run OWNER-SQL.sql (-514).' },
         { all: raink, warn: 'Profile: rain-book gaps not saved \u2014 run rainfall_not_kept.sql.' },
         { all: rainc, warn: 'Profile: rainfall location not saved \u2014 run rainfall_schema.sql.' }
       ];
