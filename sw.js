@@ -14,8 +14,8 @@
  */
 'use strict';
 
-var APP_VERSION = '2026-11-19-517';
-var BUILD = '8437e84ffa';   /* dist build (build-dist.mjs): the hashed scripts below */
+var APP_VERSION = '2026-11-19-518';
+var BUILD = '9e21ab689c';   /* dist build (build-dist.mjs): the hashed scripts below */
 var CACHE = 'agriinsights-' + APP_VERSION + '-' + BUILD;
 
 /* App shell precached on install. The ?v=-suffixed JS is intentionally left to
@@ -27,7 +27,7 @@ var PRECACHE = [
   './bmb.fe4f9c41fc2d.js',
   './kpi-detail.ea39f6dbbb74.js',
   './ob5-str.cf3b98f41cae.js',
-  './ob5.89d9d4bb9575.js',
+  './ob5.13a3a6ab112c.js',
   './index.html',
   './manifest.webmanifest',
   './fonts.css',
