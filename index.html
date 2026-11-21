@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="ai-build" content="2026-11-19-518"/>
+<meta name="ai-build" content="2026-11-20-519"/>
 <title>AgriInsights — Making Farm Finances Simple</title>
 <meta name="description" content="AgriInsights — making farm finances simple for South African farmers. Track expenses, plan crops, manage SARS records and stay profitable across English and Afrikaans."/>
 <meta name="theme-color" content="#1B4332"/>
@@ -3942,6 +3942,22 @@ details.ls-taglist>summary .ls-tag-add{font-size:12px;font-weight:800;color:var(
 .ls-bs-src{font-size:12px;color:var(--t4);margin-top:10px;font-style:italic}
 .ls-mv-bg{display:none;position:fixed;inset:0;background:rgba(15,40,28,.55);z-index:9200;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
 .ls-mv-bg.on{display:flex}
+.ls-putcamp{flex:none;font-size:12px;font-weight:800;color:var(--gd);background:#fff;border:1px solid var(--gd);border-radius:8px;padding:6px 10px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.ls-putcamp:hover{background:var(--gp)}
+.ls-cpk-list{display:flex;flex-direction:column;gap:7px}
+.ls-cpk-row{display:flex;align-items:center;gap:11px;width:100%;text-align:left;border:1.5px solid var(--br);background:#fff;border-radius:11px;padding:11px 13px;font-family:inherit;font-size:13px;font-weight:700;color:var(--t1);cursor:pointer}
+.ls-cpk-row:hover{background:var(--gp)}
+.ls-cpk-row.on{border-color:var(--gd);background:var(--gp)}
+.ls-cpk-row .rd{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--br);flex:none;box-sizing:border-box;background:#fff}
+.ls-cpk-row.on .rd{border:5px solid var(--gd)}
+.ls-cpk-row .nm{flex:1;min-width:0}
+.ls-cpk-row.add{color:var(--gd);font-weight:800}
+.ls-cpk-row input[type=checkbox]{width:16px;height:16px;margin:0;flex:none;accent-color:var(--gd)}
+.ls-cpk-new{margin-top:10px}
+.ls-cpk-split{font-size:12px;color:var(--t3);margin-top:12px}
+.ls-cpk-split a{color:var(--gd);font-weight:800;cursor:pointer;text-decoration:underline}
+#ls-cpk-bg .lsl-foot{justify-content:flex-end}
+#ls-cpk-bg .lsl-foot button:disabled{opacity:.5;cursor:not-allowed}
 .ls-mv-shell{background:#fff;border-radius:18px;max-width:440px;width:100%;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.25)}
 .ls-mv-hdr{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--br)}
 .ls-mv-h{font-size:15px;font-weight:800}
@@ -12133,7 +12149,7 @@ body.ob5-ckfull #page-tour-fixed{display:none !important}
 
 </div>
 </div>
-<script src="app.0e409168241d.js" charset="utf-8"></script>
+<script src="app.355a6c1dbe72.js" charset="utf-8"></script>
 
 
 <div class="imp-bg" id="imp-hub-bg">
@@ -12709,7 +12725,7 @@ body.ob5-ckfull #page-tour-fixed{display:none !important}
 </style>
 <div class="kdt-modal" id="kpi-modal" onclick="if(event.target===this)kpiClose()"><div class="kdt-card" id="kpi-card"></div></div>
 <div id="kpi-trail"></div>
-<script id="bg-grid-js" src="bg-grid.6f3c339da0c6.js" charset="utf-8"></script>
+<script id="bg-grid-js" src="bg-grid.de39640e65af.js" charset="utf-8"></script>
 
 <script id="bmb-js" src="bmb.fe4f9c41fc2d.js" charset="utf-8"></script>
 
@@ -13088,6 +13104,7 @@ img.ux-em-28{width:28px;height:28px;vertical-align:middle;margin:0}
 .ux-eg:not(#ux-em)>img.ux-em-20{margin:-10px 0 0 -10px!important}
 .ux-eg:not(#ux-em)>img.ux-em-28{margin:-14px 0 0 -14px!important}
 .ux-eg>.ux-em-fb-g{line-height:inherit;font-style:inherit;font-size:inherit}
+@media print{.ux-eg{margin:0!important}}   
 @media print{img.ux-em,.ux-em-fb,.ux-eh{display:none!important}}
 img.ux-em:not([src]){visibility:hidden}
 </style>
@@ -13223,11 +13240,23 @@ window.AI_EMOJI_SET_CFG={"base":"img/emoji/","has":{"1f0cf":1,"1f1ea_1f1fa":1,"1
     if (!any) return null;
     parts.push(v.slice(last));
     var lone = parts.length === 3 && !parts[0].trim() && !parts[2].trim() && p.childNodes.length === 1;
-    return {t: t, v: v, p: p, plain: plain, parts: parts, lay: plain ? null : layout(p, lone)};
+    var fcs = plain ? null : getComputedStyle(p);   /* -519: the text's font (read here, with the other reads), for glyphW */
+    return {t: t, v: v, p: p, plain: plain, parts: parts, lay: plain ? null : layout(p, lone), font: fcs ? (fcs.fontStyle + ' ' + fcs.fontWeight + ' ' + fcs.fontSize + ' ' + fcs.fontFamily) : ''};
   }
-  function group(pic, size, rec) {
+  /* -519: a glyph's width in a font (canvas: no layout), cached per font + glyph */
+  var GW = {}, GWC = null;
+  function glyphW(seq, font) {
+    var k = font + '|' + seq; if (k in GW) return GW[k];
+    var w = 0; try { GWC = GWC || document.createElement('canvas').getContext('2d'); GWC.font = font; w = GWC.measureText(seq).width || 0; } catch (e) { w = 0; }
+    return (GW[k] = w);
+  }
+  function group(pic, size, rec, font) {
     var g = mk('ux-eg', 'ux-eg ux-eg-' + size), h = mk('ux-eh', 'ux-eh', pic.seq);
-    h.setAttribute('aria-hidden', 'true'); g.appendChild(h); g.appendChild(mkImg(pic, size, rec)); return g;
+    h.setAttribute('aria-hidden', 'true'); g.appendChild(h); g.appendChild(mkImg(pic, size, rec));
+    /* -519: a glyph narrower than its picture: its group gets the difference as side margins (the picture covered the space after it) */
+    var gw = font ? glyphW(pic.seq, font) : 0;
+    if (gw > 0 && gw < size - 0.25) { var mg = Math.round((size - gw) * 50) / 100; g.style.margin = '0 ' + mg + 'px'; }
+    return g;
   }
   function apply(x) {
     var t = x.t, p = x.p, parts = x.parts, lay = x.lay;
@@ -13244,7 +13273,7 @@ window.AI_EMOJI_SET_CFG={"base":"img/emoji/","has":{"1f0cf":1,"1f1ea_1f1fa":1,"1
       for (i = 1; i < parts.length; i += 2) {
         txt = parts[i + 1];
         if (x.plain) txt = txt.replace(/^ /, '');   
-        else wr.appendChild(group(parts[i], lay.size, rec));
+        else wr.appendChild(group(parts[i], lay.size, rec, x.font));
         if (txt) wr.appendChild(mk('ux-et', 'ux-et', txt));
       }
       frag.push(wr); t.nodeValue = ''; rec.left = '';
