@@ -14,8 +14,8 @@
  */
 'use strict';
 
-var APP_VERSION = '2026-11-24-522';
-var BUILD = '72f9fea342';   /* dist build (build-dist.mjs): the hashed scripts below */
+var APP_VERSION = '2026-11-26-523';   /* -523 = live -522 + the sample-farm guard (ai-auth ?v=61) */ /* was: 2026-11-24-522 */
+var BUILD = 'ff71f6f44a';   /* dist build (build-dist.mjs): the hashed scripts below */
 var CACHE = 'agriinsights-' + APP_VERSION + '-' + BUILD;
 
 /* App shell precached on install. The ?v=-suffixed JS is intentionally left to

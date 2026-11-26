@@ -800,6 +800,10 @@
       for (var j = 0; j < farms.length; j++) { if (farms[j].id === act) { activeRow = farms[j]; break; } }
       return act;
     }).then(function () {
+      /* -523: decide only once this device's own copy has been read. loadState() runs in the boot, which can come after this
+         point; asked earlier, every normal reload would look like "nothing saved here". */
+      return (window.AI && AI.sync && AI.sync.whenLocalReady) ? AI.sync.whenLocalReady(8000) : false;
+    }).then(function (localReady) {
       /* Whose data is already sitting on this device? A mismatch means the demo seed
          or another farmer's records are in the stores, and the server payloads below
          will NOT clear them on their own: the per-module apply steps deliberately keep
@@ -810,11 +814,19 @@
         sameU = (localStorage.getItem('ai_state_uid')  === uid);
         sameF = (localStorage.getItem('ai_state_farm') === fid);
       } catch(e){}
-      if (isNewFarm || !sameU || !sameF) {
+      /* -523 (the UK desktop's live leak of 26 Nov 2026, the same code here): the stamp says whose copy was SAVED here, not that
+         it was READ. With the stamp kept and no readable copy (part of the site data cleared, a copy that would not load, a first
+         save refused by a full storage allowance) the stores still hold the built-in sample farm, and the steps below keep local
+         rows when the server has none, so the sample budget, herds, workers and orchards went to the real farm. Nothing read from
+         this device counts as another farm's data. If the wait above ran out, the stamp alone answers, as before. */
+      var diskOk = true;
+      try { if (localReady === true) diskOk = (window.STATE_LOADED_FROM_DISK === true); } catch(e){}
+      if (isNewFarm || !sameU || !sameF || !diskOk) {
         if (_boot.revealed) _unreveal('opening');   /* -490: what was shown is not this farm's */
         /* Unsent changes on this device belong to another account or farm: never send them. */
         try { if (window.AI && AI.sync) AI.sync.discardUnsent(); } catch(e){}
         try { if (typeof window.aiAccountReset === 'function') window.aiAccountReset(); } catch(e){}
+        try { if (typeof window.syncTopbarFarm === 'function') window.syncTopbarFarm(); } catch(e){}   /* -523: never the wiped farm's name in the header */
       }
       try { localStorage.setItem('ai_state_uid', uid || ''); localStorage.setItem('ai_state_farm', fid || ''); } catch(e){}
       var _fc = AI.load.financeCore(fid);
@@ -1023,6 +1035,10 @@
             }
           }
         } catch (e) { console.error('profile apply', e); }
+        /* -523: repaint the header from the farm just loaded (as the UK desktop does). syncTopbarFarm ran once at boot, before
+           sign-in loaded anything, so the header kept "Your farm" - or, once the wipe below the stamp check waits for this
+           device's copy, the sample farm's name and owner - until something else redrew it. */
+        try { if (typeof window.syncTopbarFarm === 'function') window.syncTopbarFarm(); } catch (e) {}
         /* Guarded like the rest (-411): a settlement import this device has not sent
            must not be replaced by the server's copy without it. */
         try { if (window.ST && Array.isArray(coop) && !_unsent('coop')) ST.coopSettlements = coop; } catch (e) { console.error('coop apply', e); }
