@@ -14,15 +14,15 @@
  */
 'use strict';
 
-var APP_VERSION = '2026-11-26-523';   /* -523 = live -522 + the sample-farm guard (ai-auth ?v=61) */ /* was: 2026-11-24-522 */
-var BUILD = 'ff71f6f44a';   /* dist build (build-dist.mjs): the hashed scripts below */
+var APP_VERSION = '2026-11-28-524';   /* -524 = SA-001 amounts + SA-002 Part A VAT (ai-data ?v=87) + SA-038 livestock opening stock */ /* was: 2026-11-26-523 */ //   /* -523 = live -522 + the sample-farm guard (ai-auth ?v=61) */ /* was: 2026-11-24-522 */
+var BUILD = '8839d5c9a6';   /* dist build (build-dist.mjs): the hashed scripts below */
 var CACHE = 'agriinsights-' + APP_VERSION + '-' + BUILD;
 
 /* App shell precached on install. The ?v=-suffixed JS is intentionally left to
  * runtime caching so the existing ?v= cache-busting keeps working untouched. */
 var PRECACHE = [
   './',
-  './app.ae2e11a73207.js',
+  './app.8d0b1b82c911.js',
   './bg-grid.d9fba53cd93d.js',
   './bmb.905e86762803.js',
   './kpi-detail.9cea9025e760.js',

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="ai-build" content="2026-11-26-523"/>
+<meta name="ai-build" content="2026-11-28-524"/>
 <title>AgriInsights — Making Farm Finances Simple</title>
 <meta name="description" content="AgriInsights — making farm finances simple for South African farmers. Track expenses, plan crops, manage SARS records and stay profitable across English and Afrikaans."/>
 <meta name="theme-color" content="#1B4332"/>
@@ -30,7 +30,7 @@
 <script defer src="vendor/chart.umd.js"></script>
 
 <script src="vendor/supabase.js"></script>
-<script src="ai-data.js?v=86"></script>
+<script src="ai-data.js?v=87"></script>
 <script src="ai-auth.js?v=61"></script>
 <link rel="stylesheet" href="fonts.css"/>
 <style>
@@ -10651,6 +10651,16 @@ body.ob5-ckfull #page-tour-fixed{display:none !important}
     <div class="card" style="max-width:560px">
       <div id="ls-add-crumb" style="margin-bottom:10px"></div>
       <div class="form-h" style="font-size:15px;font-weight:800;margin-bottom:14px">Add Livestock to Herd</div>
+      
+      <div id="add-ls-src-row" style="margin-bottom:10px">
+        <label for="add-ls-src" id="add-ls-src-lbl">Where are these animals from?</label>
+        <select id="add-ls-src" onchange="addLsSrcChange()">
+          <option value="">Choose one</option>
+          <option value="have">Already on the farm (my own stock)</option>
+          <option value="bought">Bought in (record the purchase)</option>
+        </select>
+        <div id="add-ls-src-hint" style="font-size:12px;color:var(--t3);margin-top:4px;line-height:1.45"></div>
+      </div>
       <div class="fg2" style="margin-bottom:10px">
         <div><label>Animal type</label>
           <select id="add-ls-type" onchange="calcAddLS()">
@@ -10662,8 +10672,8 @@ body.ob5-ckfull #page-tour-fixed{display:none !important}
         </div>
       </div>
       <div class="fg2" style="margin-bottom:10px">
-        <div><label>Date acquired</label><input id="add-ls-date" type="date"/></div>
-        <div><label>Buy price per head (R)</label>
+        <div><label id="add-ls-date-lbl" for="add-ls-date">Date acquired</label><input id="add-ls-date" type="date"/></div>
+        <div><label id="add-ls-buy-lbl" for="add-ls-buy">Buy price per head (R)</label>
           <input id="add-ls-buy" type="number" placeholder="0" oninput="calcAddLS()"/>
         </div>
       </div>
@@ -11574,6 +11584,13 @@ body.ob5-ckfull #page-tour-fixed{display:none !important}
           </select>
           <label class="ux-chkrow" style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-weight:600"><input type="checkbox" class="ux-chk" id="set-vatefp" style="margin-top:3px">
             <span>I file AND pay my VAT201 on SARS eFiling <span style="font-weight:500;color:var(--t4)">&mdash; then it is due on the last business day of the month; otherwise by the 25th</span></span></label>
+          <label for="set-vatparta" id="set-vatparta-lbl" style="display:block;margin-top:12px">Zero-rated farm inputs</label>
+          <select id="set-vatparta">
+            <option value="">Not answered yet: treated as zero-rated</option>
+            <option value="yes">Yes: SARS endorsed my registration, suppliers charge 0%</option>
+            <option value="no">No: my suppliers charge 15% VAT on these</option>
+          </select>
+          <div id="set-vatparta-hint" style="font-size:12px;color:var(--t3);margin-top:4px">Fertiliser, seed, sprays, animal feed and remedies are zero-rated only if SARS endorsed your VAT registration for it (VAT Act s11(1)(g), Schedule 2 Part A). Otherwise your suppliers charge 15% and you claim it back.</div>
       </div>
       </div>
     </div>
@@ -12149,7 +12166,72 @@ body.ob5-ckfull #page-tour-fixed{display:none !important}
 
 </div>
 </div>
-<script src="app.ae2e11a73207.js" charset="utf-8"></script>
+<script>
+/* -524 SA-001 (owner, 28 Nov 2026): amounts in the farmer's own format. Every number box was
+   type="number", and Chrome drops a comma and spaces from one: "1 234,56" - the way this app shows
+   rand - saved as 123456 (100x) and synced. Every number box is now a text box with a decimal
+   keypad whose .value is the parsed amount ("1234.56"), so the ~600 reads of .value stay as they
+   are. Rules (aiNumParse): R, ZAR, spaces and other letters are ignored; with both "," and "." the
+   last one is the decimal; one comma with exactly 3 digits after it and a non-zero whole part is a
+   thousands comma (an English "2,500"), otherwise a comma is the decimal; several of the same mark
+   are thousands; a leading - or the app's own minus sign (U+2212) or "(" makes it negative.
+   Anything without a digit reads as "" like an empty number box. After the farmer leaves the box
+   it shows the amount it will save ("1234,56"), so a misread is visible before Save. */
+(function(){
+  var D=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value');
+  if(!D||!D.get||!D.set) return;
+  function aiNumParse(raw){
+    var s=String(raw==null?'':raw).trim(); if(!s) return '';
+    var neg=/^[\-−(]/.test(s.replace(/^[Rr]\s*/,'')) || /^[Rr]?\s*[\-−]/.test(s);
+    var t=s.replace(/[^0-9.,]/g,''); if(!/\d/.test(t)) return '';
+    var c=(t.match(/,/g)||[]).length, d=(t.match(/\./g)||[]).length;
+    if(c&&d){ var dec=t.lastIndexOf(',')>t.lastIndexOf('.')?',':'.', th=dec===','?'.':',';
+      t=t.split(th).join(''); var k=t.lastIndexOf(dec); t=t.slice(0,k).split(dec).join('')+'.'+t.slice(k+1); }
+    else if(c){ if(c>1) t=t.split(',').join('');
+      else { var p=t.split(','); t=(p[1].length===3 && /[1-9]/.test(p[0])) ? p[0]+p[1] : p[0]+'.'+p[1]; } }
+    else if(d>1){ t=t.split('.').join(''); }
+    if(t.charAt(0)==='.') t='0'+t;
+    if(t.charAt(t.length-1)==='.') t=t.slice(0,-1);
+    if(!/^\d+(\.\d+)?$/.test(t)) return '';
+    return (neg?'-':'')+t;
+  }
+  window.aiNumParse=aiNumParse;
+  function up(el){
+    if(!el||el.__aiNum||el.tagName!=='INPUT'||String(el.getAttribute('type')).toLowerCase()!=='number') return;
+    el.__aiNum=true;
+    var v=D.get.call(el);
+    el.setAttribute('type','text');
+    if(!el.getAttribute('inputmode')) el.setAttribute('inputmode','decimal');
+    el.setAttribute('data-ai-num','1');
+    el.setAttribute('autocomplete','off');
+    if(v!=='') D.set.call(el,v);
+    Object.defineProperty(el,'value',{configurable:true,
+      get:function(){ return aiNumParse(D.get.call(this)); },
+      set:function(x){ D.set.call(this,x); }});
+  }
+  function scan(n){
+    if(!n||n.nodeType!==1) return;
+    if(n.tagName==='INPUT') up(n);
+    if(n.querySelectorAll){ var l=n.querySelectorAll('input[type="number"],input[type=number]'); for(var i=0;i<l.length;i++) up(l[i]); }
+  }
+  scan(document.documentElement);
+  try{
+    new MutationObserver(function(ms){
+      for(var i=0;i<ms.length;i++){ var m=ms[i];
+        if(m.type==='attributes') up(m.target);
+        else for(var j=0;j<m.addedNodes.length;j++) scan(m.addedNodes[j]); }
+    }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['type']});
+  }catch(e){}
+  /* the farmer sees what will be saved once they leave the box (comma decimal, no grouping: a year stays 2026) */
+  document.addEventListener('change',function(e){
+    var el=e.target; if(!e.isTrusted||!el||!el.__aiNum) return;
+    var raw=D.get.call(el), v=aiNumParse(raw); if(v==='' || raw==='') return;
+    var shown=v.replace('.',','); if(aiNumParse(shown)!==v) shown=v;   /* "1.250" stays 1.250: "1,250" would read back as 1 250 */
+    if(raw!==shown) D.set.call(el,shown);
+  },true);
+})();
+</script>
+<script src="app.8d0b1b82c911.js" charset="utf-8"></script>
 
 
 <div class="imp-bg" id="imp-hub-bg">
